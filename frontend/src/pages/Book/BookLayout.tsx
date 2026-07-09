@@ -4,6 +4,7 @@ import { BookOpen, X } from 'lucide-react';
 import { setBookIdentity } from '@/app/layout/bookIdentityStore';
 import type { Job, SegmentProgress, Settings, Speaker, SpeakerProfile, TtsEngine } from '@/types';
 import { BookDataProvider, useBookDataContext } from '@/pages/Book/BookDataContext';
+import { BookStage as BookInfoStage } from '@/pages/Book/stages/BookStage';
 import { CastingStage } from '@/pages/Book/stages/CastingStage';
 import { ContentsStage } from '@/pages/Book/stages/ContentsStage';
 import { LexiconStage } from '@/pages/Book/stages/LexiconStage';
@@ -47,6 +48,9 @@ export function BookIndexRedirect() {
 }
 
 function StageContent({ stage }: { stage: BookStage }) {
+  if (stage === 'book') {
+    return <BookInfoStage />;
+  }
   if (stage === 'contents') {
     return <ContentsStage />;
   }

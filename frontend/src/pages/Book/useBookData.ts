@@ -13,6 +13,7 @@ import type {
   TtsEngine,
 } from '@/types';
 import { useProjectActions } from '@/hooks/useProjectActions';
+import { deriveChapterLifecycle } from '@/pages/Book/lib/chapterLifecycle';
 import { resolveVoiceEngineStatus } from '@/utils/chapterEditorHelpers';
 import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } from '@/utils/voiceProfiles';
 
@@ -55,6 +56,7 @@ export interface BookDataContextValue {
   projectDefaultVoiceLabel: string;
   totalRuntime: number;
   totalPredicted: number | null;
+  hasRendered: boolean;
   hasUnrendered: boolean;
   actions: BookActions;
   segmentUpdate?: { chapterId: string; tick: number };
@@ -159,9 +161,20 @@ export function useBookData({
     return fallbackVoiceLabel ? `Default Speaker (${fallbackVoiceLabel})` : 'Default Speaker';
   }, [effectiveProjectVoice, speakerProfiles, speakers, engines, characters]);
 
-  const totalRuntime = React.useMemo(
-    () => chapters.reduce((acc, chapter) => acc + (chapter.audio_status === 'done' ? chapter.audio_length_seconds || 0 : 0), 0),
+  const chapterLifecycleMap = React.useMemo(
+    () => new Map(chapters.map((chapter) => [chapter.id, deriveChapterLifecycle(chapter)] as const)),
     [chapters],
+  );
+
+  const totalRuntime = React.useMemo(
+    () => chapters.reduce((acc, chapter) => {
+      const lifecycle = chapterLifecycleMap.get(chapter.id);
+      if (lifecycle === 'Rendered' || lifecycle === 'Cast') {
+        return acc + (chapter.audio_length_seconds || 0);
+      }
+      return acc;
+    }, 0),
+    [chapterLifecycleMap, chapters],
   );
 
   const totalPredicted = React.useMemo(() => {
@@ -175,16 +188,24 @@ export function useBookData({
     }
 
     return chapters.reduce((acc, chapter) => {
-      if (chapter.audio_status === 'done') {
+      const lifecycle = chapterLifecycleMap.get(chapter.id);
+      if (lifecycle === 'Rendered') {
         return acc + (chapter.audio_length_seconds || 0);
       }
-      return acc + chapter.char_count / calibratedCps;
+      if (lifecycle === 'Cast' || lifecycle === 'Ready' || lifecycle === 'Draft') {
+        return acc + chapter.char_count / calibratedCps;
+      }
+      return acc;
     }, 0);
-  }, [chapters, effectiveProjectVoice, engines, settings?.default_engine, speakerProfiles]);
+  }, [chapterLifecycleMap, chapters, effectiveProjectVoice, engines, settings?.default_engine, speakerProfiles]);
 
   const hasUnrendered = React.useMemo(
-    () => chapters.some((chapter) => chapter.audio_status !== 'done'),
-    [chapters],
+    () => chapters.some((chapter) => chapterLifecycleMap.get(chapter.id) !== 'Rendered'),
+    [chapterLifecycleMap, chapters],
+  );
+  const hasRendered = React.useMemo(
+    () => chapters.some((chapter) => chapterLifecycleMap.get(chapter.id) === 'Rendered' || chapterLifecycleMap.get(chapter.id) === 'Cast'),
+    [chapterLifecycleMap, chapters],
   );
 
   const actions = useProjectActions(bookId, () => reload(false), navigate, onOpenQueue);
@@ -231,6 +252,7 @@ export function useBookData({
     projectDefaultVoiceLabel,
     totalRuntime,
     totalPredicted,
+    hasRendered,
     hasUnrendered,
     actions: {
       ...actions,

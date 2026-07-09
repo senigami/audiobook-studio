@@ -1,6 +1,6 @@
 {
   "meta": {
-    "synced_commit": "cbaf2fc5ebfbd460a39a6cfe279a9f84b3179e8b",
+    "synced_commit": "f0b49bc5753f92f194466236117055dad9752553",
     "file_hashes": {
       "app/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "app/api/__init__.py": "e5c803401ba5b01e486ce9e7a18e7ce433f999b1cd7d933badbcad52236243fb",
@@ -13,7 +13,7 @@
       "app/api/routers/chapters_production.py": "411bfea9d8ab404b776d98d579dea57ca5df13fe0459c365f08828e4f1cc35ad",
       "app/api/routers/engines.py": "b09ec84eb077b03e440128a7eba8a6aab60a01e80da825582b703819baf96288",
       "app/api/routers/migration.py": "a17d3801ee65138353a9390afbef1a7119dd376b562f2fa5c1f971addfdf3c97",
-      "app/api/routers/projects.py": "440182c2c46ed34580fa5091e5efff9e36a49137cc809f0bb7f9e241fb55d56d",
+      "app/api/routers/projects.py": "e4baf5c0f6ac477af8532a2455b903aed4cac16d6b2be26378a876c240ddc046",
       "app/api/routers/projects_assembly.py": "0e7fe0d7c34f52f3c7fe0bae4843041cc15ae5f16e00128e63d90af04ffdd018",
       "app/api/routers/projects_backups.py": "41fd3933ce535125b1b0aef11191aff59ccd81a0f25bebee59aa526b91743c4d",
       "app/api/routers/projects_helpers.py": "5780a2697d086f283d40b1b0bec13a801a411d721c28bfb43b8a7c1d0aaebb69",
@@ -46,14 +46,14 @@
       "app/db/chapters_cleanup.py": "9d44db2614a43653cb44e422f4b53207039d626252a6364e05d7bba25ce9a458",
       "app/db/chapters_helpers.py": "26eb5c64ffcd999c9d5050f2efc58f7ceb3ca4033b976f5b75ed0e0ee15f1335",
       "app/db/characters.py": "b5d505d1c5f52b187d58fede9ce8671c887775e76b0b5bdd0c891dfb328df24b",
-      "app/db/core.py": "0c8a97b78e5924d8f51a6c274ec8c3a2ce97534e59405ac7438d2f342ecc52c4",
+      "app/db/core.py": "5cfb336d54b0611511641dbeb62057eb794e03e5e42b5c1682df0b29c30ca99e",
       "app/db/legacy_migration.py": "b37f5370c77eaa3dadf2b5757ecdd6341b335e24bdfa583cb53bce038b167b6f",
       "app/db/lexicon.py": "55d1f6b6d4798fd7bc88cb0fb5445a242771687541bf8b1a96bc3f2bd268bed8",
       "app/db/migration.py": "759cc9c1232e909fad5d9744479b754fcb325532aeb7bf3325b9d164afcc2dae",
       "app/db/models.py": "d5490bbdd74440f389e99fc4fca7452e21039dbade67ae90d88d793f4ea3c35c",
       "app/db/nlp.py": "1b4c6f5c9ea3c642b5cf1c2965f1d7a2058c5db23e47ed08d3882e2b03645a99",
       "app/db/performance.py": "a19ed2a0597e78729b328bd71c39a0c60d72587b85674deccab874150d7ff585",
-      "app/db/projects.py": "0e4223d3645d95aaec73347bf1fba9e7bb341a1627d7f49b04049a03e6892508",
+      "app/db/projects.py": "4bbcae8d2d8e109b4c8420dcd3907a5c0c6c1aee66d39a709730418b378b5d92",
       "app/db/queue.py": "4f1cc06c6677a3f71ee00f1de999fefc895c67070f8e7fa11ccf6baf3fb578fe",
       "app/db/reconcile.py": "c583eaec0ea31ae5d6c7d4bb849d84bfa14a9cbea1fd50e167f489a84a1e7215",
       "app/db/segment_gc.py": "9b85151bcbd2c1d0938afa8c9642a0b9c07bedc9fde333f47e949d1c24a3be92",
@@ -156,7 +156,7 @@
       "app/orchestration/scheduler/cap_settings.py": "166daf7087a124fdbd8fa1937a122f7d997ebca8ea388a96a7722b7236c83245",
       "app/orchestration/scheduler/eta.py": "7fab508abc46c7b381ab4e837070706088432000ca590c8a5f8555c2f0d37eb4",
       "app/orchestration/scheduler/orchestrator_eta.py": "259b67369779bb28c75f23dc9a731eb246d03cf3a0f73b60fe87a68742ad2051",
-      "app/orchestration/scheduler/orchestrator_helpers.py": "4fdcf7f883335904f61424bf3b0ec8fe2f3bd8a64b4f755b541e414cd7eee0bd",
+      "app/orchestration/scheduler/orchestrator_helpers.py": "2addbc7669e9e6f08973087ba64731c2796815f0f16406b0183d5ad3ed803b83",
       "app/orchestration/scheduler/policies.py": "4a23d243516fe50be846d87b7892744409ed448cd72d3a6c751200e0c599f524",
       "app/orchestration/scheduler/recovery.py": "202b9859df3d26fe14513d59471fbc2f5edbe72f52f7e3e8e6b2af7b6dbb0336",
       "app/orchestration/scheduler/resources.py": "92194e0af7a9a0f26022ee41016ef0fac02cbc0290e37eb3d38955e2562dfb28",
@@ -195,10 +195,10 @@
       "frontend/src/api/contracts/events.ts": "918f0a083ffcfb445f1bf4d816bda81735e92d6302da6301a8da86364fa8e4cd",
       "frontend/src/api/contracts/liveEvents.ts": "97a77e6e41b9856e4df872c0a6cbf8ca18703ac85d79b6afee06308719196000",
       "frontend/src/api/hydration/index.ts": "f3c32a9791eb949fe4538d06a1d785c092bf375ea179de58a00529723708420a",
-      "frontend/src/api/index.ts": "26ad47d53a83d4acc6e70ca7216daebf9e7f14b08088177474e76fd0a9763b1b",
+      "frontend/src/api/index.ts": "38768f631085ddb6720f7bdf6c4fd326408e93fea4bcb13edc25dfc6c7bb6e02",
       "frontend/src/api/queries/index.ts": "e507b68ccb96122ad8d5df60314ca02e7b298bcf9bb3442c36bcb0c3f66085b7",
       "frontend/src/api/types.ts": "7ad12a1c0424c0a9cac7e92a979dc4bd36204a75b36c7124953400284edee545",
-      "frontend/src/app/App.tsx": "f88cb2b69028b234943f5e8502db5cbda280c0e312beaba082ab70b2bf085064",
+      "frontend/src/app/App.tsx": "fd7263d7c82bf9178f510cbe75978e8e6c493e1bec67e9df64386aa63ed7bb6b",
       "frontend/src/app/layout/AppShell.tsx": "8369a612fd8823bf4bdc7931b498c4c996b69ee5cb3943b1b2de0b511e85d262",
       "frontend/src/app/layout/BookIdentityLine.tsx": "54cf8ba21a9672aa6110467f62a5d14f678c4220f5fd6bf725d5ad3c9106ead6",
       "frontend/src/app/layout/MobileNavDrawer.tsx": "30b555ec3f073b0ba4711e8c520e27baf50ad1514d56552d37fb2aaf79b04c83",
@@ -224,7 +224,7 @@
       "frontend/src/components/VoicesModals.tsx": "29f59557a5bbd4206cf7ab9a6a1fe5dee61b380b1a83757b05fb44018d9e2efa",
       "frontend/src/components/forms/ColorSwatchPicker.tsx": "ce5cf500d72b6f3ee059929dd7d2357711828bcbcd81f86edff33557eccd1b73",
       "frontend/src/components/forms/GlassInput.tsx": "973b62af894647a7957dffefa39f5c9ad00a3bf0086291d76cb05b71512baae0",
-      "frontend/src/components/forms/InlineEdit.tsx": "4a722163513e458c6bc8d22ade55666947eb17af0814baba90637616927e0aaf",
+      "frontend/src/components/forms/InlineEdit.tsx": "aceafe451ffa92b324e26850cae4bc3ab3342c2142f79ed54f026bfab51ac701",
       "frontend/src/components/forms/SearchableSelect.tsx": "85ecb04a7609fd40d3aa2e52d3a1e9f8d57bf4b01b55b3969c36a5269e1561f8",
       "frontend/src/components/forms/VoiceDropzone.tsx": "5b9053c29b0697d6feb93be4040eec573f51d20bcba3e2053d25f0214b52ed50",
       "frontend/src/components/layout/BrandLogo.tsx": "bb3d7dd938468dbb324ae93f3b02a4f417f6ea5bfafaeec3cb42626410f8f241",
@@ -287,8 +287,8 @@
       "frontend/src/hooks/useLiveTtsLogLines.ts": "de59a38b2f1431fa8e0670c28655e4b673bf7bd9f413798d2928de4f65fcd0a5",
       "frontend/src/hooks/useNow.ts": "7fd63508c3c2a5011b55cdf3a20e3d8739f67be9188849336afc220b0582e2b2",
       "frontend/src/hooks/useProgressBarTest.ts": "eeb132e9ab23a0d57c9bb253060082049f6173a6349cd03414d55e423f2eceec",
-      "frontend/src/hooks/useProjectActions.ts": "1a66a2ffbd3f8802fa16082e2396c85f970d7d625aa62a106610a9ac6da5e6e6",
-      "frontend/src/hooks/useProjectLibrary.ts": "b58f092e20dd6bf52daccdb3ae36ed3406fbef68d9ccf1b650ebb6d751c9e11c",
+      "frontend/src/hooks/useProjectActions.ts": "5f928354786e6c79487b403b7676bf077b832c36050a09f1898fd16dc20c99df",
+      "frontend/src/hooks/useProjectLibrary.ts": "c5d68eb1ae0ed481306fea838b909c71288c925d05d089c9c27e5a90d3396bd0",
       "frontend/src/hooks/useQueueStatusHoldTimer.ts": "1a15e60b0986ff63471b8a20a7ed87ed91346081f8a7976573dfe7e50bb6a257",
       "frontend/src/hooks/useQueueSync.ts": "f1dfaa0a1be405a9814e578720befc90763753866cb42912dadf4b9ca975f149",
       "frontend/src/hooks/useRenderGroups.ts": "1d562aeddfc36fcc953e7be7b941919cc1b59768a1f78607eaa5d55fb677df83",
@@ -308,10 +308,10 @@
       "frontend/src/pages/Activity/components/ProductionTallyCard.tsx": "170f28aba0c993c4aa97757e47411f24310c6b0c02abe7bf692300dbccf86425",
       "frontend/src/pages/Activity/index.ts": "1ada0fde0c75b622e75a8240bc8ed109f57374b3c573463ec68d54d9f47cf410",
       "frontend/src/pages/Book/BookDataContext.tsx": "aff829dc87803d6c31dc6f844fffd05b28b0fc341432039a9bfc4799ca692856",
-      "frontend/src/pages/Book/BookLayout.tsx": "2993b231ec79b6db3ed41c002cbb7da284877dee24a5778e4a2cecdd44b8c7a0",
-      "frontend/src/pages/Book/components/AddChapterModal.tsx": "beab89671c820a383cee88c0f56cb08695a0b1e617d61c817ab4da0dea0d6fb5",
+      "frontend/src/pages/Book/BookLayout.tsx": "a5a85dd782f0efaf1093410801526afcaabfbbb4a9f21ddfdaa6eeb45eef0b34",
+      "frontend/src/pages/Book/components/AddChapterModal.tsx": "81b19ba1efe57699df0a4a8cdd85d8040569402cf43e601c476c2d8655adb5a0",
       "frontend/src/pages/Book/components/AssemblyChapterPicker.tsx": "4c8807c4d233f820d236129c9b0960887018c9144a9e270586fd6b119ca598cf",
-      "frontend/src/pages/Book/components/BookInfoCard.tsx": "b2548b3d5df33a2aa0721ce24fc4ca3689e3bc88eb2ce50dc116d08d3d567d51",
+      "frontend/src/pages/Book/components/BookInfoCard.tsx": "9bb4e5560c9cb8d148bddafec55ea6fe762dd4c0adcf5dd0abe4593ba48f9998",
       "frontend/src/pages/Book/components/ChapterTable.tsx": "1d296a9a8740ed9669a63950679f71cfedc8427379c1bcb266b4c10cde67efac",
       "frontend/src/pages/Book/components/ChapterTextPanel.tsx": "1e452c91e59d79f12ad2aac1fe433bc591cb03bfb18b6fc6a29b78bb5c6f8b53",
       "frontend/src/pages/Book/components/ChapterWorkspaceHeader.tsx": "ba7a7a9560b94d65f2941fe6472a3c4754338ea7e2c62ade76b2b08510755fe5",
@@ -319,27 +319,27 @@
       "frontend/src/pages/Book/index.ts": "0f1952d1e3c845b579e3df5357c574fe06d271e471edf19b5b1ce2e71970c3c2",
       "frontend/src/pages/Book/lib/chapterJobs.ts": "3995d799930568c674f70bd9bd4f38468396a29ef43313d0bc595c4bae2c2e22",
       "frontend/src/pages/Book/lib/chapterLifecycle.ts": "8ab01ac79c15e9ca368313e516e37d346a08ade436f0d97797894540542f6efd",
-      "frontend/src/pages/Book/lib/stages.ts": "d76a71828af8dcb4f98b6f8f08c51e1034d8b212a06cc3ebeb353d3821a7b853",
+      "frontend/src/pages/Book/lib/stages.ts": "75b403e90e112b513d2f388a9b97a110e82164f913eebfcc3cfdc96936aa6966",
       "frontend/src/pages/Book/lib/useChapterText.ts": "95ebfdf55ad6fa4493a2889676368d17c6721369592d539cb4d8695a14dc8f5c",
       "frontend/src/pages/Book/stages/BackupsStage.tsx": "c621dc4f24f8de9d1c713ea1b5366fe011abeb890c346d698913339fda4ae2a6",
       "frontend/src/pages/Book/stages/CastingStage.tsx": "c526fac07c0ab2fa5b254ec3d2f1952fd42c6774fa59b1e3555dd418dd150f59",
-      "frontend/src/pages/Book/stages/ContentsStage.tsx": "b2c6b81701c41d7ea135732e65afc6ae78b46f19afd6c7d779e12858fc3ca77b",
+      "frontend/src/pages/Book/stages/ContentsStage.tsx": "f5a843b6e2cefe17fc7ef2663431785495f3472cceb074c035f2503cb4d528df",
       "frontend/src/pages/Book/stages/LexiconStage.tsx": "83422db6f200d2d596869629f0116d152487587c13901a82547cecc74255b34c",
-      "frontend/src/pages/Book/stages/ManuscriptStage.tsx": "cc653e6182014bed49d2776232a371888d2f8f4ae5e5e9aeffb93b954cd28ce3",
-      "frontend/src/pages/Book/stages/PublishStage.tsx": "d35d7b462c339dcfb7daf452c03136fdac7d692bec93e20c30fb9b78a3c3534c",
+      "frontend/src/pages/Book/stages/ManuscriptStage.tsx": "e66c42728fe5809989028002fc9a8adcdb84e7354f5cd54155f18102da67bc96",
+      "frontend/src/pages/Book/stages/PublishStage.tsx": "3ebd63ac36c0e85d77e2a51d7e6d61fcda32f225b495f5eabefbed0d4fdf9367",
       "frontend/src/pages/Book/stages/ReviewStage.tsx": "a0ad1523c4f8cc9d129f18a2f7b28089bad8b887636d954f23f56d0855cfd45d",
       "frontend/src/pages/Book/stages/ReviewStage/AnnotationsPanel.tsx": "a7d29694098a0821376d18ca1a43b3834f6ccc690adb3064003f8a9927a2a31c",
       "frontend/src/pages/Book/stages/ReviewStage/FollowAlongPanel.tsx": "4ef9046453589e159089a4957b6d113565af0a7e6d8d71a6cc4ee5aeba93aa59",
       "frontend/src/pages/Book/stages/ReviewStage/useReviewPlayback.ts": "40aa556f8fed0c20d8be0982d6fd976c77e8a60222820471aa69b098b61478be",
-      "frontend/src/pages/Book/stages/StudioStage.tsx": "688b847ee08a3606de1bbf5ae8a3f12342496a6e28a0a9d80f313e37bf112d84",
+      "frontend/src/pages/Book/stages/StudioStage.tsx": "ea422d7dec9c35ec724cb302e5fd9b4fbcdc26f771478b972d34033ea9f3589a",
       "frontend/src/pages/Book/studio/AnalysisStrip.tsx": "26d38f06dfb3a235ec5adcbd7026a2d2fe0c6a6a62e1352f2f3b071478032dde",
       "frontend/src/pages/Book/studio/CastPalette.tsx": "4480c600524ed5bdb9ae01c8ad321eb0335ba4e8c01bc8c76a059dc06f36a1bc",
       "frontend/src/pages/Book/studio/RenderControlsStrip.tsx": "c92f06be94accdcd1f6dba6f8947356fbe8e3746b2976f569b25e1acb4d5c146",
       "frontend/src/pages/Book/studio/StudioHeaderActions.tsx": "a689df04abef0dfb2ae727817e70df132790b1c380b42e35a34eaf120447a2e8",
       "frontend/src/pages/Book/studio/TempCharacterModal.tsx": "8eef636954496ef090650d27abeb3cb065166bf477cbea38341012fe33411a2f",
-      "frontend/src/pages/Book/studio/useStudioChapter.ts": "c4f5fa44fd8651901d61498c964d72f5bf3079c4f94ac3eb2c8f53c3a1162e46",
-      "frontend/src/pages/Book/useBookData.ts": "8a416aa9148c4f603000705f346394f41cfa82ffb843778b8be93f57089066fc",
-      "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx": "e748825a2d3cbf8eaf4ea4f505ebce2eda7cd52c60eaeba24317889e4aa98194",
+      "frontend/src/pages/Book/studio/useStudioChapter.ts": "54b6c071447c657391ff3f47fc16f8d88d4cda351fc96c6d58de8531ad119b20",
+      "frontend/src/pages/Book/useBookData.ts": "c08b7277fd78a25c41f9c58b5ff4f93a91b8669d36f1faad314f791f52c63de2",
+      "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx": "51f8867f35b7d10597c78a759c1e7422f49f2eb9e9e6fce456577916651fe78c",
       "frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx": "e2eceeb69c4907c464af3670422a827b5a473df4d91e109f51720bb222daddf2",
       "frontend/src/pages/ChapterEditor/components/CharacterSidebar.tsx": "e6e6f830dadd807b610f53c95f8e1bd969e609d5cbcfdae510c3950924d0d4e4",
       "frontend/src/pages/ChapterEditor/components/DirectorsConsole/index.tsx": "456d0bf22e40e272e02272fde32d1e8209b6177478873beb390ac1d444b32b64",
@@ -348,7 +348,7 @@
       "frontend/src/pages/ChapterEditor/components/PlaybackControls.tsx": "fbf523f039837f0024c33a7926ea868ee8239f81040e9a4c66e5feeddadef215",
       "frontend/src/pages/ChapterEditor/components/QueueNotice.tsx": "a723a4903b972351f1a18c601c068ad38a8efaf9640be3e116d4a53b4e9e35f7",
       "frontend/src/pages/ChapterEditor/components/ResyncPreviewModal.tsx": "20c66ce02a42946b6c89668943b29b15dae2050d97e9e7e401e42c39a9123253",
-      "frontend/src/pages/ChapterEditor/components/ScriptView.tsx": "2934dee62f10beb5d6549dca2acc28c5abde63101eb1f3e7868121450b0e451d",
+      "frontend/src/pages/ChapterEditor/components/ScriptView.tsx": "1d8d204c8e07ffacd1385ccc406502f3ca86e6208118141534303b3aff5f9dd2",
       "frontend/src/pages/ChapterEditor/components/ScriptViewFallback.tsx": "d794b5a043e9eeb1a9d3b90af88bf6d13910cfee9ae771bd27dd05f5ffe67c54",
       "frontend/src/pages/ChapterEditor/components/VoiceProfileSelect.tsx": "4d57f90d6f629cf2f0011717da043024b9b034eb64caf88b03669afe027d9c9a",
       "frontend/src/pages/ChapterEditor/scriptViewProgress.ts": "942e7b2bcdbd1304b7e8b17c698e62c9a3b666b1419f5e7ed9b4403ad14844c1",
@@ -378,14 +378,14 @@
       "frontend/src/pages/ProjectDetail/components/AssemblyProgress.tsx": "cbe42fac5c00a4fef581dfbf769f33d79c1d80892166b9b42dfab579a39a21fe",
       "frontend/src/pages/ProjectDetail/components/ChapterList.tsx": "ce579b2a4c7ae3136b22682979809e90d4411bb995d6716e02bfe1d118958a81",
       "frontend/src/pages/ProjectDetail/components/ProjectBreadcrumbs.tsx": "b4a3ca0676f3d66e11bf3ab547b6abf683d551d766631fd76c106c14b2363b40",
-      "frontend/src/pages/ProjectDetail/components/ProjectCard.tsx": "eda1e3fecf968a7e6df8d1fda2f6b72379bcdd12750f3dc6eac4f1ac7591b10c",
+      "frontend/src/pages/ProjectDetail/components/ProjectCard.tsx": "2aaeaecfe644c98ad2f0c6b01310044f4f18bd9ecaca0745463bf5109da49507",
       "frontend/src/pages/ProjectDetail/components/ProjectHeader.tsx": "46846d82833b33fdd95a3e8f3d32e53f2652eba36af367f2e6168005bdefb296",
-      "frontend/src/pages/ProjectDetail/components/ProjectModals.tsx": "ac851dd5b50592c440094ce4f45964da4bc566ea5224201fa73407efe94104c6",
+      "frontend/src/pages/ProjectDetail/components/ProjectModals.tsx": "e8cbad569a5249df404e6aa81c61312e2672eeab68f2da2d18cdf0d3602317ae",
       "frontend/src/pages/ProjectDetail/components/ProjectSubnav.tsx": "98f632243a2808e76ab02efab3bbd1ff1a50c5dd3f2098707b95ec36afcebeca",
       "frontend/src/pages/ProjectDetail/index.ts": "557fc8468e04b888eea6ea2e531d6ac555f8e7f37812e0e4a185a60b4f960e1e",
-      "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx": "4766d9eb0553b69fa5d40f5371251bbdf9bd04fe64aa06b0fa1aeccb13df69f9",
-      "frontend/src/pages/ProjectLibrary/components/LibraryControls.tsx": "eb5094279aa085f41b06206c42daca0e6cccaeb3340757621cf91179cbfa86ee",
-      "frontend/src/pages/ProjectLibrary/components/ProjectListView.tsx": "5c21ae17d523dca6c33a0be938654bd80a920f45d84d5b8d46b514746d8a0844",
+      "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx": "c0144c6b428ed226deb1afee61fdb9ef7429f107d923bcd36506f949596d5f3e",
+      "frontend/src/pages/ProjectLibrary/components/LibraryControls.tsx": "e04eaf0d1f49d406d4611e1c2d7d3a9d19bc2eb90ef8e45d0e124ca7854f8aa7",
+      "frontend/src/pages/ProjectLibrary/components/ProjectListView.tsx": "e8b385c88b40e9196e8eba64ef43f7bd56655361919b4bafa0199387354eaec0",
       "frontend/src/pages/Queue/QueueRoute.tsx": "7edefa85463fae7d918544970f94dad60188943f0013b78e0a386cab503f1433",
       "frontend/src/pages/Settings/SettingsRoute.tsx": "fc74dc0959defb5983a5ef8889b4d746f6d3b9dd874b78285e4de5886c02b503",
       "frontend/src/pages/Settings/components/AboutSettingsPanel.tsx": "97ba5e224182e1921568ddd2d42ad975ad9a7f16a62f807d3aee4bc037634662",
@@ -409,7 +409,7 @@
       "frontend/src/pages/Voices/components/DiscoverPlaceholder.tsx": "1bc31fa1cd629f356b1d8049215bb045f44ba7e384388b0131be28cf2a103a4e",
       "frontend/src/pages/Voices/components/MetadataEditorModal.tsx": "ad7cab8d8fee8654459a26da229a42f9b6e6f335bbe522f763c2a25e33b79f0a",
       "frontend/src/pages/Voices/components/NarratorCard.tsx": "6e0cbd1f584ef1e5f7413ccc261770307982395065f06b206a5246a88334339f",
-      "frontend/src/pages/Voices/components/SampleManager.tsx": "b05836ef0cb929724dc7ab6b40fa8a844ee7e010caaa1dc11f8629474c1e0a03",
+      "frontend/src/pages/Voices/components/SampleManager.tsx": "e8ba16fcad8f1117321dbce874b2d084b5052a77d8cd30523ba7166786bb1451",
       "frontend/src/pages/Voices/components/ScriptEditor.tsx": "8b236541249277ea616fbba7663ca943453d8ffb5ad102ae3897e8251e1497ed",
       "frontend/src/pages/Voices/components/VariantEditor.tsx": "baf408cd42723a2204186722d292ad6f7f87f1b8121b83e93c00e62e8664b19d",
       "frontend/src/pages/Voices/components/VoiceCatalogCard.tsx": "f7a7884cb161bb088f721e341953f0cb9244f73675d2c64d6e65c9242724861d",
@@ -430,7 +430,7 @@
       "frontend/src/store/notifications.ts": "a2df6ed4bdc7607727659463ab62cbcf4df594fe066df4120251793de7bb862d",
       "frontend/src/store/playerBus.ts": "98d5404a9374422bf65a223f00ee731abab81508513a3e9f9c693f60ea71968a",
       "frontend/src/store/studioSocketBus.ts": "0c792634e67f69eab716a613a0defb5d409db4ea18b609c42d98b866e2302e9c",
-      "frontend/src/types/index.ts": "6a7d545de4dd0f4102ac5b0f9b24ab0bd2ceaeccf6c3957c6e08f587188dfa06",
+      "frontend/src/types/index.ts": "41f53674513f3e2475bc6f5402fcdd540dbc47941ddff18b12fa026c9b84f036",
       "frontend/src/utils/chapterEditorHelpers.ts": "9f968520de2e62a19efd7ea9daeb0ebb38e0d3ecc6ae7aacddc9facfa2863046",
       "frontend/src/utils/chapterRenderProgress.ts": "92570c1eddee3ee1cead0f5a738e420868ab5b8ffb693c68f8503a2c9b3f3b63",
       "frontend/src/utils/chunkGroups.ts": "d00700eb60f1083faf51f3e961671088f173e33b713eb25a16df30424f41671c",
@@ -488,7 +488,7 @@
       "app/orchestration/progress/emit_gate.py": "38042210f576d5329356f4913b0591d0db10dbfb73aec3416d9e009d12e0340f",
       "app/api/contracts/events.py": "07ad256acf531e939b822647d08e24925e38d09cd521e61684801f62c8b03945",
       "app/orchestration/scheduler/orchestrator_publish.py": "4f52c04887f970a514e20da1bd5da28ff32b3a62690109238f239d72678f2f06",
-      "app/orchestration/tasks/segment_synthesis.py": "c9039674533dd7edce0e8e843499ed21f6b089a63a0f4a7071a426ff128eecb7",
+      "app/orchestration/tasks/segment_synthesis.py": "b095d71a36aef6c12e77f93d414bbcd237170f28afdcce46a8517d42219cee37",
       "plugins/tts_xtts/plugin/studio/standard_handler.py": "03befc969cbf8d7b84527203170354c73bb320c3fb0bf2219fcdba4c0b9902b9",
       "app/api/routers/generation.py": "666617510cbf544d508accf016ef8870bb3f3bf54a7f3a89bb42342addd6db32",
       "app/db/segments.py": "230cbeb3a96f26a01dd33fd92103ebba29f651644edb67cdd7560cd68a901310",
@@ -527,7 +527,13 @@
       "plugins/tts_xtts/plugin/studio/handler.py": "13fd39f498df4b76f200fe802ee9710a824206f28361c5c861ad4b87df38ede0",
       "plugins/tts_xtts/plugin/studio/segments.py": "f8271e155f729a016176a39ccea308a38a25c77df27fffdd62f994ab4a528a4b",
       "plugins/tts_xtts/plugin/studio/voice_adapter.py": "eddcba55265cfad79c2795b2d639cd00ec8f6272bf69ad7660210605139e57e8",
-      "frontend/src/hooks/useAnimatedSegmentProgress.ts": "487ee6c09ba89d3e215e3214772ce9b3d69ac99e022ac3a9d4ac3c31ef1dd196"
+      "frontend/src/hooks/useAnimatedSegmentProgress.ts": "487ee6c09ba89d3e215e3214772ce9b3d69ac99e022ac3a9d4ac3c31ef1dd196",
+      "frontend/src/hooks/useDragDropHighlight.ts": "2df45e7fc63e388846b4e9939d3e0003fcebf6a813a303b439d9e0107b4ca6de",
+      "frontend/src/pages/Book/components/ChapterImportBar.tsx": "df2f7b785ee60094e1f8291f926bbcfdfb8a25b776d7bfe9120bfc5a1e5f7a4e",
+      "frontend/src/pages/Book/lib/chapterImport.ts": "324bb638de4a83cd2b9392dcb631f9d1c7918e8c9199e14e29ff5484118bb09c",
+      "frontend/src/pages/Book/stages/BookStage.tsx": "be856f48be8543d5a3c67022f65292c68830e479f153a3c36020d7251496a0f8",
+      "frontend/src/utils/seriesPosition.ts": "76a9bc6dd753f6ee7b5b7fc4790b18fdc0205fcb57024250b38577b0327781bc",
+      "frontend/src/utils/toast.ts": "db42ba4faf7e9305f0a5aeb3c96281a53f906b604a6ecfc2717334a35384772f"
     },
     "shards": [],
     "unmapped": [
@@ -551,7 +557,7 @@
       "frontend/src/demo/stages/siteMockup/bookmarkStore.ts",
       "frontend/src/demo/stages/siteMockup/panes/*.tsx (14 files, condensed in siteMockupStage.tsx notes)"
     ],
-    "repo_checksum": "5f2e615f354227c866ecec7b979ac43d5972fed3413f29ebf0a2c2e40fb867dd",
+    "repo_checksum": "073f08074b1a09087a9bbea89c0cd7a495610f4b9ca812b5a1939b706ef2390e",
     "edge_tool": "hybrid: madge --json --extensions ts,tsx src/ (v8.0.0, run from frontend/) for frontend import edges; a custom stdlib-ast import-graph script (docs/code-map/tools/py_import_graph.py) for backend/plugin import edges. `calls` entries confirmed by one of these tools are kept/added as tool-derived; prior model-written entries the tool could not confirm (dynamic dispatch, cross-language, or a dotted-module reference the tool didn't resolve) moved to `calls_inferred`. `called_by` is the mechanical inverse of `calls` across the whole map, recomputed from scratch by this merge (2026-07-06)."
   },
   "flows": [
@@ -609,7 +615,7 @@
         "app/engines/watchdog.py log listeners",
         "app/orchestration/scheduler/orchestrator_publish.py#_publish",
         "app/orchestration/progress/service.py#ProgressService (EtaSampleRing, compute_eta_confidence)",
-        "app/api/ws.py#broadcast_job_updated (\u00a74A enrichment)",
+        "app/api/ws.py#broadcast_job_updated (§4A enrichment)",
         "app/api/contracts/events.py#build_job_lifecycle_event/build_chapter_progress_event",
         "frontend/src/store/studioSocketBus.ts#publishStudioSocketMessage",
         "frontend/src/hooks/useJobs.ts",
@@ -619,7 +625,7 @@
         "frontend/src/components/progress/PredictiveProgressBar/*"
       ],
       "carries": "raw engine progress line -> velocity-ring sampling -> confidence-weighted ETA crossfade (calculated->observed) -> WebSocket frame -> frontend reducer with status-regression/progress-regression guards -> animated progress bar with its own client-side lane-migration smoothing",
-      "invariant": "confidence and ETA are never fabricated; frontend only trusts backend-computed confidence for \u00a74A frames (chapters.progress/jobs.lifecycle) and only falls back to computeProgressConfidence() for older non-enriched frames (segments.progress/voice.test) ; eta_updated_at is deduped by ProgressService.enrich() but must be explicitly re-extracted and threaded through app/api/ws.py#broadcast_job_updated into build_chapter_progress_event -- that function's own default (time.time() when omitted) silently defeats the dedupe at the wire on every tick if the extraction is dropped (escaped defect, fixed 2026-07-06)"
+      "invariant": "confidence and ETA are never fabricated; frontend only trusts backend-computed confidence for §4A frames (chapters.progress/jobs.lifecycle) and only falls back to computeProgressConfidence() for older non-enriched frames (segments.progress/voice.test) ; eta_updated_at is deduped by ProgressService.enrich() but must be explicitly re-extracted and threaded through app/api/ws.py#broadcast_job_updated into build_chapter_progress_event -- that function's own default (time.time() when omitted) silently defeats the dedupe at the wire on every tick if the extraction is dropped (escaped defect, fixed 2026-07-06); the chapter-fanout parent's own \"running\" frame (segment_synthesis.py#_publish_progress) now also computes eta_seconds via decay of the dispatch-time estimate rather than leaving it None (2026-07-07 fix -- see parallel-segment-fanout flow for the decay mechanics)"
     },
     {
       "id": "voice-lifecycle",
@@ -674,7 +680,7 @@
         "frontend/src/components/queue/GlobalQueue.tsx"
       ],
       "carries": "REST snapshot on load/reconnect is merged with live WebSocket overlays; events arriving before the first snapshot are buffered (F3) and replayed once hydrated; only queue.items may create/rewrite rows, everything else overlays a fixed field allowlist; active_segments_map (W-PAR 006) rides the same queue.items frame as an additive overlay field",
-      "invariant": "reconnect prunes overlays older than (hydratedAtSeconds - 5s); the poll/refresh path does NOT prune (server timestamps may lag wall-clock) \u2014 asymmetric on purpose"
+      "invariant": "reconnect prunes overlays older than (hydratedAtSeconds - 5s); the poll/refresh path does NOT prune (server timestamps may lag wall-clock) — asymmetric on purpose"
     },
     {
       "id": "parallel-segment-fanout",
@@ -692,16 +698,18 @@
         "app/orchestration/tasks/segment_synthesis.py#ChapterSynthesisTask.run (stitch barrier: futures.wait(ALL_COMPLETED) then sort by segment_order)"
       ],
       "carries": "a chapter render for a segment-orchestrated engine fans its chunk groups into concurrent children (bounded by the per-engine-class semaphore); each child reuses _dispatch_segment's per-segment isolation via a synthetic one-group task rather than calling handle_mixed_job directly; completed children join at an explicit ALL_COMPLETED barrier and stitch in manuscript order regardless of completion order",
-      "invariant": "concurrency requires BOTH ENGINE_CLASS_ADMISSION truthy (default on, 2026-07-06) AND tts_parallel_cap>1 (default 2, 2026-07-05); disabling either restores the byte-identical sequential SynthesisTask/handle_mixed_job path (INV-1); the chapter-fanout PARENT itself must never flow through _dispatch_segment (would register a spurious idle log_listener); a concurrent child must never call handle_mixed_job directly (would re-trigger chapter-terminal stitch/DB-rebuild once per child instead of once per chapter) and must have skip_registry_dispatch=True (else falls through to the legacy per-engine registry handler and silently re-renders a sibling's remaining work \u2014 escaped defect, fixed 2026-07-05); synthetic fan-out children emit segment-scoped frames but no durable job rows (ephemeral TaskContext routes through ProgressService.publish(ephemeral=True), suppressing only jobs.lifecycle/queue.items/chapters.progress); chapter progress is size-weighted (grouped_progress from child text-length sums) and order-independent; an explicit backend active_segments_map={} ('nothing rendering') always wins over the frontend's segmentProgress-derived fallback (useStudioChapter.ts) ; the parent's own _publish_progress(status=\"running\", completed=0, ...) must fire immediately after futures submission (not only inside as_completed) or the parent job's status field sticks on \"preparing\" for the whole first chunk group (fixed 2026-07-06); a child tick's SEGMENT_PENDING/LOADING_MODEL sub-phase is conveyed via reason_code, not status -- _on_child_segment_tick must check both or the preparing pulse is lost (fixed 2026-07-06)",
+      "invariant": "concurrency requires BOTH ENGINE_CLASS_ADMISSION truthy (default on, 2026-07-06) AND tts_parallel_cap>1 (default 2, 2026-07-05); disabling either restores the byte-identical sequential SynthesisTask/handle_mixed_job path (INV-1); the chapter-fanout PARENT itself must never flow through _dispatch_segment (would register a spurious idle log_listener); a concurrent child must never call handle_mixed_job directly (would re-trigger chapter-terminal stitch/DB-rebuild once per child instead of once per chapter) and must have skip_registry_dispatch=True (else falls through to the legacy per-engine registry handler and silently re-renders a sibling's remaining work — escaped defect, fixed 2026-07-05); synthetic fan-out children emit segment-scoped frames but no durable job rows (ephemeral TaskContext routes through ProgressService.publish(ephemeral=True), suppressing only jobs.lifecycle/queue.items/chapters.progress); chapter progress is size-weighted (grouped_progress from child text-length sums) and order-independent; an explicit backend active_segments_map={} ('nothing rendering') always wins over the frontend's segmentProgress-derived fallback (useStudioChapter.ts) ; the parent's own _publish_progress(status=\"running\", completed=0, ...) must fire immediately after futures submission (not only inside as_completed) or the parent job's status field sticks on \"preparing\" for the whole first chunk group (fixed 2026-07-06); a child tick's SEGMENT_PENDING/LOADING_MODEL sub-phase is conveyed via reason_code, not status -- _on_child_segment_tick must check both or the preparing pulse is lost (fixed 2026-07-06); 2026-07-07 fix: the chapter-scope _publish_progress \"running\" frame now computes and durably persists eta_seconds itself (via _dispatch_eta_seconds decayed by grouped_progress/progress, in _live_chapter_eta_seconds) through update_job(skip_job_updated=True) on every frame -- previously only the dispatch-time snapshot was durable and every later tick re-broadcast that frozen t=0 value for the whole render; eta_seconds is now omitted (not passed as explicit None) when no calibration exists so it does not clobber the ticks' own projection-derived ETA (fable-review fix, same day); a successful child tick now leaves a transient {phase:\"done\", progress:1.0, eta_seconds:0} marker in active_segments_map instead of popping (keeps the frontend's just-finished segment text lit via ScriptView liveDoneSpanIds / useStudioChapter chapterRenderDoneSegmentIds), while failed/cancelled children still pop -- run()'s as_completed loop now passes the child's real status (not a hardcoded \"done\") into _on_child_segment_tick so a permanently-failed child is never mismarked done (real bug, fixed in fable review same day)",
       "failure_modes": [
         "skip_registry_dispatch missing/False on a fan-out child task -> registry handler re-renders all remaining chapter groups per child, and the first-dispatched child silently does every sibling's work too (fixed 41c9d84c)",
         "on_segment_tick callback never wired/raises -> self._live_segments_map never updates -> active_segments_map stays structurally empty regardless of concurrency level, frontend map-branch highlighting never engages (fixed 2d80df6c)",
         "build_chapter_progress_event/broadcast_job_updated missing the active_segments_map kwarg -> even a correctly-populated live map never reaches the frontend at all (the delivery-leg half of 2d80df6c)",
         "a fan-out child dispatched with an empty script (every group already satisfied by a sibling or a prior run) calling generate_via_bridge with empty text -> 422 'text must not be empty' (fixed in plugins/tts_xtts/plugin/studio/standard_handler.py, same defect arc)",
         "ChapterSynthesisTask.run() only calls _publish_progress(status=\"running\") inside the as_completed loop -> parent job status stays \"preparing\" until the first chunk group fully completes, regardless of concurrency (fixed 2026-07-06, dispatch-time announce added before the as_completed loop)",
-        "the fan-out parent bypasses _dispatch_segment (the only prior emitter of the chapter-scope pre_load_eta ETA frame) -> parent job's eta_seconds stays null through the whole preparing window -> queue bar's determinate fill never engages (fixed 2026-07-06, _publish_chapter_dispatch_eta added to the is_chapter_fanout dispatch branch)"
+        "the fan-out parent bypasses _dispatch_segment (the only prior emitter of the chapter-scope pre_load_eta ETA frame) -> parent job's eta_seconds stays null through the whole preparing window -> queue bar's determinate fill never engages (fixed 2026-07-06, _publish_chapter_dispatch_eta added to the is_chapter_fanout dispatch branch)",
+        "the chapter-level eta_seconds leg only had a t=0 dispatch snapshot with no further recompute -> every subsequent \"running\" tick re-broadcast the stale dispatch-time ETA verbatim for the whole render, so the queue bar never counted down (fixed 2026-07-07, _live_chapter_eta_seconds decay + durable update_job persistence)",
+        "as_completed's tick hardcoded status=\"done\" for every resolved child regardless of actual outcome -> a permanently-failed/cancelled child was marked done in active_segments_map, lighting its text as successfully finished for the rest of the render (fixed 2026-07-07 fable review; run() now passes result.status through)"
       ],
-      "verified_by": "frontend/tests/e2e/chapter-render.spec.ts (W-PAR concurrent fan-out test, added 09608333, its own websocket-simulation bug fixed c00ea3f4) + tests/orchestration/test_engine_semaphores.py \u2014 NOTE: the e2e test exercises the mixed-engine leg only (engine_id='mixed' routes through render_one_group's LOCAL execution, bypassing the xtts marker-relay/stderr-write path entirely); no test exercised concurrent xtts marker relay before 2026-07-06's escaped defect (fixed same day, see tts-server-marker-relay flow)."
+      "verified_by": "frontend/tests/e2e/chapter-render.spec.ts (W-PAR concurrent fan-out test, added 09608333, its own websocket-simulation bug fixed c00ea3f4) + tests/orchestration/test_engine_semaphores.py — NOTE: the e2e test exercises the mixed-engine leg only (engine_id='mixed' routes through render_one_group's LOCAL execution, bypassing the xtts marker-relay/stderr-write path entirely); no test exercised concurrent xtts marker relay before 2026-07-06's escaped defect (fixed same day, see tts-server-marker-relay flow). Also: tests/orchestration/test_chapter_fanout_dispatch_eta.py (2026-07-07 decay test + a harness fix wiring orc.progress_service into ChapterSynthesisTask, previously invisible to test assertions) and tests/orchestration/test_ephemeral_child_no_durable_job.py / test_correctness_invariants.py (done-marker-vs-pop semantics, including the permanently-failed-child-never-marked-done regression test)."
     },
     {
       "id": "tts-server-marker-relay",
@@ -727,7 +735,7 @@
   "invariants": [
     {
       "id": "no-import-side-effects",
-      "rule": "Importing a Studio 2.0 module must not start threads, register listeners, mutate global settings, or reconcile state \u2014 all such effects go through the explicit boot sequence in app/core/boot.py",
+      "rule": "Importing a Studio 2.0 module must not start threads, register listeners, mutate global settings, or reconcile state — all such effects go through the explicit boot sequence in app/core/boot.py",
       "applies_to": [
         "app/**"
       ],
@@ -740,7 +748,7 @@
         "app/**",
         "frontend/src/**"
       ],
-      "check": "grep -rnE \"engine_id\\s*==\\s*['\\\"](xtts|voxtral|mixed)['\\\"]|engine\\s*==\\s*['\\\"](xtts|voxtral|mixed)['\\\"]\" app/api/routers/queue.py app/orchestration/scheduler/resources.py app/orchestration/scheduler/policies.py frontend/src/components/queue frontend/src/utils/queue*.ts # scoped to the queue/routes/UI surface the invariant actually governs \u2014 app/orchestration/tasks/{synthesis,segment_synthesis}.py's engine_id==\"mixed\" checks are a documented, sanctioned exception (mixed engine's own local-execution routing), not a violation."
+      "check": "grep -rnE \"engine_id\\s*==\\s*['\\\"](xtts|voxtral|mixed)['\\\"]|engine\\s*==\\s*['\\\"](xtts|voxtral|mixed)['\\\"]\" app/api/routers/queue.py app/orchestration/scheduler/resources.py app/orchestration/scheduler/policies.py frontend/src/components/queue frontend/src/utils/queue*.ts # scoped to the queue/routes/UI surface the invariant actually governs — app/orchestration/tasks/{synthesis,segment_synthesis}.py's engine_id==\"mixed\" checks are a documented, sanctioned exception (mixed engine's own local-execution routing), not a violation."
     },
     {
       "id": "tts-server-isolation",
@@ -753,7 +761,7 @@
     },
     {
       "id": "orchestrator-forbidden-imports",
-      "rule": "app/orchestration/scheduler/orchestrator.py must not import app.jobs.worker, app.jobs.core, or app.db.queue directly \u2014 Studio 2.0 is a clean break from the legacy worker loop",
+      "rule": "app/orchestration/scheduler/orchestrator.py must not import app.jobs.worker, app.jobs.core, or app.db.queue directly — Studio 2.0 is a clean break from the legacy worker loop",
       "applies_to": [
         "app/orchestration/**"
       ],
@@ -761,7 +769,7 @@
     },
     {
       "id": "path-containment",
-      "rule": "Any path built from request data, DB values, uploads, or user-editable names is untrusted: use safe_join/secure_join_flat/find_secure_file (app/utils/pathing.py) \u2014 normalize+verify-under-root, never silently fix traversal attempts",
+      "rule": "Any path built from request data, DB values, uploads, or user-editable names is untrusted: use safe_join/secure_join_flat/find_secure_file (app/utils/pathing.py) — normalize+verify-under-root, never silently fix traversal attempts",
       "applies_to": [
         "app/**"
       ]
@@ -805,7 +813,7 @@
     },
     {
       "id": "single-owner-boundaries",
-      "rule": "Ownership split preserved: orchestrator owns job lifecycle, watchdog (app/engines/watchdog.py) owns TTS Server process lifecycle, VoiceBridge owns engine routing \u2014 these must not bleed into each other",
+      "rule": "Ownership split preserved: orchestrator owns job lifecycle, watchdog (app/engines/watchdog.py) owns TTS Server process lifecycle, VoiceBridge owns engine routing — these must not bleed into each other",
       "applies_to": [
         "app/orchestration/**",
         "app/engines/watchdog.py",
@@ -820,7 +828,7 @@
         "frontend/src/app/layout/WaveformStrip.tsx",
         "frontend/src/store/playerBus.ts"
       ],
-      "check": "grep -rn \"new Audio(\\|createElement('audio')\\|createElement(\\\"audio\\\")\\|new AudioContext(\\|new window\\.AudioContext(\" frontend/src --include=\"*.ts\" --include=\"*.tsx\" | grep -vE ':\\s*//' | grep -v \"app/layout/PlayerBar.tsx\" | grep -v \"components/forms/VoiceDropzone.tsx\" # non-empty = violation; VoiceDropzone.tsx's new Audio() is a known, accepted exception \u2014 a throwaway local-file preview before the recording is even uploaded/part of app state, never registered with playerBus"
+      "check": "grep -rn \"new Audio(\\|createElement('audio')\\|createElement(\\\"audio\\\")\\|new AudioContext(\\|new window\\.AudioContext(\" frontend/src --include=\"*.ts\" --include=\"*.tsx\" | grep -vE ':\\s*//' | grep -v \"app/layout/PlayerBar.tsx\" | grep -v \"components/forms/VoiceDropzone.tsx\" # non-empty = violation; VoiceDropzone.tsx's new Audio() is a known, accepted exception — a throwaway local-file preview before the recording is even uploaded/part of app state, never registered with playerBus"
     },
     {
       "id": "revision-safe-assignments",
@@ -926,7 +934,7 @@
       ]
     },
     "app/jobs": {
-      "purpose": "LEGACY worker-loop handlers (registry, voice worker, audiobook assembly, bridge_helpers) \u2014 partially superseded by app/orchestration but still actively dispatched for voice_build/voice_test/assembly and used by all TTS plugin handlers",
+      "purpose": "LEGACY worker-loop handlers (registry, voice worker, audiobook assembly, bridge_helpers) — partially superseded by app/orchestration but still actively dispatched for voice_build/voice_test/assembly and used by all TTS plugin handlers",
       "depends_on": [
         "app/db",
         "app/engines/bridge.py",
@@ -1098,7 +1106,7 @@
       ]
     },
     "frontend/src/demo": {
-      "purpose": "Self-contained scripted demo renderer (scene-script engine + REST/socket shims) built separately, published to docs/demo/ via build:demo \u2014 lower priority, not wired into production launch",
+      "purpose": "Self-contained scripted demo renderer (scene-script engine + REST/socket shims) built separately, published to docs/demo/ via build:demo — lower priority, not wired into production launch",
       "depends_on": [
         "frontend/src/store/studioSocketBus.ts",
         "frontend/src/components/* (mounts real prod components)"
@@ -1211,7 +1219,7 @@
       ],
       "notes": [
         "all app.* imports late-imported inside wrapper methods to enforce zero side effects on import",
-        "2026-07-04 follow-up: standard_handler.py's _group_is_done upgraded to the same validated-artifact standard via a new is_valid_segment_artifact(path) public wrapper around _is_valid_segment_artifact -- closes queue-jobs.md \u00a73.7's residual drift (spec now 1.11.2), no known reuse-gate drift remains across any of the 4 render paths"
+        "2026-07-04 follow-up: standard_handler.py's _group_is_done upgraded to the same validated-artifact standard via a new is_valid_segment_artifact(path) public wrapper around _is_valid_segment_artifact -- closes queue-jobs.md §3.7's residual drift (spec now 1.11.2), no known reuse-gate drift remains across any of the 4 render paths"
       ]
     },
     "app/studio_plugin_sdk/errors.py": {
@@ -1385,42 +1393,42 @@
         {
           "name": "create_chapter",
           "kind": "fn",
-          "contract": "str, str, Optional[str], int, float, int, int \u2192 str; creates chapter and syncs segments"
+          "contract": "str, str, Optional[str], int, float, int, int → str; creates chapter and syncs segments"
         },
         {
           "name": "get_chapter_segments_counts",
           "kind": "fn",
-          "contract": "str \u2192 tuple[int,int]; returns (done_count, total_count)"
+          "contract": "str → tuple[int,int]; returns (done_count, total_count)"
         },
         {
           "name": "get_chapter",
           "kind": "fn",
-          "contract": "str \u2192 Optional[Dict]; fetches chapter with audio flags detected from disk"
+          "contract": "str → Optional[Dict]; fetches chapter with audio flags detected from disk"
         },
         {
           "name": "list_chapters",
           "kind": "fn",
-          "contract": "str \u2192 List[Dict]; lists all chapters for project with audio flags"
+          "contract": "str → List[Dict]; lists all chapters for project with audio flags"
         },
         {
           "name": "update_chapter",
           "kind": "fn",
-          "contract": "str, **updates \u2192 bool; updates chapter, syncs segments if text changes"
+          "contract": "str, **updates → bool; updates chapter, syncs segments if text changes"
         },
         {
           "name": "delete_chapter",
           "kind": "fn",
-          "contract": "str \u2192 bool; deletes chapter and all segments, moves artifacts to trash"
+          "contract": "str → bool; deletes chapter and all segments, moves artifacts to trash"
         },
         {
           "name": "reorder_chapters",
           "kind": "fn",
-          "contract": "List[str] \u2192 None; reorders chapters by sort_order"
+          "contract": "List[str] → None; reorders chapters by sort_order"
         },
         {
           "name": "reset_chapter_audio",
           "kind": "fn",
-          "contract": "str \u2192 bool; resets chapter audio status to unprocessed, cleans files"
+          "contract": "str → bool; resets chapter audio status to unprocessed, cleans files"
         }
       ],
       "calls": [
@@ -1463,52 +1471,52 @@
         {
           "name": "upsert_queue_row",
           "kind": "fn",
-          "contract": "str, str?, str?, int, str, str?, str? \u2192 None; upsert processing_queue row"
+          "contract": "str, str?, str?, int, str, str?, str? → None; upsert processing_queue row"
         },
         {
           "name": "add_to_queue",
           "kind": "fn",
-          "contract": "str, str, int \u2192 str?; enqueues chapter, resets stale segments, returns job_id"
+          "contract": "str, str, int → str?; enqueues chapter, resets stale segments, returns job_id"
         },
         {
           "name": "get_queue",
           "kind": "fn",
-          "contract": "() \u2192 List[Dict]; joins with projects/chapters/performance, ordered by status+created_at"
+          "contract": "() → List[Dict]; joins with projects/chapters/performance, ordered by status+created_at"
         },
         {
           "name": "clear_queue",
           "kind": "fn",
-          "contract": "() \u2192 bool; deletes queued/preparing/done/failed, resets chapter statuses"
+          "contract": "() → bool; deletes queued/preparing/done/failed, resets chapter statuses"
         },
         {
           "name": "update_queue_item",
           "kind": "fn",
-          "contract": "str, str, float?, str?, str?, str?, bool \u2192 None; updates job status, syncs chapter audio fields"
+          "contract": "str, str, float?, str?, str?, str?, bool → None; updates job status, syncs chapter audio fields"
         },
         {
           "name": "reconcile_queue_status",
           "kind": "fn",
-          "contract": "List[str], Dict?[str,str] \u2192 None; aligns SQLite with in-memory job states"
+          "contract": "List[str], Dict?[str,str] → None; aligns SQLite with in-memory job states"
         },
         {
           "name": "reorder_queue",
           "kind": "fn",
-          "contract": "List[str] \u2192 bool; reorders by created_at + idx"
+          "contract": "List[str] → bool; reorders by created_at + idx"
         },
         {
           "name": "list_jobs_by_status",
           "kind": "fn",
-          "contract": "str \u2192 List[dict]; returns queue rows matching status"
+          "contract": "str → List[dict]; returns queue rows matching status"
         },
         {
           "name": "clear_completed_queue",
           "kind": "fn",
-          "contract": "() \u2192 int; deletes done/failed/cancelled, returns count"
+          "contract": "() → int; deletes done/failed/cancelled, returns count"
         },
         {
           "name": "remove_from_queue",
           "kind": "fn",
-          "contract": "str \u2192 bool; deletes queue item, resets chapter if not done"
+          "contract": "str → bool; deletes queue item, resets chapter if not done"
         }
       ],
       "calls": [
@@ -1542,42 +1550,42 @@
         {
           "name": "get_state_file",
           "kind": "fn",
-          "contract": "() \u2192 Path; returns state.json path (patched or default)"
+          "contract": "() → Path; returns state.json path (patched or default)"
         },
         {
           "name": "add_job_listener",
           "kind": "fn",
-          "contract": "callable \u2192 None; registers listener for job updates"
+          "contract": "callable → None; registers listener for job updates"
         },
         {
           "name": "_cache_listener_snapshot_support",
           "kind": "fn",
-          "contract": "callable \u2192 bool; inspects signature to detect snapshot arg support"
+          "contract": "callable → bool; inspects signature to detect snapshot arg support"
         },
         {
           "name": "_atomic_write_text",
           "kind": "fn",
-          "contract": "Path, str \u2192 None; tmp+rename write"
+          "contract": "Path, str → None; tmp+rename write"
         },
         {
           "name": "_default_state_minimal",
           "kind": "fn",
-          "contract": "() \u2192 Dict; fallback state structure"
+          "contract": "() → Dict; fallback state structure"
         },
         {
           "name": "_load_state_no_lock",
           "kind": "fn",
-          "contract": "() \u2192 Dict; assumes caller holds _STATE_LOCK, loads and auto-fixes corrupt"
+          "contract": "() → Dict; assumes caller holds _STATE_LOCK, loads and auto-fixes corrupt"
         },
         {
           "name": "load_state",
           "kind": "fn",
-          "contract": "() \u2192 Dict; loads state.json under lock"
+          "contract": "() → Dict; loads state.json under lock"
         },
         {
           "name": "save_state",
           "kind": "fn",
-          "contract": "Dict \u2192 None; saves state.json under lock"
+          "contract": "Dict → None; saves state.json under lock"
         }
       ],
       "calls": [
@@ -1603,47 +1611,47 @@
         {
           "name": "_default_performance_metrics",
           "kind": "fn",
-          "contract": "() \u2192 Dict; returns {'engine_cps':{}, 'render_history':[]}"
+          "contract": "() → Dict; returns {'engine_cps':{}, 'render_history':[]}"
         },
         {
           "name": "_normalize_performance_metrics",
           "kind": "fn",
-          "contract": "Dict? \u2192 Dict; coerces to schema with safety checks"
+          "contract": "Dict? → Dict; coerces to schema with safety checks"
         },
         {
           "name": "_read_performance_metrics_from_db",
           "kind": "fn",
-          "contract": "() \u2192 Dict; reads from studio.db settings + performance_samples"
+          "contract": "() → Dict; reads from studio.db settings + performance_samples"
         },
         {
           "name": "_write_performance_metrics_to_db",
           "kind": "fn",
-          "contract": "Dict \u2192 bool; writes engine_cps to settings table"
+          "contract": "Dict → bool; writes engine_cps to settings table"
         },
         {
           "name": "clear_engine_cps_cache",
           "kind": "fn",
-          "contract": "str \u2192 bool; deletes performance_metric:cps:{engine_id} from settings"
+          "contract": "str → bool; deletes performance_metric:cps:{engine_id} from settings"
         },
         {
           "name": "get_performance_metrics",
           "kind": "fn",
-          "contract": "() \u2192 Dict; thread-safe read of all metrics"
+          "contract": "() → Dict; thread-safe read of all metrics"
         },
         {
           "name": "update_performance_metrics",
           "kind": "fn",
-          "contract": "**updates \u2192 None; merges into metrics, writes to DB"
+          "contract": "**updates → None; merges into metrics, writes to DB"
         },
         {
           "name": "_read_engine_cps_only",
           "kind": "fn",
-          "contract": "() \u2192 Dict[str,float]; fast CPS read (skips history query)"
+          "contract": "() → Dict[str,float]; fast CPS read (skips history query)"
         },
         {
           "name": "seconds_per_char",
           "kind": "fn",
-          "contract": "str, float? \u2192 float?; returns 1/cps or None; used on hot progress path"
+          "contract": "str, float? → float?; returns 1/cps or None; used on hot progress path"
         }
       ],
       "calls": [
@@ -1673,22 +1681,22 @@
         {
           "name": "_default_state",
           "kind": "fn",
-          "contract": "() \u2192 Dict; returns full default state structure"
+          "contract": "() → Dict; returns full default state structure"
         },
         {
           "name": "_normalize_settings",
           "kind": "fn",
-          "contract": "Dict?, incoming_updates? \u2192 Dict; applies defaults, validates, enforces enabled_plugins rules"
+          "contract": "Dict?, incoming_updates? → Dict; applies defaults, validates, enforces enabled_plugins rules"
         },
         {
           "name": "get_settings",
           "kind": "fn",
-          "contract": "() \u2192 Dict; thread-safe read + normalize"
+          "contract": "() → Dict; thread-safe read + normalize"
         },
         {
           "name": "update_settings",
           "kind": "fn",
-          "contract": "dict?, **kwargs \u2192 None; merges, normalizes, persists"
+          "contract": "dict?, **kwargs → None; merges, normalizes, persists"
         }
       ],
       "calls": [
@@ -1710,7 +1718,7 @@
         "clears default_engine if it's no longer enabled",
         "preserves original default_engine on disk only if explicitly updated (prevents inferred defaults persisting)",
         "HF integration: huggingface_token added (same stripped-string pattern as tts_api_key)",
-        "tts_parallel_cap default raised 1 -> 2 (2026-07-05, owner directive: parallel rendering ships as the default, sequential is just the cap=1 case of the same code path) \u2014 both _default_state() and the _normalize_settings() fallback moved together"
+        "tts_parallel_cap default raised 1 -> 2 (2026-07-05, owner directive: parallel rendering ships as the default, sequential is just the cap=1 case of the same code path) — both _default_state() and the _normalize_settings() fallback moved together"
       ]
     },
     "app/db/models.py": {
@@ -1765,12 +1773,12 @@
         {
           "name": "reconcile_orphan_segment_files_for_project",
           "kind": "fn",
-          "contract": "str, dry_run=False \u2192 dict; scans chapters, deletes orphans, returns summary"
+          "contract": "str, dry_run=False → dict; scans chapters, deletes orphans, returns summary"
         },
         {
           "name": "reconcile_orphan_segment_files",
           "kind": "fn",
-          "contract": "dry_run=False \u2192 dict; aggregates per-project GC, returns combined summary"
+          "contract": "dry_run=False → dict; aggregates per-project GC, returns combined summary"
         }
       ],
       "calls": [
@@ -1802,42 +1810,42 @@
         {
           "name": "_chapter_has_active_generation",
           "kind": "fn",
-          "contract": "str \u2192 bool; checks queue + in-memory jobs for active status"
+          "contract": "str → bool; checks queue + in-memory jobs for active status"
         },
         {
           "name": "update_segments_status_bulk",
           "kind": "fn",
-          "contract": "List[str], str, str, bool \u2192 None; bulk update, broadcasts if changed"
+          "contract": "List[str], str, str, bool → None; bulk update, broadcasts if changed"
         },
         {
           "name": "get_chapter_segments",
           "kind": "fn",
-          "contract": "str \u2192 List[Dict]; fetches segments, resets stale 'processing' state, validates 'done' files exist"
+          "contract": "str → List[Dict]; fetches segments, resets stale 'processing' state, validates 'done' files exist"
         },
         {
           "name": "clear_duplicate_segment_audio_paths",
           "kind": "fn",
-          "contract": "str, List[str], str? \u2192 List[str]; clears duplicate paths, returns invalidated IDs"
+          "contract": "str, List[str], str? → List[str]; clears duplicate paths, returns invalidated IDs"
         },
         {
           "name": "update_segment",
           "kind": "fn",
-          "contract": "str, broadcast=True, **updates \u2192 bool; updates segment, cleans stale files, broadcasts"
+          "contract": "str, broadcast=True, **updates → bool; updates segment, cleans stale files, broadcasts"
         },
         {
           "name": "update_segments_bulk",
           "kind": "fn",
-          "contract": "List[str], **updates \u2192 bool; bulk update, touches chapter audio_generated_at"
+          "contract": "List[str], **updates → bool; bulk update, touches chapter audio_generated_at"
         },
         {
           "name": "cleanup_orphaned_segments",
           "kind": "fn",
-          "contract": "str \u2192 None; deletes segments/ files not in DB"
+          "contract": "str → None; deletes segments/ files not in DB"
         },
         {
           "name": "sync_chapter_segments",
           "kind": "fn",
-          "contract": "str, str, conn? \u2192 bool; splits text, preserves IDs/assignments, invalidates dropped text"
+          "contract": "str, str, conn? → bool; splits text, preserves IDs/assignments, invalidates dropped text"
         },
         {
           "name": "chapter_completion_by_size",
@@ -1881,37 +1889,37 @@
       ]
     },
     "app/db/legacy_migration.py": {
-      "purpose": "One-time v1\u2192v2 conversion: migrate engine-specific metrics, settings, filesystem chapters",
+      "purpose": "One-time v1→v2 conversion: migrate engine-specific metrics, settings, filesystem chapters",
       "exports": [
         {
           "name": "migrate_performance_metrics",
           "kind": "fn",
-          "contract": "Dict \u2192 Dict; maps legacy xtts_cps to generic engine_cps, preserves history"
+          "contract": "Dict → Dict; maps legacy xtts_cps to generic engine_cps, preserves history"
         },
         {
           "name": "migrate_settings",
           "kind": "fn",
-          "contract": "Dict \u2192 Dict; removes speed_* and make_mp3 keys"
+          "contract": "Dict → Dict; removes speed_* and make_mp3 keys"
         },
         {
           "name": "ensure_state_migrated",
           "kind": "fn",
-          "contract": "Dict \u2192 bool; migrates state.json in-place, records history to DB, clears blob"
+          "contract": "Dict → bool; migrates state.json in-place, records history to DB, clears blob"
         },
         {
           "name": "migrate_db_performance_metrics",
           "kind": "fn",
-          "contract": "cursor \u2192 bool; converts legacy performance_metrics JSON blob to granular settings keys"
+          "contract": "cursor → bool; converts legacy performance_metrics JSON blob to granular settings keys"
         },
         {
           "name": "_record_legacy_performance_history_to_db",
           "kind": "fn",
-          "contract": "List[Dict] \u2192 None; inserts legacy samples into render_performance_samples table"
+          "contract": "List[Dict] → None; inserts legacy samples into render_performance_samples table"
         },
         {
           "name": "import_legacy_filesystem_data",
           "kind": "fn",
-          "contract": "() \u2192 Dict; scans CHAPTER_DIR for .txt, creates project, imports with audio lookup"
+          "contract": "() → Dict; scans CHAPTER_DIR for .txt, creates project, imports with audio lookup"
         }
       ],
       "calls": [
@@ -1937,42 +1945,42 @@
         {
           "name": "get_jobs",
           "kind": "fn",
-          "contract": "() \u2192 Dict[str,Job]; loads and validates all jobs from state.json"
+          "contract": "() → Dict[str,Job]; loads and validates all jobs from state.json"
         },
         {
           "name": "put_job",
           "kind": "fn",
-          "contract": "Job \u2192 None; inserts/upserts job, broadcasts reset if terminal\u2192active"
+          "contract": "Job → None; inserts/upserts job, broadcasts reset if terminal→active"
         },
         {
           "name": "update_job",
           "kind": "fn",
-          "contract": "str, force_broadcast=False, source?, **updates \u2192 None; updates with guards, projects ETA, broadcasts"
+          "contract": "str, force_broadcast=False, source?, **updates → None; updates with guards, projects ETA, broadcasts"
         },
         {
           "name": "prune_completed_jobs",
           "kind": "fn",
-          "contract": "() \u2192 None; removes 50+ oldest terminal jobs to prevent bloat"
+          "contract": "() → None; removes 50+ oldest terminal jobs to prevent bloat"
         },
         {
           "name": "delete_jobs",
           "kind": "fn",
-          "contract": "List[str] \u2192 None; deletes jobs, clears terminal latches"
+          "contract": "List[str] → None; deletes jobs, clears terminal latches"
         },
         {
           "name": "clear_all_jobs",
           "kind": "fn",
-          "contract": "() \u2192 None; wipes jobs dict"
+          "contract": "() → None; wipes jobs dict"
         },
         {
           "name": "purge_jobs_for_chapter",
           "kind": "fn",
-          "contract": "str \u2192 None; deletes all jobs for chapter"
+          "contract": "str → None; deletes all jobs for chapter"
         },
         {
           "name": "requeue",
           "kind": "fn",
-          "contract": "str \u2192 None; resets terminal job to queued via terminal-reset path"
+          "contract": "str → None; resets terminal job to queued via terminal-reset path"
         }
       ],
       "calls": [
@@ -2004,8 +2012,8 @@
       ],
       "notes": [
         "update_job guards: stale-update drop, status-regression, progress-regression, ETA cleanup",
-        "observed progress projection: when 3%\u2264progress<98%, status=running, reason_code not in skip-list \u2192 extrapolate ETA",
-        "terminal-reset: terminal\u2192queued/preparing clears stale fields (started_at, eta_*, etc)",
+        "observed progress projection: when 3%≤progress<98%, status=running, reason_code not in skip-list → extrapolate ETA",
+        "terminal-reset: terminal→queued/preparing clears stale fields (started_at, eta_*, etc)",
         "force_broadcast bypasses guards, forces broadcast even if no fields changed",
         "ETA basis: 'remaining_from_update' computed relative to event timestamp",
         "pruning: keeps 50 most recent terminal jobs; older ones removed from state.json"
@@ -2115,42 +2123,42 @@
         {
           "name": "get_db_path",
           "kind": "fn",
-          "contract": "() \u2192 Path; resolves DB_PATH from env or default"
+          "contract": "() → Path; resolves DB_PATH from env or default"
         },
         {
           "name": "get_studio_db_path",
           "kind": "fn",
-          "contract": "() \u2192 Path; resolves STUDIO_DB_PATH from env or default"
+          "contract": "() → Path; resolves STUDIO_DB_PATH from env or default"
         },
         {
           "name": "get_connection",
           "kind": "fn",
-          "contract": "() \u2192 sqlite3.Connection; creates new conn with Row factory, asserts test safety"
+          "contract": "() → sqlite3.Connection; creates new conn with Row factory, asserts test safety"
         },
         {
           "name": "get_studio_connection",
           "kind": "fn",
-          "contract": "() \u2192 sqlite3.Connection; creates studio.db connection"
+          "contract": "() → sqlite3.Connection; creates studio.db connection"
         },
         {
           "name": "init_db",
           "kind": "fn",
-          "contract": "() \u2192 None; creates/migrates both DBs under lock"
+          "contract": "() → None; creates/migrates both DBs under lock"
         },
         {
           "name": "verify_and_cleanup_legacy_tables",
           "kind": "fn",
-          "contract": "Connection \u2192 None; migrates settings/performance_samples from audiobook_studio.db to studio.db"
+          "contract": "Connection → None; migrates settings/performance_samples from audiobook_studio.db to studio.db"
         },
         {
           "name": "_running_under_test",
           "kind": "fn",
-          "contract": "() \u2192 bool; checks APP_TEST_MODE env + pytest detection"
+          "contract": "() → bool; checks APP_TEST_MODE env + pytest detection"
         },
         {
           "name": "_assert_safe_db_path_for_tests",
           "kind": "fn",
-          "contract": "Path \u2192 None; raises if non-test DB used during tests"
+          "contract": "Path → None; raises if non-test DB used during tests"
         }
       ],
       "calls": [
@@ -2182,7 +2190,8 @@
         "two DBs: audiobook_studio.db (projects/chapters/queue) and studio.db (settings/performance_samples)",
         "init_db: idempotent; adds columns if missing, migrates legacy structure",
         "verify_and_cleanup_legacy_tables: ATTACH studio_db, migrates data, drops legacy tables from user DB",
-        "test safety: refuses non-test paths during pytest (checks temp/ dirs)"
+        "test safety: refuses non-test paths during pytest (checks temp/ dirs)",
+        "2026-07-08: init_db now adds a projects.series_position INTEGER column alongside the CREATE TABLE default, via an idempotent PRAGMA table_info(projects) presence check + ALTER TABLE for pre-existing DBs."
       ]
     },
     "app/db/chapters_helpers.py": {
@@ -2196,17 +2205,17 @@
         {
           "name": "_is_safe_flat_name",
           "kind": "fn",
-          "contract": "str?, Pattern \u2192 bool; validates name matches pattern + is basename"
+          "contract": "str?, Pattern → bool; validates name matches pattern + is basename"
         },
         {
           "name": "_canonical_chapter_id",
           "kind": "fn",
-          "contract": "str \u2192 str; validates UUID format, raises on invalid"
+          "contract": "str → str; validates UUID format, raises on invalid"
         },
         {
           "name": "_detect_audio_flags",
           "kind": "fn",
-          "contract": "str, str?, Path? \u2192 Dict[str,bool]; detects has_wav/mp3/m4a via disk inspection"
+          "contract": "str, str?, Path? → Dict[str,bool]; detects has_wav/mp3/m4a via disk inspection"
         }
       ],
       "calls": [
@@ -2224,7 +2233,7 @@
       ]
     },
     "app/db/speaker_paths.py": {
-      "purpose": "V2 nested voice directory resolution: profile_name \u2192 path, enforces containment, no DB/state access",
+      "purpose": "V2 nested voice directory resolution: profile_name → path, enforces containment, no DB/state access",
       "exports": [
         {
           "name": "SAFE_PROFILE_NAME_RE",
@@ -2234,22 +2243,22 @@
         {
           "name": "_profile_name_or_error",
           "kind": "fn",
-          "contract": "str \u2192 str; validates, raises ValueError on invalid"
+          "contract": "str → str; validates, raises ValueError on invalid"
         },
         {
           "name": "_profile_dir_has_assets",
           "kind": "fn",
-          "contract": "Path \u2192 bool; checks profile.json or loose .wav files"
+          "contract": "Path → bool; checks profile.json or loose .wav files"
         },
         {
           "name": "resolve_existing_profile_dir",
           "kind": "fn",
-          "contract": "Path, str \u2192 Path?; resolves 'Dracula - Angry' \u2192 voices/Dracula/Angry or 'Dracula' \u2192 voices/Dracula/Default"
+          "contract": "Path, str → Path?; resolves 'Dracula - Angry' → voices/Dracula/Angry or 'Dracula' → voices/Dracula/Default"
         },
         {
           "name": "new_profile_dir",
           "kind": "fn",
-          "contract": "Path, str \u2192 Path; computes target path for new profile, enforces containment"
+          "contract": "Path, str → Path; computes target path for new profile, enforces containment"
         }
       ],
       "calls": [
@@ -2268,27 +2277,27 @@
       ]
     },
     "app/db/lexicon.py": {
-      "purpose": "Per-project pronunciation lexicon CRUD: word\u2192replacement substitutions",
+      "purpose": "Per-project pronunciation lexicon CRUD: word→replacement substitutions",
       "exports": [
         {
           "name": "get_lexicon",
           "kind": "fn",
-          "contract": "str \u2192 List[Dict]; returns all entries for project, ordered by created_at"
+          "contract": "str → List[Dict]; returns all entries for project, ordered by created_at"
         },
         {
           "name": "add_lexicon_entry",
           "kind": "fn",
-          "contract": "str, str, str \u2192 str; inserts entry, returns UUID"
+          "contract": "str, str, str → str; inserts entry, returns UUID"
         },
         {
           "name": "update_lexicon_entry",
           "kind": "fn",
-          "contract": "str, word?, replacement? \u2192 bool; updates one/both fields"
+          "contract": "str, word?, replacement? → bool; updates one/both fields"
         },
         {
           "name": "delete_lexicon_entry",
           "kind": "fn",
-          "contract": "str \u2192 bool; deletes entry"
+          "contract": "str → bool; deletes entry"
         }
       ],
       "calls": [
@@ -2318,7 +2327,7 @@
         {
           "name": "split_into_sentences",
           "kind": "fn",
-          "contract": "str \u2192 List[str]; returns sentence list"
+          "contract": "str → List[str]; returns sentence list"
         }
       ],
       "calls": [
@@ -2338,7 +2347,7 @@
         {
           "name": "STATUS_PRIORITY",
           "kind": "const",
-          "contract": "Dict mapping status\u2192int; done/failed/cancelled=5, finalizing=4, running=3, preparing=2, queued=1"
+          "contract": "Dict mapping status→int; done/failed/cancelled=5, finalizing=4, running=3, preparing=2, queued=1"
         },
         {
           "name": "TERMINAL_STATUSES, ACTIVE_STATUSES",
@@ -2348,27 +2357,27 @@
         {
           "name": "should_drop_terminal_update",
           "kind": "fn",
-          "contract": "str?, Dict, bool \u2192 bool; returns True if update should be silently dropped"
+          "contract": "str?, Dict, bool → bool; returns True if update should be silently dropped"
         },
         {
           "name": "apply_status_regression_guard",
           "kind": "fn",
-          "contract": "str?, str, bool \u2192 Tuple[bool, str?]; decides if status change applies, returns (apply, reason_str)"
+          "contract": "str?, str, bool → Tuple[bool, str?]; decides if status change applies, returns (apply, reason_str)"
         },
         {
           "name": "normalize_segment_fields",
           "kind": "fn",
-          "contract": "Dict, Dict \u2192 Dict; clears segment/batch progress when IDs become None"
+          "contract": "Dict, Dict → Dict; clears segment/batch progress when IDs become None"
         },
         {
           "name": "apply_terminal_eta_cleanup",
           "kind": "fn",
-          "contract": "Dict, Dict \u2192 Dict; clears ETA when effective status becomes terminal"
+          "contract": "Dict, Dict → Dict; clears ETA when effective status becomes terminal"
         },
         {
           "name": "is_terminal_reset",
           "kind": "fn",
-          "contract": "str?, Dict \u2192 bool; returns True when transitioning terminal\u2192active"
+          "contract": "str?, Dict → bool; returns True when transitioning terminal→active"
         }
       ],
       "calls": [],
@@ -2377,7 +2386,7 @@
       ],
       "notes": [
         "pure functions: no I/O, no locks, no side effects; suitable for unit testing",
-        "status regression guard allows terminal\u2192queued/preparing (clean-slate reset)",
+        "status regression guard allows terminal→queued/preparing (clean-slate reset)",
         "segment field normalization: if active_segment_id becomes None, clear active_segment_progress/eta/updated_at"
       ]
     },
@@ -2387,72 +2396,72 @@
         {
           "name": "get_profile_engine",
           "kind": "fn",
-          "contract": "str?, str? \u2192 str; resolves engine ID for profile or speaker ID"
+          "contract": "str?, str? → str; resolves engine ID for profile or speaker ID"
         },
         {
           "name": "get_profile_dir",
           "kind": "fn",
-          "contract": "str \u2192 Path; resolves/creates profile directory"
+          "contract": "str → Path; resolves/creates profile directory"
         },
         {
           "name": "get_profile_wavs",
           "kind": "fn",
-          "contract": "str \u2192 str?; returns comma-separated abs paths of profile WAVs"
+          "contract": "str → str?; returns comma-separated abs paths of profile WAVs"
         },
         {
           "name": "get_speaker_settings",
           "kind": "fn",
-          "contract": "str \u2192 dict; returns metadata (speed, test_text, engine, engine-specific settings)"
+          "contract": "str → dict; returns metadata (speed, test_text, engine, engine-specific settings)"
         },
         {
           "name": "update_speaker_settings",
           "kind": "fn",
-          "contract": "str, **updates \u2192 bool; updates profile.json metadata"
+          "contract": "str, **updates → bool; updates profile.json metadata"
         },
         {
           "name": "normalize_profile_metadata",
           "kind": "fn",
-          "contract": "str, Dict?, persist=False \u2192 Dict; fills in variant_name/engine, applies aliases, optionally persists"
+          "contract": "str, Dict?, persist=False → Dict; fills in variant_name/engine, applies aliases, optionally persists"
         },
         {
           "name": "normalize_base_profiles",
           "kind": "fn",
-          "contract": "Path? \u2192 None; normalizes all speaker base profiles on disk"
+          "contract": "Path? → None; normalizes all speaker base profiles on disk"
         },
         {
           "name": "create_speaker",
           "kind": "fn",
-          "contract": "str, str?, str? \u2192 str; creates speaker record, returns ID"
+          "contract": "str, str?, str? → str; creates speaker record, returns ID"
         },
         {
           "name": "get_speaker",
           "kind": "fn",
-          "contract": "str \u2192 Dict?; returns speaker record"
+          "contract": "str → Dict?; returns speaker record"
         },
         {
           "name": "list_speakers",
           "kind": "fn",
-          "contract": "() \u2192 List[Dict]; returns all speakers ordered by name"
+          "contract": "() → List[Dict]; returns all speakers ordered by name"
         },
         {
           "name": "sync_speakers_from_profiles",
           "kind": "fn",
-          "contract": "Path? \u2192 None; discovers all profile dirs, creates/updates speaker records"
+          "contract": "Path? → None; discovers all profile dirs, creates/updates speaker records"
         },
         {
           "name": "update_speaker",
           "kind": "fn",
-          "contract": "str, **updates \u2192 bool; updates speaker record"
+          "contract": "str, **updates → bool; updates speaker record"
         },
         {
           "name": "delete_speaker",
           "kind": "fn",
-          "contract": "str \u2192 bool; deletes speaker + associated voice.json dirs"
+          "contract": "str → bool; deletes speaker + associated voice.json dirs"
         },
         {
           "name": "update_voice_profile_references",
           "kind": "fn",
-          "contract": "str, str \u2192 None; renames profile references in characters/segments"
+          "contract": "str, str → None; renames profile references in characters/segments"
         }
       ],
       "calls": [
@@ -2508,11 +2517,11 @@
         "plugins/tts_xtts/plugin/studio/app_adapter.py"
       ],
       "notes": [
-        "get_profile_engine: pure read from profile.json; resolution order: exact name \u2192 speaker name \u2192 speaker default \u2192 variants",
+        "get_profile_engine: pure read from profile.json; resolution order: exact name → speaker name → speaker default → variants",
         "sync_speakers_from_profiles: enumerates all V2 profile dirs, creates/updates speakers from metadata",
         "normalize_profile_metadata: infers variant_name/engine, applies engine aliases, optionally persists to profile.json",
         "Rule 9: all path operations validate containment (locally visible proofs)",
-        "profile names support nested layout: 'Dracula - Angry' \u2192 voices/Dracula/Angry or flat 'Dracula' \u2192 voices/Dracula/Default"
+        "profile names support nested layout: 'Dracula - Angry' → voices/Dracula/Angry or flat 'Dracula' → voices/Dracula/Default"
       ],
       "calls_inferred": [
         "app/core/config.py#VOICES_DIR",
@@ -2525,27 +2534,27 @@
         {
           "name": "create_character",
           "kind": "fn",
-          "contract": "str, str, str?, str, str?, **updates \u2192 str; creates character, returns ID"
+          "contract": "str, str, str?, str, str?, **updates → str; creates character, returns ID"
         },
         {
           "name": "get_characters",
           "kind": "fn",
-          "contract": "str, str? \u2192 List[Dict]; returns characters for project (optionally filtered by chapter)"
+          "contract": "str, str? → List[Dict]; returns characters for project (optionally filtered by chapter)"
         },
         {
           "name": "update_character",
           "kind": "fn",
-          "contract": "str, **updates \u2192 bool; updates character fields"
+          "contract": "str, **updates → bool; updates character fields"
         },
         {
           "name": "delete_character",
           "kind": "fn",
-          "contract": "str \u2192 bool; deletes character, resets segments to narrator, invalidates audio"
+          "contract": "str → bool; deletes character, resets segments to narrator, invalidates audio"
         },
         {
           "name": "promote_character",
           "kind": "fn",
-          "contract": "str \u2192 bool; clears chapter_id to promote temp character to book scope"
+          "contract": "str → bool; clears chapter_id to promote temp character to book scope"
         }
       ],
       "calls": [
@@ -2566,27 +2575,27 @@
         {
           "name": "create_project",
           "kind": "fn",
-          "contract": "str, str?, str?, str?, str? \u2192 str; creates project, initializes dirs, saves manifest, returns ID"
+          "contract": "str, str?, str?, str?, str?, series_position: int? → str; creates project, initializes dirs, saves manifest, returns ID"
         },
         {
           "name": "get_project",
           "kind": "fn",
-          "contract": "str \u2192 Dict?; returns project record with timing instrumentation"
+          "contract": "str → Dict?; returns project record with timing instrumentation"
         },
         {
           "name": "list_projects",
           "kind": "fn",
-          "contract": "() \u2192 List[Dict]; returns all projects ordered by updated_at DESC"
+          "contract": "() → List[Dict]; returns all projects ordered by updated_at DESC"
         },
         {
           "name": "update_project",
           "kind": "fn",
-          "contract": "str, **updates \u2192 bool; updates project fields + updated_at"
+          "contract": "str, **updates → bool; updates project fields + updated_at"
         },
         {
           "name": "delete_project",
           "kind": "fn",
-          "contract": "str \u2192 bool; deletes project, all chapters/segments, physical directory"
+          "contract": "str → bool; deletes project, all chapters/segments, physical directory"
         }
       ],
       "calls": [
@@ -2606,7 +2615,8 @@
       "notes": [
         "create_project: immediately saves V2 manifest to project dir",
         "delete_project: cascades to chapters/segments/characters, physically removes project dir if storage.is_safe() passes",
-        "get_project: logs timing (lock wait, query duration) if total \u2265 100ms"
+        "get_project: logs timing (lock wait, query duration) if total ≥ 100ms",
+        "2026-07-08: create_project gained series_position (Optional[int], keyword-only-by-convention, appended after speaker_profile_name); included in both the INSERT column list and the initial project manifest dict."
       ]
     },
     "app/db/performance.py": {
@@ -2615,47 +2625,47 @@
         {
           "name": "record_render_sample",
           "kind": "fn",
-          "contract": "engine, chars, segment_count, duration?, tts_model?, **kwargs \u2192 None; calculates CPS/seconds_per_seg, inserts row"
+          "contract": "engine, chars, segment_count, duration?, tts_model?, **kwargs → None; calculates CPS/seconds_per_seg, inserts row"
         },
         {
           "name": "engine_sample_count",
           "kind": "fn",
-          "contract": "str \u2192 int; returns count of samples for engine (maturity signal for ETA baseline)"
+          "contract": "str → int; returns count of samples for engine (maturity signal for ETA baseline)"
         },
         {
           "name": "delete_render_samples_for_engine",
           "kind": "fn",
-          "contract": "str \u2192 int; deletes all samples for engine, returns count"
+          "contract": "str → int; deletes all samples for engine, returns count"
         },
         {
           "name": "reset_engine_calibration_history",
           "kind": "fn",
-          "contract": "str, str? \u2192 int; deletes samples for engine (optionally filtered by model)"
+          "contract": "str, str? → int; deletes samples for engine (optionally filtered by model)"
         },
         {
           "name": "expected_model_load_seconds",
           "kind": "fn",
-          "contract": "str, str? \u2192 float?; returns trimmed-mean of cold-load samples (\u22651.0s)"
+          "contract": "str, str? → float?; returns trimmed-mean of cold-load samples (≥1.0s)"
         },
         {
           "name": "reset_render_stats",
           "kind": "fn",
-          "contract": "() \u2192 Dict; sets reset baseline, returns get_render_stats()"
+          "contract": "() → Dict; sets reset baseline, returns get_render_stats()"
         },
         {
           "name": "apply_performance_retention_policy",
           "kind": "fn",
-          "contract": "() \u2192 None; deletes samples >180d old, keeps top 100 recent even if >30d"
+          "contract": "() → None; deletes samples >180d old, keeps top 100 recent even if >30d"
         },
         {
           "name": "get_render_history",
           "kind": "fn",
-          "contract": "limit=100 \u2192 List[Dict]; returns samples oldest\u2192newest"
+          "contract": "limit=100 → List[Dict]; returns samples oldest→newest"
         },
         {
           "name": "get_render_stats",
           "kind": "fn",
-          "contract": "() \u2192 Dict; returns summary (count, audio/render hours, by_engine breakdown)"
+          "contract": "() → Dict; returns summary (count, audio/render hours, by_engine breakdown)"
         }
       ],
       "calls": [
@@ -2678,28 +2688,28 @@
       ],
       "notes": [
         "record_render_sample: derives CPS from chars/sum_segment_render_seconds; calculates inter_group_overhead (duration - synthesis_duration)",
-        "expected_model_load_seconds: heuristic filters cold-load samples (model_load_seconds \u2265 1.0), returns trimmed-mean",
+        "expected_model_load_seconds: heuristic filters cold-load samples (model_load_seconds ≥ 1.0), returns trimmed-mean",
         "retention policy: keep 180d history + top 100 recent; deletes older than 180d no matter what",
         "all writes under _db_lock"
       ]
     },
     "app/db/migration.py": {
-      "purpose": "State.json\u2192DB and v1\u2192v2 migrations: legacy jobs, performance metrics, filesystem imports, cover files, voice profiles",
+      "purpose": "State.json→DB and v1→v2 migrations: legacy jobs, performance metrics, filesystem imports, cover files, voice profiles",
       "exports": [
         {
           "name": "migrate_state_json_to_db",
           "kind": "fn",
-          "contract": "() \u2192 None; migrates jobs/metrics from state.json to DB, cleans state.json"
+          "contract": "() → None; migrates jobs/metrics from state.json to DB, cleans state.json"
         },
         {
           "name": "migrate_legacy_project_covers",
           "kind": "fn",
-          "contract": "() \u2192 int; moves shared covers to project-local storage, returns count"
+          "contract": "() → int; moves shared covers to project-local storage, returns count"
         },
         {
           "name": "migrate_voice_profiles",
           "kind": "fn",
-          "contract": "Path? \u2192 None; reconciles speaker metadata + default_profile_name"
+          "contract": "Path? → None; reconciles speaker metadata + default_profile_name"
         }
       ],
       "calls": [
@@ -2735,12 +2745,12 @@
         {
           "name": "reconcile_project_audio",
           "kind": "fn",
-          "contract": "str \u2192 None; scans project audio dirs, updates chapter status if files exist"
+          "contract": "str → None; scans project audio dirs, updates chapter status if files exist"
         },
         {
           "name": "reconcile_all_chapter_statuses",
           "kind": "fn",
-          "contract": "Set[str] \u2192 None; resets 'processing' chapters not in active set; clears stuck statuses"
+          "contract": "Set[str] → None; resets 'processing' chapters not in active set; clears stuck statuses"
         }
       ],
       "calls": [
@@ -2766,22 +2776,22 @@
         {
           "name": "infer_variant_name",
           "kind": "fn",
-          "contract": "str \u2192 str; returns variant from 'Speaker - Variant' or 'Default'"
+          "contract": "str → str; returns variant from 'Speaker - Variant' or 'Default'"
         },
         {
           "name": "infer_speaker_name",
           "kind": "fn",
-          "contract": "str, Dict? \u2192 str; strips variant suffix from compound names"
+          "contract": "str, Dict? → str; strips variant suffix from compound names"
         },
         {
           "name": "is_default_profile_name",
           "kind": "fn",
-          "contract": "str, Dict? \u2192 bool; returns True if variant==Default or no ' - '"
+          "contract": "str, Dict? → bool; returns True if variant==Default or no ' - '"
         },
         {
           "name": "looks_like_uuid",
           "kind": "fn",
-          "contract": "str? \u2192 bool; checks uuid.UUID() parse"
+          "contract": "str? → bool; checks uuid.UUID() parse"
         }
       ],
       "calls": [],
@@ -2790,7 +2800,7 @@
       ],
       "notes": [
         "pure string logic: no I/O, no DB, no state",
-        "supports nested storage: 'Dracula - Angry' \u2192 speaker='Dracula', variant='Angry'"
+        "supports nested storage: 'Dracula - Angry' → speaker='Dracula', variant='Angry'"
       ]
     },
     "app/db/chapters_cleanup.py": {
@@ -2799,12 +2809,12 @@
         {
           "name": "cleanup_chapter_audio_files",
           "kind": "fn",
-          "contract": "str?, str, List[str]?, List[str]?, bool \u2192 bool; deletes chapter/segment audio files with pattern validation"
+          "contract": "str?, str, List[str]?, List[str]?, bool → bool; deletes chapter/segment audio files with pattern validation"
         },
         {
           "name": "move_chapter_artifacts_to_trash",
           "kind": "fn",
-          "contract": "str?, str, List[str]?, List[str]? \u2192 bool; moves files to project/trash/{chapter_id}"
+          "contract": "str?, str, List[str]?, List[str]? → bool; moves files to project/trash/{chapter_id}"
         }
       ],
       "calls": [
@@ -3004,12 +3014,12 @@
         "plugins/tts_mixed/handler.py"
       ],
       "notes": [
-        "broadcast_job_updated is central bottleneck: always enriches with \u00a74A confidence/ETA unless skip_studio_job_event",
+        "broadcast_job_updated is central bottleneck: always enriches with §4A confidence/ETA unless skip_studio_job_event",
         "terminal latch prevents post-terminal frame re-entry",
         "FIX 5: enrich failure sets safe confidence floor",
         "_emit_queue_item_status_frame reads merged.get('active_segments_map') and passes it to build_queue_item_status_event (additive C2 field); transition-inferred SEGMENT_SAVED emission is unchanged, correct only while fan-out stays effectively N=1-active-at-a-time per chapter",
-        "broadcast_job_updated() now threads active_segments_map=merged.get('active_segments_map') into build_chapter_progress_event (2026-07-05 delivery-leg fix) \u2014 previously the field was written to job state but never reached this wire frame",
-        "broadcast_job_updated now extracts eta_updated_at from ProgressService.enrich()'s payload and threads it into build_chapter_progress_event(...) (2026-07-06 fix) -- enrich()'s own \u00a74A dedupe logic computed this field correctly, but it was previously dropped before reaching build_chapter_progress_event, whose own default (time.time() when omitted) fired on every map-only tick and defeated the dedupe at the wire even though the internal computation was right."
+        "broadcast_job_updated() now threads active_segments_map=merged.get('active_segments_map') into build_chapter_progress_event (2026-07-05 delivery-leg fix) — previously the field was written to job state but never reached this wire frame",
+        "broadcast_job_updated now extracts eta_updated_at from ProgressService.enrich()'s payload and threads it into build_chapter_progress_event(...) (2026-07-06 fix) -- enrich()'s own §4A dedupe logic computed this field correctly, but it was previously dropped before reaching build_chapter_progress_event, whose own default (time.time() when omitted) fired on every map-only tick and defeated the dedupe at the wire even though the internal computation was right."
       ]
     },
     "app/api/tts_api.py": {
@@ -3303,7 +3313,7 @@
       ],
       "called_by": [],
       "notes": [
-        "patch_voice_metadata accepts+persists provenance (whole-block replace, not merge \u2014 see voice-bundles.md sec8.1); RuntimeError from update_voice_metadata -> 500",
+        "patch_voice_metadata accepts+persists provenance (whole-block replace, not merge — see voice-bundles.md sec8.1); RuntimeError from update_voice_metadata -> 500",
         "GET /api/voices/search gained ?language=/?style= query params (Phase G, 2026-07-04)"
       ]
     },
@@ -3504,8 +3514,9 @@
           "kind": "const"
         },
         {
-          "name": "api_list_projects, api_get_project, api_reorder_chapters_route",
-          "kind": "function"
+          "name": "api_list_projects, api_get_project, api_create_project, api_update_project, api_reorder_chapters_route",
+          "kind": "function",
+          "contract": "api_create_project accepts optional series_position (Form int); api_update_project accepts series_position as a Form string so an empty submission is distinguishable from omission (reads request.form() directly to detect presence and clear the field to None)"
         }
       ],
       "calls": [
@@ -3519,7 +3530,8 @@
       ],
       "called_by": [],
       "notes": [
-        "_schedule_segment_gc runs as BackgroundTask"
+        "_schedule_segment_gc runs as BackgroundTask",
+        "2026-07-08: api_create_project threads series_position into create_project(); api_update_project inspects request.form() for a submitted (possibly empty-string) series_position field so clearing the value round-trips to None rather than being ignored -- a non-empty value that fails int() parsing returns 400 {status:'error', message:'Invalid series position'}."
       ]
     },
     "app/api/routers/generation.py": {
@@ -3729,7 +3741,7 @@
         "topics: jobs.lifecycle, queue.items, chapters.progress, segments.progress each with allowed command set",
         "build_queue_item_status_event gained an active_segments_map kwarg (additive C2 contract, live-events.md 1.9.0/1.9.1), snake_case wire key",
         "command-set dedup: removed raw-string duplicates of enum members from JOB_LIFECYCLE_COMMANDS/COMMAND_TOPIC_SCOPES/SEGMENT_SCOPED_COMMANDS; membership-identical, no contract/wire/version change",
-        "build_chapter_progress_event() gained active_segments_map kwarg (2026-07-05, additive/snake_case) \u2014 the missing delivery leg for the C2 live-map contract; without it a status-unchanged mid-render update could never reach the frontend regardless of backend state"
+        "build_chapter_progress_event() gained active_segments_map kwarg (2026-07-05, additive/snake_case) — the missing delivery leg for the C2 live-map contract; without it a status-unchanged mid-render update could never reach the frontend regardless of backend state"
       ]
     },
     "app/api/contracts/__init__.py": {
@@ -4563,7 +4575,7 @@
         "voice ID fallback: manifest id -> dirname slug",
         "casting scoring: class/gender/age 0.25 each + tone/timbre/accent 0.05 each, fallback floor 0.1",
         "update_voice_metadata accepts an optional provenance kwarg (whole-block replace on write, not merge)",
-        "raises RuntimeError (mapped to 500 by the router) when save_voice_manifest returns False \u2014 previously silently served stale pre-write data under a 200",
+        "raises RuntimeError (mapped to 500 by the router) when save_voice_manifest returns False — previously silently served stale pre-write data under a 200",
         "search_voices() gained language/style OR-within-field params (Phase G, 2026-07-04), same pattern as tone/timbre/use_case"
       ]
     },
@@ -5507,7 +5519,7 @@
         "prefers_local_execution=True only for mixed engine",
         "segment-orchestrated engines now route through segment_synthesis.py#ChapterSynthesisTask instead (see generation.py#_build_chapter_synthesis_task); this class remains the path for non-segment-orchestrated engines and the segment-scoped 'render these specific segment_ids' endpoint (unchanged, out of scope for W-PAR)",
         "_manifest_resource_claim now resolves effective cap via cap_settings.resolve_effective_cap(engine_id, manifest_max) instead of using the raw manifest max directly -- default-unchanged unless an operator raises tts_parallel_cap/tts_engine_caps",
-        "_manifest_resource_claim's cap is min(resolve_effective_cap(...), manifest_max); effective default is now 2 (2026-07-05) \u2014 Voxtral/Mixed stay sequential via their own manifest max_concurrent_workers=1 ceiling regardless"
+        "_manifest_resource_claim's cap is min(resolve_effective_cap(...), manifest_max); effective default is now 2 (2026-07-05) — Voxtral/Mixed stay sequential via their own manifest max_concurrent_workers=1 ceiling regardless"
       ]
     },
     "app/orchestration/tasks/api_synthesis.py": {
@@ -5739,11 +5751,12 @@
       ],
       "notes": [
         "_dispatch is now a 2-line thin fan-out driver delegating to _dispatch_segment (keystone INV-6, per-segment isolation for concurrency)",
-        "one-line is_chapter_fanout branch: if getattr(task, 'is_chapter_fanout', False): return task.run() \u2014 bypasses _dispatch_segment entirely for chapter-fan-out parents",
-        "_EMIT_ACTIVE_SEGMENTS_MAP module flag gates active_segments_map emission; flipped True once genuine multi-entry aggregation exists (W-PAR 008) \u2014 previously caused a cold-start regression (stale preparing-phase entries leaking into the frontend overlay at cap=1) before being gated off, then re-enabled once true multi-entry semantics existed",
+        "one-line is_chapter_fanout branch: if getattr(task, 'is_chapter_fanout', False): return task.run() — bypasses _dispatch_segment entirely for chapter-fan-out parents",
+        "_EMIT_ACTIVE_SEGMENTS_MAP module flag gates active_segments_map emission; flipped True once genuine multi-entry aggregation exists (W-PAR 008) — previously caused a cold-start regression (stale preparing-phase entries leaking into the frontend overlay at cap=1) before being gated off, then re-enabled once true multi-entry semantics existed",
         "BE-4 (2026-07-04): _record_render_stats_inner now prefers the server's precomputed synthesis_duration_seconds/sum_segment_render_seconds/inter_group_overhead_seconds from the timing payload when present (mathematically identical, pure redundant-work elimination), falling back to app/utils/render_timing.py's derive_segment_timing_fields only when absent; model_load_seconds keeps its own local 0.0-default derivation, deliberately not unified with server.py's None-default",
-        "_dispatch_segment's step-1 registry lookup is now skipped when task.skip_registry_dispatch is True (e.g. _SyntheticSegmentTask, W-PAR fan-out children) \u2014 fixed an escaped defect (2026-07-05) where every fan-out child fell through to a legacy whole-chapter handler and silently re-rendered a sibling's remaining work",
-        "_dispatch's is_chapter_fanout branch now calls new _publish_chapter_dispatch_eta(task, context) before task.run() (2026-07-06 fix) -- publishes a durable status=\"preparing\" reason_code=\"pre_load_eta\" frame on the PARENT context (chapter fan-out bypasses _dispatch_segment, which was the only prior emitter of this ETA frame, so the parent job's eta_seconds stayed null through the whole preparing window and the queue bar's determinate fill never engaged). Cold-load term added only when the server reports the engine cold AND expected_model_load_seconds history exists; warm -> synthesis-only ETA. No calibration history -> no frame (no-fabrication). _resolve_engine_calibration(engine_id) and _expected_cold_load_seconds(engine_id, tts_model) extracted from _dispatch_segment's inline blocks as shared helpers used by both paths."
+        "_dispatch_segment's step-1 registry lookup is now skipped when task.skip_registry_dispatch is True (e.g. _SyntheticSegmentTask, W-PAR fan-out children) — fixed an escaped defect (2026-07-05) where every fan-out child fell through to a legacy whole-chapter handler and silently re-rendered a sibling's remaining work",
+        "_dispatch's is_chapter_fanout branch now calls new _publish_chapter_dispatch_eta(task, context) before task.run() (2026-07-06 fix) -- publishes a durable status=\"preparing\" reason_code=\"pre_load_eta\" frame on the PARENT context (chapter fan-out bypasses _dispatch_segment, which was the only prior emitter of this ETA frame, so the parent job's eta_seconds stayed null through the whole preparing window and the queue bar's determinate fill never engaged). Cold-load term added only when the server reports the engine cold AND expected_model_load_seconds history exists; warm -> synthesis-only ETA. No calibration history -> no frame (no-fabrication). _resolve_engine_calibration(engine_id) and _expected_cold_load_seconds(engine_id, tts_model) extracted from _dispatch_segment's inline blocks as shared helpers used by both paths.",
+        "2026-07-07 fix: _publish_chapter_dispatch_eta now additionally stashes the computed dispatch_eta_seconds onto task._dispatch_eta_seconds (duck-typed via hasattr, no import back into segment_synthesis.py) right before its existing self._publish(...) call, so segment_synthesis.py's _publish_progress has the calibrated baseline to decay across the render."
       ],
       "calls_inferred": [
         "app/orchestration/tasks/segment_synthesis.py#ChapterSynthesisTask.is_chapter_fanout (dispatch branch)"
@@ -5797,7 +5810,7 @@
         "0% not special-cased as 'not started'",
         "active_segments_map (optional _publish kwarg) only written when non-None; stalled_segments has NO corresponding _publish kwarg yet (deferred, unlike active_segments_map which is fully wired end-to-end)",
         "_publish routes ephemeral contexts through ProgressService.publish(ephemeral=True) and skips put_job/update_job only, so synthetic {parent}-seg-N children create no durable Job row or queue.items broadcast (segment-scoped frames still flow)",
-        "_publish()'s ephemeral branch now invokes an optional on_segment_tick(segment_id, status, progress, eta_seconds) callback stashed in the TaskContext payload before returning (2026-07-05) \u2014 the event-driven delivery mechanism for ChapterSynthesisTask._on_child_segment_tick, piggybacking the existing \u22651%-gated per-child publish call rather than adding a new timer/thread",
+        "_publish()'s ephemeral branch now invokes an optional on_segment_tick(segment_id, status, progress, eta_seconds) callback stashed in the TaskContext payload before returning (2026-07-05) — the event-driven delivery mechanism for ChapterSynthesisTask._on_child_segment_tick, piggybacking the existing ≥1%-gated per-child publish call rather than adding a new timer/thread",
         "_publish()'s ephemeral branch now forwards reason_code=reason_code into the on_segment_tick(...) callback alongside segment_id/status/progress/eta_seconds (2026-07-06) -- required so ChapterSynthesisTask._on_child_segment_tick can distinguish the SEGMENT_PENDING sub-phase (status=\"running\" literally, reason_code=\"SEGMENT_PENDING\") from genuine rendering."
       ]
     },
@@ -5897,7 +5910,7 @@
       "notes": []
     },
     "app/orchestration/progress/service.py": {
-      "purpose": "Progress service boundary: weighted progress math (enrich() \u00a74A kernel), ETA smoothing; emit rate-limit gate moved to emit_gate.py",
+      "purpose": "Progress service boundary: weighted progress math (enrich() §4A kernel), ETA smoothing; emit rate-limit gate moved to emit_gate.py",
       "exports": [
         {
           "name": "ProgressService",
@@ -6006,7 +6019,7 @@
       "notes": [
         "formula: c_var=1-K_VAR*cv, c_done=smoothstep, c_fresh=exp decay, c_mature=min(n/N_MATURE,1)",
         "crossfade ramps calculated->observed via smoothstep",
-        "W-PAR 007 (2026-07-04): BracketedEtaTracker added but NOT wired into ProgressService.enrich() or any live event this pass -- documented as a known gap (live-events.md 1.9.3 \u00a77) rather than silently left undone or unsafely bolted on"
+        "W-PAR 007 (2026-07-04): BracketedEtaTracker added but NOT wired into ProgressService.enrich() or any live event this pass -- documented as a known gap (live-events.md 1.9.3 §7) rather than silently left undone or unsafely bolted on"
       ]
     },
     "app/orchestration/scheduler/eta.py": {
@@ -7249,7 +7262,8 @@
       "exports": [
         {
           "name": "InlineEdit",
-          "kind": "component"
+          "kind": "component",
+          "contract": "props: value, onSave, placeholder?, className?, style?, inputStyle?, inputAriaLabel?, inputSize?, multiline?, disabled?"
         }
       ],
       "calls": [],
@@ -7261,7 +7275,9 @@
         "frontend/src/pages/ProjectDetail/components/AssemblyPanel.tsx",
         "frontend/src/pages/ProjectDetail/components/ChapterList.tsx"
       ],
-      "notes": []
+      "notes": [
+        "2026-07-09: gained inputAriaLabel and inputSize props (threaded onto the active <input>/<textarea>, size only applied when set). The active input now also carries the caller's className (`inline-edit-input ${className}`, was 'inline-edit-input' only) so caller-scoped CSS can target the editing state directly. Trigger div's empty-state placeholder inherits the caller's font styling (color/style/opacity) via `style` rather than the component fixing its own tone -- callers (e.g. BookInfoCard) now control empty-field tone."
+      ]
     },
     "frontend/src/components/forms/VoiceDropzone.tsx": {
       "purpose": "Audio file upload with drag-drop, validation, duration display",
@@ -7918,7 +7934,8 @@
       ],
       "notes": [
         "script-view endpoints use cache:'no-store'",
-        "409 responses carry expected_base_revision_id"
+        "409 responses carry expected_base_revision_id",
+        "2026-07-08: createProject/updateProject data param gained series_position?: number|null; updateProject appends an explicit '' when the value is null (clearing) rather than omitting the field, so the clear round-trips through FormData instead of being silently dropped (createProject only appends the field when defined/non-null, matching optional-create semantics)."
       ],
       "calls_inferred": [
         "@/api/types#RenderGroupsResponse",
@@ -7985,7 +8002,7 @@
         "frontend/src/utils/queueEventDispatcher.ts"
       ],
       "notes": [
-        "\u00a74A frames carry backend-authoritative confidence; client fallback only for non-\u00a74A frames",
+        "§4A frames carry backend-authoritative confidence; client fallback only for non-§4A frames",
         "no zero-special fabrication"
       ],
       "calls_inferred": [
@@ -8159,7 +8176,8 @@
       "notes": [
         "no internal deps, pure type definitions",
         "voice taxonomy per design-docs/specs/voice-taxonomy.json v1.0",
-        "Settings gained optional tts_parallel_cap?: number and tts_engine_caps?: Record<string, number> (2026-07-06)"
+        "Settings gained optional tts_parallel_cap?: number and tts_engine_caps?: Record<string, number> (2026-07-06)",
+        "Project gained series_position: number | null (2026-07-08) -- round-trips through library create/edit and the book overview header."
       ]
     },
     "frontend/src/constants/audio.ts": {
@@ -8285,6 +8303,7 @@
       "calls": [
         "frontend/src/api/index.ts",
         "frontend/src/hooks/useProjectActions.ts",
+        "frontend/src/pages/Book/lib/chapterLifecycle.ts#deriveChapterLifecycle",
         "frontend/src/types/index.ts",
         "frontend/src/utils/chapterEditorHelpers.ts",
         "frontend/src/utils/voiceProfiles.ts"
@@ -8293,7 +8312,9 @@
         "frontend/src/pages/Book/BookDataContext.tsx",
         "frontend/src/pages/Book/index.ts"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-09: context value gained hasRendered/hasUnrendered booleans; totalPredicted may now be null when no calibrated_cps is available (was previously always a number). totalRuntime/totalPredicted/hasRendered/hasUnrendered are all derived from a memoized chapterLifecycleMap (chapter.id -> deriveChapterLifecycle(chapter)) rather than ad hoc status checks -- totalRuntime sums Rendered/Cast chapters' audio_length_seconds; totalPredicted sums Rendered audio plus a char_count/calibratedCps estimate for Cast/Ready/Draft chapters."
+      ],
       "calls_inferred": [
         "@/api",
         "@/hooks/useProjectActions",
@@ -8316,6 +8337,7 @@
         "frontend/src/pages/Book/components/LexiconPanel.tsx",
         "frontend/src/pages/Book/lib/stages.ts",
         "frontend/src/pages/Book/stages/BackupsStage.tsx",
+        "frontend/src/pages/Book/stages/BookStage.tsx",
         "frontend/src/pages/Book/stages/CastingStage.tsx",
         "frontend/src/pages/Book/stages/ContentsStage.tsx",
         "frontend/src/pages/Book/stages/LexiconStage.tsx",
@@ -8327,7 +8349,9 @@
       "called_by": [
         "frontend/src/pages/Book/index.ts"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-09: new 'book' entry added to BOOK_STAGES ahead of 'contents'; StageContent renders <BookStage/> (imported as BookInfoStage) for stage==='book'. The book-level tab bar (BOOK_STAGES.map) now shows a leading 'Book' tab."
+      ],
       "calls_inferred": [
         "@/pages/Book/BookDataContext#*",
         "@/pages/Book/lib/stages#*",
@@ -8478,7 +8502,8 @@
         "handoff pattern defers refetches while animation in flight",
         "generalized the single chapterRenderActiveSegmentId (scalar) into chapterRenderActiveSegmentsMap/RenderingSegmentIds/PreparingSegmentIds/RenderingBatchProgressById (Set/map-based, W-PAR 006); falls back byte-identically to the scalar path when the map is absent (INV-1); map branches expand each entry to render-batch siblings (expandToBatchSpanIds) and exclude done-phase entries from the rendering set",
         "gained a segmentProgress prop + fallbackActiveSegmentsMap (2026-07-05 escaped-defect fix): when the backend hasn't supplied its own active_segments_map at ALL (undefined, not an explicit {}), derives one from the already-flowing per-segment segmentProgress stream so the map-branch highlighting works even before the backend delivery leg existed; an explicit backend {} ('nothing rendering') still always wins",
-        "chapterRenderRenderingBatchProgressById's map branch now feeds ScriptView animatedSegmentProgress[segId] ?? entry.progress (from useAnimatedSegmentProgress, new 2026-07-06) instead of raw entry.progress -- fixes the concurrent map path feeding un-interpolated stepped values straight to the text highlight. Legacy single-active-segment path (liveBarSegmentProgress feedback) unchanged."
+        "chapterRenderRenderingBatchProgressById's map branch now feeds ScriptView animatedSegmentProgress[segId] ?? entry.progress (from useAnimatedSegmentProgress, new 2026-07-06) instead of raw entry.progress -- fixes the concurrent map path feeding un-interpolated stepped values straight to the text highlight. Legacy single-active-segment path (liveBarSegmentProgress feedback) unchanged.",
+        "2026-07-07: new chapterRenderDoneSegmentIds memo scans chapterRenderActiveSegmentsMap for phase==='done' entries and expands to batch-span ids via expandToBatchSpanIds (moved earlier in the function body so this memo can reference it); chapterRenderPendingSegmentIds now excludes anything in chapterRenderDoneSegmentIds from both its effectivePendingSegmentIds-seeded branch and its DB-fallback loop; chapterRenderDoneSegmentIds is returned from the hook for ScriptView's liveDoneSpanIds prop."
       ],
       "calls_inferred": [
         "@/api",
@@ -8550,13 +8575,18 @@
         "frontend/src/api/index.ts",
         "frontend/src/pages/Book/BookDataContext.tsx",
         "frontend/src/pages/Book/components/AddChapterModal.tsx",
+        "frontend/src/pages/Book/components/ChapterImportBar.tsx",
         "frontend/src/pages/Book/components/ChapterTable.tsx",
         "frontend/src/pages/Book/components/ChapterTextPanel.tsx",
+        "frontend/src/pages/Book/lib/chapterImport.ts",
         "frontend/src/types/index.ts",
+        "frontend/src/utils/toast.ts#emitToast",
         "frontend/src/utils/railState.ts"
       ],
       "called_by": [],
-      "notes": [],
+      "notes": [
+        "2026-07-08: same ChapterImportBar/multi-file-drop/sequential-sort-order/unsupported-file-toast change as ContentsStage.tsx."
+      ],
       "calls_inferred": [
         "@/pages/Book/components/*",
         "@/utils/railState#requestRailAutoCollapse"
@@ -8584,7 +8614,9 @@
       "called_by": [
         "frontend/src/pages/Book/BookLayout.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-09: BookInfoCard now also receives hasRendered/hasUnrendered (lifecycle-aware metadata pills) alongside totalRuntime/totalPredicted, matching the overview-stage rework; layout kept narrow/aligned with the rest of the shared book surface after the Book-tab reshuffle."
+      ],
       "calls_inferred": [
         "@/components/ProjectBackupsPanel",
         "@/pages/Book/components/*",
@@ -8643,7 +8675,9 @@
       "called_by": [
         "frontend/src/pages/Book/BookLayout.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-07: same done-marker swap as ChapterEditorPage.tsx -- pendingSpanIds now chapterRenderPendingSegmentIds, added liveDoneSpanIds={chapterRenderDoneSegmentIds}."
+      ],
       "calls_inferred": [
         "@/pages/Book/studio/*",
         "@/pages/ChapterEditor/components/ScriptView,ScriptViewFallback,QueueNotice,ResyncPreviewModal"
@@ -8661,17 +8695,21 @@
         "frontend/src/api/index.ts",
         "frontend/src/pages/Book/BookDataContext.tsx",
         "frontend/src/pages/Book/components/AddChapterModal.tsx",
+        "frontend/src/pages/Book/components/ChapterImportBar.tsx",
         "frontend/src/pages/Book/components/ChapterTable.tsx",
         "frontend/src/pages/Book/components/ChapterTextPanel.tsx",
+        "frontend/src/pages/Book/lib/chapterImport.ts",
         "frontend/src/pages/Book/lib/stages.ts",
         "frontend/src/types/index.ts",
+        "frontend/src/utils/toast.ts#emitToast",
         "frontend/src/utils/railState.ts"
       ],
       "called_by": [
         "frontend/src/pages/Book/BookLayout.tsx"
       ],
       "notes": [
-        "publish CTA when all chapters rendered"
+        "publish CTA when all chapters rendered",
+        "2026-07-08: the inline file-input/import-row markup was replaced by <ChapterImportBar onImportFiles={handleImportFiles} submitting={actions.submitting} compact />, rendered in the stage's action row. handleImportFiles now accepts multiple files (FileList | File[]), filters through isSupportedChapterImportFile, emits a toast per rejected file, and creates chapters sequentially at chapters.length + index so a multi-file drop preserves sort order."
       ],
       "calls_inferred": [
         "@/pages/Book/components/*"
@@ -8729,13 +8767,18 @@
           "kind": "component"
         }
       ],
-      "calls": [],
+      "calls": [
+        "frontend/src/utils/toast.ts#emitToast",
+        "frontend/src/pages/Book/lib/chapterImport.ts#getChapterImportError,isSupportedChapterImportFile"
+      ],
       "called_by": [
         "frontend/src/pages/Book/stages/ContentsStage.tsx",
         "frontend/src/pages/Book/stages/ManuscriptStage.tsx",
         "frontend/src/pages/ProjectDetail/components/ProjectModals.tsx"
       ],
-      "notes": []
+      "notes": [
+        "2026-07-08: file input now only accepts .txt (was .txt/.docx/.epub); handleFileChange rejects an unsupported selection via isSupportedChapterImportFile, toasts getChapterImportError(file), clears the input, and leaves file unset instead of silently accepting it."
+      ]
     },
     "frontend/src/pages/Book/components/LexiconPanel.tsx": {
       "purpose": "Reusable per-book pronunciation lexicon UI",
@@ -8858,23 +8901,31 @@
       ]
     },
     "frontend/src/pages/Book/components/BookInfoCard.tsx": {
-      "purpose": "Book metadata sidebar: cover, title/author/series inline edits, runtime/ETA chips",
+      "purpose": "Book overview hero card: blurred-bleed cover with drag-drop upload, inline-editable title/author/series header, contextual series-position stepper, and lifecycle-aware metadata pills",
       "exports": [
         {
           "name": "BookInfoCard",
-          "kind": "component"
+          "kind": "component",
+          "contract": "props: project, totalRuntime, totalPredicted (number|null), hasRendered, hasUnrendered, onUpdateProject(data) => Promise<boolean>; onUpdateProject's data now includes series_position?: number|null"
         }
       ],
       "calls": [
         "frontend/src/components/forms/InlineEdit.tsx",
-        "frontend/src/pages/ProjectDetail/components/ProjectModals.tsx",
+        "frontend/src/hooks/useDragDropHighlight.ts#useDragDropHighlight",
+        "frontend/src/pages/ProjectDetail/components/ProjectModals.tsx#CoverImageModal",
         "frontend/src/types/index.ts",
-        "frontend/src/utils/format.ts"
+        "frontend/src/utils/format.ts#formatLength"
       ],
       "called_by": [
-        "frontend/src/pages/Book/stages/PublishStage.tsx"
+        "frontend/src/pages/Book/stages/PublishStage.tsx",
+        "frontend/src/pages/Book/stages/BookStage.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-09 rewrite: title, author, and series are all edited via InlineEdit's native click-to-edit (no separate boxed 'edit mode') rather than the earlier custom text-field toggles; empty author/series render as italic, 0.8-opacity var(--text-subtle) placeholders ('Add author'/'Add series') so unset optional fields recede without competing with populated metadata -- populated values stay upright/full-opacity.",
+        "Series-position stepper block (an explicit -/input/+ control reading 'Book N') only renders once hasSeriesPosition is true or the user starts editing (isSeriesNumberEditing); otherwise a quiet 'Add book number' ghost button is shown. seriesPositionDraft is local text state synced from project.series_position via useEffect, parsed/clamped (integer, >0 else null) on commit (Enter, blur outside the editor block, or +/- click).",
+        "metadataPills computed from hasRendered/hasUnrendered/totalPredicted: 'Runtime <formatLength>' (success) when hasRendered, 'Predicted <formatLength>' (info) when hasUnrendered and totalPredicted is known, 'No segments yet' (muted) when nothing rendered yet and more remains, 'Rendered' (success) when everything is rendered, plus an always-present 'Created <date>' (muted) pill -- replaces the older single runtime/ETA chip pair.",
+        "Cover upload drag-and-drop now goes through the shared useDragDropHighlight hook (drop calls handleCoverChange(files[0])); cover renders a blurred full-bleed background image plus a sharp foreground image (restores the library page's bleed treatment)."
+      ],
       "calls_inferred": [
         "@/components/forms/InlineEdit"
       ]
@@ -8894,7 +8945,8 @@
         "frontend/src/pages/Book/components/AssemblyChapterPicker.tsx",
         "frontend/src/pages/Book/components/ChapterTable.tsx",
         "frontend/src/pages/Book/lib/useChapterText.ts",
-        "frontend/src/pages/Book/stages/PublishStage.tsx"
+        "frontend/src/pages/Book/stages/PublishStage.tsx",
+        "frontend/src/pages/Book/useBookData.ts"
       ],
       "notes": []
     },
@@ -8938,7 +8990,8 @@
         "frontend/src/pages/Book/stages/ContentsStage.tsx"
       ],
       "notes": [
-        "storage per-book, no cross-book state"
+        "storage per-book, no cross-book state",
+        "2026-07-09: BOOK_STAGES gained a leading 'book' entry ('Book' label) before 'contents'; getLastStage's default fallback stays 'contents' (unchanged) so existing bookmarks/links keep landing on Contents."
       ]
     },
     "frontend/src/pages/Book/lib/chapterJobs.ts": {
@@ -9038,7 +9091,7 @@
       ],
       "notes": [
         "overlays (chapters.progress,voice.test) must not create job rows",
-        "segmentProgress entries now also capture eta_seconds/status/updated_at (2026-07-05) \u2014 previously discarded data from the segments.progress stream that useStudioChapter.ts now consumes as an active_segments_map fallback"
+        "segmentProgress entries now also capture eta_seconds/status/updated_at (2026-07-05) — previously discarded data from the segments.progress stream that useStudioChapter.ts now consumes as an active_segments_map fallback"
       ],
       "calls_inferred": [
         "frontend/src/hooks/useStudioSocketConnection#*",
@@ -9380,7 +9433,7 @@
       ]
     },
     "frontend/src/hooks/useProjectLibrary.ts": {
-      "purpose": "Project CRUD, sorting/filtering, modal state, drag-drop file handling, deletion confirmation",
+      "purpose": "Project CRUD, sorting/filtering, modal state, drag-drop file handling, deletion confirmation, series suggestions",
       "exports": [
         {
           "name": "useProjectLibrary",
@@ -9389,12 +9442,16 @@
       ],
       "calls": [
         "frontend/src/api/index.ts",
-        "frontend/src/types/index.ts"
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/toast.ts#emitToast",
+        "frontend/src/utils/seriesPosition.ts#parseSeriesPositionInput"
       ],
       "called_by": [
         "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-08: existingSeries (deduped, sorted project.series list) and suggestedSeriesPosition (max existing series_position + 1, falling back to a numeric suffix parsed from an existing title in the same series) auto-fill the new seriesPosition field until the user edits it directly (seriesPositionTouched); sortOption gained 'series-asc' (series name asc, then series_position asc, then title asc, blanks last); handleCreateProject validates seriesPosition via parseSeriesPositionInput and emitToast()s on a parse error instead of submitting; new handleOpenProjectDetails(projectId) navigates to /project/:id/details."
+      ],
       "calls_inferred": [
         "frontend/src/api#api.fetchProjects,createProject,deleteProject"
       ]
@@ -9533,7 +9590,9 @@
         "frontend/src/pages/Book/useBookData.ts",
         "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-08: handleUpdateProject's data param gained optional series_position?: number|null, forwarded to api.updateProject as series_position ?? null."
+      ],
       "calls_inferred": [
         "frontend/src/api#*"
       ]
@@ -10295,7 +10354,7 @@
         "frontend/src/hooks/useQueueSync.ts"
       ],
       "notes": [
-        "QUEUE_OVERLAY_FIELDS whitelist now includes active_segments_map (W-PAR 006) \u2014 rides the queue.items frame per the queue-items-is-row-authority invariant"
+        "QUEUE_OVERLAY_FIELDS whitelist now includes active_segments_map (W-PAR 006) — rides the queue.items frame per the queue-items-is-row-authority invariant"
       ]
     },
     "frontend/src/utils/format.ts": {
@@ -10722,13 +10781,16 @@
         }
       ],
       "calls": [
-        "frontend/src/types/index.ts"
+        "frontend/src/types/index.ts",
+        "frontend/src/hooks/useDragDropHighlight.ts#useDragDropHighlight"
       ],
       "called_by": [
         "frontend/src/pages/VoiceLab/components/SamplesSection.tsx",
         "frontend/src/pages/Voices/components/VariantEditor.tsx"
       ],
-      "notes": []
+      "notes": [
+        "2026-07-08: drag-drop highlight state/handlers now delegate to the shared useDragDropHighlight(uploadFiles) hook instead of local isDragging/onDragOver/onDragLeave/onDrop handlers (pure refactor, same upload behavior)."
+      ]
     },
     "frontend/src/pages/Voices/components/VoiceModals.tsx": {
       "purpose": "Composite modal container for voice CRUD modals",
@@ -11140,7 +11202,8 @@
         "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
       ],
       "notes": [
-        "merges Script editing + Edit tab; resync preview modal gates source-text save"
+        "merges Script editing + Edit tab; resync preview modal gates source-text save",
+        "2026-07-07: ScriptView's pendingSpanIds prop switched from the raw effectivePendingSegmentIds (never done-aware) to the new done-excluding chapterRenderPendingSegmentIds; added liveDoneSpanIds={chapterRenderDoneSegmentIds}."
       ],
       "calls_inferred": [
         "frontend/src/pages/ChapterEditor/components/*"
@@ -11175,7 +11238,7 @@
       ],
       "notes": [
         "useChapterStatus centralizes queue logic + handoff bridge",
-        "the pre-first-segment queue-status pill (shown when !liveSegmentProgressJob, before PredictiveProgressBar mounts) now carries the shared .is-running/calm-pulse class while queueStatus === 'Preparing' (2026-07-06 fix) \u2014 previously sat fully static for the whole cold-start/model-load window"
+        "the pre-first-segment queue-status pill (shown when !liveSegmentProgressJob, before PredictiveProgressBar mounts) now carries the shared .is-running/calm-pulse class while queueStatus === 'Preparing' (2026-07-06 fix) — previously sat fully static for the whole cold-start/model-load window"
       ]
     },
     "frontend/src/pages/ChapterEditor/components/QueueNotice.tsx": {
@@ -11235,7 +11298,8 @@
       ],
       "notes": [
         "ScriptSpanItem memo'd to avoid progress-frame cascades",
-        "F14 (2026-07-04): renderBook()/renderScript() now guard data?.paragraphs/data?.spans and return null instead of throwing when handed a malformed/partial script-view payload"
+        "F14 (2026-07-04): renderBook()/renderScript() now guard data?.paragraphs/data?.spans and return null instead of throwing when handed a malformed/partial script-view payload",
+        "2026-07-07: new optional prop liveDoneSpanIds (Set<string>, default empty) -- isReady per-span also becomes true when liveDoneSpanIds.has(span.id), the live signal that keeps a just-finished segment's text lit ahead of the next DB refetch. renderSpan also now suppresses isPending/isQueued for live-done spans (fable-review fix, same day) -- otherwise the later-in-stylesheet -pending/-queued classes at equal specificity kept the span visually dim even with the -ready class present. canPlay intentionally stays DB-backed-only (out of scope). Note: renderSpan defaults to mode='book' even inside the script-line view, so this view actually applies the -book-* class variants."
       ]
     },
     "frontend/src/pages/ChapterEditor/components/VoiceProfileSelect.tsx": {
@@ -11370,12 +11434,15 @@
         "frontend/src/hooks/useStartupOverlay.ts#useStartupOverlay",
         "frontend/src/hooks/useStudioSocketTransport.ts",
         "frontend/src/hooks/useToast.ts#useToast",
+        "frontend/src/utils/toast.ts#APP_TOAST_EVENT",
         "frontend/src/pages/Activity/ActivityPage.tsx",
         "frontend/src/pages/Book/index.ts",
         "frontend/src/pages/DevProgressBar/DevProgressBarPage.tsx",
         "frontend/src/pages/Engines/index.ts",
         "frontend/src/pages/Integrations/index.ts",
         "frontend/src/pages/LiveOutput/LiveOutputPage.tsx",
+        "frontend/src/pages/ProjectDetail/ProjectViewRoute.tsx",
+        "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx#ProjectView",
         "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx",
         "frontend/src/pages/Queue/QueueRoute.tsx",
         "frontend/src/pages/Settings/index.ts",
@@ -11392,7 +11459,8 @@
         "redirect logic: /project/:id -> /book/:id/:stage",
         "queue drawer syncs back to previous path",
         "F15 (2026-07-04): surfaces useInitialData's new `error` state as a retryable startup banner (role=alert, 'Retry now' button) in place of the silent spinner while a fetch is failing; only claims 'retrying automatically' when !initialData (true startup phase, where the poll loop actually retries) -- a later post-startup refetch failure doesn't re-arm that loop",
-        "LF-5 (2026-07-05): extracted useToast/useStartupOverlay/useChapterRedirect (630->560 lines); route table + shell composition stay per simplification/04's split boundary. Fusion-reviewed clean (independent React-hooks-correctness pass confirmed identical dep arrays/cleanup timing against the pre-image)."
+        "LF-5 (2026-07-05): extracted useToast/useStartupOverlay/useChapterRedirect (630->560 lines); route table + shell composition stay per simplification/04's split boundary. Fusion-reviewed clean (independent React-hooks-correctness pass confirmed identical dep arrays/cleanup timing against the pre-image).",
+        "2026-07-08: new window 'studio-toast' (APP_TOAST_EVENT) listener forwards emitToast() messages from anywhere in the app into the existing showToast pipeline, decoupling toast-emitting utility code from the hook. New /project/:projectId/details route lazy-loads ProjectViewPage (ProjectDetailPage.tsx's ProjectView export) wrapped in ProjectViewRoute -- wires up components that previously had zero runtime importers (see those files' notes)."
       ],
       "calls_inferred": [
         "frontend/src/app/layout/AppShell#AppShell",
@@ -11750,11 +11818,12 @@
         "frontend/src/store/live-jobs.ts#createLiveJobsStore"
       ],
       "called_by": [
-        "frontend/src/pages/ProjectDetail/index.ts"
+        "frontend/src/pages/ProjectDetail/index.ts",
+        "frontend/src/app/App.tsx"
       ],
       "notes": [
         "DC-2 (2026-07-04): the dead createProjectViewRoute() null-stub was removed from here originally, but ProjectDetail/index.ts's only export WAS that stub -- retargeted index.ts's re-export to this component instead of deleting the barrel, to avoid a dangling reference",
-        "Fable review flag (2026-07-04): this component now has zero runtime importers (only its own unit test) -- ProjectDetail/index.ts's barrel is importerless too. Owner decision needed: pending wiring, or genuinely dead and safe to delete in a future pass."
+        "2026-07-08: App.tsx now wires this up at /project/:projectId/details -- the prior 'zero runtime importers, pending wiring or dead' flag (2026-07-04) is resolved; this component has a real caller again."
       ],
       "calls_inferred": [
         "frontend/src/app/layout/StudioShell#createStudioShellState"
@@ -11790,9 +11859,12 @@
         "frontend/src/utils/jobSelection.ts",
         "frontend/src/utils/voiceProfiles.ts"
       ],
-      "called_by": [],
+      "called_by": [
+        "frontend/src/app/App.tsx"
+      ],
       "notes": [
-        "RECENT_DONE_WINDOW_SECONDS=60"
+        "RECENT_DONE_WINDOW_SECONDS=60",
+        "2026-07-08: now reachable via App.tsx's /project/:projectId/details route (ProjectViewPage lazy import of this file's ProjectView export) -- resolves the prior 'zero runtime importers' flag."
       ],
       "calls_inferred": [
         "frontend/src/components/CharactersTab#CharactersTab",
@@ -11880,7 +11952,9 @@
       "called_by": [
         "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-08: new onOpenDetails(id) prop renders a 'Details' button (stopPropagation'd) that routes to the project details view, alongside the existing whole-card click-to-open behavior."
+      ],
       "calls_inferred": [
         "frontend/src/components/ui/ActionMenu"
       ]
@@ -11948,18 +12022,23 @@
       "exports": [
         {
           "name": "EditProjectModal, CoverImageModal, AddChapterModal",
-          "kind": "component"
+          "kind": "component",
+          "contract": "EditProjectModal.onSubmit now receives series_position: number | null alongside name/series/author/cover"
         }
       ],
       "calls": [
         "frontend/src/pages/Book/components/AddChapterModal.tsx",
-        "frontend/src/types/index.ts"
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/toast.ts#emitToast",
+        "frontend/src/utils/seriesPosition.ts#parseSeriesPositionInput"
       ],
       "called_by": [
         "frontend/src/pages/Book/components/BookInfoCard.tsx",
         "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-08: EditProjectModal's local state now seeds series_position from project.series_position; handleSubmit parses it via parseSeriesPositionInput (emitToast + abort on error) before calling onSubmit; new adjustSeriesPosition(-1|1) stepper handler backs new +/- buttons around the series-position input, clamped to > 0 (else clears to '')."
+      ],
       "calls_inferred": [
         "frontend/src/pages/Book/components/AddChapterModal#AddChapterModal"
       ]
@@ -12001,7 +12080,9 @@
       "called_by": [
         "frontend/src/app/App.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-08: create-project form gained a series <datalist> (id=project-series-suggestions, populated from the hook's existingSeries) attached to both the grid-view and list-view series inputs, plus a 'Series position' input seeded with the hook's suggestion placeholder. ProjectCard/ProjectListView now receive onOpenDetails={handleOpenProjectDetails}, routing to /project/:id/details."
+      ],
       "calls_inferred": [
         "frontend/src/hooks/useProjectLibrary#useProjectLibrary",
         "frontend/src/pages/ProjectDetail/components/ProjectCard#ProjectCard"
@@ -12019,7 +12100,9 @@
       "called_by": [
         "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx"
       ],
-      "notes": []
+      "notes": [
+        "2026-07-08: sortOption/onSortOptionChange types and the sort <select> gained a 'series-asc' ('Series A-Z') option alongside updated-desc/created-desc/title-asc/title-desc."
+      ]
     },
     "frontend/src/pages/ProjectLibrary/components/ProjectListView.tsx": {
       "purpose": "Table view of projects",
@@ -12036,7 +12119,9 @@
       "called_by": [
         "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-08: new onOpenDetails(projectId) prop adds a 'Project Details' entry to each row's ActionMenu, ahead of 'Open Project'/'Delete Project'."
+      ],
       "calls_inferred": [
         "frontend/src/components/ui/ActionMenu"
       ]
@@ -12444,7 +12529,7 @@
         "frontend/src/pages/Settings/SettingsRoute.tsx"
       ],
       "notes": [
-        "gained a 'Parallel Segment Rendering' toggle (2026-07-06) posting {tts_parallel_cap: 1|2} as JSON to /api/settings via a dedicated updateParallelCap() helper \u2014 the form-encoded updateBooleanSetting/updateStringSetting helpers can't carry this field, since app/api/routers/system.py only parses tts_parallel_cap from the JSON body branch, not the form branch"
+        "gained a 'Parallel Segment Rendering' toggle (2026-07-06) posting {tts_parallel_cap: 1|2} as JSON to /api/settings via a dedicated updateParallelCap() helper — the form-encoded updateBooleanSetting/updateStringSetting helpers can't carry this field, since app/api/routers/system.py only parses tts_parallel_cap from the JSON body branch, not the form branch"
       ],
       "calls_inferred": [
         "frontend/src/utils/devMode#*",
@@ -12832,7 +12917,7 @@
       "notes": [
         "PL-1 (2026-07-04): local _get_ctx() kept as a thin patchable shim, body now delegates to the shared get_plugin_ctx(engine_id) factory",
         "2026-07-04 follow-up: _group_is_done's bare chunk_path.exists() replaced with ctx.is_valid_segment_artifact(chunk_path) -- last of the 4 render-path reuse gates to use the validated-artifact standard (xtts bake, voxtral bake, mixed already did via PL-2's group_needs_render)",
-        "handle_xtts_standard now guards the empty-script case (rc=0, falls through to the existing stitch block) instead of calling generate_via_bridge with empty text/script (2026-07-05 escaped-defect fix) \u2014 a fan-out sibling (or an earlier run) can leave every group in this chapter already satisfied, and the bridge call used to 422 on 'text must not be empty'"
+        "handle_xtts_standard now guards the empty-script case (rc=0, falls through to the existing stitch block) instead of calling generate_via_bridge with empty text/script (2026-07-05 escaped-defect fix) — a fan-out sibling (or an earlier run) can leave every group in this chapter already satisfied, and the bridge call used to 422 on 'text must not be empty'"
       ],
       "calls_inferred": [
         "app/studio_plugin_sdk/plugin_utils.py#get_plugin_ctx",
@@ -13275,7 +13360,7 @@
         {
           "name": "render_one_group",
           "kind": "function",
-          "contract": "R1 extraction of the per-group loop body: markers, render, artifact-validate, [SEGMENT_SAVED], per-group DB update. Zero chapter-terminal writes/stitch/DB rebuild \u2014 safe to call once per concurrent child."
+          "contract": "R1 extraction of the per-group loop body: markers, render, artifact-validate, [SEGMENT_SAVED], per-group DB update. Zero chapter-terminal writes/stitch/DB rebuild — safe to call once per concurrent child."
         },
         {
           "name": "_is_valid_segment_artifact, _validated_wav_duration_seconds",
@@ -13493,7 +13578,9 @@
         "_SyntheticSegmentTask.describe() sets ephemeral=True; ChapterSynthesisTask._publish_progress emits size-weighted, order-independent grouped_progress computed from in-memory child text sizes (count-based progress retained separately)",
         "ChapterSynthesisTask gained an event-driven self._live_segments_map (2026-07-05 escaped-defect fix): _on_child_segment_tick updates it incrementally from each child's own per-tick publish (via the on_segment_tick callback in orchestrator_publish.py), replacing the old completion-boundary sampling that was structurally always empty; _clear_active_segments_map() force-writes an explicit {} at any terminal outcome so a stale mid-render snapshot never rides a terminal frame",
         "ChapterSynthesisTask.run() now calls self._publish_progress(status=\"running\", completed=0, ...) immediately after submitting the ThreadPoolExecutor futures, before the as_completed loop (2026-07-06 fix) -- previously the parent job's own `status` field stayed \"preparing\" for the ENTIRE first chunk group's render (status only flipped inside as_completed, i.e. only once a whole group COMPLETED).",
-        "_on_child_segment_tick(reason_code=None) now derives active_segments_map phase as \"preparing\" if status==\"preparing\" OR reason_code in {SEGMENT_PENDING, LOADING_MODEL} else \"rendering\" (2026-07-06 fix) -- previously hardcoded to \"rendering\" for every non-terminal tick, so a child's SEGMENT_PENDING/LOADING_MODEL sub-phase (conveyed via reason_code, not status) never surfaced in the map."
+        "_on_child_segment_tick(reason_code=None) now derives active_segments_map phase as \"preparing\" if status==\"preparing\" OR reason_code in {SEGMENT_PENDING, LOADING_MODEL} else \"rendering\" (2026-07-06 fix) -- previously hardcoded to \"rendering\" for every non-terminal tick, so a child's SEGMENT_PENDING/LOADING_MODEL sub-phase (conveyed via reason_code, not status) never surfaced in the map.",
+        "2026-07-07 ETA-decay fix: new self._dispatch_eta_seconds instance attr (stashed by orchestrator_helpers.py's _publish_chapter_dispatch_eta before task.run()); new _live_chapter_eta_seconds(status, decay_fraction) decays that dispatch-time estimate by grouped_progress (or plain progress) so the chapter's eta_seconds tracks REMAINING work instead of staying frozen at the t=0 dispatch snapshot; _publish_progress now durably persists status/progress/eta_seconds+active_segments_map via a new update_job(..., skip_job_updated=True) call on every 'running' frame (previously only broadcast via the pure ProgressService.publish(), so the DB row itself went stale between the far-more-frequent map-only update_job writes from _on_child_segment_tick).",
+        "2026-07-07 fable-review fixes: (1) eta_seconds is now simply omitted from the update_job(...) call when no dispatch calibration exists, instead of passing explicit None -- an explicit None clears eta_seconds/eta_basis/estimated_end_at at the state layer and would have wiped the ticks' own legitimately-maintained projection-derived ETA at every group boundary; (2) a successful (done/completed) terminal child tick now leaves a transient {phase:'done', progress:1.0, eta_seconds:0} marker in active_segments_map instead of popping the segment -- this is the only live signal keeping a just-finished segment's text lit ahead of the next DB refetch; failed/cancelled terminals still pop unchanged. run()'s as_completed loop now passes status=result.status into _on_child_segment_tick instead of a hardcoded 'done' -- the hardcoded call was a real bug: under the new done-marker semantics it would have permanently mislabeled a failed/cancelled child as successfully rendered. _clear_active_segments_map (unchanged) still force-wipes the whole map at the chapter's own terminal outcome."
       ]
     },
     "app/domain/voices/huggingface.py": {
@@ -13502,7 +13589,7 @@
         {
           "name": "HFToken",
           "kind": "class",
-          "contract": "frozen dataclass; repr/str redacted (asdict/pickle NOT redacted \u2014 documented+tested limitation)"
+          "contract": "frozen dataclass; repr/str redacted (asdict/pickle NOT redacted — documented+tested limitation)"
         },
         {
           "name": "HFVoiceCardMetadata, HFSearchResult, HFConsentDecision",
@@ -13528,8 +13615,8 @@
       ],
       "notes": [
         "deliberately does NOT define VoiceProvenance; uses its own local HFVoiceCardMetadata, decoupled from app/domain/voices/taxonomy.py#validate_provenance_strict pending a future integration pass",
-        "export_hf_voice_bundle uses safe_join_flat on bundle_name \u2014 rejects path-traversal from a Hub-derived/user-typed name",
-        "annotate_from_card's returned dict includes 'license', which update_voice_metadata does NOT accept \u2014 a future caller must route it separately",
+        "export_hf_voice_bundle uses safe_join_flat on bundle_name — rejects path-traversal from a Hub-derived/user-typed name",
+        "annotate_from_card's returned dict includes 'license', which update_voice_metadata does NOT accept — a future caller must route it separately",
         "STATUS (2026-07-04): LIVE -- real HFHubClient implementation makes genuine HTTPS calls via huggingface_hub; validate_hub_id (strict regex, fullmatch) gates every call as an SSRF/path-injection guard",
         "download_files hardening (2026-07-04): filters to an audio/manifest extension allowlist BEFORE download, caps at MAX_DOWNLOAD_FILES=20, independently validates every filename via safe_basename (not relying solely on the huggingface_hub library's own sanitization) -- accepted gap: no per-file/total byte-size cap yet",
         "provenance populated on import as {source:'imported', author, consent_ack, created_at} -- correctly matches the REAL schema (not the pre-implementation plan's source='huggingface'/hub_id shape a sibling demo mockup mistakenly used)",
@@ -13554,10 +13641,10 @@
       ],
       "called_by": [],
       "notes": [
-        "STATUS: not imported by any mounted route/page \u2014 reachable only from its own tests",
+        "STATUS: not imported by any mounted route/page — reachable only from its own tests",
         "registry.ts holds the ordered tool list; adding a tool means adding a registry entry, not touching the Console",
         "each stub renders icon+label+'coming soon' via shared ToolStub.tsx",
-        "NAMING COLLISION (flagged by frontier review 2026-07-03): frontend/src/demo/stages/siteMockup/panes/directorsConsole.tsx already exports a live, mounted DirectorsConsole for the demo site stage \u2014 same exported name, zero cross-imports today, but the wiring pass should rename/retire one first"
+        "NAMING COLLISION (flagged by frontier review 2026-07-03): frontend/src/demo/stages/siteMockup/panes/directorsConsole.tsx already exports a live, mounted DirectorsConsole for the demo site stage — same exported name, zero cross-imports today, but the wiring pass should rename/retire one first"
       ],
       "calls_inferred": [
         "./registry.ts#directorsConsoleTools (CastTool/BoothTool/ReviseTool/placeholders.tsx via ./types.ts#DirectorsTool)"
@@ -13587,8 +13674,8 @@
       "called_by": [],
       "notes": [
         "importing this module never creates an instance or loads a catalog (modular_architecture.md no-import-side-effects)",
-        "useTranslation.ts (sibling file) wraps getI18n() with a pure passthrough (raw key or explicit default) when uninitialized \u2014 never throws",
-        "one sample catalog only (locales/en-US/welcome.json, WelcomePage strings) \u2014 full string-extraction is future work"
+        "useTranslation.ts (sibling file) wraps getI18n() with a pure passthrough (raw key or explicit default) when uninitialized — never throws",
+        "one sample catalog only (locales/en-US/welcome.json, WelcomePage strings) — full string-extraction is future work"
       ]
     },
     "frontend/src/components/progress/SegmentRenderMonitor/SegmentRenderMonitor.tsx": {
@@ -13679,7 +13766,7 @@
       "called_by": [],
       "notes": [
         "usePeaks decoupled from the <audio> element (fetch+decode independent of audioEl.src) -- preserves ADR-0010 single-audio-owner; no <audio> or MediaElementSourceNode anywhere in this file (grep-confirmed)",
-        "fixed-grid sampling (audio-player.md 1.6.0 \u00a75.3): gridSec = windowSec/BAR_COUNT, alignedStart snapped -- prevents waveform crawl",
+        "fixed-grid sampling (audio-player.md 1.6.0 §5.3): gridSec = windowSec/BAR_COUNT, alignedStart snapped -- prevents waveform crawl",
         "task 007 landed 2026-07-04: accepts optional onZoomChange/peaks props, renders WaveformTapeZoom above and WaveformTapeMinimap below the canvas when onZoomChange is provided; still not yet mounted into PlayerBar.tsx -- that's task 008's job",
         "review-ratchet fix (2026-07-04): wheel-zoom listener is attached via a native, non-passive addEventListener('wheel', ..., {passive:false}) in a useEffect, not React's onWheel JSX prop -- React registers wheel as passive at the root (17+), so e.preventDefault() inside onWheel was a silent no-op in real browsers (page scrolled while zoom also snapped); jsdom couldn't reproduce the bug, so the regression test is structural (asserts the addEventListener call's options)"
       ]
@@ -13707,7 +13794,7 @@
       ]
     },
     "frontend/src/utils/voiceCasting.ts": {
-      "purpose": "Pure helpers bridging the casting contract (voice-bundles.md \u00a79) to in-memory voice/character data",
+      "purpose": "Pure helpers bridging the casting contract (voice-bundles.md §9) to in-memory voice/character data",
       "exports": [
         {
           "name": "voiceMetadataToCastingCard, buildCastingCatalog",
@@ -14045,7 +14132,7 @@
       ]
     },
     "frontend/src/app/layout/WaveformTapeZoom.tsx": {
-      "purpose": "Cover-slider zoom preset control for WaveformTape (audio-player.md 1.6.0 \u00a75.2), task 007",
+      "purpose": "Cover-slider zoom preset control for WaveformTape (audio-player.md 1.6.0 §5.2), task 007",
       "exports": [
         {
           "name": "WaveformTapeZoom",
@@ -14114,8 +14201,8 @@
       ],
       "called_by": [],
       "notes": [
-        "LF-7 (2026-07-04): extracted from app/tts_server/server.py (1351->914 lines) \u2014 every containment/symlink check preserved verbatim, route decorators stay in server.py as thin wrappers per its 'sole HTTP boundary' docstring",
-        "_staging dict + _staging_lock (module-level) are the two-phase preview/confirm token store \u2014 tests reset via monkeypatch.setattr(plugin_staging_mod, '_staging', {}), NOT server_mod._staging",
+        "LF-7 (2026-07-04): extracted from app/tts_server/server.py (1351->914 lines) — every containment/symlink check preserved verbatim, route decorators stay in server.py as thin wrappers per its 'sole HTTP boundary' docstring",
+        "_staging dict + _staging_lock (module-level) are the two-phase preview/confirm token store — tests reset via monkeypatch.setattr(plugin_staging_mod, '_staging', {}), NOT server_mod._staging",
         "reaches back into server.py only via lazy 'from app.tts_server import server as _server' inside functions (not module-level) so monkeypatch.setattr(server_mod, 'load_plugins', ...) in tests still intercepts the reload call correctly"
       ],
       "calls_inferred": [
@@ -14236,7 +14323,144 @@
         "frontend/src/pages/Book/studio/useStudioChapter.ts"
       ],
       "notes": [
-        "Added 2026-07-06 to restore progress-presentation.md spec \u00a77 H5 (text fill follows ANIMATED display progress, never raw stepped event data) for N concurrently-rendering segments -- reuses the bar's existing lane math and 250ms tickMs cadence rather than inventing new interpolation logic. One shared setInterval keyed on a boolean so frame-identity churn never resets the timer."
+        "Added 2026-07-06 to restore progress-presentation.md spec §7 H5 (text fill follows ANIMATED display progress, never raw stepped event data) for N concurrently-rendering segments -- reuses the bar's existing lane math and 250ms tickMs cadence rather than inventing new interpolation logic. One shared setInterval keyed on a boolean so frame-identity churn never resets the timer."
+      ]
+    },
+    "frontend/src/pages/Book/lib/chapterImport.ts": {
+      "purpose": "Shared chapter-import file validation/naming helpers used by the manuscript import UI",
+      "exports": [
+        {
+          "name": "getChapterImportFileExtension",
+          "kind": "function",
+          "contract": "File → string; lowercased extension without the dot, '' if none"
+        },
+        {
+          "name": "isSupportedChapterImportFile",
+          "kind": "function",
+          "contract": "File → boolean; true only for .txt"
+        },
+        {
+          "name": "getChapterImportFileTitle",
+          "kind": "function",
+          "contract": "File → string; filename minus extension, 'Imported chapter' fallback"
+        },
+        {
+          "name": "getChapterImportError",
+          "kind": "function",
+          "contract": "File → string; toast-ready 'unsupported file' message"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Book/components/AddChapterModal.tsx",
+        "frontend/src/pages/Book/components/ChapterImportBar.tsx",
+        "frontend/src/pages/Book/stages/ContentsStage.tsx",
+        "frontend/src/pages/Book/stages/ManuscriptStage.tsx"
+      ],
+      "notes": [
+        "SUPPORTED_IMPORT_EXTENSIONS = ['txt'] only, added 2026-07-08 to replace the previous .txt/.docx/.epub claim (docx/epub were never actually parsed)."
+      ]
+    },
+    "frontend/src/hooks/useDragDropHighlight.ts": {
+      "purpose": "Shared drag-and-drop file-drop highlight state/handlers (isDragging + dragDropProps spread) for any drop target",
+      "exports": [
+        {
+          "name": "useDragDropHighlight",
+          "kind": "hook",
+          "contract": "(onDropFiles: (files: FileList) => void|Promise<void>) → { isDragging, resetDragState, dragDropProps: {onDragEnter,onDragOver,onDragLeave,onDrop} }"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Book/components/BookInfoCard.tsx",
+        "frontend/src/pages/Book/components/ChapterImportBar.tsx",
+        "frontend/src/pages/Voices/components/SampleManager.tsx"
+      ],
+      "notes": [
+        "added 2026-07-08. hasFileDrag() gates on dataTransfer.types.includes('Files') so non-file drags (text selections) don't trigger the highlight; dragDepthRef counts nested dragenter/dragleave so isDragging doesn't flicker when a child element is entered/left during a drag."
+      ]
+    },
+    "frontend/src/pages/Book/components/ChapterImportBar.tsx": {
+      "purpose": "Reusable manuscript-import control (compact pill or full drop-zone card) wrapping useDragDropHighlight + a hidden file input",
+      "exports": [
+        {
+          "name": "ChapterImportBar",
+          "kind": "component",
+          "contract": "props: onImportFiles(files), submitting, compact?"
+        }
+      ],
+      "calls": [
+        "frontend/src/hooks/useDragDropHighlight.ts#useDragDropHighlight"
+      ],
+      "called_by": [
+        "frontend/src/pages/Book/stages/ContentsStage.tsx",
+        "frontend/src/pages/Book/stages/ManuscriptStage.tsx"
+      ],
+      "notes": [
+        "added 2026-07-08. compact renders a small dashed-border pill (ContentsStage's action row); default renders the larger drop-zone card (ManuscriptStage); input accepts multiple .txt files; clears the file input value after each import so the same file can be re-selected."
+      ]
+    },
+    "frontend/src/utils/seriesPosition.ts": {
+      "purpose": "Parse/validate a series-position text input into an integer or null",
+      "exports": [
+        {
+          "name": "parseSeriesPositionInput",
+          "kind": "function",
+          "contract": "string → {value: number|null, error: string|null}; blank -> {null,null}; non-integer -> error message; else -> parsed int"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/hooks/useProjectLibrary.ts",
+        "frontend/src/pages/ProjectDetail/components/ProjectModals.tsx"
+      ],
+      "notes": [
+        "added 2026-07-08."
+      ]
+    },
+    "frontend/src/utils/toast.ts": {
+      "purpose": "Fire-and-forget window CustomEvent bridge for surfacing toast messages from code that has no direct access to the toast hook",
+      "exports": [
+        {
+          "name": "APP_TOAST_EVENT",
+          "kind": "const"
+        },
+        {
+          "name": "emitToast",
+          "kind": "function",
+          "contract": "string → void; dispatches a window CustomEvent(APP_TOAST_EVENT, {detail:{message}})"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/app/App.tsx",
+        "frontend/src/pages/Book/components/AddChapterModal.tsx",
+        "frontend/src/hooks/useProjectLibrary.ts",
+        "frontend/src/pages/Book/stages/ContentsStage.tsx",
+        "frontend/src/pages/Book/stages/ManuscriptStage.tsx",
+        "frontend/src/pages/ProjectDetail/components/ProjectModals.tsx"
+      ],
+      "notes": [
+        "added 2026-07-08. App.tsx is the sole listener, forwarding to its own useToast()-backed showToast; decouples toast-emitting utility/validation code (import validation, series-position validation) from needing the hook directly."
+      ]
+    },
+    "frontend/src/pages/Book/stages/BookStage.tsx": {
+      "purpose": "Dedicated Book overview stage: hero header + BookInfoCard + a reserved notes panel, first tab in the book stage order",
+      "exports": [
+        {
+          "name": "BookStage",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/Book/components/BookInfoCard.tsx#BookInfoCard",
+        "frontend/src/pages/Book/BookDataContext.tsx#useBookDataContext"
+      ],
+      "called_by": [
+        "frontend/src/pages/Book/BookLayout.tsx"
+      ],
+      "notes": [
+        "added 2026-07-09. Renders BookInfoCard with project/totalRuntime/totalPredicted/hasRendered/hasUnrendered/onUpdateProject from BookDataContext; a static 'Overview notes' aside panel is a placeholder reserved for a future description/synopsis field (no persistence yet)."
       ]
     }
   },
@@ -14248,7 +14472,7 @@
       ],
       "co_changes": 8,
       "strength": 0.89,
-      "reason": "router delegates to this DB module for every chapter mutation; map's edge list for this file is incomplete \u2014 worth a direct-edge audit"
+      "reason": "router delegates to this DB module for every chapter mutation; map's edge list for this file is incomplete — worth a direct-edge audit"
     },
     {
       "files": [
@@ -14266,7 +14490,7 @@
       ],
       "co_changes": 6,
       "strength": 0.86,
-      "reason": "unknown \u2014 no import edge; low sample size (n=6), may be incidental co-membership in a few multi-file commits rather than a real coupling"
+      "reason": "unknown — no import edge; low sample size (n=6), may be incidental co-membership in a few multi-file commits rather than a real coupling"
     },
     {
       "files": [
@@ -14275,7 +14499,7 @@
       ],
       "co_changes": 6,
       "strength": 0.67,
-      "reason": "chapter/character-casting domain overlap (segments reference speaker assignments) \u2014 no direct import, shared schema concern"
+      "reason": "chapter/character-casting domain overlap (segments reference speaker assignments) — no direct import, shared schema concern"
     },
     {
       "files": [
@@ -14284,7 +14508,7 @@
       ],
       "co_changes": 5,
       "strength": 0.62,
-      "reason": "the orchestrator's marker-parsing regexes (SEGMENT_PENDING/START_SEGMENT/progress markers) and the engine's stdout marker emission must change together, but tts-server-isolation (invariant) forbids any import edge between them \u2014 this pair is the textbook 'implicit protocol coupling' case"
+      "reason": "the orchestrator's marker-parsing regexes (SEGMENT_PENDING/START_SEGMENT/progress markers) and the engine's stdout marker emission must change together, but tts-server-isolation (invariant) forbids any import edge between them — this pair is the textbook 'implicit protocol coupling' case"
     },
     {
       "files": [
@@ -14293,7 +14517,7 @@
       ],
       "co_changes": 5,
       "strength": 1.0,
-      "reason": "perfect co-change correlation (n=5, strength=1.0) but small sample \u2014 chapter render-submission endpoints touch the queue; flag for a direct-edge audit rather than treating as certain"
+      "reason": "perfect co-change correlation (n=5, strength=1.0) but small sample — chapter render-submission endpoints touch the queue; flag for a direct-edge audit rather than treating as certain"
     },
     {
       "files": [
@@ -14421,11 +14645,11 @@
         "frontend/src/components/queue/QueueItem.tsx"
       ],
       "transforms": [
-        "app/api/contracts/events.py#build_chapter_progress_event / build_queue_item_status_event \u2014 DB/state.json Job dict -> topic-scoped wire payload (snake_case additive fields like active_segments_map, no camelCase variant)",
-        "app/api/ws.py#broadcast_job_updated \u2014 merges an `updates` partial onto the current job before building wire events; ephemeral fan-out children (is_chapter_fanout children) never reach this at all \u2014 see active_segments_map entity",
-        "frontend/src/types/index.ts#Job \u2014 the wire shape as consumed by the frontend; several fields are 'computed but not wired' placeholders (e.g. chapter_wall_duration) present in state.json/wire but not yet read by any UI"
+        "app/api/contracts/events.py#build_chapter_progress_event / build_queue_item_status_event — DB/state.json Job dict -> topic-scoped wire payload (snake_case additive fields like active_segments_map, no camelCase variant)",
+        "app/api/ws.py#broadcast_job_updated — merges an `updates` partial onto the current job before building wire events; ephemeral fan-out children (is_chapter_fanout children) never reach this at all — see active_segments_map entity",
+        "frontend/src/types/index.ts#Job — the wire shape as consumed by the frontend; several fields are 'computed but not wired' placeholders (e.g. chapter_wall_duration) present in state.json/wire but not yet read by any UI"
       ],
-      "notes": "Two representations that must be kept straight: the DURABLE DB row (app/db/models.py, SQLite) vs. the LIVE in-memory job dict in state.json (app/db/state_jobs.py) \u2014 the live dict is a superset carrying transient fields (active_segment_id, active_segments_map, timing scalars) the DB row doesn't have. A synthetic fan-out child (_SyntheticSegmentTask, ephemeral=True) never gets its own durable Job row at all (INV-4, W-PAR enable-gate) \u2014 only the parent ChapterSynthesisTask does."
+      "notes": "Two representations that must be kept straight: the DURABLE DB row (app/db/models.py, SQLite) vs. the LIVE in-memory job dict in state.json (app/db/state_jobs.py) — the live dict is a superset carrying transient fields (active_segment_id, active_segments_map, timing scalars) the DB row doesn't have. A synthetic fan-out child (_SyntheticSegmentTask, ephemeral=True) never gets its own durable Job row at all (INV-4, W-PAR enable-gate) — only the parent ChapterSynthesisTask does."
     },
     "active_segments_map": {
       "defined_in": "app/orchestration/tasks/segment_synthesis.py#ChapterSynthesisTask._live_segments_map (authoritative in-memory source)",
@@ -14437,17 +14661,17 @@
         "frontend/src/pages/Book/studio/useStudioChapter.ts#chapterRenderActiveSegmentsMap (backendActiveSegmentsMap ?? fallbackActiveSegmentsMap)"
       ],
       "transforms": [
-        "app/db/state.py#update_job(active_segments_map=..., skip_job_updated=True) \u2014 written straight to job state, bypassing ProgressService.publish (which doesn't carry this field)",
+        "app/db/state.py#update_job(active_segments_map=..., skip_job_updated=True) — written straight to job state, bypassing ProgressService.publish (which doesn't carry this field)",
         "app/orchestration/scheduler/orchestrator_publish.py#_publish (ephemeral branch) -> on_segment_tick(...) callback -> ChapterSynthesisTask._on_child_segment_tick -> self._live_segments_map mutation (under _children_lock)",
         "app/api/ws.py#broadcast_job_updated -> app/api/contracts/events.py#build_chapter_progress_event -> wire payload.active_segments_map (delivery leg added 2026-07-05; before this, a populated map could never reach the frontend regardless of backend state)",
-        "frontend/src/pages/Book/studio/useStudioChapter.ts \u2014 when the backend field is undefined (not an explicit {}), falls back to a locally-derived map built from frontend/src/hooks/useJobs.ts's segmentProgress stream"
+        "frontend/src/pages/Book/studio/useStudioChapter.ts — when the backend field is undefined (not an explicit {}), falls back to a locally-derived map built from frontend/src/hooks/useJobs.ts's segmentProgress stream"
       ],
-      "notes": "Shape: dict[segment_id, {phase: 'preparing'|'rendering'|'done', progress: number, eta_seconds: number|null, reason_code?, indeterminate?}]. An explicit backend {} means 'nothing genuinely rendering right now' and MUST win over the frontend's local fallback \u2014 only a missing/undefined field triggers the fallback. Additive-only field (INV-1/INV-9): absent when the dispatch path has nothing concurrent to report, never required."
+      "notes": "Shape: dict[segment_id, {phase: 'preparing'|'rendering'|'done', progress: number, eta_seconds: number|null, reason_code?, indeterminate?}]. An explicit backend {} means 'nothing genuinely rendering right now' and MUST win over the frontend's local fallback — only a missing/undefined field triggers the fallback. Additive-only field (INV-1/INV-9): absent when the dispatch path has nothing concurrent to report, never required."
     },
     "Settings": {
       "defined_in": "app/db/state_settings.py#_default_state (settings sub-dict; no dataclass, plain dict)",
       "written_by": [
-        "app/api/routers/system.py#save_settings (POST /api/settings \u2014 JSON body branch and form-encoded branch parse DIFFERENT field subsets; tts_parallel_cap/tts_engine_caps are JSON-only)",
+        "app/api/routers/system.py#save_settings (POST /api/settings — JSON body branch and form-encoded branch parse DIFFERENT field subsets; tts_parallel_cap/tts_engine_caps are JSON-only)",
         "app/db/state_settings.py#_normalize_settings (defaults + coercion on every read/write)"
       ],
       "read_by": [
@@ -14457,10 +14681,10 @@
         "frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx"
       ],
       "transforms": [
-        "app/api/routers/system.py#_redact_settings \u2014 strips secret fields (API keys) before the dict ever reaches a JSON response",
-        "frontend/src/types/index.ts#Settings \u2014 the wire shape; tts_parallel_cap/tts_engine_caps added 2026-07-06"
+        "app/api/routers/system.py#_redact_settings — strips secret fields (API keys) before the dict ever reaches a JSON response",
+        "frontend/src/types/index.ts#Settings — the wire shape; tts_parallel_cap/tts_engine_caps added 2026-07-06"
       ],
-      "notes": "Settings-then-env fallback pattern used by BOTH api_priority_mode/TTS_API_PRIORITY and tts_parallel_cap/TTS_PARALLEL_CAP: the env var only matters before state.json has ever been normalized (fresh install) \u2014 _normalize_settings always materializes a concrete default afterward, so raising a value on a running install must go through the Settings API/UI, never the env var. GeneralSettingsPanel.tsx's existing updateBooleanSetting/updateStringSetting helpers POST form-encoded bodies and silently can't set tts_parallel_cap \u2014 a trap for future settings additions unless they're also added to system.py's form branch or use the JSON POST pattern instead."
+      "notes": "Settings-then-env fallback pattern used by BOTH api_priority_mode/TTS_API_PRIORITY and tts_parallel_cap/TTS_PARALLEL_CAP: the env var only matters before state.json has ever been normalized (fresh install) — _normalize_settings always materializes a concrete default afterward, so raising a value on a running install must go through the Settings API/UI, never the env var. GeneralSettingsPanel.tsx's existing updateBooleanSetting/updateStringSetting helpers POST form-encoded bodies and silently can't set tts_parallel_cap — a trap for future settings additions unless they're also added to system.py's form branch or use the JSON POST pattern instead."
     },
     "StudioSocketEnvelope": {
       "defined_in": "app/api/contracts/events.py (server-side canonical builders) / frontend/src/api/contracts/liveEvents.ts#StudioSocketEnvelope (client-side typed mirror)",
@@ -14469,12 +14693,12 @@
       ],
       "read_by": [
         "frontend/src/store/studioSocketBus.ts (dispatch by topic)",
-        "frontend/src/utils/queueEventDispatcher.ts (queue.items is the sole row-authority topic; all others may only overlay QUEUE_OVERLAY_FIELDS \u2014 see queue-items-is-row-authority invariant)",
+        "frontend/src/utils/queueEventDispatcher.ts (queue.items is the sole row-authority topic; all others may only overlay QUEUE_OVERLAY_FIELDS — see queue-items-is-row-authority invariant)",
         "frontend/src/hooks/useJobs.ts"
       ],
       "transforms": [
-        "app/api/contracts/events.py#normalize_to_canonical_command / LEGACY_TO_CANONICAL \u2014 reason_code strings get normalized to a canonical JobLifecycleCommand before topic-scope checks",
-        "app/api/ws.py#ConnectionManager broadcasts the same envelope to every subscribed client verbatim \u2014 no per-client reshaping"
+        "app/api/contracts/events.py#normalize_to_canonical_command / LEGACY_TO_CANONICAL — reason_code strings get normalized to a canonical JobLifecycleCommand before topic-scope checks",
+        "app/api/ws.py#ConnectionManager broadcasts the same envelope to every subscribed client verbatim — no per-client reshaping"
       ],
       "notes": "One envelope type, many topics (chapters.progress, segments.progress, queue.items, jobs.lifecycle, chapters.lifecycle, segments.lifecycle, tts_log, voice.test, system, projects.lifecycle). Payload shape is topic-specific (see e.g. ChapterProgressPayload); frontend contract types in liveEvents.ts are the enforced shape for tests per testing-standards.md R3 (contract-shaped event frames, no untyped hand-rolled frame literals)."
     }

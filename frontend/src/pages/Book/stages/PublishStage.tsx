@@ -18,6 +18,8 @@ export function PublishStage() {
     project,
     totalPredicted,
     totalRuntime,
+    hasRendered,
+    hasUnrendered,
   } = useBookDataContext();
   const [isAssemblyMode, setIsAssemblyMode] = useState(false);
   const [selectedChapterIds, setSelectedChapterIds] = useState<Set<string>>(new Set());
@@ -124,6 +126,8 @@ export function PublishStage() {
           project={project}
           totalRuntime={totalRuntime}
           totalPredicted={totalPredicted}
+          hasRendered={hasRendered}
+          hasUnrendered={hasUnrendered}
           onUpdateProject={actions.handleUpdateProject}
         />
       </aside>

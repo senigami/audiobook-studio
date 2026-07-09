@@ -1,8 +1,9 @@
-export const BOOK_STAGES = ['contents', 'cast', 'lexicon', 'publish', 'backups'] as const;
+export const BOOK_STAGES = ['book', 'contents', 'cast', 'lexicon', 'publish', 'backups'] as const;
 
 export type BookStage = (typeof BOOK_STAGES)[number];
 
 export const BOOK_STAGE_LABELS: Record<BookStage, string> = {
+  book: 'Book',
   contents: 'Contents',
   cast: 'Cast',
   lexicon: 'Lexicon',

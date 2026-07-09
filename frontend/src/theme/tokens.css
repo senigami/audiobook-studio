@@ -33,7 +33,7 @@
   --text-primary: #1c2b4a;     /* was #0f172a */
   --text-secondary: #475569;
   --text-muted: #5c6a80;       /* was #64748b */
-  --text-subtle: #64748b;      /* NEW — large/chrome only in light; pending — no consumers yet (no specific migration phase assigned) */
+  --text-subtle: #69788f;      /* lightest near-edge placeholder tone on white */
   --border: #e6eaf2;
   --glass: rgba(255, 255, 255, 0.8);
   --glass-border: rgba(255, 255, 255, 0.5);

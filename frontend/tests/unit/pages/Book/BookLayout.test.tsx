@@ -11,6 +11,7 @@ vi.mock('@/api', () => ({
     fetchCharacters: vi.fn(),
     fetchProjectAudiobooks: vi.fn(),
     fetchProjectBackups: vi.fn(),
+    listVoicesWithMetadata: vi.fn(),
   },
 }));
 
@@ -56,7 +57,30 @@ function renderBookRoute(initialEntry: string) {
 }
 
 describe('BookLayout', () => {
+  const ensureLocalStorage = () => {
+    if (typeof localStorage.clear === 'function') return;
+    const store = new Map<string, string>();
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: {
+        clear: () => store.clear(),
+        getItem: (key: string) => store.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          store.set(key, value);
+        },
+        removeItem: (key: string) => {
+          store.delete(key);
+        },
+        key: (index: number) => Array.from(store.keys())[index] ?? null,
+        get length() {
+          return store.size;
+        },
+      },
+    });
+  };
+
   beforeEach(() => {
+    ensureLocalStorage();
     localStorage.clear();
     vi.mocked(api.fetchProject).mockResolvedValue({
       id: 'book-1',
@@ -72,21 +96,33 @@ describe('BookLayout', () => {
     vi.mocked(api.fetchCharacters).mockResolvedValue([]);
     vi.mocked(api.fetchProjectAudiobooks).mockResolvedValue([]);
     vi.mocked(api.fetchProjectBackups).mockResolvedValue([]);
+    vi.mocked(api.listVoicesWithMetadata).mockResolvedValue([]);
   });
 
   afterEach(() => {
+    ensureLocalStorage();
     localStorage.clear();
   });
 
-  it('renders the four book tabs and contents stage for the current stage', () => {
+  it('renders the book tabs and contents stage for the current stage', () => {
     renderBookRoute('/book/book-1/contents');
 
+    expect(screen.getByRole('link', { name: 'Book' })).toHaveAttribute('href', '/book/book-1/book');
     expect(screen.getByRole('link', { name: 'Contents' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Cast' })).toHaveAttribute('href', '/book/book-1/cast');
     expect(screen.getByRole('link', { name: 'Publish' })).toHaveAttribute('href', '/book/book-1/publish');
     expect(screen.getByRole('link', { name: 'Backups' })).toHaveAttribute('href', '/book/book-1/backups');
     expect(screen.getByRole('region', { name: 'Contents' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Manuscript chapters' })).toBeInTheDocument();
+  });
+
+  it('renders the book info stage when the Book tab is selected', async () => {
+    renderBookRoute('/book/book-1/book');
+
+    expect(screen.getByRole('link', { name: 'Book' })).toHaveAttribute('aria-current', 'page');
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: 'Book info' })).toBeInTheDocument();
+    });
   });
 
   it('redirects /book/:bookId to contents by default', async () => {
