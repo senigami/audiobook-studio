@@ -3,6 +3,7 @@ import { Play, Pause } from 'lucide-react';
 import { usePlayerBus, loadAndPlay, play, pause } from '@/store/playerBus';
 import type { TtsEngine } from '@/types';
 import { formatEngineTestGeneratedAt } from '@/pages/Engines/components/engineFormatters';
+import '@/pages/Engines/components/EngineCard.css';
 
 /** "Latest Test Sample" playback block, shown after a successful engine test. */
 export const EngineTestSample: React.FC<{
@@ -19,9 +20,9 @@ export const EngineTestSample: React.FC<{
   const isEnginePlaying = isCurrentEngineAudio && playerBus.playing;
 
   return (
-    <div style={{ marginTop: '1.25rem', padding: '1rem', background: 'var(--surface-dim)', borderRadius: '12px', border: '1px solid var(--border)', animation: 'fade-in 0.3s ease-out' }}>
+    <div className="engine-test-sample">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-        <span style={{ fontSize: '0.72rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <span className="engine-eyebrow">
           Latest Test Sample
         </span>
         <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)' }}>
@@ -47,18 +48,7 @@ export const EngineTestSample: React.FC<{
               });
             }
           }}
-          className="btn-ghost"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.4rem',
-            padding: '0.4rem 0.8rem',
-            borderRadius: '8px',
-            border: '1px solid var(--border)',
-            background: 'var(--surface)',
-            color: 'var(--text-primary)',
-            fontSize: '0.85rem',
-          }}
+          className="btn-ghost engine-test-sample__play-btn"
         >
           {isEnginePlaying ? <Pause size={14} /> : <Play size={14} />}
           {isEnginePlaying ? 'Pause' : 'Play Sample'}

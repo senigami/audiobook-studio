@@ -162,3 +162,24 @@
   text-decoration: underline;
   font-weight: 600;
 }
+
+.engine-test-sample {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  background: var(--surface-dim);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  animation: fade-in 0.3s ease-out;
+}
+
+.engine-test-sample__play-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
