@@ -1,6 +1,8 @@
+import json
 import logging
 import re
 import os
+import threading
 from pathlib import Path
 from typing import Optional, Literal
 from fastapi import APIRouter, HTTPException, Depends
@@ -10,6 +12,7 @@ from ...domain.chapters.facade import export_chapter_audio
 
 from ...db import get_chapter
 from ...db.state import get_settings
+from ...engines.audio_ops import compute_peaks_sidecar, SIDECAR_VERSION
 from ...utils.text.textops import sanitize_text, safe_split_long_sentences, pack_text_to_limit
 from ...core import config
 from ...core.config import find_secure_file
@@ -18,6 +21,62 @@ from .chapters_models import AudioExportRequest
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+_peaks_locks: dict[str, threading.Lock] = {}
+_peaks_locks_guard = threading.Lock()
+
+
+def _get_peaks_lock(key: str) -> threading.Lock:
+    with _peaks_locks_guard:
+        return _peaks_locks.setdefault(key, threading.Lock())
+
+
+def _load_or_compute_peaks_sidecar(wav_path: Path, sidecar_path: Path) -> Optional[dict]:
+    """Serves a peaks sidecar from cache if fresh, else computes and caches it.
+
+    "Fresh" means the cached sidecar's stamped version/size/mtime match the
+    WAV's current stat — any mismatch (stale re-render or version bump)
+    triggers recomputation rather than serving stale data.
+    """
+    stat = wav_path.stat()
+    if sidecar_path.exists():
+        try:
+            existing = json.loads(sidecar_path.read_text())
+            src = existing.get("source", {})
+            if (
+                existing.get("version") == SIDECAR_VERSION
+                and src.get("size_bytes") == stat.st_size
+                and src.get("mtime_ns") == stat.st_mtime_ns
+            ):
+                return existing
+        except (OSError, ValueError, json.JSONDecodeError):
+            pass
+
+    lock = _get_peaks_lock(str(wav_path))
+    with lock:
+        if sidecar_path.exists():
+            try:
+                existing = json.loads(sidecar_path.read_text())
+                stat_now = wav_path.stat()
+                src = existing.get("source", {})
+                if (
+                    existing.get("version") == SIDECAR_VERSION
+                    and src.get("size_bytes") == stat_now.st_size
+                    and src.get("mtime_ns") == stat_now.st_mtime_ns
+                ):
+                    return existing
+            except (OSError, ValueError, json.JSONDecodeError):
+                pass
+
+        sidecar = compute_peaks_sidecar(wav_path)
+        if sidecar is None:
+            return None
+
+        tmp_path = sidecar_path.with_suffix(".json.tmp")
+        tmp_path.write_text(json.dumps(sidecar))
+        os.replace(tmp_path, sidecar_path)
+        return sidecar
+
 
 @router.post("/chapters/{chapter_id}/export-audio")
 def api_export_chapter_audio(chapter_id: str, payload: AudioExportRequest):
@@ -114,11 +173,28 @@ def api_get_chapter_preview(
 def api_get_chapter_asset(
     project_id: str,
     chapter_id: str,
-    asset_type: Literal["audio", "text", "segment"],
+    asset_type: Literal["audio", "text", "segment", "peaks"],
     filename: Optional[str] = None,
 ):
     # Rule 9: Early validation
     chapter_id = config.canonical_chapter_id(chapter_id)
+
+    if asset_type == "peaks":
+        wav_resolved = config.resolve_chapter_asset_path(
+            project_id, chapter_id, "audio", filename=filename
+        )
+        if not wav_resolved or not wav_resolved.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Audio not found for chapter {chapter_id}",
+            )
+
+        sidecar_path = wav_resolved.with_suffix(".peaks.json")
+        sidecar = _load_or_compute_peaks_sidecar(wav_resolved, sidecar_path)
+        if sidecar is None:
+            raise HTTPException(status_code=404, detail="Peaks unavailable")
+        return JSONResponse(sidecar)
+
     resolved = config.resolve_chapter_asset_path(
         project_id, chapter_id, asset_type, filename=filename
     )
