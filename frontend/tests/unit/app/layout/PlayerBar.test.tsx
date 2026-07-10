@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PlayerBar } from '@/app/layout/PlayerBar';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PlayerBar, TAPE_DURATION_CAP_SEC } from '@/app/layout/PlayerBar';
 import * as playerBus from '@/store/playerBus';
 import { DURATION_BOOTSTRAP } from '@/app/layout/playerRepresentation';
 
@@ -41,16 +41,42 @@ function fireResize(width: number) {
   });
 }
 
+// jsdom does not implement window.matchMedia. PlayerBar reads it once at
+// mount (read-once-at-mount, mirroring WaveformTape.tsx's useReducedMotion())
+// to decide the tape motion-toggle's disabled/label state — this is an
+// external OS API (R2: outside the unit under test), not a playerBus/PlayerBar
+// internal, so stubbing it here (matching WaveformTape.test.tsx's own pattern)
+// is legitimate.
+const originalMatchMedia = window.matchMedia;
+
+function mockMatchMedia(reduced: boolean) {
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches: reduced,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }));
+}
+
 describe('PlayerBar', () => {
   beforeEach(() => {
     playerBus.resetPlayerBusForTests();
     lastResizeObserverCallback = null;
 
     vi.stubGlobal('ResizeObserver', MockResizeObserver);
+    mockMatchMedia(false);
 
     // Mock HTMLMediaElement prototype methods that JSDOM doesn't implement or stub fully
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve());
     vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia;
   });
 
   it('renders nothing when audioUrl is null', () => {
@@ -361,7 +387,12 @@ describe('PlayerBar', () => {
 
       expect(screen.queryByTestId('waveform-strip')).toBeNull();
       expect(screen.getByRole('slider')).toBeInTheDocument();
-      expect(screen.getByLabelText('Show waveform')).toBeInTheDocument();
+      // duration=10 is under TAPE_DURATION_CAP_SEC, so once flipped to the bar
+      // representation the toggle becomes the tape-open control (task 001),
+      // not a plain "Show waveform" re-flip — that label is reserved for
+      // clips over the cap (see the "never offers the tape above the
+      // duration cap" test below).
+      expect(screen.getByLabelText('Open tape view')).toBeInTheDocument();
     });
 
     it('the AudioLines toggle still flips bar → waveform regardless of scope', () => {
@@ -370,7 +401,11 @@ describe('PlayerBar', () => {
         title: 'Flip test 2',
         audioUrl: 'https://example.com/chapter.wav',
       });
-      playerBus.reportTime(0, 600);
+      // duration=700 (not 600): must stay above TAPE_DURATION_CAP_SEC so the
+      // toggle's label is the plain wave/bar flip this test targets, not the
+      // tape-availability label — 600 collides exactly with the cap boundary
+      // (tapeAvailable is duration<=TAPE_DURATION_CAP_SEC, inclusive).
+      playerBus.reportTime(0, 700);
 
       render(<PlayerBar />);
       fireResize(600);
@@ -411,6 +446,56 @@ describe('PlayerBar', () => {
       });
 
       expect(screen.getByTestId('waveform-strip')).toBeInTheDocument();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Tape view (audio-player.md 1.6.0 §5, task 002) — the AudioLines toggle
+  // opens/closes the expanded tape when the clip is under the duration cap
+  // and offers the plain representation-flip label above it.
+  // -------------------------------------------------------------------------
+
+  describe('Tape view', () => {
+    it('toggle opens the tape under the duration cap, and closes it again', () => {
+      playerBus.loadAndPlay({
+        scope: 'chapter',
+        title: 'Tape Test',
+        audioUrl: 'https://example.com/tape.mp3',
+      });
+      playerBus.reportTime(0, 300); // under TAPE_DURATION_CAP_SEC, bar representation by default (bootstrap)
+
+      render(<PlayerBar />);
+
+      expect(document.querySelector('.player-tape-region')).toBeNull();
+
+      act(() => {
+        fireEvent.click(screen.getByLabelText('Open tape view'));
+      });
+      expect(document.querySelector('.player-tape-region')).not.toBeNull();
+
+      act(() => {
+        fireEvent.click(screen.getByLabelText('Close tape view'));
+      });
+      expect(document.querySelector('.player-tape-region')).toBeNull();
+    });
+
+    it('never offers the tape above the duration cap — toggle keeps the representation-flip label', () => {
+      playerBus.loadAndPlay({
+        scope: 'chapter',
+        title: 'Over Cap Test',
+        audioUrl: 'https://example.com/long.mp3',
+      });
+      playerBus.reportTime(0, TAPE_DURATION_CAP_SEC + 300);
+
+      render(<PlayerBar />);
+
+      const toggle = screen.getByLabelText('Show waveform');
+      act(() => {
+        fireEvent.click(toggle);
+      });
+
+      expect(document.querySelector('.player-tape-region')).toBeNull();
+      expect(screen.queryByLabelText('Open tape view')).toBeNull();
     });
   });
 });

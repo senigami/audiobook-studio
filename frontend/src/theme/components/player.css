@@ -227,3 +227,236 @@
   height: 100% !important;
 }
 
+/* ---------------------------------------------------------------------------
+ * Tape view — expandable zoomed waveform (audio-player.md 1.6.0 §5, task 002)
+ * --------------------------------------------------------------------------- */
+
+/* Grows the player bar upward when the tape is open. Renders above
+   .player-bar-content in source order, so it stacks on top rather than
+   pushing the bar down. */
+.player-tape-region {
+  width: 100%;
+  height: 120px;
+  min-height: 96px;
+  max-height: 180px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  animation: player-tape-open var(--dur-fast) var(--ease-standard);
+}
+
+@keyframes player-tape-open {
+  from {
+    max-height: 0;
+    opacity: 0;
+  }
+  to {
+    max-height: 180px;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-tape-region {
+    animation: none;
+  }
+}
+
+/* Footer row inside the tape — minimap + zoom control + motion toggle. */
+.tape-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.25rem 0.75rem;
+  flex-shrink: 0;
+}
+
+/* Motion toggle reuses the circular .player-btn base; widened to a 44px
+   touch target here (:disabled dimming already inherited from .player-btn). */
+.tape-motion-toggle {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* WaveformTape.tsx root */
+.tape {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  outline: none;
+}
+
+.tape:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.tape-canvas {
+  display: block;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  cursor: pointer;
+  background: var(--surface-alt);
+}
+
+.tape-ruler {
+  position: relative;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.tape-tick {
+  position: absolute;
+  top: 2px;
+  transform: translateX(-50%);
+  font-size: var(--type-caption);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* WaveformTapeMinimap.tsx */
+.nsp-minimap {
+  flex-shrink: 0;
+  outline: none;
+}
+
+.nsp-minimap:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.tape-minimap-bar {
+  pointer-events: none;
+}
+
+.tape-minimap-window {
+  cursor: grab;
+}
+
+.tape-minimap-playhead {
+  pointer-events: none;
+}
+
+/* --- Cover-size slider (ported from src/demo/stages/siteMockup/mockup.css,
+   reused as-is so WaveformTapeZoom.tsx matches the Library cover-size look) --- */
+.ns-size-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ns-size-glyph {
+  border-radius: 2px;
+  background: var(--text-muted);
+  flex-shrink: 0;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  opacity: 0.7;
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+
+.ns-size-glyph:hover {
+  opacity: 1;
+}
+
+.ns-size-slider-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 120px;
+  height: 18px;
+}
+
+.ns-size-track {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+  pointer-events: none;
+}
+
+.ns-size-tick {
+  position: absolute;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  opacity: 0.55;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.ns-size-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 18px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ns-size-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.ns-size-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.ns-size-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.ns-size-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Touch-target (44px, HIG) invisible hit-area padding for the zoom control's
+   glyph buttons/slider — per WaveformTapeZoom.tsx's own comment, this is
+   deliberately just the hit box; the ported .ns-size-glyph above has no
+   visible width/height of its own yet (the mock set that per-instance via
+   inline style), so there is no visible chrome to inflate here. */
+.tape-zoom-glyph-hit {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.tape-zoom-slider-hit {
+  min-height: 44px;
+}
+
+.tape-zoom-dot--disabled {
+  opacity: 0.3;
+}
+
+.tape-zoom-dot--active {
+  background: var(--accent);
+}
+
