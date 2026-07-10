@@ -1,8 +1,37 @@
-"""Template studio job handler.
+"""Template studio job handler — illustrates the SDK facade, not the wiring.
 
-Copy this file into your plugin's ``plugin/studio/`` directory and implement
-the ``handle_job`` function.  All Studio services are accessed via ``ctx`` —
-never import from ``app.*`` directly.
+This file demonstrates the shape of a *custom* job handler built entirely on
+``StudioPluginContext`` (``ctx``) — the SDK facade over Studio's internals —
+so a plugin never needs to import ``app.*`` directly to do segment-level work
+(load chunk groups, emit per-segment progress, stitch/convert output, etc.).
+
+Two things to know before you copy this into a real plugin:
+
+1. **Most plugins don't need this file at all.** If your engine can be fully
+   expressed as ``StudioTTSEngine.synthesize()`` / ``preview()`` (see
+   ``plugin/server/engine.py``), Studio's generic dispatch handles job
+   orchestration for you — no ``worker_logic`` entry required. Only reach for
+   a custom handler like this one if you need fine-grained control over
+   chunking, segment progress, or multi-pass rendering that the generic path
+   doesn't give you.
+2. **The exact function signature Studio's orchestrator calls today is not
+   yet this clean ``handle_job(ctx, job)`` shape.** The current registry
+   dispatch (``app/orchestration/scheduler/orchestrator_helpers.py``) still
+   calls ``worker_logic``-registered handlers with the legacy positional
+   convention — keyword args named ``jid``, ``j`` (a raw job record,
+   inspected via ``inspect.signature``), ``on_output``, ``cancel_check``, and
+   optionally ``text``/``start`` — as shown in the real, currently-dispatched
+   example at ``plugins/tts_voxtral/plugin/studio/handler.py``. This file
+   documents the SDK-facade contract (``JobSpec``/``JobResult``, ``ctx.*``
+   helpers) that a future dispatcher revision is expected to call directly;
+   until then, wiring this exact function into ``manifest.json``'s
+   ``worker_logic`` will not be invoked this way. Check
+   ``design-docs/specs/plugin-contract.md`` for the current state before
+   wiring a custom handler into a real plugin.
+
+All Studio services here are accessed via ``ctx`` — never import from
+``app.*`` directly; that import boundary (not the exact call signature) is
+the part of this example that is stable and enforced today.
 
 SDK types live in ``studio_plugin_sdk`` which is pre-registered in
 ``sys.modules`` before any plugin handler is imported.
