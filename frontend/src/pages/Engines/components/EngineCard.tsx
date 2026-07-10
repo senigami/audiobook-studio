@@ -11,6 +11,7 @@ import { mergeScenarioEngine } from '@/pages/Engines/components/engineScenarioMe
 import { EngineCalibrationChip, EngineCalibrationSection } from '@/pages/Engines/components/EngineCalibrationSection';
 import { EngineSettingsForm } from '@/pages/Engines/components/EngineSettingsForm';
 import { EngineTestSample } from '@/pages/Engines/components/EngineTestSample';
+import '@/pages/Engines/components/EngineCard.css';
 
 const getErrorMessage = (err: any): string => {
   if (typeof err === 'string') return err;
@@ -135,33 +136,15 @@ export const EngineCard: React.FC<{
   };
 
   return (
-    <details
-      style={{
-        border: '1px solid var(--border)',
-        borderRadius: '16px',
-        background: 'var(--surface-light)',
-        overflow: 'hidden',
-      }}
-    >
-      <summary
-        style={{
-          listStyle: 'none',
-          cursor: 'pointer',
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: '1rem',
-          alignItems: 'center',
-          padding: '1rem',
-        }}
-      >
+    <details className="engine-card">
+      <summary className="engine-card__header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
           <ChevronDown size={17} color="var(--text-muted)" className="details-chevron" />
           {engine.logo_url && (
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)', flexShrink: 0 }}>
+            <div className="engine-card__logo">
               <img
                 src={engine.logo_url}
                 alt={`${engine.display_name} logo`}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 onError={(e) => {
                    // Fallback for broken images
                    (e.target as HTMLImageElement).style.display = 'none';
@@ -171,23 +154,14 @@ export const EngineCard: React.FC<{
           )}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>{displayEngine.display_name}</h3>
+              <h3 className="engine-card__title">{displayEngine.display_name}</h3>
               {displayEngine.dev?.enabled && (
-                <span style={{
-                  fontSize: '0.62rem',
-                  fontWeight: 900,
-                  background: 'var(--accent-glow)',
-                  color: 'var(--accent)',
-                  padding: '1px 4px',
-                  borderRadius: '4px',
-                  border: '1px solid var(--accent-tint-border)',
-                  letterSpacing: '0.05em'
-                }}>
+                <span className="engine-card__dev-badge">
                   DEV
                 </span>
               )}
             </div>
-            <p style={{ margin: '0.2rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.78rem', fontWeight: 600 }}>
+            <p className="engine-card__subtitle">
               {displayEngine.engine_id} {displayEngine.version ? `• v${displayEngine.version}` : ''}
             </p>
             {/* Calibration chip row — visible in collapsed header */}
@@ -230,33 +204,21 @@ export const EngineCard: React.FC<{
             />
           </div>
           <span
-            style={{
-              borderRadius: '999px',
-              padding: '0.28rem 0.6rem',
-              fontSize: '0.7rem',
-              fontWeight: 900,
-              letterSpacing: '0.02em',
-              ...getBadgeStyles(tone),
-            }}
+            className="engine-status-badge"
+            style={getBadgeStyles(tone)}
           >
             {statusLabel}
           </span>
           <span
-            style={{
-              borderRadius: '999px',
-              padding: '0.28rem 0.6rem',
-              fontSize: '0.7rem',
-              fontWeight: 900,
-              letterSpacing: '0.02em',
-              ...getBadgeStyles(displayEngine.verified ? 'blue' : 'gray'),
-            }}
+            className="engine-status-badge"
+            style={getBadgeStyles(displayEngine.verified ? 'blue' : 'gray')}
           >
             {verificationLabel}
           </span>
         </div>
 
       </summary>
-      <div style={{ padding: '0 1rem 1.25rem 2.95rem', color: 'var(--text-secondary)', fontSize: '0.88rem', lineHeight: 1.55 }}>
+      <div className="engine-card__body">
         <EngineCalibrationSection
           engine={displayEngine}
           saving={saving}
@@ -293,24 +255,10 @@ export const EngineCard: React.FC<{
         )}
 
         {(setupMessage || dependencyMessage || displayEngine.status === 'needs_setup') && (
-          <div
-            style={{
-              marginBottom: '1.1rem',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '0.75rem',
-              padding: '0.9rem',
-              borderRadius: '12px',
-              border: '1px solid var(--warning-tint-border)',
-              background: 'var(--warning-tint-bg)',
-              color: 'var(--warning-text)',
-              fontSize: '0.82rem',
-              lineHeight: 1.55,
-            }}
-          >
+          <div className="engine-setup-notice">
             <ShieldAlert size={16} style={{ marginTop: '0.1rem', flexShrink: 0 }} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-              <strong style={{ fontSize: '0.86rem' }}>Setup required</strong>
+              <strong className="engine-setup-notice__title">Setup required</strong>
               <span>
                 {setupMessage || 'This engine is waiting on a setup step before it can be used.'}
               </span>
@@ -343,11 +291,11 @@ export const EngineCard: React.FC<{
         <EngineTestSample engine={displayEngine} testResult={testResult} />
 
 
-        <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div className="engine-card__footer">
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <button
               type="button"
-              className="btn-glass"
+              className="btn-glass engine-icon-btn"
               title="Run a real sample render using the Studio default voice reference."
               disabled={saving || testing || displayEngine.status !== 'ready'}
               onClick={async () => {
@@ -368,14 +316,14 @@ export const EngineCard: React.FC<{
                   setTesting(false);
                 }
               }}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, opacity: displayEngine.status !== 'ready' ? 0.5 : 1 }}
+              style={{ opacity: displayEngine.status !== 'ready' ? 0.5 : 1 }}
             >
               {testing ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
               {testing ? 'Running...' : 'Run Test'}
             </button>
             <button
               type="button"
-              className="btn-glass"
+              className="btn-glass engine-icon-btn"
               title="Verify this engine using the Studio default voice reference sample. A cold engine may take up to a minute to load its model."
               disabled={saving || verifying || displayEngine.verified}
               onClick={async () => {
@@ -402,14 +350,14 @@ export const EngineCard: React.FC<{
                   setVerifying(false);
                 }
               }}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.8rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800, opacity: (displayEngine.verified || verifying) ? 0.7 : 1 }}
+              style={{ opacity: (displayEngine.verified || verifying) ? 0.7 : 1 }}
             >
               {verifying ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />} {verifying ? 'Verifying…' : (displayEngine.verified ? 'Verified' : 'Verify')}
             </button>
             {needsDependencyInstall && (
               <button
                 type="button"
-                className="btn-glass"
+                className="btn-glass engine-icon-btn"
                 title="Install the Python packages required by this engine."
                 disabled={saving || installing}
                 onClick={async () => {
@@ -449,13 +397,6 @@ export const EngineCard: React.FC<{
                   }
                 }}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.5rem 0.8rem',
-                  borderRadius: '10px',
-                  fontSize: '0.8rem',
-                  fontWeight: 800,
                   color: 'var(--warning-text)',
                   background: 'var(--warning-tint-bg)',
                   border: '1px solid var(--warning-tint-border)',
@@ -471,18 +412,11 @@ export const EngineCard: React.FC<{
             {!displayEngine.built_in && (
               <button
                 type="button"
-                className="btn-glass"
+                className="btn-glass engine-icon-btn"
                 disabled={removing || saving || installing}
                 title="Uninstall this plugin"
                 onClick={() => setRemoveConfirmOpen(true)}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.5rem 0.8rem',
-                  borderRadius: '10px',
-                  fontSize: '0.8rem',
-                  fontWeight: 800,
                   color: 'var(--error-text-strong)',
                   opacity: removing ? 0.5 : 1
                 }}
