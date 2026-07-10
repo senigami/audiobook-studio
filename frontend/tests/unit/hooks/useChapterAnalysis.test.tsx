@@ -1,5 +1,5 @@
-import { renderHook, act, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useChapterAnalysis } from '@/hooks/useChapterAnalysis';
 import { api } from '@/api';
 
@@ -19,7 +19,14 @@ describe('useChapterAnalysis', () => {
     });
   });
 
+  afterEach(() => {
+    // Ensure fake timers are always restored to avoid cross-test leakage
+    vi.useRealTimers();
+  });
+
   it('runs analysis after debounce when text changes', async () => {
+    vi.useFakeTimers();
+
     const { result, rerender } = renderHook(({ text }) => useChapterAnalysis('chap1', text), {
       initialProps: { text: '' }
     });
@@ -29,23 +36,38 @@ describe('useChapterAnalysis', () => {
     act(() => {
       rerender({ text: 'Some text' });
     });
-    
+
     expect(result.current.analyzing).toBe(true);
 
-    // Wait for the 1s debounce + fetch
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('/api/analyze_text', expect.objectContaining({
-        method: 'POST'
-      }));
-    }, { timeout: 3000 });
+    // Advance through the 1s debounce and let the mocked fetch resolve.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
 
-    await waitFor(() => {
-      expect(result.current.analyzing).toBe(false);
-    }, { timeout: 2000 });
+    expect(global.fetch).toHaveBeenCalledWith('/api/analyze_text', expect.objectContaining({
+      method: 'POST'
+    }));
+    expect(result.current.analyzing).toBe(false);
   });
 
-  it('handles empty text', async () => {
-    const { result } = renderHook(() => useChapterAnalysis('chap1', ''));
+  it('resets analysis to null when text changes back to empty', async () => {
+    vi.useFakeTimers();
+
+    const { result, rerender } = renderHook(({ text }) => useChapterAnalysis('chap1', text), {
+      initialProps: { text: 'Some text' }
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    expect(result.current.analysis).toEqual({ voice_chunks: [] });
+
+    act(() => {
+      rerender({ text: '' });
+    });
+
+    // The empty-text branch must clear analysis, not merely leave it unset.
     expect(result.current.analysis).toBeNull();
   });
 

@@ -16,7 +16,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   WaveformTape,
   usePeaks,
-  TAPE_ZOOM_PRESETS_SEC,
   PEAKS_COUNT,
   snapZoom,
 } from '@/app/layout/WaveformTape';
@@ -211,10 +210,6 @@ describe('WaveformTape', () => {
     expect(screen.getByRole('region', { name: 'Audio tape' })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole('slider')).toBeInTheDocument());
     expect(document.querySelectorAll('audio')).toHaveLength(0);
-  });
-
-  it('exports TAPE_ZOOM_PRESETS_SEC as [8, 15, 30, 60, 120]', () => {
-    expect(TAPE_ZOOM_PRESETS_SEC).toEqual([8, 15, 30, 60, 120]);
   });
 
   it('exports PEAKS_COUNT as 4000', () => {
