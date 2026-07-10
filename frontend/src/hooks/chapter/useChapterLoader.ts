@@ -43,7 +43,11 @@ export const useChapterLoader = (
     try {
       setScriptViewLoading(true);
       const chaptersStartedAt = performance.now();
-      const chapters = await api.fetchChapters(projectId);
+      // Single-chapter fetch, not the whole project's chapter list (with every
+      // other chapter's full text_content) — this only needs `chapterId`'s own
+      // metadata/text, and this loader re-runs on mount, on every WS
+      // chapter-update tick, and on completion-poll ticks.
+      const target = await api.fetchChapter(chapterId);
       if (shouldLogLoadTimings) {
         recordStudioDebugSnapshot('load:chapter metadata', {
           chapterId,
@@ -52,7 +56,6 @@ export const useChapterLoader = (
           ms: Math.round(performance.now() - chaptersStartedAt),
         });
       }
-      const target = chapters.find(c => c.id === chapterId);
       if (target) {
         setChapter(target);
         setTitle(target.title);

@@ -390,9 +390,9 @@ Plan: [final_release/stage3_sdk_migration_plan.md](active/final_release/stage3_s
   - [ ] `JobHandlerRegistry` / plugin-driven reconciliation (`engine.check_output`) decision ([master_agnostic](active/master_agnostic_tasks.md) Phase 12)
   - [x] Phase-12 owner decisions: generic plugin setup-loop (DECIDED 2026-07-10: deferred — see [master_agnostic](active/master_agnostic_tasks.md)), voice-settings placement (relocated from Script Editor to catalog-card action menu, 2026-07-09), ~~system-API surface for 3rd-party controllers~~ (verified adequate + a real unauthenticated-docs-route gap found and fixed 2026-07-09 — S12, see `active/master_agnostic_tasks.md`), ~~Settings→API tab honesty~~ *(resolved 2026-07-09: `/settings/api` already redirects to `/integrations`; `ApiGuidePanel.tsx` content corrected to match the real `/api/v1/tts` gateway — see master_agnostic_tasks.md)*
   - [x] `MobileNavDrawer` focus-trap fix (a11y — also tracked in 008)
-  - [ ] `CONTRIBUTING.md` plugin/template docs + plugin-doc prep for release (Phase 13)
+  - [x] `CONTRIBUTING.md` plugin/template docs + plugin-doc prep for release (Phase 13) — added plugin lifecycle section to CONTRIBUTING.md, closed submission-guidelines gaps, fixed a real template/dispatcher drift (template taught a not-yet-live S9 handler calling convention)
   - [x] Vite ECONNRESET triage — confirmed benign dev-only StrictMode/proxy race, no runtime data loss (see [master_agnostic](active/master_agnostic_tasks.md) line 103)
-  - [ ] Large-book load timing check
+  - [x] Large-book load timing check (2026-07-09): list/Contents-view load is already fast (~60-100ms for a real 28-chapter/730K-char project) — the real bug was `useChapterLoader` re-fetching the *entire* project chapter list (incl. every other chapter's full text) just to load one chapter, repeated on every WS tick and completion-poll tick; fixed to call the single-chapter endpoint instead (~4ms/~700B vs ~60-100ms/~780KB per call) — see `master_agnostic_tasks.md` line 104
   - [ ] Post-release/opportunistic: react-refresh lint warnings (11, demo stages), demo transport nits (`restart()`/`play()`/`warnedRoutes`)
 
   > 👁 **VISUAL CHECK — 006 complete**

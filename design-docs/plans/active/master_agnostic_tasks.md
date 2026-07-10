@@ -90,9 +90,9 @@ engine-agnostic historical checklist plus backlog parking lot. If a status confl
 
 ## Phase 9: Documentation & Final Audit
 - [x] Update `README.md` for generalized engine/plugin install path; full release docs remain in Phase 13.
-- [ ] Update `CONTRIBUTING.md` (document plugin lifecycle)
+- [x] Update `CONTRIBUTING.md` (document plugin lifecycle) — added a "Contributing a new TTS engine plugin" section (folder structure, manifest-only registration rule, versioned-contract requirement, plugin-local test command); closed two gaps in `plugin-submission-guidelines.md` (versioned-manifest, test-suite requirements); fixed a real drift in the plugin template (its `handle_job(ctx, job)` example taught a not-yet-live S9 dispatcher calling convention — clarified in-place rather than misrepresenting an unstable shape as current, 2026-07-09)
 - [x] Final focused `grep` for "xtts" and "voxtral" across core `app/` for Phase 11 closeout
-- [ ] Final broad test verification: `pytest tests/` before Phase 13 release docs
+- [x] Final broad test verification: `pytest tests/` before Phase 13 release docs — full suite green throughout this Phase 12 pass (2228 passed, 3 skipped as of 2026-07-09)
 
 ## Phase 12: Polish And Cleanup Snapshot
 - [ ] Release blocker tracking now lives in `design-docs/plans/final_release/road_to_v2.md`.
@@ -119,11 +119,11 @@ engine-agnostic historical checklist plus backlog parking lot. If a status confl
 - [x] Scan plans and memory for forgotten requests; namespace rename ideas remain parked in the deferred namespace phase below.
 - [ ] Manually verify fixed-but-pending Phase 11 app behaviors.
 - [x] Triage Vite websocket `ECONNRESET` reconnect behavior — confirmed benign: reproduced via Playwright against a live dev backend+Vite proxy; the reset is React `StrictMode`'s dev-only double-invoke of `useWebSocket`'s connect effect (mount→cleanup→remount) tearing down a still-connecting socket, which Vite's `http-proxy` layer (`ws: true`) logs as a proxy-side error. It is dev/StrictMode-only (no proxy or double-invoke in production), no application data is ever in flight on the aborted handshake, and `useWebSocket.ts`'s own `onclose` reconnect plus `useQueueSync.ts`'s dedicated `reconnect`-source `refreshQueue()` (full API resync on every disconnect→connect transition after the first) already cover any real runtime disconnect. No code changes needed.
-- [ ] Re-check large-book project/chapter load timings.
+- [x] Re-check large-book project/chapter load timings. Checked against the largest real project on disk (28 chapters / ~730K chars): `GET /api/projects/{id}/chapters` (Contents view) is already fast (~60-100ms), so no change there. Found and fixed a real bug instead — the chapter editor's `useChapterLoader` fetched the *whole* project chapter list (every chapter's full `text_content`, not just the one being opened) on mount, on every websocket chapter/segment-update tick, and on every 1s completion-poll tick (up to 30x). Fixed by calling the single-chapter endpoint (`GET /api/chapters/{id}`) instead, and added the segment-count subqueries `get_chapter()` was missing so it matches `list_chapters()`'s shape. Per-request cost dropped from ~60-100ms/~780KB to ~4ms/~700B.
 - [x] Resolve the generic plugin setup loop question above: implement before v2.0 or explicitly defer until standalone plugin repositories. **DECIDED 2026-07-10: deferred — see decision note in Phase 12 above.**
 - [x] Complete or explicitly defer JobHandlerRegistry, `JobKind`, and mixed/composite naming (mixed renaming deferred to Phase 13).
 - [x] Complete or explicitly defer StorageManager and other remaining Phase 12 polish.
-- [ ] Prepare plugin docs and template docs enough for Phase 13 release documentation.
+- [x] Prepare plugin docs and template docs enough for Phase 13 release documentation. — see Phase 9's `CONTRIBUTING.md` entry above (2026-07-09) for what shipped.
 
 ## Deferred Architecture: Namespace Rename And App-Behavior Plugins
 - [ ] Rename the current engine bundle namespace from `plugins/` to `tts_engines/` once the runtime cutover is stable.

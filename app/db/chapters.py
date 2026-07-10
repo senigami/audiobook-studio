@@ -73,7 +73,19 @@ def get_chapter(chapter_id: str) -> Optional[Dict[str, Any]]:
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM chapters WHERE id = ?", (chapter_id,))
+            # Mirrors list_chapters' segment-count subqueries so single-chapter
+            # callers (e.g. the chapter editor loader) don't need to re-fetch
+            # the whole project chapter list just to get these counts.
+            cursor.execute(
+                """
+                SELECT c.*,
+                (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = c.id) as total_segments_count,
+                (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = c.id AND audio_status = 'done') as done_segments_count
+                FROM chapters c
+                WHERE c.id = ?
+                """,
+                (chapter_id,),
+            )
             row = cursor.fetchone()
             if not row:
                 return None
