@@ -391,7 +391,8 @@ Plan: [final_release/stage3_sdk_migration_plan.md](active/final_release/stage3_s
   - [ ] Phase-12 owner decisions: generic plugin setup-loop (implement or defer), voice-settings placement, system-API surface for 3rd-party controllers, Settings→API tab honesty
   - [ ] `MobileNavDrawer` focus-trap fix (a11y — also tracked in 008)
   - [ ] `CONTRIBUTING.md` plugin/template docs + plugin-doc prep for release (Phase 13)
-  - [ ] Vite ECONNRESET triage + large-book load timing check
+  - [x] Vite ECONNRESET triage — confirmed benign dev-only StrictMode/proxy race, no runtime data loss (see [master_agnostic](active/master_agnostic_tasks.md) line 103)
+  - [ ] Large-book load timing check
   - [ ] Post-release/opportunistic: react-refresh lint warnings (11, demo stages), demo transport nits (`restart()`/`play()`/`warnedRoutes`)
 
   > 👁 **VISUAL CHECK — 006 complete**

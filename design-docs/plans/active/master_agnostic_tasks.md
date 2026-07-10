@@ -100,7 +100,7 @@ engine-agnostic historical checklist plus backlog parking lot. If a status confl
 - [x] Keep Chapter Editor live queue state anchored to the active job instead of stale completed jobs.
 - [x] Scan plans and memory for forgotten requests; namespace rename ideas remain parked in the deferred namespace phase below.
 - [ ] Manually verify fixed-but-pending Phase 11 app behaviors.
-- [ ] Triage Vite websocket `ECONNRESET` reconnect behavior.
+- [x] Triage Vite websocket `ECONNRESET` reconnect behavior — confirmed benign: reproduced via Playwright against a live dev backend+Vite proxy; the reset is React `StrictMode`'s dev-only double-invoke of `useWebSocket`'s connect effect (mount→cleanup→remount) tearing down a still-connecting socket, which Vite's `http-proxy` layer (`ws: true`) logs as a proxy-side error. It is dev/StrictMode-only (no proxy or double-invoke in production), no application data is ever in flight on the aborted handshake, and `useWebSocket.ts`'s own `onclose` reconnect plus `useQueueSync.ts`'s dedicated `reconnect`-source `refreshQueue()` (full API resync on every disconnect→connect transition after the first) already cover any real runtime disconnect. No code changes needed.
 - [ ] Re-check large-book project/chapter load timings.
 - [ ] Resolve the generic plugin setup loop question above: implement before v2.0 or explicitly defer until standalone plugin repositories.
 - [x] Complete or explicitly defer JobHandlerRegistry, `JobKind`, and mixed/composite naming (mixed renaming deferred to Phase 13).
