@@ -1,0 +1,128 @@
+{
+  "plan": "design-docs/plans/active/simplification/styling_separation_execution",
+  "updated": "2026-07-10T00:00:00Z",
+  "slices": {
+    "001-st1-delete-dead-selectors": {
+      "state": "accepted",
+      "commit": "52be0584"
+    },
+    "002-st1-split-components-css": {
+      "state": "accepted",
+      "commit": "ed172a03",
+      "note": "form-input/voice-dropzone kept in misc.css (physically contiguous) rather than table's nominal shared.css/voice-lab.css assignment - verified safe, cascade-order preserving"
+    },
+    "003-st2-shared-classes": {
+      "state": "accepted",
+      "commit": "bd0419a8"
+    },
+    "004-st3-castpalette": {
+      "state": "in-flight",
+      "blocked_by": [
+        "003-st2-shared-classes"
+      ]
+    },
+    "005-st3-projectlibrarypage": {
+      "state": "in-flight",
+      "blocked_by": [
+        "003-st2-shared-classes"
+      ]
+    },
+    "006-st3-voicemodals": {
+      "state": "in-flight",
+      "blocked_by": [
+        "003-st2-shared-classes"
+      ]
+    },
+    "007-st3-globalqueue": {
+      "state": "in-flight",
+      "blocked_by": [
+        "003-st2-shared-classes"
+      ]
+    },
+    "008-st3-resyncpreviewmodal": {
+      "state": "in-flight",
+      "blocked_by": [
+        "003-st2-shared-classes"
+      ]
+    },
+    "009-st3-officialregistrypanel": {
+      "state": "in-flight",
+      "blocked_by": [
+        "003-st2-shared-classes"
+      ]
+    },
+    "010-st3-varianteditor": {
+      "state": "in-flight",
+      "blocked_by": [
+        "003-st2-shared-classes"
+      ]
+    },
+    "011-st3-welcomepage": {
+      "state": "in-flight",
+      "blocked_by": [
+        "003-st2-shared-classes"
+      ]
+    },
+    "012-st3-scripteditor": {
+      "state": "in-flight",
+      "blocked_by": [
+        "003-st2-shared-classes"
+      ]
+    },
+    "013-st3-liveoutputpage": {
+      "state": "in-flight",
+      "blocked_by": [
+        "003-st2-shared-classes"
+      ]
+    },
+    "014-st3-metadataeditormodal-and-children": {
+      "state": "in-flight",
+      "blocked_by": [
+        "003-st2-shared-classes"
+      ]
+    },
+    "015-st3-enginecard-and-children": {
+      "state": "in-flight",
+      "blocked_by": [
+        "003-st2-shared-classes"
+      ]
+    },
+    "016-st3-voicestabheader": {
+      "state": "in-flight",
+      "blocked_by": [
+        "003-st2-shared-classes"
+      ]
+    },
+    "017-st3-samplemanager": {
+      "state": "in-flight",
+      "blocked_by": [
+        "003-st2-shared-classes"
+      ]
+    },
+    "018-st4-spec-bump-and-guard": {
+      "state": "pending",
+      "blocked_by": [
+        "004",
+        "005",
+        "006",
+        "007",
+        "008",
+        "009",
+        "010",
+        "011",
+        "012",
+        "013",
+        "014",
+        "015",
+        "016",
+        "017"
+      ]
+    },
+    "019-followup-missed-utility-usage": {
+      "state": "pending",
+      "optional": true
+    }
+  },
+  "green_gate": "not-run",
+  "review_rounds": []
+}

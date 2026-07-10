@@ -1,6 +1,6 @@
 # Task 014 — Convert MetadataEditorModal.tsx + its split children
 
-Status: done (2026-07-10)
+Status: complete — 2026-07-10
 
 ## Goal
 
