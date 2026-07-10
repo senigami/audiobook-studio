@@ -82,7 +82,7 @@ Workload 4 (lower priority, demo-side + doc cleanup — do last or skip)
 | 006 | quality-sensitive | Same as 005, plus depends on 005's finding |
 | 007 | none | Deleting genuinely-unreachable code, single file |
 | 008 | none | Reuses existing `StatusOrb`, single file |
-| 009 | quality-sensitive | Architecture-level tab decision; user-facing; hard to reverse cleanly once shipped |
+| 009 | quality-sensitive | User-facing surface, so still reviewed regardless of size — but confirmed a cheap relocation of an already-working component (see task file's correction), not a rebuild |
 | 010 | quality-sensitive | Same — removing/adding an inline editor on a primary workflow surface |
 | 011 | none | Verification only, no code change (unless it finds something, in which case re-flag) |
 | 012 | none | Demo-only files, zero live-app risk |

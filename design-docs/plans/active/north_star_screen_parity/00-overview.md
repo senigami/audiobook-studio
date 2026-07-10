@@ -49,11 +49,16 @@ These were real forks found during research — the owner has now decided both.
 1. **Backups tab: stub or real, and where? DECIDED — build out the real tab.** The demo's
    `Backups` tab is a fully working feature (list/restore/create). The live app's standalone
    `Backups` tab (`BackupsStage.tsx`) was an explicit placeholder ("coming in Phase 2 — use Publish
-   tab") while the *real* backup functionality already lived inside the live `Publish` tab
-   (`ProjectBackupsPanel` in `PublishStage.tsx`). **Decision:** move real backup functionality into
-   its own `Backups` tab to match the demo, and slim `Publish` back down to assembly-only — higher
-   implementation/re-test cost than removing the stub, accepted deliberately for the cleaner IA
-   (ship-it vs. safety-net separation). See task `009`, now unblocked for its Step 2b.
+   tab") while the *real* backup functionality currently lives inside the live `Publish` tab
+   (`ProjectBackupsPanel` in `PublishStage.tsx`). **Correction (owner-supplied, 2026-07-10, after
+   this decision was first recorded):** this isn't new development — the owner had a genuinely
+   working Backups tab before the 2026-06-21 IA port; it's the still-present legacy
+   `ProjectDetailPage.tsx`, which wires the exact same `ProjectBackupsPanel` component directly as
+   its own tab. The IA port created `BackupsStage.tsx` as a fresh stub instead of porting that
+   existing wiring over. **Decision (unchanged, now on cheaper footing):** relocate the
+   already-correctly-wired `ProjectBackupsPanel` block from `PublishStage.tsx` into `BackupsStage.tsx`
+   (a cut-paste-relocate job reusing the same `actions` handlers, not a rebuild), slimming `Publish`
+   back down to assembly-only. See task `009`, now unblocked for its Step 2b.
 2. **Contents tab: chapter board, or chapter table + inline editor? DECIDED — match the demo's
    board.** The demo's wired `Contents` tab is a slim chapter board with no inline text editor
    (plus a cross-book bookmark panel the live app doesn't have at all). The live `Contents` tab is
