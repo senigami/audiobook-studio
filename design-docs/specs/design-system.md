@@ -1,15 +1,15 @@
 # Design System
 
 ```
-spec_version: 1.13.0
+spec_version: 1.14.0
 status: active
 created: 2026-06-13
-updated: 2026-06-27
+updated: 2026-07-10
 sources:
   - frontend/src/theme/tokens.css
   - frontend/src/demo/stages/siteMockup/
   - frontend/src/theme/base.css
-  - frontend/src/theme/components.css
+  - frontend/src/theme/components/
   - frontend/src/theme/utilities.css
   - frontend/src/utils/theme.ts
   - frontend/src/main.tsx
@@ -42,6 +42,7 @@ sources:
 
 | Version | Date       | Change |
 |---------|------------|--------|
+| 1.14.0 | 2026-07-10 | **Styling-separation plan complete (ST-1–ST-4) — `components.css` domain split + shared classes + CI guard.** `theme/components.css` (4,440-line monolith) split into 11 domain-scoped files under `theme/components/` (`core.css`, `nav.css`, `book.css`, `book-tabs.css`, `publish.css`, `activity.css`, `shared.css`, `player.css`, `voice-lab.css`, `review-tools.css`, `misc.css`), assembled via `@import` in `theme/index.css` in the exact original cascade order (pure move; cascade is load-bearing, non-contiguous `shared.css`/`misc.css` kept separate for that reason). Added 6 shared label classes to `core.css` (`.label-micro-muted`, `.label-micro-muted-strong`, `.label-caption-strong`, `.label-micro-muted-italic`, `.label-uppercase-sm`, `.label-uppercase-md`) replacing ~100 repeated inline `style={{...}}` patterns. Converted ~470 `style={{...}}` occurrences to classes across 20 hotspot files (`CastPalette`, `ProjectLibraryPage`, `VoiceModals`, `GlobalQueue`, `ResyncPreviewModal`, `OfficialRegistryPanel`, `VariantEditor`, `WelcomePage`, `ScriptEditor`, `LiveOutputPage`, `MetadataEditorModal` + 5 metadata subcomponents, `EngineCard` + 3 Engines subcomponents, `VoicesTabHeader`, `SampleManager`); bare literals with an exact `tokens.css` match were substituted for the token as part of each move (no rule/DOM/behavior changes). Added a CI regression guard (`scripts/check_hardcoded_styles.py`, wired into `.github/workflows/ci.yml`) that fails on new hardcoded hex/rgb color literals anywhere in `frontend/src` (excluding `demo/` and `tokens.css`) and on raw px spacing values that exactly match a `--space-*` token in the 20 converted files, going forward. §7 Responsive and the sources list updated to reference `theme/components/` (directory) instead of the retired `theme/components.css` file. |
 | 1.0.0   | 2026-06-13 | Initial canonical spec for the frontend design system |
 | 1.1.0   | 2026-06-16 | Added §9 Iconography (binding): `lucide-react` is the single icon system; canonical control→icon mapping; deliberate non-icon exceptions (status dots, raster artwork, "from→to" notation). North-Star mock standardized off Unicode glyphs onto lucide. Cross-References renumbered to §10. |
 | 1.2.0   | 2026-06-16 | Reconciled §2/§4/§5 to the current `tokens.css` (some drift predated this session). Radius bumped (`--radius-card` 14px, `--radius-panel` 18px); registry now documents the present Material (`--blur-glass*`, `--hairline`), Motion (`--ease-*`/`--dur-*`), `--focus-ring`, accent gradient/glow, and 8pt `--space-*` families. §4 type scale corrected to **tokenized (current)** and extended with `--type-display/large-title/reading` + `--leading-*`/`--tracking-*`. §5 voice-pill tints corrected to **current** (`--pill-*` exist in `tokens.css`); real-Voices-page adoption remains target. |
@@ -312,11 +313,11 @@ These are the canonical building blocks. New UI MUST reuse them rather than re-i
 
 ### 7.1 Breakpoints (current)
 
-The codebase uses a small set of `max-width` breakpoints across `theme/components.css` and `theme/utilities.css`. The load-bearing one is the rail → drawer switch:
+The codebase uses a small set of `max-width` breakpoints across `theme/components/` (domain-scoped CSS, see §1's sources) and `theme/utilities.css`. The load-bearing one is the rail → drawer switch:
 
 | Breakpoint | Behavior |
 |------------|----------|
-| `max-width: 768px` | **Rail → drawer.** `.nav-rail { display: none }` (`components.css`); the global navigation is served by the mobile drawer instead (cross-ref `site-shell-and-book-pipeline.md` §2.5). Form/layout utilities also stack at this width (`utilities.css`). |
+| `max-width: 768px` | **Rail → drawer.** `.nav-rail { display: none }` (`theme/components/nav.css`); the global navigation is served by the mobile drawer instead (cross-ref `site-shell-and-book-pipeline.md` §2.5). Form/layout utilities also stack at this width (`utilities.css`). |
 | `max-width: 1450px` | Chapter header collapses to a 2-column grid. |
 | `max-width: 1250px` / `1100px` / `1000px` / `800px` / `640px` | Page-level grid/flex columns collapse to single-column (publish stage, activity page, assembly picker, etc.). |
 

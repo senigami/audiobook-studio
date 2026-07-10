@@ -1,16 +1,16 @@
 # SP10 — Code Organization Spec
 
 ```
-spec_version: 1.1.0
+spec_version: 1.2.0
 status: active
 created: 2026-06-10
-updated: 2026-06-16
+updated: 2026-07-10
 sources: app/api/web.py, app/api/tts_api.py, app/api/ws.py,
          app/core/boot.py, app/core/config.py, app/core/security.py,
          app/db/state.py, app/engines/bridge.py, app/engines/registry.py,
          app/orchestration/tasks/base.py, app/utils/pathing.py,
          frontend/src/app/, frontend/src/pages/, frontend/src/components/,
-         frontend/tests/
+         frontend/src/theme/, frontend/tests/, scripts/check_hardcoded_styles.py
 ```
 
 > **TL;DR:** Every file has exactly one home; new code goes in the narrowest matching bucket, and modules that cross bucket boundaries are bugs.
@@ -19,6 +19,7 @@ sources: app/api/web.py, app/api/tts_api.py, app/api/ws.py,
 
 | Version | Date       | Summary                                                     |
 |---------|------------|-------------------------------------------------------------|
+| 1.2.0   | 2026-07-10 | **Styling-separation plan complete (ST-1–ST-4).** Documented the `theme/components.css` monolith split into `theme/components/` (11 domain-scoped files: `core.css`, `nav.css`, `book.css`, `book-tabs.css`, `publish.css`, `activity.css`, `shared.css`, `player.css`, `voice-lab.css`, `review-tools.css`, `misc.css`), assembled via `@import` in `theme/index.css` in load-bearing cascade order. Added `theme/` subtree detail to the frontend layout tree. Recorded the new CI regression guard (`scripts/check_hardcoded_styles.py`, wired into `.github/workflows/ci.yml`) that rejects new hardcoded hex/rgb color literals (repo-wide) and raw px spacing literals that exactly match a `--space-*` token (scoped to the ST-3-converted file set) going forward. |
 | 1.1.0   | 2026-06-16 | Fix page entry convention to `<Page>Route.tsx`; describe actual `api/` shape; add missing `frontend/src/` dirs; carve out `app.jobs.registry` from import ban |
 | 1.0.0   | 2026-06-10 | Initial spec documenting Studio 2.0 layout and conventions  |
 
@@ -206,6 +207,12 @@ frontend/
       hydration/      # Response hydration utilities
     store/            # Global stores (socket bus, live jobs, audit)
     theme/            # CSS variables, design tokens, base styles
+      tokens.css      # Token source of truth (hex/rgb values live here only)
+      index.css       # @import entry point; wires components/ in cascade order
+      components/     # Domain-scoped component CSS (core, nav, book, book-tabs,
+                       #   publish, activity, shared, player, voice-lab,
+                       #   review-tools, misc) — split from the former
+                       #   components.css monolith; import order is load-bearing
     config/           # App-level configuration constants
     constants/        # Shared constant values
     shared/           # Cross-cutting utilities shared across layers (use only for code that is truly cross-feature; feature-specific code must NOT migrate here)
