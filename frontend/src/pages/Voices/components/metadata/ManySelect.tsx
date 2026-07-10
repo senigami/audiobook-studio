@@ -22,11 +22,11 @@ export function ManySelect({
         }
     };
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
+        <div className="metadata-field">
+            <label className="metadata-field-label">
                 {section.label.toUpperCase()}
             </label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            <div className="metadata-chip-row">
                 {section.values.map(opt =>
                     chip(opt.label, selected.includes(opt.id), () => toggle(opt.id))
                 )}

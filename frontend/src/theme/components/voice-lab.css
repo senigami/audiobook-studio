@@ -1093,3 +1093,13 @@
   font-size: 0.8rem;
   font-weight: 700;
 }
+
+/* ---------------------------------------------------------------------------
+ * ManySelect/OneSelect chip row (metadata editor) — ST-3 conversion (task 014, 3/6)
+ * --------------------------------------------------------------------------- */
+
+.metadata-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
