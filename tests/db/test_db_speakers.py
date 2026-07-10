@@ -1,6 +1,7 @@
 import pytest
 import os
 import json
+import sqlite3
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from app.db.core import init_db, get_connection
@@ -49,11 +50,21 @@ def test_speaker_crud(db_conn):
     assert get_speaker(sid) is None
 
 def test_speaker_collision_handling(db_conn):
-    sid = create_speaker("Narrator 1")
-    assert sid is not None
-    speaker = get_speaker(sid)
+    """speakers.id is the PRIMARY KEY — create_speaker must not silently
+    overwrite or duplicate a row when a second speaker is created with an
+    explicit id that already exists (the real collision scenario
+    ``sync_speakers_from_profiles`` guards against via IntegrityError)."""
+    sid = create_speaker("Narrator 1", speaker_id="fixed-speaker-id")
+    assert sid == "fixed-speaker-id"
+
+    with pytest.raises(sqlite3.IntegrityError):
+        create_speaker("Narrator 1 Duplicate", speaker_id="fixed-speaker-id")
+
+    # The original row must be untouched by the failed colliding insert.
+    speaker = get_speaker("fixed-speaker-id")
     assert speaker is not None
     assert speaker["name"] == "Narrator 1"
+    assert len(list_speakers()) == 1
 
 def test_update_voice_profile_references(db_conn):
     from app.db.projects import create_project

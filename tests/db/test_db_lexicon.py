@@ -151,12 +151,22 @@ def test_delete_only_removes_target_entry(clean_storage):
 
 
 # ---------------------------------------------------------------------------
-# created_at is populated
+# created_at is populated and drives get_lexicon's ordering
 # ---------------------------------------------------------------------------
 
-def test_add_lexicon_entry_has_created_at(clean_storage):
+def test_lexicon_entries_ordered_by_created_at(clean_storage, monkeypatch):
+    """get_lexicon orders by created_at ASC (not insertion order) — insert
+    entries with created_at monkeypatched out of natural insertion order and
+    confirm the returned order follows the stored timestamps."""
     pid = create_project("TestProject")
-    lexicon_mod.add_lexicon_entry(pid, "cat", "kitten")
+
+    times = iter([100.0, 50.0, 75.0])
+    monkeypatch.setattr(lexicon_mod.time, "time", lambda: next(times))
+
+    eid_cat = lexicon_mod.add_lexicon_entry(pid, "cat", "kitten")   # created_at=100.0
+    eid_dog = lexicon_mod.add_lexicon_entry(pid, "dog", "puppy")    # created_at=50.0
+    eid_bird = lexicon_mod.add_lexicon_entry(pid, "bird", "chirp")  # created_at=75.0
+
     entries = _all_entries(pid)
-    assert entries[0]["created_at"] is not None
-    assert float(entries[0]["created_at"]) > 0
+    assert [e["id"] for e in entries] == [eid_dog, eid_bird, eid_cat]
+    assert [e["created_at"] for e in entries] == [50.0, 75.0, 100.0]

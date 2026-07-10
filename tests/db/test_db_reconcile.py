@@ -39,8 +39,11 @@ def test_reconcile_project_audio(db_conn, tmp_path):
     c_dir.mkdir(parents=True, exist_ok=True)
     (c_dir / expected_file).write_bytes(b"mp3")
 
-    with patch("app.core.config.get_chapter_dir", return_value=c_dir), \
-         patch("subprocess.run") as mock_run:
+    # reconcile_project_audio resolves the chapter dir via StorageManager
+    # (config.PROJECTS_DIR), the exact same code path get_chapter_dir() used
+    # above to seed the fixture — no patch of get_chapter_dir is needed (it
+    # isn't called by the code under test at all).
+    with patch("subprocess.run") as mock_run:
 
         # Mock ffprobe result
         mock_res = MagicMock()
@@ -66,13 +69,14 @@ def test_reconcile_project_audio_not_found(db_conn, tmp_path):
     c_dir = get_chapter_dir(pid, cid)
     c_dir.mkdir(parents=True, exist_ok=True)
 
-    with patch("app.core.config.get_chapter_dir", return_value=c_dir):
+    # No patch of get_chapter_dir needed — see comment in
+    # test_reconcile_project_audio above; the code under test resolves the
+    # same directory independently via StorageManager/config.PROJECTS_DIR.
+    reconcile_project_audio(pid)
 
-        reconcile_project_audio(pid)
-
-        with get_connection() as conn:
-            row = conn.execute("SELECT audio_status FROM chapters WHERE id = ?", (cid,)).fetchone()
-            assert row["audio_status"] == "unprocessed"
+    with get_connection() as conn:
+        row = conn.execute("SELECT audio_status FROM chapters WHERE id = ?", (cid,)).fetchone()
+        assert row["audio_status"] == "unprocessed"
 
 def test_reconcile_all_chapter_statuses(db_conn):
     pid = create_project("P1")

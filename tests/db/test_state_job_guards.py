@@ -24,11 +24,12 @@ class TestShouldDropTerminalUpdate:
     def test_terminal_without_reset_dropped(self):
         assert should_drop_terminal_update("done", {"status": "running"}, False) is True
 
-    def test_terminal_reset_to_queued_not_dropped(self):
-        assert should_drop_terminal_update("done", {"status": "queued"}, False) is False
-
-    def test_terminal_reset_to_preparing_not_dropped(self):
-        assert should_drop_terminal_update("failed", {"status": "preparing"}, False) is False
+    @pytest.mark.parametrize(
+        "current_status, incoming_status",
+        [("done", "queued"), ("failed", "preparing")],
+    )
+    def test_terminal_reset_to_active_not_dropped(self, current_status, incoming_status):
+        assert should_drop_terminal_update(current_status, {"status": incoming_status}, False) is False
 
     def test_force_broadcast_bypasses_drop(self):
         assert should_drop_terminal_update("cancelled", {"status": "running"}, True) is False
@@ -51,32 +52,20 @@ class TestApplyStatusRegressionGuard:
         ok, _ = apply_status_regression_guard("done", "failed", False)
         assert ok is True
 
-    def test_running_to_preparing_blocked(self):
-        ok, reason = apply_status_regression_guard("running", "preparing", False)
+    @pytest.mark.parametrize("target_status", ["preparing", "queued"])
+    def test_running_to_active_blocked(self, target_status):
+        ok, reason = apply_status_regression_guard("running", target_status, False)
         assert ok is False
         assert reason is not None
-
-    def test_running_to_queued_blocked(self):
-        ok, _ = apply_status_regression_guard("running", "queued", False)
-        assert ok is False
 
     def test_terminal_to_queued_allowed(self):
         ok, _ = apply_status_regression_guard("done", "queued", False)
         assert ok is True
 
-    def test_terminal_to_preparing_allowed_done(self):
+    @pytest.mark.parametrize("current_status", ["done", "failed", "cancelled"])
+    def test_terminal_to_preparing_allowed(self, current_status):
         # Bug guard: terminal → preparing is a legitimate clean-slate reset (spec §3.5)
-        ok, reason = apply_status_regression_guard("done", "preparing", False)
-        assert ok is True
-        assert reason is None
-
-    def test_terminal_to_preparing_allowed_failed(self):
-        ok, reason = apply_status_regression_guard("failed", "preparing", False)
-        assert ok is True
-        assert reason is None
-
-    def test_terminal_to_preparing_allowed_cancelled(self):
-        ok, reason = apply_status_regression_guard("cancelled", "preparing", False)
+        ok, reason = apply_status_regression_guard(current_status, "preparing", False)
         assert ok is True
         assert reason is None
 
@@ -148,11 +137,12 @@ class TestApplyTerminalEtaCleanup:
 # ---------------------------------------------------------------------------
 
 class TestIsTerminalReset:
-    def test_done_to_queued(self):
-        assert is_terminal_reset("done", {"status": "queued"}) is True
-
-    def test_failed_to_preparing(self):
-        assert is_terminal_reset("failed", {"status": "preparing"}) is True
+    @pytest.mark.parametrize(
+        "current_status, incoming_status",
+        [("done", "queued"), ("failed", "preparing")],
+    )
+    def test_terminal_to_active_is_reset(self, current_status, incoming_status):
+        assert is_terminal_reset(current_status, {"status": incoming_status}) is True
 
     def test_running_to_queued_not_reset(self):
         assert is_terminal_reset("running", {"status": "queued"}) is False
