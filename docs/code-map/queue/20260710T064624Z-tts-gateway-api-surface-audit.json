@@ -1,0 +1,56 @@
+{
+  "at": "2026-07-10T06:46:24Z",
+  "commit": "uncommitted",
+  "task": "Phase 12 backlog item 'Verify system API surface for future third-party/LLM controller plugins' (design-docs/plans/active/master_agnostic_tasks.md line 96). Audited docs/studio-as-tts-gateway.md + design-docs/specs/api-conventions.md against app/api/tts_api.py for adequacy as a third-party/LLM-controller-facing gateway (discover engines/voices, submit job, poll status, retrieve result, consistent auth/errors). Found the surface itself adequate (all four capabilities present, errors structured/consistent, URL+version-field versioning adequate). Found and fixed one real, verifiable auth gap: the sub-app's auto-generated /docs and /openapi routes bypassed verify_api_key/rate_limit entirely, contradicting design-docs/specs/api-conventions.md's existing 'All routes require verify_api_key + rate_limit' contract.",
+  "files": {
+    "app/api/tts_api.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "S12 fix: FastAPI's auto-generated docs_url/openapi_url/redoc_url routes are registered via add_route() (plain Starlette routing), which bypasses FastAPI's dependency-injection system -- so the `dependencies=[Depends(verify_api_key), Depends(rate_limit)]` passed to the FastAPI() constructor never applied to /api/v1/tts/docs or /api/v1/tts/openapi. Confirmed empirically pre-fix: both returned 200 with no Authorization header, and even when tts_api_enabled=False. Fix: disabled docs_url/openapi_url/redoc_url on the FastAPI() constructor and added explicit GET /openapi and GET /docs routes on `router` (which is include_router'd into the sub-app and therefore inherits the same verify_api_key + rate_limit dependencies as every data route, e.g. /engines, /synthesize, /jobs/{id}). Verified: 401 unauthenticated, 403 when tts_api_enabled=False, 200 with a valid key -- matching every other route's behavior."
+    },
+    "tests/api/test_api_tts_api.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added 4 real tests hitting the actual mounted sub-app via TestClient(app): test_docs_requires_auth, test_openapi_requires_auth, test_docs_rejected_when_api_disabled (all revert-checked red against the pre-fix code per testing-standards.md R1: stashed app/api/tts_api.py, ran the 4 new tests, saw 3 fail with assert 200 == ..., restored the fix), and test_docs_and_openapi_accessible_with_valid_key confirming the routes still function correctly for an authenticated caller."
+    },
+    "design-docs/specs/security.md": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Bumped spec_version 1.2.3 -> 1.2.4. Added a scope clarification under 'API Key Authentication > Scope' documenting that verify_api_key's coverage includes the gateway sub-app's own /docs and /openapi routes, and why FastAPI's auto-generated routes would otherwise bypass it. Added changelog row for S12."
+    },
+    "design-docs/specs/README.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Updated the security.md version column in the spec index table (1.2.3 -> 1.2.4)."
+    },
+    "design-docs/plans/active/final_release/12_security_and_opportunities.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added a dated (2026-07-09) 'Gateway API surface verification' section: adequacy findings for third-party/LLM controller use (engine/voice discovery, self-contained job lifecycle without touching internal /api/jobs, structured/consistent errors, URL+version-field versioning), doc-vs-code cross-check (docs/studio-as-tts-gateway.md omits GET /engines/{id} and POST /preview -- both implemented and documented in api-conventions.md instead; doc's stated default port 8000 doesn't match the actual 8123 default -- flagged, not fixed, out of scope; doc lives at docs/studio-as-tts-gateway.md rather than the conventional docs/plugin-sdk/ location -- flagged, not moved). Added S12 as a new numbered security finding (marked done) with fix + verification detail matching the S1-S11 pattern already in this file."
+    },
+    "design-docs/plans/active/master_agnostic_tasks.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Marked the 'Verify system API surface for future third-party/LLM controller plugins' line item [x] with a one-line summary and pointer to the dated finding in doc 12."
+    },
+    "design-docs/plans/TASKS.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Surgically struck through only the 'system-API surface for 3rd-party controllers' portion of the shared Phase-12 owner-decisions bullet (line 391), leaving the other three items on that line (plugin setup-loop, voice-settings placement, Settings->API tab honesty) untouched, per parallel-lanes single-writer discipline on this file."
+    }
+  },
+  "flow_impact": "External TTS gateway sub-app (/api/v1/tts) mounted from app/api/web.py. No change to synthesis/job/engine routes' behavior -- only the sub-app's own docs/openapi discovery routes now require the same auth/rate-limit as data routes. No frontend, orchestrator, or engine-registry impact.",
+  "tests_added": [
+    "tests/api/test_api_tts_api.py::test_docs_requires_auth",
+    "tests/api/test_api_tts_api.py::test_openapi_requires_auth",
+    "tests/api/test_api_tts_api.py::test_docs_rejected_when_api_disabled",
+    "tests/api/test_api_tts_api.py::test_docs_and_openapi_accessible_with_valid_key"
+  ],
+  "tests_deleted": [],
+  "tests_relocated": [],
+  "verification": {
+    "pytest_scoped": "venv/bin/python -m pytest tests/api/ -q -> 465 passed, 1 skipped",
+    "ruff": "venv/bin/python -m ruff check app/api/tts_api.py tests/api/test_api_tts_api.py -> All checks passed",
+    "revert_check_performed": "git stash push -- app/api/tts_api.py; ran the 4 new docs/openapi auth tests -> test_docs_requires_auth, test_openapi_requires_auth, test_docs_rejected_when_api_disabled failed (asserted 200/no-403 against the pre-fix unprotected routes) while test_docs_and_openapi_accessible_with_valid_key still passed; git stash pop restored the fix; full suite re-run green (15/15 in test_api_tts_api.py, 465/465 in tests/api/)."
+  }
+}
