@@ -1,0 +1,17 @@
+{
+  "at": "2026-07-09T16:00:00Z",
+  "commit": "uncommitted",
+  "task": "Phase 12 backlog item 'Settings → API tab honesty' (master_agnostic_tasks.md). Verified the R5 redesign already replaced the old Settings 'API' panel with a redirect (/settings/api -> /integrations, settingsRouteConfig.ts SETTINGS_REDIRECTS), so the original concern (a config-promising panel with no config UI) no longer exists. However, the standalone /integrations page's documentation content (ApiGuidePanel.tsx) had drifted from the real /api/v1/tts gateway: it falsely claimed no API-key auth exists and omitted the real rate limiter, while documenting made-up/internal-only routes instead of the real external contract.",
+  "files": {
+    "frontend/src/pages/Integrations/components/ApiGuidePanel.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Rewrote static documentation content to match app/api/tts_api.py + app/core/security.py: replaced the false 'no API secret keys' claim with the real Bearer tts_api_key + tts_api_enabled gate, added the real 30 req/min sliding-window rate limiter, and replaced fictitious/internal-only routes (/api/engines, /api/speaker-profiles, /api/processing_queue, direct localhost:8001/synthesize) with the real external contract (GET /api/v1/tts/engines[/{id}], POST /api/v1/tts/synthesize, POST /api/v1/tts/preview, GET /api/v1/tts/jobs/{id}[/audio]). No component structure/props changed — text/example content only."
+    }
+  },
+  "flow_impact": "none — documentation-only page, no runtime behavior/contract change. frontend/tests/unit/pages/Settings/ and frontend/tests/unit/pages/Integrations/ (20 tests) pass; lint and build clean.",
+  "docs_updated": [
+    "design-docs/plans/active/master_agnostic_tasks.md (line 131, marked [x] with resolution note)",
+    "design-docs/plans/TASKS.md (line 391 shared bullet, struck through the 'Settings→API tab honesty' item only)"
+  ]
+}
