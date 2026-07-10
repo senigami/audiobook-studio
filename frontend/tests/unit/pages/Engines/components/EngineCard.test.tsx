@@ -82,15 +82,20 @@ const voxtralEngine = {
 
 describe('formatEngineTestGeneratedAt', () => {
   it('formats unix seconds as a locale string', () => {
+    // 1710000000 unix seconds = 2024-03-09T16:00:00.000Z. If the seconds->ms
+    // multiplication were dropped, Date would resolve to a 1970 timestamp instead,
+    // so asserting the year catches that regression (not just "is a valid Date").
     const output = formatEngineTestGeneratedAt(1710000000);
     expect(output).not.toBe('Unknown');
     expect(output).not.toContain('Invalid Date');
+    expect(output).toContain('2024');
   });
 
   it('formats ISO timestamps as a locale string', () => {
     const output = formatEngineTestGeneratedAt('2024-03-09T12:34:56Z');
     expect(output).not.toBe('Unknown');
     expect(output).not.toContain('Invalid Date');
+    expect(output).toContain('2024');
   });
 });
 

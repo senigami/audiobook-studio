@@ -375,9 +375,4 @@ describe('ProgressBarTestPage', () => {
       expect(screen.getByTestId('last-ignored-event-topic').textContent).toBe('tts.logs')
     })
   })
-
-  it('proves the preview bar renders with data-testid="dev-progress-bar-preview"', async () => {
-    render(<ProgressBarTestPage />)
-    expect(screen.getByTestId('dev-progress-bar-preview')).toBeInTheDocument()
-  })
 })

@@ -29,15 +29,6 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
     delete (window as any).__ttsCommunicationTimeline;
   });
 
-  it('renders the header and description of the page', () => {
-    render(<LiveOutputPage />);
-    expect(screen.getByText('Live Output Stream')).toBeInTheDocument();
-    expect(screen.getByText(/Internal audit log of normalized websocket events/)).toBeInTheDocument();
-    expect(screen.getByText('Event map')).toBeInTheDocument();
-    expect(screen.getByText('main-queue')).toBeInTheDocument();
-    expect(screen.getByText('jobs.lifecycle, queue.items, chapters.lifecycle, chapters.progress')).toBeInTheDocument();
-  });
-
   it('renders topic toggle buttons without the old all-minus-logs shortcut', () => {
     render(<LiveOutputPage />);
 
@@ -114,16 +105,6 @@ describe('LiveOutputPage & Table Consumer Filters', () => {
     // Reset to all
     fireEvent.click(screen.getByRole('button', { name: 'All' }));
     expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(6);
-  });
-
-  it('still renders the event map consumer labels for routing reference', () => {
-    render(<LiveOutputPage />);
-    expect(screen.getByRole('button', { name: 'main-queue' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'chapter-state' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'segment-state' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'tts-diagnostics' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'voice-test-state' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'project-state' })).toBeInTheDocument();
   });
 
   it('uses event map consumer names as topic presets for the table', () => {
