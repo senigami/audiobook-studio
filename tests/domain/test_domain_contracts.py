@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import importlib
 from pathlib import Path
 
 import pytest
@@ -23,10 +24,24 @@ from app.domain.voices.preview import preview_voice_profile
 
 @pytest.fixture(autouse=True)
 def _disable_external_engines_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Ensure tests run against a stable baseline by disabling external engine side-effects."""
-    monkeypatch.setattr("plugins.tts_voxtral.plugin.studio.app_adapter.resolve_mistral_api_key", lambda: None)
-    monkeypatch.setattr("plugins.tts_xtts.plugin.studio.app_adapter.XTTS_ENV_ACTIVATE", Path("/nonexistent/activate"))
-    monkeypatch.setattr("plugins.tts_xtts.plugin.studio.app_adapter.XTTS_ENV_PYTHON", Path("/nonexistent/python"))
+    """Ensure tests run against a stable baseline by disabling external engine side-effects.
+
+    Uses ``importlib.import_module`` to obtain the target modules and patches the
+    module objects directly, rather than pytest's dotted-string ``setattr`` form.
+    Real plugin/job-handler discovery (e.g. ``app.jobs.registry.initialize_default_handlers``,
+    exercised for real by ``tests/core/test_boot.py``) registers synthetic
+    ``sys.modules["plugins.tts_voxtral"]``/``sys.modules["plugins.tts_xtts"]`` entries
+    without binding them as attributes on the real ``plugins`` package. That leaves
+    pytest's dotted-string attribute-chain resolution (``monkeypatch.setattr("plugins.tts_voxtral...")``)
+    broken for the rest of the test session, since ``plugins.tts_voxtral`` can never
+    resolve via ``getattr`` even though the submodule is importable. Importing the
+    modules directly sidesteps that dependency on collection/execution order.
+    """
+    voxtral_app_adapter = importlib.import_module("plugins.tts_voxtral.plugin.studio.app_adapter")
+    xtts_app_adapter = importlib.import_module("plugins.tts_xtts.plugin.studio.app_adapter")
+    monkeypatch.setattr(voxtral_app_adapter, "resolve_mistral_api_key", lambda: None)
+    monkeypatch.setattr(xtts_app_adapter, "XTTS_ENV_ACTIVATE", Path("/nonexistent/activate"))
+    monkeypatch.setattr(xtts_app_adapter, "XTTS_ENV_PYTHON", Path("/nonexistent/python"))
     from app.engines.registry import load_engine_registry
 
     load_engine_registry.cache_clear()
