@@ -1,0 +1,28 @@
+{
+  "at": "2026-07-09T23:43:00Z",
+  "commit": "uncommitted",
+  "task": "Phase 12 / a11y backlog item (design-docs/plans/active/master_agnostic_tasks.md line 134, design-docs/plans/TASKS.md line 392): MobileNavDrawer.tsx lacked useFocusTrap and an Escape key handler despite R6-T9 confirming aria-label correctness. Added focus trap + Escape-to-close using the exact pattern already used by the Drawer component in VoiceUtils.tsx.",
+  "files": {
+    "frontend/src/app/layout/MobileNavDrawer.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added a drawerRef (useRef<HTMLElement>) attached to the <aside>, called useFocusTrap(drawerRef, open) to trap Tab/Shift-Tab inside the drawer and auto-focus/restore focus on open/close, and added an onKeyDown handler on the <aside> that calls onClose() when Escape is pressed — matching the Drawer component pattern in frontend/src/pages/Voices/components/VoiceUtils.tsx."
+    },
+    "frontend/tests/unit/app/layout/MobileNavDrawer.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added two tests: 'traps focus inside the drawer, wrapping Tab from the last item back to the first' (focuses the last button, dispatches a document-level Tab keydown per the useFocusTrap.test.tsx convention, asserts focus wraps to the first button) and 'calls onClose when Escape is pressed' (fires an Escape keydown on the drawer's complementary landmark and asserts the onClose callback fires once)."
+    }
+  },
+  "flow_impact": "No production behavior change outside MobileNavDrawer; no contracts/specs touched. Closes the a11y gap flagged in R6-T7/R6-T9 for the mobile nav drawer.",
+  "tests_added": [
+    "frontend/tests/unit/app/layout/MobileNavDrawer.test.tsx: 'traps focus inside the drawer, wrapping Tab from the last item back to the first'",
+    "frontend/tests/unit/app/layout/MobileNavDrawer.test.tsx: 'calls onClose when Escape is pressed'"
+  ],
+  "verification": {
+    "frontend_tests_scoped": "cd frontend && npm run test -- --run tests/unit/app/layout/MobileNavDrawer.test.tsx --maxWorkers=1 -> 1 file, 8 tests, all passed",
+    "lint": "npm run lint -> 0 errors, 50 pre-existing warnings (unrelated files, react-refresh/only-export-components)",
+    "build": "npm run build -> succeeded (tsc -b && vite build)",
+    "revert_check": "Stashed only MobileNavDrawer.tsx (git stash push -- frontend/src/app/layout/MobileNavDrawer.tsx), reran the test file: both new tests failed for the right reason ('focus trap' — first-focus assertion failed because no focus trap ran; 'Escape' — onClose spy called 0 times instead of 1). Restored the fix via git stash pop and reran to confirm all 8 tests pass again."
+  }
+}

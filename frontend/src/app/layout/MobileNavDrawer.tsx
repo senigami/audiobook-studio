@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { buildNavGroups, getActiveNavId } from '@/app/layout/navData';
 import { useDevMode } from '@/utils/devMode';
 import { useThemeToggle } from '@/utils/theme';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface MobileNavDrawerProps {
   open: boolean;
@@ -17,6 +18,8 @@ export function MobileNavDrawer({ open, onClose, queueCount }: MobileNavDrawerPr
   const navigate = useNavigate();
   const activeNavId = getActiveNavId(location.pathname);
   const { ThemeIcon, themeLabel, themeAriaLabel, handleThemeToggle } = useThemeToggle();
+  const drawerRef = useRef<HTMLElement>(null);
+  useFocusTrap(drawerRef, open);
 
   if (!open) {
     return null;
@@ -30,7 +33,14 @@ export function MobileNavDrawer({ open, onClose, queueCount }: MobileNavDrawerPr
   return (
     <>
       <div className="mobile-nav-backdrop" onClick={onClose} aria-hidden="true" />
-      <aside className="mobile-nav-drawer" aria-label="Mobile navigation">
+      <aside
+        ref={drawerRef}
+        className="mobile-nav-drawer"
+        aria-label="Mobile navigation"
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') onClose();
+        }}
+      >
         <div className="mobile-nav-drawer__content">
           {groups.map((group) => (
             <section key={group.group} className="mobile-nav-drawer__group">
