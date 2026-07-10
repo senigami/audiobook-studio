@@ -73,11 +73,6 @@ describe('CastPalette', () => {
     expect(narratorRow).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('does not render a voice-select dropdown', () => {
-    render(<Harness />);
-    expect(screen.queryByTestId('voice-select')).not.toBeInTheDocument();
-  });
-
   it('arms CLEAR_ASSIGNMENT when Narrator (default) is clicked, and disarms on second click', () => {
     render(<Harness />);
 

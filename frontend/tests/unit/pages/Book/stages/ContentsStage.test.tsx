@@ -216,13 +216,15 @@ describe('ContentsStage publish-readiness control', () => {
     fireEvent.dragEnter(dropzone, { dataTransfer });
     fireEvent.dragOver(dropzone, { dataTransfer });
 
-    expect(dropzone.getAttribute('style')).toContain('border: 1px dashed var(--accent)');
-    expect(dropzone.getAttribute('style')).toContain('background: var(--accent-glow)');
+    // Semantic signal: the accessible name (and visible label) flip to the
+    // "release" wording while dragging, rather than asserting the incidental
+    // inline CSS used to paint the highlight.
+    expect(dropzone).toHaveAttribute('aria-label', 'Import manuscript, release to import files');
     expect(screen.getByText('Release to import')).toBeInTheDocument();
 
     fireEvent.dragLeave(dropzone, { dataTransfer });
 
-    expect(dropzone.getAttribute('style')).toContain('border: 1px dashed var(--border)');
+    expect(dropzone).toHaveAttribute('aria-label', 'Import manuscript, browse or drop files');
     expect(screen.getByText('Import manuscript')).toBeInTheDocument();
   });
 
