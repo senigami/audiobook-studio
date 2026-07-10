@@ -76,10 +76,10 @@ interface VoicesModalsProps {
     setEngineVoiceId: (voiceId: string) => void;
     editingSettings: Record<string, any>;
     setEditingSettings: (settings: Record<string, any>) => void;
-    /** Whether `editingProfile`'s edit session should surface as the Voice Settings drawer
-     * (per-voice plugin controls) instead of the Script Editor drawer (test-text/engine). */
-    isVoiceSettingsOpen: boolean;
-    setIsVoiceSettingsOpen: (open: boolean) => void;
+    /** Which drawer `editingProfile`'s edit session should surface as — the Script Editor
+     * (test-text/engine) or the Voice Settings drawer (per-voice plugin controls). */
+    editSurface: 'script' | 'settings' | null;
+    setEditSurface: (surface: 'script' | 'settings' | null) => void;
     isSavingText: boolean;
     handleResetTestText: () => void;
     handleSaveTestText: () => void;
@@ -163,7 +163,7 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
             </Drawer>
 
             <Drawer
-                isOpen={!!props.editingProfile && !props.isVoiceSettingsOpen}
+                isOpen={!!props.editingProfile && props.editSurface === 'script'}
                 onClose={() => props.setEditingProfile(null)}
                 title={`Edit: ${props.variantName || getVariantDisplayName(props.editingProfile)}`}
             >
@@ -188,7 +188,7 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
             </Drawer>
 
             <Drawer
-                isOpen={!!props.editingProfile && props.isVoiceSettingsOpen}
+                isOpen={!!props.editingProfile && props.editSurface === 'settings'}
                 onClose={() => props.setEditingProfile(null)}
                 title={`Voice Settings: ${props.variantName || getVariantDisplayName(props.editingProfile)}`}
             >

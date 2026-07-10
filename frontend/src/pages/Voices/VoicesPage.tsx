@@ -237,11 +237,11 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                     engines={engines}
                     onCreateClick={() => state.setIsCreateModalOpen(true)}
                     onEditTestText={(profile) => {
-                        state.setIsVoiceSettingsOpen(false);
+                        state.setEditSurface('script');
                         state.setEditingProfile(profile);
                     }}
                     onEditVoiceSettings={(profile) => {
-                        state.setIsVoiceSettingsOpen(true);
+                        state.setEditSurface('settings');
                         state.setEditingProfile(profile);
                     }}
                     voiceMetadataMap={voiceMetadataMap}
@@ -313,8 +313,8 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 setEngineVoiceId={state.setEngineVoiceId}
                 editingSettings={state.editingSettings}
                 setEditingSettings={state.setEditingSettings}
-                isVoiceSettingsOpen={state.isVoiceSettingsOpen}
-                setIsVoiceSettingsOpen={state.setIsVoiceSettingsOpen}
+                editSurface={state.editSurface}
+                setEditSurface={state.setEditSurface}
                 isSavingText={state.isSavingText}
                 handleResetTestText={actions.handleResetTestText}
                 handleSaveTestText={actions.handleSaveTestText}

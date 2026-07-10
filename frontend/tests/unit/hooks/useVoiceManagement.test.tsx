@@ -1,6 +1,7 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useVoiceManagement } from '@/hooks/useVoiceManagement';
+import { APP_TOAST_EVENT } from '@/utils/toast';
 
 describe('useVoiceManagement', () => {
   const onRefresh = vi.fn();
@@ -111,6 +112,49 @@ describe('useVoiceManagement', () => {
       title: 'Rebuild Failed',
       message: 'Rebuild failed',
     }));
+  });
+
+  it('surfaces a toast when handleUpdateSettings fails (non-ok response)', async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ detail: 'nope' }),
+    });
+
+    const toastHandler = vi.fn();
+    window.addEventListener(APP_TOAST_EVENT, toastHandler);
+
+    const { result } = renderHook(() => useVoiceManagement(onRefresh, speakerProfiles, requestConfirm));
+
+    let success: boolean | undefined;
+    await act(async () => {
+      success = await result.current.handleUpdateSettings('Voice 1', { test_text: 'hi' });
+    });
+
+    expect(success).toBe(false);
+    expect(toastHandler).toHaveBeenCalledTimes(1);
+    expect((toastHandler.mock.calls[0][0] as CustomEvent).detail.message).toMatch(/failed to save voice settings/i);
+
+    window.removeEventListener(APP_TOAST_EVENT, toastHandler);
+  });
+
+  it('surfaces a toast when handleUpdateSettings throws (network error)', async () => {
+    (global.fetch as any).mockRejectedValue(new Error('network down'));
+
+    const toastHandler = vi.fn();
+    window.addEventListener(APP_TOAST_EVENT, toastHandler);
+
+    const { result } = renderHook(() => useVoiceManagement(onRefresh, speakerProfiles, requestConfirm));
+
+    let success: boolean | undefined;
+    await act(async () => {
+      success = await result.current.handleUpdateSettings('Voice 1', { test_text: 'hi' });
+    });
+
+    expect(success).toBe(false);
+    expect(toastHandler).toHaveBeenCalledTimes(1);
+    expect((toastHandler.mock.calls[0][0] as CustomEvent).detail.message).toMatch(/failed to save voice settings/i);
+
+    window.removeEventListener(APP_TOAST_EVENT, toastHandler);
   });
 
   it('handles handleDelete', async () => {
