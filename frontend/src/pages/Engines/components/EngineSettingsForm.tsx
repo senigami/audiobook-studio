@@ -3,6 +3,7 @@ import type { TtsEngine } from '@/types';
 import { getEngineUi, getBadgeStyles } from '@/pages/Settings/settingsRouteHelpers';
 import { EngineMetadataPanel } from '@/pages/Engines/components/EngineMetadataPanel';
 import { JsonSchemaForm } from '@/pages/Settings/components/JsonSchemaForm';
+import '@/pages/Engines/components/EngineCard.css';
 
 const getSettingsSchemaWithoutComputedSpeed = (schema: any) => {
   if (!schema?.properties?.computer_speed_multiplier) {
@@ -43,13 +44,10 @@ export const EngineSettingsForm: React.FC<{
   }
 
   return (
-    <div style={{
-      marginBottom: '1rem',
-      padding: '1.25rem',
-      borderRadius: '16px',
-      border: '1px solid var(--accent-tint-border)',
-      background: 'linear-gradient(180deg, var(--surface-tinted-light), var(--surface))'
-    }}>
+    <div
+      className="engine-highlight-panel"
+      style={{ marginBottom: '1rem', padding: '1.25rem' }}
+    >
       {(engineUi || settingsSchema?.description) && (
         <div style={{ marginBottom: '1.5rem' }}>
           <EngineMetadataPanel
