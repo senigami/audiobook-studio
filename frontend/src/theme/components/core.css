@@ -149,3 +149,52 @@
   min-width: 0;
 }
 
+/* ==========================================================================
+   Shared label patterns (ST-2 — confirmed-repeated inline-style patterns,
+   see design-docs/plans/active/simplification/styling_separation_execution/
+   01-map.md Part 2; consumed by Workload C conversion tasks)
+   ========================================================================== */
+
+.label-micro-muted {
+  font-size: var(--type-micro);
+  color: var(--text-muted);
+}
+
+.label-micro-muted-strong {
+  font-size: var(--type-micro);
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.label-caption-strong {
+  font-size: var(--type-caption);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.label-micro-muted-italic {
+  font-size: var(--type-micro);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.label-uppercase-sm {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.label-uppercase-md {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
