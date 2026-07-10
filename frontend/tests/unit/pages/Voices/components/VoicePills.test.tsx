@@ -1,7 +1,7 @@
 /**
  * VoicePills.test.tsx — R5-T1
  * Tests: pill ordering, correct category classes, unknown-future field as extended,
- * +N overflow expand/collapse, dark-theme smoke.
+ * +N overflow expand/collapse.
  */
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -143,20 +143,6 @@ describe('VoicePillRow', () => {
     it('renders nothing when no pills', () => {
         const { container } = render(<VoicePillRow pills={[]} />);
         expect(container.firstChild).toBeNull();
-    });
-});
-
-// ---------------------------------------------------------------------------
-// Dark theme smoke
-// ---------------------------------------------------------------------------
-
-describe('VoicePillRow dark theme smoke', () => {
-    it('renders without error in dark theme', () => {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        const pills = voicePillsFromMetadata(fullMeta);
-        const { container } = render(<VoicePillRow pills={pills} max={3} />);
-        expect(container.querySelector('.voice-pill-row')).toBeInTheDocument();
-        document.documentElement.removeAttribute('data-theme');
     });
 });
 

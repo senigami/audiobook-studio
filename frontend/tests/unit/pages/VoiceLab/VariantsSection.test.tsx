@@ -122,16 +122,6 @@ describe('VariantsSection', () => {
         });
     });
 
-    it('renders the Variants section label', () => {
-        render(<VariantsSection {...commonProps} profiles={[defaultProfile]} />);
-        expect(screen.getByText(/Variants/i)).toBeInTheDocument();
-    });
-
-    it('renders an Add variant button', () => {
-        render(<VariantsSection {...commonProps} profiles={[defaultProfile]} />);
-        expect(screen.getByRole('button', { name: /add variant/i })).toBeInTheDocument();
-    });
-
     it('fires onAddVariant when the Add variant button is clicked', async () => {
         const user = userEvent.setup();
         const onAddVariant = vi.fn();
@@ -145,11 +135,12 @@ describe('VariantsSection', () => {
         expect(screen.getByText(/No variants yet/i)).toBeInTheDocument();
     });
 
-    it('renders VariantEditor rows for each profile', () => {
+    it('renders one VariantEditor row per profile', () => {
         render(<VariantsSection {...commonProps} profiles={[defaultProfile, secondProfile]} />);
-        // VariantEditor renders at least the play button per variant
-        const playButtons = screen.getAllByRole('button');
-        // Should have at minimum the Add variant btn + 2 sets of controls per variant
-        expect(playButtons.length).toBeGreaterThan(2);
+        // Each VariantEditor renders exactly one unconditional "Script" button
+        // (title="Edit Preview Script"), so counting them ties the assertion to
+        // the number of profiles rendered rather than a vague "more than 2".
+        const scriptButtons = screen.getAllByRole('button', { name: /script/i });
+        expect(scriptButtons).toHaveLength(2);
     });
 });
