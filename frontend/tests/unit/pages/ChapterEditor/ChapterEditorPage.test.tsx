@@ -5,6 +5,7 @@ import React, { useEffect } from 'react';
 vi.mock('@/api', () => ({
   api: {
     fetchChapters: vi.fn(),
+    fetchChapter: vi.fn(),
     fetchSegments: vi.fn(),
     fetchCharacters: vi.fn(),
     updateChapter: vi.fn(),
@@ -103,6 +104,7 @@ describe('ChapterEditor - Core Orchestration', () => {
     setStudioSocketConnected(true);
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     (api.fetchChapters as any).mockResolvedValue([mockChapter]);
+    (api.fetchChapter as any).mockResolvedValue(mockChapter);
     (api.fetchSegments as any).mockResolvedValue(mockSegments);
     (api.fetchCharacters as any).mockResolvedValue([]);
     (api.fetchScriptView as any).mockResolvedValue(mockScriptView);

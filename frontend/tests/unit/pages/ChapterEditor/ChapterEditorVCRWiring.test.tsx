@@ -15,6 +15,7 @@ import {
 vi.mock('@/api', () => ({
   api: {
     fetchChapters: vi.fn(),
+    fetchChapter: vi.fn(),
     fetchSegments: vi.fn(),
     fetchCharacters: vi.fn(),
     fetchScriptView: vi.fn(),
@@ -86,7 +87,7 @@ const localScriptView = {
 describe('ChapterEditor - VCR Wiring', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (api.fetchChapters as any).mockResolvedValue([mockChapter]);
+    (api.fetchChapter as any).mockResolvedValue(mockChapter);
     (api.fetchSegments as any).mockResolvedValue(localSegments);
     (api.fetchCharacters as any).mockResolvedValue([]);
     (api.fetchScriptView as any).mockResolvedValue(localScriptView);

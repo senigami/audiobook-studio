@@ -101,7 +101,7 @@ engine-agnostic historical checklist plus backlog parking lot. If a status confl
 - [x] Scan plans and memory for forgotten requests; namespace rename ideas remain parked in the deferred namespace phase below.
 - [ ] Manually verify fixed-but-pending Phase 11 app behaviors.
 - [ ] Triage Vite websocket `ECONNRESET` reconnect behavior.
-- [ ] Re-check large-book project/chapter load timings.
+- [x] Re-check large-book project/chapter load timings. Checked against the largest real project on disk (28 chapters / ~730K chars): `GET /api/projects/{id}/chapters` (Contents view) is already fast (~60-100ms), so no change there. Found and fixed a real bug instead — the chapter editor's `useChapterLoader` fetched the *whole* project chapter list (every chapter's full `text_content`, not just the one being opened) on mount, on every websocket chapter/segment-update tick, and on every 1s completion-poll tick (up to 30x). Fixed by calling the single-chapter endpoint (`GET /api/chapters/{id}`) instead, and added the segment-count subqueries `get_chapter()` was missing so it matches `list_chapters()`'s shape. Per-request cost dropped from ~60-100ms/~780KB to ~4ms/~700B.
 - [ ] Resolve the generic plugin setup loop question above: implement before v2.0 or explicitly defer until standalone plugin repositories.
 - [x] Complete or explicitly defer JobHandlerRegistry, `JobKind`, and mixed/composite naming (mixed renaming deferred to Phase 13).
 - [x] Complete or explicitly defer StorageManager and other remaining Phase 12 polish.
