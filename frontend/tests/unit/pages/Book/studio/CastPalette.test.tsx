@@ -275,8 +275,7 @@ describe('CastPalette — 3-tier grouping', () => {
       />
     );
 
-    const rowBtn = screen.getByRole('button', { name: /T Temp One/i });
-    fireEvent.mouseEnter(rowBtn.parentElement as HTMLElement);
+    // No hover needed — the kebab is always mounted (see keyboard-reachability test below).
     fireEvent.click(screen.getByRole('button', { name: /more actions/i }));
     fireEvent.click(screen.getByRole('button', { name: /promote to book cast/i }));
     expect(onPromote).toHaveBeenCalledWith('temp-1');
@@ -293,14 +292,12 @@ describe('CastPalette — 3-tier grouping', () => {
       />
     );
 
-    const rowBtn = screen.getByRole('button', { name: /T Temp One/i });
-    fireEvent.mouseEnter(rowBtn.parentElement as HTMLElement);
     fireEvent.click(screen.getByRole('button', { name: /more actions/i }));
     fireEvent.click(screen.getByRole('button', { name: /delete character/i }));
     expect(onDelete).toHaveBeenCalledWith('temp-1');
   });
 
-  it('does not show a kebab on book (tier-1) characters', () => {
+  it('does not show a kebab on book (tier-1) characters, but does for tier-2 temps', () => {
     render(
       <TieredHarness
         characters={[alice, tempChar]}
@@ -311,14 +308,82 @@ describe('CastPalette — 3-tier grouping', () => {
       />
     );
 
-    // alice is tier-1 — hovering her row should NOT produce a kebab
-    const aliceBtn = screen.getByRole('button', { name: /A Alice/i });
-    fireEvent.mouseEnter(aliceBtn.parentElement as HTMLElement);
-    expect(screen.queryByRole('button', { name: /more actions/i })).not.toBeInTheDocument();
+    // alice is tier-1 — no onPromote/onDelete wired for her tier, so no kebab at all.
+    expect(screen.getAllByRole('button', { name: /more actions/i })).toHaveLength(1);
+  });
 
-    // tempChar is tier-2 — hovering its row DOES produce a kebab
-    const tempBtn = screen.getByRole('button', { name: /T Temp One/i });
-    fireEvent.mouseEnter(tempBtn.parentElement as HTMLElement);
-    expect(screen.getByRole('button', { name: /more actions/i })).toBeInTheDocument();
+  it('keeps the promote/delete kebab mounted in the DOM without hover (keyboard-reachable)', () => {
+    render(
+      <TieredHarness
+        characters={[alice, tempChar]}
+        segments={segments}
+        currentChapterId={CHAPTER_A}
+        onPromoteCharacter={vi.fn()}
+        onDeleteCharacter={vi.fn()}
+      />
+    );
+
+    // Present immediately — not conditionally unmounted pending a mouseEnter.
+    const kebab = screen.getByRole('button', { name: /more actions/i });
+    expect(kebab).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Design-critique fixes: nested buttons, keyboard access, empty-cast state, no emoji
+
+describe('CastPalette — design critique fixes', () => {
+  it('does not render a <button> inside another <button> (invalid HTML)', () => {
+    const { container } = render(<Harness />);
+    const buttons = Array.from(container.querySelectorAll('button'));
+    for (const button of buttons) {
+      expect(button.querySelector('button')).toBeNull();
+    }
+  });
+
+  it('opens/closes a collapsible TierHeader tier via Enter and Space keys', () => {
+    render(
+      <TieredHarness
+        characters={[makeChar('alice', 'Alice'), makeChar('bob', 'Bob')]}
+        segments={[]}
+        currentChapterId="chapter-a"
+      />
+    );
+
+    const everyoneElse = screen.getByRole('button', { name: /everyone else/i });
+    expect(everyoneElse).toHaveAttribute('aria-expanded', 'false');
+    expect(everyoneElse).toHaveAttribute('tabIndex', '0');
+
+    fireEvent.keyDown(everyoneElse, { key: 'Enter' });
+    expect(everyoneElse).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.keyDown(everyoneElse, { key: ' ' });
+    expect(everyoneElse).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('renders a single empty-cast card instead of the three tiers when there are zero characters', () => {
+    const onCreate = vi.fn();
+    render(
+      <TieredHarness
+        characters={[]}
+        segments={[]}
+        currentChapterId="chapter-a"
+        onCreateTempCharacter={onCreate}
+      />
+    );
+
+    expect(screen.getByText(/no cast yet/i)).toBeInTheDocument();
+    expect(screen.queryByText(/in this chapter/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/chapter cast/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/everyone else/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /add character/i }));
+    expect(onCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders no 🖌 or 🚫 emoji anywhere in the palette', () => {
+    const { container } = render(<Harness />);
+    expect(container.textContent).not.toContain('\u{1F58C}');
+    expect(container.textContent).not.toContain('\u{1F6AB}');
   });
 });

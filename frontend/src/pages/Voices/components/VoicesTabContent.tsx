@@ -51,6 +51,7 @@ export const VoicesTabContent: React.FC<VoicesTabContentProps> = ({
     onExportVoice,
     engines,
     onCreateClick,
+    onEditTestText,
     voiceMetadataMap,
     onEditMetadata,
     onNavigateToLab,
@@ -131,6 +132,7 @@ export const VoicesTabContent: React.FC<VoicesTabContentProps> = ({
                                     onExportVoice={onExportVoice}
                                     requestConfirm={handleRequestConfirm}
                                     onEditMetadata={() => onEditMetadata?.(voice.id, voice.name)}
+                                    onEditTestText={onEditTestText}
                                     onRefresh={onRefresh}
                                 />
                             );

@@ -9,10 +9,10 @@
  * - One-line description
  * - Preview (Play) button (routes through playerBus)
  * - Phase-appropriate primary CTA (from getPrimaryCta/getVoicePhase)
- * - ⋯ ActionMenu: Set as default / Edit Metadata / Rename Voice / Export Voice Bundle / Delete Voice
+ * - ⋯ ActionMenu: Set as default / Edit Metadata / Edit Recording Script / Rename Voice / Export Voice Bundle / Delete Voice
  */
 import React from 'react';
-import { User, Star, Download, FileEdit, Trash2, Tag, Play, Pause } from 'lucide-react';
+import { User, Star, Download, FileEdit, Trash2, Tag, Play, Pause, Mic } from 'lucide-react';
 import type { Speaker, SpeakerProfile, TtsEngine, VoiceMetadata } from '@/types';
 import { ActionMenu } from '@/components/ui/ActionMenu';
 import { VoicePillRow, UntaggedBadge, voicePillsFromMetadata } from '@/pages/Voices/components/VoicePills';
@@ -39,6 +39,7 @@ export interface VoiceCatalogCardProps {
     onExportVoice?: (voiceName: string) => void;
     requestConfirm: (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean }) => void;
     onEditMetadata?: () => void;
+    onEditTestText?: (profile: SpeakerProfile) => void;
     onRefresh: () => void;
 }
 
@@ -59,6 +60,7 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
     onExportVoice,
     requestConfirm,
     onEditMetadata,
+    onEditTestText,
     onRefresh,
 }) => {
     const playerBus = usePlayerBus();
@@ -234,6 +236,11 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
                             label: 'Edit Metadata',
                             icon: Tag,
                             onClick: () => onEditMetadata?.(),
+                        },
+                        {
+                            label: 'Edit Recording Script',
+                            icon: Mic,
+                            onClick: () => defaultProfile && onEditTestText?.(defaultProfile),
                         },
                         {
                             label: 'Rename Voice',

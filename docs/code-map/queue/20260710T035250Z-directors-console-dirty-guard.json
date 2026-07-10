@@ -1,0 +1,59 @@
+{
+  "at": "2026-07-10T03:52:50Z",
+  "commit": "uncommitted",
+  "task": "Fix silent data loss in the Director's Console: clicking any rail tab immediately unmounted the previous tool body with no unsaved-work check. WriteTool (produced-chapter text edit, no autosave once unlocked) and ReviseTool (in-progress segment edit) both destroyed uncommitted work with zero warning on tab switch. Added a dirty-exit guard: tool bodies report unsaved state via a new Context (bodies stay zero-prop per INV-1); DirectorsConsole owns the flag and gates rail-tab switches on it with a confirm dialog.",
+  "files": {
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/DirtyGuardContext.tsx": {
+      "change": "added",
+      "contract_changed": true,
+      "summary": "New context module. Exports `useDirtyGuard()` — a hook any tool body can call to get `{ setDirty(isDirty: boolean, message?: string): void }` and report its own unsaved-work state (falls back to a no-op setter if rendered without a provider, e.g. in isolated unit tests). Exports `DirtyGuardProvider` — a thin pass-through component (`{ onDirtyChange, children }`) with no state of its own; the dirty flag itself is owned and stored by `DirectorsConsole` (its own useState), not by the provider. Tool bodies only ever call `setDirty`; they never read the flag back. This is the opt-in contract future tool modules (Cast/Booth/CastingCall/etc.) can use the same way."
+    },
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/index.tsx": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Added `dirty`/`pendingToolId` state. Rail button clicks now go through `handleToolClick`, which stages the target tool id in `pendingToolId` and opens a `ConfirmModal` (\"Unsaved changes... Switch tabs anyway? Your changes will be lost.\", including the dirty tool's optional `message`) instead of switching immediately whenever `dirty.isDirty` is true; confirming switches tabs and resets the dirty flag, canceling leaves the current tab active. The active tool body is now rendered inside `<DirtyGuardProvider onDirtyChange={...}>` so it can report dirty state via `useDirtyGuard()`. `ActiveToolBody` itself is still rendered with zero props (INV-1 preserved)."
+    },
+    "frontend/src/pages/Book/components/ChapterTextPanel.tsx": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Added optional `onDirtyChange?: (dirty: boolean) => void` prop. A new effect calls it whenever `chapterText.isProduced && chapterText.hasTextChanges` changes — the existing `useChapterText` signal for \"produced chapter has an uncommitted edit not yet pushed through the resync/commit flow\" (non-produced chapters autosave, so they never report dirty here). No new state was added; this just surfaces an existing derived value."
+    },
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/WriteTool/index.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Calls `useDirtyGuard()` and forwards `ChapterTextPanel`'s new `onDirtyChange` to `setDirty(dirty, 'Uncommitted chapter text edit')`, wiring the console's dirty-exit guard to the produced-chapter unlock-and-rewrite flow described in the bug report."
+    },
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/ReviseTool/index.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Calls `useDirtyGuard()`. A new effect reports `setDirty(true, 'Uncommitted segment edit')` whenever `editingId` is set and `draftText` differs from that segment's saved `text_content`, and `setDirty(false)` whenever there's no active edit (covers mount, commit, cancel, and chapter switches, all of which already reset `editingId` to null)."
+    },
+    "frontend/tests/unit/pages/ChapterEditor/components/DirectorsConsole/DirectorsConsole.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Mocked ConfirmModal with a synchronous stub (AnimatePresence exit-animation flakiness, same pattern as tests/unit/pages/Book/ChapterTable.test.tsx). Extended the existing CastTool mock with a 'Make dirty' button wired to the real (unmocked) DirtyGuardContext. Added a 'dirty-exit guard' describe block: no-prompt switch when clean, confirm dialog shown + copy check + tab-not-yet-switched when dirty, cancel keeps the tab, confirm switches tabs, and dirty resets after a confirmed switch so the next switch is prompt-free."
+    },
+    "frontend/tests/unit/pages/Book/ChapterTextPanel.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added two tests: onDirtyChange reports true once a produced chapter is unlocked+edited and false again after the resync-preview commit completes; onDirtyChange never reports true for a draft chapter (autosave path only)."
+    },
+    "frontend/tests/unit/pages/ChapterEditor/components/DirectorsConsole/WriteTool/WriteTool.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Mocked DirtyGuardContext's useDirtyGuard; extended the ChapterTextPanel stub with dirty/clean simulate buttons; added a test asserting WriteTool forwards ChapterTextPanel's onDirtyChange to setDirty with the 'Uncommitted chapter text edit' message (and setDirty(false, undefined) on clean)."
+    },
+    "frontend/tests/unit/pages/ChapterEditor/components/DirectorsConsole/ReviseTool/ReviseTool.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Mocked DirtyGuardContext's useDirtyGuard; added a 'dirty-exit guard' describe block covering: dirty flips true only once the draft actually differs from the saved segment text, and clears on commit, on cancel, and stays clean on initial mount."
+    }
+  },
+  "flow_impact": "Adds a new cross-tool contract (DirtyGuardContext) inside DirectorsConsole/ only — no change to any other module's public surface. CastTool/BoothTool/placeholder tools are unaffected (they don't call useDirtyGuard, so they simply never report dirty, matching their prior behavior). Any future Director's Console tool that wants this protection just calls `useDirtyGuard().setDirty(...)`; nothing else needs to change. Out of scope per the task and left untouched: BoothTool's annotation note-wipe bug and Cast-tab findings (separate, already-scoped parallel work).",
+  "tests_added": [
+    "frontend/tests/unit/pages/ChapterEditor/components/DirectorsConsole/DirectorsConsole.test.tsx: 'dirty-exit guard' describe block (5 tests)",
+    "frontend/tests/unit/pages/Book/ChapterTextPanel.test.tsx: onDirtyChange reporting for produced-chapter edit/commit and draft-chapter autosave (2 tests)",
+    "frontend/tests/unit/pages/ChapterEditor/components/DirectorsConsole/WriteTool/WriteTool.test.tsx: forwards ChapterTextPanel's dirty signal via useDirtyGuard (1 test)",
+    "frontend/tests/unit/pages/ChapterEditor/components/DirectorsConsole/ReviseTool/ReviseTool.test.tsx: 'dirty-exit guard' describe block (4 tests)"
+  ]
+}

@@ -1,8 +1,9 @@
 import React from 'react';
-import { RotateCcw, Loader2 } from 'lucide-react';
+import { RotateCcw, Loader2, Sparkles } from 'lucide-react';
 import { GlassInput } from '@/components/forms/GlassInput';
 import { JsonSchemaForm } from '@/pages/Settings/components/JsonSchemaForm';
-import type { VoiceEngine, TtsEngine } from '@/types';
+import type { VoiceEngine, TtsEngine, VoiceAttributes } from '@/types';
+import { suggestRecordingPrompt } from './metadata/recordingPromptSuggester';
 
 interface ScriptEditorProps {
     variantName: string;
@@ -22,6 +23,8 @@ interface ScriptEditorProps {
     onResetTestText: () => void;
     onSave: () => void;
     isSaving: boolean;
+    /** Tagged attributes for the voice being edited — drives the "Suggest from voice qualities" button (INV-4: absent/untagged disables it, no generic fallback). */
+    attributes?: VoiceAttributes;
 }
 
 export const ScriptEditor: React.FC<ScriptEditorProps> = ({
@@ -41,8 +44,13 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
     onSettingsChange,
     onResetTestText,
     onSave,
-    isSaving
+    isSaving,
+    attributes
 }) => {
+    const suggestion = suggestRecordingPrompt(attributes);
+    const suggestDisabledReason = !attributes || !suggestion
+        ? "Tag this voice's qualities in Edit Metadata first to get a suggested prompt."
+        : undefined;
     const activeEngine = engines.find(e => e.engine_id === engine);
     const synthesisSettings = activeEngine?.behavior?.synthesis_settings || [];
 
@@ -179,14 +187,28 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>PREVIEW TEXT SCRIPT</label>
-                    <button 
-                        onClick={onResetTestText} 
-                        className="btn-ghost"
-                        style={{ fontSize: '0.7rem', height: '28px', padding: '0 8px' }}
-                    >
-                        <RotateCcw size={12} style={{ width: '12px', height: '12px', flexShrink: 0 }} />
-                        Reset to Default
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                            onClick={() => {
+                                if (suggestion) onTestTextChange(suggestion.prompt);
+                            }}
+                            disabled={!suggestion}
+                            title={suggestDisabledReason}
+                            className="btn-ghost"
+                            style={{ fontSize: '0.7rem', height: '28px', padding: '0 8px' }}
+                        >
+                            <Sparkles size={12} style={{ width: '12px', height: '12px', flexShrink: 0 }} />
+                            Suggest from voice qualities
+                        </button>
+                        <button
+                            onClick={onResetTestText}
+                            className="btn-ghost"
+                            style={{ fontSize: '0.7rem', height: '28px', padding: '0 8px' }}
+                        >
+                            <RotateCcw size={12} style={{ width: '12px', height: '12px', flexShrink: 0 }} />
+                            Reset to Default
+                        </button>
+                    </div>
                 </div>
                 <textarea
                     value={testText}

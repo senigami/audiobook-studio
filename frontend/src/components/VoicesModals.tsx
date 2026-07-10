@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Speaker, SpeakerProfile, VoiceEngine, TtsEngine } from '@/types';
+import type { Speaker, SpeakerProfile, VoiceEngine, TtsEngine, VoiceMetadata } from '@/types';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { RecordingGuide } from '@/components/RecordingGuide';
 import {
@@ -78,6 +78,8 @@ interface VoicesModalsProps {
     isSavingText: boolean;
     handleResetTestText: () => void;
     handleSaveTestText: () => void;
+    /** Resolved `VoiceMetadata` for `editingProfile` (id-first, name-fallback — see `VoicesPage.tsx`) — drives ScriptEditor's "Suggest from voice qualities" button. */
+    editingVoiceMetadata?: VoiceMetadata;
 
     // Global Confirm
     confirmConfig: any;
@@ -178,6 +180,7 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
                     onResetTestText={props.handleResetTestText}
                     onSave={props.handleSaveTestText}
                     isSaving={props.isSavingText}
+                    attributes={props.editingVoiceMetadata?.attributes}
                 />
             </Drawer>
 

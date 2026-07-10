@@ -1,0 +1,13 @@
+{
+  "at": "2026-07-10T03:30:00Z",
+  "commit": "uncommitted",
+  "task": "Fix blank prev/next/jump/bookmark chapter-nav icons: lucide svg children of .chapter-workspace-header__nav-btn collapsed to 0 width inside the inline-flex button, same root cause already fixed once for .player-btn svg but never applied here. User-reported live regression, caught by direct DOM inspection (svg boundingClientRect width:0) after a screenshot showed empty pill buttons.",
+  "files": {
+    "frontend/src/theme/components.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added '.chapter-workspace-header__nav-btn svg { flex-shrink: 0; }' mirroring the existing documented fix for .player-btn svg, pinning lucide icons to their intrinsic size instead of letting the inline-flex main-axis algorithm collapse them to 0 width."
+    }
+  },
+  "flow_impact": "none — visual-only fix, no behavior/contract change. Verified live: all 4 previously-blank buttons (Previous chapter, Next chapter, Jump to next unrendered chapter, Bookmark this chapter) now render their icons; 165/165 frontend/tests/unit/pages/Book/ tests still pass."
+}

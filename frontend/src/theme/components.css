@@ -1299,6 +1299,13 @@
               border-color var(--dur-fast) var(--ease-standard);
 }
 
+/* Same collapse as .player-btn svg above: lucide icons carry width/height as
+   presentation attributes, and the inline-flex algorithm shrinks their main
+   axis to 0 inside a tiny button, leaving blank buttons. Pin intrinsic size. */
+.chapter-workspace-header__nav-btn svg {
+  flex-shrink: 0;
+}
+
 .chapter-workspace-header__nav-btn:hover:not(:disabled) {
   color: var(--accent);
   border-color: var(--accent);
@@ -1307,45 +1314,6 @@
 .chapter-workspace-header__nav-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
-}
-
-/* Studio / Review sub-view toggle */
-.workspace-view-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-button);
-  box-shadow: var(--shadow-sm);
-  align-self: flex-start;
-}
-
-.workspace-view-toggle__btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.3rem 0.75rem;
-  border: none;
-  background: transparent;
-  border-radius: calc(var(--radius-button) - 2px);
-  font-size: var(--type-caption);
-  font-weight: 600;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: color var(--dur-fast) var(--ease-standard),
-              background var(--dur-fast) var(--ease-standard);
-}
-
-.workspace-view-toggle__btn:hover:not(.workspace-view-toggle__btn--active) {
-  color: var(--accent);
-  background: var(--accent-glow);
-}
-
-.workspace-view-toggle__btn--active {
-  background: var(--accent-glow);
-  color: var(--accent);
 }
 
 /* ─── End Chapter Workspace ─────────────────────────────────────── */
@@ -1775,16 +1743,14 @@
   color: var(--text-secondary);
 }
 
+/* Reference-only stats — demoted to a single quiet caption line (no card
+ * chrome); the "ACTION REQUIRED" badge below stays visually prominent. */
 .studio-analysis-strip {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
   min-width: 0;
-  padding: 0.7rem 1rem 0.85rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-panel);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
+  padding: 0.15rem 0;
 }
 
 .studio-analysis-strip__summary {
@@ -1795,54 +1761,13 @@
   flex-wrap: wrap;
 }
 
-.studio-analysis-strip__eyebrow {
+.studio-analysis-strip__caption {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  flex: 0 0 auto;
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.studio-analysis-strip__stats {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+  gap: 0.35rem;
   flex: 1 1 auto;
-  flex-wrap: wrap;
-}
-
-.studio-analysis-strip__stat {
-  display: flex;
-  align-items: baseline;
-  gap: 0.3rem;
-}
-
-.studio-analysis-strip__value {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.studio-analysis-strip__value--accent {
-  color: var(--accent);
-}
-
-.studio-analysis-strip__label {
-  font-size: 0.65rem;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.studio-analysis-strip__divider {
-  width: 1px;
-  height: 16px;
-  background: var(--border);
-  flex-shrink: 0;
+  font-size: var(--type-caption);
 }
 
 .studio-analysis-strip__badges {
@@ -3915,102 +3840,13 @@
 }
 
 /* ==========================================================================
-   Review Stage — left-rail + main layout (INV-7: token-only colors)
+   Booth tool (DirectorsConsole) — main listening/karaoke layout
+   (INV-7: token-only colors). `.book-stage-review` and `.review-chapter-rail*`
+   were the old ReviewStage's outer 2-column shell + left chapter-picker rail;
+   both are dead now that BoothTool (its replacement) has no rendered rail —
+   ChapterWorkspaceHeader is the single chapter switcher. Removed in
+   design-docs/plans/active/directors_console_activation/tasks/007-cleanup-and-green-gate.md.
    ========================================================================== */
-
-/* Outer shell: flex row, fills the workspace body */
-.book-stage-review {
-  display: flex;
-  flex-direction: row;
-  height: 100%;
-  gap: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-
-/* ── Left sidebar: vertical chapter list ──────────────────────────────────── */
-.review-chapter-rail {
-  display: flex;
-  flex-direction: column;
-  width: 220px;
-  min-width: 200px;
-  max-width: 240px;
-  flex-shrink: 0;
-  background: var(--surface-alt);
-  border-right: 1px solid var(--border);
-  overflow: hidden;
-}
-
-.review-chapter-rail__header {
-  padding: 10px 12px 8px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.review-chapter-rail__label {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.review-chapter-rail__list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 6px 0;
-}
-
-.review-chapter-rail__item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 7px 12px;
-  background: transparent;
-  border: none;
-  border-left: 3px solid transparent;
-  cursor: pointer;
-  text-align: left;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
-}
-
-.review-chapter-rail__item:hover {
-  background: var(--accent-tint-bg);
-  color: var(--text-primary);
-}
-
-.review-chapter-rail__item--selected {
-  background: var(--accent-tint-bg);
-  border-left-color: var(--accent);
-  color: var(--accent);
-  font-weight: 700;
-}
-
-.review-chapter-rail__item--playing {
-  border-left-color: var(--accent);
-}
-
-.review-chapter-rail__item-title {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.review-chapter-rail__item-badge {
-  flex-shrink: 0;
-  font-size: 0.65rem;
-  color: var(--text-muted);
-  line-height: 1;
-}
-
-.review-chapter-rail__item-badge--playing {
-  color: var(--accent);
-}
 
 /* ── Main area: topbar + body ─────────────────────────────────────────────── */
 .review-main {
@@ -4105,6 +3941,173 @@
   background: var(--accent-tint-bg);
   border-color: var(--accent-tint-border);
   font-weight: 600;
+}
+
+/* ── Revise mode: per-segment inline edit (Director's Console) ───────────── */
+.revise-tool {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  gap: 8px;
+  padding: 12px;
+}
+
+.revise-tool__topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.revise-tool__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.revise-tool__banner {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-tint-bg);
+  border: 1px solid var(--accent-tint-border);
+  border-radius: var(--radius-button);
+  padding: 4px 10px;
+}
+
+.revise-text-view {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.revise-text-view__empty {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 24px;
+}
+
+.revise-text-view__segment {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  padding: 6px 8px;
+  border-radius: var(--radius-button);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-weight: 400;
+  transition: all 0.15s ease-in-out;
+}
+
+.revise-text-view__segment:hover {
+  background: var(--surface-alt);
+  color: var(--text-primary);
+}
+
+.revise-text-view__segment--readonly {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.revise-text-view__segment--readonly:hover {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.revise-text-view__segment--editing {
+  flex-direction: column;
+  align-items: stretch;
+  cursor: default;
+  background: var(--accent-tint-bg);
+  border-color: var(--accent-tint-border);
+}
+
+.revise-text-view__textarea {
+  width: 100%;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  padding: 8px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.revise-text-view__overflow-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.revise-text-view__error {
+  font-size: 0.65rem;
+  color: var(--error);
+  background: var(--error-tint-bg);
+  border: 1px solid var(--error-tint-border);
+  border-radius: var(--radius-button);
+  padding: 4px 6px;
+  margin-top: 4px;
+}
+
+.revise-text-view__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.revise-text-view__save-btn,
+.revise-text-view__cancel-btn {
+  padding: 6px 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: var(--radius-button);
+  cursor: pointer;
+}
+
+.revise-text-view__save-btn {
+  background: var(--accent);
+  color: var(--surface);
+  border: 1px solid var(--accent);
+}
+
+.revise-text-view__save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.revise-text-view__cancel-btn {
+  background: var(--surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.revise-text-view__long-badge {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 /* ==========================================================================

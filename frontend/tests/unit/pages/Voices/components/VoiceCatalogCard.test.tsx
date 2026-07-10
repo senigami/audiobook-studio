@@ -109,6 +109,7 @@ const baseProps = {
     onExportVoice: vi.fn(),
     requestConfirm: vi.fn(),
     onEditMetadata: vi.fn(),
+    onEditTestText: vi.fn(),
     onRefresh: vi.fn(),
 };
 
@@ -190,13 +191,20 @@ describe('VoiceCatalogCard', () => {
     // Action menu items
     // ---------------------------------------------------------------------------
 
-    it('action menu contains all 5 expected items', () => {
+    it('action menu contains all 6 expected items', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
         expect(screen.getByTestId('menu-item-Set as Default')).toBeInTheDocument();
         expect(screen.getByTestId('menu-item-Edit Metadata')).toBeInTheDocument();
+        expect(screen.getByTestId('menu-item-Edit Recording Script')).toBeInTheDocument();
         expect(screen.getByTestId('menu-item-Rename Voice')).toBeInTheDocument();
         expect(screen.getByTestId('menu-item-Export Voice Bundle')).toBeInTheDocument();
         expect(screen.getByTestId('menu-item-Delete Voice (all variants)')).toBeInTheDocument();
+    });
+
+    it('Edit Recording Script fires onEditTestText with the default profile', () => {
+        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
+        fireEvent.click(screen.getByTestId('menu-item-Edit Recording Script'));
+        expect(baseProps.onEditTestText).toHaveBeenCalledWith(readyProfile);
     });
 
     it('Rename Voice fires onRenameClick', () => {

@@ -63,7 +63,7 @@ import { Rail } from './siteMockup/rail';
 import { LibraryPane } from './siteMockup/panes/library';
 import { BookPane, ContentsPane, CastingPane, BackupsPane } from './siteMockup/panes/book';
 import { STUDIO_FOLLOW_DURATION_SEC } from './siteMockup/panes/studio';
-import { DirectorsConsole } from './siteMockup/panes/directorsConsole';
+import { DirectorsConsolePane } from './siteMockup/panes/directorsConsole';
 import { PublishPane } from './siteMockup/panes/publish';
 import { VoicesPane } from './siteMockup/panes/voices';
 import { ActivityPane } from './siteMockup/panes/activity';
@@ -1035,7 +1035,7 @@ const BookWorkspacePane: React.FC<{
         <Col gap={0} className="ns-enter" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
           <ChapterWorkspaceHeader openChapter={openChapter} onClose={onCloseChapter} onOpen={onOpenChapter} />
           <div className="ns-book-workspace" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <DirectorsConsole />
+            <DirectorsConsolePane />
           </div>
         </Col>
       ) : (

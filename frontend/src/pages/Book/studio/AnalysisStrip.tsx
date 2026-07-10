@@ -68,39 +68,27 @@ export function AnalysisStrip({
     setShowLongSentenceDetails((current) => !current);
   };
 
+  // Reference-only stats collapse into a single quiet caption line — this is
+  // not the heaviest thing on the page (the "ACTION REQUIRED" badge, when
+  // present, stays visually prominent below).
+  const captionParts = [
+    `${stats.chars.toLocaleString()} chars`,
+    `${stats.words.toLocaleString()} words`,
+    `${stats.sentences.toLocaleString()} sentences`,
+    `${stats.segments.toLocaleString()} segments`,
+  ];
+  if (stats.estimatedSeconds != null) {
+    captionParts.push(`~${formatDuration(stats.estimatedSeconds)}`);
+  }
+  const captionText = captionParts.join(' · ');
+
   return (
     <section className="studio-analysis-strip" aria-label="Chapter analysis">
       <div className="studio-analysis-strip__summary">
-        <div className="studio-analysis-strip__eyebrow">
-          {analyzing ? <RefreshCw size={12} className="animate-spin" /> : <Info size={12} />}
-          <span>Analysis</span>
-        </div>
-
-        <div className="studio-analysis-strip__stats">
-          {[
-            { label: 'Chars', value: stats.chars.toLocaleString() },
-            { label: 'Words', value: stats.words.toLocaleString() },
-            { label: 'Sentences', value: stats.sentences.toLocaleString() },
-            { label: 'Segments', value: stats.segments.toLocaleString() },
-          ].map(({ label, value }) => (
-            <div key={label} className="studio-analysis-strip__stat">
-              <span className="studio-analysis-strip__value">{value}</span>
-              <span className="studio-analysis-strip__label">{label}</span>
-            </div>
-          ))}
-
-          {stats.estimatedSeconds != null && (
-            <>
-              <div className="studio-analysis-strip__divider" />
-              <div className="studio-analysis-strip__stat">
-                <span className="studio-analysis-strip__value studio-analysis-strip__value--accent">
-                  {formatDuration(stats.estimatedSeconds)}
-                </span>
-                <span className="studio-analysis-strip__label">Est. Gen.</span>
-              </div>
-            </>
-          )}
-        </div>
+        <span className="studio-analysis-strip__caption">
+          {analyzing ? <RefreshCw size={11} className="animate-spin" aria-hidden="true" /> : <Info size={11} aria-hidden="true" />}
+          {captionText}
+        </span>
 
         {hasLongSentenceData && (
           <div className="studio-analysis-strip__badges">

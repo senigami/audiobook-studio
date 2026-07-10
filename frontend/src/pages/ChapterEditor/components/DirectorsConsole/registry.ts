@@ -2,6 +2,7 @@ import type { DirectorsTool } from './types';
 import { CastTool } from './CastTool';
 import { BoothTool } from './BoothTool';
 import { ReviseTool } from './ReviseTool';
+import { WriteTool } from './WriteTool';
 import { CastingCallPlaceholder, ScriptSupervisorPlaceholder, PluginPlaceholder } from './placeholders';
 
 /**
@@ -13,6 +14,7 @@ export const directorsConsoleTools: DirectorsTool[] = [
   CastTool,
   BoothTool,
   ReviseTool,
+  WriteTool,
   CastingCallPlaceholder,
   ScriptSupervisorPlaceholder,
   PluginPlaceholder

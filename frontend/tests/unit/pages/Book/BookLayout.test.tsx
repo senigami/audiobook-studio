@@ -15,19 +15,6 @@ vi.mock('@/api', () => ({
   },
 }));
 
-// StudioStage is the chapter workspace body; mock it so the BookLayout routing
-// tests focus on the shell (tabs, back affordance) without triggering studio
-// API calls that are out-of-scope for this test file.
-vi.mock('@/pages/Book/stages/StudioStage', () => ({
-  StudioStage: () => <div data-testid="studio-stage-stub">Studio placeholder</div>,
-}));
-
-// ReviewStage is the second sub-view inside ChapterWorkspace; mock to avoid
-// fetching segments/render-groups in shell-level routing tests.
-vi.mock('@/pages/Book/stages/ReviewStage', () => ({
-  ReviewStage: () => <div data-testid="review-stage-stub">Review placeholder</div>,
-}));
-
 // ChapterTextPanel triggers a fetchChapter call on mount; mock it for routing tests.
 vi.mock('@/pages/Book/components/ChapterTextPanel', () => ({
   ChapterTextPanel: () => <section aria-label="Chapter preview" />,
@@ -36,6 +23,21 @@ vi.mock('@/pages/Book/components/ChapterTextPanel', () => ({
 // ChapterTable mock ensures we get a stable anchor without framer-motion/reorder deps.
 vi.mock('@/pages/Book/components/ChapterTable', () => ({
   ChapterTable: () => <section aria-label="Manuscript chapters" />,
+}));
+
+// CastTool's body is a real port of StudioStage.tsx that pulls in the full
+// studio data chain (useStudioChapter/useChapterEditor/useRenderGroups) —
+// these routing tests only need the Director's Console shell, not Cast's
+// internals (covered by CastTool/CastTool.test.tsx), so stub it.
+vi.mock('@/pages/ChapterEditor/components/DirectorsConsole/CastTool', () => ({
+  CastTool: {
+    id: 'cast',
+    label: 'Cast',
+    icon: (props: any) => <svg data-testid="cast-icon-stub" {...props} />,
+    component: () => <div data-testid="cast-tool-stub">Cast tool</div>,
+    shortcut: 'V',
+    demoPlaceholder: false,
+  },
 }));
 
 function LocationProbe() {
@@ -203,6 +205,9 @@ describe('BookLayout', () => {
 
     // Tab bar must not be visible in the workspace
     expect(screen.queryByRole('navigation', { name: 'Book tabs' })).not.toBeInTheDocument();
+
+    // Director's Console renders as the chapter workspace body
+    expect(screen.getByTestId('directors-console')).toBeInTheDocument();
 
     // Clicking back navigates to /contents
     fireEvent.click(screen.getByRole('button', { name: 'Back to Contents' }));

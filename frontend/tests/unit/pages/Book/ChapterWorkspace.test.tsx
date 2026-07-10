@@ -2,7 +2,7 @@
  * Tests for the Chapter Workspace surface (Phase 2).
  *
  * Covers:
- * - Studio and Review sub-views are both reachable via the toggle.
+ * - Director's Console renders as the workspace body.
  * - Chapter-switcher dropdown (Contents ▾) opens and lets you jump to a chapter.
  * - Prev/Next buttons navigate to adjacent chapters.
  * - Back button returns to /contents.
@@ -27,14 +27,6 @@ vi.mock('@/api', () => ({
 }));
 
 // ── Stage stubs — keep workspace tests focused on navigation shell ─────────
-vi.mock('@/pages/Book/stages/StudioStage', () => ({
-  StudioStage: () => <div data-testid="studio-stage-stub">Studio view</div>,
-}));
-
-vi.mock('@/pages/Book/stages/ReviewStage', () => ({
-  ReviewStage: () => <div data-testid="review-stage-stub">Review view</div>,
-}));
-
 vi.mock('@/pages/Book/components/ChapterTextPanel', () => ({
   ChapterTextPanel: () => <section aria-label="Chapter preview" />,
 }));
@@ -48,6 +40,21 @@ vi.mock('@/pages/Book/components/LexiconPanel', () => ({
   LexiconPanel: ({ projectId }: { projectId: string }) => (
     <div data-testid="lexicon-panel-stub" data-project-id={projectId}>Lexicon panel</div>
   ),
+}));
+
+// CastTool's body is a real port of StudioStage.tsx that pulls in the full
+// studio data chain (useStudioChapter/useChapterEditor/useRenderGroups) —
+// these workspace-navigation tests only need the Director's Console shell,
+// not Cast's internals (covered by CastTool/CastTool.test.tsx), so stub it.
+vi.mock('@/pages/ChapterEditor/components/DirectorsConsole/CastTool', () => ({
+  CastTool: {
+    id: 'cast',
+    label: 'Cast',
+    icon: (props: any) => <svg data-testid="cast-icon-stub" {...props} />,
+    component: () => <div data-testid="cast-tool-stub">Cast tool</div>,
+    shortcut: 'V',
+    demoPlaceholder: false,
+  },
 }));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -124,41 +131,13 @@ describe('ChapterWorkspace', () => {
     });
   });
 
-  // ── Studio / Review toggle ──────────────────────────────────────────────────
-  it('Studio view is shown by default', async () => {
+  // ── Director's Console ──────────────────────────────────────────────────────
+  it("Director's Console renders as the workspace body", async () => {
     renderWorkspaceRoute('/book/book-1/chapter/c1');
 
     await waitFor(() => {
-      expect(screen.getByTestId('studio-stage-stub')).toBeInTheDocument();
+      expect(screen.getByTestId('directors-console')).toBeInTheDocument();
     });
-    expect(screen.queryByTestId('review-stage-stub')).not.toBeInTheDocument();
-  });
-
-  it('switching to Review shows ReviewStage and hides StudioStage', async () => {
-    renderWorkspaceRoute('/book/book-1/chapter/c1');
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /review/i })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /review/i }));
-
-    expect(screen.getByTestId('review-stage-stub')).toBeInTheDocument();
-    expect(screen.queryByTestId('studio-stage-stub')).not.toBeInTheDocument();
-  });
-
-  it('switching back to Studio shows StudioStage and hides ReviewStage', async () => {
-    renderWorkspaceRoute('/book/book-1/chapter/c1');
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /review/i })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /review/i }));
-    fireEvent.click(screen.getByRole('button', { name: /studio/i }));
-
-    expect(screen.getByTestId('studio-stage-stub')).toBeInTheDocument();
-    expect(screen.queryByTestId('review-stage-stub')).not.toBeInTheDocument();
   });
 
   // ── Chapter title shown in header ───────────────────────────────────────────

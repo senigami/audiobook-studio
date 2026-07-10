@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, ArrowUpCircle, Trash2, MoreVertical } from 'lucide-react';
+import { useMemo, useState, type KeyboardEvent } from 'react';
+import { ChevronDown, ChevronUp, Plus, ArrowUpCircle, Trash2, MoreVertical, Ban, UserPlus } from 'lucide-react';
 import { ColorSwatchPicker } from '@/components/forms/ColorSwatchPicker';
 import { VoiceProfileSelect } from '@/pages/ChapterEditor/components/VoiceProfileSelect';
 import { ActionMenu } from '@/components/ui/ActionMenu';
@@ -67,10 +67,20 @@ interface TierHeaderProps {
 }
 
 function TierHeader({ label, count, open, onToggle, alwaysOpen }: TierHeaderProps) {
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (alwaysOpen || !onToggle) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onToggle();
+    }
+  };
+
   return (
     <div
       onClick={alwaysOpen ? undefined : onToggle}
+      onKeyDown={handleKeyDown}
       role={alwaysOpen ? undefined : 'button'}
+      tabIndex={alwaysOpen ? undefined : 0}
       aria-expanded={alwaysOpen ? undefined : open}
       style={{
         display: 'flex',
@@ -152,6 +162,7 @@ function CharacterRow({
 }: CharacterRowProps) {
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [labelFocused, setLabelFocused] = useState(false);
 
   const charProfile = speakerProfiles.find((p) => p.name === char.speaker_profile_name);
   const baseName = (char.speaker_profile_name ?? '').split(' - ')[0];
@@ -189,23 +200,26 @@ function CharacterRow({
     return undefined;
   })();
 
+  const activateRow = () => {
+    if (allowDisarm && selectedCharacterId === char.id && selectedProfileName === defaultProfile) {
+      onDisarm();
+      return;
+    }
+    onSelect();
+  };
+
   return (
     <div
+      data-testid={`cast-row-${char.id}`}
       style={{ margin: '0 0.35rem 0.35rem', position: 'relative' }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <button
-        type="button"
-        onClick={() => {
-          if (allowDisarm && selectedCharacterId === char.id && selectedProfileName === defaultProfile) {
-            onDisarm();
-            return;
-          }
-          onSelect();
-        }}
-        aria-pressed={isSpeakerSelected}
-        title={titleAttr}
+      {/* Card row: color swatch (its own button) is a SIBLING of the
+          selectable label region below, never nested inside another
+          button — nesting interactive controls produces invalid HTML
+          and confuses assistive tech. */}
+      <div
         style={{
           width: '100%',
           border: `1px solid ${isSpeakerSelected ? char.color : 'var(--border)'}`,
@@ -216,9 +230,6 @@ function CharacterRow({
           alignItems: 'center',
           gap: 8,
           padding: '0.45rem 0.55rem',
-          color: 'var(--text-primary)',
-          cursor: 'pointer',
-          textAlign: 'left',
           opacity: isMuted ? 0.55 : 1,
         }}
       >
@@ -227,78 +238,115 @@ function CharacterRow({
           onChange={onColorChange}
           size="sm"
         />
-        <div style={{
-          width: 18,
-          height: 18,
-          borderRadius: '50%',
-          background: `${char.color}22`,
-          border: `1px solid ${char.color}55`,
-          color: char.color,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '0.62rem',
-          fontWeight: 700,
-          flexShrink: 0,
-        }}>
-          {char.name.slice(0, 1).toUpperCase()}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={activateRow}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              activateRow();
+            }
+          }}
+          aria-pressed={isSpeakerSelected}
+          title={titleAttr}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            color: 'var(--text-primary)',
+            cursor: 'pointer',
+            textAlign: 'left',
+          }}
+        >
           <div style={{
-            fontSize: '0.72rem',
-            fontWeight: 600,
-            lineHeight: 1.2,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
+            width: 18,
+            height: 18,
+            borderRadius: '50%',
+            background: `${char.color}22`,
+            border: `1px solid ${char.color}55`,
+            color: char.color,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 'var(--type-micro)',
+            fontWeight: 700,
+            flexShrink: 0,
           }}>
-            {char.name}
+            {char.name.slice(0, 1).toUpperCase()}
           </div>
-          <div style={{
-            fontSize: '0.58rem',
-            color: 'var(--text-muted)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}>
-            {isSpeakerSelected && selectedProfileName
-              ? getVariantDisplayName(speakerProfiles.find((p) => p.name === selectedProfileName) || { name: selectedProfileName, variant_name: null } as SpeakerProfile)
-              : getVariantDisplayName(speakerProfiles.find((p) => p.name === char.speaker_profile_name) || { name: char.speaker_profile_name, variant_name: null } as SpeakerProfile) || 'No voice'}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: '0.72rem',
+              fontWeight: 600,
+              lineHeight: 1.2,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}>
+              {char.name}
+            </div>
+            <div style={{
+              fontSize: 'var(--type-micro)',
+              color: 'var(--text-muted)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}>
+              {isSpeakerSelected && selectedProfileName
+                ? getVariantDisplayName(speakerProfiles.find((p) => p.name === selectedProfileName) || { name: selectedProfileName, variant_name: null } as SpeakerProfile)
+                : getVariantDisplayName(speakerProfiles.find((p) => p.name === char.speaker_profile_name) || { name: char.speaker_profile_name, variant_name: null } as SpeakerProfile) || 'No voice'}
+            </div>
           </div>
+          {segmentCount > 0 && (
+            <div
+              title={`${segmentCount} line${segmentCount === 1 ? '' : 's'} assigned`}
+              aria-label={`${segmentCount} line${segmentCount === 1 ? '' : 's'} assigned`}
+              style={{
+                fontSize: 'var(--type-micro)',
+                fontWeight: 700,
+                color: isSpeakerSelected ? char.color : 'var(--text-muted)',
+                background: isSpeakerSelected ? `${char.color}14` : 'var(--surface-light)',
+                padding: '1px 5px',
+                borderRadius: 999,
+                flexShrink: 0,
+              }}
+            >
+              {segmentCount}
+            </div>
+          )}
+          {variants.length > 1 && (
+            <span
+              title={`${variants.length} voices — click to choose`}
+              aria-label={`${variants.length} voices available`}
+              style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', flexShrink: 0 }}
+            >
+              {isSpeakerSelected
+                ? <ChevronUp size={12} aria-hidden="true" />
+                : <ChevronDown size={12} aria-hidden="true" />}
+            </span>
+          )}
         </div>
-        {segmentCount > 0 && (
-          <div
-            title={`${segmentCount} line${segmentCount === 1 ? '' : 's'} assigned`}
-            aria-label={`${segmentCount} line${segmentCount === 1 ? '' : 's'} assigned`}
-            style={{
-              fontSize: '0.55rem',
-              fontWeight: 700,
-              color: isSpeakerSelected ? char.color : 'var(--text-muted)',
-              background: isSpeakerSelected ? `${char.color}14` : 'var(--surface-light)',
-              padding: '1px 5px',
-              borderRadius: 999,
-              flexShrink: 0,
-            }}
-          >
-            {segmentCount}
-          </div>
-        )}
-        {variants.length > 1 && (
-          <span
-            title={`${variants.length} voices — click to choose`}
-            aria-label={`${variants.length} voices available`}
-            style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', flexShrink: 0 }}
-          >
-            {isSpeakerSelected
-              ? <ChevronUp size={12} aria-hidden="true" />
-              : <ChevronDown size={12} aria-hidden="true" />}
-          </span>
-        )}
-      </button>
+      </div>
 
-      {/* Hover kebab for tier-2 temps */}
-      {(onPromote || onDelete) && (hovered || menuOpen) && (
-        <div style={{ position: 'absolute', top: 4, right: 4, zIndex: 2 }}>
+      {/* Promote/Delete overflow for tier-2 temps: always rendered (never
+          conditionally unmounted) so it's reachable by keyboard Tab —
+          quiet at rest, fully visible on hover or keyboard focus. */}
+      {(onPromote || onDelete) && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 4,
+            right: 4,
+            zIndex: 2,
+            opacity: hovered || menuOpen || labelFocused ? 1 : 0.4,
+            transition: 'opacity 0.15s ease',
+          }}
+          onFocus={() => setLabelFocused(true)}
+          onBlur={() => setLabelFocused(false)}
+        >
           <ActionMenu
             trigger={<MoreVertical size={14} aria-hidden="true" style={{ color: 'var(--text-muted)' }} />}
             onOpenChange={setMenuOpen}
@@ -368,13 +416,17 @@ function CharacterRow({
                 }} />
                 <div style={{
                   flex: 1,
-                  fontSize: '0.66rem',
+                  minWidth: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  fontSize: 'var(--type-micro)',
                   fontWeight: isVariantSelected ? 600 : 400,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
                 }}>
-                  {getVariantDisplayName(variant)}{!selectable ? ' \u{1F6AB}' : ''}
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                    {getVariantDisplayName(variant)}
+                  </span>
+                  {!selectable && <Ban size={10} aria-hidden="true" style={{ flexShrink: 0 }} />}
                 </div>
               </button>
             );
@@ -518,10 +570,15 @@ export function CastPalette({
 
   // Decide which layout to render
   const useTiered = !!currentChapterId;
+  // Per design-docs/workflows/chapter-editor-modes.md §13 decision #2: a book/
+  // chapter with zero characters (across all three tiers) shows a single
+  // empty-state card instead of three stacked "0 · none assigned" tiers.
+  const totalCastCount = tier1.length + tier2.length + tier3.length;
+  const hasNoCast = totalCastCount === 0;
 
   return (
     <aside className="cast-palette" aria-label="Cast palette" style={{
-      width: 180,
+      width: 230,
       flexShrink: 0,
       borderLeft: '1px solid var(--border)',
       background: 'var(--surface)',
@@ -534,7 +591,7 @@ export function CastPalette({
         borderBottom: '1px solid var(--border)',
       }}>
         <div style={{
-          fontSize: '0.65rem',
+          fontSize: 'var(--type-micro)',
           fontWeight: 700,
           letterSpacing: '0.08em',
           textTransform: 'uppercase',
@@ -610,7 +667,7 @@ export function CastPalette({
                 Narrator (default)
               </div>
               <div style={{
-                fontSize: '0.58rem',
+                fontSize: 'var(--type-micro)',
                 color: isClearMode ? 'var(--accent)' : 'var(--text-muted)',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -642,8 +699,51 @@ export function CastPalette({
           )}
         </div>
 
-        {/* ── Tiered layout ─────────────────────────────────── */}
-        {useTiered ? (
+        {/* ── Empty-cast state ──────────────────────────────── */}
+        {hasNoCast ? (
+          <div
+            className="cast-palette__empty"
+            style={{
+              margin: '0 0.35rem',
+              padding: '0.75rem 0.6rem',
+              border: '1px dashed var(--border)',
+              borderRadius: 10,
+              textAlign: 'center',
+            }}
+          >
+            <p style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', lineHeight: 1.4, margin: '0 0 0.55rem' }}>
+              No cast yet — this chapter reads in the narrator&apos;s voice.
+            </p>
+            {onCreateTempCharacter && (
+              <button
+                type="button"
+                onClick={onCreateTempCharacter}
+                style={{
+                  width: '100%',
+                  border: '1px solid var(--border)',
+                  borderRadius: 10,
+                  background: 'var(--surface-light)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  padding: '0.4rem 0.55rem',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  fontSize: 'var(--type-micro)',
+                  fontWeight: 600,
+                }}
+              >
+                <UserPlus size={12} aria-hidden="true" />
+                Add character
+              </button>
+            )}
+            <p style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', lineHeight: 1.4, margin: '0.55rem 0 0' }}>
+              Building a full cast? Try the Casting Call tool in the rail on the left.
+            </p>
+          </div>
+        ) : useTiered ? (
           <>
             {/* Tier 1: In this chapter */}
             <TierHeader
@@ -729,15 +829,15 @@ export function CastPalette({
       <div style={{
         padding: '0.5rem 0.6rem 0.65rem',
         borderTop: '1px solid var(--border)',
-        fontSize: '0.55rem',
+        fontSize: 'var(--type-micro)',
         color: 'var(--text-muted)',
         lineHeight: 1.4,
       }}>
         {selectedCharacterId === 'CLEAR_ASSIGNMENT'
           ? 'click sentences to revert to narrator'
           : selectedCharacterId
-            ? 'paint a voice, then click text to assign'
-            : 'choose a cast member to start painting'}
+            ? 'a character is selected — click sentences to assign it'
+            : 'select a character, then click sentences to assign'}
       </div>
     </aside>
   );

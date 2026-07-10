@@ -718,7 +718,7 @@ const ResyncModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export const DirectorsConsole: React.FC = () => {
+export const DirectorsConsolePane: React.FC = () => {
   const [mode, setMode] = useState<Mode>('cast');
   const [view, setView] = useState<View>('book');
   const [brush, setBrush] = useState<Brush>('sentence');

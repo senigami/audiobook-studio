@@ -1,8 +1,18 @@
 /**
- * Tests for RST-5 and RST-7 — features restored to StudioStage.
+ * Tests for RST-5 and RST-7 — features restored to StudioStage, now ported to
+ * exercise CastTool (the DirectorsConsole port of StudioStage; see
+ * design-docs/plans/active/directors_console_activation/tasks/003-cast-tool.md
+ * and tasks/007-cleanup-and-green-gate.md).
  *
- * RST-7: Engine-unavailable banner in Studio
- * RST-5: In-Studio source-text quick edit (canCommitSourceText path)
+ * Ported from frontend/tests/unit/pages/Book/StudioStageRST.test.tsx, which
+ * exercised StudioStage directly. StudioStage.tsx was deleted once CastTool
+ * became its real replacement, but the engine-unavailable banner and
+ * canCommitSourceText path it covers still exist unchanged in CastTool's
+ * body — this file keeps that regression coverage alive against the new
+ * location instead of dropping it.
+ *
+ * RST-7: Engine-unavailable banner in Cast mode
+ * RST-5: In-Cast-mode source-text quick edit (canCommitSourceText path)
  *
  * RST-6 (CastPalette voice picker) tests live in
  * tests/unit/pages/Book/studio/CastPaletteRST6.test.tsx
@@ -10,12 +20,12 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
-import { StudioStage } from '@/pages/Book/stages/StudioStage';
+import { CastTool } from '@/pages/ChapterEditor/components/DirectorsConsole/CastTool';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
 import { useStudioChapter } from '@/pages/Book/studio/useStudioChapter';
 
 // ---------------------------------------------------------------------------
-// Mocks for StudioStage tests
+// Mocks for CastTool tests
 
 vi.mock('@/pages/Book/BookDataContext', () => ({
   useBookDataContext: vi.fn(),
@@ -74,6 +84,8 @@ vi.mock('@/components/forms/InlineEdit', () => ({
 
 const mockUseBookDataContext = vi.mocked(useBookDataContext);
 const mockUseStudioChapter = vi.mocked(useStudioChapter);
+
+const CastToolBody = CastTool.component;
 
 function buildChapter(id: string) {
   return {
@@ -219,14 +231,14 @@ function buildContextBase(projectVoiceStatus = { enabled: true, message: '' }) {
   };
 }
 
-function renderStudioStage(contextOverrides: object = {}, studioOverrides: Record<string, unknown> = {}) {
+function renderCastTool(contextOverrides: object = {}, studioOverrides: Record<string, unknown> = {}) {
   mockUseBookDataContext.mockReturnValue({ ...buildContextBase(), ...contextOverrides } as never);
   mockUseStudioChapter.mockReturnValue(buildStudioChapterState('c1', studioOverrides) as never);
 
   render(
     <MemoryRouter initialEntries={['/book/book-1/studio?chapter=c1']}>
       <Routes>
-        <Route path="/book/:bookId/studio" element={<StudioStage />} />
+        <Route path="/book/:bookId/studio" element={<CastToolBody />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -235,9 +247,9 @@ function renderStudioStage(contextOverrides: object = {}, studioOverrides: Recor
 // ---------------------------------------------------------------------------
 // RST-7: Engine-unavailable banner
 
-describe('RST-7 — StudioStage engine-unavailable banner', () => {
+describe('RST-7 — CastTool engine-unavailable banner', () => {
   it('shows the alert when the engine is disabled with a message', () => {
-    renderStudioStage({
+    renderCastTool({
       projectVoiceStatus: { enabled: false, message: 'XTTS is disabled.' },
     });
 
@@ -247,7 +259,7 @@ describe('RST-7 — StudioStage engine-unavailable banner', () => {
   });
 
   it('hides the alert when the engine is enabled', () => {
-    renderStudioStage({
+    renderCastTool({
       projectVoiceStatus: { enabled: true, message: '' },
     });
 
@@ -255,7 +267,7 @@ describe('RST-7 — StudioStage engine-unavailable banner', () => {
   });
 
   it('hides the alert when disabled but no message is set', () => {
-    renderStudioStage({
+    renderCastTool({
       projectVoiceStatus: { enabled: false, message: '' },
     });
 
@@ -266,9 +278,9 @@ describe('RST-7 — StudioStage engine-unavailable banner', () => {
 // ---------------------------------------------------------------------------
 // RST-5: canCommitSourceText surfaces in RenderControlsStrip
 
-describe('RST-5 — StudioStage commit-source-text path', () => {
+describe('RST-5 — CastTool commit-source-text path', () => {
   it('passes canCommitSourceText=true when there are unsaved text changes', () => {
-    renderStudioStage({}, { hasUnsavedChanges: true });
+    renderCastTool({}, { hasUnsavedChanges: true });
 
     expect(screen.getByTestId('render-controls-strip')).toHaveAttribute(
       'data-can-commit-source-text',
@@ -277,7 +289,7 @@ describe('RST-5 — StudioStage commit-source-text path', () => {
   });
 
   it('passes canCommitSourceText=false when there are no unsaved changes', () => {
-    renderStudioStage({}, { hasUnsavedChanges: false });
+    renderCastTool({}, { hasUnsavedChanges: false });
 
     expect(screen.getByTestId('render-controls-strip')).toHaveAttribute(
       'data-can-commit-source-text',
@@ -287,7 +299,7 @@ describe('RST-5 — StudioStage commit-source-text path', () => {
 
   it('clicking Commit Changes triggers handleRequestResyncPreview', () => {
     const handleRequestResyncPreview = vi.fn();
-    renderStudioStage({}, { hasUnsavedChanges: true, handleRequestResyncPreview });
+    renderCastTool({}, { hasUnsavedChanges: true, handleRequestResyncPreview });
 
     fireEvent.click(screen.getByTestId('commit-source-text-btn'));
     expect(handleRequestResyncPreview).toHaveBeenCalledTimes(1);

@@ -8,12 +8,11 @@ import { BookStage as BookInfoStage } from '@/pages/Book/stages/BookStage';
 import { CastingStage } from '@/pages/Book/stages/CastingStage';
 import { ContentsStage } from '@/pages/Book/stages/ContentsStage';
 import { LexiconStage } from '@/pages/Book/stages/LexiconStage';
-import { StudioStage } from '@/pages/Book/stages/StudioStage';
-import { ReviewStage } from '@/pages/Book/stages/ReviewStage';
 import { PublishStage } from '@/pages/Book/stages/PublishStage';
 import { BackupsStage } from '@/pages/Book/stages/BackupsStage';
 import { ChapterWorkspaceHeader } from '@/pages/Book/components/ChapterWorkspaceHeader';
 import { LexiconPanel } from '@/pages/Book/components/LexiconPanel';
+import { DirectorsConsole } from '@/pages/ChapterEditor/components/DirectorsConsole';
 import {
   BOOK_STAGE_LABELS,
   BOOK_STAGES,
@@ -110,8 +109,6 @@ function BookIdentityPublisher() {
   return null;
 }
 
-type WorkspaceView = 'studio' | 'review';
-
 // ---------------------------------------------------------------------------
 // WorkspacePanel — reusable dockable side panel for the Chapter Workspace.
 //
@@ -200,7 +197,6 @@ function WorkspacePanel({ title, onClose, children }: WorkspacePanelProps) {
 function ChapterWorkspace({ bookId, chapterId }: { bookId: string; chapterId: string }) {
   const { chapters } = useBookDataContext();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeView, setActiveView] = useState<WorkspaceView>('studio');
   const [lexiconOpen, setLexiconOpen] = useState(false);
 
   const chapter = chapters.find((c) => c.id === chapterId);
@@ -211,9 +207,10 @@ function ChapterWorkspace({ bookId, chapterId }: { bookId: string; chapterId: st
     setLastChapter(bookId, chapterId);
   }, [bookId, chapterId]);
 
-  // Sync the route-level chapterId into ?chapter= so StudioStage and ReviewStage
-  // (which read searchParams.get('chapter')) pick up the correct chapter without
-  // modification.  Replace rather than push so the extra param doesn't pollute history.
+  // Sync the route-level chapterId into ?chapter= so the DirectorsConsole tools
+  // (CastTool, BoothTool, etc., which read searchParams.get('chapter')) pick up
+  // the correct chapter without modification. Replace rather than push so the
+  // extra param doesn't pollute history.
   // Depend only on chapterId: re-fire when the route param changes.
   // searchParams is intentionally omitted — the conditional guard is idempotent,
   // and including setSearchParams in deps would create a re-entrancy loop.
@@ -233,7 +230,7 @@ function ChapterWorkspace({ bookId, chapterId }: { bookId: string; chapterId: st
         activeChapterId={chapterId}
       />
 
-      {/* Toolbar row: Studio/Review toggle + workspace panel toggles */}
+      {/* Toolbar row: workspace panel toggles */}
       <div
         style={{
           display: 'flex',
@@ -242,26 +239,6 @@ function ChapterWorkspace({ bookId, chapterId }: { bookId: string; chapterId: st
           flexWrap: 'wrap',
         }}
       >
-        {/* Studio / Review sub-view toggle */}
-        <div className="workspace-view-toggle" role="group" aria-label="Workspace view">
-          <button
-            type="button"
-            className={`workspace-view-toggle__btn${activeView === 'studio' ? ' workspace-view-toggle__btn--active' : ''}`}
-            onClick={() => setActiveView('studio')}
-            aria-pressed={activeView === 'studio'}
-          >
-            Studio
-          </button>
-          <button
-            type="button"
-            className={`workspace-view-toggle__btn${activeView === 'review' ? ' workspace-view-toggle__btn--active' : ''}`}
-            onClick={() => setActiveView('review')}
-            aria-pressed={activeView === 'review'}
-          >
-            Review
-          </button>
-        </div>
-
         {/* Dockable panel toggles */}
         <button
           type="button"
@@ -300,7 +277,7 @@ function ChapterWorkspace({ bookId, chapterId }: { bookId: string; chapterId: st
         }}
       >
         <div style={{ flex: 1, minWidth: 0 }}>
-          {activeView === 'studio' ? <StudioStage /> : <ReviewStage />}
+          <DirectorsConsole />
         </div>
 
         {lexiconOpen && (
@@ -340,8 +317,8 @@ export function BookLayout({
   }
 
   // Preserve the active chapter across stage switches when using the legacy
-  // ?chapter= param (StudioStage still reads it). Book-level stages ignore
-  // this param harmlessly, so we carry it on all tabs.
+  // ?chapter= param (the DirectorsConsole tools still read it). Book-level
+  // stages ignore this param harmlessly, so we carry it on all tabs.
   const chapterParam = searchParams.get('chapter');
   const stageHref = (s: BookStage) =>
     chapterParam ? `/book/${bookId}/${s}?chapter=${encodeURIComponent(chapterParam)}` : `/book/${bookId}/${s}`;

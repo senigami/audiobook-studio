@@ -1,0 +1,5 @@
+# Superseded — 2026-07-09
+
+This plan's premise (hand-build a new `Cast | Follow Along | Edit Text` mode switcher directly in `BookLayout.tsx`) was written without knowing that `frontend/src/pages/ChapterEditor/components/DirectorsConsole/` already exists as a deliberately-built-ahead-of-schedule scaffold implementing the equivalent (and more complete) `Cast | Booth | Revise | Write` concept, per `design-docs/workflows/chapter-editor-modes.md`. That module was shipped dark on 2026-07-03 (`design-docs/plans/TASKS.md:521`) specifically for this purpose, and its WL1 gate cleared the same week (`TASKS.md:508`).
+
+Superseded by `design-docs/plans/active/directors_console_activation/`, which wires in and completes the real `DirectorsConsole` instead of building a parallel toggle. This folder is kept for its research (still accurate: `StudioStage`/`ReviewStage`/`ChapterTextPanel` shapes, the `ManuscriptStage.tsx` orphan finding, the legacy `ChapterEditorPage.tsx` coexistence note) — the new plan cites it rather than re-deriving it.

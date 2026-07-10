@@ -40,6 +40,31 @@ const AGE_OPTIONS = [
     { id: 'ageless', label: 'Ageless' },
 ];
 
+/**
+ * Resolve the VoiceMetadata for `editingProfile` — reuses the exact id-first/name-fallback
+ * convention as `handleEditMetadata` in this file — drives ScriptEditor's "Suggest from voice
+ * qualities" button (INV-4). Exported (pure, no hooks) so this stable-primitive matching can be
+ * unit tested directly against stale/rebuilt `voiceGroups` arrays.
+ *
+ * Matches on `editingProfile.name` (the stable primitive key already used elsewhere for this
+ * profile — e.g. handleUpdateSettings/rename/reset-test-text all key off it), not on reference
+ * identity: `data.activeVoices`/`disabledVoices` are rebuilt from `speakerProfiles`, which gets
+ * entirely new object references on every refetchHome() (unrelated websocket events elsewhere in
+ * the app trigger this), so a `.includes(editingProfile)` reference-equality search would
+ * silently go stale mid-session.
+ */
+export function resolveEditingVoiceMetadata(
+    editingProfile: SpeakerProfile | null | undefined,
+    voiceGroups: Array<{ id: string; name: string; profiles: SpeakerProfile[] }>,
+    voiceMetadataMap: Map<string, VoiceMetadata>,
+    voiceMetadataList: VoiceMetadata[]
+): VoiceMetadata | undefined {
+    if (!editingProfile) return undefined;
+    const group = voiceGroups.find(v => v.profiles.some(p => p.name === editingProfile.name));
+    if (!group) return undefined;
+    return voiceMetadataMap.get(group.id) ?? voiceMetadataList.find(m => m.name === group.name);
+}
+
 interface VoicesTabProps {
     onRefresh: () => void | Promise<void>;
     speakerProfiles: SpeakerProfile[];
@@ -120,6 +145,13 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
             ?? { id: voiceGroupId, name: voiceName, is_untagged: true };
         setMetadataEditorVoice(meta);
     }, [voiceMetadataMap, voiceMetadataList]);
+
+    // See resolveEditingVoiceMetadata above — drives ScriptEditor's "Suggest from voice
+    // qualities" button (INV-4).
+    const editingVoiceMetadata = useMemo<VoiceMetadata | undefined>(
+        () => resolveEditingVoiceMetadata(state.editingProfile, [...data.activeVoices, ...data.disabledVoices], voiceMetadataMap, voiceMetadataList),
+        [state.editingProfile, data.activeVoices, data.disabledVoices, voiceMetadataMap, voiceMetadataList]
+    );
 
     const handleMetadataSaved = useCallback((updated: VoiceMetadata) => {
         setVoiceMetadataList(prev =>
@@ -277,6 +309,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 isSavingText={state.isSavingText}
                 handleResetTestText={actions.handleResetTestText}
                 handleSaveTestText={actions.handleSaveTestText}
+                editingVoiceMetadata={editingVoiceMetadata}
                 confirmConfig={state.confirmConfig}
                 setConfirmConfig={state.setConfirmConfig}
                 exportVoiceName={state.exportVoiceName}

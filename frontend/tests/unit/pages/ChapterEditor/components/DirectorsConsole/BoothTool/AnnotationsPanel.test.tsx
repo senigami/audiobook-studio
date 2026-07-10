@@ -1,7 +1,13 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AnnotationsPanel } from '@/pages/Book/stages/ReviewStage/AnnotationsPanel';
+import { AnnotationsPanel } from '@/pages/ChapterEditor/components/DirectorsConsole/BoothTool/AnnotationsPanel';
 import { saveAnnotation, deleteAnnotation, getAnnotations } from '@/store/annotations';
+
+// Ported from frontend/tests/unit/pages/Book/stages/ReviewStage/AnnotationsPanel.test.tsx —
+// AnnotationsPanel.tsx was relocated verbatim into BoothTool/ (see
+// design-docs/plans/active/directors_console_activation/tasks/004-booth-tool.md);
+// this file keeps its dedicated component-level coverage alive against the
+// new location (task 007 deletes the old ReviewStage/ folder + its tests).
 
 describe('AnnotationsPanel', () => {
   beforeEach(() => {

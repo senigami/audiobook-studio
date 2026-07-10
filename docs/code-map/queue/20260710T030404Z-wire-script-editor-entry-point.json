@@ -1,0 +1,38 @@
+{
+  "at": "2026-07-10T03:04:04Z",
+  "commit": "uncommitted",
+  "task": "Fix: 'Suggest from voice qualities' Script Editor feature was unreachable from the live Voices catalog UI. VoicesTabContent accepted onEditTestText in its props interface but never destructured/forwarded it, and VoiceCatalogCard had no ActionMenu item to trigger it — state.editingProfile could never be set from real user interaction, leaving VoicesModals' ScriptEditor drawer dead code in production.",
+  "files": {
+    "frontend/src/pages/Voices/components/VoiceCatalogCard.tsx": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Added optional `onEditTestText?: (profile: SpeakerProfile) => void` prop; destructured it and added a new 'Edit Recording Script' ActionMenu item (Mic icon, placed after 'Edit Metadata') that calls onEditTestText with the same `defaultProfile` already used by 'Set as Default'. Updated the file-header comment listing ActionMenu items."
+    },
+    "frontend/src/pages/Voices/components/VoicesTabContent.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Destructured the already-declared `onEditTestText` prop (previously accepted in the props interface but silently dropped) and forwards it to the rendered `<VoiceCatalogCard onEditTestText={onEditTestText} .../>`, alongside the existing onEditMetadata wiring."
+    },
+    "frontend/tests/unit/pages/Voices/components/VoiceCatalogCard.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added onEditTestText to baseProps; updated the 'action menu contains all N expected items' test from 5 to 6 items; added a test asserting 'Edit Recording Script' fires onEditTestText with the resolved default profile."
+    },
+    "frontend/tests/unit/pages/Voices/components/VoicesTabContent.test.tsx": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "New test file (none existed for this component before). Renders VoicesTabContent with one voice/profile, opens the rendered VoiceCatalogCard's ActionMenu, clicks 'Edit Recording Script', and asserts onEditTestText is forwarded and called with the profile — closes the prop-passthrough gap that let the bug ship silently."
+    },
+    "frontend/tests/unit/pages/Voices/VoicesPage.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added an integration test exercising the full path: click the catalog card's overflow menu -> 'Edit Recording Script' -> state.setEditingProfile -> VoicesModals -> ScriptEditor drawer renders ('Suggest from voice qualities' text visible), confirming the feature is now reachable end-to-end from VoicesTab."
+    }
+  },
+  "flow_impact": "Restores a previously-planned but unwired UI entry point; no change to ScriptEditor/VoicesModals/state.editingProfile contract itself, only to how it gets triggered from the Voices catalog page. NarratorCard.tsx, VariantEditor.tsx, and VoiceLab/* call sites for the same onEditTestText prop pattern were intentionally left untouched (already working, separate call sites).",
+  "tests_added": [
+    "frontend/tests/unit/pages/Voices/components/VoiceCatalogCard.test.tsx: 'Edit Recording Script fires onEditTestText with the default profile'",
+    "frontend/tests/unit/pages/Voices/components/VoicesTabContent.test.tsx (new): 'forwards onEditTestText to the rendered VoiceCatalogCard, wired to Edit Recording Script'",
+    "frontend/tests/unit/pages/Voices/VoicesPage.test.tsx: 'wires the catalog card Edit Recording Script action to open the Script Editor drawer'"
+  ]
+}

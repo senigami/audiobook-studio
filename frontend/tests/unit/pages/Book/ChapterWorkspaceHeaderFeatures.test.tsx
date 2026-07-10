@@ -26,17 +26,26 @@ vi.mock('@/api', () => ({
 }));
 
 // ── Stage stubs ────────────────────────────────────────────────────────────────
-vi.mock('@/pages/Book/stages/StudioStage', () => ({
-  StudioStage: () => <div data-testid="studio-stage-stub">Studio view</div>,
-}));
-vi.mock('@/pages/Book/stages/ReviewStage', () => ({
-  ReviewStage: () => <div data-testid="review-stage-stub">Review view</div>,
-}));
 vi.mock('@/pages/Book/components/ChapterTextPanel', () => ({
   ChapterTextPanel: () => <section aria-label="Chapter preview" />,
 }));
 vi.mock('@/pages/Book/components/ChapterTable', () => ({
   ChapterTable: () => <section aria-label="Manuscript chapters" />,
+}));
+
+// CastTool's body is a real port of StudioStage.tsx that pulls in the full
+// studio data chain (useStudioChapter/useChapterEditor/useRenderGroups) —
+// these header-feature tests only need the Director's Console shell, not
+// Cast's internals (covered by CastTool/CastTool.test.tsx), so stub it.
+vi.mock('@/pages/ChapterEditor/components/DirectorsConsole/CastTool', () => ({
+  CastTool: {
+    id: 'cast',
+    label: 'Cast',
+    icon: (props: any) => <svg data-testid="cast-icon-stub" {...props} />,
+    component: () => <div data-testid="cast-tool-stub">Cast tool</div>,
+    shortcut: 'V',
+    demoPlaceholder: false,
+  },
 }));
 
 // ── Chapter fixtures ───────────────────────────────────────────────────────────

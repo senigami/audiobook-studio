@@ -2,15 +2,20 @@ import { useMemo } from 'react';
 import { usePlayerBus, loadAndPlay, play, pause, seek } from '@/store/playerBus';
 import type { ChapterSegment } from '@/types';
 
-export interface UseReviewPlaybackOptions {
+/**
+ * Ported from `frontend/src/pages/Book/stages/ReviewStage/useReviewPlayback.ts`
+ * (renamed only — same percent-based active-segment mapping, no behavior
+ * change). See design-docs/plans/active/directors_console_activation/tasks/004-booth-tool.md.
+ */
+export interface UseBoothPlaybackOptions {
   chapterId: string | null;
   segments: ChapterSegment[];
 }
 
-export function useReviewPlayback({
+export function useBoothPlayback({
   chapterId,
   segments,
-}: UseReviewPlaybackOptions) {
+}: UseBoothPlaybackOptions) {
   const playerBus = usePlayerBus();
 
   const isCurrentChapterPlaying = useMemo(() => {
@@ -102,6 +107,7 @@ export function useReviewPlayback({
     isPaused: isCurrentChapterPlaying && !playerBus.playing,
     position: playerBus.position,
     duration: playerBus.duration,
+    audioUrl: playerBus.audioUrl,
     playChapter,
     seekToSegment,
     togglePlayPause,

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/api';
 import { ChapterTextPanel } from '@/pages/Book/components/ChapterTextPanel';
@@ -129,5 +129,55 @@ describe('ChapterTextPanel', () => {
       expect(api.previewSourceTextResync).toHaveBeenCalledWith('chapter-rendered', 'Updated rendered text');
     });
     expect(await screen.findByRole('dialog', { name: 'Source Text Resync Preview' })).toBeInTheDocument();
+  });
+
+  it('reports dirty via onDirtyChange while a produced chapter has an uncommitted edit, and clears it on commit', async () => {
+    const onDirtyChange = vi.fn();
+    render(<ChapterTextPanel chapter={producedChapter} onDirtyChange={onDirtyChange} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Original rendered text')).toBeInTheDocument();
+    });
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit text' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit anyway' }));
+
+    fireEvent.change(screen.getByLabelText('Chapter manuscript text'), {
+      target: { value: 'Updated rendered text' },
+    });
+    await waitFor(() => {
+      expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Commit changes' }));
+    await waitFor(() => {
+      expect(api.previewSourceTextResync).toHaveBeenCalled();
+    });
+    const dialog = await screen.findByRole('dialog', { name: 'Source Text Resync Preview' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Commit Changes' }));
+
+    await waitFor(() => {
+      expect(onDirtyChange).toHaveBeenLastCalledWith(false);
+    });
+  });
+
+  it('never reports dirty for a draft chapter (autosave, not the commit flow, owns those edits)', async () => {
+    vi.useFakeTimers();
+    const onDirtyChange = vi.fn();
+    render(<ChapterTextPanel chapter={draftChapter} onDirtyChange={onDirtyChange} />);
+
+    await act(async () => {});
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false);
+
+    fireEvent.change(screen.getByLabelText('Chapter manuscript text'), {
+      target: { value: 'Updated draft text' },
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false);
   });
 });

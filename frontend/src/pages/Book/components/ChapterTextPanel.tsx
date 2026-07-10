@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertTriangle, Check, Info } from 'lucide-react';
 import { ResyncPreviewModal } from '@/pages/ChapterEditor/components/ResyncPreviewModal';
 import { useChapterText } from '@/pages/Book/lib/useChapterText';
@@ -7,6 +7,15 @@ import type { Chapter } from '@/types';
 interface ChapterTextPanelProps {
   chapter: Chapter | null;
   onSaved?: () => Promise<void> | void;
+  /**
+   * Reports whether there is an uncommitted edit to a produced chapter's
+   * text (i.e. the chapter has already been Cast/Rendered/gone
+   * Stale/Error and the user has unlocked + changed the text but not yet
+   * committed via the resync flow). Non-produced chapters autosave, so
+   * they never report dirty here. Used by DirectorsConsole's WriteTool
+   * wrapper to gate rail-tab switches (see DirtyGuardContext.tsx).
+   */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 function sentenceCount(text: string): number {
@@ -43,11 +52,15 @@ function SaveChip({ state }: { state: ReturnType<typeof useChapterText>['saveSta
   return <span className="chapter-text-panel__chip">editing</span>;
 }
 
-export function ChapterTextPanel({ chapter, onSaved }: ChapterTextPanelProps) {
+export function ChapterTextPanel({ chapter, onSaved, onDirtyChange }: ChapterTextPanelProps) {
   const chapterText = useChapterText(chapter, onSaved);
   const [showUnlockWarning, setShowUnlockWarning] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  useEffect(() => {
+    onDirtyChange?.(chapterText.isProduced && chapterText.hasTextChanges);
+  }, [chapterText.isProduced, chapterText.hasTextChanges, onDirtyChange]);
 
   if (!chapter) {
     return (

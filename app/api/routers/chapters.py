@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Form, File, UploadFile, Request
+from fastapi import APIRouter, Form, File, UploadFile, Request, HTTPException
 from fastapi.responses import JSONResponse
 
 from ...db import (
@@ -194,6 +194,16 @@ def api_get_segments(chapter_id: str):
     return JSONResponse({"segments": get_chapter_segments(chapter_id)})
 
 
+# Untrusted request bodies for PUT /segments/{id} are forwarded into
+# `update_segment(segment_id, **updates)`, which builds `UPDATE chapter_segments
+# SET {col} = ? ...` using request-supplied dict KEYS directly as column names
+# (values are parameterized/safe, but column names are not). This is the complete
+# set of fields real callers send today (mirrors `updateSegment`'s payload type in
+# frontend/src/api/index.ts) — reject anything outside it rather than silently
+# passing an arbitrary key through as a column name.
+SEGMENT_UPDATE_ALLOWED_FIELDS = {"character_id", "speaker_profile_name", "audio_status", "text_content"}
+
+
 @router.put("/segments/{segment_id}")
 async def api_update_segment_route(segment_id: str, request: Request):
     updates = {}
@@ -204,6 +214,10 @@ async def api_update_segment_route(segment_id: str, request: Request):
         # 2. Fallback to Form
         form = await request.form()
         updates = {k: v for k, v in form.items()}
+
+    unknown_fields = set(updates) - SEGMENT_UPDATE_ALLOWED_FIELDS
+    if unknown_fields:
+        raise HTTPException(status_code=400, detail=f"Unsupported field(s): {', '.join(sorted(unknown_fields))}")
 
     # Normalize: empty strings for IDs/Profiles should be None
     for k in ["speaker_profile_name", "character_id"]:
@@ -224,6 +238,13 @@ def api_bulk_update_segment_status(chapter_id: str, req: BulkStatusUpdate):
 
 @router.post("/segments/bulk-update")
 async def api_bulk_update_segments(req: BulkSegmentsUpdate):
+    # Same unvalidated-dict-as-SQL-columns hazard as PUT /segments/{segment_id}
+    # above (`update_segments_bulk` builds `f"{k} = ?"` from these keys) — reuse
+    # the same whitelist rather than duplicating it.
+    unknown_fields = set(req.updates) - SEGMENT_UPDATE_ALLOWED_FIELDS
+    if unknown_fields:
+        raise HTTPException(status_code=400, detail=f"Unsupported field(s): {', '.join(sorted(unknown_fields))}")
+
     await anyio.to_thread.run_sync(
         lambda: update_segments_bulk(req.segment_ids, **req.updates)
     )

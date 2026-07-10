@@ -1,3 +1,7 @@
+/**
+ * Ported verbatim from `frontend/src/pages/Book/stages/ReviewStage/FollowAlongPanel.tsx`
+ * (relocated only — see design-docs/plans/active/directors_console_activation/tasks/004-booth-tool.md).
+ */
 interface FollowAlongPanelProps {
   chapterTitle: string;
   activeSegmentId: string | null;

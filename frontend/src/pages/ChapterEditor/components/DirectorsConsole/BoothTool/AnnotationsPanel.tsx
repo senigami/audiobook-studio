@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useAnnotations, saveAnnotation, deleteAnnotation } from '@/store/annotations';
 
+/**
+ * Ported verbatim from `frontend/src/pages/Book/stages/ReviewStage/AnnotationsPanel.tsx`
+ * (relocated only). `@/store/annotations` (localStorage-only, no backend
+ * persistence) is reused as-is per INV-6 — this pass does not add persistence.
+ * See design-docs/plans/active/directors_console_activation/tasks/004-booth-tool.md.
+ */
 export interface AnnotationsPanelProps {
   chapterId: string | null;
   activeSegmentId: string | null;

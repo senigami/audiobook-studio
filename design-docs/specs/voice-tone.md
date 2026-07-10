@@ -16,7 +16,7 @@ sources:
   - frontend/src/pages/Engines/components/EnginesPanel.tsx
   - frontend/src/pages/Engines/components/EngineCard.tsx
   - frontend/src/pages/Book/studio/useStudioChapter.ts
-  - frontend/src/pages/Book/stages/StudioStage.tsx
+  - frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx (formerly frontend/src/pages/Book/stages/StudioStage.tsx, deleted 2026-07-10 — copy patterns carried forward unchanged in the port)
   - frontend/src/components/ProjectBackupsPanel.tsx
   - frontend/src/components/CharactersTab.tsx
   - frontend/src/pages/ProjectDetail/components/ProjectModals.tsx

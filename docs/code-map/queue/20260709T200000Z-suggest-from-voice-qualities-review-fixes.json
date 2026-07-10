@@ -1,0 +1,23 @@
+{
+  "at": "2026-07-09T20:00:00Z",
+  "commit": "uncommitted",
+  "task": "Fix 3 bugs found by adversarial review of the uncommitted \"Suggest from voice qualities\" recording-guide feature",
+  "files": {
+    "frontend/src/pages/Voices/VoicesPage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Fixed editingVoiceMetadata: was matching the currently-open Script Editor profile via `group.profiles.includes(state.editingProfile)` reference-equality, which silently went stale whenever any unrelated refetchHome() (any job_completed/queue_paused websocket event app-wide) replaced speakerProfiles with new object references. Extracted the resolution into an exported pure function `resolveEditingVoiceMetadata(editingProfile, voiceGroups, voiceMetadataMap, voiceMetadataList)` that matches on the stable `profile.name` primitive (same key already used by handleUpdateSettings/rename/reset-test-text elsewhere in this file) instead of object identity."
+    },
+    "app/api/routers/chapters.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "PUT /api/segments/{segment_id} now enforces an explicit field whitelist (SEGMENT_UPDATE_ALLOWED_FIELDS = character_id, speaker_profile_name, audio_status, text_content) before forwarding the request body into update_segment(**updates), which otherwise used untrusted request-supplied dict keys directly as SQL column names. Unknown fields now 400 rather than passing through silently."
+    }
+  },
+  "flow_impact": "No flow/invariant shape change: VoicesPage.tsx fix keeps the exact same id-first/name-fallback resolution convention as handleEditMetadata (INV-4's ScriptEditor 'Suggest from voice qualities' gating is unaffected, just no longer reference-equality-fragile). chapters.py fix narrows PUT /segments/{id}'s accepted body to the four fields the frontend (frontend/src/api/index.ts updateSegment type) and all other real callers of update_segment's HTTP-facing path already use — no legitimate caller sends a field outside this set today.",
+  "tests_added": [
+    "frontend/tests/unit/pages/Voices/VoicesPage.test.tsx: resolveEditingVoiceMetadata describe block — regression for the stale-reference bug (rebuilt voiceGroups array, same values/different object identity) plus not-found and name-fallback cases.",
+    "tests/api/test_api_chapters.py: test_chapter_segments_sync_and_update extended — PUT /api/segments/{id} with an unexpected extra key now asserts 400 and that no partial update was applied.",
+    "frontend/tests/unit/pages/Voices/components/metadata/recordingPromptSuggester.tieAndThresholds.test.ts (new file): tie-break (first-in-array wins on equal scores) and CLOSE_THRESHOLD=6 / EXACT_THRESHOLD=10 boundary-inclusive behavior for suggestRecordingPrompt, using a mocked recordingArchetypes fixture (recordingArchetypes.ts itself untouched)."
+  ]
+}
