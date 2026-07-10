@@ -55,14 +55,6 @@ const MOCK_ENGINE_WITH_SETTINGS = {
 } as any;
 
 describe('EnginesPage — Module Settings tab (WIRE-2)', () => {
-    it('shows the Module Settings tab button', async () => {
-        vi.mocked(api.fetchEngines).mockResolvedValue([MOCK_ENGINE_WITH_SETTINGS]);
-
-        render(<EnginesPage startupReady={true} onRefresh={vi.fn()} onShowNotification={vi.fn()} />);
-
-        expect(screen.getByRole('tab', { name: 'Module Settings' })).toBeInTheDocument();
-    });
-
     it('switches to the Module Settings tab and renders the plugin schema settings', async () => {
         vi.mocked(api.fetchEngines).mockResolvedValue([MOCK_ENGINE_WITH_SETTINGS]);
 

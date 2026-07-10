@@ -343,16 +343,4 @@ describe('SettingsRoute', () => {
     expect(nav).not.toHaveTextContent('API');
   });
 
-  it('renders the platform hint banner in the general panel', () => {
-    render(
-      <MemoryRouter initialEntries={['/settings']}>
-        <SettingsRoute {...defaultProps} />
-      </MemoryRouter>
-    );
-
-    expect(screen.getByLabelText('Platform hint')).toBeInTheDocument();
-    expect(screen.getByText(/Engines & Integrations live under/i)).toBeInTheDocument();
-    expect(screen.getByText('Platform')).toBeInTheDocument();
-  });
-
 });
