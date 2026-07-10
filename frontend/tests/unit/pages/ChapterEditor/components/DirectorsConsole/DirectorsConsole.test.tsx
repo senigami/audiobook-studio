@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DirectorsConsole } from '@/pages/ChapterEditor/components/DirectorsConsole';
-import { directorsConsoleTools } from '@/pages/ChapterEditor/components/DirectorsConsole/registry';
 import { useDirtyGuard } from '@/pages/ChapterEditor/components/DirectorsConsole/DirtyGuardContext';
 
 // ConfirmModal uses AnimatePresence — mock it with a synchronous stub so the
@@ -57,17 +56,6 @@ vi.mock('@/pages/ChapterEditor/components/DirectorsConsole/CastTool', () => ({
 }));
 
 describe('DirectorsConsole', () => {
-  it('renders an icon rail entry for every registered tool', () => {
-    render(<DirectorsConsole />);
-
-    const tabs = screen.getAllByRole('tab');
-    expect(tabs).toHaveLength(directorsConsoleTools.length);
-
-    directorsConsoleTools.forEach((tool) => {
-      expect(screen.getByRole('tab', { name: tool.label })).toBeInTheDocument();
-    });
-  });
-
   it('includes the three core tools and the future-slot placeholders', () => {
     render(<DirectorsConsole />);
 

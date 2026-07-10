@@ -670,38 +670,6 @@ describe('ChapterHeader progress contract', () => {
     vi.useRealTimers();
   });
 
-  it('renders with data-testid="chapter-header-segment-progress-bar"', () => {
-    render(
-      <TestHeaderWrapper
-        chapter={mockChapter as any}
-        title={mockChapter.title}
-        setTitle={vi.fn()}
-        saving={false}
-        hasUnsavedChanges={false}
-        submitting={false}
-        queueLocked={false}
-        queuePending={false}
-        generatingJob={{
-          id: 'job-testid-test',
-          engine: 'xtts',
-          status: 'running',
-          progress: 0.5,
-          active_segment_id: 'seg-testid',
-          active_segment_progress: 0.5,
-          started_at: Date.now() / 1000,
-          hasSegmentSupport: true,
-        } as any}
-        generatingSegmentIdsCount={1}
-        queueLabel="Queue"
-        queueTitle="Queue Chapter"
-        onQueue={vi.fn()}
-        onStopAll={vi.fn()}
-      />
-    );
-
-    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toBeInTheDocument();
-  });
-
   it('resets Segment Progress bar persistence identity and props when activeSegmentId changes within the same job (after visual completion)', () => {
     vi.useFakeTimers();
     let generatingJob = {

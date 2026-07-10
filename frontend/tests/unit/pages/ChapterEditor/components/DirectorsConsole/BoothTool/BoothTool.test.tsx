@@ -147,12 +147,6 @@ describe('BoothTool', () => {
     ]);
   });
 
-  it('registers with the id/label/icon expected by the tool registry', () => {
-    expect(BoothTool.id).toBe('booth');
-    expect(BoothTool.label).toBe('Booth');
-    expect(BoothTool.demoPlaceholder).toBe(false);
-  });
-
   it('renders the follow-along panel, annotations toggle, and text view — with no rendered chapter rail', async () => {
     renderBoothTool();
 

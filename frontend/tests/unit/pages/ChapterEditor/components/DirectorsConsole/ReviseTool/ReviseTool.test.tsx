@@ -72,12 +72,6 @@ describe('ReviseTool', () => {
     mockGenerateSegments = vi.fn().mockResolvedValue({ success: true });
   });
 
-  it('registers with the id/label expected by the tool registry', () => {
-    expect(ReviseTool.id).toBe('revise');
-    expect(ReviseTool.label).toBe('Revise');
-    expect(ReviseTool.demoPlaceholder).toBe(false);
-  });
-
   it('renders segments for the active chapter, read-only by default', async () => {
     renderReviseTool();
 

@@ -42,20 +42,36 @@ describe('EditTab', () => {
         expect(setText).toHaveBeenCalledWith('New text');
     });
 
-    it('shows analyzing state', () => {
-        render(
-            <EditTab 
-                text="" 
-                setText={vi.fn()} 
-                analysis={null} 
-                setAnalysis={vi.fn()} 
-                analyzing={true} 
-                chapter={mockChapter} 
-                segmentsCount={0} 
+    it('shows a spinning refresh icon while analyzing, and a static info icon when not', () => {
+        const { container, rerender } = render(
+            <EditTab
+                text=""
+                setText={vi.fn()}
+                analysis={null}
+                setAnalysis={vi.fn()}
+                analyzing={true}
+                chapter={mockChapter}
+                segmentsCount={0}
                 hasUnsavedChanges={false}
             />
         );
         expect(screen.getByText('Analysis')).toBeInTheDocument();
+        expect(container.querySelector('.animate-spin')).toBeInTheDocument();
+
+        rerender(
+            <EditTab
+                text=""
+                setText={vi.fn()}
+                analysis={null}
+                setAnalysis={vi.fn()}
+                analyzing={false}
+                chapter={mockChapter}
+                segmentsCount={0}
+                hasUnsavedChanges={false}
+            />
+        );
+        expect(screen.getByText('Analysis')).toBeInTheDocument();
+        expect(container.querySelector('.animate-spin')).not.toBeInTheDocument();
     });
 
     it('shows estimated time in different formats', () => {

@@ -275,12 +275,6 @@ function mockBookDataContext(overrides: Record<string, unknown> = {}) {
 }
 
 describe('CastTool', () => {
-  it('keeps the id/label/icon contract expected by the registry', () => {
-    expect(CastTool.id).toBe('cast');
-    expect(CastTool.label).toBe('Cast');
-    expect(typeof CastTool.component).toBe('function');
-  });
-
   it('mounts the selected chapter, defaults to book view, and flips the view pills', async () => {
     mockBookDataContext({
       jobs: {

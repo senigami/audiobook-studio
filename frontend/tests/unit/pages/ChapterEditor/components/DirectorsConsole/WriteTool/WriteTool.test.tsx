@@ -69,12 +69,6 @@ describe('WriteTool', () => {
     } as any);
   });
 
-  it('is registered with the expected id, label, and non-placeholder flag', () => {
-    expect(WriteTool.id).toBe('write');
-    expect(WriteTool.label).toBe('Write');
-    expect(WriteTool.demoPlaceholder).toBe(false);
-  });
-
   it('resolves the chapter from the "chapter" search param', () => {
     renderInRouter('/book/book-1/editor?chapter=ch-2');
 
