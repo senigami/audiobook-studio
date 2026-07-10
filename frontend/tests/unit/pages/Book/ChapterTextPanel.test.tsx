@@ -85,7 +85,7 @@ describe('ChapterTextPanel', () => {
     render(<ChapterTextPanel chapter={draftChapter} onSaved={onSaved} />);
 
     await act(async () => {});
-    expect(api.fetchChapter).toHaveBeenCalledWith('chapter-draft');
+    expect(api.fetchChapter).toHaveBeenCalledWith('chapter-draft', 'book-1');
     expect(screen.getByText('Analysis')).toBeInTheDocument();
     expect(screen.getByText('Chars')).toBeInTheDocument();
     expect(screen.getByText('Words')).toBeInTheDocument();
