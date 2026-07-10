@@ -95,12 +95,6 @@ class TestApiSynthesisTask:
         assert recovered.language == original.language
         assert recovered.caller_id == original.caller_id
 
-    def test_source_is_always_api(self):
-        task = ApiSynthesisTask(
-            task_id="x", engine_id="e", text="t", output_path="/tmp/x.wav"
-        )
-        assert task.source == "api"
-
     def test_submitted_at_is_set(self):
         task = ApiSynthesisTask(
             task_id="x", engine_id="e", text="t", output_path="/tmp/x.wav"

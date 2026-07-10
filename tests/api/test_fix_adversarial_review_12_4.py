@@ -25,7 +25,7 @@ from app.orchestration.progress.service import (
     reset_progress_service,
     set_progress_service,
 )
-from app.orchestration.progress.eta import estimate_eta_seconds, BASE_FLOOR
+from app.orchestration.progress.eta import estimate_eta_seconds, EtaSampleRing, BASE_FLOOR
 
 
 # ---------------------------------------------------------------------------
@@ -155,69 +155,119 @@ class TestFix1DoubleRingPush:
 # ---------------------------------------------------------------------------
 
 class TestFix2RingMeanInsideLock:
-    """ring.mean() in the crossfade section must be captured inside self._lock.
+    """ring.weighted_mean() in the crossfade section must be captured inside
+    self._lock (current code — the fix originally targeted ring.mean(), later
+    renamed/changed to weighted_mean() by the §4A.4 1.8.4 recency-weighting
+    change; the lock-ordering invariant is unchanged).
 
-    R1 revert-check: before FIX 2, ring.mean() was called after the lock block
-    was released.  A concurrent push() could mutate the deque and produce a
-    RuntimeError or inconsistent read.  The behavioral test below verifies that
-    enrich produces the same ETA for consecutive identical frames (i.e. the
-    captured velocity is stable and consistent with what was computed inside the
-    lock).
+    R1 revert-check: before FIX 2, the velocity read was performed AFTER the
+    ``with self._lock:`` block had already been released.  This test proves
+    that matters with a genuine concurrent mutator, not just a sequential
+    replay: a second thread is given a synchronized window to push a
+    contaminating sample into the SAME ring while the first thread's read is
+    in flight.  If the read is captured inside the lock (current/fixed code),
+    the concurrent enrich() call cannot acquire the same ``self._lock`` and is
+    blocked out entirely — the read observes exactly the two primed samples.
+    If the read happened outside the lock (reverted code), the racing
+    enrich() call runs to completion in the gap between lock-release and the
+    read, and the read observes a contaminated 3-sample ring.
+
+    Verified via manual revert: temporarily moving the
+    ``ring_velocity = ring.weighted_mean()`` calls (service.py, both branches
+    of the ``isinstance(eta_confidence, float)`` check) to after the
+    ``with self._lock:`` block reproduces a 3-sample contaminated read here
+    (RED); restoring the current code returns to a stable 2-sample read
+    (GREEN).
     """
 
-    def test_enrich_crossfade_uses_locked_ring_velocity(self):
-        """enrich produces a deterministic, non-None ETA when ring has samples."""
+    def test_enrich_crossfade_uses_locked_ring_velocity(self, monkeypatch):
+        """A concurrent enrich() call must not contaminate an in-flight ring read."""
         svc, _, _, _ = _make_service()
+        job_id = "fix2-job"
 
-        # Prime the ring with a couple of samples.
-        payload1 = {
-            "job_id": "fix2-job",
+        # Prime the ring with two samples (unpatched — establishes ring state).
+        svc.enrich(job_id, {
+            "job_id": job_id,
             "status": "running",
             "progress": 0.2,
             "eta_seconds": 80,
             "char_count": 1000,
             "updated_at": 1000.0,
-        }
-        svc.enrich("fix2-job", payload1, sample=True)
-
-        payload2 = {
-            "job_id": "fix2-job",
+        }, sample=True)
+        svc.enrich(job_id, {
+            "job_id": job_id,
             "status": "running",
             "progress": 0.35,
             "eta_seconds": 65,
             "char_count": 1000,
             "updated_at": 1001.0,
-        }
-        svc.enrich("fix2-job", payload2, sample=True)
+        }, sample=True)
 
-        # Enrich a third frame and capture the ETA.
-        payload3 = {
-            "job_id": "fix2-job",
-            "status": "running",
-            "progress": 0.5,
-            "eta_seconds": 50,
-            "char_count": 1000,
-            "updated_at": 1002.0,
-        }
-        svc.enrich("fix2-job", payload3, sample=False)
-        eta_first = payload3.get("eta_seconds")
+        assert len(svc._eta_rings[job_id]) == 2
 
-        # Enrich the same payload again — result must be identical (no race).
-        payload4 = {
-            "job_id": "fix2-job",
-            "status": "running",
-            "progress": 0.5,
-            "eta_seconds": 50,
-            "char_count": 1000,
-            "updated_at": 1002.0,
-        }
-        svc.enrich("fix2-job", payload4, sample=False)
-        eta_second = payload4.get("eta_seconds")
+        # --- Synchronization scaffolding -----------------------------------
+        read_started = threading.Event()
+        racer_done = threading.Event()
+        triggered = {"done": False}
+        observed_sample_count: list[int] = []
+        original_weighted_mean = EtaSampleRing.weighted_mean
 
-        assert eta_first is not None, "enrich must produce a non-None eta_seconds after ring has samples"
-        assert eta_first == eta_second, (
-            f"Repeated identical enrich calls produced different ETAs: {eta_first} vs {eta_second} — "
-            "ring.mean() was not captured atomically inside the lock"
+        def patched_weighted_mean(self_ring):
+            # Only the FIRST call after patching (the main thread's read of
+            # the third frame) pauses to open the race window; the racer
+            # thread's own nested call (and anything after) runs normally.
+            if not triggered["done"]:
+                triggered["done"] = True
+                read_started.set()
+                # Bounded wait — R4: synchronization primitive, not a sleep.
+                # If the lock genuinely blocks the racer out (fixed code),
+                # this times out and the racer's push never lands in time.
+                racer_done.wait(timeout=1.0)
+            observed_sample_count.append(len(self_ring._samples))
+            return original_weighted_mean(self_ring)
+
+        monkeypatch.setattr(EtaSampleRing, "weighted_mean", patched_weighted_mean)
+
+        def racer():
+            read_started.wait(timeout=1.0)
+            # A concurrent producer for the SAME job — e.g. a second
+            # broadcast_job_updated call racing the first. Deliberately an
+            # extreme velocity so contamination would be unmistakable.
+            svc.enrich(job_id, {
+                "job_id": job_id,
+                "status": "running",
+                "progress": 0.99,
+                "eta_seconds": 1,
+                "char_count": 1000,
+                "updated_at": 1001.5,
+            }, sample=True)
+            racer_done.set()
+
+        thread = threading.Thread(target=racer)
+        thread.start()
+        try:
+            payload3 = {
+                "job_id": job_id,
+                "status": "running",
+                "progress": 0.5,
+                "eta_seconds": 50,
+                "char_count": 1000,
+                "updated_at": 1002.0,
+            }
+            svc.enrich(job_id, payload3, sample=False)
+        finally:
+            thread.join(timeout=2.0)
+
+        assert not thread.is_alive(), "racer thread did not finish — test setup deadlocked"
+        assert payload3.get("eta_seconds") is not None
+        # observed_sample_count[0] is the main thread's in-flight read (the one
+        # that paused to open the race window); later entries are the racer's
+        # own nested call and are not under test.
+        assert observed_sample_count[0] == 2, (
+            f"expected the in-flight read to observe exactly the 2 primed samples, "
+            f"got {observed_sample_count[0]} (full trace: {observed_sample_count}) — "
+            "a concurrent enrich() call mutated the ring between lock-release and "
+            "the velocity read (FIX 2 regression)"
         )
 
 
