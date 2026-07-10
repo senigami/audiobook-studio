@@ -191,6 +191,74 @@ describe('useDemoTransport — looping publishes reset between passes', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 6. restart while playing keeps playing (does not silently pause)
+// ---------------------------------------------------------------------------
+describe('useDemoTransport — restart preserves playing state', () => {
+  it('stays playing after restart() when called mid-playback', () => {
+    const timeline = makeTimeline();
+    const { result } = renderHook(() => useDemoTransport(timeline, { autoPlay: true }));
+
+    // Advance into scene A so position/sceneIndex are non-zero
+    act(() => { vi.advanceTimersByTime(1100); });
+    expect(result.current.state.playing).toBe(true);
+
+    act(() => { result.current.controls.restart(); });
+
+    // Restart should reset position to the top but keep playing.
+    expect(result.current.state.sceneIndex).toBe(0);
+    expect(result.current.state.scenePositionMs).toBe(0);
+    expect(result.current.state.playing).toBe(true);
+  });
+
+  it('stays paused after restart() when called while paused', () => {
+    const timeline = makeTimeline();
+    const { result } = renderHook(() => useDemoTransport(timeline, { autoPlay: true }));
+
+    act(() => { vi.advanceTimersByTime(1100); });
+    act(() => { result.current.controls.pause(); });
+    expect(result.current.state.playing).toBe(false);
+
+    act(() => { result.current.controls.restart(); });
+
+    expect(result.current.state.sceneIndex).toBe(0);
+    expect(result.current.state.playing).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 7. play() at non-looping timeline end restarts from the top instead of no-op
+// ---------------------------------------------------------------------------
+describe('useDemoTransport — play() at non-looping end', () => {
+  it('restarts from the beginning and resumes playing when called after the timeline finished', () => {
+    const timeline = makeTimeline();
+    const received: any[] = [];
+    const unsub = subscribeStudioSocketMessages((data) => received.push(data));
+
+    const { result } = renderHook(() => useDemoTransport(timeline, { autoPlay: true }));
+    act(() => { result.current.controls.setLooping(false); });
+
+    // Advance well past the end of the (non-looping) timeline.
+    act(() => { vi.advanceTimersByTime(3500); });
+    expect(result.current.state.playing).toBe(false);
+    expect(result.current.state.sceneIndex).toBe(timeline.scenes.length - 1);
+
+    const countAtEnd = received.length;
+
+    // Pressing Play here used to be a no-op — it should now restart from scene 0.
+    act(() => { result.current.controls.play(); });
+    expect(result.current.state.playing).toBe(true);
+    expect(result.current.state.sceneIndex).toBe(0);
+    expect(result.current.state.scenePositionMs).toBe(0);
+
+    // Advancing should publish scene-A frames again (proof playback actually resumed).
+    act(() => { vi.advanceTimersByTime(100); });
+    expect(received.length).toBeGreaterThan(countAtEnd);
+
+    unsub();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 5. unmount clears timers and sets socket disconnected
 // ---------------------------------------------------------------------------
 describe('useDemoTransport — unmount cleanup', () => {

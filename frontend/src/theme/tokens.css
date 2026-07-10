@@ -45,6 +45,11 @@
   --rail-width: 190px;
   --rail-width-collapsed: 56px;
 
+  /* Z-index scale — see src/app/layout/layering.ts for the app-shell tiers
+     (header/rail-overlay/player-bar). --z-drawer sits between contextual
+     dropdowns/menus (~300) and modal/toast overlays (~1000-1200). */
+  --z-drawer: 400;
+
   /* Unified Design Tokens */
   --radius-button: 8px;    /* was 10px */
   --radius-card: 10px;     /* was 14px */

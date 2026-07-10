@@ -24,7 +24,7 @@ const DEFAULT_STATE: ProgressState = {
   status: 'queued',
 };
 
-const ProgressStageInner: React.FC = () => {
+export const ProgressStageInner: React.FC = () => {
   const [ps, setPs] = useState<ProgressState>(DEFAULT_STATE);
 
   useEffect(() => {
@@ -79,12 +79,4 @@ const ProgressStageInner: React.FC = () => {
       </div>
     </div>
   );
-};
-
-export const progressStage = {
-  id: 'progress',
-  title: 'Chapter Progress',
-  description:
-    'Real PredictiveProgressBar driven by chapters.progress bus frames from the demo timeline. Shows interpolated fill, ETA confidence, and status transitions.',
-  element: <ProgressStageInner />,
 };

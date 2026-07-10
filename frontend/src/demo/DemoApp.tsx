@@ -16,14 +16,8 @@ import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import { loadThemePref, saveThemePref } from '@/utils/theme';
 import { DemoStage } from './DemoStage';
 import { demoTimeline } from './scenes';
-import { liveOutputStage } from './stages/liveOutputStage';
-import { queueStage } from './stages/queueStage';
-import { progressStage } from './stages/progressStage';
-import { voiceLabStage } from './stages/voiceLabStage';
-import { siteMockupStage } from './stages/siteMockupStage';
+import { demoStages } from './demoStages';
 import { StyleguidePage } from './styleguide/StyleguidePage';
-
-export const demoStages = [siteMockupStage, liveOutputStage, queueStage, progressStage, voiceLabStage];
 
 // ---------------------------------------------------------------------------
 // Hash routing helpers

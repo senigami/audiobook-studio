@@ -27,16 +27,8 @@ const QueueStageInner: React.FC = () => {
   );
 };
 
-const QueueStageElement: React.FC = () => (
+export const QueueStageElement: React.FC = () => (
   <MemoryRouter>
     <QueueStageInner />
   </MemoryRouter>
 );
-
-export const queueStage = {
-  id: 'queue',
-  title: 'Global Queue',
-  description:
-    'Real GlobalQueue component driven by the demo bus — watch Processing Now / Up Next / History react to scripted timeline frames.',
-  element: <QueueStageElement />,
-};

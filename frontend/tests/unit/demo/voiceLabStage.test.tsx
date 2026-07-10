@@ -32,7 +32,7 @@ vi.mock('@/components/ui/ActionMenu', () => ({
   ActionMenu: () => null,
 }));
 
-const { voiceLabStage } = await import('@/demo/stages/voiceLabStage');
+const { voiceLabStage } = await import('@/demo/stages/voiceLabStageDescriptor');
 const { demoVoices, demoVoiceEngines } = await import('@/demo/fixtures/voiceFixtures');
 
 describe('voiceLabStage', () => {
