@@ -1151,3 +1151,23 @@
   color: var(--text-primary);
   min-width: 120px;
 }
+
+/* ---------------------------------------------------------------------------
+ * chip() helper (metadata editor) — ST-3 conversion (task 014, 6/6)
+ * Dynamic border-color/background/color (active state) stay inline on the
+ * consumer per the conversion procedure's "conditional token switch" rule.
+ * --------------------------------------------------------------------------- */
+
+.metadata-chip {
+  padding: var(--space-1) var(--space-3);
+  border-radius: 999px;
+  font-size: var(--type-caption);
+  font-weight: 700;
+  border: 1px solid;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-height: var(--space-6);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
