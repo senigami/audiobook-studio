@@ -1,6 +1,6 @@
 {
   "meta": {
-    "synced_commit": "e17e624976f3993d392672a26921b08fb71a0d1e",
+    "synced_commit": "15478ece5fea693c1c19211042f889d9bd78a138",
     "file_hashes": {
       "app/studio_plugin_sdk/__init__.py": "3e07e2be764f3beb613bee9cab52adf203aa3dec60870bf0e792df5ae583d460",
       "app/studio_plugin_sdk/_import_utils.py": "e242aac00e0fd0637a3f51d8913531bb4cd782dea9f3ebef09ebc518db699352",
@@ -224,7 +224,7 @@
       "frontend/src/components/overlays/ConfirmModal.tsx": "80603026d37a881a286ffe282805addb5de300b822b49bc4ee5831e43812215e",
       "frontend/src/components/layout/BrandLogo.tsx": "bb3d7dd938468dbb324ae93f3b02a4f417f6ea5bfafaeec3cb42626410f8f241",
       "frontend/src/components/layout/Layout.tsx": "2fa016f78fee7f719e987e6024b16acc0af6b36d5b7d48756bc10ebb9a17e4ef",
-      "frontend/src/components/queue/GlobalQueue.tsx": "a55449e08e8c1bdd0afda4b3669b99d0f6f608419026c787aa8320c98be4af21",
+      "frontend/src/components/queue/GlobalQueue.tsx": "235d230f7633c2cde6e5882d2e21658e18c5400cde217af510117a07391edfab",
       "frontend/src/components/queue/QueueStats.tsx": "93d6a806d1f11e5f0875f17ddca722af436aa0912baf475623ed5991e88dbfa9",
       "frontend/src/components/queue/QueueItem.tsx": "9bc7869375c41a7522f12606b9e769f78969757e731c21cd23a32857d052d7b0",
       "frontend/src/components/queue/ReorderableQueueItem.tsx": "51c16e25dc3adf94d4c418977ad831e806449114bfdae5c9e40aa3d90f59bb84",
@@ -259,7 +259,7 @@
       "frontend/src/pages/Book/BookLayout.tsx": "15f35bdf752c9851569eec6d1acba2f2e1c541c9df40ec3c8739685bda8b40f4",
       "frontend/src/pages/Book/BookDataContext.tsx": "aff829dc87803d6c31dc6f844fffd05b28b0fc341432039a9bfc4799ca692856",
       "frontend/src/pages/Book/index.ts": "0f1952d1e3c845b579e3df5357c574fe06d271e471edf19b5b1ce2e71970c3c2",
-      "frontend/src/pages/Book/studio/CastPalette.tsx": "22f70cab68531ee403102a9caf4c426a975cd65bfc617ba7487d0b69fa5a1304",
+      "frontend/src/pages/Book/studio/CastPalette.tsx": "e6bb0840da4eeeeb651e7edd1a4bab0cb8c0a0c73d409d7a4033e898e4e52a9e",
       "frontend/src/pages/Book/studio/TempCharacterModal.tsx": "8eef636954496ef090650d27abeb3cb065166bf477cbea38341012fe33411a2f",
       "frontend/src/pages/Book/studio/RenderControlsStrip.tsx": "c92f06be94accdcd1f6dba6f8947356fbe8e3746b2976f569b25e1acb4d5c146",
       "frontend/src/pages/Book/studio/useStudioChapter.ts": "18d3b9457f9c9782a7d4f77b54bd55a8388c86992454371978baf537f6ed177c",
@@ -359,14 +359,14 @@
       "frontend/src/pages/Voices/components/VoicePills.tsx": "ee86eea49b0614d64e624bcd92f55d54696f96eb0ad3ccc5e0b537a89ba988dc",
       "frontend/src/pages/Voices/components/VoiceUtils.tsx": "a7bac701aaef63e2c9670bed5e35d9c584c66aaacf8e068f158020c371942e9c",
       "frontend/src/pages/Voices/components/DiscoverPlaceholder.tsx": "1bc31fa1cd629f356b1d8049215bb045f44ba7e384388b0131be28cf2a103a4e",
-      "frontend/src/pages/Voices/components/MetadataEditorModal.tsx": "ad7cab8d8fee8654459a26da229a42f9b6e6f335bbe522f763c2a25e33b79f0a",
-      "frontend/src/pages/Voices/components/SampleManager.tsx": "e8ba16fcad8f1117321dbce874b2d084b5052a77d8cd30523ba7166786bb1451",
-      "frontend/src/pages/Voices/components/VoiceModals.tsx": "ee25f510888c30d3de9f5c7213e7f22b3388584f54ff48607f730ccced16077c",
+      "frontend/src/pages/Voices/components/MetadataEditorModal.tsx": "3452999ca749253aa1fefe75ce5649561a6baf6fb9b9842089bb99ef15a20142",
+      "frontend/src/pages/Voices/components/SampleManager.tsx": "44141596316bb3c9af65ea8edc5e0fc08e0568ca5d3b5cd0801ed06018f61e30",
+      "frontend/src/pages/Voices/components/VoiceModals.tsx": "d036b34c28032b36ed4fdb47698ea9792795e6586d6a369a6a7f6925e783662d",
       "frontend/src/pages/Voices/components/VoiceCatalogCard.tsx": "736a9ec2b432263aa37949c35400846454a0919fa0cd331f5be1bbc1e567738e",
       "frontend/src/pages/Voices/components/NarratorCard.tsx": "6e0cbd1f584ef1e5f7413ccc261770307982395065f06b206a5246a88334339f",
-      "frontend/src/pages/Voices/components/VariantEditor.tsx": "baf408cd42723a2204186722d292ad6f7f87f1b8121b83e93c00e62e8664b19d",
-      "frontend/src/pages/Voices/components/ScriptEditor.tsx": "8807127b51883e1483a8c31d5c2f996499ff5402fd97cf48ee4cc81b6ea225f9",
-      "frontend/src/pages/Voices/components/VoicesTabHeader.tsx": "0177d8d308c6fd9633eb0ca46a1ba616c19ee03c7dac76cc3897fa76b7dae653",
+      "frontend/src/pages/Voices/components/VariantEditor.tsx": "a4accd8a35d58c6edce92ce29aa44c57b00ee78e415232ee38c8bd91911991a3",
+      "frontend/src/pages/Voices/components/ScriptEditor.tsx": "d6387ce42adabc5c819ee9a2fdec196f52433f14508a497db00a4e16da990e9c",
+      "frontend/src/pages/Voices/components/VoicesTabHeader.tsx": "342ed888683b9beefe06436d2bde55e8979591f481d0ade979fc467bfd90f638",
       "frontend/src/pages/Voices/components/VoicesTabContent.tsx": "1ea92bd310e4424dae0937addf024141a44bc467578e976a6206c1de9be64401",
       "frontend/src/pages/VoiceLab/iconPrompt.ts": "9e68e4d15755c45857ea00cc3ad1cfab368626389178507548e56b8743a9324a",
       "frontend/src/pages/VoiceLab/VoiceLabPage.tsx": "6c62f400c920b15c81b3fe0ce29bb019ce0382ef1c69ee4c3058c3bdc4aeb698",
@@ -385,7 +385,7 @@
       "frontend/src/pages/ChapterEditor/components/ScriptView.tsx": "1d8d204c8e07ffacd1385ccc406502f3ca86e6208118141534303b3aff5f9dd2",
       "frontend/src/pages/ChapterEditor/components/VoiceProfileSelect.tsx": "4d57f90d6f629cf2f0011717da043024b9b034eb64caf88b03669afe027d9c9a",
       "frontend/src/pages/ChapterEditor/components/ScriptViewFallback.tsx": "d794b5a043e9eeb1a9d3b90af88bf6d13910cfee9ae771bd27dd05f5ffe67c54",
-      "frontend/src/pages/ChapterEditor/components/ResyncPreviewModal.tsx": "20c66ce02a42946b6c89668943b29b15dae2050d97e9e7e401e42c39a9123253",
+      "frontend/src/pages/ChapterEditor/components/ResyncPreviewModal.tsx": "6a55adb88917a90f2a14b407a1d09611d21ddf148648a84e25b432de20e9bba1",
       "frontend/src/pages/ChapterEditor/components/EditTab.tsx": "84bea9092c6d3f51f2f826e847326efb15635f7aa0d6336bbd114f9488a82a21",
       "frontend/src/pages/ChapterEditor/components/EditorTabs.tsx": "3ac3dac6c113452828a82db6947ad58b656239f9a134a34cec16b3be3d1a044c",
       "frontend/src/pages/ChapterEditor/components/PlaybackControls.tsx": "fbf523f039837f0024c33a7926ea868ee8239f81040e9a4c66e5feeddadef215",
@@ -417,12 +417,12 @@
       "frontend/src/pages/ProjectDetail/components/AssemblyPanel.tsx": "e8fd4b2d7163cdb31a845701da1f845ee72f8fa16d8bfa02b3e591e11880b263",
       "frontend/src/pages/ProjectDetail/components/ProjectModals.tsx": "e8cbad569a5249df404e6aa81c61312e2672eeab68f2da2d18cdf0d3602317ae",
       "frontend/src/pages/ProjectDetail/components/ProjectSubnav.tsx": "98f632243a2808e76ab02efab3bbd1ff1a50c5dd3f2098707b95ec36afcebeca",
-      "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx": "c0144c6b428ed226deb1afee61fdb9ef7429f107d923bcd36506f949596d5f3e",
+      "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx": "f0bec0781424022f79474543353007946f2cdcef0575064fa766830c5f3f39e0",
       "frontend/src/pages/ProjectLibrary/components/LibraryControls.tsx": "e04eaf0d1f49d406d4611e1c2d7d3a9d19bc2eb90ef8e45d0e124ca7854f8aa7",
       "frontend/src/pages/ProjectLibrary/components/ProjectListView.tsx": "e8b385c88b40e9196e8eba64ef43f7bd56655361919b4bafa0199387354eaec0",
-      "frontend/src/pages/Welcome/WelcomePage.tsx": "2f5527fb3a2fd5172d0d805582b13b690f537c817e2a0f1a3112acd70725c35a",
+      "frontend/src/pages/Welcome/WelcomePage.tsx": "e1b037dd4f8a867fba105fa324a65aed708111fce128a80bbb0702fa771ae185",
       "frontend/src/pages/Queue/QueueRoute.tsx": "7edefa85463fae7d918544970f94dad60188943f0013b78e0a386cab503f1433",
-      "frontend/src/pages/LiveOutput/LiveOutputPage.tsx": "9dbb14ec36597950d2830fc1fc5667954655900eab99fcef06e198f44ad69bf7",
+      "frontend/src/pages/LiveOutput/LiveOutputPage.tsx": "f444326c0d651568b9f65db0f5e6f30cb1bc25a215e81932b9949c99cf04590b",
       "frontend/src/pages/Engines/index.ts": "53091a9f77694720e146ce711d4ca075848a7b2924afb897000b5f5f14effe2a",
       "frontend/src/pages/Engines/EnginesPage.tsx": "c0442361e9b2ea061e0f02adcc740b36689138f5d1c94f05dbf885cd82eee789",
       "frontend/src/pages/Engines/components/EngineDevPanel.tsx": "04e299c786491ebc8f3f6d581baf03e3c26dc8d980639626397cfeb091dfc772",
@@ -430,10 +430,10 @@
       "frontend/src/pages/Engines/components/engineFormatters.ts": "510432edf9aaa0dab3b46e0cdd9eee412014b1595a1c5837601471894656ec23",
       "frontend/src/pages/Engines/components/VoiceModulesPanel.tsx": "43ed55a1bf3710620618ed3d557bbea87cbed0639c9ff125b10804031c327d96",
       "frontend/src/pages/Engines/components/EnginesPanel.tsx": "443dd9a2995fd91ad9058dde27f3fb9c27352061870efa4d0f872dd639bbf528",
-      "frontend/src/pages/Engines/components/EngineCard.tsx": "824a1a93fec23b644e1a5c87ad14ba64c3b94633e273ebb45cf0b2d726f526c9",
+      "frontend/src/pages/Engines/components/EngineCard.tsx": "17433b652ae522910fe2f5ac4cff45d9bca815189b47525e74f8a8d2de28f239",
       "frontend/src/pages/Engines/components/ServerDiagnostics.tsx": "3e66898268bb043dcceb26cd255cb21654d73b0f798959420f5600e5c8804570",
       "frontend/src/pages/Engines/components/engineScenarioMerge.ts": "74e9450d0978f65343daf2b11c2eee7f7d6498dd156ad6e9282f8db03c77ed25",
-      "frontend/src/pages/Engines/components/OfficialRegistryPanel.tsx": "a978801a8127e927b1603700fc0e9888287919ec3acb042033497a6e6d7371cf",
+      "frontend/src/pages/Engines/components/OfficialRegistryPanel.tsx": "38fe76f726a1480fa137c623e5e69635ca46dfff9e1b04d279b237b985a7dd86",
       "frontend/src/pages/Settings/SettingsRoute.tsx": "fc74dc0959defb5983a5ef8889b4d746f6d3b9dd874b78285e4de5886c02b503",
       "frontend/src/pages/Settings/settingsRouteHelpers.ts": "b46e61a133f90a6a671c3c99380856f703d5f8232383d6f16fbfeb4291573348",
       "frontend/src/pages/Settings/settingsRouteConfig.ts": "12d383b6dfb10700b2f604937205443aa614048c3617785a18c324b4cf80a1d4",
@@ -501,17 +501,17 @@
       "frontend/src/utils/voiceCasting.ts": "a51b560bee64bd6555886404f36bfe69a7abe4cdffb465dcb1a8f34126a79d22",
       "app/orchestration/scheduler/cap_settings.py": "166daf7087a124fdbd8fa1937a122f7d997ebca8ea388a96a7722b7236c83245",
       "app/api/routers/voices_huggingface.py": "7e7f75bb361cb6bbde57877d508458a35d3fe39a79369bc9a7969b089908ea1a",
-      "frontend/src/pages/Engines/components/EngineCalibrationSection.tsx": "b038f3c5e03fbddad28908d3f0bab9319a62417d0dde98260c8581130fe97244",
-      "frontend/src/pages/Engines/components/EngineSettingsForm.tsx": "fbd024ff7cb2fa4b22f4765ecb6cc78a8bc4bafbaa18292ca7718e73b57338e1",
-      "frontend/src/pages/Engines/components/EngineTestSample.tsx": "599970cf62ba728c67167e9a253a7def83123845d65cd7ca6847208e8beb1e94",
+      "frontend/src/pages/Engines/components/EngineCalibrationSection.tsx": "33985a03ed3fe74eaed53c5463eb3e92c2970e6d3b3ebb719c9a1fe3ecc2104d",
+      "frontend/src/pages/Engines/components/EngineSettingsForm.tsx": "73ff38df2ba79156c843e3c3fa827f1271e12a943f8ca762859a8cda12ca760a",
+      "frontend/src/pages/Engines/components/EngineTestSample.tsx": "f76bfadca47b18bf631ae8e205a31519b133f86fd1bfed6a3f3f2a6df60c070c",
       "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarLane.ts": "00a5caf080ee69acb76778973bb36b957242b0f330e2ca3ee1e99757bf2eacb9",
       "frontend/src/components/progress/PredictiveProgressBar/ProgressStatusRow.tsx": "1c84a2b14eb5ab129c780d4880406cc2d2f99c8af34ceb746e493e0cbbc189bb",
       "frontend/src/pages/Voices/components/metadata/taxonomy.ts": "a9402b1630ca50ef007bf2143d4cfa8006ba3afee1472c3ef7da3fb6f69d2250",
-      "frontend/src/pages/Voices/components/metadata/chip.tsx": "03a39efafb08da0bc3b5d3283ae3aae278b6b9c537cfb2c3b504377104d6c3c3",
-      "frontend/src/pages/Voices/components/metadata/OneSelect.tsx": "adadf9e509a15bd30dcfa1648347e8a52c9d15d101710dd898c715041f87460e",
-      "frontend/src/pages/Voices/components/metadata/ManySelect.tsx": "a8f496f70fd778f24430b02e70be70fa1f50c1c59293a0ee35068bfc2d5cb31e",
-      "frontend/src/pages/Voices/components/metadata/TagsInput.tsx": "fec51b006731e8a97f01d2b06cf47b15634dd8d428dd435aa12a311368bee313",
-      "frontend/src/pages/Voices/components/metadata/IconUpload.tsx": "1f730a31d49cd43feaa4f8a6467be3b31cdae5f99a81e59121e57dca313c32df",
+      "frontend/src/pages/Voices/components/metadata/chip.tsx": "4bf59fddd7030814c8dc735cceee6a38e3178416fe4ef3b8bba169506437d8d7",
+      "frontend/src/pages/Voices/components/metadata/OneSelect.tsx": "8406b0633cf54e3c5b7f67a3b0f4024b3e89ba925b5d7f5fb1657e35827a42dc",
+      "frontend/src/pages/Voices/components/metadata/ManySelect.tsx": "12cffa6ef6a11139e44625c7ab07c3d0461aea8f7c876cc4b64e1d8319f030a6",
+      "frontend/src/pages/Voices/components/metadata/TagsInput.tsx": "0fa3ee1c32aa76bc59f82a23ebcdc2fbd0aded9cced7810fb6ae7d74d7c2e3b6",
+      "frontend/src/pages/Voices/components/metadata/IconUpload.tsx": "862b92b5f218daaecd26f47e5b538b96aafb132822fcef9a4f8546181834d0bd",
       "app/studio_plugin_sdk/plugin_utils.py": "c1c9fc1325f5755996384368a844d764494c3bf95465de7ddf37f71c70cb03a1",
       "frontend/src/app/layout/waveformTapeZoomPresets.ts": "efdc430b0184c90ef417080afa373b513b4beffa9030a67ee7d321f390eee3b8",
       "frontend/src/app/layout/WaveformTapeZoom.tsx": "1759b85c3ce6aa460a5dc172fc2802d7ddccef0c707bb680a89067095492b4b4",
@@ -531,12 +531,11 @@
       "frontend/src/pages/Book/stages/BookStage.tsx": "77916738755dab02fdebb9762ed322a21105dd9207022de2abd71350900ccb94",
       "frontend/src/pages/Book/components/BookIdentityStrip.tsx": "e6d11de8e40d0f5bddfd383f4e170576435d90915d1a9813e0cd600e95a8c57b",
       "frontend/src/pages/Book/components/ContinueListeningCard.tsx": "1c84efc9bb6c3de91901dca214f2112fcd4a89cc64ba0686ae814bc685a5db7a",
-      "frontend/src/theme/components.css": "7a95a50b6f5f3dfcf2fe70233e42b1569aae687b46f08cae776b8eb7747b2930",
       "frontend/src/theme/tokens.css": "96ccfb1cb0b5696802d9d2010107591ff624dce93e1ad5cac644f6b495168ac0",
       "frontend/src/demo/stages/siteMockup/panes/directorsConsole.tsx": "b46eb8b9b232033579a12528848427be51573257e951ad163c6ecf7bd8ef8ac2",
       "frontend/src/pages/ChapterEditor/components/DirectorsConsole/WriteTool/index.tsx": "fec3435d720cacbd4488d2482ea5b4175e7dfbd2b466c001d8b0499cd876c35d",
       "frontend/src/pages/ChapterEditor/components/DirectorsConsole/registry.ts": "51dffd564a85286deb8208b071ebf83fcf5c0afb5a9c1ee2d8dd2d353f82ba79",
-      "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/index.tsx": "efdb3ccf8182be1a86a3bde335347e55fc958c09187e1d3ae8b8db5f07cd13c9",
+      "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/index.tsx": "9f4c3ec8f8ee8edadaf3628d9246df28b3dc6f834cca162fa6cede5835c9ae41",
       "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/useBoothPlayback.ts": "0f92b2383f95e9fec878dbbb6bbfeddd2ae59912689dde9390871feb548a8352",
       "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/FollowAlongPanel.tsx": "aa61c18bf6ad385f2894c0b0530327eac34a6cd1ca3c3472c3ba9c686723b3f7",
       "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/AnnotationsPanel.tsx": "d5e41acbf5973008f43cdc72791393123acc1f28ff1e1495a85cd8a55c2ce8d7",
@@ -553,7 +552,19 @@
       "frontend/src/demo/stages/queueStageDescriptor.tsx": "1635f4f8e9905bc389522dcddc054120045a8d046cbcd612e7a5d483f96a5bce",
       "frontend/src/demo/stages/voiceLabStageDescriptor.tsx": "23d182674a0ef8c3abdb262d06a3603170c3b89450211f0c37a041b73f4aceb1",
       "frontend/src/demo/stages/siteMockupStageDescriptor.tsx": "d8b14f12a212388beccc82bca2b38d7cdc185986a3df75a9433e124f68a1775b",
-      "frontend/src/demo/demoStages.ts": "50bc9b21c33c9042b520b10a14c7c2e50a2ae2b31525b5e8de26a75509bab134"
+      "frontend/src/demo/demoStages.ts": "50bc9b21c33c9042b520b10a14c7c2e50a2ae2b31525b5e8de26a75509bab134",
+      "frontend/src/theme/components/activity.css": "fac6685e9b5d70f2150fa0d5712ebeb1322494cf0bfbc0a668476829943d7171",
+      "frontend/src/theme/components/book-tabs.css": "7bf0b05d23fadc374c1271b1841ff7f46281415c66b7d8dea4efa8f99c151707",
+      "frontend/src/theme/components/book.css": "10c427e4b0d6b6b7f775efc96dfc8a0a16a23d70908b72f7688a74fb9fd59a17",
+      "frontend/src/theme/components/core.css": "67f2df265e58b45009fd90518c5ab70614696e8dc4b591babe3ac90df4e293dc",
+      "frontend/src/theme/components/misc.css": "b88f17cccf3a39d27d5e9606802c0ab9366e8f9294a4a9cc951682e29550fecf",
+      "frontend/src/theme/components/nav.css": "8885167fc3a625117f5955444919f4e286314022cb238a6d133200c7a4c29b87",
+      "frontend/src/theme/components/player.css": "c5ff637986d823ebf5328f068198cc617551dce09946edabac618a6cdc51f6fe",
+      "frontend/src/theme/components/publish.css": "034b09d5835147743f10a9e09999a0ac810bc569b493f92d7a352fd6114daf36",
+      "frontend/src/theme/components/review-tools.css": "bd6abe46246f0c3e13af8ab862e067c76d1be41e52a3fd5625ca2a546e457f11",
+      "frontend/src/theme/components/shared.css": "d10368101ab39fa490f3de09191d88f0c98f6d623be719e9e138beb9786e538f",
+      "frontend/src/theme/components/voice-lab.css": "4c4abb31d0556f1571d2e0e9887f74fafa83050c68562a6625b8b86577a455cc",
+      "frontend/src/theme/index.css": "05177e7eb6ecca2e2584242b39c7d915526eef7556bf1c4a1a75697d5d7c83f3"
     },
     "shards": [],
     "unmapped": [
@@ -577,7 +588,7 @@
       "frontend/src/demo/stages/siteMockup/bookmarkStore.ts",
       "frontend/src/demo/stages/siteMockup/panes/*.tsx (14 files, condensed in siteMockupStage.tsx notes)"
     ],
-    "repo_checksum": "693986cc73558ceada63a77f28188fef4d1a8e434b34eee3c71c5c2b523535ed",
+    "repo_checksum": "9a46fac7da94ad0de76045c9da123335e14974d188100479a36aa3b3270e3d4c",
     "edge_tool": "hybrid: madge --json --extensions ts,tsx src/ (v8.0.0, run from frontend/) for frontend import edges; a custom stdlib-ast import-graph script (docs/code-map/tools/py_import_graph.py) for backend/plugin import edges. `calls` entries confirmed by one of these tools are kept/added as tool-derived; prior model-written entries the tool could not confirm (dynamic dispatch, cross-language, or a dotted-module reference the tool didn't resolve) moved to `calls_inferred`. `called_by` is the mechanical inverse of `calls` across the whole map, recomputed from scratch by this merge (2026-07-06).",
     "synced_commit_note": "Map reflects HEAD (ce2efd9f) plus substantial uncommitted working-tree changes (directors_console_activation + dynamic_recording_guide plans, both archived 2026-07-10) \u2014 file_hashes/repo_checksum are computed from actual on-disk bytes, so they are accurate regardless of commit status; synced_commit itself will only be fully accurate once this work is committed."
   },
@@ -14156,25 +14167,6 @@
       ],
       "calls_inferred": []
     },
-    "frontend/src/theme/components.css": {
-      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties) -- one stylesheet covering most page-owned component classes across the app (e.g. .book-info-card__*, .book-identity-strip*, .continue-listening-card*, .book-stage__*).",
-      "exports": [],
-      "calls": [],
-      "called_by": [],
-      "notes": [
-        "Not previously tracked as a files record (frontend/src/theme/*.css were omitted from both `files` and `meta.unmapped`); added 2026-07-09 given how frequently this file is touched by UI work.",
-        "book_tab_front_door session (2026-07-09) changes: .book-info-card__* placeholder colors switched var(--text-subtle)->var(--text-muted) with opacity:0.8 removed (WCAG contrast fix); .book-info-card__stepper grown 1.12rem->1.5rem (WCAG target-size fix); new .book-identity-strip* rules (compact flex row, 3rem cover, text on --text-primary/--text-secondary); new .continue-listening-card* rules (cover thumbnail, body, title, meta line on --text-muted, actions row); .book-stage__notes given display:flex/column/gap (later made moot -- see below); .book-stage__panel p renamed to .book-stage__panel .book-stage__description (later made moot); final hero-layout-restructure (Task 008) added .book-info-card__description (var(--text-secondary), 46rem max-width), a `.book-info-card__content .continue-listening-card` override stripping the nested card's own border/shadow/padding and hiding its cover thumbnail (renders as part of one bordered .book-info-card region, not a second card), demoted `.book-info-card__chips`/`.book-info-card__chip` to a quiet uniform var(--text-muted) footer line with a '.' separator (::after) instead of colored pill backgrounds, and removed the now-dead `.book-stage__primary`/`.book-stage__notes`/`.book-stage__panel` rules (their only consumer, the old BookStage.tsx aside markup, no longer exists). Pre-existing unrelated dead `.book-stage__hero*`/`.book-stage__eyebrow`/`.book-stage__title`/`.book-stage__subtitle` rules were left untouched (out of scope for this session).",
-        "2026-07-10 (chapter-lifecycle Stale/Error + pill contrast fix): added .chapter-table__pill--stale (background var(--warning-tint-bg), color var(--warning-text)) and .chapter-table__pill--error (background var(--error-tint-bg), color var(--error-text)) for ChapterTable'\\''s two new lifecycle pill states. In the same change, .chapter-table__pill--rendered'\\''s text color switched from the bare var(--success) to var(--success-text), matching the -text token pattern the new stale/error pills use (contrast fix \u2014 bare --success/--error are not guaranteed readable on the tint backgrounds).",
-        "2026-07-10: removed dead .book-stage-review and .review-chapter-rail* rules (the rail they styled no longer renders, BoothTool doesn't port it). .review-main/.review-main__*/.review-text-view* kept \u2014 BoothTool/index.tsx still uses them as-is.",
-        "2026-07-09: Added `.chapter-text-panel__info-banner` (calm accent-tint banner for Write mode's persistent entry notice, distinct from the warning-tint `.chapter-text-panel__unlock-strip`). Changed `.chapter-text-panel__footer` from `justify-content: space-between` to `flex-end` with a tighter gap now that Discard+Commit Changes form one paired action group. Added `.write-tool`/`.write-tool__hint` (mirrors the existing `.revise-tool`/`.revise-tool__hint` pattern) so the new WriteTool subtitle wrapper lays out and sizes correctly.",
-        "2026-07-10: Component-level CSS rules (as opposed to tokens.css's design-token custom properties) -- one stylesheet covering most page-owned component classes across the app (e.g. .book-info-card__*, .book-identity-strip*, .continue-listening-card*, .book-stage__*).",
-        "2026-07-10: Added '.chapter-workspace-header__nav-btn svg { flex-shrink: 0; }' mirroring the existing documented fix for .player-btn svg, pinning lucide icons to their intrinsic size instead of letting the inline-flex main-axis algorithm collapse them to 0 width.",
-        "2026-07-10: `.studio-analysis-strip` demoted from a bordered/shadowed card to a plain low-chrome container; added `.studio-analysis-strip__caption` (var(--type-caption), var(--text-muted)); removed the now-unused `__eyebrow`/`__stats`/`__stat`/`__value`/`__value--accent`/`__label`/`__divider` rules that backed the old per-stat card blocks.",
-        "2026-07-10: Warning #4 (reading surface): `.review-text-view` now uses `var(--font-reading)` + `var(--surface-reading)`; `.review-text-view__segment` uses `var(--type-reading)`/`var(--leading-reading)` instead of a flat 0.75rem UI-font size. Warning #6 (low-contrast active highlight): added a non-color `border-left: 3px solid var(--accent)` gutter bar to `.review-text-view__segment--active` alongside the existing tint/weight change. Added `.review-text-view__segment--pulse` + `@keyframes booth-autoplay-pulse` for the one-shot autoplay acknowledgment, with a `prefers-reduced-motion: reduce` override disabling the animation (matching the existing `.switch__knob` convention in this file).",
-        "2026-07-10: CRITICAL #2 (resting-state/touch affordance): `.revise-text-view__segment` gained a persistent `border-left: 2px solid var(--border-muted)` so extent/clickability is visible before any interaction; `:hover`/`:focus-within` now also intensify `border-color`/`border-left-color` to `var(--border)` (previously background-wash only) and reveal the new `.revise-text-view__edit-icon` (opacity 0\u21921, transition-based, not color-only). Warning #3 (segment vs. paragraph boundaries): reduced `.revise-text-view`'s inter-segment `gap` from 8px to 3px so consecutive same-paragraph segments read less like separate paragraphs, while the border-left tick keeps individual segment extents legible. Warning #6 (token pairing): `.revise-text-view__save-btn` now pairs `color: var(--on-action)` with `background: var(--accent)`, matching `.btn-primary`'s `--action-primary`/`--on-action` convention (was incorrectly paired with `var(--surface)`). Added `.revise-tool__hint` (quiet caption style, `var(--text-muted)`, 0.7rem) for the new topbar hint."
-      ],
-      "calls_inferred": []
-    },
     "frontend/src/theme/tokens.css": {
       "purpose": "Design-token custom properties (colors, spacing, typography scale) -- the single source of truth for the Quiet Studio token system; component stylesheets (components.css) and inline component styles consume these via var(--token-name).",
       "exports": [],
@@ -14638,6 +14630,128 @@
       "notes": [
         "2026-07-10: Added \u2014 demoStages array relocated here from DemoApp.tsx (Phase 12 cleanup batch)."
       ]
+    },
+    "frontend/src/theme/components/core.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .btn-* primitives + shared primitives, plus (2026-07-10) 6 new shared label classes (.label-micro-muted, .label-micro-muted-strong, .label-caption-strong, .label-micro-muted-italic, .label-uppercase-sm, .label-uppercase-md) and Engines-domain .registry-card/.registry-chip/.registry-link classes (no dedicated Engines CSS file existed).",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-10: 5 dead selectors deleted (.btn-home, .btn-menu-destructive, .action-menu-item, .select-glass, .engine-chunk) before the domain split, per task 001."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/components/nav.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .nav-rail, .rail-book-block, .mobile-nav-drawer, .top-bar.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/components/book.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .book-layout, .book-stage-tabs, .chapter-workspace*, .chapter-table*, .manuscript-stage*, .studio-analysis-strip, .studio-header-actions, .chapter-text-panel*. Also gained .cast-palette__* (CastPalette.tsx, task 004) and .resync-modal-* (ResyncPreviewModal.tsx, task 008) classes during the ST-3 inline-style conversion.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-10 (chapter-lifecycle Stale/Error + pill contrast fix): added .chapter-table__pill--stale (background var(--warning-tint-bg), color var(--warning-text)) and .chapter-table__pill--error (background var(--error-tint-bg), color var(--error-text)) for ChapterTable'\\''s two new lifecycle pill states. In the same change, .chapter-table__pill--rendered'\\''s text color switched from the bare var(--success) to var(--success-text), matching the -text token pattern the new stale/error pills use (contrast fix \u2014 bare --success/--error are not guaranteed readable on the tint backgrounds).",
+        "2026-07-09: Added `.chapter-text-panel__info-banner` (calm accent-tint banner for Write mode's persistent entry notice, distinct from the warning-tint `.chapter-text-panel__unlock-strip`). Changed `.chapter-text-panel__footer` from `justify-content: space-between` to `flex-end` with a tighter gap now that Discard+Commit Changes form one paired action group. Added `.write-tool`/`.write-tool__hint` (mirrors the existing `.revise-tool`/`.revise-tool__hint` pattern) so the new WriteTool subtitle wrapper lays out and sizes correctly.",
+        "2026-07-10: Added '.chapter-workspace-header__nav-btn svg { flex-shrink: 0; }' mirroring the existing documented fix for .player-btn svg, pinning lucide icons to their intrinsic size instead of letting the inline-flex main-axis algorithm collapse them to 0 width.",
+        "2026-07-10: `.studio-analysis-strip` demoted from a bordered/shadowed card to a plain low-chrome container; added `.studio-analysis-strip__caption` (var(--type-caption), var(--text-muted)); removed the now-unused `__eyebrow`/`__stats`/`__stat`/`__value`/`__value--accent`/`__label`/`__divider` rules that backed the old per-stat card blocks."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/components/book-tabs.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .casting-stage*, .lexicon-stage*.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/components/publish.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .publish-stage*, .book-info-card*, .assembly-picker, .book-identity-strip*, .continue-listening-card*.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "book_tab_front_door session (2026-07-09) changes: .book-info-card__* placeholder colors switched var(--text-subtle)->var(--text-muted) with opacity:0.8 removed (WCAG contrast fix); .book-info-card__stepper grown 1.12rem->1.5rem (WCAG target-size fix); new .book-identity-strip* rules (compact flex row, 3rem cover, text on --text-primary/--text-secondary); new .continue-listening-card* rules (cover thumbnail, body, title, meta line on --text-muted, actions row); .book-stage__notes given display:flex/column/gap (later made moot -- see below); .book-stage__panel p renamed to .book-stage__panel .book-stage__description (later made moot); final hero-layout-restructure (Task 008) added .book-info-card__description (var(--text-secondary), 46rem max-width), a `.book-info-card__content .continue-listening-card` override stripping the nested card's own border/shadow/padding and hiding its cover thumbnail (renders as part of one bordered .book-info-card region, not a second card), demoted `.book-info-card__chips`/`.book-info-card__chip` to a quiet uniform var(--text-muted) footer line with a '.' separator (::after) instead of colored pill backgrounds, and removed the now-dead `.book-stage__primary`/`.book-stage__notes`/`.book-stage__panel` rules (their only consumer, the old BookStage.tsx aside markup, no longer exists). Pre-existing unrelated dead `.book-stage__hero*`/`.book-stage__eyebrow`/`.book-stage__title`/`.book-stage__subtitle` rules were left untouched (out of scope for this session).",
+        "2026-07-10: Component-level CSS rules (as opposed to tokens.css's design-token custom properties) -- one stylesheet covering most page-owned component classes across the app (e.g. .book-info-card__*, .book-identity-strip*, .continue-listening-card*, .book-stage__*)."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/components/activity.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .activity-page*.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/components/shared.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: orphan utility block -- .sr-only, .input-group*, .input-field*, .popover-panel*, .icon-circle*, .as-*, .form-input*. Deliberately kept as a separate, non-contiguous file from misc.css (below) to preserve original cascade order (see index.css import order + 01-map.md Invariant I1).",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/components/player.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .player-bar* family.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/components/voice-lab.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .voice-catalog-card*, .voice-lab-page*, .voice-lab-phase-stepper*, .voice-lab-section*, .voice-dropzone*. Also gained the majority of the ST-3 inline-style-conversion's new classes (VoiceModals, ScriptEditor, VariantEditor, VoicesTabHeader, SampleManager, MetadataEditorModal + its 5 metadata/ children all wrote here -- tasks 006/010/012/014/016/017), since it's the Voices domain's shared home.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/components/review-tools.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .review-main*, .revise-tool*, .write-tool*.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-10: removed dead .book-stage-review and .review-chapter-rail* rules (the rail they styled no longer renders, BoothTool doesn't port it). .review-main/.review-main__*/.review-text-view* kept \u2014 BoothTool/index.tsx still uses them as-is.",
+        "2026-07-10: Warning #4 (reading surface): `.review-text-view` now uses `var(--font-reading)` + `var(--surface-reading)`; `.review-text-view__segment` uses `var(--type-reading)`/`var(--leading-reading)` instead of a flat 0.75rem UI-font size. Warning #6 (low-contrast active highlight): added a non-color `border-left: 3px solid var(--accent)` gutter bar to `.review-text-view__segment--active` alongside the existing tint/weight change. Added `.review-text-view__segment--pulse` + `@keyframes booth-autoplay-pulse` for the one-shot autoplay acknowledgment, with a `prefers-reduced-motion: reduce` override disabling the animation (matching the existing `.switch__knob` convention in this file).",
+        "2026-07-10: CRITICAL #2 (resting-state/touch affordance): `.revise-text-view__segment` gained a persistent `border-left: 2px solid var(--border-muted)` so extent/clickability is visible before any interaction; `:hover`/`:focus-within` now also intensify `border-color`/`border-left-color` to `var(--border)` (previously background-wash only) and reveal the new `.revise-text-view__edit-icon` (opacity 0\u21921, transition-based, not color-only). Warning #3 (segment vs. paragraph boundaries): reduced `.revise-text-view`'s inter-segment `gap` from 8px to 3px so consecutive same-paragraph segments read less like separate paragraphs, while the border-left tick keeps individual segment extents legible. Warning #6 (token pairing): `.revise-text-view__save-btn` now pairs `color: var(--on-action)` with `background: var(--accent)`, matching `.btn-primary`'s `--action-primary`/`--on-action` convention (was incorrectly paired with `var(--surface)`). Added `.revise-tool__hint` (quiet caption style, `var(--text-muted)`, 0.7rem) for the new topbar hint."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/components/misc.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .switch*, .modal-close-btn, .color-swatch-picker*, .control-target*, .segment-render-monitor* + @keyframes. Non-contiguous with shared.css by design (see shared.css's note) -- preserves original cascade position for both slices.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/index.css": {
+      "purpose": "Theme entry stylesheet -- @imports tokens.css, base.css, the 11 theme/components/*.css domain files (in load-bearing cascade order), and utilities.css.",
+      "exports": [],
+      "calls": [
+        "frontend/src/theme/components/core.css",
+        "frontend/src/theme/components/nav.css",
+        "frontend/src/theme/components/book.css",
+        "frontend/src/theme/components/book-tabs.css",
+        "frontend/src/theme/components/publish.css",
+        "frontend/src/theme/components/activity.css",
+        "frontend/src/theme/components/shared.css",
+        "frontend/src/theme/components/player.css",
+        "frontend/src/theme/components/voice-lab.css",
+        "frontend/src/theme/components/review-tools.css",
+        "frontend/src/theme/components/misc.css"
+      ],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
     }
   },
   "coupling": [
