@@ -48,6 +48,19 @@ Can start in parallel with Stage 4 (different files); finish before Stage 6.
 - [ ] **5c. UX improvements** — doc 10 (quick wins first, then U1–U14 as scoped).
 - [ ] **5d. Accessibility + performance** — doc 11 (A-blockers are release gates; P1–P3 strongly recommended).
 - [ ] **Gate:** doc 07 §4 viewport×theme snapshots + axe clean; doc 10/11 verification walkthroughs pass.
+  - **Axe baseline rollout decision (resolved 2026-07-09):** axe already runs in CI now, not
+    deferred to manual-only release validation — `.github/workflows/ci.yml`'s `a11y-axe` job
+    runs `frontend/tests/e2e/a11y/axe.spec.ts` (via `@axe-core/playwright`) on every PR/main
+    push, non-blocking (`test.fixme` + `|| true`) so a still-flaky-prone browser check can't
+    yet fail the build. Scan covers 3 pages × 2 themes (home shell, Voices empty state, Chapter
+    Workspace) for `color-contrast`/`wcag2a`/`wcag2aa` serious+critical violations. Current
+    known findings (recorded in the spec file's header, re-run to refresh): `color-contrast`
+    (serious) on all 3 pages, `aria-required-parent` (critical) on Voices, `select-name`
+    (critical, `.span-control-select`) on Chapter Workspace. **"axe clean" for this gate means:
+    the known-violations list in the spec header is empty** — fix the findings above (or
+    explicitly re-triage/waive with a note) and remove the corresponding `test.fixme`s before
+    Stage 5 sign-off; only then does flipping `a11y-axe` from advisory to blocking in CI become
+    a live option (tracked as follow-up, not required for this release).
 
 ## Stage 6 — Tell the world (Phase 13)
 

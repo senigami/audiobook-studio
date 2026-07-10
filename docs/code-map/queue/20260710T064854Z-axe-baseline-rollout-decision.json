@@ -1,0 +1,38 @@
+{
+  "at": "2026-07-10T06:48:54Z",
+  "commit": "uncommitted",
+  "task": "Resolved the Phase-12 backlog owner-elaboration item 'Playwright/axe baseline execution' (design-docs/plans/active/master_agnostic_tasks.md lines 126-129; design-docs/plans/TASKS.md lines 433/480). Found existing infra already answers most of the open question: @axe-core/playwright + @playwright/test were already installed, frontend/tests/e2e/a11y/axe.spec.ts already existed, and .github/workflows/ci.yml already runs it in an 'a11y-axe' job on every PR/main push (kept non-blocking via test.fixme + `|| true`, owner decision 2026-06-11 doc 07 §4.2). Decision: keep that rollout as-is (CI-now, non-blocking) rather than re-litigating it, and close the remaining gap the backlog item actually pointed at — the scan only covered one page. Expanded coverage from 1 page to 3 (home shell unmocked, Voices page in its empty-data state, Chapter Workspace populated via the same page.route/page.routeWebSocket mock recipe already proven in chapter-render.spec.ts) x 2 themes = 6 cases, all still test.fixme (non-blocking). Verified locally by temporarily stripping .fixme and running against a real `vite preview` build (the exact CI recipe) — all 6 cases executed to completion (no crash) and produced real findings, recorded in the spec file's header and in final_release/08 Stage 5. Test-only + docs change; no production source files touched.",
+  "files": {
+    "frontend/tests/e2e/a11y/axe.spec.ts": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Expanded from a single home-page scan to 3 scan targets (home page unmocked; Voices page mocked to its empty-data state via /api/home, /api/speakers, /api/voices/, /ws; Chapter Workspace mocked with populated segments/script-view via the same recipe as chapter-render.spec.ts) x 2 themes = 6 fixme cases. Updated the header's 'Known violations' list with real findings from a local un-fixme'd run: color-contrast (serious) on all 3 pages, aria-required-parent (critical) on Voices, select-name (critical, `.span-control-select`) on Chapter Workspace."
+    },
+    "design-docs/plans/active/final_release/08_release_sequence.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Stage 5 gate now records the concrete axe rollout decision (CI-now, non-blocking, 3 pages x 2 themes) and defines 'axe clean' for this gate as: the known-violations list in the spec header is empty, with the current findings listed and flipping a11y-axe from advisory to blocking called out as a future follow-up, not required for this release."
+    },
+    "design-docs/plans/active/master_agnostic_tasks.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Marked the 'Needs owner elaboration: Playwright/axe baseline execution' backlog item [x] with the resolved decision and a pointer to the Stage 5 gate."
+    },
+    "design-docs/plans/TASKS.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Updated the two open axe-related mentions (Stage-5 gate line ~433, Stage 5 release-gating line ~480) to reference the resolved 2026-07-09 decision instead of an open owner question."
+    }
+  },
+  "flow_impact": "No production/runtime code paths changed. Test-infra-only: frontend e2e a11y coverage widened from 1 to 3 pages, still non-blocking in CI. Docs-only elsewhere (release-plan gate criteria + backlog status).",
+  "tests_added": [
+    "frontend/tests/e2e/a11y/axe.spec.ts: 'voices page (empty state) has no serious/critical axe violations [light|dark]' (test.fixme)",
+    "frontend/tests/e2e/a11y/axe.spec.ts: \"chapter workspace (Book Contents / Director's console chrome) has no serious/critical axe violations [light|dark]\" (test.fixme)"
+  ],
+  "verification": {
+    "frontend_build": "cd frontend && npm run build -> succeeded (tsc -b && vite build)",
+    "frontend_lint": "cd frontend && npx eslint tests/e2e/a11y/axe.spec.ts -> 0 errors",
+    "local_ci_recipe_run": "Built frontend, served via `npx vite preview --port 4173`, ran `PLAYWRIGHT_NO_WEB_SERVER=1 npx playwright test tests/e2e/a11y/axe.spec.ts --project=chromium` against a temporary copy with `.fixme` stripped (test.fixme.ts -> test.ts) -> all 6 cases executed to completion (no crash), each reporting real axe violations (not zero, not a crash) as expected for a first-run baseline. Temporary file deleted after verification; committed spec keeps test.fixme so CI stays non-blocking.",
+    "ci_workflow_unchanged": ".github/workflows/ci.yml's a11y-axe job was not modified — already ran the existing spec file non-blockingly; the expanded spec runs under the exact same job with no CI config changes needed."
+  }
+}

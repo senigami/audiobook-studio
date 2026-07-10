@@ -431,7 +431,7 @@ Plan: [final_release/stage3_sdk_migration_plan.md](active/final_release/stage3_s
   - [ ] U15 navigation design review
   - [x] U16 unified audio-player surface *(CONFIRMED delivered — single PlayerBar + playerBus scope toggle, no competing surface; doc 10 ticked; audit 2026-07-01)*
   - [ ] R6-T7 responsive sweep — 1280/768/420px; CastPalette @420px, Voice Lab @390px ([master_agnostic](active/master_agnostic_tasks.md))
-  - [ ] Stage-5 gate ([final_release/07 §4](active/final_release/07_frontend_themes_and_responsive.md)): viewport×theme Playwright snapshots + axe contrast scans; keyboard-only walkthrough; axe/visual baseline rollout decision (owner)
+  - [ ] Stage-5 gate ([final_release/07 §4](active/final_release/07_frontend_themes_and_responsive.md)): viewport×theme Playwright snapshots + axe contrast scans; keyboard-only walkthrough. Axe rollout decision **resolved 2026-07-09**: runs in CI now on every PR/main push (`a11y-axe` job, non-blocking via `test.fixme`), 3 pages × 2 themes — see [master_agnostic_tasks.md](active/master_agnostic_tasks.md) and [final_release/08 Stage 5](active/final_release/08_release_sequence.md) for the known-violations list and the "gate = list is empty" criterion.
 
   > 👁 **VISUAL CHECK — 008 A11y contrast**
   > - In dark theme: muted text (timestamps, helper labels, secondary copy) is **legible against the background** — not washed out
@@ -478,7 +478,7 @@ Plan: [final_release/stage3_sdk_migration_plan.md](active/final_release/stage3_s
   - [ ] Stage 1 (owner): site-redesign live-app validation items 1–18 + manually verify fixed-but-pending Phase-11 behaviors ([site_redesign 99](reference/site_redesign_rollout/99_progress_log.md))
   - [ ] Stage 2: doc-06 cleanup checkpoint + Phase-11 closeout + doc-01 plan-file corrections (P-4 casting header, P-5 SDK directory-naming note, P-6 settings cross-ref)
   - [ ] Stage 4: voice metadata Phase G (→ 007) + standalone repos (→ 010) complete
-  - [ ] Stage 5: perf P1–P6 confirmed; final broad `pytest` gate; axe baseline decision
+  - [ ] Stage 5: perf P1–P6 confirmed; final broad `pytest` gate; axe baseline decision **resolved 2026-07-09** — CI-now, non-blocking (see [final_release/08 Stage 5](active/final_release/08_release_sequence.md))
   - [ ] Stage 6: ~~author missing specs~~ SP2/SP3/SP5/SP7 ALL EXIST (plugin-contract 1.4.0, voice-bundles 1.2.0, progress-presentation 1.8.2, install-distribution 1.2.0 — stale claim corrected 2026-07-01); remaining work = SP9 conformance cross-check against them ([final_release/18](active/final_release/18_canonical_specs.md))
   - [ ] Stage 6: wiki — W1/W3/W4 (doc-01 items: WAV/MP3 callout, responsive/theming/plugin-distro pages, Mixed Generation concept) *(W5–W20 already done)*; refresh 12 stale wiki screenshots
   - [ ] Stage 6: demo/showcase + `v1.html` screenshot refresh to current 2.0 UI; R6-T10 dead-code retirement (supervised, full-suite run)

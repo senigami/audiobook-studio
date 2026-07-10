@@ -141,10 +141,17 @@ engine-agnostic historical checklist plus backlog parking lot. If a status confl
 
 ### Release-Relevant Checks
 
-- [ ] **Needs owner elaboration: Playwright/axe baseline execution.** Existing decision is axe now,
-  visual snapshots later. Clarify the practical rollout: whether to add axe to CI immediately,
-  run it manually during release validation only, or wait until the CI runner is stable enough to
-  own both axe and visual snapshots.
+- [x] **Playwright/axe baseline execution — resolved 2026-07-09.** Decision: axe runs in CI now
+  (not manual-only, not deferred). `.github/workflows/ci.yml`'s `a11y-axe` job already runs
+  `frontend/tests/e2e/a11y/axe.spec.ts` on every PR/main push, kept non-blocking (`test.fixme` +
+  `|| true`) so a browser-based check without a proven CI track record can't fail builds yet.
+  Expanded the scan from 1 page to 3 (home shell, Voices empty state, Chapter Workspace) × 2
+  themes, reusing the existing e2e network-mocking conventions
+  (`page.route`/`page.routeWebSocket`, same pattern as `chapter-render.spec.ts`); verified
+  locally (fixme temporarily removed) that all 6 cases run to completion and report real
+  findings rather than crashing — see the spec file's header for the current known-violations
+  list. Concrete gate criterion recorded in
+  `design-docs/plans/active/final_release/08_release_sequence.md` Stage 5.
 - [ ] **v1.html screenshots stale** (doc 14 step 7 remainder): re-shoot showcase screenshots on current 2.0 UI (post dark-theme).
 - [x] **Settings → API tab honesty**: already resolved by the R5 redesign — `/settings/api` now redirects to a standalone `/integrations` page (`settingsRouteConfig.ts` `SETTINGS_REDIRECTS`, same pattern as the Engines tab), so there is no longer a Settings panel with a blurb promising config UI it doesn't have. `IntegrationsPage.tsx`/`ApiGuidePanel.tsx` is a documentation-only page, which is fine for a page whose job is to document a real API — but its content had drifted from `app/api/tts_api.py`/`app/core/security.py`: it falsely claimed "Studio 2.0 does not currently implement internal API secret keys" (there is a real Bearer `tts_api_key` + `tts_api_enabled` gate) and omitted the real rate limiter (30 req/min sliding window), while documenting made-up/internal-only routes (`/api/engines`, `/api/speaker-profiles`, `/api/processing_queue`, direct `localhost:8001/synthesize`) instead of the real external contract (`/api/v1/tts/{engines,synthesize,preview,jobs/*}`). Rewrote `ApiGuidePanel.tsx` to document the real `/api/v1/tts` gateway, its actual auth/rate-limit behavior, and its actual endpoints.
 - [x] **Owner decisions in plan docs reconciled**: north-star Q1–Q6, sanitize override granularity, check_output retry policy, and Phase A gate are resolved in their source docs.
