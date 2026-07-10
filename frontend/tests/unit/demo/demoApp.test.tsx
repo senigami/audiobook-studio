@@ -75,7 +75,8 @@ const makeTimeline = (): DemoTimeline => ({
 
 // Dynamic imports so they pick up the vi.mock above
 const { DemoStage } = await import('@/demo/DemoStage');
-const { DemoApp, demoStages } = await import('@/demo/DemoApp');
+const { DemoApp } = await import('@/demo/DemoApp');
+const { demoStages } = await import('@/demo/demoStages');
 
 // ---------------------------------------------------------------------------
 // Test 1 — DemoStage: renders title, caption, chips; chip click; play/pause

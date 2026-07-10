@@ -136,11 +136,11 @@ engine-agnostic historical checklist plus backlog parking lot. If a status confl
 ### Post-Release Or Opportunistic Cleanup
 
 - [ ] **Frontend bundle code-splitting follow-up**: route code-splitting landed; revisit only if current bundle analysis shows a new regression.
-- [ ] **`--z-drawer` token**: mobile nav drawer CSS uses `var(--z-drawer, 400)` fallback; define the token in tokens.css as part of U10 z-index consolidation (layering.ts as the source).
-- [ ] **react-refresh lint warnings (11)**: demo stage files co-export descriptor objects with components; either split descriptor/component files or add a scoped eslint disable with justification.
+- [x] **`--z-drawer` token**: mobile nav drawer CSS uses `var(--z-drawer, 400)` fallback; define the token in tokens.css as part of U10 z-index consolidation (layering.ts as the source). Done: added `--z-drawer: 400` to `frontend/src/theme/tokens.css` (matches the existing fallback/usage, slotted between the ~300 dropdown tier and the ~1000+ modal/toast tier); `components.css` fallback left in place defensively.
+- [x] **react-refresh lint warnings (11)**: demo stage files co-export descriptor objects with components; either split descriptor/component files or add a scoped eslint disable with justification. Done: split the descriptor object out of each of `progressStage.tsx`, `queueStage.tsx`, `voiceLabStage.tsx`, `siteMockupStage.tsx`, and `DemoApp.tsx` into sibling `*Descriptor.tsx`/`demoStages.ts` files so each original file only exports components; all 11 warnings resolved (verified via `npm run lint`).
 - [ ] **`app/jobs` naming debt**: `worker_helpers/worker_metrics/worker_voice` are legacy-named but LIVE (imported by synthesis_mixed and tts_xtts plugins). Rename/move under `app/orchestration/` requires coordinated plugin-import updates — do alongside the `tts_engines/` namespace rename above.
 - [ ] **Voice Lab stage caption**: static stages show the shared timeline scene caption ("Watch a mixed XTTS + Voxtral chapter render...") — DemoStage could accept a caption override for non-timeline stages.
-- [ ] **Demo transport nits** (from adversarial review, non-blocking): `restart()` leaves playback paused; `play()` at non-looping timeline end is a no-op; shim `warnedRoutes` is module-global across install cycles.
+- [x] **Demo transport nits** (from adversarial review, non-blocking): `restart()` leaves playback paused; `play()` at non-looping timeline end is a no-op; shim `warnedRoutes` is module-global across install cycles. Done: `restart()` now preserves the prior playing state (resumes if it was playing); `play()` at a finished non-looping timeline now restarts from scene 0 instead of no-op-ing; `demoApiShim`'s `warnedRoutes` Set is now scoped per `installDemoApiShim()` call instead of module-global. Added revert-checked tests in `useDemoTransport.test.tsx` and `demoApiShim.test.ts`.
 
 
 ## R6-T10 dead-code retirement — SUPERVISED FOLLOW-UP (deferred 2026-06-14)

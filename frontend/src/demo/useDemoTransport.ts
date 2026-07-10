@@ -200,10 +200,27 @@ export function useDemoTransport(
   // Controls
   const play = useCallback(() => {
     if (playingRef.current) return;
+
+    // At the end of a non-looping timeline the position has been pinned to
+    // the last scene's duration and there are no more frames to publish —
+    // pressing Play there would otherwise be a no-op. Restart from the top.
+    const lastSceneIdx = timeline.scenes.length - 1;
+    const currentScene = timeline.scenes[sceneIndexRef.current];
+    const atNonLoopingEnd =
+      !loopingRef.current &&
+      sceneIndexRef.current === lastSceneIdx &&
+      currentScene != null &&
+      scenePositionMsRef.current >= currentScene.durationMs;
+
+    if (atNonLoopingEnd) {
+      publishCleanReset();
+      gotoScene(0, false);
+    }
+
     playingRef.current = true;
     startInterval();
     flushState();
-  }, [startInterval, flushState]);
+  }, [timeline, gotoScene, startInterval, flushState]);
 
   const pause = useCallback(() => {
     if (!playingRef.current) return;
@@ -213,12 +230,18 @@ export function useDemoTransport(
   }, [stopInterval, flushState]);
 
   const restart = useCallback(() => {
+    // Preserve the playing state across a restart — restarting mid-playback
+    // should keep playing from the top, not silently pause.
+    const wasPlaying = playingRef.current;
     stopInterval();
     publishCleanReset();
     gotoScene(0, false);
-    playingRef.current = false;
+    playingRef.current = wasPlaying;
+    if (wasPlaying) {
+      startInterval();
+    }
     flushState();
-  }, [stopInterval, gotoScene, flushState]);
+  }, [stopInterval, gotoScene, startInterval, flushState]);
 
   const setRate = useCallback(
     (rate: number) => {

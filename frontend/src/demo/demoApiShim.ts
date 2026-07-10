@@ -9,10 +9,11 @@ export interface DemoApiFixtures {
   [route: string]: any; // exact-match pathname → JSON body
 }
 
-const warnedRoutes = new Set<string>();
-
 export function installDemoApiShim(fixtures: DemoApiFixtures): () => void {
   const originalFetch = window.fetch;
+  // Scoped per-install so warned routes don't leak across install/uninstall
+  // cycles (e.g. successive test runs or hot-reload remounts).
+  const warnedRoutes = new Set<string>();
 
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;

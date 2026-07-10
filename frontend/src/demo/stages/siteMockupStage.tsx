@@ -1461,7 +1461,7 @@ const SiteMockup: React.FC = () => {
 // ---------------------------------------------------------------------------
 // Stage wrapper
 
-const SiteMockupElement: React.FC = () => (
+export const SiteMockupElement: React.FC = () => (
   <div className="ns-stage-root" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
     <div className="ns-stage-shell" style={{
       flex: 1, border: '1px solid var(--border)', borderRadius: 10,
@@ -1471,11 +1471,3 @@ const SiteMockupElement: React.FC = () => (
     </div>
   </div>
 );
-
-export const siteMockupStage = {
-  id: 'site-mockup',
-  title: 'Site Mockup — North Star · v3.7 — modular split + Library/Manuscript/Publish/Studio',
-  description:
-    'Medium-fidelity full-site layout mockup v3.7 — modular split into siteMockup/ submodules. Features: Library grid/list view toggle + ⋯ ActionMenu + New Book modal + Delete confirm; Manuscript "+ New chapter" modal; Publish Assemble selection mode + progress strip + backup row; Studio chapter-nav cluster + Export ▾ + Commit changes + Resync Preview modal + analysis strip (auto-fix badges + expandable ACTION REQUIRED) + hover sentence controls + Stop all. All settings surfaces preserved.',
-  element: <SiteMockupElement />,
-};

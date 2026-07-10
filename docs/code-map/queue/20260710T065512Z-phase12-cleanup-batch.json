@@ -1,0 +1,92 @@
+{
+  "at": "2026-07-10T06:55:12Z",
+  "commit": "uncommitted",
+  "task": "Phase 12 'Post-Release Or Opportunistic Cleanup' batch (design-docs/plans/active/master_agnostic_tasks.md lines 139/140/143): resolved the 11 demo-stage react-refresh/only-export-components lint warnings by splitting descriptor objects into sibling files, fixed 3 demo-transport nits (useDemoTransport restart/play, demoApiShim warnedRoutes scoping), and defined the --z-drawer token in tokens.css.",
+  "files": {
+    "frontend/src/demo/stages/progressStage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Exported ProgressStageInner (was file-local) and removed the co-exported `progressStage` descriptor object so the file only exports a component (react-refresh/only-export-components fix)."
+    },
+    "frontend/src/demo/stages/progressStageDescriptor.tsx": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "New file holding the `progressStage` stage-descriptor object (id/title/description/element), importing ProgressStageInner from progressStage.tsx."
+    },
+    "frontend/src/demo/stages/queueStage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Exported QueueStageElement (was file-local) and removed the co-exported `queueStage` descriptor object."
+    },
+    "frontend/src/demo/stages/queueStageDescriptor.tsx": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "New file holding the `queueStage` stage-descriptor object, importing QueueStageElement from queueStage.tsx."
+    },
+    "frontend/src/demo/stages/voiceLabStage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Exported VoiceLabStageInner (was file-local) and removed the co-exported `voiceLabStage` descriptor object."
+    },
+    "frontend/src/demo/stages/voiceLabStageDescriptor.tsx": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "New file holding the `voiceLabStage` stage-descriptor object, importing VoiceLabStageInner from voiceLabStage.tsx."
+    },
+    "frontend/src/demo/stages/siteMockupStage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Exported SiteMockupElement (was file-local) and removed the co-exported `siteMockupStage` descriptor object; this was the sole non-type export causing all 7 local-component warnings in this file (the `TrackState` type export is exempt from the rule)."
+    },
+    "frontend/src/demo/stages/siteMockupStageDescriptor.tsx": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "New file holding the `siteMockupStage` stage-descriptor object, importing SiteMockupElement from siteMockupStage.tsx."
+    },
+    "frontend/src/demo/DemoApp.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Removed the co-exported `demoStages` array (moved to demoStages.ts) and now imports stage descriptors from the new *Descriptor files instead of the stage component files directly, so DemoApp.tsx only exports the DemoApp component."
+    },
+    "frontend/src/demo/demoStages.ts": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "New file holding the `demoStages` ordered array (imports each stage's descriptor); consumed by DemoApp.tsx and the demoApp test."
+    },
+    "frontend/src/demo/useDemoTransport.ts": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Two behavior fixes: restart() now preserves the pre-restart playing state (resumes playback if it was playing, instead of always force-pausing); play() now detects 'finished, non-looping timeline' state (last scene, position >= duration, looping off) and restarts from scene 0 before resuming, instead of being a silent no-op."
+    },
+    "frontend/src/demo/demoApiShim.ts": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Moved `warnedRoutes` from module scope into installDemoApiShim()'s function scope so each install cycle gets its own Set instead of sharing one across overlapping install/uninstall cycles."
+    },
+    "frontend/src/theme/tokens.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added `--z-drawer: 400` to the light/root token block (value matches the existing var(--z-drawer, 400) fallback already used by .mobile-nav-drawer in components.css), slotted between the ~300 dropdown tier and the ~1000+ modal/toast tier."
+    },
+    "tests/unit/demo/voiceLabStage.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Updated import path from stages/voiceLabStage to the new stages/voiceLabStageDescriptor (descriptor split)."
+    },
+    "tests/unit/demo/demoApp.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Updated import of `demoStages` to come from the new @/demo/demoStages module instead of @/demo/DemoApp."
+    },
+    "tests/unit/demo/useDemoTransport.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added revert-checked tests: restart() preserves playing/paused state; play() at a finished non-looping timeline restarts from scene 0 and resumes publishing frames."
+    },
+    "tests/unit/demo/demoApiShim.test.ts": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added a revert-checked test proving warnedRoutes no longer leaks 'already warned' state across an install stacked over a prior install without an intervening uninstall."
+    }
+  }
+}
