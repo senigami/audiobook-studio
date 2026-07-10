@@ -913,3 +913,242 @@
   cursor: pointer;
 }
 
+/* ─── ResyncPreviewModal ────────────────────────────────────────── */
+
+.resync-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+}
+
+.resync-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--overlay-backdrop);
+  backdrop-filter: blur(8px);
+}
+
+.resync-modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  background: var(--surface);
+  border-radius: 20px;
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--border);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.resync-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.resync-modal-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.resync-modal-icon--warning {
+  background: var(--warning-tint-bg);
+  color: var(--warning);
+}
+
+.resync-modal-icon--success {
+  background: var(--success-tint-bg);
+  color: var(--success);
+}
+
+.resync-modal-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.resync-modal-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.resync-modal-description {
+  font-size: 0.925rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.resync-modal-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-6) 0;
+}
+
+.resync-modal-loading-text {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.resync-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.resync-modal-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.resync-modal-stat-card {
+  padding: var(--space-4);
+  background: var(--surface-light);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.resync-modal-stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+}
+
+.resync-modal-stat-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.resync-modal-stat-value {
+  font-size: var(--type-title);
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.resync-modal-stat-value--success {
+  color: var(--success);
+}
+
+.resync-modal-stat-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.resync-modal-warning-box {
+  padding: var(--space-4);
+  background: var(--error-glow);
+  border: 1px solid var(--error-tint-border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.resync-modal-warning-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--error);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.resync-modal-warning-text {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.resync-modal-affected-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.resync-modal-affected-label {
+  font-size: var(--type-caption);
+  color: var(--text-muted);
+  margin-right: 0.2rem;
+}
+
+.resync-modal-affected-chip {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.4rem;
+  background: var(--error-tint-bg);
+  color: var(--error);
+  border-radius: 4px;
+}
+
+.resync-modal-success-box {
+  padding: var(--space-4);
+  background: var(--success-tint-bg);
+  border: 1px solid var(--success-muted);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.resync-modal-success-text {
+  font-size: 0.88rem;
+  color: var(--success-text);
+  font-weight: 600;
+}
+
+.resync-modal-info-box {
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-light);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.resync-modal-info-icon {
+  margin-top: 0.15rem;
+  color: var(--accent);
+}
+
+.resync-modal-info-text {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.resync-modal-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.resync-modal-btn {
+  flex: 1;
+  padding: var(--space-3);
+  border-radius: 12px;
+}
+
+.resync-modal-btn--confirm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
