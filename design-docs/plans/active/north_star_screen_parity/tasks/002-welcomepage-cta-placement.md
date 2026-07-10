@@ -52,11 +52,16 @@ Listener/Nontechnical Author personas (`design-docs/personas/27-casual-listener.
    whatever secondary/outline variant prop the component supports (check the `Btn` component's own
    prop types — grep for its definition) to visually distinguish it from the primary CTA without
    inventing a new style.
-4. **Before committing:** check whether the concurrent styling-separation lane
-   (`design-docs/plans/active/simplification/styling_separation_execution/`) has already converted
-   this file's inline styles to a `WelcomePage.css` file (it was mid-conversion on this exact file
-   during this plan's research). If so, move CSS rules for the relocated block along with the JSX
-   rather than reintroducing inline styles.
+4. **Before touching anything — re-read `WelcomePage.tsx` fresh, in full, right now.** Do not trust
+   this task's line numbers (`:102-123`, `:162-170`, etc.) or described JSX shape as still accurate —
+   the concurrent styling-separation lane was mid-conversion on this exact file during this plan's
+   research and may have finished by execution time, which could mean more than just an added
+   `WelcomePage.css` file (see `01-map.md` "Coupling risk" for why this task's anchors specifically
+   can't be trusted blindly). If the JSX has been restructured (not just re-styled), adapt this
+   task's goal — CTA row moved up near the hero, secondary CTA as a `Btn` — to whatever the current
+   actual structure is, rather than forcing the old line-based instructions onto changed code. If
+   CSS has been converted to a `WelcomePage.css` file, move CSS rules for the relocated block along
+   with the JSX rather than reintroducing inline styles.
 
 ## Acceptance criteria
 

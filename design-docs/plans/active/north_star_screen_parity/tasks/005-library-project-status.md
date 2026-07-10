@@ -48,9 +48,13 @@ fetch cheaply** — i.e., without an extra per-project API round-trip for every 
   pattern. If yes, proceed to Step 2 with a small backend addition included.
 - If neither is feasible without materially changing how projects are stored (i.e., you'd need to
   add and *maintain* a persisted `status` field kept in sync via triggers/writes elsewhere), **STOP.**
-  Do not implement. Instead, append a finding to this task file's "Research outcome" section below
-  and flag it back to the owner via `00-overview.md`'s Decisions-needed framing — this is exactly
-  the INV-4 case that section anticipates.
+  Do not implement. Instead, append a finding to this task file's "Research outcome" section below,
+  update `00-overview.md`'s Decisions section, **AND add a line item to
+  `design-docs/plans/TASKS.md`'s active-work section flagging the unresolved decision by name** (not
+  just inside this plan folder). **Caught in adversarial review: a decision recorded only inside this
+  plan folder can rot exactly like the phantom entry task 001 fixed — nothing forces anyone to
+  revisit it.** A `TASKS.md` line item is this repo's actual forcing function (it's the single
+  status source everyone reads); rely on that, not on someone happening to reopen this plan folder.
 
 ## Research outcome
 
@@ -76,8 +80,10 @@ this task settled on.)*
       Drafting/Published) or a documented, deliberate variant if the live app's actual lifecycle
       states differ (check `ChapterLifecycle` type — Draft/Ready/Cast/Rendered — and map
       thoughtfully rather than forcing an exact label match that doesn't fit the live data model).
-- [ ] If NOT implemented: this file's Research outcome section explains why, and `00-overview.md`'s
-      Decision #3 is updated to reflect the specific blocker found (not left generic).
+- [ ] If NOT implemented: this file's Research outcome section explains why, `00-overview.md`'s
+      Decision #3 is updated to reflect the specific blocker found (not left generic), AND a line
+      item is added to `design-docs/plans/TASKS.md` so the unresolved decision has a forcing
+      function beyond this plan folder.
 - [ ] `npm -C frontend run test -- --run`, lint, build clean (if implemented).
 
 ## Map links

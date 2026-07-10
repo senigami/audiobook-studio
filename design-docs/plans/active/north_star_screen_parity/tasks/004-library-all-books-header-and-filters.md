@@ -36,12 +36,20 @@ header, no section label above the grid.
   final visual read — follow the demo's exact placement relative to the grid/list toggle).
 - Quick-filter chips: **Recent**, **A–Z**, **In Progress**. "Recent" and "A–Z" can map directly onto
   existing sort options already in `LibraryControls.tsx` (Recently Updated ≈ Recent; Title A-Z ≈
-  A–Z) — check whether the demo's chips are meant to *replace* the sort dropdown or sit alongside it
-  as quick shortcuts to the same sort options (read `library.tsx:366-472` closely for the exact
-  interaction model before deciding). **"In Progress" requires knowing which projects are
-  in-progress — this depends on task 005's status-derivation research; if task 005 hasn't
-  landed yet, stub this chip as present-but-disabled with a code comment pointing at task 005,
-  rather than inventing a separate progress signal.**
+  A–Z). Read `library.tsx:366-472` closely for the exact interaction model first — **but if it's
+  still genuinely ambiguous whether chips replace or supplement the sort dropdown after reading it,
+  default to supplement (chips as quick shortcuts alongside the existing dropdown, not a
+  replacement)**: this is reversible and lower-risk than removing an existing, working control
+  (INV-1 spirit) — do not leave this as an open judgment call with no specified outcome; if you take
+  the supplement default, note that explicitly in your task report so the owner can override it
+  later if the demo actually intended a replacement.
+  **"In Progress" requires knowing which projects are in-progress — this depends on task 005's
+  status-derivation research.** If task 005 hasn't landed yet, this chip must not simply be
+  disabled with only a code comment — an end user seeing a permanently grayed-out control with zero
+  explanation is a real trust/discoverability problem (a code comment is invisible to them). Instead:
+  either (a) hide the chip entirely until task 005 lands, or (b) show it disabled with a visible
+  tooltip/aria-label explaining why (e.g. "Coming soon"). Prefer (a) — an absent control raises no
+  question; a visibly broken one does.
 - Cover-size slider: grid view only, following whatever slider/range-input pattern already exists
   elsewhere in the codebase (grep before inventing a new one).
 
@@ -64,8 +72,9 @@ header, no section label above the grid.
 - [ ] "All Books" label present above (or per final read: alongside) the controls.
 - [ ] Recent/A–Z chips filter/sort correctly using existing sort logic (no duplicate sort
       implementation).
-- [ ] "In Progress" chip either works (if task 005 already landed) or is visibly disabled with a
-      code comment, not silently broken.
+- [ ] "In Progress" chip either works (if task 005 already landed), or is hidden entirely until it
+      does, or — if shown disabled — has a visible, user-facing explanation (tooltip/aria-label),
+      never just a code comment with no on-screen indication.
 - [ ] Cover-size slider works in grid view, has no effect in list view (or is hidden in list view —
       match demo behavior exactly), and its chosen size persists across a page reload.
 - [ ] Responsive check at 1280/768/420 — no overflow.

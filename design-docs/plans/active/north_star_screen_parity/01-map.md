@@ -75,10 +75,13 @@ resolve it from code alone.
   Chapter Workspace's dockable panel (`BookLayout.tsx:283-286`). Already correctly deduplicated;
   no task in this plan should introduce a second implementation.
 - **`BookLayout.tsx`'s tab list** (`pages/Book/lib/stages.ts`) — the single source of the six live
-  book-level tabs. Tasks 009/010 both edit structure reachable from this file; if both are executed
-  in the same session, re-read `stages.ts` fresh before the second task starts (they touch adjacent
-  but distinct tabs — Backups vs Contents — so no logical conflict, but both may edit
-  `BookLayout.tsx`'s tab-content switch).
+  book-level tabs. **Corrected in adversarial review:** after task 009's correction (a pure content
+  relocation between `BackupsStage.tsx`/`PublishStage.tsx`, not a tab add/remove), it likely doesn't
+  touch `stages.ts` or `BookLayout.tsx`'s tab-content switch at all — both tabs continue to exist,
+  only their inner content changes. Task 010 similarly only changes `ContentsStage.tsx`'s internals,
+  not the tab list. Net: 009 and 010 touch adjacent but fully distinct files (`BackupsStage.tsx`/
+  `PublishStage.tsx` vs. `ContentsStage.tsx`) with no shared-file edit expected in either — lower
+  coordination risk than previously stated here.
 
 ## Coupling risk — the concurrent styling-separation lane
 
@@ -93,6 +96,18 @@ for the styling lane's latest state on those files, and layer structural changes
 class-based conversion rather than reintroducing inline styles it just removed. This is a
 sequencing risk, not a blocking one — the two efforts are orthogonal (structure vs. token/CSS) but
 land in the same files.
+
+**Caught in adversarial review — this note previously only covered CSS reintroduction, which
+understates the risk.** The exact line numbers and JSX anchors these tasks were written against
+(e.g. task 002's `WelcomePage.tsx:102-123`, `:162-170`) were captured mid-conversion by the styling
+lane. By execution time the styling lane may have finished and **restructured the JSX itself** —
+not just swapped `style={{}}` for `className` — e.g. decomposed a block into a sub-component,
+reordered props, changed what's a single element vs. several. **Before applying any line-number- or
+JSX-shape-based instruction in tasks 002/003/004: re-read the current, actual state of the target
+file fresh — do not trust this plan's line numbers or described JSX structure as still accurate.**
+Treat every anchor in those tasks as "this is what it looked like at research time," not "this is
+guaranteed current" — the task's *goal* (what should end up true) is durable; the exact *path* to
+get there (which lines, which JSX shape) may not be.
 
 ## Invariants
 
@@ -112,14 +127,28 @@ land in the same files.
 
 ## Risks & open questions
 
-- **R1** — Tasks 009 and 010 are both gated on an owner decision (see `00-overview.md`). Until
-  answered, only the DECISION-recording step of those task files should execute — not the
-  implementation steps.
+- **R1** — Tasks 009 and 010's decisions are recorded (see `00-overview.md`); task 010's Step 2b
+  still has an internal precondition check (Write-mode capability parity) that gates its removal
+  step regardless.
 - **R2** — Tasks 005/006 (Library status + Continue section) carry real risk of scope explosion if
   the underlying data isn't cheaply derivable; each task's first step is a research spike with an
-  explicit stop condition (see INV-4).
+  explicit stop condition (see INV-4) that now also requires a `TASKS.md` line item if it stops,
+  not just a note in this folder — an escalation recorded only here can rot the same way the
+  original doc drift did.
 - **R3** — The "bookmarks discoverability" question (see Source-of-truth resolution above) cannot
   be settled by reading code — task 011 requires an actual browser screenshot comparison. Don't
   skip it by assuming the code-level finding ("bookmarks exist") fully closes the owner's
   complaint; it only shows the feature exists, not that it's visible enough.
-- **R4** — Concurrent styling lane file overlap (see Coupling risk above).
+- **R4** — Concurrent styling lane file overlap (see Coupling risk above) — includes JSX
+  restructuring risk, not just CSS reintroduction; re-verify current file state before applying any
+  line-number-based instruction in tasks 002/003/004.
+- **R5 (adversarial-review finding, CRITICAL)** — Task 009's relocation of `ProjectBackupsPanel`
+  must explicitly verify `projectId` scoping resolves identically in its new location before/after
+  the move. This repo has already shipped exactly this bug class once (a prior fix this session:
+  silent cross-project data leak via an implicitly-scoped component). Treat as a blocking check, not
+  an assumption — see task 009 Step 2b.3.
+- **R6 (adversarial-review finding, CRITICAL)** — Task 010's "cross-book" bookmark panel language was
+  corrected to "cross-chapter" (book-wide, not multi-book) after review — a literal multi-book
+  panel embedded in a single-book tab would be structurally wrong and could leak bookmark data
+  across projects. The owner's sign-off was given on the ambiguous wording; task 010's Step 3 now
+  requires re-confirming actual scope against the demo before any implementation.

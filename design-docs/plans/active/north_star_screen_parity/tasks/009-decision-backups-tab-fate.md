@@ -20,8 +20,14 @@ new. That undersold what actually happened historically. The owner had a genuine
 tab before the site redesign — it's the legacy `frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx`
 (still in the codebase, not yet retired; its removal is a separately-tracked, deferred item,
 "R6-T10 dead-code retirement," in `master_agnostic_tasks.md` — **do not retire it as part of this
-task**, it's still the reference implementation until this task lands). It renders
-`ProjectBackupsPanel` directly as its own tab (`ProjectDetailPage.tsx:407-414`):
+task**, it's still the reference implementation until this task lands). **Note for whoever executes
+this: confirm at that time whether `/project/:id` is still a reachable, navigated-to route in the
+live UI, or whether it's already orphaned (a prior progress-log entry described the
+ProjectDetail/ChapterEditor chain as "unreachable/harmless," pending dead-code retirement). Either
+way the reference implementation below is valid to port from — but if the route is already
+orphaned, the owner's memory of "a working Backups tab" is about a past state, not something
+currently clickable, which is worth surfacing back to them rather than leaving ambiguous.** It
+renders `ProjectBackupsPanel` directly as its own tab (`ProjectDetailPage.tsx:407-414`):
 
 ```tsx
 ) : currentTab === 'backups' ? (
@@ -95,13 +101,25 @@ Step 2b when this task is picked up.
    same Book-pipeline hook shared across stage components — check how `BackupsStage.tsx` currently
    gets its props/context and whether `actions` is already threaded in or needs one extra prop/hook
    call to reach it).
-3. Confirm `PublishStage.tsx` still renders correctly with just assembly content
+3. **Mandatory scoping check — do not skip:** having access to `actions` is not sufficient proof
+   this is safe. Explicitly confirm that the `projectId` value flowing into `ProjectBackupsPanel`'s
+   `projectId` prop resolves to the *exact same* project/book in `BackupsStage.tsx` as it did in
+   `PublishStage.tsx` — trace how each stage component receives its project/book scoping (route
+   param passed down directly vs. derived from a shared parent hook/context) and verify they're
+   identical, not just structurally similar. **This repo has already shipped this precise bug once**
+   (a prior fix this session: "GET /chapters/{id} had no project scoping — silent cross-project leak
+   where the old code implicitly discarded a mismatch"). A relocation that silently changes which
+   project's backups are shown/restorable/deletable is a data-exposure bug, not a cosmetic issue —
+   treat this check as a blocking acceptance criterion, not an assumption.
+4. Confirm `PublishStage.tsx` still renders correctly with just assembly content
    (`AssemblyProgress`, `AssemblyPanel`/`AssemblyChapterPicker`) after the block is removed — no
    leftover empty space, dangling layout, or unused imports.
-4. Re-test both tabs' full functionality (save/delete/restore/update-metadata/include-audio-toggle)
-   end to end — this is a relocation, not a rebuild, but INV-1 still requires proving nothing broke
-   in the move.
-5. Adversarial review pass on the diff is still mandatory per this task's risk flag (it touches a
+5. Re-test both tabs' full functionality (save/delete/restore/update-metadata/include-audio-toggle)
+   end to end, **explicitly including a check that backups shown/actionable in `BackupsStage.tsx`
+   belong to the currently-open book and not a different one** (e.g. navigate between two different
+   books and confirm each shows only its own backups) — this is a relocation, not a rebuild, but
+   INV-1 and the scoping check in step 3 both require proving nothing broke in the move.
+6. Adversarial review pass on the diff is still mandatory per this task's risk flag (it touches a
    primary, frequently-used surface), but expect and verify a SMALL diff — if the diff looks large
    or reimplements logic that already existed in the cut block, that's a signal something went
    wrong in the port, not that the task is inherently big.
@@ -111,6 +129,9 @@ Step 2b when this task is picked up.
 - [ ] Decision recorded in Step 1, with date and decider, before any code changed.
 - [ ] Whichever option chosen: no backup capability (save/delete/restore/update-metadata/
       include-audio-toggle) is lost anywhere (INV-1).
+- [ ] **(Option B only) `projectId` scoping explicitly verified identical before/after the move —
+      tested across at least two different books to confirm no cross-project leak.** This is a
+      blocking criterion, not optional — see Step 2b.3.
 - [ ] Old `/book/:id/backups` route (if removed per Option A) redirects rather than 404s (R-G
       convention).
 - [ ] `npm -C frontend run test -- --run`, lint, build clean.

@@ -61,7 +61,8 @@ These were real forks found during research — the owner has now decided both.
    back down to assembly-only. See task `009`, now unblocked for its Step 2b.
 2. **Contents tab: chapter board, or chapter table + inline editor? DECIDED — match the demo's
    board.** The demo's wired `Contents` tab is a slim chapter board with no inline text editor
-   (plus a cross-book bookmark panel the live app doesn't have at all). The live `Contents` tab is
+   (plus a book-wide bookmark panel — corrected from "cross-book," see below — the live app doesn't
+   have at all). The live `Contents` tab is
    a chapter table with an inline `ChapterTextPanel` editor next to it. Research found the demo's
    *own* file has an orphaned, unused `ManuscriptPane` export that actually matches the live design
    closely (editor + lock logic + row actions) — suggesting the live design may have been the
@@ -70,8 +71,11 @@ These were real forks found during research — the owner has now decided both.
    editor from live's Contents tab. **Conditional, not absolute** — task `010`'s Step 2b requires
    confirming first that the Chapter Workspace's Write mode fully covers whatever the Contents-tab
    editor does today; if it doesn't, the task stops and re-escalates rather than silently dropping a
-   capability (INV-1). **Also decided: yes**, add a cross-book bookmark overview panel to Contents,
-   reusing the existing bookmark store. See task `010`.
+   capability (INV-1). **Also decided: yes**, add a book-wide bookmark overview panel to Contents
+   (corrected from "cross-book" — see task `010`'s naming correction; this means every bookmark
+   across every chapter in *this* book, not other books), reusing the existing bookmark store,
+   pending task 010 Step 3's research gate confirming the store actually supports this query shape.
+   See task `010`.
 3. **Should Library's "Continue" section and per-project status exist, and where does the data
    come from?** The demo shows an always-current-user info section (a "Continue" row with
    progress/ETA/status per book) that live has no visual equivalent for, and no persisted field

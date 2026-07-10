@@ -31,7 +31,9 @@ machinery at a coarser (book-level) grain, not invent a second ETA system.
 1. Read task 005's "Research outcome" section first — if task 005 concluded status is NOT cheaply
    derivable, this task almost certainly can't proceed either (progress/ETA is a strict superset of
    that same data problem). In that case, STOP immediately, record the same conclusion here, and
-   fold this into the same owner-decision escalation as task 005 rather than duplicating research.
+   fold this into the same escalation as task 005 rather than duplicating research — including task
+   005's `TASKS.md` line item (add this task's name to it too, don't create a second one) so the
+   forcing function covers both.
 2. If task 005 found a viable data source: determine whether that source (or a small extension of
    it) can also yield (a) which project is "most recently active"/in-progress (to pick which ≤2
    projects populate this section — likely: most recently updated project(s) that aren't fully

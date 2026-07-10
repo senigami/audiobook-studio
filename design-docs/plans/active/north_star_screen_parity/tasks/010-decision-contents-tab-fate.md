@@ -9,8 +9,21 @@ Risk: quality-sensitive
 The live `Contents` tab is a chapter table with an inline `ChapterTextPanel` editor next to it
 (`ContentsStage.tsx:103-189`, editor at `:178`) — no bookmark panel. The demo's *wired* `Contents`
 tab (`ContentsPane`, `panes/book.tsx:266-495`) is a slimmer "chapter board": StatusOrb + chapter
-number + title + words + render% + an "Open" button (no inline text editor), plus a cross-book
+number + title + words + render% + an "Open" button (no inline text editor), plus a
 `GlobalBookmarkPanel` (`panes/book.tsx:71-191`) live has no equivalent of anywhere.
+
+**Naming correction (caught in adversarial review, before anyone builds the wrong thing):** this
+plan previously called this a "cross-book" bookmark panel throughout. That's almost certainly wrong
+and needs re-verifying, not assuming, before implementation. The Contents tab is itself a
+**book-scoped** tab (Book → Contents → Cast → Lexicon → Publish → Backups all belong to one book) —
+a panel showing bookmarks from *other, unrelated books* embedded inside one book's Contents tab
+would be structurally nonsensical and a real data-scoping confusion (does a user viewing Book A's
+Contents tab really see Book B's bookmarks? Almost certainly not what's intended). "Global" in the
+demo's own naming much more plausibly means "book-wide" — every bookmark across every *chapter in
+this one book*, not just the chapter you're currently viewing — i.e. this should read
+**"cross-chapter" (within the current book), not "cross-book."** Step 1 below requires confirming
+this against the demo file directly before Step 3 implements anything, since the owner's "yes, add
+it" sign-off was given on the ambiguous wording.
 
 The twist: the demo file also contains an **orphaned, unused** `ManuscriptPane` export
 (`panes/book.tsx:610-1196`, confirmed not imported anywhere in `siteMockupStage.tsx`) that closely
@@ -35,10 +48,13 @@ inline editor genuinely redundant, or whether removing it loses a real, used cap
 per INV-1 — this is exactly the kind of judgment call that should not be made without checking
 actual usage/necessity).
 
-**Also decide, regardless of A/B:** should live's `Contents` tab gain a cross-book bookmark
-overview panel (matching `GlobalBookmarkPanel`)? Live currently only has *per-chapter* bookmarks
-(via `ChapterWorkspaceHeader`, task 008's area) with no book-wide view of all bookmarks across
-chapters. This is a smaller, additive, lower-risk sub-decision independent of A/B.
+**Also decide, regardless of A/B:** should live's `Contents` tab gain a book-wide bookmark overview
+panel (matching `GlobalBookmarkPanel` — see naming correction above: this means every bookmark
+across every chapter *in this book*, not other books)? Live currently only has *per-chapter*
+bookmarks (via `ChapterWorkspaceHeader`, task 008's area) with no book-wide view of all bookmarks
+across chapters. This is a smaller, additive sub-decision independent of A/B, but see Step 1's
+research requirement before treating it as low-risk — whether `store/bookmarks.ts` actually
+supports a cross-chapter query is unverified.
 
 ## Step 1 — Record the decision here
 
@@ -58,8 +74,14 @@ plan. If that check finds a capability that would be lost, stop and escalate bac
 specifics rather than proceeding on this recorded decision as if it settles the implementation
 risk too.
 
-**Cross-book bookmark panel wanted:** Yes — add it. Decided by the owner, 2026-07-10. Reuses the
-existing `store/bookmarks.ts` per Step 3 — do not build a second bookmark data model.
+**Book-wide bookmark panel wanted:** Yes — add it. Decided by the owner, 2026-07-10, on the
+original ("cross-book") wording. **Re-confirm with the owner if execution reveals this means
+something meaningfully different from "every bookmark across every chapter in this one book"** —
+the sign-off was given on ambiguous language (see naming correction above), so treat this as
+provisionally approved, not a closed question, until Step 1's research below confirms the intended
+scope matches what's buildable. Reuses the existing `store/bookmarks.ts` per Step 3 — do not build a
+second bookmark data model, and do not build a literal multi-book panel without going back to the
+owner first if that's what the demo actually turns out to show.
 
 ## Step 2a — If Option A (demo needs updating, live stays as-is)
 
@@ -78,19 +100,42 @@ No live-app implementation in this task. Hand off to task 012 (demo-side cleanup
 3. If NOT confirmed redundant (some capability would be lost): stop, this sub-option isn't viable as
    stated — escalate back to the owner with the specific capability that would be lost, per INV-1.
 
-## Step 3 — Cross-book bookmark panel (independent of A/B)
+## Step 3 — Book-wide bookmark panel (independent of A/B)
 
-If wanted: add a `GlobalBookmarkPanel`-equivalent to live's `Contents` tab, reusing the existing
+**Research gate — do this before writing any UI code (do not skip, unlike this task's earlier
+draft):**
+
+1. Read `panes/book.tsx:71-191` (`GlobalBookmarkPanel`) directly to confirm what scope it actually
+   demonstrates — every chapter in the current book, or something else. Resolve the naming ambiguity
+   from actual evidence, not assumption.
+2. Read `store/bookmarks.ts` fully to determine whether its data is already keyed in a way that
+   supports "every bookmark across every chapter in this book" as a query over existing data (e.g.
+   bookmarks already carry a `chapterId` that's itself book-scoped), or whether this requires a new
+   access pattern (still the same underlying data, just a query shape that doesn't exist yet).
+3. If a simple read-across-chapters view is confirmed feasible: proceed to implementation below.
+4. If the store's shape makes this genuinely awkward (e.g. bookmarks aren't indexed in any way that
+   lets you cheaply enumerate "all of them for book X" without iterating every chapter individually),
+   that's still likely fine to build (a straightforward loop/aggregation, not a schema change) — but
+   note the actual approach taken here so it's not confused with "a trivial existing view" if it
+   wasn't one.
+
+## Implement (once Step 3's research confirms scope and feasibility)
+
+Add a `GlobalBookmarkPanel`-equivalent to live's `Contents` tab, reusing the existing
 `store/bookmarks.ts` (already used per-chapter in `ChapterWorkspaceHeader.tsx`) rather than building
-a second bookmark store — this should be a read-across-all-chapters view over the same data, not a
-new data model.
+a second bookmark store — a read-across-all-chapters-in-this-book view over the same data, not a
+new data model, and explicitly NOT spanning other books (see naming correction above).
 
 ## Acceptance criteria
 
 - [ ] Decision recorded (A/B + bookmark-panel yes/no) before any implementation step runs.
 - [ ] Whichever path: no capability lost without being re-homed (INV-1) — especially watch for this
       in Option B's editor removal.
-- [ ] If a cross-book bookmark panel is added: reuses `store/bookmarks.ts`, no second data model.
+- [ ] Step 3's research gate completed BEFORE any bookmark-panel UI code is written — scope
+      confirmed as book-wide (this book's chapters only), not multi-book, against actual evidence
+      from `panes/book.tsx:71-191` and `store/bookmarks.ts`, not assumption.
+- [ ] If a book-wide bookmark panel is added: reuses `store/bookmarks.ts`, no second data model,
+      and does not surface any other book's bookmarks.
 - [ ] `npm -C frontend run test -- --run`, lint, build clean.
 - [ ] Adversarial review pass mandatory regardless of which path (this task's risk flag).
 
