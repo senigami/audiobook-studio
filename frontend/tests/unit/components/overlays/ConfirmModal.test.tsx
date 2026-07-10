@@ -35,7 +35,7 @@ describe('ConfirmModal', () => {
     // vitest.config.ts), so read the source rule directly rather than asserting computed style.
     expect(closeBtn.classList.contains('modal-close-btn')).toBe(true)
 
-    const cssPath = resolve(process.cwd(), 'src/theme/components.css')
+    const cssPath = resolve(process.cwd(), 'src/theme/components/misc.css')
     const css = readFileSync(cssPath, 'utf-8')
     const rule = css.match(/\.modal-close-btn\s*\{[^}]*\}/)?.[0]
     expect(rule).toBeTruthy()

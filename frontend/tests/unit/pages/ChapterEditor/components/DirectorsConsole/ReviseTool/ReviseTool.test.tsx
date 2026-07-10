@@ -389,7 +389,7 @@ describe('ReviseTool', () => {
     // `color: var(--surface)` pairing and passes once it matches `.btn-primary`'s
     // `background: var(--action-primary)` / `color: var(--on-action)` convention.
     it('pairs --on-action with the accent background, matching .btn-primary\'s convention', () => {
-      const cssPath = resolve(process.cwd(), 'src/theme/components.css');
+      const cssPath = resolve(process.cwd(), 'src/theme/components/review-tools.css');
       const css = readFileSync(cssPath, 'utf-8');
 
       const saveBtnRule = css.match(/\.revise-text-view__save-btn\s*\{[^}]*\}/)?.[0];
