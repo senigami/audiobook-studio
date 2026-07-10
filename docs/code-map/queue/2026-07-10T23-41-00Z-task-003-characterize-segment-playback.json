@@ -1,0 +1,7 @@
+{
+  "at": "2026-07-10T23:41:00Z",
+  "commit": "51da0a1ae186a8a5a24a7413dbd71d58046da61b",
+  "task": "characterization tests pinning current (buggy) block-navigation behavior in useChapterPlayback.ts before a fix",
+  "files": {},
+  "flow_impact": "none — test-only, documents existing behavior for a follow-up fix"
+}

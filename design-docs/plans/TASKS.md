@@ -81,6 +81,24 @@ Merges the Chapter Workspace's Studio/Review toggle (never actually unified per 
 - [ ] **L-WORKSPACE 003** — Edit Text mode via ChapterTextPanel — [plan](active/chapter_workspace_merge/tasks/003-edit-text-mode.md)
 - [ ] **L-WORKSPACE 004** — Cleanup + full green gate — [plan](active/chapter_workspace_merge/tasks/004-cleanup-and-green-gate.md)
 
+### North Star screen parity — PLANNED, not yet executed
+
+Reconciles the live app's layout against the North Star reference demo (`frontend/src/demo/stages/siteMockup/`), starting from owner-reported drift on the Home/Welcome screen, the Library page, and the Book view's chapter list. Adversarially reviewed 2026-07-10 — 2 critical findings fixed pre-execution (a `projectId` cross-project-scoping gap in the Backups-tab relocation; a "cross-book" vs. "cross-chapter" bookmark-panel scope ambiguity corrected before implementation). Decisions recorded: Backups tab gets real functionality relocated from Publish (a cheap port of the still-extant legacy `ProjectDetailPage.tsx` wiring, not new development); Contents tab simplifies to match the demo's slim board, gated on confirming Write mode covers its current editing capability first. See [plan](active/north_star_screen_parity/README.md) — 13 tasks, not yet dispatched.
+
+- [ ] **L-NS 001** — Fix `TASKS.md` doc drift (this section's own former phantom entry, see above) — [plan](active/north_star_screen_parity/tasks/001-fix-tasks-md-doc-drift.md)
+- [ ] **L-NS 002** — WelcomePage: CTA placement + secondary-CTA element type — [plan](active/north_star_screen_parity/tasks/002-welcomepage-cta-placement.md)
+- [ ] **L-NS 003** — Library grid card: restore "Open" action + hover-play — [plan](active/north_star_screen_parity/tasks/003-library-card-open-and-hover-play.md)
+- [ ] **L-NS 004** — Library: "All Books" header + quick-filter chips + cover-size slider — [plan](active/north_star_screen_parity/tasks/004-library-all-books-header-and-filters.md)
+- [ ] **L-NS 005** — Library: per-project workflow status (research-gated) — [plan](active/north_star_screen_parity/tasks/005-library-project-status.md)
+- [ ] **L-NS 006** — Library: "Continue" section (research-gated, depends on 005) — [plan](active/north_star_screen_parity/tasks/006-library-continue-section.md)
+- [ ] **L-NS 007** — Library: remove unreachable dead empty-state branch — [plan](active/north_star_screen_parity/tasks/007-library-dead-code-cleanup.md)
+- [ ] **L-NS 008** — Chapter Workspace: status orb in the chapter-switcher dropdown — [plan](active/north_star_screen_parity/tasks/008-chapter-dropdown-status-orb.md)
+- [ ] **L-NS 009** — Backups tab: relocate real functionality from Publish (decision recorded) — [plan](active/north_star_screen_parity/tasks/009-decision-backups-tab-fate.md)
+- [ ] **L-NS 010** — Contents tab: simplify to match demo's board (decision recorded, gated on a Write-mode capability check) — [plan](active/north_star_screen_parity/tasks/010-decision-contents-tab-fate.md)
+- [ ] **L-NS 011** — Designer agent: screenshot-verify bookmark discoverability + Library header copy — [plan](active/north_star_screen_parity/tasks/011-designer-visual-verification.md)
+- [ ] **L-NS 012** — Demo-side cleanup: Engines Module-Settings tab, orphaned `ManuscriptPane`, `studio.tsx` note — [plan](active/north_star_screen_parity/tasks/012-demo-side-cleanup.md)
+- [ ] **L-NS 013** — Refresh terminology in the R1-18 owner-validation checklist — [plan](active/north_star_screen_parity/tasks/013-refresh-validation-checklist-terminology.md)
+
 ### Ready to dispatch NOW
 
 **Zero blockers:**
