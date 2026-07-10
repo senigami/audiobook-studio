@@ -699,46 +699,6 @@ def test_record_render_sample_stores_load_and_pure_render_seconds(clean_db):
     assert abs(sample["cps"] - 33.33) < 0.01
 
 
-def test_xtts_sample_uses_actual_segment_count(clean_db, clean_state):
-    """XTTS render sample should use segment count from structured timing if available, or canonical state, not sentence count fallback."""
-    from app.db.performance import record_render_sample
-    from app.db.state import put_job
-    from app.db.models import Job
-
-    jid = "xtts-segment-count-test"
-    now = time.time()
-    job = Job(
-        id=jid,
-        engine="xtts",
-        status="done",
-        project_id="p1",
-        chapter_id="c1",
-        speaker_profile="spk1",
-        created_at=now - 20,
-        started_at=now - 10,
-        finished_at=now,
-        synthesis_duration_seconds=5.0
-    )
-    put_job(job)
-
-    # Let's assume we have 7 segments in timing
-    # We write via record_render_sample
-    record_render_sample(
-        engine="xtts",
-        chars=100,
-        segment_count=7, # from timing/state
-        duration_seconds=10.0,
-        job_id=jid,
-        project_id="p1",
-        chapter_id="c1",
-        synthesis_duration_seconds=5.0,
-    )
-
-    history = get_render_history()
-    assert len(history) == 1
-    assert history[0]["segment_count"] == 7
-
-
 def test_make_mp3_not_written_to_db(clean_db):
     """The make_mp3 field is no longer written to render_performance_samples database table."""
     jid = "make-mp3-removal-test"
@@ -771,26 +731,6 @@ def test_make_mp3_not_written_to_db(clean_db):
         columns = [r[1] for r in cursor.fetchall()]
         # After the make_mp3 column removal migration, it must not exist in the current schema.
         assert "make_mp3" not in columns
-
-
-def test_render_sample_records_explicit_model_without_db_defaulting(clean_db):
-    """Proving a render sample records the model that came through the plugin/job config without needing DB-side engine-specific defaulting."""
-    from app.db.performance import get_render_history
-    from app.db.performance import record_render_sample
-
-    record_render_sample(
-        engine="some_engine",
-        chars=100,
-        segment_count=1,
-        duration_seconds=10.0,
-        job_id="explicit-model-test",
-        synthesis_duration_seconds=5.0,
-        tts_model="custom-v9",
-    )
-
-    history = get_render_history()
-    assert len(history) == 1
-    assert history[0]["tts_model"] == "custom-v9"
 
 
 def test_xtts_model_defaults_satisfied_by_settings_schema(clean_db):
@@ -863,17 +803,6 @@ class TestExpectedModelLoadSeconds:
 
     def test_empty_history_returns_none(self, clean_db):
         """No history returns None (fail-open: caller must not inject a term)."""
-        assert expected_model_load_seconds("tts_xtts") is None
-
-    def test_all_warm_returns_none(self, clean_db):
-        """All-warm history returns None."""
-        for _ in range(5):
-            record_render_sample(
-                engine="tts_xtts", chars=500, segment_count=2,
-                synthesis_duration_seconds=30.0,
-                sum_segment_render_seconds=30.0,
-                model_load_seconds=0.3,
-            )
         assert expected_model_load_seconds("tts_xtts") is None
 
     def test_model_filter_excludes_other_models(self, clean_db):

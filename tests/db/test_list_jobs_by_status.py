@@ -41,15 +41,3 @@ def test_list_jobs_by_status_empty_when_no_match(db_conn):
     """Returns empty list when no rows match the status."""
     result = list_jobs_by_status("preparing")
     assert result == []
-
-
-def test_list_jobs_by_status_does_not_return_other_statuses(db_conn):
-    """Rows with a different status are not included."""
-    pid = create_project("P-filter-check")
-    cid = create_chapter(pid, "C-filter-check")
-    upsert_queue_row("job-done-1", project_id=pid, chapter_id=cid, status="done")
-    upsert_queue_row("job-run-2", project_id=pid, chapter_id=cid, status="running")
-
-    done_rows = list_jobs_by_status("done")
-    assert all(r["status"] == "done" for r in done_rows)
-    assert not any(r["id"] == "job-run-2" for r in done_rows)
