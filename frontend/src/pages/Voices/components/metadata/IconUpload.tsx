@@ -40,40 +40,28 @@ export function IconUpload({
         : null;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
+        <div className="metadata-field">
+            <label className="metadata-field-label">
                 ICON
             </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{
-                    width: '64px',
-                    height: '64px',
-                    borderRadius: '12px',
-                    border: '1px solid var(--border)',
-                    background: 'var(--surface-dim)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    overflow: 'hidden',
-                    flexShrink: 0,
-                }}>
+            <div className="metadata-icon-upload__row">
+                <div className="metadata-icon-upload__preview">
                     {iconUrl ? (
                         <img src={iconUrl} alt="Voice icon" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
                         <Upload size={24} style={{ color: 'var(--text-muted)' }} />
                     )}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div className="metadata-icon-upload__actions">
                     <button
                         type="button"
                         disabled={uploading}
                         onClick={() => inputRef.current?.click()}
-                        className="btn-glass"
-                        style={{ height: '36px', padding: '0 14px', fontSize: '0.8rem', fontWeight: 700 }}
+                        className="btn-glass metadata-icon-upload__btn"
                     >
                         {uploading ? 'Uploading…' : (iconUrl ? 'Replace icon' : 'Upload icon')}
                     </button>
-                    <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0 }}>
+                    <p className="metadata-field-hint">
                         Square image required (1:1). PNG, JPEG, or WebP.
                     </p>
                     <input
