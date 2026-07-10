@@ -1,6 +1,6 @@
 {
   "at": "2026-07-10T23:37:50Z",
-  "commit": "aed2d9ff3eda4cfe9cb6556c453a10bd4264e817",
+  "commit": "f567681d3fc1d20cbf5c0b79c800d593c7ded2db",
   "task": "added compute_peaks_sidecar + probe_audio_stream_info backend helpers for lazy peaks-sidecar computation",
   "files": {
     "app/engines/audio_ops.py": {
