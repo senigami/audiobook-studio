@@ -1,0 +1,96 @@
+{
+  "at": "2026-07-09T21:00:00Z",
+  "commit": "uncommitted",
+  "task": "Phase 12 backlog item (design-docs/plans/active/master_agnostic_tasks.md line 93): 'Revisit voice settings placement outside the Script popup/right queue area.' Investigation traced the original phrasing back to design-docs/plans/_archive (Phase 12 doc history, commit 9f9dffc9): the note recommended exposing plugin-defined per-voice settings 'in a dropdown within the voice UI' instead of the Script popup. Relocated the plugin-defined per-voice settings form (previously the 'PLUGIN SETTINGS' block inside ScriptEditor.tsx, opened via the 'Script'/'Edit Recording Script' entry points) into a new standalone VoiceSettingsPanel + drawer, reached via a new 'Voice Settings' item in the voice catalog card's existing overflow (⋯) action menu. Persistence logic is unchanged: both drawers share the same editing session state (editingProfile/editingSettings/editingEngine) and the same save handler (handleSaveTestText), which still merges only the allowed synthesis_settings keys into one PATCH.",
+  "files": {
+    "frontend/src/pages/Voices/components/VoiceSettingsPanel.tsx": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "New presentational component: renders the JsonSchemaForm-based per-voice settings form (propertyFilter = engine.behavior.synthesis_settings) extracted from ScriptEditor.tsx, plus an explanatory blurb and its own 'Save Voice Settings' button (calls the passed-in onSave). Shows an empty-state message when the assigned engine has no synthesis_settings/settings_schema."
+    },
+    "frontend/src/pages/Voices/components/ScriptEditor.tsx": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Removed the 'PLUGIN SETTINGS' JsonSchemaForm block (and the now-unused `settings`/`onSettingsChange` props + JsonSchemaForm import + top-level activeEngine/synthesisSettings locals). ScriptEditor now covers only variant name, engine assignment, reference sample/voice asset id, help/privacy text, and the test-text script itself — no longer plugin settings."
+    },
+    "frontend/src/pages/Voices/components/index.ts": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Barrel export added for VoiceSettingsPanel."
+    },
+    "frontend/src/hooks/useVoicesTabState.ts": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Added `isVoiceSettingsOpen`/`setIsVoiceSettingsOpen` state, reset to false whenever `editingProfile` is cleared. Determines whether the shared editing session (editingProfile + its loaded testText/engine/settings/etc.) surfaces as the Script Editor drawer or the new Voice Settings drawer."
+    },
+    "frontend/src/pages/Voices/VoicesPage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "`onEditTestText` now explicitly sets isVoiceSettingsOpen=false before setEditingProfile (opens Script Editor drawer); new `onEditVoiceSettings` callback sets isVoiceSettingsOpen=true before setEditingProfile (opens Voice Settings drawer). Both passed down to VoicesTabContent; isVoiceSettingsOpen/setIsVoiceSettingsOpen passed to VoicesModals."
+    },
+    "frontend/src/pages/Voices/components/VoicesTabContent.tsx": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Added optional `onEditVoiceSettings` prop, forwarded to VoiceCatalogCard alongside the existing `onEditTestText`."
+    },
+    "frontend/src/pages/Voices/components/VoiceCatalogCard.tsx": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Added optional `onEditVoiceSettings` prop and a new 'Voice Settings' item (SlidersHorizontal icon) in the ⋯ ActionMenu, placed alongside 'Edit Recording Script'. Fires `onEditVoiceSettings?.(defaultProfile)` the same way the existing script-editor item fires `onEditTestText`."
+    },
+    "frontend/src/components/VoicesModals.tsx": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Added `isVoiceSettingsOpen`/`setIsVoiceSettingsOpen` props. The existing Script Editor Drawer now only opens when `editingProfile` is set AND `isVoiceSettingsOpen` is false; a new Drawer ('Voice Settings: {variantName}') renders VoiceSettingsPanel when `isVoiceSettingsOpen` is true, wired to the same editingEngine/editingSettings/handleSaveTestText/isSavingText as before — no new API calls."
+    },
+    "frontend/tests/unit/pages/Voices/components/ScriptEditor.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Removed now-unused `settings`/`onSettingsChange` props from all render calls (props no longer exist on ScriptEditorProps)."
+    },
+    "frontend/tests/unit/pages/Voices/components/VoiceCatalogCard.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Updated 'action menu contains all N expected items' from 6 to 7 items (added 'Voice Settings'); added a test that clicking 'Voice Settings' fires onEditVoiceSettings with the default profile."
+    },
+    "frontend/tests/unit/pages/Voices/components/VoicesTabContent.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added onEditVoiceSettings to baseProps and a forwarding test mirroring the existing onEditTestText forwarding test."
+    },
+    "frontend/tests/unit/pages/Voices/VoicesPage.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added an end-to-end test exercising the real catalog-card -> action-menu -> 'Voice Settings' -> VoicesModals -> VoiceSettingsPanel drawer path, asserting the Voice Settings drawer opens (title contains 'Voice Settings:') and that it is distinct from the Script Editor drawer (does not show 'Suggest from voice qualities')."
+    },
+    "frontend/tests/unit/pages/Voices/components/VoiceSettingsPanel.test.tsx": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "New test file: renders the settings form when the engine exposes synthesis_settings, shows the empty state otherwise, calls onSave when the Save button is clicked, and disables the Save button while isSaving."
+    },
+    "design-docs/plans/active/master_agnostic_tasks.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Marked the 'Revisit voice settings placement' line [x] with a note on what changed."
+    },
+    "design-docs/plans/TASKS.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Surgical edit to the shared Phase-12 owner-decisions bullet (line ~391): removed 'voice-settings placement' from the pending list, noted as done with a pointer to master_agnostic_tasks.md. Left the other 3 owner-decision items on that shared line untouched."
+    }
+  },
+  "flow_impact": "Pure UI-placement change within the Voices tab; no backend/API changes, no persistence-shape changes. The Script Editor drawer and the new Voice Settings drawer both key off the same shared editing-session state (editingProfile/editingEngine/editingSettings/etc. from useVoicesTabState) and the same save handler (handleSaveTestText in useVoicesTabActions) — only the *visibility* of which drawer is shown for a given editingProfile changed (gated by the new isVoiceSettingsOpen flag). VoiceCatalogCard's action menu grew from 6 to 7 items.",
+  "tests_added": [
+    "frontend/tests/unit/pages/Voices/components/VoiceSettingsPanel.test.tsx (new, 4 tests)",
+    "frontend/tests/unit/pages/Voices/components/VoiceCatalogCard.test.tsx: 'Voice Settings fires onEditVoiceSettings...' test",
+    "frontend/tests/unit/pages/Voices/components/VoicesTabContent.test.tsx: 'forwards onEditVoiceSettings...' test",
+    "frontend/tests/unit/pages/Voices/VoicesPage.test.tsx: 'wires the catalog card \"Voice Settings\" action...' end-to-end test"
+  ],
+  "verification": {
+    "frontend_tests_scoped": "npx vitest run --maxWorkers=1 tests/unit/pages/Voices tests/unit/pages/VoiceLab tests/unit/hooks/useVoicesTabActions.test.tsx -> 23 files, 179 tests, all passed",
+    "frontend_tests_full": "npx vitest run --maxWorkers=1 -> 218 files, 1802 tests, all passed",
+    "lint": "npm run lint -> 0 errors, 50 pre-existing warnings (unrelated files, react-refresh/only-export-components)",
+    "build": "npm run build -> succeeded (tsc -b && vite build)",
+    "live_preview": "Not performed — no browser-control tool available in this session; a Vite dev server was already running but pointed at a different checkout (/Users/stevendunn/GitHub-Steven/audiobook-factory/frontend), not this worktree. Relied on the automated test suite + build for verification; recommend the owner spot-check the new 'Voice Settings' menu item/drawer visually."
+  }
+}

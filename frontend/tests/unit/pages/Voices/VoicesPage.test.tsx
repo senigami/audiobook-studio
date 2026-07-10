@@ -283,6 +283,23 @@ describe('VoicesTab', () => {
         expect(await screen.findByText('Suggest from voice qualities')).toBeInTheDocument()
     })
 
+    it('wires the catalog card "Voice Settings" action to open the standalone Voice Settings drawer (not the Script Editor)', async () => {
+        // Phase 12 backlog: per-voice plugin settings were relocated out of the Script
+        // Editor drawer into their own drawer, reached via a distinct "Voice Settings"
+        // action menu item. This exercises the full path: catalog card action menu
+        // → state.setEditingProfile/setIsVoiceSettingsOpen → VoicesModals → VoiceSettingsPanel drawer.
+        await act(async () => {
+            render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
+        })
+
+        const actionMenus = await screen.findAllByRole('button', { name: /more actions/i })
+        fireEvent.click(actionMenus[0])
+        fireEvent.click(await screen.findByText('Voice Settings'))
+
+        expect(await screen.findByText(/Voice Settings:/)).toBeInTheDocument()
+        expect(screen.queryByText('Suggest from voice qualities')).not.toBeInTheDocument()
+    })
+
     it('filters voices by engine', async () => {
         await act(async () => {
             render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)

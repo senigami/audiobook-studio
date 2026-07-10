@@ -83,6 +83,7 @@ describe('VoicesTabContent', () => {
         engines: [readyEngine],
         onCreateClick: vi.fn(),
         onEditTestText: vi.fn(),
+        onEditVoiceSettings: vi.fn(),
         voiceMetadataMap: new Map(),
         onEditMetadata: vi.fn(),
         onNavigateToLab: vi.fn(),
@@ -95,5 +96,14 @@ describe('VoicesTabContent', () => {
         fireEvent.click(screen.getByText('Edit Recording Script'));
 
         expect(baseProps.onEditTestText).toHaveBeenCalledWith(readyProfile);
+    });
+
+    it('forwards onEditVoiceSettings to the rendered VoiceCatalogCard, wired to "Voice Settings"', () => {
+        render(<VoicesTabContent {...baseProps} />);
+
+        fireEvent.click(screen.getByRole('button', { name: /more actions/i }));
+        fireEvent.click(screen.getByText('Voice Settings'));
+
+        expect(baseProps.onEditVoiceSettings).toHaveBeenCalledWith(readyProfile);
     });
 });

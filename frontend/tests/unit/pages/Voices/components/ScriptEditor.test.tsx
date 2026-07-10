@@ -37,8 +37,6 @@ describe('ScriptEditor', () => {
                 availableSamples={[]}
                 engineVoiceId=""
                 onEngineVoiceIdChange={vi.fn()}
-                settings={{}}
-                onSettingsChange={vi.fn()}
                 onResetTestText={onResetTestText}
                 onSave={onSave}
                 isSaving={false}
@@ -77,8 +75,6 @@ describe('ScriptEditor', () => {
                 availableSamples={[]}
                 engineVoiceId=""
                 onEngineVoiceIdChange={vi.fn()}
-                settings={{}}
-                onSettingsChange={vi.fn()}
                 onResetTestText={vi.fn()}
                 onSave={vi.fn()}
                 isSaving={true}
@@ -103,8 +99,6 @@ describe('ScriptEditor', () => {
                 availableSamples={['sample1.wav']}
                 engineVoiceId="voice-123"
                 onEngineVoiceIdChange={vi.fn()}
-                settings={{}}
-                onSettingsChange={vi.fn()}
                 onResetTestText={vi.fn()}
                 onSave={vi.fn()}
                 isSaving={false}
@@ -131,8 +125,6 @@ describe('ScriptEditor', () => {
                 availableSamples={[]}
                 engineVoiceId=""
                 onEngineVoiceIdChange={vi.fn()}
-                settings={{}}
-                onSettingsChange={vi.fn()}
                 onResetTestText={vi.fn()}
                 onSave={vi.fn()}
                 isSaving={false}
@@ -158,8 +150,6 @@ describe('ScriptEditor', () => {
                 availableSamples={[]}
                 engineVoiceId=""
                 onEngineVoiceIdChange={vi.fn()}
-                settings={{}}
-                onSettingsChange={vi.fn()}
                 onResetTestText={vi.fn()}
                 onSave={vi.fn()}
                 isSaving={false}
@@ -183,8 +173,6 @@ describe('ScriptEditor', () => {
             availableSamples: [],
             engineVoiceId: '',
             onEngineVoiceIdChange: vi.fn(),
-            settings: {},
-            onSettingsChange: vi.fn(),
             onResetTestText: vi.fn(),
             onSave: vi.fn(),
             isSaving: false,
