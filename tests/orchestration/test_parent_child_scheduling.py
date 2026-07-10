@@ -139,6 +139,7 @@ class TestCap2ChildrenRunConcurrently:
 
         entered = threading.Event()
         release = threading.Event()
+        both_arrived = threading.Event()
         active_count = [0]
         max_observed = [0]
         lock = threading.Lock()
@@ -151,6 +152,9 @@ class TestCap2ChildrenRunConcurrently:
             entered.set()
             try:
                 first_two_arrived.wait()
+                # The barrier only releases once 2 children have arrived
+                # concurrently — signal the main thread instead of polling.
+                both_arrived.set()
             except threading.BrokenBarrierError:
                 pass
             release.wait(timeout=5)
@@ -165,18 +169,12 @@ class TestCap2ChildrenRunConcurrently:
         def _run_chapter():
             result_holder["result"] = task.run()
 
-        # Give the barrier-waiting children a moment to release once 2 have
-        # arrived: release the barrier participants shortly after.
-        def _releaser():
-            first_two_arrived.wait(timeout=5) if False else None
-
         t = threading.Thread(target=_run_chapter, daemon=True)
         with patch.object(SegmentSynthesisTask, "run", _fake_run):
             t.start()
-            # Wait until at least 2 children are concurrently active, then release.
-            deadline = time.monotonic() + 5
-            while time.monotonic() < deadline and max_observed[0] < 2:
-                time.sleep(0.005)
+            # Wait until at least 2 children are concurrently active (the
+            # 2-party barrier releasing proves it), then release them.
+            assert both_arrived.wait(timeout=5), "expected 2 children to become concurrently active"
             release.set()
             t.join(timeout=10)
 
@@ -327,13 +325,11 @@ class TestCancelStopsAllChildren:
 
         def _fake_run(self):
             started.set()
-            # Poll the shared stop event the parent sets on cancel().
-            deadline = time.monotonic() + 5
-            while time.monotonic() < deadline:
-                if self.stop_event.is_set():
-                    cancel_seen_by_children.set()
-                    return TaskResult(status="cancelled")
-                time.sleep(0.005)
+            # Block on the shared stop event the parent sets on cancel()
+            # instead of polling it on a sleep interval.
+            if self.stop_event.wait(timeout=5):
+                cancel_seen_by_children.set()
+                return TaskResult(status="cancelled")
             writes_after_cancel.append(self.task_id)
             return TaskResult(status="completed")
 

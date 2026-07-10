@@ -2144,10 +2144,7 @@ def test_start_segment_proportional_eta(clean_db, tmp_path, monkeypatch):
          patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"):
 
         mock_reg.return_value.get_handler.return_value = lambda *args, **kwargs: None
-        try:
-            mixin._dispatch(task=task, context=context)
-        except Exception:
-            pass
+        mixin._dispatch(task=task, context=context)
 
     assert listener_cb[0] is not None
     listener = listener_cb[0]

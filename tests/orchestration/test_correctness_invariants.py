@@ -802,10 +802,12 @@ class TestConcurrentAdmissionWaits:
 
         reservation_attempts = {"count": 0}
         slot_freed = threading.Event()
+        first_denial_seen = threading.Event()
 
         def _fake_reserve(*, task_type, resource_claims):
             reservation_attempts["count"] += 1
             if reservation_attempts["count"] == 1:
+                first_denial_seen.set()
                 return {"admitted": False, "waiting_reason": "engine-class slot busy"}
             # Slot frees up shortly after the first denial (simulating a
             # sibling child finishing its real render) — but only once the
@@ -843,10 +845,10 @@ class TestConcurrentAdmissionWaits:
         ):
             t = threading.Thread(target=_run, daemon=True)
             t.start()
-            # Give the child a moment to hit the first denial and enter its
-            # wait loop, then free the slot — proving it polls rather than
+            # Wait for the child to hit the first denial and enter its wait
+            # loop, then free the slot — proving it polls rather than
             # burning a single instant retry.
-            time.sleep(0.1)
+            assert first_denial_seen.wait(timeout=5), "child never hit the first admission denial"
             slot_freed.set()
             finished.wait(timeout=5)
 

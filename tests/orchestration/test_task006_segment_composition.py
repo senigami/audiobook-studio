@@ -737,12 +737,12 @@ class TestOwnerAcceptance43Composition:
         }, sample=True)
 
         eta = result.get("eta_seconds")
+        assert eta is not None, "expected a composed eta_seconds, got None"
         # Ceiling with velocity from ring (≈1/60 progress/s from 30s ETA)
         # → ceiling ≈ 1.3 * 0.5 / (1/60) = 39s.  At most 200s to be generous.
-        if eta is not None:
-            assert eta < 200, (
-                f"Composition with ceiling must bound absurd ETAs, got {eta}s"
-            )
+        assert eta < 200, (
+            f"Composition with ceiling must bound absurd ETAs, got {eta}s"
+        )
 
     def test_cold_start_last_segment_eta_does_not_drop_below_segment_eta(self):
         """Near end of chapter: cold-start last segment's composed ETA must not
