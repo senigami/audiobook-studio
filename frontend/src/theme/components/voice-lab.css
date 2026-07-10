@@ -1051,3 +1051,45 @@
   border: 1px solid var(--border);
   background: var(--surface);
 }
+
+/* ---------------------------------------------------------------------------
+ * IconUpload (metadata editor) — ST-3 conversion (task 014, 2/6)
+ * --------------------------------------------------------------------------- */
+
+.metadata-field-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.metadata-icon-upload__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.metadata-icon-upload__preview {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.metadata-icon-upload__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.metadata-icon-upload__btn {
+  height: 36px;
+  padding: 0 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
