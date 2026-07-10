@@ -1,6 +1,6 @@
 # Task 010 — DECISION + implement: Contents tab fate
 
-Status: pending — BLOCKED on owner decision
+Status: pending — decision recorded, ready for Step 2b (after Step 2b's precondition check)
 
 Risk: quality-sensitive
 
@@ -48,8 +48,18 @@ the orphaned `ManuscriptPane` — for an independent structural read before pres
 owner, since "which one is actually better" is a genuine design judgment call, not just a parity
 question.)*
 
-**Decision (A or B):** _pending_
-**Cross-book bookmark panel wanted:** _pending_
+**Decision (A or B):** Option B — the demo's slim chapter-board is the intended target; simplify
+live's `Contents` tab. Decided by the owner, 2026-07-10 (in this planning session). **Execute Step
+2b's precondition check first and do not skip it**: this task file's own Step 2b explicitly
+requires confirming the Chapter Workspace's Write mode fully covers every editing need the
+Contents-tab inline `ChapterTextPanel` currently serves (e.g. bulk/multi-chapter editing) before
+removing it — INV-1 (capabilities never vanish) applies here more than almost anywhere else in this
+plan. If that check finds a capability that would be lost, stop and escalate back to the owner with
+specifics rather than proceeding on this recorded decision as if it settles the implementation
+risk too.
+
+**Cross-book bookmark panel wanted:** Yes — add it. Decided by the owner, 2026-07-10. Reuses the
+existing `store/bookmarks.ts` per Step 3 — do not build a second bookmark data model.
 
 ## Step 2a — If Option A (demo needs updating, live stays as-is)
 

@@ -25,18 +25,14 @@ changes, so err toward keeping the mock honest rather than skipping it).
 ## Part B — Orphaned `ManuscriptPane` in `panes/book.tsx`
 
 `ManuscriptPane` (`panes/book.tsx:610-1196`) is exported but never imported anywhere in
-`siteMockupStage.tsx`. Per task 010's decision (this task depends on that decision being recorded
-first):
+`siteMockupStage.tsx`.
 
-- If task 010 chose **Option A** (demo needs updating to match live's Contents tab): wire
-  `ManuscriptPane` (or a merge of it with `ContentsPane`'s render-percent board view) into
-  `siteMockupStage.tsx` in place of the current `ContentsPane` import, so the demo's wired Contents
-  tab actually matches what live does.
-- If task 010 chose **Option B** (live should be simplified to match demo's slim board): delete the
-  now-confirmed-obsolete `ManuscriptPane` export entirely — it no longer represents any intended
-  direction.
-- If task 010 is still undecided when this task executes: skip Part B, leave a note here, and
-  revisit once 010 resolves.
+**Task 010's decision (recorded 2026-07-10): Option B** — live's Contents tab is being simplified
+to match the demo's slim board, not the other way around. So `ManuscriptPane` is now
+confirmed-obsolete: **delete the export entirely** once task 010 has actually executed (do not
+delete it first — if task 010's Step 2b precondition check finds a capability that would be lost by
+simplifying live, task 010 may get re-escalated to the owner, and this deletion would need to be
+reverted). Sequence this after task 010's real-world outcome, not just its recorded decision.
 
 ## Part C — Note `studio.tsx`'s superseded status more clearly
 

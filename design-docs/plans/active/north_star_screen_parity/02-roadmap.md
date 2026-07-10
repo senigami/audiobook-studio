@@ -3,8 +3,10 @@
 ## Workload order
 
 Ordered by dependency and impact. Workloads 1–2 are independent of each other and can run in
-parallel; Workload 3 (decision-gated) should not start implementation until the owner has answered
-`00-overview.md`'s "Decisions needed"; Workload 4 is cleanup, lowest priority, do last or skip.
+parallel. Workload 2's decision-gated tasks (009, 010) are now unblocked — the owner recorded both
+decisions on 2026-07-10 (see `00-overview.md` "Decisions"). Task 010 still has an internal
+precondition check (Write-mode capability parity) that must pass before its removal step executes.
+Workload 4 is cleanup, lowest priority, do last or skip.
 
 ```
 Workload 0 (foundation, do first, ~5 min)
@@ -20,8 +22,10 @@ Workload 1 (Home/Library — the owner's explicit "Home Screen" complaint)
 
 Workload 2 (Book view / chapter list — the owner's explicit "Book view" complaint)
   ├─ 008 Chapter Workspace: status orb in ChapterDropdown  [independent]
-  ├─ 009 DECISION + implement: Backups tab fate            [owner decision required first]
-  └─ 010 DECISION + implement: Contents tab fate           [owner decision required first]
+  ├─ 009 Backups tab: build out real tab, slim Publish     [decision recorded 2026-07-10, ready]
+  └─ 010 Contents tab: match demo's slim board             [decision recorded 2026-07-10; internal
+                                                              Write-mode precondition check still gates
+                                                              the removal step]
 
 Workload 3 (visual verification — needs a live browser)
   └─ 011 Designer agent: screenshot-verify bookmark discoverability + Library header copy
@@ -42,8 +46,9 @@ Workload 4 (lower priority, demo-side + doc cleanup — do last or skip)
 
 008 ──► (independent)
 
-009 ──► requires owner decision recorded ──► implementation
-010 ──► requires owner decision recorded ──► implementation
+009 ──► decision recorded (build real tab, slim Publish) ──► Step 2b implementation, ready now
+010 ──► decision recorded (match demo's board) ──► internal precondition check ──► Step 2b
+         implementation (or re-escalation if the precondition check fails) ──► Step 3 (bookmark panel)
 
 011 ──► best run AFTER 002-004 land (so the screenshot comparison reflects the fixed state, not the
          pre-fix state) — but can also run standalone first as a baseline read if the owner wants

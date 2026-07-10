@@ -1,6 +1,6 @@
 # Task 009 — DECISION + implement: Backups tab fate
 
-Status: pending — BLOCKED on owner decision
+Status: pending — decision recorded, ready for Step 2b
 
 Risk: quality-sensitive
 
@@ -37,7 +37,11 @@ information architecture (Publish = "ship it", Backups = "safety net", not confl
 directly, or via the `design-critique`/`designer` agent profile for a structured recommendation —
 and records the answer here, with the date and who decided, before touching any code.)*
 
-**Decision:** _pending_
+**Decision:** Option B — build out the real `Backups` tab and slim `Publish` back to assembly-only.
+Decided by the owner, 2026-07-10 (in this planning session). Rationale given: the demo's separation
+of "ship it" (Publish) from "safety net" (Backups) is the preferred information architecture, even
+at higher implementation/re-test cost than removing the stub. Execute Step 2b when this task is
+picked up — do not re-derive or re-litigate this choice.
 
 ## Step 2a — If Option A (remove the stub tab)
 
