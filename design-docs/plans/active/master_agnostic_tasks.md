@@ -123,10 +123,17 @@ engine-agnostic historical checklist plus backlog parking lot. If a status confl
 
 ### Release-Relevant Checks
 
-- [ ] **Needs owner elaboration: Playwright/axe baseline execution.** Existing decision is axe now,
-  visual snapshots later. Clarify the practical rollout: whether to add axe to CI immediately,
-  run it manually during release validation only, or wait until the CI runner is stable enough to
-  own both axe and visual snapshots.
+- [x] **Playwright/axe baseline execution — resolved 2026-07-09.** Decision: axe runs in CI now
+  (not manual-only, not deferred). `.github/workflows/ci.yml`'s `a11y-axe` job already runs
+  `frontend/tests/e2e/a11y/axe.spec.ts` on every PR/main push, kept non-blocking (`test.fixme` +
+  `|| true`) so a browser-based check without a proven CI track record can't fail builds yet.
+  Expanded the scan from 1 page to 3 (home shell, Voices empty state, Chapter Workspace) × 2
+  themes, reusing the existing e2e network-mocking conventions
+  (`page.route`/`page.routeWebSocket`, same pattern as `chapter-render.spec.ts`); verified
+  locally (fixme temporarily removed) that all 6 cases run to completion and report real
+  findings rather than crashing — see the spec file's header for the current known-violations
+  list. Concrete gate criterion recorded in
+  `design-docs/plans/active/final_release/08_release_sequence.md` Stage 5.
 - [ ] **v1.html screenshots stale** (doc 14 step 7 remainder): re-shoot showcase screenshots on current 2.0 UI (post dark-theme).
 - [ ] **Settings → API tab honesty**: panel is documentation-only but its sidebar blurb promises auth/queue-priority config; either trim the blurb now or implement the Integrations page (north star Phase C).
 - [x] **Owner decisions in plan docs reconciled**: north-star Q1–Q6, sanitize override granularity, check_output retry policy, and Phase A gate are resolved in their source docs.
