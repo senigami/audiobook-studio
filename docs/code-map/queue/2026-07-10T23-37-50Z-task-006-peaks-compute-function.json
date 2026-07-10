@@ -1,0 +1,18 @@
+{
+  "at": "2026-07-10T23:37:50Z",
+  "commit": "aed2d9ff3eda4cfe9cb6556c453a10bd4264e817",
+  "task": "added compute_peaks_sidecar + probe_audio_stream_info backend helpers for lazy peaks-sidecar computation",
+  "files": {
+    "app/engines/audio_ops.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "adds compute_peaks_sidecar(wav_path) -> dict|None, versioned peaks sidecar contract"
+    },
+    "app/utils/subprocess_utils.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "adds probe_audio_stream_info(path) -> (sample_rate, channels)"
+    }
+  },
+  "flow_impact": "none yet — no caller wired until the serving route task lands"
+}
