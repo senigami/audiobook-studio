@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemoryRouter, useSearchParams } from 'react-router-dom';
@@ -145,6 +147,79 @@ describe('ReviseTool', () => {
     expect(await screen.findByText('The first segment.')).toBeInTheDocument();
     expect(mockUpdateSegment).not.toHaveBeenCalled();
     expect(mockGenerateSegments).not.toHaveBeenCalled();
+  });
+
+  describe('keyboard activation and shortcuts', () => {
+    it('pressing Enter on a segment starts editing (role="button" divs do not synthesize clicks from key events)', async () => {
+      renderReviseTool();
+
+      const segmentEl = (await screen.findByText('The first segment.')).closest('[role="button"]')!;
+      fireEvent.keyDown(segmentEl, { key: 'Enter' });
+
+      const textarea = await screen.findByRole('textbox', { name: /edit segment text/i });
+      expect(textarea).toHaveValue('The first segment.');
+    });
+
+    it('pressing Space on a segment starts editing', async () => {
+      renderReviseTool();
+
+      const segmentEl = (await screen.findByText('The first segment.')).closest('[role="button"]')!;
+      fireEvent.keyDown(segmentEl, { key: ' ' });
+
+      const textarea = await screen.findByRole('textbox', { name: /edit segment text/i });
+      expect(textarea).toHaveValue('The first segment.');
+    });
+
+    it('exposes a descriptive aria-label on the segment (not a bare "button")', async () => {
+      renderReviseTool();
+
+      const segmentEl = (await screen.findByText('The first segment.')).closest('[role="button"]')!;
+      expect(segmentEl).toHaveAttribute('aria-label', expect.stringMatching(/^Edit: The first segment\./));
+    });
+
+    it('the textarea receives focus when editing starts', async () => {
+      renderReviseTool();
+
+      const segmentEl = (await screen.findByText('The first segment.')).closest('[role="button"]')!;
+      fireEvent.click(segmentEl);
+
+      const textarea = await screen.findByRole('textbox', { name: /edit segment text/i });
+      expect(textarea).toHaveFocus();
+    });
+
+    it('Escape cancels an in-progress edit without calling the API', async () => {
+      renderReviseTool();
+
+      const segmentEl = (await screen.findByText('The first segment.')).closest('[role="button"]')!;
+      fireEvent.click(segmentEl);
+
+      const textarea = await screen.findByRole('textbox', { name: /edit segment text/i });
+      fireEvent.change(textarea, { target: { value: 'Some discarded draft.' } });
+      fireEvent.keyDown(textarea, { key: 'Escape' });
+
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+      expect(await screen.findByText('The first segment.')).toBeInTheDocument();
+      expect(mockUpdateSegment).not.toHaveBeenCalled();
+    });
+
+    it('Cmd+Enter (and Ctrl+Enter) commits the edit', async () => {
+      renderReviseTool();
+
+      const segmentEl = (await screen.findByText('The first segment.')).closest('[role="button"]')!;
+      fireEvent.click(segmentEl);
+
+      const textarea = await screen.findByRole('textbox', { name: /edit segment text/i });
+      fireEvent.change(textarea, { target: { value: 'The first segment, revised.' } });
+      fireEvent.keyDown(textarea, { key: 'Enter', metaKey: true });
+
+      await waitFor(() => {
+        expect(mockUpdateSegment).toHaveBeenCalledWith('s1', {
+          text_content: 'The first segment, revised.',
+          audio_status: 'unprocessed',
+        });
+      });
+      expect(mockGenerateSegments).toHaveBeenCalledWith(['s1']);
+    });
   });
 
   it('an edit that exceeds the character buffer with a clean sentence-boundary split still commits as a single segment (no backend support for inserting a new segment today) and shows the overflow hint', async () => {
@@ -310,6 +385,23 @@ describe('ReviseTool', () => {
 
       await screen.findByText('The first segment.');
       expect(mockSetDirty).toHaveBeenLastCalledWith(false);
+    });
+  });
+
+  describe('save button token pairing (design-system.md §2.1)', () => {
+    // jsdom in this project doesn't process the theme stylesheet (no `css: true`
+    // in vitest.config.ts), so computed-style assertions aren't available here.
+    // Read the source rule directly instead — this still fails on the pre-fix
+    // `color: var(--surface)` pairing and passes once it matches `.btn-primary`'s
+    // `background: var(--action-primary)` / `color: var(--on-action)` convention.
+    it('pairs --on-action with the accent background, matching .btn-primary\'s convention', () => {
+      const cssPath = resolve(process.cwd(), 'src/theme/components.css');
+      const css = readFileSync(cssPath, 'utf-8');
+
+      const saveBtnRule = css.match(/\.revise-text-view__save-btn\s*\{[^}]*\}/)?.[0];
+      expect(saveBtnRule).toBeTruthy();
+      expect(saveBtnRule).toMatch(/color:\s*var\(--on-action\)/);
+      expect(saveBtnRule).not.toMatch(/color:\s*var\(--surface\)/);
     });
   });
 });

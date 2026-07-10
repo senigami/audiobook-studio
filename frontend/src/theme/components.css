@@ -4008,6 +4008,14 @@
   padding: 4px 10px;
 }
 
+/* Persistent, quiet hint shown in place of the banner while not editing —
+   states the tab's own editability instead of relying on hover discovery. */
+.revise-tool__hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
 .revise-text-view {
   flex: 1;
   background: var(--surface);
@@ -4017,7 +4025,7 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 3px;
   min-height: 0;
 }
 
@@ -4040,24 +4048,47 @@
   border-radius: var(--radius-button);
   background: transparent;
   border: 1px solid transparent;
+  border-left: 2px solid var(--border-muted);
   cursor: pointer;
   font-weight: 400;
   transition: all 0.15s ease-in-out;
 }
 
-.revise-text-view__segment:hover {
+.revise-text-view__segment:hover,
+.revise-text-view__segment:focus-within {
   background: var(--surface-alt);
   color: var(--text-primary);
+  border-color: var(--border);
+  border-left-color: var(--border);
+}
+
+.revise-text-view__segment:hover .revise-text-view__edit-icon,
+.revise-text-view__segment:focus-within .revise-text-view__edit-icon {
+  opacity: 1;
+}
+
+.revise-text-view__edit-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.15s ease-in-out;
 }
 
 .revise-text-view__segment--readonly {
   cursor: default;
   opacity: 0.6;
+  border-left-color: var(--border-muted);
 }
 
 .revise-text-view__segment--readonly:hover {
   background: transparent;
   color: var(--text-secondary);
+  border-color: transparent;
+  border-left-color: var(--border-muted);
+}
+
+.revise-text-view__segment--readonly:hover .revise-text-view__edit-icon {
+  opacity: 0;
 }
 
 .revise-text-view__segment--editing {
@@ -4117,7 +4148,7 @@
 
 .revise-text-view__save-btn {
   background: var(--accent);
-  color: var(--surface);
+  color: var(--on-action);
   border: 1px solid var(--accent);
 }
 

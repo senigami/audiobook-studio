@@ -50,6 +50,7 @@ const ReviseToolBody: React.FC = () => {
   const [draftText, setDraftText] = useState('');
   const [savingId, setSavingId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   // Segments whose current text_content exceeds the engine's character
   // buffer — a passive (non-blocking) "running long" indicator, per the
   // design doc's overflow-with-no-clean-split behavior.
@@ -107,6 +108,18 @@ const ReviseToolBody: React.FC = () => {
     const originalText = segments.find((seg) => seg.id === editingId)?.text_content ?? '';
     setDirty(draftText !== originalText, 'Uncommitted segment edit');
   }, [editingId, draftText, segments, setDirty]);
+
+  // Move focus into the textarea (caret at the end of the text) as soon as
+  // an edit starts — otherwise focus stays on the segment div/button that
+  // triggered it, which is disorienting for keyboard and screen-reader users.
+  useEffect(() => {
+    if (!editingId) return;
+    const el = textareaRef.current;
+    if (!el) return;
+    el.focus();
+    const end = el.value.length;
+    el.setSelectionRange(end, end);
+  }, [editingId]);
 
   const handleStartEdit = (segment: ChapterSegment) => {
     if (savingId) return; // don't interrupt an in-flight save
@@ -173,14 +186,48 @@ const ReviseToolBody: React.FC = () => {
     }
   };
 
+  // A `role="button"` div does not synthesize clicks from Enter/Space the
+  // way a real `<button>` does, so keyboard activation has to be wired up
+  // explicitly here.
+  const handleSegmentKeyDown = (event: React.KeyboardEvent<HTMLDivElement>, segment: ChapterSegment) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault(); // Space otherwise scrolls the page
+      handleStartEdit(segment);
+    }
+  };
+
+  const handleTextareaKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      handleCancelEdit();
+      return;
+    }
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      if (savingId || draftText.trim().length === 0) return; // mirror the Save button's disabled guard
+      void handleCommit();
+    }
+  };
+
+  // First ~8 words of the segment text, for a descriptive aria-label on the
+  // clickable segment (screen readers announce more than a bare "button").
+  const getSegmentAriaLabel = (text: string) => {
+    const words = text.trim().split(/\s+/).filter(Boolean).slice(0, 8).join(' ');
+    return `Edit: ${words}…`;
+  };
+
   return (
     <div className="revise-tool" data-testid="revise-tool">
       <div className="revise-tool__topbar">
         <h2 className="revise-tool__title">{selectedChapter?.title || 'Revise'}</h2>
-        {editingId && (
+        {editingId ? (
           <div className="revise-tool__banner" role="status">
             Editing — save to re-render this section.
           </div>
+        ) : (
+          <p className="revise-tool__hint">
+            Click any passage to edit — saving re-renders that segment.
+          </p>
         )}
       </div>
 
@@ -200,9 +247,11 @@ const ReviseToolBody: React.FC = () => {
               return (
                 <div key={seg.id} className="revise-text-view__segment revise-text-view__segment--editing">
                   <textarea
+                    ref={textareaRef}
                     className="revise-text-view__textarea"
                     value={draftText}
                     onChange={(e) => setDraftText(e.target.value)}
+                    onKeyDown={handleTextareaKeyDown}
                     disabled={isSaving}
                     aria-label="Edit segment text"
                     rows={Math.max(3, Math.ceil(draftText.length / 60))}
@@ -244,12 +293,15 @@ const ReviseToolBody: React.FC = () => {
               <div
                 key={seg.id}
                 onClick={() => handleStartEdit(seg)}
+                onKeyDown={(e) => handleSegmentKeyDown(e, seg)}
                 className={`revise-text-view__segment${isReadOnly ? ' revise-text-view__segment--readonly' : ''}`}
                 role="button"
                 tabIndex={isReadOnly ? -1 : 0}
                 aria-disabled={isReadOnly}
+                aria-label={getSegmentAriaLabel(seg.text_content)}
               >
                 <span>{seg.text_content}</span>
+                <PenLine size={12} aria-hidden="true" className="revise-text-view__edit-icon" />
                 {isLong && (
                   <span className="revise-text-view__long-badge" title={`Exceeds ~${ENGINE_CHAR_LIMIT} char buffer — running long`}>
                     <AlertTriangle size={12} aria-hidden="true" />
