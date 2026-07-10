@@ -111,7 +111,7 @@ engine-agnostic historical checklist plus backlog parking lot. If a status confl
 - [ ] Revisit voice settings placement outside the Script popup/right queue area.
 - [x] Voice metadata A-F complete: HF-aligned bundle export/import, icon upload, searchable tags, structured attributes, Voice Lab catalog UI, and docs. Current release tracking lives in `design-docs/plans/final_release/road_to_v2.md` Stage 4.
 - [ ] Complete Taxonomy v2 Phase G: language, accent, style, category-tinted pills/+N overflow, and HF `as-*` tags.
-- [ ] Verify system API surface for future third-party/LLM controller plugins.
+- [x] Verify system API surface for future third-party/LLM controller plugins. Audited `app/api/tts_api.py` — adequate for engine discovery, submit/poll/retrieve, and consistent structured errors; found and fixed a real auth gap (S12: `/api/v1/tts/docs` + `/api/v1/tts/openapi` were reachable without `verify_api_key`/`rate_limit`). See `design-docs/plans/active/final_release/12_security_and_opportunities.md` (2026-07-09 entry).
 - [x] Show queue output metadata such as generated audio duration/length.
 - [x] Remove legacy Chapter Editor Production, Performance, and Preview tabs/code.
 - [x] Rework crowded Chapter Editor menu bar and remove duplicate preparing pill.

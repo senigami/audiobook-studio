@@ -1,9 +1,9 @@
 # Security
 
 ```
-spec_version: 1.2.3
+spec_version: 1.2.4
 status: active
-updated: 2026-06-21
+updated: 2026-07-09
 sources:
   - app/utils/pathing.py
   - app/core/security.py
@@ -19,6 +19,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.2.4   | 2026-07-09 | S12: `/api/v1/tts/docs` and `/api/v1/tts/openapi` were reachable without `verify_api_key`/`rate_limit` (FastAPI's auto-generated docs/openapi routes bypass constructor-level `dependencies=[...]`). Fixed by disabling the auto-generated routes and serving them as ordinary router routes on the sub-app, which do inherit the dependencies. Scope note added above. |
 | 1.2.3   | 2026-06-21 | S6: Added WebSocket Origin check to `/ws` to prevent cross-site WebSocket hijacking (CSWSH). Absent Origin → allowed (non-browser clients); present Origin → allowed only if host is localhost/127.0.0.1/[::1] or matches the server's own Host header; otherwise close(1008). LAN exposure note documented. |
 | 1.2.2   | 2026-06-21 | Documented the rate limiter's known limitations (S7): in-memory/per-process (resets on restart, not shared across workers) and IP-keyed (shared behind NAT, no per-API-key bucketing). Behavior unchanged — documentation only. |
 | 1.2.1   | 2026-06-16 | Code brought into compliance with the no-path-leak invariant: plugin import/preview/install error bodies (`app/tts_server/server.py`) no longer echo the submitted zip member name, `engine_id`, or target folder path — they now return generic messages. (Invariant text unchanged.) |
@@ -79,6 +80,8 @@ Both forms are recognized by CodeQL's `py/path-injection` model as sanitizers wh
 ### Scope
 
 `verify_api_key()` is an HTTPBearer FastAPI dependency applied to the external TTS API sub-app (`/api/v1/tts`) only. It is NOT applied to Studio's own internal routes.
+
+This scope includes the sub-app's own OpenAPI docs (`/api/v1/tts/docs`) and schema (`/api/v1/tts/openapi`). FastAPI's `docs_url`/`openapi_url` auto-registered routes are added via plain Starlette `add_route()`, which bypasses the FastAPI dependency-injection system — `dependencies=[...]` passed to the `FastAPI()` constructor does **not** protect them. `app/api/tts_api.py` therefore disables the auto-generated routes (`docs_url=None`, `openapi_url=None`, `redoc_url=None`) and serves `/docs`/`/openapi` itself as ordinary routes on the sub-app's router, so they inherit `verify_api_key` + `rate_limit` like every other route (found + fixed 2026-07-09; see `design-docs/plans/active/final_release/12_security_and_opportunities.md` S12).
 
 ### Behavior
 

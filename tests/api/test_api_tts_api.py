@@ -192,6 +192,47 @@ def test_voice_ref_valid_profile_name_passes(auth_client, monkeypatch, tmp_path)
     assert response.status_code == 200, response.json()
 
 
+# --- Auth coverage on the docs/OpenAPI routes ---
+#
+# FastAPI's auto-generated docs/openapi/redoc routes (docs_url/openapi_url on
+# the FastAPI() constructor) are registered via add_route(), which bypasses
+# the dependency-injection system entirely -- so `dependencies=[...]` passed
+# to the constructor does NOT protect them. tts_api.py serves its own
+# /docs and /openapi routes on `router` instead so they inherit the same
+# verify_api_key + rate_limit enforcement as every other endpoint. These
+# tests guard against that regressing.
+
+def test_docs_requires_auth(client):
+    """GET /docs must require the API key like every other route."""
+    update_settings({"tts_api_enabled": True, "tts_api_key": "secret"})
+    response = client.get("/api/v1/tts/docs")
+    assert response.status_code == 401
+
+def test_openapi_requires_auth(client):
+    """GET /openapi must require the API key like every other route."""
+    update_settings({"tts_api_enabled": True, "tts_api_key": "secret"})
+    response = client.get("/api/v1/tts/openapi")
+    assert response.status_code == 401
+
+def test_docs_rejected_when_api_disabled(client):
+    """GET /docs must respect tts_api_enabled like every other route."""
+    update_settings({"tts_api_enabled": False})
+    response = client.get("/api/v1/tts/docs")
+    assert response.status_code == 403
+
+def test_docs_and_openapi_accessible_with_valid_key(auth_client):
+    """With a valid key, /docs and /openapi should still work normally."""
+    docs_response = auth_client.get("/api/v1/tts/docs")
+    assert docs_response.status_code == 200
+    assert "swagger" in docs_response.text.lower()
+
+    openapi_response = auth_client.get("/api/v1/tts/openapi")
+    assert openapi_response.status_code == 200
+    schema = openapi_response.json()
+    assert "paths" in schema
+    assert "/engines" in schema["paths"]
+
+
 def test_get_job_status(auth_client, monkeypatch):
     """GET /jobs/{id} should return status from state.json."""
     from app.db.state import put_job, Job
