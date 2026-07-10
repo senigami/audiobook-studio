@@ -85,13 +85,6 @@ describe('SamplesSection', () => {
         });
     });
 
-    it('renders the Samples section label', () => {
-        render(<SamplesSection profiles={[mockProfile]} onRefresh={vi.fn()} />);
-        // Multiple elements with "Samples" text exist (section label + SampleManager title)
-        const labels = screen.getAllByText(/Samples/);
-        expect(labels.length).toBeGreaterThan(0);
-    });
-
     it('passes the profile to SampleManager (wav count shown)', () => {
         render(<SamplesSection profiles={[mockProfile]} onRefresh={vi.fn()} />);
         // SampleManager shows the sample count in its header
@@ -101,11 +94,5 @@ describe('SamplesSection', () => {
     it('shows empty state when no profiles are provided', () => {
         render(<SamplesSection profiles={[]} onRefresh={vi.fn()} />);
         expect(screen.getByText(/No profile found/i)).toBeInTheDocument();
-    });
-
-    it('renders the SampleManager component (expand/collapse button present)', () => {
-        render(<SamplesSection profiles={[mockProfile]} onRefresh={vi.fn()} />);
-        const expandBtn = screen.getByRole('button', { name: /expand samples|collapse samples/i });
-        expect(expandBtn).toBeInTheDocument();
     });
 });

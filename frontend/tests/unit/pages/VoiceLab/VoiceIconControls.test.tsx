@@ -20,6 +20,7 @@ vi.mock('@/api', () => ({
 }));
 
 import { VoiceIconControls } from '@/pages/VoiceLab/components/VoiceIconControls';
+import { api } from '@/api';
 
 const mockMeta: VoiceMetadata = {
     id: 'voice-abc',
@@ -44,14 +45,18 @@ describe('VoiceIconControls', () => {
         vi.useRealTimers();
     });
 
-    it('renders the copy icon prompt button', () => {
-        render(<VoiceIconControls voiceId="voice-abc" metadata={mockMeta} onIconUploaded={vi.fn()} />);
-        expect(screen.getByRole('button', { name: /copy icon prompt/i })).toBeInTheDocument();
-    });
+    it('uploads a chosen file through the hidden file input and reports the new icon path', async () => {
+        const onIconUploaded = vi.fn();
+        render(<VoiceIconControls voiceId="voice-abc" metadata={mockMeta} onIconUploaded={onIconUploaded} />);
 
-    it('renders the upload icon button', () => {
-        render(<VoiceIconControls voiceId="voice-abc" metadata={mockMeta} onIconUploaded={vi.fn()} />);
-        expect(screen.getByRole('button', { name: /upload voice icon/i })).toBeInTheDocument();
+        const file = new File(['icon-bytes'], 'icon.png', { type: 'image/png' });
+        const fileInput = screen.getByLabelText(/upload voice icon file/i) as HTMLInputElement;
+
+        const user = userEvent.setup();
+        await user.upload(fileInput, file);
+
+        await waitFor(() => expect(onIconUploaded).toHaveBeenCalledWith('/img.jpg'));
+        expect(api.uploadVoiceIcon).toHaveBeenCalledWith('voice-abc', file);
     });
 
     it('copies a non-empty string to clipboard on click', async () => {

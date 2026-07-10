@@ -22,28 +22,37 @@ describe('Voice Utils', () => {
 
             expect(screen.getByText('Test Drawer')).toBeInTheDocument();
             expect(screen.getByText('Content')).toBeInTheDocument();
-            
-            // X button
-            const buttons = screen.getAllByRole('button');
-            const closeBtn = buttons.find(b => b.innerHTML.includes('svg'));
-            if (closeBtn) fireEvent.click(closeBtn);
-            
+
+            fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
             expect(onClose).toHaveBeenCalled();
         });
 
-        it('handles resizing', () => {
-            const { container } = render(
+        it('resizes the drawer width by dragging the resize handle, and stops on mouseup', () => {
+            render(
                 <Drawer isOpen={true} onClose={vi.fn()} title="Resizer">
                     <div>Content</div>
                 </Drawer>
             );
 
-            const handle = container.querySelector('.resize-handle');
-            if (handle) {
-                fireEvent.mouseDown(handle);
-                fireEvent.mouseMove(window, { clientX: 500 });
-                fireEvent.mouseUp(window);
-            }
+            const dialog = screen.getByRole('dialog', { name: 'Resizer' });
+            expect(dialog.style.width).toBe('800px');
+
+            // Drawer renders through a portal onto document.body, so query via
+            // screen (whole document) rather than the RTL render container.
+            const handle = screen.getByRole('separator', { name: 'Resize drawer' });
+
+            fireEvent.mouseDown(handle);
+            fireEvent.mouseMove(window, { clientX: 500 });
+
+            const resizedWidth = `${window.innerWidth - 500}px`;
+            expect(dialog.style.width).toBe(resizedWidth);
+
+            fireEvent.mouseUp(window);
+
+            // Once released, further mouse movement must not keep resizing the drawer.
+            fireEvent.mouseMove(window, { clientX: 200 });
+            expect(dialog.style.width).toBe(resizedWidth);
         });
     });
 
