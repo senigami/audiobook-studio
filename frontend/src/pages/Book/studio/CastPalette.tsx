@@ -82,37 +82,19 @@ function TierHeader({ label, count, open, onToggle, alwaysOpen }: TierHeaderProp
       role={alwaysOpen ? undefined : 'button'}
       tabIndex={alwaysOpen ? undefined : 0}
       aria-expanded={alwaysOpen ? undefined : open}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 4,
-        padding: '3px var(--space-2)',
-        borderTop: '1px solid var(--hairline)',
-        borderBottom: '1px solid var(--hairline)',
-        background: 'var(--surface-alt)',
-        cursor: alwaysOpen ? 'default' : 'pointer',
-        userSelect: 'none',
-        flexShrink: 0,
-        marginTop: 4,
-      }}
+      className="cast-palette__tier-header"
+      style={{ cursor: alwaysOpen ? 'default' : 'pointer' }}
     >
-      <span style={{
-        flex: 1,
-        fontSize: 'var(--type-micro)',
-        fontWeight: 700,
-        letterSpacing: '0.07em',
-        textTransform: 'uppercase',
-        color: 'var(--text-muted)',
-      }}>
+      <span className="cast-palette__tier-header-label">
         {label}
       </span>
-      <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginRight: alwaysOpen ? 0 : 2 }}>
+      <span className="label-micro-muted" style={{ marginRight: alwaysOpen ? 0 : 2 }}>
         {count}
       </span>
       {!alwaysOpen && (
         open
-          ? <ChevronUp size={10} aria-hidden="true" style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-          : <ChevronDown size={10} aria-hidden="true" style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+          ? <ChevronUp size={10} aria-hidden="true" className="cast-palette__tier-chevron" />
+          : <ChevronDown size={10} aria-hidden="true" className="cast-palette__tier-chevron" />
       )}
     </div>
   );
@@ -211,7 +193,7 @@ function CharacterRow({
   return (
     <div
       data-testid={`cast-row-${char.id}`}
-      style={{ margin: '0 0.35rem 0.35rem', position: 'relative' }}
+      className="cast-palette__row"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -220,16 +202,11 @@ function CharacterRow({
           button — nesting interactive controls produces invalid HTML
           and confuses assistive tech. */}
       <div
+        className="cast-palette__card"
         style={{
-          width: '100%',
           border: `1px solid ${isSpeakerSelected ? char.color : 'var(--border)'}`,
           borderLeft: isSpeakerSelected ? `3px solid ${char.color}` : '3px solid transparent',
-          borderRadius: 10,
           background: isSpeakerSelected ? `${char.color}14` : 'transparent',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '0.45rem 0.55rem',
           opacity: isMuted ? 0.55 : 1,
         }}
       >
@@ -250,51 +227,23 @@ function CharacterRow({
           }}
           aria-pressed={isSpeakerSelected}
           title={titleAttr}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            color: 'var(--text-primary)',
-            cursor: 'pointer',
-            textAlign: 'left',
-          }}
+          className="cast-palette__label"
         >
-          <div style={{
-            width: 18,
-            height: 18,
-            borderRadius: '50%',
-            background: `${char.color}22`,
-            border: `1px solid ${char.color}55`,
-            color: char.color,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 'var(--type-micro)',
-            fontWeight: 700,
-            flexShrink: 0,
-          }}>
+          <div
+            className="cast-palette__avatar"
+            style={{
+              background: `${char.color}22`,
+              border: `1px solid ${char.color}55`,
+              color: char.color,
+            }}
+          >
             {char.name.slice(0, 1).toUpperCase()}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontSize: '0.72rem',
-              fontWeight: 600,
-              lineHeight: 1.2,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}>
+          <div className="cast-palette__info">
+            <div className="cast-palette__name">
               {char.name}
             </div>
-            <div style={{
-              fontSize: 'var(--type-micro)',
-              color: 'var(--text-muted)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}>
+            <div className="label-micro-muted cast-palette__truncate">
               {isSpeakerSelected && selectedProfileName
                 ? getVariantDisplayName(speakerProfiles.find((p) => p.name === selectedProfileName) || { name: selectedProfileName, variant_name: null } as SpeakerProfile)
                 : getVariantDisplayName(speakerProfiles.find((p) => p.name === char.speaker_profile_name) || { name: char.speaker_profile_name, variant_name: null } as SpeakerProfile) || 'No voice'}
@@ -304,14 +253,10 @@ function CharacterRow({
             <div
               title={`${segmentCount} line${segmentCount === 1 ? '' : 's'} assigned`}
               aria-label={`${segmentCount} line${segmentCount === 1 ? '' : 's'} assigned`}
+              className="cast-palette__count-badge"
               style={{
-                fontSize: 'var(--type-micro)',
-                fontWeight: 700,
                 color: isSpeakerSelected ? char.color : 'var(--text-muted)',
                 background: isSpeakerSelected ? `${char.color}14` : 'var(--surface-light)',
-                padding: '1px 5px',
-                borderRadius: 999,
-                flexShrink: 0,
               }}
             >
               {segmentCount}
@@ -321,7 +266,7 @@ function CharacterRow({
             <span
               title={`${variants.length} voices — click to choose`}
               aria-label={`${variants.length} voices available`}
-              style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', flexShrink: 0 }}
+              className="cast-palette__variant-indicator"
             >
               {isSpeakerSelected
                 ? <ChevronUp size={12} aria-hidden="true" />
@@ -336,19 +281,13 @@ function CharacterRow({
           quiet at rest, fully visible on hover or keyboard focus. */}
       {(onPromote || onDelete) && (
         <div
-          style={{
-            position: 'absolute',
-            top: 4,
-            right: 4,
-            zIndex: 2,
-            opacity: hovered || menuOpen || labelFocused ? 1 : 0.4,
-            transition: 'opacity 0.15s ease',
-          }}
+          className="cast-palette__row-menu"
+          style={{ opacity: hovered || menuOpen || labelFocused ? 1 : 0.4 }}
           onFocus={() => setLabelFocused(true)}
           onBlur={() => setLabelFocused(false)}
         >
           <ActionMenu
-            trigger={<MoreVertical size={14} aria-hidden="true" style={{ color: 'var(--text-muted)' }} />}
+            trigger={<MoreVertical size={14} aria-hidden="true" className="cast-palette__menu-icon" />}
             onOpenChange={setMenuOpen}
             items={[
               ...(onPromote ? [{ label: 'Promote to book cast', icon: ArrowUpCircle, onClick: onPromote }] : []),
@@ -360,7 +299,7 @@ function CharacterRow({
 
       {/* Variant list */}
       {variants.length > 1 && isSpeakerSelected && (
-        <div style={{ marginLeft: 18, marginTop: 4 }}>
+        <div className="cast-palette__variant-list">
           {variants.map((variant) => {
             const isVariantSelected = selectedCharacterId === char.id && selectedProfileName === variant.name;
             const selectable = isProfileSelectable(variant);
@@ -388,45 +327,25 @@ function CharacterRow({
                 }}
                 disabled={false}
                 title={disabledReason || undefined}
+                className="cast-palette__variant-btn"
                 style={{
-                  width: '100%',
-                  marginTop: 4,
                   border: `1px solid ${isVariantSelected ? char.color : 'transparent'}`,
-                  borderRadius: 8,
                   background: isVariantSelected ? `${char.color}10` : 'transparent',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '0.32rem 0.4rem',
-                  color: 'var(--text-primary)',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
                   opacity: !selectable ? 0.4 : 0.8,
-                  minWidth: 0,
                 }}
               >
-                <div style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: '50%',
-                  border: `1.5px solid ${char.color}`,
-                  background: isVariantSelected ? char.color : 'transparent',
-                  flexShrink: 0,
-                }} />
-                <div style={{
-                  flex: 1,
-                  minWidth: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  fontSize: 'var(--type-micro)',
-                  fontWeight: isVariantSelected ? 600 : 400,
-                }}>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                <div
+                  className="cast-palette__variant-dot"
+                  style={{
+                    border: `1.5px solid ${char.color}`,
+                    background: isVariantSelected ? char.color : 'transparent',
+                  }}
+                />
+                <div className="cast-palette__variant-text" style={{ fontWeight: isVariantSelected ? 600 : 400 }}>
+                  <span className="cast-palette__variant-label">
                     {getVariantDisplayName(variant)}
                   </span>
-                  {!selectable && <Ban size={10} aria-hidden="true" style={{ flexShrink: 0 }} />}
+                  {!selectable && <Ban size={10} aria-hidden="true" className="cast-palette__variant-ban-icon" />}
                 </div>
               </button>
             );
@@ -577,38 +496,16 @@ export function CastPalette({
   const hasNoCast = totalCastCount === 0;
 
   return (
-    <aside className="cast-palette" aria-label="Cast palette" style={{
-      width: 230,
-      flexShrink: 0,
-      borderLeft: '1px solid var(--border)',
-      background: 'var(--surface)',
-      display: 'flex',
-      flexDirection: 'column',
-      minHeight: 0,
-    }}>
-      <div style={{
-        padding: '0.5rem 0.6rem',
-        borderBottom: '1px solid var(--border)',
-      }}>
-        <div style={{
-          fontSize: 'var(--type-micro)',
-          fontWeight: 700,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          color: 'var(--text-muted)',
-        }}>
+    <aside className="cast-palette" aria-label="Cast palette">
+      <div className="cast-palette__header">
+        <div className="cast-palette__header-title">
           Cast
         </div>
       </div>
 
-      <div style={{
-        flex: 1,
-        minHeight: 0,
-        overflowY: 'auto',
-        padding: '0.35rem 0',
-      }}>
+      <div className="cast-palette__body">
         {/* Narrator (default) — the chapter's default voice + clear-assignment paint mode */}
-        <div style={{ margin: '0 0.35rem 0.5rem' }}>
+        <div className="cast-palette__narrator">
           <button
             type="button"
             aria-pressed={isClearMode}
@@ -621,58 +518,25 @@ export function CastPalette({
                 setSelectedProfileName(null);
               }
             }}
+            className="cast-palette__narrator-btn"
             style={{
-              width: '100%',
               border: isClearMode ? '1px solid var(--accent)' : '1px solid var(--border)',
               borderLeft: isClearMode ? '3px solid var(--accent)' : '3px solid transparent',
-              borderRadius: 10,
               background: isClearMode ? 'var(--surface-light)' : 'transparent',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '0.45rem 0.55rem',
-              color: 'var(--text-primary)',
-              cursor: 'pointer',
-              textAlign: 'left',
               opacity: selectedCharacterId !== null && !isClearMode ? 0.55 : 1,
             }}
           >
-            <div style={{
-              width: 18,
-              height: 18,
-              borderRadius: '50%',
-              background: 'transparent',
-              border: '1px solid var(--text-muted)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}>
-              <div style={{
-                width: 7,
-                height: 7,
-                borderRadius: '50%',
-                background: 'var(--text-muted)',
-              }} />
+            <div className="cast-palette__narrator-icon">
+              <div className="cast-palette__narrator-dot" />
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                lineHeight: 1.2,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}>
+            <div className="cast-palette__info">
+              <div className="cast-palette__narrator-name">
                 Narrator (default)
               </div>
-              <div style={{
-                fontSize: 'var(--type-micro)',
-                color: isClearMode ? 'var(--accent)' : 'var(--text-muted)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}>
+              <div
+                className="cast-palette__truncate"
+                style={{ fontSize: 'var(--type-micro)', color: isClearMode ? 'var(--accent)' : 'var(--text-muted)' }}
+              >
                 {isClearMode
                   ? 'click sentences to clear'
                   : (effectiveNarratorVoice || 'revert lines to narrator')}
@@ -680,19 +544,19 @@ export function CastPalette({
             </div>
           </button>
           {handleVoiceChange && (
-            <label style={{
-              display: 'block',
-              marginTop: '0.3rem',
-              fontSize: 'var(--type-micro)',
-              color: 'var(--text-muted)',
-              cursor: 'default',
-            }}>
-              <span style={{ display: 'block', marginBottom: '0.15rem' }}>Override voice</span>
+            <label className="label-micro-muted cast-palette__override-label">
+              <span className="cast-palette__override-caption">Override voice</span>
               <VoiceProfileSelect
                 value={localVoice ?? ''}
                 onChange={handleVoiceChange}
                 options={availableVoices}
                 defaultLabel={chapterDefaultVoiceLabel ?? 'Use Project Default'}
+                /* VoiceProfileSelect's own inline `style` (with a trailing
+                   `...style` spread) always wins over a CSS class — an
+                   inline style attribute beats external stylesheet rules
+                   regardless of specificity — so this override must stay
+                   inline, not become a className, or it would silently stop
+                   applying. */
                 style={{ width: '100%', fontSize: '0.7rem', padding: '0.25rem 1.5rem 0.25rem 0.4rem', marginTop: '0.1rem' }}
               />
             </label>
@@ -701,45 +565,21 @@ export function CastPalette({
 
         {/* ── Empty-cast state ──────────────────────────────── */}
         {hasNoCast ? (
-          <div
-            className="cast-palette__empty"
-            style={{
-              margin: '0 0.35rem',
-              padding: '0.75rem 0.6rem',
-              border: '1px dashed var(--border)',
-              borderRadius: 10,
-              textAlign: 'center',
-            }}
-          >
-            <p style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', lineHeight: 1.4, margin: '0 0 0.55rem' }}>
+          <div className="cast-palette__empty">
+            <p className="cast-palette__empty-text cast-palette__empty-text--lead">
               No cast yet — this chapter reads in the narrator&apos;s voice.
             </p>
             {onCreateTempCharacter && (
               <button
                 type="button"
                 onClick={onCreateTempCharacter}
-                style={{
-                  width: '100%',
-                  border: '1px solid var(--border)',
-                  borderRadius: 10,
-                  background: 'var(--surface-light)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  padding: '0.4rem 0.55rem',
-                  color: 'var(--text-primary)',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  fontSize: 'var(--type-micro)',
-                  fontWeight: 600,
-                }}
+                className="cast-palette__empty-add-btn"
               >
                 <UserPlus size={12} aria-hidden="true" />
                 Add character
               </button>
             )}
-            <p style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', lineHeight: 1.4, margin: '0.55rem 0 0' }}>
+            <p className="cast-palette__empty-text cast-palette__empty-text--tail">
               Building a full cast? Try the Casting Call tool in the rail on the left.
             </p>
           </div>
@@ -753,11 +593,11 @@ export function CastPalette({
               alwaysOpen
             />
             {tier1.length === 0 ? (
-              <div style={{ padding: '0.2rem 0.6rem', fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              <div className="cast-palette__tier-empty">
                 none assigned
               </div>
             ) : (
-              <div style={{ marginTop: 4 }}>
+              <div className="cast-palette__tier-list">
                 {tier1.map((char) => renderRow(char, 'tier1'))}
               </div>
             )}
@@ -770,28 +610,14 @@ export function CastPalette({
               onToggle={() => setTier2Open((v) => !v)}
             />
             {tier2Open && (
-              <div style={{ marginTop: 4 }}>
+              <div className="cast-palette__tier-list">
                 {tier2.map((char) => renderRow(char, 'tier2'))}
                 {onCreateTempCharacter && (
-                  <div style={{ margin: '0 0.35rem 0.35rem' }}>
+                  <div className="cast-palette__temp-wrap">
                     <button
                       type="button"
                       onClick={onCreateTempCharacter}
-                      style={{
-                        width: '100%',
-                        border: '1px dashed var(--border)',
-                        borderRadius: 10,
-                        background: 'transparent',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        padding: '0.35rem 0.55rem',
-                        color: 'var(--text-muted)',
-                        cursor: 'pointer',
-                        fontFamily: 'inherit',
-                        fontSize: 'var(--type-micro)',
-                        fontStyle: 'italic',
-                      }}
+                      className="cast-palette__temp-btn"
                     >
                       <Plus size={10} aria-hidden="true" />
                       Temp character
@@ -809,9 +635,9 @@ export function CastPalette({
               onToggle={() => setTier3Open((v) => !v)}
             />
             {tier3Open && (
-              <div style={{ marginTop: 4 }}>
+              <div className="cast-palette__tier-list">
                 {tier3.length === 0 ? (
-                  <div style={{ padding: '0.2rem 0.6rem', fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                  <div className="cast-palette__tier-empty">
                     none
                   </div>
                 ) : (
@@ -826,13 +652,7 @@ export function CastPalette({
         )}
       </div>
 
-      <div style={{
-        padding: '0.5rem 0.6rem 0.65rem',
-        borderTop: '1px solid var(--border)',
-        fontSize: 'var(--type-micro)',
-        color: 'var(--text-muted)',
-        lineHeight: 1.4,
-      }}>
+      <div className="cast-palette__footer">
         {selectedCharacterId === 'CLEAR_ASSIGNMENT'
           ? 'click sentences to revert to narrator'
           : selectedCharacterId

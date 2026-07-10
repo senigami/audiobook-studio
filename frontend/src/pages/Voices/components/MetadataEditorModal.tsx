@@ -104,7 +104,7 @@ export const MetadataEditorModal: React.FC<MetadataEditorModalProps> = ({
         <AnimatePresence>
             {isOpen && (
                 <div
-                    style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem', overflowY: 'auto' }}
+                    className="metadata-editor-modal__overlay"
                     onKeyDown={handleEscape}
                 >
                     {/* Backdrop */}
@@ -114,7 +114,7 @@ export const MetadataEditorModal: React.FC<MetadataEditorModalProps> = ({
                         exit={{ opacity: 0 }}
                         onClick={onClose}
                         aria-hidden="true"
-                        style={{ position: 'fixed', inset: 0, background: 'var(--overlay-backdrop)', backdropFilter: 'blur(8px)' }}
+                        className="metadata-editor-modal__backdrop"
                     />
 
                     <motion.div
@@ -126,41 +126,29 @@ export const MetadataEditorModal: React.FC<MetadataEditorModalProps> = ({
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        style={{
-                            position: 'relative',
-                            width: '100%',
-                            maxWidth: '640px',
-                            background: 'var(--surface)',
-                            borderRadius: '20px',
-                            boxShadow: 'var(--shadow-xl)',
-                            border: '1px solid var(--border)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '0',
-                            marginTop: '0',
-                        }}
+                        className="metadata-editor-modal__dialog"
                     >
                         {/* Header */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem 1.5rem 1rem', borderBottom: '1px solid var(--border)' }}>
+                        <div className="metadata-editor-modal__header">
                             <div>
-                                <h2 id="metadata-editor-title" style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>
+                                <h2 id="metadata-editor-title" className="metadata-editor-modal__title">
                                     Edit voice metadata
                                 </h2>
-                                <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                <p className="metadata-editor-modal__subtitle">
                                     {voice.name}
                                 </p>
                             </div>
                             <button
                                 onClick={onClose}
                                 aria-label="Close dialog"
-                                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '10px', minWidth: '44px', minHeight: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}
+                                className="metadata-editor-modal__close-btn"
                             >
                                 <X size={20} />
                             </button>
                         </div>
 
                         {/* Body */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '1.5rem', overflowY: 'auto', maxHeight: 'calc(100vh - 200px)' }}>
+                        <div className="metadata-editor-modal__body">
 
                             {/* Icon upload */}
                             <IconUpload
@@ -170,15 +158,15 @@ export const MetadataEditorModal: React.FC<MetadataEditorModalProps> = ({
                                 onError={(msg) => setIconError(msg)}
                             />
                             {iconError && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', borderRadius: '10px', background: 'var(--error-tint-bg)', color: 'var(--error)', fontSize: '0.8rem' }}>
+                                <div className="metadata-editor-modal__icon-error">
                                     <AlertCircle size={16} />
                                     {iconError}
                                 </div>
                             )}
 
                             {/* Description */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <label htmlFor="voice-description" style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
+                            <div className="metadata-field">
+                                <label htmlFor="voice-description" className="metadata-field-label">
                                     DESCRIPTION
                                 </label>
                                 <textarea
@@ -187,22 +175,14 @@ export const MetadataEditorModal: React.FC<MetadataEditorModalProps> = ({
                                     onChange={e => setDescription(e.target.value)}
                                     placeholder="1-3 sentences describing this voice..."
                                     rows={3}
-                                    style={{
-                                        padding: '10px 12px',
-                                        borderRadius: '10px',
-                                        border: '1px solid var(--border)',
-                                        background: 'var(--surface-dim)',
-                                        color: 'var(--text-primary)',
-                                        fontSize: '0.85rem',
-                                        resize: 'vertical',
-                                        fontFamily: 'inherit',
-                                    }}
+                                    className="metadata-field-input"
+                                    style={{ resize: 'vertical', fontFamily: 'inherit' }}
                                 />
                             </div>
 
                             {/* Languages */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <label htmlFor="voice-languages" style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
+                            <div className="metadata-field">
+                                <label htmlFor="voice-languages" className="metadata-field-label">
                                     LANGUAGES (BCP-47, comma-separated)
                                 </label>
                                 <input
@@ -211,20 +191,13 @@ export const MetadataEditorModal: React.FC<MetadataEditorModalProps> = ({
                                     value={languages}
                                     onChange={e => setLanguages(e.target.value)}
                                     placeholder="en-US, fr-FR..."
-                                    style={{
-                                        padding: '10px 12px',
-                                        borderRadius: '10px',
-                                        border: '1px solid var(--border)',
-                                        background: 'var(--surface-dim)',
-                                        color: 'var(--text-primary)',
-                                        fontSize: '0.85rem',
-                                        minHeight: '44px',
-                                    }}
+                                    className="metadata-field-input"
+                                    style={{ minHeight: '44px' }}
                                 />
                             </div>
 
-                            <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '4px 0' }} />
-                            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.04em' }}>
+                            <hr className="metadata-editor-modal__divider" />
+                            <p className="metadata-field-label" style={{ margin: 0 }}>
                                 ATTRIBUTES <span style={{ color: 'var(--error)' }}>*</span> required fields
                             </p>
 
@@ -256,14 +229,14 @@ export const MetadataEditorModal: React.FC<MetadataEditorModalProps> = ({
                                 );
                             })}
 
-                            <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+                            <hr className="metadata-editor-modal__divider" />
 
                             {/* Free tags */}
                             <TagsInput tags={tags} onChange={setTags} />
 
                             {/* 422 error */}
                             {error && (
-                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '12px', borderRadius: '10px', background: 'var(--error-tint-bg)', color: 'var(--error)', fontSize: '0.8rem' }}>
+                                <div className="metadata-editor-modal__error-banner">
                                     <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
                                     <span style={{ whiteSpace: 'pre-wrap' }}>{error}</span>
                                 </div>
@@ -271,21 +244,21 @@ export const MetadataEditorModal: React.FC<MetadataEditorModalProps> = ({
                         </div>
 
                         {/* Footer */}
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', padding: '1rem 1.5rem', borderTop: '1px solid var(--border)' }}>
+                        <div className="metadata-editor-modal__footer">
                             {requiredMissing && (
-                                <span style={{ fontSize: '0.75rem', color: 'var(--warning-text)', alignSelf: 'center', marginRight: 'auto' }}>
+                                <span className="metadata-editor-modal__required-warning">
                                     Class, Gender, and Age are required to save.
                                 </span>
                             )}
-                            <button type="button" onClick={onClose} className="btn-ghost" style={{ height: '44px', padding: '0 20px', borderRadius: '12px' }}>
+                            <button type="button" onClick={onClose} className="btn-ghost metadata-editor-modal__action-btn" style={{ padding: '0 20px' }}>
                                 Cancel
                             </button>
                             <button
                                 type="button"
                                 onClick={handleSave}
                                 disabled={saving || requiredMissing}
-                                className="btn-primary"
-                                style={{ height: '44px', padding: '0 24px', borderRadius: '12px', opacity: (saving || requiredMissing) ? 0.5 : 1 }}
+                                className="btn-primary metadata-editor-modal__action-btn"
+                                style={{ padding: '0 var(--space-5)', opacity: (saving || requiredMissing) ? 0.5 : 1 }}
                             >
                                 {saving ? 'Saving…' : 'Save'}
                             </button>

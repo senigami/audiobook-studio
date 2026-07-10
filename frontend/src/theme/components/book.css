@@ -1152,3 +1152,336 @@
   gap: var(--space-2);
 }
 
+
+/* ─── Cast Palette (Director's Console CastTool) ───────────────────
+   Extracted from pages/Book/studio/CastPalette.tsx inline styles
+   (styling-separation ST-3, task 004). Only the static portion of each
+   original inline style lives here — values that depend on props/state
+   (selection state, character color, etc.) remain inline in the
+   component. */
+
+.cast-palette {
+  width: 230px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.cast-palette__header {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.cast-palette__header-title {
+  font-size: var(--type-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.cast-palette__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.35rem 0;
+}
+
+.cast-palette__footer {
+  padding: 0.5rem 0.6rem 0.65rem;
+  border-top: 1px solid var(--border);
+  font-size: var(--type-micro);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Tier header (TierHeader component) */
+.cast-palette__tier-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 3px var(--space-2);
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  background: var(--surface-alt);
+  user-select: none;
+  flex-shrink: 0;
+  margin-top: var(--space-1);
+}
+
+.cast-palette__tier-header-label {
+  flex: 1;
+  font-size: var(--type-micro);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.cast-palette__tier-chevron {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.cast-palette__tier-empty {
+  padding: 0.2rem 0.6rem;
+  font-size: var(--type-micro);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.cast-palette__tier-list {
+  margin-top: var(--space-1);
+}
+
+/* Character row (CharacterRow component) */
+.cast-palette__row {
+  margin: 0 0.35rem 0.35rem;
+  position: relative;
+}
+
+.cast-palette__card {
+  width: 100%;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.45rem 0.55rem;
+}
+
+.cast-palette__label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.cast-palette__avatar {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--type-micro);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.cast-palette__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.cast-palette__name {
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cast-palette__truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cast-palette__count-badge {
+  font-size: var(--type-micro);
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.cast-palette__variant-indicator {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.cast-palette__row-menu {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  z-index: 2;
+  transition: opacity 0.15s ease;
+}
+
+.cast-palette__menu-icon {
+  color: var(--text-muted);
+}
+
+/* Variant list */
+.cast-palette__variant-list {
+  margin-left: 18px;
+  margin-top: var(--space-1);
+}
+
+.cast-palette__variant-btn {
+  width: 100%;
+  margin-top: var(--space-1);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.32rem 0.4rem;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 0;
+}
+
+.cast-palette__variant-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cast-palette__variant-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--type-micro);
+}
+
+.cast-palette__variant-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.cast-palette__variant-ban-icon {
+  flex-shrink: 0;
+}
+
+/* Narrator (default) row */
+.cast-palette__narrator {
+  margin: 0 0.35rem 0.5rem;
+}
+
+.cast-palette__narrator-btn {
+  width: 100%;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.45rem 0.55rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.cast-palette__narrator-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cast-palette__narrator-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.cast-palette__narrator-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cast-palette__override-label {
+  display: block;
+  margin-top: 0.3rem;
+  cursor: default;
+}
+
+.cast-palette__override-caption {
+  display: block;
+  margin-bottom: 0.15rem;
+}
+
+/* Empty-cast state */
+.cast-palette__empty {
+  margin: 0 0.35rem;
+  padding: 0.75rem 0.6rem;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  text-align: center;
+}
+
+.cast-palette__empty-text {
+  font-size: var(--type-micro);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.cast-palette__empty-text--lead {
+  margin: 0 0 0.55rem;
+}
+
+.cast-palette__empty-text--tail {
+  margin: 0.55rem 0 0;
+}
+
+.cast-palette__empty-add-btn {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0.4rem 0.55rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--type-micro);
+  font-weight: 600;
+}
+
+.cast-palette__temp-wrap {
+  margin: 0 0.35rem 0.35rem;
+}
+
+.cast-palette__temp-btn {
+  width: 100%;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.35rem 0.55rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--type-micro);
+  font-style: italic;
+}
