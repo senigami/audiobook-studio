@@ -224,51 +224,148 @@ class TestB9CharacterCountWeighting:
 
     R1 revert-check: before fix, if the weight table was by segment count
     (1/N), a 340-char segment and a 1345-char segment would each contribute
-    0.5 to progress.  These tests verify proportional contribution.
+    0.5 to progress.  These tests verify proportional contribution by driving
+    a real 2-group marker stream through the actual ``_dispatch`` →
+    ``_dispatch_segment`` weight-table construction in
+    ``orchestrator_helpers.py`` (no local re-implementation of the math) and
+    reading ``grouped_progress`` off the real ``SEGMENT_SAVED`` publish.
+
+    Harness mirrors ``test_inter_group_gap_eta.py``'s ``TwoGroupTask`` /
+    ``MockStream`` pattern. Mock boundaries (R2): the watchdog's process I/O
+    (``MockStream`` in place of a real subprocess pipe), segment DB writes,
+    and the websocket broadcast — never the weight-table/progress math itself.
     """
 
-    def _make_dispatch_weight_table(self, char_counts: list[int]) -> tuple[dict, int]:
-        """Simulate the weight-table construction from _dispatch."""
-        id_to_weight = {}
-        total_weight = 0
-        for i, chars in enumerate(char_counts):
-            sid = f"seg-{i}"
-            id_to_weight[sid] = max(1, chars)
-            total_weight += max(1, chars)
-        return id_to_weight, total_weight
+    def _run_two_group_dispatch(self, char_counts: list[int]) -> list[dict]:
+        """Dispatch a real 2-group script (weights driven purely by ``text``
+        length, exactly like production) and return every ``SEGMENT_SAVED``
+        publish captured from the real ``_dispatch`` path."""
+        from unittest.mock import MagicMock, patch
+        from app.engines.watchdog import TtsServerWatchdog
+        from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+        from app.orchestration.tasks.base import TaskContext, StudioTask, TaskResult
+
+        assert len(char_counts) == 2, "harness is written for exactly 2 groups"
+
+        class MockStream:
+            def __init__(self, lines):
+                self._lines = list(lines)
+
+            def readline(self):
+                return self._lines.pop(0) if self._lines else ""
+
+            def close(self):
+                pass
+
+        class MockOrchestrator(OrchestratorHelpersMixin):
+            def __init__(self):
+                self.voice_bridge = MagicMock()
+                self.progress_service = MagicMock()
+                self.published: list[dict] = []
+
+            def _publish(self, **kwargs):
+                self.published.append(kwargs)
+
+        script = [
+            {
+                "id": f"seg-{i}",
+                "ids": [f"seg-{i}"],
+                # No explicit "weight" — the production code must derive the
+                # weight from character count (``max(1, len(text))``), which
+                # is exactly the behavior under test.
+                "text": "x" * chars,
+                "save_path": f"/tmp/b9-seg-{i}.wav",
+            }
+            for i, chars in enumerate(char_counts)
+        ]
+
+        class TwoGroupTask(StudioTask):
+            def get_expected_duration(self, text, engine_id):
+                return 30.0
+
+            def describe(self):
+                return TaskContext(
+                    task_id="job-b9",
+                    task_type="synthesis",
+                    payload={"script_text": "x" * sum(char_counts), "engine_id": "xtts", "script": script},
+                )
+
+            @property
+            def prefers_local_execution(self):
+                return True
+
+            def run(self):
+                self.bridge.synthesize({"text": "test"})
+                return TaskResult(status="completed")
+
+        task = TwoGroupTask()
+        task.script = script
+        task.bridge = MagicMock()
+        orc = MockOrchestrator()
+        context = task.describe()
+        wd = TtsServerWatchdog()
+
+        stream = [
+            "[START_SYNTHESIS] job-b9\n",
+            "[START_SEGMENT] seg-0 job-b9\n",
+            "[PROGRESS] 50% job-b9\n",
+            "[SEGMENT_SAVED] /tmp/b9-seg-0.wav job-b9\n",
+            "[START_SEGMENT] seg-1 job-b9\n",
+            "[PROGRESS] 50% job-b9\n",
+            "[SEGMENT_SAVED] /tmp/b9-seg-1.wav job-b9\n",
+        ]
+
+        with patch("app.engines.watchdog.get_watchdog", return_value=wd), \
+             patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None), \
+             patch("app.db.update_segments_bulk", lambda *a, **kw: None), \
+             patch("app.api.ws.broadcast_segments_updated", lambda *a, **kw: None), \
+             patch("app.api.ws.broadcast_tts_log_line", lambda *a, **kw: None), \
+             patch("app.orchestration.scheduler.eta.get_calibrated_model_params", return_value=None):
+            def _side_effect(*args, **kwargs):
+                wd._drain_stream(None, "stdout", MockStream(stream[:]))
+                return {"status": "ok"}
+            task.bridge.synthesize.side_effect = _side_effect
+            orc._dispatch(task=task, context=context)
+
+        return [e for e in orc.published if e.get("reason_code") == "SEGMENT_SAVED"]
 
     def test_char_weights_proportional_340_vs_1345(self):
         """Segment weights must be proportional to char counts (340 vs 1345)."""
-        char_counts = [340, 1345]
-        id_to_weight, total_weight = self._make_dispatch_weight_table(char_counts)
+        saved = self._run_two_group_dispatch([340, 1345])
+        assert len(saved) == 2, f"expected 2 SEGMENT_SAVED publishes, got {len(saved)}"
 
-        assert total_weight == 1685
-        share_0 = id_to_weight["seg-0"] / total_weight
-        share_1 = id_to_weight["seg-1"] / total_weight
+        share_0 = saved[0].get("grouped_progress")
+        share_1 = saved[1].get("grouped_progress")
 
-        assert share_0 == pytest.approx(340 / 1685, abs=1e-6), (
-            f"seg-0 share: expected {340/1685:.4f}, got {share_0:.4f}"
+        # Production rounds grouped_progress to 4 decimal places
+        # (`_get_grouped_progress`'s `round(min(0.99, raw), 4)`).
+        assert share_0 == pytest.approx(round(340 / 1685, 4), abs=1e-9), (
+            f"seg-0 grouped_progress: expected {round(340/1685, 4)}, got {share_0!r}"
         )
-        assert share_1 == pytest.approx(1345 / 1685, abs=1e-6), (
-            f"seg-1 share: expected {1345/1685:.4f}, got {share_1:.4f}"
+        # `_get_grouped_progress` clamps below 1.0 until terminal reconciliation
+        # (the bar must never read "done" mid-render); with both groups
+        # complete the raw share is 1685/1685 == 1.0, so it hits the 0.99 clamp.
+        assert share_1 == pytest.approx(0.99, abs=1e-6), (
+            f"seg-1 (final) grouped_progress: expected the 0.99 clamp, got {share_1!r}"
         )
 
     def test_char_weight_not_segment_count(self):
-        """With unequal char counts, weights MUST NOT be 0.5/0.5."""
-        id_to_weight, total_weight = self._make_dispatch_weight_table([340, 1345])
-        share_0 = id_to_weight["seg-0"] / total_weight
-        # Must not be equal-weight (0.5/0.5)
+        """With unequal char counts, the first group's grouped_progress MUST NOT be 0.5."""
+        saved = self._run_two_group_dispatch([340, 1345])
+        share_0 = saved[0].get("grouped_progress")
+        # Must not be equal-weight (0.5/0.5), which is what a segment-count
+        # (1/N) weight table would have produced instead of char-count weighting.
         assert share_0 != pytest.approx(0.5, abs=0.05), (
-            "Char-weight must not produce equal shares for unequal char counts"
+            f"Char-weight must not produce an equal share for unequal char counts, got {share_0!r}"
         )
 
     def test_char_weight_completes_at_correct_share(self):
         """After completing seg-0 (340 chars), grouped_progress must be ≈0.20."""
-        id_to_weight, total_weight = self._make_dispatch_weight_table([340, 1345])
-
-        completed_weight = id_to_weight["seg-0"]  # 340
-        progress_after_first = completed_weight / total_weight
-        assert progress_after_first == pytest.approx(340 / 1685, abs=1e-6)
+        saved = self._run_two_group_dispatch([340, 1345])
+        progress_after_first = saved[0].get("grouped_progress")
+        assert progress_after_first == pytest.approx(round(340 / 1685, 4), abs=1e-9), (
+            f"expected grouped_progress ≈ {round(340/1685, 4)} after seg-0 completes, got {progress_after_first!r}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1285,34 +1382,111 @@ class TestB8DiagnosticLogging:
     """
 
     def test_start_segment_diagnostic_emitted_at_debug(self, caplog):
-        """When a [START_SEGMENT] line is received, a B8-diag DEBUG log is emitted."""
-        import logging
-        from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+        """A real [START_SEGMENT] marker, driven through the actual dispatch
+        path (``_dispatch`` → ``_dispatch_segment``, W-PAR 003), must produce
+        a real DEBUG ``caplog`` record carrying the B8-diag payload (sid,
+        weight-table membership, dedup-guard state) — not merely have the
+        right substrings present somewhere in the source text.
 
-        # Build the minimal closure manually to test the log_listener logic.
-        # We call the relevant code path by reconstructing the key parts.
-        # The fastest approach: patch via the log message text check.
-        # We trigger the actual log_listener by invoking it directly via _dispatch
-        # with a mock task — but that requires too much wiring.
-        # Instead, verify the logger name and message pattern exist in the module.
-        #
-        # W-PAR 003: the log_listener closure (and this diagnostic) moved from
-        # `_dispatch` into `_dispatch_segment` (per-segment isolated dispatch,
-        # INV-6). `_dispatch` is now a thin one-line fan-out driver that
-        # delegates to `_dispatch_segment` — check the new home of the closure.
-        import inspect
-        source = inspect.getsource(OrchestratorHelpersMixin._dispatch_segment)
-        assert "B8-diag" in source, (
-            "B8 diagnostic logging marker 'B8-diag' not found in _dispatch_segment source"
+        Mock boundaries (R2): the watchdog's process I/O (``MockStream`` in
+        place of a real subprocess pipe), segment DB writes, and the
+        websocket broadcast/log-line helpers — never the log_listener
+        closure or its diagnostic logging itself.
+        """
+        import logging
+        from unittest.mock import MagicMock, patch
+        from app.engines.watchdog import TtsServerWatchdog
+        from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+        from app.orchestration.tasks.base import TaskContext, StudioTask, TaskResult
+
+        class MockStream:
+            def __init__(self, lines):
+                self._lines = list(lines)
+
+            def readline(self):
+                return self._lines.pop(0) if self._lines else ""
+
+            def close(self):
+                pass
+
+        class MockOrchestrator(OrchestratorHelpersMixin):
+            def __init__(self):
+                self.voice_bridge = MagicMock()
+                self.progress_service = MagicMock()
+                self.published: list[dict] = []
+
+            def _publish(self, **kwargs):
+                self.published.append(kwargs)
+
+        script = [
+            {"id": "seg-b8", "ids": ["seg-b8"], "text": "Diagnostic text.", "save_path": "/tmp/seg-b8.wav", "weight": 100},
+        ]
+
+        class _ScriptedTask(StudioTask):
+            def __init__(self):
+                self.script = script
+                self.engine_id = "mixed"
+                self.on_run = None
+
+            def get_expected_duration(self, text, engine_id):
+                return 30.0
+
+            def describe(self):
+                return TaskContext(
+                    task_id="job-b8-diag",
+                    task_type="synthesis",
+                    payload={"script_text": "Diagnostic text.", "engine_id": "mixed", "script": script},
+                )
+
+            @property
+            def prefers_local_execution(self):
+                return True
+
+            def run(self):
+                if self.on_run is not None:
+                    self.on_run()
+                return TaskResult(status="completed")
+
+        task = _ScriptedTask()
+        context = task.describe()
+        orc = MockOrchestrator()
+        wd = TtsServerWatchdog()
+
+        def _drive():
+            wd._drain_stream(None, "stdout", MockStream([
+                "[START_SEGMENT] seg-b8 job-b8-diag\n",
+            ]))
+
+        task.on_run = _drive
+
+        logger_name = "app.orchestration.scheduler.orchestrator_helpers"
+        with caplog.at_level(logging.DEBUG, logger=logger_name), \
+             patch("app.engines.watchdog.get_watchdog", return_value=wd), \
+             patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None), \
+             patch("app.db.update_segments_bulk", lambda *a, **kw: None), \
+             patch("app.api.ws.broadcast_segments_updated", lambda *a, **kw: None), \
+             patch("app.api.ws.broadcast_tts_log_line", lambda *a, **kw: None):
+            orc._dispatch_segment(task=task, context=context)
+
+        b8_records = [r for r in caplog.records if "[B8-diag]" in r.getMessage()]
+        assert b8_records, (
+            f"expected a real [B8-diag] DEBUG log record from a live [START_SEGMENT] "
+            f"marker; got records: {[r.getMessage() for r in caplog.records]}"
         )
-        assert "in_id_to_weight" in source, (
-            "B8 diagnostic must log 'in_id_to_weight' (weight-table membership)"
+        record = b8_records[0]
+        assert record.levelno == logging.DEBUG, (
+            f"B8-diag record must be logged at DEBUG, got level {record.levelname}"
         )
-        assert "dedup_guard" in source, (
-            "B8 diagnostic must log 'dedup_guard' (dedup short-circuit detection)"
+        message = record.getMessage()
+        assert "sid='seg-b8'" in message, f"expected sid in message, got: {message!r}"
+        assert "in_id_to_weight=True" in message, (
+            f"seg-b8 IS in the weight table (weight=100); expected in_id_to_weight=True, got: {message!r}"
         )
-        assert "logger.isEnabledFor" in source, (
-            "B8 diagnostic must be guarded by logger.isEnabledFor(logging.DEBUG)"
+        assert "dedup_guard=False" in message, (
+            f"first-time arrival must not trip the dedup guard; expected dedup_guard=False, got: {message!r}"
+        )
+        assert "known_keys=['seg-b8']" in message, (
+            f"expected the known weight-table keys in the message, got: {message!r}"
         )
 
 
