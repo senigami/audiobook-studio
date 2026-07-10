@@ -1,3 +1,4 @@
+import itertools
 import pytest
 import time
 from pathlib import Path
@@ -47,16 +48,21 @@ def test_xtts_adapter_timing_payload_contains_raw_anchors_and_segments(tmp_path)
     def mock_generate_script_side_effect(script_json_path, out_wav, on_output, cancel_check, speed, task_id, engine_settings=None):
         # Simulate stdout logs printing segment markers
         on_output("[START_SEGMENT] seg-1\n")
-        time.sleep(0.01)
         on_output("[SEGMENT_SAVED] seg-1\n")
         on_output("[START_SEGMENT] seg-2\n")
-        time.sleep(0.01)
         on_output("[SEGMENT_SAVED] seg-2\n")
         return 0
 
+    # Deterministic, strictly-increasing fake clock instead of real sleeps: forces
+    # observable timestamp ordering (render_started_at < render_completed_at)
+    # without any wall-clock wait, and — unlike a fixed side_effect list — doesn't
+    # couple the test to an exact time.time() call count.
+    fake_clock = itertools.count(start=1_000.0, step=0.01)
+
     with patch.object(plugin, "check_request", return_value=(True, "OK")), \
          patch.object(plugin, "_xtts_generate_script", side_effect=mock_generate_script_side_effect), \
-         patch("pathlib.Path.exists", return_value=True):
+         patch("pathlib.Path.exists", return_value=True), \
+         patch("time.time", side_effect=lambda: next(fake_clock)):
 
         result = plugin.synthesize(req)
         assert result.ok is True

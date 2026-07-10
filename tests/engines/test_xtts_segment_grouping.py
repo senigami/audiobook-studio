@@ -1,9 +1,18 @@
 """Tests for XTTS segment grouping helpers in the studio segments handler."""
 from __future__ import annotations
 
+import time
+from pathlib import Path
+
 import pytest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from plugins.tts_xtts.plugin.studio._text_utils import join_group_text, build_segment_groups
+# Import `handler` before `segments` — matches plugins/tts_xtts/tests/test_handler.py's
+# import order, which avoids a circular-import trap (segments -> helpers -> handler ->
+# bake -> helpers) when segments.py is the first module of the package to be imported.
+from plugins.tts_xtts.plugin.studio import handler as _xtts_handler_module  # noqa: F401
+from plugins.tts_xtts.plugin.studio.segments import handle_xtts_segments
+from app.db.models import Job
 
 
 def _make_seg(text: str, char_id: int = 1) -> dict:
@@ -70,11 +79,12 @@ class TestSegmentGroupingLimit:
     def test_handle_xtts_segments_uses_get_text_chunk_limit(self, monkeypatch):
         """handle_xtts_segments resolves its grouping budget from get_text_chunk_limit,
         not from the old DEFAULT_SENT_CHAR_LIMIT constant.  Patch the resolver to 100
-        and confirm that two ~51-char same-character consecutive segments are not merged.
+        and confirm that two ~51-char same-character consecutive segments are not merged
+        into a single synthesis script entry.
 
         Revert-check: if segments.py still used DEFAULT_SENT_CHAR_LIMIT (= 500), this
-        test would pass even when the monkeypatch returns 100, because the constant bypass
-        would produce one merged group instead of two — making the assertion fail.
+        test would fail even when the monkeypatch returns 100, because the constant bypass
+        would produce one merged script entry instead of two.
         """
         import app.engines.behavior as behavior_mod
         monkeypatch.setattr(behavior_mod, "get_text_chunk_limit", lambda engine_id: 100)
@@ -82,8 +92,40 @@ class TestSegmentGroupingLimit:
         text_a = "A" * 50 + "."
         text_b = "B" * 50 + "."
         segs = _make_ordered_segs([text_a, text_b])
-        # build_segment_groups is pure; pass the patched limit explicitly to verify
-        # that handle_xtts_segments will use the patched value at call time.
-        limit = behavior_mod.get_text_chunk_limit("xtts")
-        groups = build_segment_groups(segs, segs, limit=limit)
-        assert len(groups) == 2
+
+        job = Job(
+            id="test_jid",
+            engine="xtts",
+            chapter_id="chap_123",
+            status="running",
+            created_at=time.time(),
+            safe_mode=False,
+            segment_ids=[s["id"] for s in segs],
+        )
+
+        captured = {}
+
+        def fake_generate_via_bridge(**kwargs):
+            captured["script"] = kwargs["script"]
+            return 0
+
+        with patch("plugins.tts_xtts.plugin.studio.segments.get_chapter_segments", return_value=segs), \
+             patch("plugins.tts_xtts.plugin.studio.segments.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+             patch("plugins.tts_xtts.plugin.studio.handler.update_job"), \
+             patch("pathlib.Path.mkdir"):
+            handle_xtts_segments(
+                jid="test_jid",
+                j=job,
+                start=time.time(),
+                on_output=MagicMock(),
+                cancel_check=MagicMock(return_value=False),
+                default_sw="default.wav",
+                speed=1.0,
+                pdir=Path("/tmp/xtts"),
+            )
+
+        assert len(captured["script"]) == 2, (
+            "Segments must remain split into separate script entries when "
+            "get_text_chunk_limit is patched to 100 — a revert to the old "
+            "DEFAULT_SENT_CHAR_LIMIT constant would merge them into one."
+        )
