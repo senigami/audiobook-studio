@@ -10,6 +10,7 @@ import { QueueStats } from '@/components/queue/QueueStats';
 import type { Job, ProcessingQueueItem } from '@/types';
 import { formatQueueContext } from '@/utils/queueLabels';
 import { isMainQueueSegmentItem } from '@/utils/jobSelection';
+import './GlobalQueue.css';
 
 type HistoryFilter = 'All' | 'Renders' | 'Samples' | 'API';
 
@@ -227,22 +228,22 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
         if (historyFilter === 'All') return pastJobs;
         return pastJobs.filter(job => classifyHistoryJob(job) === historyFilter);
     }, [historyFilter, pastJobs]);
-    if (loading) return <div style={{ padding: '2rem' }}>Loading Queue...</div>;
+    if (loading) return <div style={{ padding: 'var(--space-6)' }}>Loading Queue...</div>;
 
     return (
-        <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: compact ? '1rem' : '2rem', minHeight: '100%', paddingBottom: compact ? '2rem' : '4rem' }}>
+        <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: compact ? 'var(--space-4)' : 'var(--space-6)', minHeight: '100%', paddingBottom: compact ? 'var(--space-6)' : '4rem' }}>
             {/* Visually-hidden live region: announces job completions to screen readers */}
             <div
                 role="status"
                 aria-live="polite"
                 aria-atomic="true"
-                style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}
+                className="sr-only"
             >
                 {liveAnnouncement}
             </div>
             {/* Visually-hidden h1 when rendered as the full page (not compact drawer) */}
             {!compact && (
-                <h1 style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
+                <h1 className="sr-only">
                     Queue
                 </h1>
             )}
@@ -251,22 +252,22 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                 flexDirection: compact ? 'column' : 'row',
                 justifyContent: 'space-between',
                 alignItems: compact ? 'flex-start' : 'flex-end',
-                paddingBottom: '1rem',
+                paddingBottom: 'var(--space-4)',
                 borderBottom: '1px solid var(--border)',
-                gap: compact ? '1rem' : '0'
+                gap: compact ? 'var(--space-4)' : '0'
             }}>
                 <div>
                     <h2 style={{ fontSize: compact ? '1.25rem' : '1.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }}>
                         <Layers size={compact ? 20 : 24} strokeWidth={2} color="var(--accent)" /> Global Queue
                     </h2>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-1)' }}>
                         {!compact && <p style={{ color: 'var(--text-muted)', margin: 0 }}>Manage your batch audio generation tasks</p>}
                         {chapterJobs.some(q => ['queued', 'preparing', 'running', 'finalizing'].includes(q.status)) && (
                             <QueueStats queue={chapterJobs} jobs={jobs} />
                         )}
                     </div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', width: compact ? '100%' : 'auto' }}>
+                <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', width: compact ? '100%' : 'auto' }}>
                     <button
                         onClick={handlePauseToggle}
                         className={localPaused ? "btn-success" : "btn-primary"}
@@ -274,8 +275,8 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            gap: '8px',
-                            padding: compact ? '8px 12px' : '10px 20px',
+                            gap: 'var(--space-2)',
+                            padding: compact ? 'var(--space-2) var(--space-3)' : '10px 20px',
                             borderRadius: '10px',
                             fontSize: '0.85rem',
                             fontWeight: 600,
@@ -299,21 +300,21 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
             </header>
 
             {chapterJobs.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '5rem 2rem', background: 'var(--surface)', borderRadius: '20px', border: '2px dashed var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', color: 'var(--text-muted)' }}>
+                <div style={{ textAlign: 'center', padding: '5rem var(--space-6)', background: 'var(--surface)', borderRadius: '20px', border: '2px dashed var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-5)', color: 'var(--text-muted)' }}>
                     <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
                         <Layers size={32} />
                     </div>
                     <div>
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>Queue is empty</h3>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 'var(--space-1)' }}>Queue is empty</h3>
                         <p style={{ maxWidth: '300px', margin: '0 auto', fontSize: '0.9rem', lineHeight: 1.5 }}>
                             Jobs you add from the project chapter view will appear here for processing.
                         </p>
                     </div>
                 </div>
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
                     {localPaused && (
-                        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ background: 'var(--warning-tint-bg)', border: '1px solid var(--warning-tint-border)', borderRadius: '12px', padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--warning-text)' }}>
+                        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} style={{ background: 'var(--warning-tint-bg)', border: '1px solid var(--warning-tint-border)', borderRadius: '12px', padding: 'var(--space-4) var(--space-5)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', color: 'var(--warning-text)' }}>
                             <Pause size={18} fill="currentColor" />
                             <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>Processing is currently paused. Resume to continue the queue.</span>
                         </motion.div>
@@ -321,10 +322,10 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
 
                     {activeJobs.length > 0 && (
                         <div>
-                            <h3 style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                            <h3 className="queue-section-label" style={{ marginBottom: 'var(--space-4)' }}>
                                 Processing Now ({activeJobs.length})
                             </h3>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                                 {activeJobs.map(job => (
                                     <QueueItem
                                         key={job.id}
@@ -345,7 +346,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
 
                     {pendingJobs.length > 0 && (
                         <div style={{ position: 'relative' }}>
-                            <h3 style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                            <h3 className="queue-section-label" style={{ marginBottom: 'var(--space-4)' }}>
                                 Up Next ({pendingJobs.length})
                             </h3>
                             <Reorder.Group
@@ -358,7 +359,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                                     padding: 0,
                                     display: 'flex',
                                     flexDirection: 'column',
-                                    gap: '1rem',
+                                    gap: 'var(--space-4)',
                                     position: 'relative', // Ensure coordinate space is local
                                     minHeight: '50px' // Prevent collapse if empty during drag
                                 }}
@@ -380,35 +381,35 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                     )}
 
                     {pastJobs.length > 0 && (
-                        <div style={{ borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
-                            <button onClick={() => setShowHistory(!showHistory)} style={{ background: 'none', border: 'none', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0', cursor: 'pointer', marginBottom: showHistory ? '1rem' : 0 }}>
-                                <h3 style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', margin: 0 }}>Completed / Failed History ({filteredPastJobs.length})</h3>
+                        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-6)' }}>
+                            <button onClick={() => setShowHistory(!showHistory)} style={{ background: 'none', border: 'none', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-2) 0', cursor: 'pointer', marginBottom: showHistory ? 'var(--space-4)' : 0 }}>
+                                <h3 className="queue-section-label" style={{ margin: 0 }}>Completed / Failed History ({filteredPastJobs.length})</h3>
                                 <div style={{ color: 'var(--text-muted)' }}>{showHistory ? <ChevronDown size={18} strokeWidth={2} /> : <ChevronRight size={18} strokeWidth={2} />}</div>
                             </button>
                             <AnimatePresence>
                                 {showHistory && (
                                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }} style={{ overflow: 'hidden' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingBottom: '1rem' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', paddingBottom: 'var(--space-4)' }}>
                                             {filteredPastJobs.length === 0 ? (
-                                                <div style={{ padding: '0.85rem 1rem', borderRadius: '12px', border: '1px dashed var(--border)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                                <div style={{ padding: '0.85rem var(--space-4)', borderRadius: '12px', border: '1px dashed var(--border)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                                                     No history matches this filter.
                                                 </div>
                                             ) : filteredPastJobs.map(job => {
                                                 const liveJob = jobs[job.id];
                                                 const displayJob = liveJob ? { ...job, ...liveJob } : job;
                                                 return (
-                                                <div key={job.id} onMouseEnter={() => setHoveredJobId(job.id)} onMouseLeave={() => setHoveredJobId(null)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '0.75rem 1.25rem', display: 'flex', alignItems: 'center', gap: '1.25rem', opacity: 0.8, transition: 'all 0.2s ease' }}>
+                                                <div key={job.id} onMouseEnter={() => setHoveredJobId(job.id)} onMouseLeave={() => setHoveredJobId(null)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: 'var(--space-3) 1.25rem', display: 'flex', alignItems: 'center', gap: '1.25rem', opacity: 0.8, transition: 'all 0.2s ease' }}>
                                                     <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: displayJob.status === 'done' ? 'var(--success-tint)' : 'var(--error-tint)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: displayJob.status === 'done' ? 'var(--success)' : 'var(--error)' }}>
                                                         {displayJob.status === 'done' ? <CheckCircle size={18} strokeWidth={2} /> : <XCircle size={18} strokeWidth={2} />}
                                                     </div>
                                                     <div style={{ flex: 1, minWidth: 0 }}>
                                                         <h4 style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatJobTitle(displayJob as any)}</h4>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
-                                                            <span style={!job.project_name ? { color: 'var(--accent)', fontWeight: 700, fontSize: compact ? '0.65rem' : '0.75rem', textTransform: 'uppercase' } : undefined}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: '2px' }}>
+                                                            <span style={!job.project_name ? { color: 'var(--accent)', fontWeight: 700, fontSize: compact ? '0.65rem' : 'var(--type-caption)', textTransform: 'uppercase' } : undefined}>
                                                                 {formatQueueContext(displayJob as any, engines)}
                                                             </span>
                                                             {(displayJob.started_at || displayJob.completed_at || displayJob.updated_at) && (
-                                                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
                                                                     <span>
                                                                         {formatTime(displayJob.started_at || displayJob.completed_at || displayJob.updated_at)}
                                                                         {displayJob.started_at && displayJob.completed_at && displayJob.completed_at > displayJob.started_at && (
@@ -437,12 +438,12 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                                                             )}
                                                         </div>
                                                         {displayJob.status !== 'done' && (displayJob.error || displayJob.log) && (
-                                                            <div style={{ marginTop: '0.35rem', fontSize: '0.75rem', lineHeight: 1.45, color: 'var(--error)', whiteSpace: 'normal' }}>
+                                                            <div style={{ marginTop: '0.35rem', fontSize: 'var(--type-caption)', lineHeight: 1.45, color: 'var(--error)', whiteSpace: 'normal' }}>
                                                                 Reason: {displayJob.error || displayJob.log}
                                                             </div>
                                                         )}
                                                     </div>
-                                                    <button onClick={() => handleRemove(job.id)} className="hover-bg-destructive" style={{ background: 'none', border: 'none', padding: '8px', borderRadius: '8px', cursor: 'pointer', color: hoveredJobId === job.id ? 'var(--error)' : 'var(--text-muted)', opacity: hoveredJobId === job.id ? 1 : 0.4, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}>
+                                                    <button onClick={() => handleRemove(job.id)} className="hover-bg-destructive" style={{ background: 'none', border: 'none', padding: 'var(--space-2)', borderRadius: '8px', cursor: 'pointer', color: hoveredJobId === job.id ? 'var(--error)' : 'var(--text-muted)', opacity: hoveredJobId === job.id ? 1 : 0.4, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}>
                                                         <Trash2 size={16} strokeWidth={2} />
                                                     </button>
                                                 </div>

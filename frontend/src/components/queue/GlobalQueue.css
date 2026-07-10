@@ -1,0 +1,10 @@
+/* GlobalQueue — file-local classes (ST-3 styling separation).
+   See design-docs/plans/active/simplification/styling_separation_execution/
+   tasks/007-st3-globalqueue.md */
+
+.queue-section-label {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}

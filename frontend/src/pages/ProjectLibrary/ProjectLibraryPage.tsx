@@ -6,6 +6,7 @@ import { ProjectCard } from '@/pages/ProjectDetail/components/ProjectCard';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { LibraryControls } from './components/LibraryControls';
 import { ProjectListView } from './components/ProjectListView';
+import './ProjectLibraryPage.css';
 
 interface ProjectLibraryProps {
     onSelectProject?: (projectId: string) => void;
@@ -65,7 +66,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
 
     if (loading) {
         return (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <div className="project-library-loading">
                 <Loader2 className="animate-spin" size={32} color="var(--accent)" />
             </div>
         );
@@ -74,26 +75,16 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
     // When the library is empty, render only a centered empty state with one CTA
     if (projects.length === 0) {
         return (
-            <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
-                <div style={{
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '6rem 2rem',
-                    textAlign: 'center',
-                    gap: '1.5rem'
-                }}>
-                    <Book size={56} style={{ opacity: 0.25, color: 'var(--text-muted)' }} />
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        <p style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>No projects yet</p>
-                        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Create a project to start turning text into audio.</p>
+            <div className="animate-in project-library-empty-page">
+                <div className="project-library-empty-content">
+                    <Book size={56} className="project-library-empty-icon" />
+                    <div className="project-library-empty-copy">
+                        <p className="project-library-empty-title">No projects yet</p>
+                        <p className="project-library-empty-subtitle">Create a project to start turning text into audio.</p>
                     </div>
                     <button
                         onClick={() => setShowModal(true)}
-                        className="btn-primary"
-                        style={{ padding: '0.85rem 2.5rem', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}
+                        className="btn-primary project-library-empty-cta"
                     >
                         <Plus size={20} strokeWidth={2.5} /> New Project
                     </button>
@@ -101,103 +92,85 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
 
                 {/* Create Project Modal */}
                 {showModal && (
-                    <div style={{
-                        position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: 'var(--overlay-backdrop)', backdropFilter: 'blur(4px)'
-                    }}>
+                    <div className="project-library-modal-backdrop">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            style={{
-                                width: '100%',
-                                maxWidth: '520px',
-                                padding: '2.5rem',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '2rem',
-                                background: 'var(--surface)',
-                                borderRadius: '24px',
-                                boxShadow: 'var(--shadow-lg)',
-                                border: '1px solid var(--border)'
-                            }}
+                            className="project-library-modal-panel"
                         >
-                            <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Create New Project</h3>
-                            <form onSubmit={handleCreateProject} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                                <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+                            <h3 className="project-library-modal-heading">Create New Project</h3>
+                            <form onSubmit={handleCreateProject} className="project-library-modal-form">
+                                <div className="project-library-form-row">
                                     <div
                                         onClick={() => fileInputRef.current?.click()}
                                         onDragOver={handleDragOver}
                                         onDragLeave={handleDragLeave}
                                         onDrop={handleDrop}
-                                        className="hover-lift"
+                                        className="hover-lift project-library-cover-dropzone"
                                         style={{
-                                            width: '120px', height: '120px', flexShrink: 0,
-                                            borderRadius: '8px',
                                             border: isDragging ? '2px solid var(--accent)' : '2px dashed var(--border)',
-                                            background: isDragging ? 'var(--accent-glow)' : 'var(--surface)',
-                                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                                            cursor: 'pointer', overflow: 'hidden', position: 'relative', transition: 'all 0.2s ease'
+                                            background: isDragging ? 'var(--accent-glow)' : 'var(--surface)'
                                         }}
                                     >
                                         {coverPreview ? (
-                                            <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                                                <img src={coverPreview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Cover Preview" />
+                                            <div className="project-library-cover-preview">
+                                                <img src={coverPreview} className="project-library-cover-preview-img" alt="Cover Preview" />
                                             </div>
                                         ) : (
-                                            <div style={{ textAlign: 'center', padding: '0.5rem' }}>
-                                                <ImageIcon size={24} style={{ margin: '0 auto 0.25rem auto', opacity: isDragging ? 1 : 0.5, color: isDragging ? 'var(--accent)' : 'inherit' }} />
-                                                <p style={{ fontSize: '0.65rem', color: isDragging ? 'var(--accent)' : 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+                                            <div className="project-library-cover-placeholder">
+                                                <ImageIcon size={24} className="project-library-cover-icon" style={{ opacity: isDragging ? 1 : 0.5, color: isDragging ? 'var(--accent)' : 'inherit' }} />
+                                                <p className="project-library-cover-label" style={{ color: isDragging ? 'var(--accent)' : 'var(--text-muted)' }}>
                                                     {isDragging ? 'Drop Image' : 'Add Cover'}
                                                 </p>
                                             </div>
                                         )}
                                     </div>
                                     <input type="file" ref={fileInputRef} onChange={handleCoverChange} accept="image/*" style={{ display: 'none' }} />
-                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    <div className="project-library-form-fields">
                                         <div>
-                                            <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>Title *</label>
+                                            <label className="label-uppercase-sm">Title *</label>
                                             <input
                                                 autoFocus
                                                 required
                                                 value={title}
                                                 onChange={e => setTitle(e.target.value)}
                                                 placeholder="Enter project title"
-                                                style={{ background: 'var(--surface-light)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '0.6rem 0.8rem', borderRadius: '6px', fontSize: '0.9rem', width: '100%' }}
+                                                className="project-library-form-input"
                                             />
                                         </div>
                                         <div>
-                                            <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>Author</label>
-                                            <input value={author} onChange={e => setAuthor(e.target.value)} placeholder="Optional" style={{ background: 'var(--surface-light)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '0.6rem 0.8rem', borderRadius: '6px', fontSize: '0.9rem', width: '100%' }} />
+                                            <label className="label-uppercase-sm">Author</label>
+                                            <input value={author} onChange={e => setAuthor(e.target.value)} placeholder="Optional" className="project-library-form-input" />
                                         </div>
                                         <div>
-                                            <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>Series</label>
+                                            <label className="label-uppercase-sm">Series</label>
                                             <input
                                                 value={series}
                                                 onChange={e => setSeries(e.target.value)}
                                                 list="project-series-suggestions"
                                                 placeholder="Optional"
-                                                style={{ background: 'var(--surface-light)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '0.6rem 0.8rem', borderRadius: '6px', fontSize: '0.9rem', width: '100%' }}
+                                                className="project-library-form-input"
                                             />
                                             <datalist id="project-series-suggestions">
                                                 {existingSeries.map((item) => <option key={item} value={item} />)}
                                             </datalist>
                                         </div>
                                         <div>
-                                            <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>Series position</label>
+                                            <label className="label-uppercase-sm">Series position</label>
                                             <input
                                                 value={seriesPosition}
                                                 onChange={e => { setSeriesPositionTouched(true); setSeriesPosition(e.target.value); }}
                                                 placeholder={series ? (seriesPosition ? `Suggested ${seriesPosition}` : 'Optional') : 'Optional'}
                                                 inputMode="numeric"
-                                                style={{ background: 'var(--surface-light)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '0.6rem 0.8rem', borderRadius: '6px', fontSize: '0.9rem', width: '100%' }}
+                                                className="project-library-form-input"
                                             />
                                         </div>
                                     </div>
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '0.5rem' }}>
-                                    <button type="button" onClick={() => setShowModal(false)} className="btn-ghost" style={{ padding: '0.6rem 1.25rem' }}>Cancel</button>
-                                    <button disabled={submitting || !title} type="submit" className="btn-primary" style={{ padding: '0.6rem 1.25rem', width: '120px', display: 'flex', justifyContent: 'center' }}>
+                                <div className="project-library-modal-actions">
+                                    <button type="button" onClick={() => setShowModal(false)} className="btn-ghost project-library-btn-cancel">Cancel</button>
+                                    <button disabled={submitting || !title} type="submit" className="btn-primary project-library-btn-submit">
                                         {submitting ? <Loader2 className="animate-spin" size={16} /> : 'Create'}
                                     </button>
                                 </div>
@@ -221,7 +194,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
     }
 
     return (
-        <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', minHeight: '100%' }}>
+        <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', minHeight: '100%' }}>
             <h1 style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
                 Library
             </h1>
@@ -230,7 +203,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                gap: '1rem',
+                gap: 'var(--space-4)',
                 flexWrap: 'wrap'
             }}>
                 <div>
@@ -244,7 +217,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                     }}>
                         {getGreeting()}
                     </h2>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.25rem', margin: '0.25rem 0 0 0' }}>
+                    <p style={{ fontSize: 'var(--type-callout)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 'var(--space-1) 0 0 0' }}>
                         Your audiobook projects
                     </p>
                 </div>
@@ -259,8 +232,8 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
 
             {projects.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '5rem', color: 'var(--text-muted)' }}>
-                    <Book size={48} style={{ margin: '0 auto 1rem auto', opacity: 0.3 }} />
-                    <p style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>No projects found</p>
+                    <Book size={48} style={{ margin: '0 auto var(--space-4) auto', opacity: 0.3 }} />
+                    <p style={{ fontSize: '1.1rem', marginBottom: 'var(--space-2)' }}>No projects found</p>
                     <p style={{ fontSize: '0.85rem', opacity: 0.7 }}>Create a new project to get started translating text into audio.</p>
                 </div>
             ) : (
@@ -276,7 +249,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                         <div style={{
                             display: 'grid',
                             gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-                            gap: '1.5rem'
+                            gap: 'var(--space-5)'
                         }}>
                             {sortedProjects.map(project => (
                                 <ProjectCard
@@ -310,68 +283,42 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    style={{
-                        position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: 'var(--overlay-backdrop)', backdropFilter: 'blur(4px)'
-                    }}
+                    className="project-library-modal-backdrop"
                 >
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95, y: 10 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        style={{
-                            width: '100%', 
-                            maxWidth: '520px', 
-                            padding: '2.5rem', 
-                            display: 'flex', 
-                            flexDirection: 'column', 
-                            gap: '2rem', 
-                            background: 'var(--surface)',
-                            borderRadius: '24px',
-                            boxShadow: 'var(--shadow-lg)',
-                            border: '1px solid var(--border)'
-                        }}
+                        className="project-library-modal-panel"
                     >
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Create New Project</h3>
-                        <form onSubmit={handleCreateProject} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                            <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+                        <h3 className="project-library-modal-heading">Create New Project</h3>
+                        <form onSubmit={handleCreateProject} className="project-library-modal-form">
+                            <div className="project-library-form-row">
                                 <div
                                     onClick={() => fileInputRef.current?.click()}
                                     onDragOver={handleDragOver}
                                     onDragLeave={handleDragLeave}
                                     onDrop={handleDrop}
-                                    className="hover-lift"
+                                    className="hover-lift project-library-cover-dropzone"
                                     style={{
-                                        width: '120px',
-                                        height: '120px',
-                                        flexShrink: 0,
-                                        borderRadius: '8px',
                                         border: isDragging ? '2px solid var(--accent)' : '2px dashed var(--border)',
-                                        background: isDragging ? 'var(--accent-glow)' : 'var(--surface)',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        cursor: 'pointer',
-                                        overflow: 'hidden',
-                                        position: 'relative',
-                                        transition: 'all 0.2s ease'
+                                        background: isDragging ? 'var(--accent-glow)' : 'var(--surface)'
                                     }}
                                 >
                                     {coverPreview ? (
-                                        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                                            <img src={coverPreview} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Cover Preview" />
+                                        <div className="project-library-cover-preview">
+                                            <img src={coverPreview} className="project-library-cover-preview-img" alt="Cover Preview" />
                                             {isDragging && (
-                                                <div style={{ position: 'absolute', inset: 0, background: 'var(--accent-glow)', opacity: 0.8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <div className="project-library-cover-drag-overlay">
                                                     <ImageIcon size={32} color="white" />
                                                 </div>
                                             )}
                                         </div>
                                     ) : (
-                                        <div style={{ textAlign: 'center', padding: '0.5rem' }}>
-                                            <ImageIcon size={24} style={{ margin: '0 auto 0.25rem auto', opacity: isDragging ? 1 : 0.5, color: isDragging ? 'var(--accent)' : 'inherit' }} />
-                                            <p style={{ fontSize: '0.65rem', color: isDragging ? 'var(--accent)' : 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+                                        <div className="project-library-cover-placeholder">
+                                            <ImageIcon size={24} className="project-library-cover-icon" style={{ opacity: isDragging ? 1 : 0.5, color: isDragging ? 'var(--accent)' : 'inherit' }} />
+                                            <p className="project-library-cover-label" style={{ color: isDragging ? 'var(--accent)' : 'var(--text-muted)' }}>
                                                 {isDragging ? 'Drop Image' : 'Add Cover'}
                                             </p>
                                         </div>
@@ -379,94 +326,58 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                                 </div>
                                 <input type="file" ref={fileInputRef} onChange={handleCoverChange} accept="image/*" style={{ display: 'none' }} />
 
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                <div className="project-library-form-fields">
                                     <div>
-                                        <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>Title *</label>
+                                        <label className="label-uppercase-sm">Title *</label>
                                         <input
                                             autoFocus
                                             required
                                             value={title}
                                             onChange={e => setTitle(e.target.value)}
                                             placeholder="Enter project title"
-                                            style={{
-                                                background: 'var(--surface-light)',
-                                                border: '1px solid var(--border)',
-                                                color: 'var(--text-primary)',
-                                                padding: '0.6rem 0.8rem',
-                                                borderRadius: '6px',
-                                                outline: 'none',
-                                                fontSize: '0.9rem',
-                                                width: '100%'
-                                            }}
+                                            className="project-library-form-input project-library-form-input--no-outline"
                                         />
                                     </div>
                                     <div>
-                                        <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>Author</label>
+                                        <label className="label-uppercase-sm">Author</label>
                                         <input
                                             value={author}
                                             onChange={e => setAuthor(e.target.value)}
                                             placeholder="Optional"
-                                            style={{
-                                                background: 'var(--surface-light)',
-                                                border: '1px solid var(--border)',
-                                                color: 'var(--text-primary)',
-                                                padding: '0.6rem 0.8rem',
-                                                borderRadius: '6px',
-                                                outline: 'none',
-                                                fontSize: '0.9rem',
-                                                width: '100%'
-                                            }}
+                                            className="project-library-form-input project-library-form-input--no-outline"
                                         />
                                     </div>
                                     <div>
-                                        <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>Series</label>
+                                        <label className="label-uppercase-sm">Series</label>
                                         <input
                                             value={series}
                                             onChange={e => setSeries(e.target.value)}
                                             list="project-series-suggestions"
                                             placeholder="Optional"
-                                            style={{
-                                                background: 'var(--surface-light)',
-                                                border: '1px solid var(--border)',
-                                                color: 'var(--text-primary)',
-                                                padding: '0.6rem 0.8rem',
-                                                borderRadius: '6px',
-                                                outline: 'none',
-                                                fontSize: '0.9rem',
-                                                width: '100%'
-                                            }}
+                                            className="project-library-form-input project-library-form-input--no-outline"
                                         />
                                         <datalist id="project-series-suggestions">
                                             {existingSeries.map((item) => <option key={item} value={item} />)}
                                         </datalist>
                                     </div>
                                     <div>
-                                        <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>Series position</label>
+                                        <label className="label-uppercase-sm">Series position</label>
                                         <input
                                             value={seriesPosition}
                                             onChange={e => { setSeriesPositionTouched(true); setSeriesPosition(e.target.value); }}
                                             placeholder={series ? (seriesPosition ? `Suggested ${seriesPosition}` : 'Optional') : 'Optional'}
                                             inputMode="numeric"
-                                            style={{
-                                                background: 'var(--surface-light)',
-                                                border: '1px solid var(--border)',
-                                                color: 'var(--text-primary)',
-                                                padding: '0.6rem 0.8rem',
-                                                borderRadius: '6px',
-                                                outline: 'none',
-                                                fontSize: '0.9rem',
-                                                width: '100%'
-                                            }}
+                                            className="project-library-form-input project-library-form-input--no-outline"
                                         />
                                     </div>
                                 </div>
                             </div>
-                            
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '0.5rem' }}>
-                                <button type="button" onClick={() => setShowModal(false)} className="btn-ghost" style={{ padding: '0.6rem 1.25rem' }}>
+
+                            <div className="project-library-modal-actions">
+                                <button type="button" onClick={() => setShowModal(false)} className="btn-ghost project-library-btn-cancel">
                                     Cancel
                                 </button>
-                                <button disabled={submitting || !title} type="submit" className="btn-primary" style={{ padding: '0.6rem 1.25rem', width: '120px', display: 'flex', justifyContent: 'center' }}>
+                                <button disabled={submitting || !title} type="submit" className="btn-primary project-library-btn-submit">
                                     {submitting ? <Loader2 className="animate-spin" size={16} /> : 'Create'}
                                 </button>
                             </div>
