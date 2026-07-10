@@ -55,16 +55,13 @@ class TestHomeRedaction:
         assert settings.get("huggingface_token") == "***"
         assert "super-secret-hf-token" not in resp.text
 
-    def test_token_is_empty_string_when_not_set(self, client):
-        _set_hf_token("")
-
-        with patch("app.api.routers.system._build_runtime_services", return_value=[]), \
-             patch("app.api.routers.system.get_voices_dir"):
-            resp = client.get("/api/home")
-
-        assert resp.status_code == 200
-        settings = resp.json().get("settings", {})
-        assert settings.get("huggingface_token", None) in ("", None)
+    # NOTE: an empty-string/not-set case was intentionally not duplicated here.
+    # huggingface_token and tts_api_key share the exact same generic
+    # `_SECRET_FIELDS` redaction loop in app/api/routers/system.py (no
+    # per-key branching), and test_api_key_security.py::test_key_is_empty_string_when_not_set
+    # already exercises that shared "" branch; this file's
+    # test_token_is_redacted_when_set above already proves huggingface_token
+    # itself is a member of _SECRET_FIELDS.
 
 
 class TestSettingsEndpointRedaction:

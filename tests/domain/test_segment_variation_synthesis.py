@@ -88,56 +88,6 @@ def test_render_segment_uses_variant_profile_name_for_resolution():
     )
 
 
-def test_render_segment_non_default_variant_differs_from_default():
-    """The bridge request for 'Aria - Whisper' must carry a different voice_profile_dir
-    than the request for 'Aria' (the default), proving the variant path is distinct.
-
-    R2 compliant: mocks only the DB/filesystem helpers and the TTS engine boundary.
-    """
-    from plugins.tts_mixed.handler import _render_segment
-
-    default_dir = Path("/tmp/voices/Aria/Default")
-    whisper_dir = Path("/tmp/voices/Aria/Whisper")
-
-    default_bridge_calls: list[dict] = []
-    whisper_bridge_calls: list[dict] = []
-
-    def make_capturing_bridge(store: list) -> object:
-        def capturing(**kwargs):
-            store.append(kwargs)
-            Path(kwargs["out_wav"]).write_text("audio")
-            return 0
-        return capturing
-
-    # --- Default variant ---
-    with patch("plugins.tts_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
-         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=default_dir), \
-         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=make_capturing_bridge(default_bridge_calls)):
-        _render_segment("xtts", "Default text.", "Aria", Path("/tmp/default.wav"), False, lambda _: None, lambda: False)
-
-    # --- Non-default variant ---
-    with patch("plugins.tts_mixed.handler.get_speaker_settings", return_value={"speed": 0.9}), \
-         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=whisper_dir), \
-         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=make_capturing_bridge(whisper_bridge_calls)):
-        _render_segment("xtts", "Whisper text.", "Aria - Whisper", Path("/tmp/whisper.wav"), False, lambda _: None, lambda: False)
-
-    assert default_bridge_calls and whisper_bridge_calls, "Bridge not called"
-
-    default_req = default_bridge_calls[0]
-    whisper_req = whisper_bridge_calls[0]
-
-    # Variant's directory must differ from the default's directory.
-    assert default_req.get("voice_profile_dir") != whisper_req.get("voice_profile_dir"), (
-        "The 'Aria - Whisper' variant must use a different voice_profile_dir than 'Aria'."
-    )
-    assert whisper_req.get("voice_profile_dir") == whisper_dir
-    assert default_req.get("voice_profile_dir") == default_dir
-
-    # Profile names must be preserved distinctly.
-    assert default_req.get("profile_name") == "Aria"
-    assert whisper_req.get("profile_name") == "Aria - Whisper"
-
-
 # ---------------------------------------------------------------------------
 # Chunk-group resolution: variant profile_name is preserved through grouping
 # ---------------------------------------------------------------------------

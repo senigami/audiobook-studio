@@ -289,14 +289,28 @@ def test_backup_history_save_list_download(clean_db, client):
 def test_backup_download_security(clean_db, client):
     pid = create_project("Security Project")
 
-    # Attempt directory traversal
+    # An HTTP request for "../../etc/passwd" never reaches our route at all:
+    # Starlette's router rejects/normalizes the "/"-containing path segment
+    # before dispatch (a single {filename} path param can't span "/"), so
+    # this never actually exercises app code -- confirmed by instrumenting
+    # the handler and observing it's never entered for this request.
     response = client.get(f"/api/projects/{pid}/backups/../../etc/passwd/download")
-    assert response.status_code in (400, 404) # 400 because of our validation or 404 if not found
+    assert response.status_code == 404
 
     # Attempt arbitrary file read in backups dir (if we somehow put one there)
     # But our validation checks for .zip suffix
     response = client.get(f"/api/projects/{pid}/backups/some_other_file.txt/download")
     assert response.status_code == 400
+
+    # Real traversal defense: call the handler directly with a crafted
+    # slash-containing filename (bypassing HTTP/routing entirely) to prove
+    # the Rule 8 os.scandir()-based exact-name match can never resolve a
+    # path-traversal filename to a file outside the project's backups dir.
+    from app.api.routers.projects_backups import api_download_saved_backup
+
+    result = api_download_saved_backup(pid, "../../../etc/passwd.zip")
+    assert result.status_code == 404
+    assert json.loads(result.body)["message"] == "Backup not found"
 
 def test_backup_history_missing_project_returns_404(clean_db, client):
     list_response = client.get("/api/projects/missing-project/backups")

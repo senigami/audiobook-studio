@@ -173,18 +173,28 @@ class TestLanguageAndStyleAttributes:
 
 
 class TestTaxonomyVersionCheck:
-    def test_supported_version_accepted_silently(self):
+    def test_supported_version_accepted_silently(self, caplog):
+        """check_taxonomy_version always returns True, so the return value alone
+        proves nothing -- the real "silently" claim in the name is that no
+        warning is logged for a currently-supported major version, unlike the
+        newer-major-version case below."""
         from app.domain.voices.taxonomy import check_taxonomy_version
 
-        result = check_taxonomy_version("2.0")
-        assert result is True
+        with caplog.at_level(logging.WARNING, logger="app.domain.voices.taxonomy"):
+            result = check_taxonomy_version("2.0")
 
-    def test_older_major_version_accepted_silently(self):
+        assert result is True
+        assert caplog.records == []
+
+    def test_older_major_version_accepted_silently(self, caplog):
         """Pre-Phase-G voices declaring taxonomy_version 1.0 still load with no warning."""
         from app.domain.voices.taxonomy import check_taxonomy_version
 
-        result = check_taxonomy_version("1.0")
+        with caplog.at_level(logging.WARNING, logger="app.domain.voices.taxonomy"):
+            result = check_taxonomy_version("1.0")
+
         assert result is True
+        assert caplog.records == []
 
     def test_newer_major_version_warns_but_loads(self, caplog):
         """A3: unknown major version (3.0) logs a warning; still returns True."""
@@ -196,11 +206,16 @@ class TestTaxonomyVersionCheck:
         assert result is True
         assert any("3.0" in r.message for r in caplog.records)
 
-    def test_missing_taxonomy_version_accepted(self):
+    def test_missing_taxonomy_version_accepted(self, caplog):
+        """None is accepted silently -- distinct code path (early return before
+        any parsing/warning logic runs) from the supported/older-major cases."""
         from app.domain.voices.taxonomy import check_taxonomy_version
 
-        result = check_taxonomy_version(None)
+        with caplog.at_level(logging.WARNING, logger="app.domain.voices.taxonomy"):
+            result = check_taxonomy_version(None)
+
         assert result is True
+        assert caplog.records == []
 
 
 class TestStrictValidation:

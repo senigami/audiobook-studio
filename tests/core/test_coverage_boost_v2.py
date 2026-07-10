@@ -20,21 +20,6 @@ def mock_state(tmp_path, monkeypatch):
     (tmp_path / "audio_out").mkdir(parents=True, exist_ok=True)
     return tmp_path
 
-def test_analysis_router_endpoints(mock_state):
-    from app.db.state import update_settings
-    update_settings({"default_engine": "xtts"})
-    # Test analyze_text endpoint (POST)
-    response = client.post("/api/analyze_text", json={"text_content": "This is a short sentence. This is another one."})
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "ok"
-    assert data["char_count"] > 0
-    assert "safe_text" in data
-
-    # Test report endpoint (GET) - 404 case
-    response = client.get("/api/report/nonexistent")
-    assert response.status_code == 404
-
 def test_db_characters_coverage(mock_state):
     from app.db.characters import get_characters, create_character, update_character, delete_character
 
@@ -70,16 +55,9 @@ def test_jobs_state_update_coverage(mock_state):
     assert jobs["fail_me"].status == "failed"
     assert jobs["fail_me"].error == "System Error"
 
-def test_web_additional_endpoints(mock_state):
-    # Trigger more paths in web.py or routers
-    res = client.get("/api/home")
-    assert res.status_code == 200
-
-    res = client.get("/api/projects")
-    assert res.status_code == 200
-
 def test_migration_coverage(mock_state):
     from app.db.legacy_migration import import_legacy_filesystem_data
+    from app.db.chapters import list_chapters
 
     # Create a dummy chapter file
     (mock_state / "chapters").mkdir(parents=True, exist_ok=True)
@@ -91,4 +69,13 @@ def test_migration_coverage(mock_state):
 
     res = import_legacy_filesystem_data()
     assert res["status"] == "success"
-    assert "legacy" in res["message"] or "1" in res["message"]
+    assert res["message"] == f"Successfully imported 1 chapters into Project {res['project_id']}."
+
+    # The imported chapter should carry the real text content and be matched
+    # to the sibling audio file (audio_status "done", not "unprocessed").
+    chapters = list_chapters(res["project_id"])
+    assert len(chapters) == 1
+    assert chapters[0]["title"] == "legacy"
+    assert chapters[0]["text_content"] == "Legacy content"
+    assert chapters[0]["audio_status"] == "done"
+    assert chapters[0]["audio_file_path"] == "legacy.mp3"

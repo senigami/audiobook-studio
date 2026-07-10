@@ -295,28 +295,26 @@ class TestImportValidation:
         assert voice_data["attributes"]["gender"] == "masculine"
         assert voice_data["spec"] == "audiobook-studio-voice"
 
-    def test_import_does_not_write_version_integer_to_voice_json(self, tmp_path):
-        """E3-b: import does NOT write integer `version` field into voice.json."""
-        voices_root = tmp_path / "voices"
-        voices_root.mkdir()
-        bundle = self._make_bundle(_FULLY_TAGGED_VOICE_JSON)
-
-        result = _import(voices_root, bundle)
-        voice_data = json.loads((voices_root / result["voice_name"] / "voice.json").read_text())
-        assert "version" not in voice_data, "Import must not write legacy 'version' field to voice.json"
-
     def test_import_does_not_write_default_variant_to_voice_json(self, tmp_path):
-        """E3-c: import does NOT write default_variant into voice.json; goes to state.json."""
+        """E3-c: import strips a *present* default_variant out of voice.json and
+        persists its real value (not the "Default" fallback) to state.json.
+
+        Uses a fixture that actually carries a non-default `default_variant`
+        value so the assertions exercise the real strip-and-relocate branch in
+        import_voice_bundle(), instead of a fixture that never had the key
+        (in which case "not in voice_data" would be trivially true).
+        """
         voices_root = tmp_path / "voices"
         voices_root.mkdir()
-        bundle = self._make_bundle(_FULLY_TAGGED_VOICE_JSON)
+        voice_json = {**_FULLY_TAGGED_VOICE_JSON, "default_variant": "Whisper"}
+        bundle = self._make_bundle(voice_json)
 
         result = _import(voices_root, bundle)
         voice_data = json.loads((voices_root / result["voice_name"] / "voice.json").read_text())
         assert "default_variant" not in voice_data, "Import must not write 'default_variant' to voice.json"
 
         state_data = json.loads((voices_root / result["voice_name"] / "state.json").read_text())
-        assert "default_variant" in state_data
+        assert state_data["default_variant"] == "Whisper"
 
     def test_import_legacy_bundle_succeeds(self, tmp_path):
         """E3-d: importing a legacy runtime bundle (version:2, no spec fields) still works."""

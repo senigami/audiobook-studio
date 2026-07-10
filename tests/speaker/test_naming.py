@@ -65,7 +65,13 @@ def test_add_variant_to_unassigned(clean_db, voices_root, client):
     assert meta["speaker_id"] == "FreshVoice"
     assert meta["variant_name"] == "Variant1"
 
-def test_rename_unassigned_profile_payload(clean_db, voices_root, client):
+def test_rename_unassigned_profile_rejects_mismatched_name_field(clean_db, voices_root, client):
+    """Regression guard for the actual bug this test used to claim to cover
+    (but never reproduced): a caller sending payload key 'name' instead of
+    the backend's required 'new_name' Form field. FastAPI must reject this
+    with 422 (missing required field), and the rename must not happen --
+    rather than silently doing nothing (or something unintended) with a 200.
+    """
     voices_dir = voices_root
 
     voice_root = voices_dir / "OldName"
@@ -74,8 +80,11 @@ def test_rename_unassigned_profile_payload(clean_db, voices_root, client):
     (voice_root / "Default").mkdir()
     (voice_root / "Default" / "profile.json").write_text("{}")
 
-    # Frontend was sending 'name' but backend expects 'new_name'
-    response = client.post("/api/speaker-profiles/OldName/rename", data={"new_name": "NewName"})
-    assert response.status_code == 200
-    assert (voices_dir / "NewName" / "Default").exists()
-    assert (voices_dir / "NewName" / "voice.json").exists()
+    # Mismatched field name: 'name' instead of 'new_name'.
+    response = client.post("/api/speaker-profiles/OldName/rename", data={"name": "NewName"})
+    assert response.status_code == 422
+
+    # Nothing was renamed.
+    assert (voices_dir / "OldName" / "Default").exists()
+    assert (voices_dir / "OldName" / "voice.json").exists()
+    assert not (voices_dir / "NewName").exists()

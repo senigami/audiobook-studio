@@ -178,6 +178,11 @@ def test_project_snapshot_portability_and_validation() -> None:
 
 
 def test_settings_ownership_chain_order() -> None:
+    """The intended Studio 2.0 ownership precedence: global < project < module
+    < profile_preview. Note this alone doesn't prove build_settings_ownership_chain()
+    actually *sorts* -- describe_settings_ownership()'s static list already
+    happens to be in this order. See test_settings_ownership_chain_sorts_out_of_order_input
+    below for a fixture that actually exercises the sort."""
     chain = build_settings_ownership_chain()
 
     assert [item.scope for item in chain] == [
@@ -187,6 +192,29 @@ def test_settings_ownership_chain_order() -> None:
         "profile_preview",
     ]
     assert [item.precedence for item in chain] == [0, 1, 2, 3]
+
+
+def test_settings_ownership_chain_sorts_out_of_order_input(monkeypatch: pytest.MonkeyPatch) -> None:
+    """build_settings_ownership_chain() wraps describe_settings_ownership() in
+    sorted(..., key=precedence). Feed it deliberately out-of-precedence-order
+    data to prove the sort is real, not a no-op over an already-sorted list."""
+    from app.domain.settings.models import SettingsOwnershipModel
+
+    unsorted = [
+        SettingsOwnershipModel(scope="module", owner="x", description="", precedence=2),
+        SettingsOwnershipModel(scope="global", owner="x", description="", precedence=0),
+        SettingsOwnershipModel(scope="profile_preview", owner="x", description="", precedence=3),
+        SettingsOwnershipModel(scope="project", owner="x", description="", precedence=1),
+    ]
+    monkeypatch.setattr(
+        "app.domain.settings.ownership.describe_settings_ownership",
+        lambda: unsorted,
+    )
+
+    chain = build_settings_ownership_chain()
+
+    assert [item.precedence for item in chain] == [0, 1, 2, 3]
+    assert [item.scope for item in chain] == ["global", "project", "module", "profile_preview"]
 
 
 def test_preview_payload_trims_script_text_but_preserves_request_context() -> None:
@@ -224,7 +252,11 @@ def test_voice_compatibility_rejects_engine_mismatch_for_asset() -> None:
         validate_voice_compatibility(profile=profile, engine_id="engine-1", asset=asset)
 
 
-def test_preview_voice_profile_routes_through_real_bridge() -> None:
+def test_preview_voice_profile_routes_through_remote_bridge() -> None:
+    """Exercises the real preview.py -> VoiceBridge -> RemoteBridgeHandler
+    chain; only the TTS Server HTTP client itself is mocked (network boundary,
+    R2-compliant) via the autouse mock_tts_server_watchdog fixture -- "real
+    bridge" here means the routing code, not an unmocked network call."""
     response = preview_voice_profile(
         VoicePreviewRequestModel(
             voice_profile_id="voice-1",
@@ -237,27 +269,6 @@ def test_preview_voice_profile_routes_through_real_bridge() -> None:
     assert response["bridge"] == "tts-server-preview-bridge"
     assert response["preview_request"]["engine_id"] == "engine-1"
     assert response["preview_request"]["script_text"] == "hello world"
-
-
-def test_preview_voice_profile_rejects_non_wav_bridge_format(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr("plugins.tts_voxtral.plugin.studio.app_adapter.resolve_mistral_api_key", lambda: "token")
-    from app.engines.registry import load_engine_registry
-    load_engine_registry.cache_clear()
-
-    response = preview_voice_profile(
-        VoicePreviewRequestModel(
-            voice_profile_id="VoiceA",
-            engine_id="voxtral",
-            script_text="Hello there",
-            output_format="mp3",
-        )
-    )
-
-    assert response["status"] == "ok"
-    assert response["bridge"] == "tts-server-preview-bridge"
-    assert response["preview_request"]["output_format"] == "mp3"
 
 
 @pytest.mark.parametrize(

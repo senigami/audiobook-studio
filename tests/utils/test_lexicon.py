@@ -19,11 +19,14 @@ def test_empty_entries_returns_text_unchanged():
 
 
 def test_none_entries_treated_as_empty():
-    """None entries list → identity (defensive)."""
+    """entries=None (not merely []) → identity, defensively.
+
+    The function signature declares ``list[dict]``, but ``if not entries``
+    also accepts None without raising -- exercise that directly rather than
+    passing [] again (which the sibling identity test above already covers).
+    """
     text = "Hello world."
-    # The function signature accepts list[dict]; passing an empty list is
-    # the primary contract, but implementations should not crash on edge cases.
-    assert apply_lexicon(text, []) == text
+    assert apply_lexicon(text, None) == text
 
 
 def test_empty_text_returns_empty():
@@ -138,30 +141,32 @@ def test_multiple_entries_all_applied():
 
 
 def test_multiple_entries_order_is_deterministic():
-    """Applying the same entries twice must yield the same result."""
+    """Entries are applied sequentially in list order onto the *evolving*
+    result (not independently against the original text), so "red"->"blue"
+    then "blue"->"green" over "The red ball." lands on "The green ball." --
+    assert that concrete expected value, not two live calls against each
+    other (which is guaranteed by pure-function determinism regardless of
+    whether the real substitution logic is even correct)."""
     entries = [
         {"word": "red", "replacement": "blue"},
         {"word": "blue", "replacement": "green"},
     ]
-    r1 = apply_lexicon("The red ball.", entries)
-    r2 = apply_lexicon("The red ball.", entries)
-    assert r1 == r2
+    result = apply_lexicon("The red ball.", entries)
+    assert result == "The green ball."
 
 
-def test_entry_replacement_does_not_cascade():
-    """If entry A replaces 'cat' → 'kitten', subsequent entry for 'kitten'
-    must NOT then replace the freshly inserted 'kitten'.
-    This is acceptable either way as long as behavior is documented and
-    consistent — the test just asserts determinism.  We expect sequential
-    non-cascading by default (each entry applied independently to the same
-    original text OR sequentially to the evolving text — either is valid,
-    but must be stable).
+def test_entry_replacement_cascades_onto_prior_replacement():
+    """Real, current behavior: because apply_lexicon() re-assigns `result`
+    and threads it through each entry in turn, a later entry CAN match text
+    inserted by an earlier entry in the same call -- entry A ('cat'->'kitten')
+    followed by entry B ('kitten'->'REPLACED') does cascade, landing on
+    'A REPLACED.' rather than leaving the freshly-inserted 'kitten' alone.
+    This pins the actual sequential-cascade contract instead of vacuously
+    accepting either behavior.
     """
     entries = [
         {"word": "cat", "replacement": "kitten"},
         {"word": "kitten", "replacement": "REPLACED"},
     ]
     result = apply_lexicon("A cat.", entries)
-    # The result must be one of two consistent behaviors — just not a crash.
-    assert isinstance(result, str)
-    assert len(result) > 0
+    assert result == "A REPLACED."

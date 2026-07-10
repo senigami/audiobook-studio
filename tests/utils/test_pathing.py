@@ -81,3 +81,4 @@ def test_contained_path_returns_path_object():
     from pathlib import Path
     result = contained_path("/base", "sub")
     assert isinstance(result, Path)
+    assert result == Path("/base/sub")

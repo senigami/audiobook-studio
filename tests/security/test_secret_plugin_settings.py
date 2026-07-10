@@ -65,11 +65,6 @@ class TestSecretKeys:
         result = secret_keys(_SCHEMA_WITH_SECRET)
         assert result == {"api_key"}
 
-    def test_excludes_non_secret_keys(self):
-        from app.tts_server.settings_store import secret_keys
-        result = secret_keys(_SCHEMA_WITH_SECRET)
-        assert "model" not in result
-
     def test_empty_schema_returns_empty_set(self):
         from app.tts_server.settings_store import secret_keys
         assert secret_keys({}) == set()

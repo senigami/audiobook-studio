@@ -42,9 +42,18 @@ async def test_store_project_cover_absolute_path_blocked(tmp_path):
     project_dir = tmp_path / "project1"
     project_dir.mkdir()
 
+    # Absolute path injection attempt. Use a target fully inside this test's
+    # own tmp_path sandbox (rather than the real, shared /tmp/evil.jpg) and
+    # pre-populate it with known sentinel bytes, so the "was it touched?"
+    # assertion is deterministic and can't pass vacuously due to stale state
+    # left over from another test run or process.
+    outside_target = tmp_path / "outside" / "evil.jpg"
+    outside_target.parent.mkdir(parents=True)
+    sentinel = b"pre-existing, unrelated content"
+    outside_target.write_bytes(sentinel)
+
     cover = AsyncMock()
-    # Absolute path injection attempt
-    cover.filename = "/tmp/evil.jpg"
+    cover.filename = str(outside_target)
     cover.read = AsyncMock(return_value=b"evil")
 
     mock_manager = StorageManager(base_dir=tmp_path, projects_dir=tmp_path)
@@ -53,4 +62,7 @@ async def test_store_project_cover_absolute_path_blocked(tmp_path):
 
     # Should still end up in project1/cover/cover.jpg
     assert (project_dir / "cover" / "cover.jpg").exists()
-    assert not Path("/tmp/evil.jpg").exists() or Path("/tmp/evil.jpg").read_bytes() != b"evil"
+    assert (project_dir / "cover" / "cover.jpg").read_bytes() == b"evil"
+
+    # The absolute-path target must be byte-for-byte untouched.
+    assert outside_target.read_bytes() == sentinel

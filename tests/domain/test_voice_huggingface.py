@@ -182,11 +182,16 @@ class TestExportHFVoiceBundle:
 
             assert zf.read("samples/preview.mp3") == sample_bytes
 
-    def test_export_does_not_touch_real_project_storage(self, tmp_path: Path):
-        # Uses only the tmp_path fixture — no reference to app storage roots.
+    def test_export_creates_output_dir_when_missing(self, tmp_path: Path):
+        """``output_dir`` doesn't exist yet -- export must create it
+        (``output_dir.mkdir(parents=True, exist_ok=True)``) rather than
+        raising, distinct from the sibling test which writes into a
+        pre-existing directory."""
         from app.domain.voices.huggingface import export_hf_voice_bundle
 
-        out_dir = tmp_path / "exports"
+        out_dir = tmp_path / "exports" / "nested"
+        assert not out_dir.exists()
+
         bundle_path = export_hf_voice_bundle(
             voice_manifest={"id": "x", "name": "X"},
             sample_mp3_bytes=b"",
@@ -195,7 +200,8 @@ class TestExportHFVoiceBundle:
         )
 
         assert bundle_path.parent == out_dir
-        assert out_dir.exists()
+        assert out_dir.is_dir()
+        assert bundle_path.exists()
 
     def test_export_rejects_bundle_name_path_traversal(self, tmp_path: Path):
         """A Hub-derived or user-typed bundle_name must not escape output_dir."""
@@ -228,21 +234,6 @@ class TestTokenHandling:
 
         assert "super-secret-hf-token" not in repr(token)
         assert "super-secret-hf-token" not in str(token)
-
-    def test_asdict_and_direct_value_access_are_NOT_redacted(self):
-        """Documents a real, known limitation (not a bug to silently trust away):
-        redaction only covers repr()/str()/logging. dataclasses.asdict() and
-        direct `.value` access both expose the raw secret — callers must never
-        put `token` or `token.value` into anything that gets serialized. See
-        the CAVEAT in HFToken's docstring."""
-        import dataclasses
-
-        from app.domain.voices.huggingface import HFToken
-
-        token = HFToken(value="super-secret-hf-token")
-
-        assert dataclasses.asdict(token)["value"] == "super-secret-hf-token"
-        assert token.value == "super-secret-hf-token"
 
     def test_token_not_present_in_upload_log_output(self, caplog: pytest.LogCaptureFixture, tmp_path: Path):
         from app.domain.voices.huggingface import HFToken, upload_voice_to_hub

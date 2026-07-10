@@ -49,10 +49,10 @@ def test_split_into_parts():
 
     # Test paragraph break preference
     text = "Para 1\n\nPara 2\n\nPara 3"
-    # Implementations split at max_chars=15 might include "Para 1\n\nPara 2" if it fits?
-    # Actually split_into_parts has a rfind("\n\n") check.
     parts = split_into_parts(text, max_chars=20)
-    assert len(parts) >= 2
+    assert len(parts) == 2
+    assert parts[0][2] == "Para 1\n\nPara"
+    assert parts[1][2] == "2\n\nPara 3"
 
 def test_split_sentences():
     # The regex SENT_SPLIT_RE splits on .!? followed by space/end or newlines.
@@ -77,10 +77,13 @@ def test_safe_split_long_sentences():
     assert len(res_no_sep) > 40
 
 def test_text_utility_default_limits_remain_stable():
+    """Pin the literal constant values (regression guard against an
+    accidental change). The textops_splitting.SENT_CHAR_LIMIT/SAFE_SPLIT_TARGET
+    names are plain `as`-import aliases of these same constants, so comparing
+    them here would be tautological (guaranteed by Python's import mechanism,
+    not by any real logic) -- deliberately not asserted."""
     assert DEFAULT_SENT_CHAR_LIMIT == 500
     assert DEFAULT_SAFE_SPLIT_TARGET == 250
-    assert textops_splitting.SENT_CHAR_LIMIT == DEFAULT_SENT_CHAR_LIMIT
-    assert textops_splitting.SAFE_SPLIT_TARGET == DEFAULT_SAFE_SPLIT_TARGET
 
 def test_write_chapters_to_folder(tmp_path):
     chapters = [(1, "Chap 1", "Body 1"), (2, "Chap 2", "Body 2")]
@@ -164,6 +167,11 @@ def test_format_duration():
     assert format_duration(3661) == "1h 1m 1s"
 
 def test_compute_chapter_metrics():
-    metrics = compute_chapter_metrics("Some text here.")
-    assert "char_count" in metrics
-    assert "predicted_audio_length" in metrics
+    # 167 chars at the 16.7 baseline chars/sec (app.engines.behavior.
+    # DEFAULT_BASELINE_ENGINE_CPS) gives a clean, concrete expected duration
+    # instead of re-deriving the formula from the implementation.
+    text = "a" * 167 + " word"
+    metrics = compute_chapter_metrics(text)
+    assert metrics["char_count"] == 172
+    assert metrics["word_count"] == 2
+    assert metrics["predicted_audio_length"] == 10.0
