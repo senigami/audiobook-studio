@@ -27,11 +27,13 @@ Because plugins run as raw Python code, we perform a strict manual audit of the 
 *   **File Access**: No reads or writes outside the plugin's own folder or the requested `output_path`.
 *   **Network**: No unauthorized outbound network calls (e.g., telemetry or auto-updates) unless explicitly documented and user-disclosable.
 *   **Dependencies**: Review of `requirements.txt`. We avoid plugins that require conflicting versions of core dependencies (e.g., `torch`, `fastapi`).
+*   **Versioned manifest**: `manifest.json` must declare `studio_tts_manifest` ("1.0"), `contract_version`, `sdk_version`, `settings_schema_version`, and `event_envelope_version`. These are validated at load time — a plugin with missing or mismatched version fields is rejected before it ever reaches the safety/stability review. See [`design-docs/specs/plugin-contract.md`](../../design-docs/specs/plugin-contract.md) for the current required values.
 
 ### 2. Stability and Performance
 *   **Environment Check**: Does `check_env()` provide a clear and helpful error message if dependencies (like FFmpeg or GPU drivers) are missing?
 *   **Resource Management**: Does the plugin correctly release VRAM/RAM in `shutdown()`? Does it avoid blocking the main thread during heavy computation?
 *   **Verification**: The plugin must pass a **Verification Synthesis** pass in a standard environment.
+*   **Test suite**: The plugin should ship its own `tests/` directory exercising `check_env()`, `settings_schema()`, and a basic `synthesize()`/`preview()` pass. This is collected automatically by the root pytest run, and can be run in isolation with `./venv/bin/python -m pytest plugins/tts_<name>/tests`.
 
 ### 3. User Experience
 *   **Settings Schema**: Is the `settings_schema()` intuitive? Does it use appropriate field types (e.g., ranges for sliders, enums for dropdowns)?

@@ -22,6 +22,13 @@ To use this template for your own plugin:
 - **Environment Checks**: Early validation of API keys or model files.
 - **Flexible Internals**: `plugin/server`, `plugin/studio`, and `plugin/core` are recommended folders, not mandatory API.
 
+`plugin/studio/handler.py` is *not* wired into this template's `manifest.json` — it's an
+illustration of the SDK-facade shape for custom job handlers (segment-level control beyond
+plain `synthesize()`/`preview()`), not something every plugin needs. Read its module docstring
+before copying it into a real plugin; the exact call signature Studio's dispatcher uses today
+still differs from the clean shape shown there (see `plugins/tts_voxtral/plugin/studio/handler.py`
+for a real, currently-dispatched example).
+
 ## Security Boundary Notice
 
 Plugins are trusted code. When developing or sharing a plugin, ensure it respects the boundaries defined in the [Plugin Guide](../plugin-guide.md#security-boundary-and-trust-model).

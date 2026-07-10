@@ -1,0 +1,37 @@
+{
+  "at": "2026-07-09T16:00:00Z",
+  "commit": "uncommitted",
+  "task": "Phase 9/12 backlog: update CONTRIBUTING.md with a plugin-lifecycle section, and prep docs/plugin-sdk/ for Phase 13 release documentation. Docs-only change; no runtime code touched.",
+  "files": {
+    "CONTRIBUTING.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added a 'Contributing a new TTS engine plugin (lifecycle)' subsection under the existing Plugin Development section: folder structure (manifest.json + settings_schema.json + interface.py + plugin/ + tests/), manifest-as-declaration-layer pointer to plugin-guide.md, the binding manifest-registration-not-engine-ID-branches rule (.agent/rules/modular_architecture.md), the versioned-contract requirement (four manifest version fields, validated at load), how to run a plugin's own test suite (./venv/bin/python -m pytest plugins/<name>/tests), and a pointer to plugin-submission-guidelines.md. Links out to deeper docs rather than duplicating the manifest field tables."
+    },
+    "docs/plugin-sdk/plugin-submission-guidelines.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Filled two gaps found against the current contract: added a 'Versioned manifest' bullet under the Safety and Security Audit section (the four required manifest version fields, validated at load per design-docs/specs/plugin-contract.md) and a 'Test suite' bullet under Stability and Performance pointing at the plugin-local pytest run."
+    },
+    "docs/plugin-sdk/plugin-template/plugin/studio/handler.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Docstring-only fix for real drift found while verifying the template against the live dispatch path: the file demonstrates a forward-looking handle_job(ctx: StudioPluginContext, job: JobSpec) -> JobResult shape that design-docs/plans/active/final_release/stage3_sdk_migration_plan.md's S2 slice deliberately put in the template ahead of S9 ('dispatcher integration') landing. Traced app/orchestration/scheduler/orchestrator_helpers.py's registry dispatch (the actual current call path) and confirmed S9 has not landed: it still calls worker_logic handlers with legacy keyword args (jid, j <a raw Job row>, on_output, cancel_check, optional text/start via inspect.signature introspection), matching plugins/tts_voxtral/plugin/studio/handler.py's real handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None) signature, not this template's (ctx, job) shape. Rewired the module docstring to say plainly: (1) most plugins don't need a custom handler at all — StudioTTSEngine.synthesize()/preview() is enough and dispatched generically; (2) this exact function signature is not what today's dispatcher calls if wired into manifest.json's worker_logic — point to the real, currently-dispatched tts_voxtral example and design-docs/specs/plugin-contract.md instead. No behavioral code changed (py_compile clean, template's own test_contract.py still passes)."
+    },
+    "docs/plugin-sdk/plugin-template/README.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added a short paragraph next to the Features list clarifying plugin/studio/handler.py is not wired into this template's manifest.json and pointing to its docstring + the real tts_voxtral handler before anyone copies it verbatim."
+    }
+  },
+  "flow_impact": "Documentation only (CONTRIBUTING.md, docs/plugin-sdk/*). No app/ or plugins/*/[non-docs] runtime files changed. Verified: python3 -m py_compile on all touched/adjacent template .py files, JSON validity of template manifest.json/settings_schema.json, docs/plugin-sdk/plugin-template/tests/test_contract.py still passes (1 passed), scripts/validate_plugin_manifests.py still OK for all three live plugins (unaffected, doesn't scan the docs template).",
+  "tests_added": [],
+  "tests_deleted": [],
+  "tests_relocated": [],
+  "verification": {
+    "py_compile": "python3 -m py_compile docs/plugin-sdk/plugin-template/{interface.py,plugin/server/engine.py,plugin/studio/handler.py,tests/test_contract.py} -> OK",
+    "json_validity": "python3 -c \"json.load(open('docs/plugin-sdk/plugin-template/manifest.json')); json.load(open('docs/plugin-sdk/plugin-template/settings_schema.json'))\" -> OK",
+    "pytest_scoped": "venv/bin/python -m pytest docs/plugin-sdk/plugin-template/tests/test_contract.py -q -> 1 passed",
+    "manifest_validator": "venv/bin/python scripts/validate_plugin_manifests.py -> OK [tts_mixed], OK [tts_voxtral], OK [tts_xtts]"
+  }
+}
