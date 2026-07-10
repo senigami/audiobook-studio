@@ -123,3 +123,42 @@
 .engine-setup-notice__title {
   font-size: 0.86rem;
 }
+
+/* Shared between EngineCalibrationSection.tsx's calibration summary panel
+   and EngineSettingsForm.tsx's settings panel — margin/padding still vary
+   per usage and stay inline. */
+.engine-highlight-panel {
+  border-radius: 16px;
+  border: 1px solid var(--accent-tint-border);
+  background: linear-gradient(180deg, var(--surface-tinted-light), var(--surface));
+}
+
+/* Shared uppercase micro-label, used by EngineCalibrationSection.tsx and
+   EngineTestSample.tsx section headers. */
+.engine-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.engine-calibration-chip__value {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-tint-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-tint-border);
+}
+
+.engine-calibration-chip__reset {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  text-decoration: underline;
+  font-weight: 600;
+}

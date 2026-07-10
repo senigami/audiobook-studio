@@ -60,7 +60,7 @@ export const OfficialRegistryPanel: React.FC<OfficialRegistryPanelProps> = ({ on
   };
 
   return (
-    <section aria-labelledby="store-section-label" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
+    <section aria-labelledby="store-section-label" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
         <h2
           id="store-section-label"
@@ -79,7 +79,7 @@ export const OfficialRegistryPanel: React.FC<OfficialRegistryPanelProps> = ({ on
           style={{
             fontSize: '0.6rem',
             fontWeight: 700,
-            padding: '2px 8px',
+            padding: '2px var(--space-2)',
             borderRadius: 'var(--radius-round)',
             background: 'var(--accent-tint-bg)',
             color: 'var(--accent-text)',
@@ -94,36 +94,29 @@ export const OfficialRegistryPanel: React.FC<OfficialRegistryPanelProps> = ({ on
         </span>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         {loading ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+          <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
             <Loader2 size={24} className="spin" style={{ opacity: 0.5, margin: '0 auto' }} />
           </div>
         ) : error ? (
-          <div style={{ padding: '1rem', borderRadius: '12px', background: 'var(--error-tint-bg)', color: 'var(--error-text-strong)', fontSize: '0.85rem', border: '1px solid var(--error-tint-border)' }}>
+          <div style={{ padding: 'var(--space-4)', borderRadius: '12px', background: 'var(--error-tint-bg)', color: 'var(--error-text-strong)', fontSize: '0.85rem', border: '1px solid var(--error-tint-border)' }}>
             {error}
           </div>
         ) : plugins.length === 0 ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+          <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
             No official plugins available.
           </div>
         ) : (
           plugins.map(plugin => (
             <div
               key={plugin.id}
-              style={{
-                padding: '1.25rem',
-                borderRadius: '16px',
-                border: '1px solid var(--border)',
-                background: 'var(--surface-light)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.75rem',
-              }}
+              className="registry-card"
+              style={{ background: 'var(--surface-light)' }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
                     <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>{plugin.name}</h3>
                     {plugin.trust_level === 'official' && (
                       <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'var(--accent-tint-bg)', color: 'var(--accent-text)', border: '1px solid var(--accent-tint-border)', textTransform: 'uppercase' }}>
@@ -139,45 +132,45 @@ export const OfficialRegistryPanel: React.FC<OfficialRegistryPanelProps> = ({ on
                   disabled={importing}
                   aria-label={`Install ${plugin.name}`}
                   onClick={() => onInstallGithubUrl(plugin.repo_url)}
-                  style={{ padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem' }}
+                  style={{ padding: 'var(--space-2) var(--space-3)', borderRadius: '8px', border: '1px solid var(--border)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem' }}
                 >
                   <Download size={14} />
                   Install
                 </button>
               </div>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.25rem' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-1)' }}>
                 {plugin.tags?.map(tag => (
-                  <span key={tag} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.7rem', color: 'var(--text-muted)', background: 'var(--surface)', padding: '2px 8px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                  <span key={tag} className="registry-chip">
                     <Tag size={10} /> {tag}
                   </span>
                 ))}
                 {plugin.compatibility?.map(comp => (
-                  <span key={comp} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.7rem', color: 'var(--text-muted)', background: 'var(--surface)', padding: '2px 8px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                  <span key={comp} className="registry-chip">
                     <Cpu size={10} /> {comp}
                   </span>
                 ))}
               </div>
 
               {(plugin.requirements && plugin.requirements.length > 0) && (
-                <div style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                <div style={{ marginTop: 'var(--space-1)', fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>
                   <strong>Requires:</strong> {plugin.requirements.join(', ')}
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', fontSize: '0.75rem' }}>
+              <div style={{ display: 'flex', gap: 'var(--space-4)', marginTop: 'var(--space-2)', fontSize: 'var(--type-caption)' }}>
                 {plugin.repo_url && (
-                  <a href={plugin.repo_url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--accent-text)', textDecoration: 'none', fontWeight: 600 }}>
+                  <a href={plugin.repo_url} target="_blank" rel="noreferrer" className="registry-link">
                     <Github size={12} /> Repository
                   </a>
                 )}
                 {plugin.homepage && (
-                  <a href={plugin.homepage} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--accent-text)', textDecoration: 'none', fontWeight: 600 }}>
+                  <a href={plugin.homepage} target="_blank" rel="noreferrer" className="registry-link">
                     <Globe size={12} /> Homepage
                   </a>
                 )}
                 {plugin.docs_url && (
-                  <a href={plugin.docs_url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--accent-text)', textDecoration: 'none', fontWeight: 600 }}>
+                  <a href={plugin.docs_url} target="_blank" rel="noreferrer" className="registry-link">
                     <Book size={12} /> Documentation
                   </a>
                 )}
@@ -187,25 +180,17 @@ export const OfficialRegistryPanel: React.FC<OfficialRegistryPanelProps> = ({ on
         )}
 
         <div
-          style={{
-            padding: '1.25rem',
-            borderRadius: '16px',
-            border: '1px solid var(--border)',
-            background: 'var(--surface)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.75rem',
-            marginTop: '0.5rem'
-          }}
+          className="registry-card"
+          style={{ background: 'var(--surface)', marginTop: 'var(--space-2)' }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <Github size={16} color="var(--text-muted)" />
             <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800 }}>Install from GitHub</h3>
           </div>
           <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
             Paste the URL of a compatible GitHub repository to install a third-party plugin.
           </p>
-          <form onSubmit={handleManualSubmit} style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+          <form onSubmit={handleManualSubmit} style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-1)' }}>
             <input
               type="url"
               placeholder="https://github.com/owner/repo.git"
@@ -228,7 +213,7 @@ export const OfficialRegistryPanel: React.FC<OfficialRegistryPanelProps> = ({ on
               className="btn-glass"
               disabled={importing || !manualUrl.trim()}
               aria-label="Install plugin from GitHub URL"
-              style={{ padding: '0.6rem 1rem', borderRadius: '8px', border: '1px solid var(--border)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+              style={{ padding: '0.6rem var(--space-4)', borderRadius: '8px', border: '1px solid var(--border)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
             >
               <Plus size={14} />
               Install
@@ -245,8 +230,8 @@ export const OfficialRegistryPanel: React.FC<OfficialRegistryPanelProps> = ({ on
               fontSize: '0.78rem',
               display: 'flex',
               alignItems: 'flex-start',
-              gap: '0.5rem',
-              marginTop: '0.25rem'
+              gap: 'var(--space-2)',
+              marginTop: 'var(--space-1)'
             }}
           >
             <Upload size={14} style={{ marginTop: '0.15rem', flexShrink: 0 }} />

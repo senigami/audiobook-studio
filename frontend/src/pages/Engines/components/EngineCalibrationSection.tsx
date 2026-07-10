@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TtsEngine } from '@/types';
+import '@/pages/Engines/components/EngineCard.css';
 
 const formatCalibrationSince = (timestamp?: number | null): string | null => {
   if (!timestamp || !Number.isFinite(timestamp)) {
@@ -30,15 +31,7 @@ export const EngineCalibrationChip: React.FC<{
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.35rem' }}>
       <span
         data-testid="calibration-chip"
-        style={{
-          fontSize: '0.65rem',
-          fontWeight: 700,
-          padding: '2px 8px',
-          borderRadius: '999px',
-          background: 'var(--accent-tint-bg)',
-          color: 'var(--accent)',
-          border: '1px solid var(--accent-tint-border)',
-        }}
+        className="engine-calibration-chip__value"
       >
         {Number(engine.calibrated_cps).toFixed(1)} chars/s
         {engine.calibration_confidence_percent !== undefined && engine.calibration_confidence_percent !== null
@@ -54,16 +47,8 @@ export const EngineCalibrationChip: React.FC<{
           e.stopPropagation();
           onResetCalibration();
         }}
-        style={{
-          background: 'none',
-          border: 'none',
-          padding: 0,
-          cursor: saving ? 'not-allowed' : 'pointer',
-          color: 'var(--text-muted)',
-          fontSize: '0.65rem',
-          textDecoration: 'underline',
-          fontWeight: 600,
-        }}
+        className="engine-calibration-chip__reset"
+        style={{ cursor: saving ? 'not-allowed' : 'pointer' }}
       >
         Reset calibration
       </button>
@@ -90,16 +75,11 @@ export const EngineCalibrationSection: React.FC<{
 
   return (
     <div
-      style={{
-        marginBottom: '1.25rem',
-        padding: '1rem',
-        borderRadius: '16px',
-        border: '1px solid var(--accent-tint-border)',
-        background: 'linear-gradient(180deg, var(--surface-tinted-light), var(--surface))',
-      }}
+      className="engine-highlight-panel"
+      style={{ marginBottom: '1.25rem', padding: '1rem' }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '0.72rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <span className="engine-eyebrow">
           Voice generation speed
         </span>
         <button

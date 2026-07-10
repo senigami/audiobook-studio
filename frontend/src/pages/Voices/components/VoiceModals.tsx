@@ -34,35 +34,20 @@ interface NewVoiceModalProps {
 export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, value, onChange, engine, onEngineChange, engines = [], onSubmit, isCreating, sampleFiles = [], onSampleFilesChange }) => {
     if (!isOpen) return null;
     return (
-        <div style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'var(--overlay-backdrop)',
-            backdropFilter: 'blur(4px)'
-        }}>
+        <div className="voice-modal-overlay">
             <motion.div
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                style={{
-                    width: 'min(520px, calc(100vw - 2rem))',
-                    background: 'var(--surface)',
-                    borderRadius: '24px',
-                    padding: '24px',
-                    boxShadow: 'var(--shadow-lg)',
-                    border: '1px solid var(--border)'
-                }}
+                className="voice-modal-panel"
+                style={{ width: 'min(520px, calc(100vw - 2rem))' }}
             >
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '8px' }}>Create New Voice</h3>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '24px' }}>
+                <h3 className="voice-modal-title">Create New Voice</h3>
+                <p className="voice-modal-subtitle">
                     Give your voice a name and optionally upload samples now. You can also add samples after creation.
                 </p>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>VOICE NAME</label>
+
+                <div className="voice-modal-field-group">
+                    <label className="voice-modal-field-label">VOICE NAME</label>
                     <GlassInput
                         autoFocus
                         placeholder="e.g. Victor the Vampire"
@@ -76,8 +61,8 @@ export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, v
                     />
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
-                    <label htmlFor="new-voice-engine" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>ENGINE</label>
+                <div className="voice-modal-field-group">
+                    <label htmlFor="new-voice-engine" className="voice-modal-field-label">ENGINE</label>
                     <select id="new-voice-engine" value={engine} onChange={(e) => onEngineChange(e.target.value as VoiceEngine)} style={engineSelectStyle}>
                         {engines.filter(e => e.enabled).length === 0 ? (
                             <option value="">No enabled engines available</option>
@@ -92,7 +77,7 @@ export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, v
                 </div>
 
                 {onSampleFilesChange && (
-                    <div style={{ marginBottom: '24px' }}>
+                    <div style={{ marginBottom: 'var(--space-5)' }}>
                         <VoiceDropzone
                             files={sampleFiles}
                             onFilesChange={onSampleFilesChange}
@@ -100,13 +85,12 @@ export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, v
                     </div>
                 )}
 
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <button onClick={onClose} className="btn-ghost" style={{ flex: 1, height: '44px', borderRadius: '12px' }}>Cancel</button>
+                <div className="voice-modal-button-row">
+                    <button onClick={onClose} className="btn-ghost voice-modal-btn">Cancel</button>
                     <button
                         disabled={!value.trim() || isCreating}
                         onClick={onSubmit}
-                        className="btn-primary"
-                        style={{ flex: 1, height: '44px', borderRadius: '12px' }}
+                        className="btn-primary voice-modal-btn"
                     >
                         {isCreating ? 'Creating...' : 'Create Voice'}
                     </button>
@@ -129,37 +113,22 @@ interface RenameVoiceModalProps {
 export const RenameVoiceModal: React.FC<RenameVoiceModalProps> = ({ isOpen, onClose, originalName, value, onChange, onSubmit, isRenaming }) => {
     if (!isOpen) return null;
     return (
-        <div style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'var(--overlay-backdrop)',
-            backdropFilter: 'blur(4px)'
-        }}>
-            <motion.div 
+        <div className="voice-modal-overlay">
+            <motion.div
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                style={{
-                    width: 'min(400px, calc(100vw - 2rem))',
-                    background: 'var(--surface)',
-                    borderRadius: '24px',
-                    padding: '24px',
-                    boxShadow: 'var(--shadow-lg)',
-                    border: '1px solid var(--border)'
-                }}
+                className="voice-modal-panel"
+                style={{ width: 'min(400px, calc(100vw - 2rem))' }}
             >
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '8px' }}>
+                <h3 className="voice-modal-title">
                     Rename Voice: <span style={{ color: 'var(--accent)' }}>{originalName}</span>
                 </h3>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '24px' }}>
+                <p className="voice-modal-subtitle">
                     Update the name for this voice. This will also update the prefix for all its variants.
                 </p>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>NEW NAME</label>
+
+                <div className="voice-modal-field-group">
+                    <label className="voice-modal-field-label">NEW NAME</label>
                     <GlassInput
                         autoFocus
                         placeholder="e.g. Victor the Vampire"
@@ -173,13 +142,12 @@ export const RenameVoiceModal: React.FC<RenameVoiceModalProps> = ({ isOpen, onCl
                     />
                 </div>
 
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <button onClick={onClose} className="btn-ghost" style={{ flex: 1, height: '44px', borderRadius: '12px' }}>Cancel</button>
-                    <button 
+                <div className="voice-modal-button-row">
+                    <button onClick={onClose} className="btn-ghost voice-modal-btn">Cancel</button>
+                    <button
                         disabled={!value.trim() || isRenaming}
                         onClick={onSubmit}
-                        className="btn-primary"
-                        style={{ flex: 1, height: '44px', borderRadius: '12px' }}
+                        className="btn-primary voice-modal-btn"
                     >
                         {isRenaming ? 'Renaming...' : 'Rename Voice'}
                     </button>
@@ -205,35 +173,20 @@ interface AddVariantModalProps {
 export const AddVariantModal: React.FC<AddVariantModalProps> = ({ isOpen, onClose, speakerName, value, onChange, engine, onEngineChange, engines = [], onSubmit, isAdding }) => {
     if (!isOpen) return null;
     return (
-        <div style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'var(--overlay-backdrop)',
-            backdropFilter: 'blur(4px)'
-        }}>
-            <motion.div 
+        <div className="voice-modal-overlay">
+            <motion.div
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                style={{
-                    width: 'min(400px, calc(100vw - 2rem))',
-                    background: 'var(--surface)',
-                    borderRadius: '24px',
-                    padding: '24px',
-                    boxShadow: 'var(--shadow-lg)',
-                    border: '1px solid var(--border)'
-                }}
+                className="voice-modal-panel"
+                style={{ width: 'min(400px, calc(100vw - 2rem))' }}
             >
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '8px' }}>Add Variant</h3>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '24px' }}>
+                <h3 className="voice-modal-title">Add Variant</h3>
+                <p className="voice-modal-subtitle">
                     Create a new variant for voice <span style={{ color: 'var(--accent)', fontWeight: 700 }}>"{speakerName}"</span>.
                 </p>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>VARIANT NAME</label>
+
+                <div className="voice-modal-field-group">
+                    <label className="voice-modal-field-label">VARIANT NAME</label>
                     <GlassInput
                         autoFocus
                         placeholder="e.g. Variant 2"
@@ -247,8 +200,8 @@ export const AddVariantModal: React.FC<AddVariantModalProps> = ({ isOpen, onClos
                     />
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
-                    <label htmlFor="add-variant-engine" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>ENGINE</label>
+                <div className="voice-modal-field-group">
+                    <label htmlFor="add-variant-engine" className="voice-modal-field-label">ENGINE</label>
                     <select id="add-variant-engine" value={engine} onChange={(e) => onEngineChange(e.target.value as VoiceEngine)} style={engineSelectStyle}>
                         {engines.filter(e => e.enabled).length === 0 ? (
                             <option value="">No enabled engines available</option>
@@ -262,13 +215,12 @@ export const AddVariantModal: React.FC<AddVariantModalProps> = ({ isOpen, onClos
                     </select>
                 </div>
 
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <button onClick={onClose} className="btn-ghost" style={{ flex: 1, height: '44px', borderRadius: '12px' }}>Cancel</button>
-                    <button 
+                <div className="voice-modal-button-row">
+                    <button onClick={onClose} className="btn-ghost voice-modal-btn">Cancel</button>
+                    <button
                         disabled={!value.trim() || isAdding}
                         onClick={onSubmit}
-                        className="btn-primary"
-                        style={{ flex: 1, height: '44px', borderRadius: '12px' }}
+                        className="btn-primary voice-modal-btn"
                     >
                         {isAdding ? 'Adding...' : 'Add Variant'}
                     </button>
@@ -294,35 +246,20 @@ export const MoveVariantModal: React.FC<MoveVariantModalProps> = ({
 }) => {
     if (!isOpen) return null;
     return (
-        <div style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'var(--overlay-backdrop)',
-            backdropFilter: 'blur(4px)'
-        }}>
-            <motion.div 
+        <div className="voice-modal-overlay">
+            <motion.div
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                style={{
-                    width: 'min(440px, calc(100vw - 2rem))',
-                    background: 'var(--surface)',
-                    borderRadius: '24px',
-                    padding: '24px',
-                    boxShadow: 'var(--shadow-lg)',
-                    border: '1px solid var(--border)'
-                }}
+                className="voice-modal-panel"
+                style={{ width: 'min(440px, calc(100vw - 2rem))' }}
             >
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '8px' }}>Move Variant</h3>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '24px' }}>
+                <h3 className="voice-modal-title">Move Variant</h3>
+                <p className="voice-modal-subtitle">
                     Move <span style={{ color: 'var(--accent)', fontWeight: 700 }}>"{variantName}"</span> to another speaker profile.
                 </p>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '24px' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>SELECT TARGET SPEAKER</label>
+
+                <div className="voice-modal-field-group">
+                    <label className="voice-modal-field-label">SELECT TARGET SPEAKER</label>
                     <SearchableSelect
                         options={speakers}
                         value={selectedSpeakerId || 'none'}
@@ -333,13 +270,12 @@ export const MoveVariantModal: React.FC<MoveVariantModalProps> = ({
                     />
                 </div>
 
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <button onClick={onClose} className="btn-ghost" style={{ flex: 1, height: '44px', borderRadius: '12px' }}>Cancel</button>
-                    <button 
+                <div className="voice-modal-button-row">
+                    <button onClick={onClose} className="btn-ghost voice-modal-btn">Cancel</button>
+                    <button
                         disabled={!selectedSpeakerId || isMoving}
                         onClick={onSubmit}
-                        className="btn-primary"
-                        style={{ flex: 1, height: '44px', borderRadius: '12px' }}
+                        className="btn-primary voice-modal-btn"
                     >
                         {isMoving ? 'Moving...' : 'Move Variant'}
                     </button>

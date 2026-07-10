@@ -126,7 +126,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                                             </div>
                                         )}
                                     </div>
-                                    <input type="file" ref={fileInputRef} onChange={handleCoverChange} accept="image/*" style={{ display: 'none' }} />
+                                    <input type="file" ref={fileInputRef} onChange={handleCoverChange} accept="image/*" className="project-library-hidden-input" />
                                     <div className="project-library-form-fields">
                                         <div>
                                             <label className="label-uppercase-sm">Title *</label>
@@ -194,47 +194,33 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
     }
 
     return (
-        <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', minHeight: '100%' }}>
-            <h1 style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
+        <div className="animate-in project-library-page">
+            <h1 className="project-library-visually-hidden-heading">
                 Library
             </h1>
             {/* Page header */}
-            <header style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 'var(--space-4)',
-                flexWrap: 'wrap'
-            }}>
+            <header className="project-library-header">
                 <div>
-                    <h2 style={{
-                        fontSize: '1.75rem',
-                        fontWeight: 700,
-                        letterSpacing: '-0.02em',
-                        color: 'var(--text-primary)',
-                        lineHeight: 1.2,
-                        margin: 0
-                    }}>
+                    <h2 className="project-library-greeting">
                         {getGreeting()}
                     </h2>
-                    <p style={{ fontSize: 'var(--type-callout)', color: 'var(--text-muted)', marginTop: 'var(--space-1)', margin: 'var(--space-1) 0 0 0' }}>
+                    <p className="project-library-subtitle">
                         Your audiobook projects
                     </p>
                 </div>
                 <button
                     onClick={() => setShowModal(true)}
-                    className="btn-primary"
-                    style={{ padding: '0.6rem 1.25rem', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}
+                    className="btn-primary project-library-header-cta"
                 >
                     <Plus size={16} strokeWidth={2.5} /> New Project
                 </button>
             </header>
 
             {projects.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '5rem', color: 'var(--text-muted)' }}>
-                    <Book size={48} style={{ margin: '0 auto var(--space-4) auto', opacity: 0.3 }} />
-                    <p style={{ fontSize: '1.1rem', marginBottom: 'var(--space-2)' }}>No projects found</p>
-                    <p style={{ fontSize: '0.85rem', opacity: 0.7 }}>Create a new project to get started translating text into audio.</p>
+                <div className="project-library-no-results">
+                    <Book size={48} className="project-library-no-results-icon" />
+                    <p className="project-library-no-results-title">No projects found</p>
+                    <p className="project-library-no-results-copy">Create a new project to get started translating text into audio.</p>
                 </div>
             ) : (
                 <>
@@ -246,11 +232,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                     />
 
                     {viewMode === 'grid' ? (
-                        <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-                            gap: 'var(--space-5)'
-                        }}>
+                        <div className="project-library-grid">
                             {sortedProjects.map(project => (
                                 <ProjectCard
                                     key={project.id}
@@ -324,7 +306,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                                         </div>
                                     )}
                                 </div>
-                                <input type="file" ref={fileInputRef} onChange={handleCoverChange} accept="image/*" style={{ display: 'none' }} />
+                                <input type="file" ref={fileInputRef} onChange={handleCoverChange} accept="image/*" className="project-library-hidden-input" />
 
                                 <div className="project-library-form-fields">
                                     <div>

@@ -198,3 +198,39 @@
   display: block;
 }
 
+/* ==========================================================================
+   OfficialRegistryPanel (ST-3 task 009 — repeated inline patterns, see
+   design-docs/plans/active/simplification/styling_separation_execution/
+   01-map.md Part 3; no dedicated Engines-domain CSS file exists yet)
+   ========================================================================== */
+
+.registry-card {
+  padding: 1.25rem;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.registry-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  background: var(--surface);
+  padding: 2px var(--space-2);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.registry-link {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--accent-text);
+  text-decoration: none;
+  font-weight: 600;
+}
+
