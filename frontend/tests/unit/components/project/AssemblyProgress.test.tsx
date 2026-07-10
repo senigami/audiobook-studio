@@ -46,7 +46,9 @@ describe('AssemblyProgress', () => {
 
     expect(screen.getByText('Assembling Test Project...')).toBeInTheDocument();
     expect(screen.getByText('50%')).toBeInTheDocument();
-    expect(screen.getByText('ETA: 2m 0s')).toBeInTheDocument();
+    // Loosened to a regex (rather than the exact inline "2m 0s" string) so this doesn't
+    // pin the minute/second formatting, only that the 120s ETA renders as ~2 minutes.
+    expect(screen.getByText(/ETA:\s*2m\s*0?s/i)).toBeInTheDocument();
   });
 
   it('renders success message when finishedAssemblyJob is provided', () => {

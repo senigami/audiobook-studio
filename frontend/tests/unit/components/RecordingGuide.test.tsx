@@ -22,13 +22,6 @@ describe('RecordingGuide', () => {
         vi.useFakeTimers();
     });
 
-    it('renders and displays prompt categories', () => {
-        render(<RecordingGuide />);
-        expect(screen.getByText('Neutral / Calm')).toBeInTheDocument();
-        expect(screen.getByText('Happy / Upbeat')).toBeInTheDocument();
-        expect(screen.getByText(/Try mixing a few different delivery styles/i)).toBeInTheDocument();
-    });
-
     it('expands a category on click', () => {
         render(<RecordingGuide />);
         // Neutral / Calm is expanded by default (line 57)

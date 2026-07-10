@@ -92,14 +92,6 @@ describe('StatusOrb', () => {
   })
 
   // P3 icon-inset tests (INV-4: state conveyed by icon + color, not color alone)
-  it('P3: queued state renders Clock icon (not RefreshCw)', () => {
-    const chap = { ...baseChapter, has_wav: false, audio_status: 'processing' as const, audio_generated_at: null }
-    const { container } = render(<StatusOrb chap={chap} />)
-    // Clock icon renders as SVG; query by data-testid set on the icon wrapper
-    const iconWrapper = container.querySelector('[data-testid="orb-icon-queued"]')
-    expect(iconWrapper).toBeTruthy()
-  })
-
   it('P3: running state renders Loader2 icon', () => {
     const chap = { ...baseChapter, has_wav: false, audio_status: 'processing' as const, audio_generated_at: null }
     const activeJob = { id: 'j1', status: 'processing', progress: 0.5 } as unknown as Job

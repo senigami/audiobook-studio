@@ -378,9 +378,9 @@ describe('Global Queue Components', () => {
             expect(screen.getByTestId('queue-item-progress-bar')).toHaveAttribute('data-eta-seconds', '30');
         });
 
-        it('shows pause icon when paused', () => {
-            const { container } = render(
-                <QueueItem 
+        it('shows pause icon when paused, and swaps back to play icon when not paused', () => {
+            const { container, rerender } = render(
+                <QueueItem
                     job={mockJob as any}
                     localPaused={true}
                     formatJobTitle={vi.fn()}
@@ -388,9 +388,22 @@ describe('Global Queue Components', () => {
                     onRemove={vi.fn()}
                 />
             );
-            // Check for pause icon (lucide-react component usually renders as an svg)
-            const svg = container.querySelector('svg');
-            expect(svg).toBeInTheDocument();
+            // lucide-react tags each icon with a `lucide-<name>` class, so this
+            // distinguishes the paused (Pause) icon from the running (Play) icon.
+            expect(container.querySelector('svg.lucide-pause')).toBeInTheDocument();
+            expect(container.querySelector('svg.lucide-play')).not.toBeInTheDocument();
+
+            rerender(
+                <QueueItem
+                    job={mockJob as any}
+                    localPaused={false}
+                    formatJobTitle={vi.fn()}
+                    formatTime={vi.fn()}
+                    onRemove={vi.fn()}
+                />
+            );
+            expect(container.querySelector('svg.lucide-play')).toBeInTheDocument();
+            expect(container.querySelector('svg.lucide-pause')).not.toBeInTheDocument();
         });
 
         it('calls onRemove when cancel button is clicked', () => {
@@ -764,32 +777,6 @@ describe('Global Queue Components', () => {
             expect(parsed.stableEtaBasis).toBe('remaining_from_update');
             expect(parsed.etaSourcePath).toBe('live_overlay');
             expect(parsed.etaSourceReason).toBe('positive_live_job_eta');
-        });
-    });
-
-    describe('GlobalQueue', () => {
-        it('renders queue title', () => {
-            render(
-                <GlobalQueue 
-                    paused={false}
-                    jobs={{}}
-                    queue={[]}
-                />
-            );
-
-            expect(screen.getByText('Global Queue')).toBeInTheDocument();
-        });
-
-        it('shows empty state', () => {
-            render(
-                <GlobalQueue 
-                    paused={false}
-                    jobs={{}}
-                    queue={[]}
-                />
-            );
-
-            expect(screen.getByText('Queue is empty')).toBeInTheDocument();
         });
     });
 

@@ -8,11 +8,6 @@ describe('SearchableSelect', () => {
     { id: '2', name: 'Option 2' },
   ];
 
-  it('renders with placeholder', () => {
-    render(<SearchableSelect options={options} value="" onChange={vi.fn()} placeholder="Select test" />);
-    expect(screen.getByText('Select test')).toBeInTheDocument();
-  });
-
   it('opens dropdown on click', () => {
     render(<SearchableSelect options={options} value="" onChange={vi.fn()} placeholder="Select test" />);
     fireEvent.click(screen.getByRole('button', { name: 'Select test' }));

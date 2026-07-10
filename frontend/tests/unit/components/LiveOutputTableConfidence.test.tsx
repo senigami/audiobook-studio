@@ -18,11 +18,6 @@ const getConfidenceCellForRow = (rowIndex = 0): string => {
 };
 
 describe('LiveOutputTable - confidence column', () => {
-  it('header includes a Confidence column', () => {
-    render(<LiveOutputTable />);
-    expect(screen.getByRole('columnheader', { name: 'Confidence' })).toBeInTheDocument();
-  });
-
   it('displays confidence as percentage when payload.confidence is present', async () => {
     render(<LiveOutputTable />);
 

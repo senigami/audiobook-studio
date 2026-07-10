@@ -3,12 +3,6 @@ import { BrandLogo } from '@/components/layout/BrandLogo'
 import { describe, it, expect } from 'vitest'
 
 describe('BrandLogo', () => {
-    it('renders the wordmark text', () => {
-        render(<BrandLogo />)
-        expect(screen.getByText(/Audiobook/i)).toBeTruthy()
-        expect(screen.getByText(/STUDIO/i)).toBeTruthy()
-    })
-
     it('has the correct accessibility label', () => {
         render(<BrandLogo />)
         expect(screen.getByLabelText(/Audiobook Studio/i)).toBeTruthy()

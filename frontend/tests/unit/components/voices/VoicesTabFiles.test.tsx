@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect, vi } from 'vitest';
 import type { Speaker, SpeakerProfile } from '@/types';
@@ -376,17 +376,49 @@ describe('Voices Tab Components', () => {
     });
 
     describe('Voice Portability (Import/Export)', () => {
-        it('renders Import Voice button and handles file selection', () => {
+        it('renders Import Voice button and handles file selection', async () => {
+            // VoicesTab also fetches /api/voices/ metadata on mount, so respond by URL
+            // rather than queueing a single mockResolvedValueOnce (which the metadata
+            // fetch would otherwise consume before the import request fires).
+            (global.fetch as any).mockImplementation((url: string) => {
+                if (url === '/api/voices/bundle/import') {
+                    return Promise.resolve({
+                        ok: true,
+                        json: async () => ({
+                            status: 'ok',
+                            voice_name: 'Speaker One',
+                            original_voice_name: 'Speaker One',
+                            was_renamed: false,
+                            variants: []
+                        })
+                    });
+                }
+                return Promise.resolve({ ok: true, json: async () => ([]) });
+            });
+
             // Button label text hidden in compact mode (JSDOM innerWidth=0); use aria-label query
             render(<MemoryRouter><VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} /></MemoryRouter>);
             const importBtn = screen.getByRole('button', { name: 'Import Voice' });
             expect(importBtn).toBeInTheDocument();
 
             // The button clicks a hidden input
-            const input = screen.getByLabelText('Import voice bundle file');
+            const input = screen.getByLabelText('Import voice bundle file') as HTMLInputElement;
             expect(input).toBeInTheDocument();
             expect(input).toHaveAttribute('type', 'file');
             expect(input).toHaveAttribute('accept', '.zip,application/zip');
+
+            const file = new File(['zip-bytes'], 'bundle.zip', { type: 'application/zip' });
+            fireEvent.change(input, { target: { files: [file] } });
+
+            // Selecting a file actually triggers the import request...
+            await waitFor(() => {
+                expect(global.fetch).toHaveBeenCalledWith(
+                    '/api/voices/bundle/import',
+                    expect.objectContaining({ method: 'POST' })
+                );
+            });
+            // ...and surfaces the resulting success confirmation to the user.
+            expect(await screen.findByText(/Imported "Speaker One"/i)).toBeInTheDocument();
         });
 
         it('renders Export Voice button and opens export modal', () => {

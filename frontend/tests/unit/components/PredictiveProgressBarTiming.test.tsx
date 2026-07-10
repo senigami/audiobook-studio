@@ -250,43 +250,6 @@ describe('PredictiveProgressBar - Timing', () => {
         vi.useRealTimers()
     })
 
-    it('evidenceWeightFraction=1.0 is also a no-op: slope cap governs adoption rate', () => {
-        // evidenceWeightFraction was removed per doc 15.
-        vi.useFakeTimers()
-        vi.setSystemTime(100_000)
-        const { rerender } = render(
-            <PredictiveProgressBar
-                progress={0.5}
-                startedAt={50}
-                etaSeconds={100}
-                status="running"
-                transitionTickCount={4}
-                tickMs={250}
-            />
-        )
-
-        rerender(
-            <PredictiveProgressBar
-                progress={0.5}
-                startedAt={50}
-                etaSeconds={200}
-                status="running"
-                transitionTickCount={4}
-                tickMs={250}
-            />
-        )
-
-        act(() => {
-            vi.advanceTimersByTime(1000)
-        })
-
-        const settledS = parseTime(screen.getByText(/ETA:/).textContent)
-        // The confidence model slope-caps the ETA shift.
-        expect(settledS).toBeGreaterThan(50)
-        expect(settledS).toBeLessThan(200)
-        vi.useRealTimers()
-    })
-
     it('monotonically increases displayed progress and decreases ETA on a stable lane with no prop updates', () => {
         vi.useFakeTimers()
         const now = 100_000 // 100 seconds

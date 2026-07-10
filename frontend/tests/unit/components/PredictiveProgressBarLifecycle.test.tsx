@@ -320,6 +320,7 @@ describe('PredictiveProgressBar - Lifecycle', () => {
             return nowCount
         })
 
+        let callCount = 0
         const ParentWrapper = () => {
             const [liveProgress, setLiveProgress] = useState(0)
             return (
@@ -330,14 +331,20 @@ describe('PredictiveProgressBar - Lifecycle', () => {
                     updatedAt={100000}
                     etaBasis="remaining_from_update"
                     allowBackwardProgress={true}
-                    onDisplayProgress={setLiveProgress}
+                    onDisplayProgress={(p) => { callCount += 1; setLiveProgress(p) }}
                     tickMs={250}
                 />
             )
         }
 
-        // Under this spy, rendering the wrapper should not crash with maximum update depth exceeded
+        // Under this spy, rendering the wrapper should not crash with maximum update depth exceeded.
+        // React throws synchronously on an update-depth loop, so a clean render here is itself
+        // the regression guard; we also assert the render settled after a small, bounded number
+        // of onDisplayProgress calls rather than looping unboundedly.
         render(<ParentWrapper />)
+        expect(screen.getByTestId('progress-bar')).toBeInTheDocument()
+        expect(callCount).toBeGreaterThan(0)
+        expect(callCount).toBeLessThan(50)
 
         dateSpy.mockRestore()
     })
