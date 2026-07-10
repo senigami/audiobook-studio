@@ -104,6 +104,8 @@ For ready-made multi-persona panels covering **every** persona (first-run, chapt
 
 ## Validation Backlog
 
+**Feedback loop:** personas are hypotheses, so real sessions are evidence. When a review, triage, or user report confirms or contradicts a persona's friction point, note it in that persona's file (a dated line under the relevant F# or red flag) — and upgrade the badge (INFERRED → PARTIALLY CORROBORATED) when adjacent evidence accumulates. A persona repeatedly contradicted by real usage should be revised or retired, not kept out of completeness.
+
 In rough priority order — interview these real-world types to corroborate or challenge each persona:
 
 1. **Rosa Mendoza (28)** — first-time self-published authors using any AI audiobook tool. Forum: r/selfpublishing, Reedsy community, ACX newcomers. Key question: where do first-timers abandon the workflow, and what language breaks down first?

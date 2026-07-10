@@ -19,6 +19,34 @@ For each persona, return:
 Prioritize concrete blockers over taste preferences.
 ```
 
+## Decision Deliberation Prompt
+
+Use when triaging a decision between options (design direction, scope cut, trade-off), not reviewing a finished surface.
+
+```text
+Deliberate on this decision as the following persona panel (see review-panels.md
+"Panel discipline" — stay in lens, surface conflicts, don't average):
+- [Persona list]
+
+Decision: [the question, with the 2–3 real options on the table]
+
+For each persona, return:
+1. Position: prefers [option] / opposed to [option] / no stake (yield).
+2. The concrete harm or benefit to THEM, tied to a friction point or red flag
+   from their file (cite it).
+3. What evidence or design change would flip their position.
+
+Then, as the panel:
+4. Conflicts: each disagreement as a named trade-off — who wins and who pays
+   under each option.
+5. Verdict: the option that survives, OR "owner call" with the single question
+   that decides it. Rosa (28) blockers outweigh preferences; accessibility-floor
+   findings are vetoes, not votes.
+
+Do not manufacture consensus. A 4–2 split with clear stakes is a better output
+than unanimous mush.
+```
+
 ## Adversarial QA Prompt
 
 ```text
