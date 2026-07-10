@@ -3,9 +3,10 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import * as playerBus from '@/store/playerBus';
 import { useStudioChapter } from '@/pages/Book/studio/useStudioChapter';
 
-// Task 003 — characterize CURRENT (pre-fix) segment-playback behavior through
-// the *real* live path: CastTool's onPlaySpan wiring is
-// `onPlaySpan={(spanId) => playSegment(spanId, playbackQueue)}` (see
+// Task 003 introduced this test to characterize CURRENT (then pre-fix)
+// segment-playback behavior through the *real* live path: CastTool's
+// onPlaySpan wiring is `onPlaySpan={(spanId) => playSegment(spanId,
+// playbackQueue)}` (see
 // frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx
 // ~line 343), where playSegment/playbackQueue come straight out of
 // useStudioChapter, which itself composes the real useChapterPlayback hook.
@@ -13,6 +14,10 @@ import { useStudioChapter } from '@/pages/Book/studio/useStudioChapter';
 // mounting the full CastTool component tree — the exact call shape reaching
 // playSegment is identical either way, and this avoids mocking away anything
 // in the actual playback unit under test.
+//
+// Task 004 fixed the underlying bug (useChapterPlayback.ts now normalizes the
+// playback queue to block-leader ids) and this test's assertions were updated
+// to match the corrected, post-fix behavior.
 //
 // Per this task's testing-standards compliance note, useChapterPlayback and
 // the playerBus module are NEVER mocked here (R2) — only the data-fetching
@@ -132,7 +137,7 @@ describe('CastTool segment playback — real onPlaySpan path (integration, unmoc
     playerBus.resetPlayerBusForTests();
   });
 
-  it('documents PRE-FIX behavior — see task 004/005. This assertion is expected to change when those land. reproduces the restart-in-place bug end-to-end through CastTool\'s real onPlaySpan wiring (playSegment(spanId, playbackQueue)), the real useStudioChapter/useChapterPlayback hooks, and the real playerBus', async () => {
+  it('manual Next skips past the whole AudioGroup block end-to-end through CastTool\'s real onPlaySpan wiring (playSegment(spanId, playbackQueue)), the real useStudioChapter/useChapterPlayback hooks, and the real playerBus', async () => {
     const { result } = renderHook(() =>
       useStudioChapter({
         chapterId,
@@ -160,11 +165,12 @@ describe('CastTool segment playback — real onPlaySpan path (integration, unmoc
 
     const secondUrl = playerBus.getSnapshot().audioUrl;
 
-    // Bug (documents PRE-FIX behavior — see task 004/005): the segment id
-    // advances to s2 (idx+1, unconditionally), but s2 resolves to the SAME
-    // AudioGroup audio_file_path as s1, so the real playerBus reloads the
-    // identical clip from position 0 instead of skipping past the block.
-    expect(result.current.playingSegmentId).toBe('s2');
-    expect(secondUrl).toBe(firstUrl);
+    // Fixed: the playback queue is normalized to one entry per block (s1 is
+    // the leader for the s1+s2 AudioGroup, s3 is its own block), so idx+1 in
+    // the block-leader queue lands on the next distinct block (s3) — the
+    // real playerBus loads s3's own audio rather than reloading s1+s2's
+    // group clip from position 0.
+    expect(result.current.playingSegmentId).toBe('s3');
+    expect(secondUrl).not.toBe(firstUrl);
   });
 });

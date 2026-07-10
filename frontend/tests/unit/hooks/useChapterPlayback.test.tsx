@@ -295,7 +295,15 @@ describe('useChapterPlayback', () => {
     expect(playerBus.loadAndPlay).toHaveBeenCalledTimes(2);
   });
 
-  it('skips segments sharing the same audio file path', async () => {
+  // Post-fix (task 004): block membership is now defined solely by
+  // getGroupSegmentIds (audioGroups first, falling back to chunkGroups) —
+  // the standalone "walk forward while audio_file_path matches" mechanism
+  // this test used to exercise was deleted as part of normalizing the
+  // playback queue to block-leader ids. s1/s2 below deliberately are NOT in
+  // the same chunkGroup/audioGroup (chunkGroups is empty, no audioGroups
+  // passed), so — even though they happen to share an audio_file_path — they
+  // are now two distinct blocks and onEnded no longer skips past s2.
+  it('does not skip ahead past segments that merely share an audio_file_path outside any chunk/audio group', async () => {
     const groupedSegments: ChapterSegment[] = [
       { id: 's1', text_content: 'One', audio_status: 'done', audio_file_path: 'a.wav', chapter_id: 'chap1' },
       { id: 's2', text_content: 'Two', audio_status: 'done', audio_file_path: 'a.wav', chapter_id: 'chap1' },
@@ -320,8 +328,9 @@ describe('useChapterPlayback', () => {
       opts?.onEnded?.();
     });
 
-    // Should skip s2 and move to s3
-    expect(result.current.playingSegmentId).toBe('s3');
+    // s1 and s2 are separate blocks (no shared chunkGroup/audioGroup), so
+    // onEnded lands on s2 next rather than skipping ahead to s3.
+    expect(result.current.playingSegmentId).toBe('s2');
   });
 
   it('skims forward and backward', async () => {
@@ -367,7 +376,11 @@ describe('useChapterPlayback', () => {
     expect(playerBus.seek).toHaveBeenCalledTimes(2); // Should not be called again after stop
   });
 
-  it('plays a non-leader segment in a completed audio group using the group audio path', async () => {
+  // Post-fix (task 004): the playback queue is normalized to one entry per
+  // block (the block's leader id), so requesting playback of a non-leader
+  // member of a block now starts playback from — and reports — the block's
+  // leader id rather than the exact non-leader id requested.
+  it('starts playback from the block leader when a non-leader segment in a completed audio group is requested', async () => {
     const groupedSegments: ChapterSegment[] = [
       { id: 's1', text_content: 'One', audio_status: 'done', audio_file_path: 'a.wav', chapter_id: 'chap1' },
       { id: 's2', text_content: 'Two', audio_status: 'unprocessed', audio_file_path: null, chapter_id: 'chap1' },
@@ -385,8 +398,9 @@ describe('useChapterPlayback', () => {
       await result.current.playSegment('s2', ['s1', 's2']);
     });
 
-    // Playback should resolve audioPath to 'a.wav' from audioGroups and play it
-    expect(result.current.playingSegmentId).toBe('s2');
+    // s1+s2 form one AudioGroup block; playback resolves to the block's
+    // leader (s1) and plays its group audio path.
+    expect(result.current.playingSegmentId).toBe('s1');
     expect(playerBus.loadAndPlay).toHaveBeenCalled();
     const lastCall = vi.mocked(playerBus.loadAndPlay).mock.calls.at(-1);
     expect(lastCall?.[0]?.audioUrl).toContain('a.wav');
@@ -394,12 +408,16 @@ describe('useChapterPlayback', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Task 003 — characterization tests for the pre-fix block-navigation bug.
-  // These pin down TODAY's actual (buggy) behavior of useChapterPlayback.ts;
-  // task 004/005 will change the underlying code and these assertions along
-  // with it. See design-docs/plans/active/audio_player_completion_004/tasks/003-characterize-segment-playback.md.
+  // Task 003 introduced these as characterization tests for the pre-fix
+  // block-navigation bug (pinning down the then-buggy behavior). Task 004
+  // fixed the underlying bug by normalizing the playback queue to
+  // block-leader ids (see buildBlockQueue in useChapterPlayback.ts) and
+  // updated these assertions to match the corrected, post-fix behavior.
+  // See design-docs/plans/active/audio_player_completion_004/tasks/
+  // 003-characterize-segment-playback.md and
+  // 004-block-queue-navigation-fix.md.
   // -------------------------------------------------------------------------
-  describe('block-navigation characterization (pre-fix)', () => {
+  describe('block-navigation (post-fix)', () => {
     // Two segments, s1+s2, that only share playback identity via an AudioGroup
     // (span_ids) — neither has an individual audio_file_path — plus a separate
     // s3 with its own rendered file, outside the group.
@@ -415,7 +433,7 @@ describe('useChapterPlayback', () => {
       return { groupedSegments, audioGroups };
     };
 
-    it('documents PRE-FIX behavior — see task 004/005. This assertion is expected to change when those land. Manual Next (playerBus.notifyNext()) mid an AudioGroup-based block reloads the identical clip instead of skipping past the block', async () => {
+    it('manual Next (playerBus.notifyNext()) mid an AudioGroup-based block skips past the whole block instead of reloading the same clip', async () => {
       const { groupedSegments, audioGroups } = buildAudioGroupBlockFixture();
 
       const { result } = renderHook(() =>
@@ -437,18 +455,17 @@ describe('useChapterPlayback', () => {
         playerBus.notifyNext();
       });
 
-      // Bug: the segment id advances to s2 (idx+1, unconditionally — see
-      // onNext at useChapterPlayback.ts ~lines 133-139), but s2 resolves to
-      // the SAME group audio_file_path as s1, so the resulting loadAndPlay
-      // call reloads the identical clip from position 0 — a restart-in-place
-      // rather than a genuine skip past the block.
-      expect(result.current.playingSegmentId).toBe('s2');
+      // Fixed: the playback queue is normalized to one entry per block (s1
+      // is the block leader for the s1+s2 AudioGroup), so idx+1 in the
+      // block-leader queue lands on the next distinct block (s3), not a
+      // restart-in-place of the same group clip.
+      expect(result.current.playingSegmentId).toBe('s3');
       const secondCall = vi.mocked(playerBus.loadAndPlay).mock.calls.at(-1);
       const secondUrl = secondCall?.[0]?.audioUrl;
-      expect(secondUrl).toBe(firstUrl);
+      expect(secondUrl).not.toBe(firstUrl);
     });
 
-    it('documents PRE-FIX behavior — see task 004/005. This assertion is expected to change when those land. Auto-advance (onEnded) does NOT skip a pure AudioGroup-based block (only the audio_file_path-equality walk does — see the passing "skips segments sharing the same audio file path" test above for that contrasting case)', async () => {
+    it('auto-advance (onEnded) skips past a pure AudioGroup-based block to the next distinct block', async () => {
       const { groupedSegments, audioGroups } = buildAudioGroupBlockFixture();
 
       const { result } = renderHook(() =>
@@ -467,22 +484,17 @@ describe('useChapterPlayback', () => {
         firstCall?.[0]?.onEnded?.();
       });
 
-      // Gap: onEnded's walk (useChapterPlayback.ts ~lines 112-124) only skips
-      // forward while `nextSeg.audio_file_path === seg.audio_file_path`, which
-      // is never true here (both s1 and s2 have audio_file_path === null, and
-      // the check requires a truthy match) — so it lands on s2 (idx+1) rather
-      // than walking past the whole AudioGroup block to s3. This reloads the
-      // same group clip again, mirroring the manual-Next bug above.
-      expect(result.current.playingSegmentId).toBe('s2');
+      // Fixed: onEnded is now a direct playFromIndex(idx + 1, queue) call
+      // against the block-leader queue (['s1', 's3']), so it lands on s3
+      // directly — s2 is no longer a separate queue entry to walk past.
+      expect(result.current.playingSegmentId).toBe('s3');
       const secondCall = vi.mocked(playerBus.loadAndPlay).mock.calls.at(-1);
-      expect(secondCall?.[0]?.audioUrl).toBe(firstUrl);
+      expect(secondCall?.[0]?.audioUrl).not.toBe(firstUrl);
     });
 
-    it('documents PRE-FIX behavior — see task 004/005. This assertion is expected to change when those land. hasPrev/hasNext are naive idx>0/idx<queue.length-1 flags: a non-first/non-last member of a multi-segment block still reports both true', async () => {
+    it('hasPrev/hasNext reflect block-queue position, and playback of a mid-block member resolves to its block leader', async () => {
       // Block members s1/s2/s3 share an AudioGroup; s0 precedes the block and
-      // s4 follows it, so the block itself is not first/last in the queue.
-      // s2 is the block's *middle* member — not first/last within the block —
-      // yet hasPrev/hasNext are computed purely from its raw queue index.
+      // s4 follows it. s2 is the block's *middle* member.
       const naiveFlagSegments: ChapterSegment[] = [
         { id: 's0', text_content: 'Zero', audio_status: 'done', audio_file_path: 's0.wav', chapter_id: 'chap1' },
         { id: 's1', text_content: 'One', audio_status: 'done', audio_file_path: 's1.wav', chapter_id: 'chap1' },
@@ -503,17 +515,18 @@ describe('useChapterPlayback', () => {
         await result.current.playSegment('s2', queue);
       });
 
-      expect(result.current.playingSegmentId).toBe('s2');
+      // Fixed: requesting s2 (a mid-block member) resolves to its block's
+      // leader (s1) — the only id present in the normalized block-leader
+      // queue (['s0', 's1', 's4']).
+      expect(result.current.playingSegmentId).toBe('s1');
       const lastCall = vi.mocked(playerBus.loadAndPlay).mock.calls.at(-1);
-      // idx=2 (of 5): naive idx>0 -> true, idx<queue.length-1 -> true. Both
-      // report true even though s2 is semantically mid-block (not first/last
-      // among its own block's members s1/s2/s3), and — per the bugs above —
-      // "next" from here would not cleanly leave the block anyway.
+      // Block-leader queue is ['s0', 's1', 's4']; s1 is at idx=1 of 3, with a
+      // genuine previous block (s0) and next block (s4) on either side.
       expect(lastCall?.[0]?.hasPrev).toBe(true);
       expect(lastCall?.[0]?.hasNext).toBe(true);
     });
 
-    it('documents PRE-FIX behavior — see task 004/005. This assertion is expected to change when those land. No subtitle is ever set for segment-scope playback (loadAndPlay is always called with subtitle absent)', async () => {
+    it('no subtitle is ever set for segment-scope playback (loadAndPlay is always called with subtitle absent)', async () => {
       const { result } = renderHook(() =>
         useChapterPlayback('proj1', 'chap1', segments, chunkGroups, generatingSegmentIds, onGenerate)
       );

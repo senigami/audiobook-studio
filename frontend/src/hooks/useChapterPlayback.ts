@@ -22,6 +22,12 @@ export function useChapterPlayback(
   const audioGroupsRef = useRef<AudioGroup[]>(audioGroups);
   const pendingPlaybackRef = useRef<{ segmentId: string; queue: string[] } | null>(null);
   const skimIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Full per-block segment membership, keyed by block-leader id. Populated
+  // once per playSegment() call (see buildBlockQueue) so playFromIndex can
+  // recover a block's full membership (for playingSegmentIds highlighting
+  // and missing-audio detection) even though playbackQueueRef.current itself
+  // only holds one (leader) entry per block.
+  const blockMembersRef = useRef<Map<string, string[]>>(new Map());
 
   const playerBusState = usePlayerBus();
 
@@ -65,14 +71,18 @@ export function useChapterPlayback(
     const seg = segmentsRef.current.find(s => s.id === currentId);
     if (!seg) return;
 
+    // queue is now the block-leader queue (one entry per block), so it can no
+    // longer be filtered directly for a block's full membership — recover the
+    // full membership captured at buildBlockQueue time instead.
+    const groupIds = blockMembersRef.current.get(currentId) ?? [currentId];
+
     setPlayingSegmentId(currentId);
-    setPlayingSegmentIds(new Set(getGroupSegmentIds(idx, queue)));
+    setPlayingSegmentIds(new Set(groupIds));
 
     const audioGroup = audioGroupsRef.current.find(g => g.span_ids.includes(currentId));
     const isReady = (seg.audio_file_path && seg.audio_status === 'done') || !!(audioGroup && (audioGroup.status === 'rendered' || audioGroup.audio_file_path || audioGroup.asset_url));
 
     if (!isReady) {
-      const groupIds = getGroupSegmentIds(idx, queue);
       const missingInGroup = groupIds.filter(id => {
         const s = segmentsRef.current.find(seg => seg.id === id);
         return s && (!s.audio_file_path || s.audio_status !== 'done') && s.audio_status !== 'processing' && !generatingSegmentIdsRef.current.has(id);
@@ -111,23 +121,17 @@ export function useChapterPlayback(
         audioUrl: u,
         onEnded: () => {
           if (!isPlayingRef.current) return;
-          let nextIdx = idx + 1;
-          while (nextIdx < playbackQueueRef.current.length) {
-            const nextId = playbackQueueRef.current[nextIdx];
-            const nextSeg = segmentsRef.current.find(s => s.id === nextId);
-            if (nextSeg && nextSeg.audio_file_path && nextSeg.audio_file_path === seg.audio_file_path) {
-              nextIdx++;
-            } else {
-              break;
-            }
-          }
-          playFromIndex(nextIdx, queue);
+          playFromIndex(idx + 1, queue);
         },
         onPrev: () => {
           if (!isPlayingRef.current) return;
-          const prevIdx = idx - 1;
-          if (prevIdx >= 0) {
-            playFromIndex(prevIdx, queue);
+          // Restart-current-block-first semantics (owner-confirmed): pressing
+          // Prev restarts the current block unless playback is already at/near
+          // the block's start, in which case it goes to the previous block.
+          const atBlockStart = skimStateRef.current.position < 1.0;
+          const targetIdx = atBlockStart ? idx - 1 : idx;
+          if (targetIdx >= 0) {
+            playFromIndex(targetIdx, queue);
           }
         },
         onNext: () => {
@@ -184,6 +188,7 @@ export function useChapterPlayback(
     setPlayingSegmentIds(new Set());
     isPlayingRef.current = false;
     playbackQueueRef.current = [];
+    blockMembersRef.current = new Map();
     pendingPlaybackRef.current = null;
   };
 
@@ -220,22 +225,57 @@ export function useChapterPlayback(
     return queue.filter(qid => groupIds.includes(qid));
   };
 
+  // Normalize a raw per-segment queue down to one entry per block, using each
+  // block's leader (first-encountered) segment id. getGroupSegmentIds is the
+  // single source of truth for block membership (audioGroups first, falling
+  // back to chunkGroups) — walking fullQueue once and marking each block's
+  // full membership as consumed keeps every later entry from re-emitting.
+  // Also returns the full membership captured per leader, since the
+  // block-leader queue itself no longer carries non-leader ids.
+  const buildBlockQueue = (fullQueue: string[]): { blockQueue: string[]; membersByLeader: Map<string, string[]> } => {
+    const consumed = new Set<string>();
+    const blockQueue: string[] = [];
+    const membersByLeader = new Map<string, string[]>();
+    fullQueue.forEach((segId, idx) => {
+      if (consumed.has(segId)) return;
+      blockQueue.push(segId);
+      const memberIds = getGroupSegmentIds(idx, fullQueue);
+      membersByLeader.set(segId, memberIds);
+      memberIds.forEach(memberId => consumed.add(memberId));
+    });
+    return { blockQueue, membersByLeader };
+  };
+
   const playSegment = async (segmentId: string, fullQueue: string[]) => {
-    if (playingSegmentId === segmentId && playerBusState.scope === 'segment') {
+    // segmentId may be a non-leader member of its block (e.g. a span deep
+    // inside an AudioGroup) — resolve to the block's leader id up front so
+    // both the toggle-pause guard below and the navigation queue agree on
+    // "which id represents this block".
+    const rawIndex = fullQueue.indexOf(segmentId);
+    const memberIds = rawIndex !== -1 ? getGroupSegmentIds(rawIndex, fullQueue) : [segmentId];
+    const leaderId = memberIds[0] ?? segmentId;
+
+    if (playingSegmentId === leaderId && playerBusState.scope === 'segment') {
       togglePause();
       return;
     }
 
     stopPlayback();
     isPlayingRef.current = true;
-    playbackQueueRef.current = fullQueue;
 
-    const currentIndex = fullQueue.indexOf(segmentId);
+    const { blockQueue, membersByLeader } = buildBlockQueue(fullQueue);
+    playbackQueueRef.current = blockQueue;
+    blockMembersRef.current = membersByLeader;
+
+    if (rawIndex === -1) {
+      return;
+    }
+    const currentIndex = blockQueue.indexOf(leaderId);
     if (currentIndex === -1) {
       return;
     }
-    pendingPlaybackRef.current = { segmentId, queue: fullQueue };
-    await playFromIndex(currentIndex, fullQueue);
+    pendingPlaybackRef.current = { segmentId: leaderId, queue: blockQueue };
+    await playFromIndex(currentIndex, blockQueue);
   };
 
   const startSkim = (direction: 'forward' | 'backward') => {
