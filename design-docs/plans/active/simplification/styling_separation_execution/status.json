@@ -1,6 +1,6 @@
 {
   "plan": "design-docs/plans/active/simplification/styling_separation_execution",
-  "updated": "2026-07-10T00:00:00Z",
+  "updated": "2026-07-10T14:10:00Z",
   "slices": {
     "001-st1-delete-dead-selectors": {
       "state": "accepted",
@@ -16,113 +16,86 @@
       "commit": "bd0419a8"
     },
     "004-st3-castpalette": {
-      "state": "in-flight",
-      "blocked_by": [
-        "003-st2-shared-classes"
-      ]
+      "state": "accepted",
+      "commit": "3314a839 (co-mingled, verified)",
+      "note": "reconciled 2026-07-10: file content diffed against expected conversion, brace-balance checked, full build/lint/test suite re-run and green (218/218 files, 1810/1810 tests)"
     },
     "005-st3-projectlibrarypage": {
-      "state": "in-flight",
-      "blocked_by": [
-        "003-st2-shared-classes"
-      ]
+      "state": "accepted",
+      "commit": "12417983/3314a839 (co-mingled, verified)",
+      "note": "reconciled 2026-07-10: file content diffed against expected conversion, brace-balance checked, full build/lint/test suite re-run and green (218/218 files, 1810/1810 tests)"
     },
     "006-st3-voicemodals": {
-      "state": "in-flight",
-      "blocked_by": [
-        "003-st2-shared-classes"
-      ]
+      "state": "accepted",
+      "commit": "12417983 (co-mingled, verified)",
+      "note": "reconciled 2026-07-10: file content diffed against expected conversion, brace-balance checked, full build/lint/test suite re-run and green (218/218 files, 1810/1810 tests)"
     },
     "007-st3-globalqueue": {
-      "state": "in-flight",
-      "blocked_by": [
-        "003-st2-shared-classes"
-      ]
+      "state": "accepted",
+      "commit": "2ab09909/12417983 (co-mingled, verified)",
+      "note": "reconciled 2026-07-10: file content diffed against expected conversion, brace-balance checked, full build/lint/test suite re-run and green (218/218 files, 1810/1810 tests)"
     },
     "008-st3-resyncpreviewmodal": {
-      "state": "in-flight",
-      "blocked_by": [
-        "003-st2-shared-classes"
-      ]
+      "state": "accepted",
+      "commit": "c01201b3",
+      "note": "reconciled 2026-07-10: file content diffed against expected conversion, brace-balance checked, full build/lint/test suite re-run and green (218/218 files, 1810/1810 tests)"
     },
     "009-st3-officialregistrypanel": {
-      "state": "in-flight",
-      "blocked_by": [
-        "003-st2-shared-classes"
-      ]
+      "state": "accepted",
+      "commit": "12417983 (co-mingled, verified)",
+      "note": "reconciled 2026-07-10: file content diffed against expected conversion, brace-balance checked, full build/lint/test suite re-run and green (218/218 files, 1810/1810 tests)"
     },
     "010-st3-varianteditor": {
-      "state": "in-flight",
-      "blocked_by": [
-        "003-st2-shared-classes"
-      ]
+      "state": "accepted",
+      "commit": "72081588/d84af80f (co-mingled, verified)",
+      "note": "reconciled 2026-07-10: file content diffed against expected conversion, brace-balance checked, full build/lint/test suite re-run and green (218/218 files, 1810/1810 tests)"
     },
     "011-st3-welcomepage": {
-      "state": "in-flight",
-      "blocked_by": [
-        "003-st2-shared-classes"
-      ]
+      "state": "accepted",
+      "commit": "c0622bf9/f65bce8b",
+      "note": "reconciled 2026-07-10: file content diffed against expected conversion, brace-balance checked, full build/lint/test suite re-run and green (218/218 files, 1810/1810 tests)"
     },
     "012-st3-scripteditor": {
-      "state": "in-flight",
-      "blocked_by": [
-        "003-st2-shared-classes"
-      ]
+      "state": "accepted",
+      "commit": "12417983/c0622bf9 (co-mingled, verified)",
+      "note": "reconciled 2026-07-10: file content diffed against expected conversion, brace-balance checked, full build/lint/test suite re-run and green (218/218 files, 1810/1810 tests)"
     },
     "013-st3-liveoutputpage": {
-      "state": "in-flight",
-      "blocked_by": [
-        "003-st2-shared-classes"
-      ]
+      "state": "accepted",
+      "commit": "2ab09909 (co-mingled w/ 005,007 content, verified)",
+      "note": "reconciled 2026-07-10: file content diffed against expected conversion, brace-balance checked, full build/lint/test suite re-run and green (218/218 files, 1810/1810 tests)"
     },
     "014-st3-metadataeditormodal-and-children": {
-      "state": "in-flight",
-      "blocked_by": [
-        "003-st2-shared-classes"
-      ]
+      "state": "accepted",
+      "commit": "d84af80f,41d284da,7bb9c614,23360060,db6d4cd6,83ae7478",
+      "note": "reconciled 2026-07-10: file content diffed against expected conversion, brace-balance checked, full build/lint/test suite re-run and green (218/218 files, 1810/1810 tests)"
     },
     "015-st3-enginecard-and-children": {
-      "state": "in-flight",
-      "blocked_by": [
-        "003-st2-shared-classes"
-      ]
+      "state": "accepted",
+      "commit": "0c45474a,12417983,ba613e9f,afb5dcf8",
+      "note": "reconciled 2026-07-10: file content diffed against expected conversion, brace-balance checked, full build/lint/test suite re-run and green (218/218 files, 1810/1810 tests)"
     },
     "016-st3-voicestabheader": {
-      "state": "in-flight",
-      "blocked_by": [
-        "003-st2-shared-classes"
-      ]
+      "state": "accepted",
+      "commit": "12417983/d84af80f/5de98584/e7f955b0",
+      "note": "reconciled 2026-07-10: file content diffed against expected conversion, brace-balance checked, full build/lint/test suite re-run and green (218/218 files, 1810/1810 tests)"
     },
     "017-st3-samplemanager": {
-      "state": "in-flight",
-      "blocked_by": [
-        "003-st2-shared-classes"
-      ]
+      "state": "accepted",
+      "commit": "12417983/d84af80f/9a405b63",
+      "note": "reconciled 2026-07-10: file content diffed against expected conversion, brace-balance checked, full build/lint/test suite re-run and green (218/218 files, 1810/1810 tests)"
     },
     "018-st4-spec-bump-and-guard": {
-      "state": "pending",
-      "blocked_by": [
-        "004",
-        "005",
-        "006",
-        "007",
-        "008",
-        "009",
-        "010",
-        "011",
-        "012",
-        "013",
-        "014",
-        "015",
-        "016",
-        "017"
-      ]
+      "state": "accepted",
+      "commit": "374cd130,dbc3b135,20c31386",
+      "note": "verified: guard exits 0 clean, code-organization.md=1.2.0, design-system.md=1.14.0, build green"
     },
     "019-followup-missed-utility-usage": {
       "state": "pending",
       "optional": true
     }
   },
-  "green_gate": "not-run",
-  "review_rounds": []
+  "green_gate": "passed",
+  "review_rounds": [],
+  "incident_note": "Workload C ran 14 implementer agents fully parallel on ONE shared git checkout. A repo-wide pre-commit hook auto-staged broadly and concurrent git add/commit/reset calls raced, co-mingling many commits and causing several near-miss incidents (a tracked task file briefly dropped from the index, working-tree edits transiently reverted by a concurrent reset). No content was ultimately lost - every file was independently re-verified post-hoc (grep-based style={{}} counts matched every task report, all CSS brace-balanced, full build/lint/1810-test suite green). Two tests (ConfirmModal.test.tsx, ReviseTool.test.tsx) broke from an earlier task (002) referencing the deleted components.css path - fixed in 51a20b83. Lesson for future parallel ST-3-style batches: use git worktrees per lane, not one shared checkout."
 }
