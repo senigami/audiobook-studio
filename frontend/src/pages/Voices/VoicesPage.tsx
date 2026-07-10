@@ -236,7 +236,14 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                     setExpandedVoiceId={state.setExpandedVoiceId}
                     engines={engines}
                     onCreateClick={() => state.setIsCreateModalOpen(true)}
-                    onEditTestText={state.setEditingProfile}
+                    onEditTestText={(profile) => {
+                        state.setIsVoiceSettingsOpen(false);
+                        state.setEditingProfile(profile);
+                    }}
+                    onEditVoiceSettings={(profile) => {
+                        state.setIsVoiceSettingsOpen(true);
+                        state.setEditingProfile(profile);
+                    }}
                     voiceMetadataMap={voiceMetadataMap}
                     onEditMetadata={handleEditMetadata}
                     onNavigateToLab={(id) => navigate(`/voices/${id}`)}
@@ -306,6 +313,8 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 setEngineVoiceId={state.setEngineVoiceId}
                 editingSettings={state.editingSettings}
                 setEditingSettings={state.setEditingSettings}
+                isVoiceSettingsOpen={state.isVoiceSettingsOpen}
+                setIsVoiceSettingsOpen={state.setIsVoiceSettingsOpen}
                 isSavingText={state.isSavingText}
                 handleResetTestText={actions.handleResetTestText}
                 handleSaveTestText={actions.handleSaveTestText}

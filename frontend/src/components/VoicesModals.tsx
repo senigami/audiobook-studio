@@ -8,7 +8,8 @@ import {
     AddVariantModal,
     MoveVariantModal,
     Drawer,
-    ScriptEditor
+    ScriptEditor,
+    VoiceSettingsPanel
 } from '@/pages/Voices/components';
 import { getVariantDisplayName } from '@/utils/voiceProfiles';
 
@@ -75,6 +76,10 @@ interface VoicesModalsProps {
     setEngineVoiceId: (voiceId: string) => void;
     editingSettings: Record<string, any>;
     setEditingSettings: (settings: Record<string, any>) => void;
+    /** Whether `editingProfile`'s edit session should surface as the Voice Settings drawer
+     * (per-voice plugin controls) instead of the Script Editor drawer (test-text/engine). */
+    isVoiceSettingsOpen: boolean;
+    setIsVoiceSettingsOpen: (open: boolean) => void;
     isSavingText: boolean;
     handleResetTestText: () => void;
     handleSaveTestText: () => void;
@@ -158,7 +163,7 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
             </Drawer>
 
             <Drawer
-                isOpen={!!props.editingProfile}
+                isOpen={!!props.editingProfile && !props.isVoiceSettingsOpen}
                 onClose={() => props.setEditingProfile(null)}
                 title={`Edit: ${props.variantName || getVariantDisplayName(props.editingProfile)}`}
             >
@@ -175,12 +180,25 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
                     availableSamples={props.editingProfile?.samples || []}
                     engineVoiceId={props.engineVoiceId}
                     onEngineVoiceIdChange={props.setEngineVoiceId}
-                    settings={props.editingSettings}
-                    onSettingsChange={props.setEditingSettings}
                     onResetTestText={props.handleResetTestText}
                     onSave={props.handleSaveTestText}
                     isSaving={props.isSavingText}
                     attributes={props.editingVoiceMetadata?.attributes}
+                />
+            </Drawer>
+
+            <Drawer
+                isOpen={!!props.editingProfile && props.isVoiceSettingsOpen}
+                onClose={() => props.setEditingProfile(null)}
+                title={`Voice Settings: ${props.variantName || getVariantDisplayName(props.editingProfile)}`}
+            >
+                <VoiceSettingsPanel
+                    engine={props.editingEngine}
+                    engines={props.engines}
+                    settings={props.editingSettings}
+                    onSettingsChange={props.setEditingSettings}
+                    isSaving={props.isSavingText}
+                    onSave={props.handleSaveTestText}
                 />
             </Drawer>
 

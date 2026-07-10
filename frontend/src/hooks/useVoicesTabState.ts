@@ -30,6 +30,10 @@ export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfile
     const [referenceSample, setReferenceSample] = useState('');
     const [engineVoiceId, setEngineVoiceId] = useState('');
     const [editingSettings, setEditingSettings] = useState<Record<string, any>>({});
+    // Which drawer the current editing session (editingProfile) is displayed in — the Script
+    // Editor (test-text/engine/reference sample) or the standalone Voice Settings panel
+    // (per-voice plugin controls, relocated out of the Script popup).
+    const [isVoiceSettingsOpen, setIsVoiceSettingsOpen] = useState(false);
     const [isSavingText, setIsSavingText] = useState(false);
     const [showGuide, setShowGuide] = useState(false);
 
@@ -49,6 +53,7 @@ export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfile
             setReferenceSample('');
             setEngineVoiceId('');
             setEditingSettings({});
+            setIsVoiceSettingsOpen(false);
         }
     }, [editingProfile, speakerProfiles, firstReadyEngine]);
 
@@ -112,6 +117,7 @@ export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfile
         referenceSample, setReferenceSample,
         engineVoiceId, setEngineVoiceId,
         editingSettings, setEditingSettings,
+        isVoiceSettingsOpen, setIsVoiceSettingsOpen,
         isSavingText, setIsSavingText,
         showGuide, setShowGuide,
         searchQuery, setSearchQuery,

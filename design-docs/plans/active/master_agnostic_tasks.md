@@ -108,7 +108,7 @@ engine-agnostic historical checklist plus backlog parking lot. If a status confl
 - [x] Plan multilingual interface localization (file-backed locale catalogs, contributor workflow, and shell/page mappings).
 - [x] Implement Voxtral segment and bake rendering for chapter jobs.
 - [x] Audit default voice fallback so chapters do not silently default to Voxtral.
-- [ ] Revisit voice settings placement outside the Script popup/right queue area.
+- [x] Revisit voice settings placement outside the Script popup/right queue area. Relocated plugin-defined per-voice settings out of the "Edit Recording Script" drawer into a new standalone "Voice Settings" drawer (`VoiceSettingsPanel.tsx`), reached via its own item in the voice catalog card's ⋯ action menu — same persistence path (`handleSaveTestText`), no backend change.
 - [x] Voice metadata A-F complete: HF-aligned bundle export/import, icon upload, searchable tags, structured attributes, Voice Lab catalog UI, and docs. Current release tracking lives in `design-docs/plans/final_release/road_to_v2.md` Stage 4.
 - [ ] Complete Taxonomy v2 Phase G: language, accent, style, category-tinted pills/+N overflow, and HF `as-*` tags.
 - [x] Verify system API surface for future third-party/LLM controller plugins. Audited `app/api/tts_api.py` — adequate for engine discovery, submit/poll/retrieve, and consistent structured errors; found and fixed a real auth gap (S12: `/api/v1/tts/docs` + `/api/v1/tts/openapi` were reachable without `verify_api_key`/`rate_limit`). See `design-docs/plans/active/final_release/12_security_and_opportunities.md` (2026-07-09 entry).
