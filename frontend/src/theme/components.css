@@ -3899,9 +3899,12 @@
 }
 
 /* ── Central text view ────────────────────────────────────────────────────── */
+/* Manuscript reading surface: purpose-built reading tokens (design-system.md
+   §4), not the general UI font/size — this is the karaoke/follow-along
+   reading column, not chrome. */
 .review-text-view {
   flex: 1;
-  background: var(--surface);
+  background: var(--surface-reading);
   border: 1px solid var(--border);
   border-radius: var(--radius-panel);
   padding: 16px;
@@ -3909,6 +3912,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  font-family: var(--font-reading);
 }
 
 .review-text-view__empty {
@@ -3919,13 +3923,14 @@
 }
 
 .review-text-view__segment {
-  font-size: 0.75rem;
-  line-height: 1.6;
+  font-size: var(--type-reading);
+  line-height: var(--leading-reading);
   color: var(--text-secondary);
   padding: 6px 8px;
   border-radius: var(--radius-button);
   background: transparent;
   border: 1px solid transparent;
+  border-left: 3px solid transparent;
   cursor: pointer;
   font-weight: 400;
   transition: all 0.15s ease-in-out;
@@ -3936,11 +3941,35 @@
   color: var(--text-primary);
 }
 
+/* Non-color signal (border-left gutter) in addition to the tint/weight
+   change — color alone was ~1.7:1 contrast, not enough on its own. */
 .review-text-view__segment--active {
   color: var(--text-primary);
   background: var(--accent-tint-bg);
   border-color: var(--accent-tint-border);
+  border-left: 3px solid var(--accent);
   font-weight: 600;
+}
+
+/* One-shot auto-play acknowledgment pulse — fires once on mode entry so
+   autoplay starting doesn't happen with zero acknowledgment. */
+.review-text-view__segment--pulse {
+  animation: booth-autoplay-pulse 900ms ease-out;
+}
+
+@keyframes booth-autoplay-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--accent-tint-border);
+  }
+  100% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-text-view__segment--pulse {
+    animation: none;
+  }
 }
 
 /* ── Revise mode: per-segment inline edit (Director's Console) ───────────── */

@@ -11,28 +11,81 @@ export interface AnnotationsPanelProps {
   chapterId: string | null;
   activeSegmentId: string | null;
   onSeekToSegment: (segmentId: string) => void;
+  /** Render-group ordinal (1-based) by segment id — the same derivation
+   * `FollowAlongPanel` uses for its "Segment N / M" indicator. Used here so
+   * neither the active-segment label nor saved notes ever show a raw
+   * internal segment id. */
+  groupNumberBySegmentId: Map<string, number>;
 }
 
 export function AnnotationsPanel({
   chapterId,
   activeSegmentId,
   onSeekToSegment,
+  groupNumberBySegmentId,
 }: AnnotationsPanelProps) {
   const annotations = useAnnotations(chapterId || '');
   const [noteText, setNoteText] = useState('');
+  // Pinned target for the note currently being composed. Distinct from
+  // `activeSegmentId` (which is playback-driven and changes every few
+  // seconds) so that typing a note doesn't get wiped out or re-targeted
+  // mid-sentence by the karaoke playhead moving on. Set on textarea
+  // focus/first keystroke; cleared on save, cancel, or blur-with-empty-text.
+  const [notingSegmentId, setNotingSegmentId] = useState<string | null>(null);
 
-  // Find the note for the active segment
-  const activeAnnotation = annotations.find(
+  const segmentOrdinal = (segmentId: string | null): number | null => {
+    if (!segmentId) return null;
+    return groupNumberBySegmentId.get(segmentId) ?? null;
+  };
+
+  // Find the note for the currently active (playback) segment — used only to
+  // seed `noteText` while no note is pinned.
+  const activeSegmentAnnotation = annotations.find(
     (a) => a.segmentId === activeSegmentId && a.chapterId === chapterId
   );
 
   useEffect(() => {
-    setNoteText(activeAnnotation?.notes || '');
-  }, [activeSegmentId, activeAnnotation?.notes]);
+    // While a note is pinned, the active segment moving on (playback) must
+    // NOT overwrite what the user is typing — that's the bug this pin exists
+    // to fix. Only sync from storage when nothing is pinned.
+    if (notingSegmentId) return;
+    setNoteText(activeSegmentAnnotation?.notes || '');
+  }, [activeSegmentId, activeSegmentAnnotation?.notes, notingSegmentId]);
+
+  const pinNotingSegment = () => {
+    if (!notingSegmentId && activeSegmentId) {
+      setNotingSegmentId(activeSegmentId);
+    }
+  };
+
+  const handleFocus = () => {
+    pinNotingSegment();
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    // First-keystroke fallback in case focus wasn't the trigger (e.g. paste
+    // via a programmatic focus that skipped the focus event in some browsers).
+    pinNotingSegment();
+    setNoteText(e.target.value);
+  };
+
+  const handleBlur = () => {
+    if (!noteText.trim()) {
+      setNotingSegmentId(null);
+    }
+  };
+
+  const notingTargetId = notingSegmentId ?? activeSegmentId;
 
   const handleSave = () => {
-    if (!chapterId || !activeSegmentId) return;
-    saveAnnotation(chapterId, activeSegmentId, noteText.trim());
+    if (!chapterId || !notingTargetId) return;
+    saveAnnotation(chapterId, notingTargetId, noteText.trim());
+    setNotingSegmentId(null);
+  };
+
+  const handleCancel = () => {
+    setNoteText(activeSegmentAnnotation?.notes || '');
+    setNotingSegmentId(null);
   };
 
   const handleDelete = (segmentId: string) => {
@@ -72,7 +125,7 @@ export function AnnotationsPanel({
       >
         {annotations.length === 0 ? (
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-            No notes for this chapter yet.
+            Notes you leave while listening appear here. Click a line to jump there, then jot a note.
           </div>
         ) : (
           annotations.map((anno) => (
@@ -93,7 +146,7 @@ export function AnnotationsPanel({
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--accent)' }}>
-                  Segment: {anno.segmentId}
+                  Segment {segmentOrdinal(anno.segmentId) ?? '?'}
                 </span>
                 <button
                   onClick={(e) => {
@@ -134,11 +187,14 @@ export function AnnotationsPanel({
         {activeSegmentId ? (
           <>
             <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              Active Segment: <span style={{ color: 'var(--accent)' }}>{activeSegmentId}</span>
+              {notingSegmentId ? 'Note for segment' : 'Active Segment:'}{' '}
+              <span style={{ color: 'var(--accent)' }}>{segmentOrdinal(notingTargetId) ?? '?'}</span>
             </div>
             <textarea
               value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
+              onFocus={handleFocus}
+              onChange={handleChange}
+              onBlur={handleBlur}
               placeholder="Add a note for the active segment..."
               style={{
                 width: '100%',
@@ -153,23 +209,42 @@ export function AnnotationsPanel({
                 boxSizing: 'border-box',
               }}
             />
-            <button
-              onClick={handleSave}
-              disabled={!noteText.trim()}
-              style={{
-                padding: '6px 12px',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                color: 'var(--text-on-accent)',
-                background: 'var(--accent)',
-                border: 'none',
-                borderRadius: 'var(--radius-button)',
-                cursor: 'pointer',
-                opacity: noteText.trim() ? 1 : 0.6,
-              }}
-            >
-              Save Note
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={handleSave}
+                disabled={!noteText.trim()}
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  color: 'var(--text-on-accent)',
+                  background: 'var(--accent)',
+                  border: 'none',
+                  borderRadius: 'var(--radius-button)',
+                  cursor: 'pointer',
+                  opacity: noteText.trim() ? 1 : 0.6,
+                }}
+              >
+                Save Note
+              </button>
+              {notingSegmentId && (
+                <button
+                  onClick={handleCancel}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    color: 'var(--text-secondary)',
+                    background: 'transparent',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-button)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
           </>
         ) : (
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>

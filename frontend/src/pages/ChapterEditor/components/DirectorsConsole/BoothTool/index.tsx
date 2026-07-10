@@ -32,6 +32,16 @@ const BoothToolBody: React.FC = () => {
   const [isReRendering, setIsReRendering] = useState(false);
   const [reRenderError, setReRenderError] = useState<string | null>(null);
   const [renderGroupsRefreshKey, setRenderGroupsRefreshKey] = useState(0);
+  // Polite live-region text, updated only on segment-boundary changes (see
+  // the announcement effect below) — not on every playback tick.
+  const [announcement, setAnnouncement] = useState('');
+  // One-shot auto-play acknowledgment: the segment to pulse, cleared once the
+  // pulse animation finishes (or immediately under prefers-reduced-motion).
+  const [pulseSegmentId, setPulseSegmentId] = useState<string | null>(null);
+  // Manual-scroll smarts (chapter-editor-modes.md §6): suspends the
+  // auto-follow scroll while the user is actively scrolling the column
+  // themselves.
+  const [suspendAutoScroll, setSuspendAutoScroll] = useState(false);
 
   const resolvedChapterId = searchParams.get('chapter') || chapters[0]?.id || null;
 
@@ -41,6 +51,16 @@ const BoothToolBody: React.FC = () => {
   );
 
   const activeSegmentRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const textViewRef = useRef<HTMLDivElement | null>(null);
+  // True only while WE are driving a scroll (via scrollIntoView) — lets the
+  // scroll listener tell "the user scrolled" apart from "our own auto-follow
+  // scroll fired a scroll event".
+  const isAutoScrollingRef = useRef(false);
+  const userScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastAnnouncedOrdinalRef = useRef<number | null>(null);
+  // Set once, right when autoplay fires on mode entry; consumed by the pulse
+  // effect below the first time an active segment resolves.
+  const autoplayPulseRef = useRef(false);
 
   // The "X / N" indicator MUST count render GROUPS (the rendered audio pieces),
   // not raw text segments — showing the segment count misleads the user into
@@ -105,15 +125,41 @@ const BoothToolBody: React.FC = () => {
     }
   };
 
-  // Scroll active segment into view
+  // Manual-scroll smarts: a real scroll event on the reading column that
+  // ISN'T one we triggered ourselves means the user is reading around —
+  // suspend auto-follow for a grace period rather than yanking them back.
   useEffect(() => {
+    const el = textViewRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      if (isAutoScrollingRef.current) return;
+      setSuspendAutoScroll(true);
+      if (userScrollTimeoutRef.current) clearTimeout(userScrollTimeoutRef.current);
+      userScrollTimeoutRef.current = setTimeout(() => setSuspendAutoScroll(false), 4000);
+    };
+    el.addEventListener('scroll', handleScroll);
+    return () => {
+      el.removeEventListener('scroll', handleScroll);
+      if (userScrollTimeoutRef.current) clearTimeout(userScrollTimeoutRef.current);
+    };
+  }, []);
+
+  // Scroll active segment into view — suspended while the user is actively
+  // scrolling manually (see above).
+  useEffect(() => {
+    if (suspendAutoScroll) return;
     if (activeSegmentId && activeSegmentRefs.current[activeSegmentId]) {
+      isAutoScrollingRef.current = true;
       activeSegmentRefs.current[activeSegmentId]?.scrollIntoView({
         behavior: 'smooth',
         block: 'nearest',
       });
+      const clearGuard = window.setTimeout(() => {
+        isAutoScrollingRef.current = false;
+      }, 600);
+      return () => window.clearTimeout(clearGuard);
     }
-  }, [activeSegmentId]);
+  }, [activeSegmentId, suspendAutoScroll]);
 
   // The active render-GROUP ordinal (0-based; FollowAlongPanel adds 1 for display),
   // derived from the canonical grouping so the indicator reads "group N / <render groups>".
@@ -124,6 +170,28 @@ const BoothToolBody: React.FC = () => {
     // Fallback before render-group data loads: map raw segment index → nothing misleading.
     return -1;
   }, [activeSegmentId, groupNumberBySegmentId]);
+
+  // Auto-play acknowledgment: the first time an active segment resolves
+  // after autoplay fired on mode entry, pulse it once so entry doesn't feel
+  // silent. The pulse itself is a CSS animation gated behind
+  // prefers-reduced-motion (components.css).
+  useEffect(() => {
+    if (autoplayPulseRef.current && activeSegmentId) {
+      setPulseSegmentId(activeSegmentId);
+      autoplayPulseRef.current = false;
+    }
+  }, [activeSegmentId]);
+
+  // Polite live-region announcement — fires only when the derived render-group
+  // ordinal actually changes (segment-boundary changes), not on every
+  // playback-position tick, so it doesn't spam assistive tech.
+  useEffect(() => {
+    if (!activeSegmentId) return;
+    const ordinal = groupNumberBySegmentId.get(activeSegmentId);
+    if (ordinal == null || lastAnnouncedOrdinalRef.current === ordinal) return;
+    lastAnnouncedOrdinalRef.current = ordinal;
+    setAnnouncement(`Segment ${ordinal} of ${renderGroupCount ?? ordinal}`);
+  }, [activeSegmentId, groupNumberBySegmentId, renderGroupCount]);
 
   /**
    * Booth mode has no rendered chapter switcher of its own — `ChapterWorkspaceHeader`
@@ -146,8 +214,9 @@ const BoothToolBody: React.FC = () => {
     // to another tool and back) — reloading would reset playback to 0:00.
     if (loadedAudioUrl === audioUrl) return;
     playChapter(audioUrl, selectedChapter.title);
+    autoplayPulseRef.current = true;
     // Re-trigger only when the resolved chapter actually changes.
-     
+
   }, [selectedChapter?.id, bookId]);
 
   return (
@@ -155,7 +224,6 @@ const BoothToolBody: React.FC = () => {
       {/* Top bar: follow-along controls + annotation toggle */}
       <div className="review-main__topbar">
         <FollowAlongPanel
-          chapterTitle={selectedChapter?.title || ''}
           activeSegmentId={activeSegmentId}
           totalSegments={renderGroupCount ?? 0}
           activeSegmentIndex={activeSegmentIndex}
@@ -180,7 +248,7 @@ const BoothToolBody: React.FC = () => {
       {/* Body: text view + optional annotations */}
       <div className="review-main__body">
         {/* Central scrolling book panel representing chapter text mapped to segments */}
-        <div className="review-text-view" data-testid="review-text-view">
+        <div className="review-text-view" data-testid="review-text-view" ref={textViewRef}>
           {loadingSegments ? (
             <div className="review-text-view__empty">Loading segments...</div>
           ) : segments.length === 0 ? (
@@ -188,14 +256,32 @@ const BoothToolBody: React.FC = () => {
           ) : (
             segments.map((seg) => {
               const isActive = seg.id === activeSegmentId;
+              const isPulsing = seg.id === pulseSegmentId;
+              const classNames = [
+                'review-text-view__segment',
+                isActive ? 'review-text-view__segment--active' : '',
+                isPulsing ? 'review-text-view__segment--pulse' : '',
+              ].filter(Boolean).join(' ');
               return (
                 <div
                   key={seg.id}
                   ref={(el) => {
                     activeSegmentRefs.current[seg.id] = el;
                   }}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => seekToSegment(seg.id)}
-                  className={`review-text-view__segment${isActive ? ' review-text-view__segment--active' : ''}`}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      seekToSegment(seg.id);
+                    }
+                  }}
+                  onAnimationEnd={() => {
+                    if (isPulsing) setPulseSegmentId(null);
+                  }}
+                  aria-current={isActive ? 'true' : undefined}
+                  className={classNames}
                 >
                   {seg.text_content}
                 </div>
@@ -210,8 +296,14 @@ const BoothToolBody: React.FC = () => {
             chapterId={resolvedChapterId}
             activeSegmentId={activeSegmentId}
             onSeekToSegment={seekToSegment}
+            groupNumberBySegmentId={groupNumberBySegmentId}
           />
         )}
+      </div>
+
+      {/* Assistive-tech-only status announcement — segment-boundary changes only */}
+      <div className="sr-only" role="status" aria-live="polite">
+        {announcement}
       </div>
     </div>
   );

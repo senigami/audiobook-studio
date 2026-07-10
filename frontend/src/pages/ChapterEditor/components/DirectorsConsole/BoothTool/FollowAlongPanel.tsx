@@ -3,7 +3,6 @@
  * (relocated only — see design-docs/plans/active/directors_console_activation/tasks/004-booth-tool.md).
  */
 interface FollowAlongPanelProps {
-  chapterTitle: string;
   activeSegmentId: string | null;
   totalSegments: number;
   activeSegmentIndex: number;
@@ -15,7 +14,6 @@ interface FollowAlongPanelProps {
 }
 
 export function FollowAlongPanel({
-  chapterTitle,
   activeSegmentId,
   totalSegments,
   activeSegmentIndex,
@@ -42,10 +40,6 @@ export function FollowAlongPanel({
         Follow-Along Playback
       </h3>
 
-      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-        <strong>Chapter:</strong> {chapterTitle || 'No Chapter Selected'}
-      </div>
-
       {activeSegmentId && (
         <div
           style={{
@@ -60,6 +54,9 @@ export function FollowAlongPanel({
             <strong>Segment:</strong> {activeSegmentIndex + 1} / {totalSegments}
           </div>
           {onReRenderSegment && (
+            // Quiet, low-emphasis contextual action — Booth mode is a
+            // listening/annotating surface, not an editing one, so this must
+            // not read as the hero of the card (chapter-editor-modes.md §6).
             <button
               type="button"
               onClick={onReRenderSegment}
@@ -67,20 +64,20 @@ export function FollowAlongPanel({
               aria-label="Regenerate Segment"
               style={{
                 marginTop: '8px',
-                padding: '6px 10px',
-                background: 'var(--surface)',
-                color: 'var(--text-primary)',
+                padding: '3px 8px',
+                background: 'transparent',
+                color: 'var(--text-muted)',
                 border: '1px solid var(--border)',
                 borderRadius: 'var(--radius-button)',
-                fontSize: '0.7rem',
-                fontWeight: 600,
+                fontSize: '0.65rem',
+                fontWeight: 400,
                 cursor: isReRendering ? 'not-allowed' : 'pointer',
                 opacity: isReRendering ? 0.6 : 1,
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '4px',
-                width: '100%',
+                width: 'auto',
               }}
             >
               {isReRendering

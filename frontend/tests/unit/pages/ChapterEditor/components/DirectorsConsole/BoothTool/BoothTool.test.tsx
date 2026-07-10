@@ -221,6 +221,54 @@ describe('BoothTool', () => {
     expect(playerBus.seek).toHaveBeenCalled();
   });
 
+  it('segments are keyboard-reachable: Enter/Space activate the same seek handler as click', async () => {
+    renderBoothTool();
+
+    const segmentEl = await screen.findByText('Short segment');
+    expect(segmentEl).toHaveAttribute('role', 'button');
+    expect(segmentEl).toHaveAttribute('tabIndex', '0');
+
+    act(() => {
+      mockPlayerBusState.scope = 'chapter';
+      mockPlayerBusState.audioUrl = '/api/projects/proj-123/chapters/chap-1/assets/audio?filename=chap1.mp3';
+      mockPlayerBusState.playing = true;
+      mockPlayerBusState.duration = 100;
+      listeners.forEach((l) => l());
+    });
+
+    fireEvent.keyDown(segmentEl, { key: 'Enter' });
+    expect(playerBus.seek).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(segmentEl, { key: ' ' });
+    expect(playerBus.seek).toHaveBeenCalledTimes(2);
+
+    // Non-activation keys must not trigger a seek.
+    fireEvent.keyDown(segmentEl, { key: 'a' });
+    expect(playerBus.seek).toHaveBeenCalledTimes(2);
+  });
+
+  it('marks the currently active segment with aria-current', async () => {
+    renderBoothTool();
+
+    const segmentEl = await screen.findByText('Short segment');
+
+    act(() => {
+      mockPlayerBusState.scope = 'chapter';
+      mockPlayerBusState.audioUrl = '/api/projects/proj-123/chapters/chap-1/assets/audio?filename=chap1.mp3';
+      mockPlayerBusState.playing = true;
+      mockPlayerBusState.position = 0;
+      mockPlayerBusState.duration = 100;
+      listeners.forEach((l) => l());
+    });
+
+    await waitFor(() => {
+      expect(segmentEl).toHaveAttribute('aria-current', 'true');
+    });
+
+    const otherSegmentEl = screen.getByText('Longer segment text here');
+    expect(otherSegmentEl).not.toHaveAttribute('aria-current');
+  });
+
   it('clicking the regenerate button calls the re-render handler (api.generateSegments)', async () => {
     const { api } = await import('@/api');
     renderBoothTool();
