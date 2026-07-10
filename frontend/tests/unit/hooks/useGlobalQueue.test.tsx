@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useGlobalQueue } from '@/hooks/useGlobalQueue';
 import { api } from '@/api';
 import type { ProcessingQueueItem } from '@/types';
@@ -15,9 +15,23 @@ vi.mock('@/api', () => ({
   },
 }));
 
+// A stable empty-array reference for tests that don't care about queue
+// contents. Passing a fresh `[]` literal straight into renderHook's render
+// callback creates a new array on every render, which — combined with
+// useGlobalQueue's `useEffect(() => setQueue(initialQueue), [initialQueue])`
+// resync effect — retriggers the effect every render and deadlocks the test
+// in an infinite render loop. Always pass a reference that's stable across
+// re-renders (a module-level const, same as mockQueue below).
+const EMPTY_QUEUE: ProcessingQueueItem[] = [];
+
 describe('useGlobalQueue', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    // Ensure fake timers are always restored to avoid cross-test leakage
+    vi.useRealTimers();
   });
 
   const mockQueue: ProcessingQueueItem[] = [
@@ -37,16 +51,15 @@ describe('useGlobalQueue', () => {
 
     const updatedQueue = [...mockQueue, { id: 'job3', status: 'queued' } as any];
     rerender({ q: updatedQueue });
-    
+
     expect(result.current.queue).toEqual(updatedQueue);
   });
 
-  // TODO: SKIPPED: This test triggers a 10s setTimeout in handleDragStart
-  // and tends to hang the worker thread in this environment.
-  // Drag behavior coverage is deferred pending fake timer stability.
-  it.skip('suspends sync during drag', () => {
+  it('suspends sync during drag', () => {
+    vi.useFakeTimers();
+
     const { result, rerender } = renderHook(({ q }) => useGlobalQueue(q, false), {
-      initialProps: { q: mockQueue }
+        initialProps: { q: mockQueue }
     });
 
     act(() => {
@@ -55,23 +68,27 @@ describe('useGlobalQueue', () => {
 
     const updatedQueue = [...mockQueue, { id: 'job3', status: 'queued' } as any];
     rerender({ q: updatedQueue });
-    
+
     // Should still be old queue because dragging
     expect(result.current.queue).toEqual(mockQueue);
-    
+
     // Advance timers so drag ends
     act(() => {
         vi.advanceTimersByTime(11000);
     });
-    
+
+    // The drag-suspend guard only re-checks on the next incoming
+    // initialQueue reference (mirrors the real sync hook delivering a new
+    // merged array on its next poll tick) — so re-deliver the same queue
+    // contents as a fresh reference now that dragging has ended.
+    rerender({ q: [...updatedQueue] });
+
     expect(result.current.queue).toEqual(updatedQueue);
   });
 
-  // SKIPPED: This test updates local state and uses async act,
-  // which causes an indefinite hang in this vitest setup.
-  it.skip('handles pause/resume toggle', async () => {
+  it('handles pause/resume toggle', async () => {
     const onRefresh = vi.fn();
-    const { result } = renderHook(() => useGlobalQueue([], false, onRefresh));
+    const { result } = renderHook(() => useGlobalQueue(EMPTY_QUEUE, false, onRefresh));
 
     await act(async () => {
       await result.current.handlePauseToggle();
@@ -82,16 +99,12 @@ describe('useGlobalQueue', () => {
     expect(onRefresh).toHaveBeenCalled();
   });
 
-  // TODO: SKIPPED: This test involves async reorder commit and state resets,
-  // which causes a deadlock in this vitest setup.
-  // Coverage for reordering is structurally deferred until a stable fake timer 
-  // pattern is established or moved to E2E playwright tests.
-  it.skip('handles reordering and commit', async () => {
+  it('handles reordering and commit', async () => {
     const onRefresh = vi.fn();
     const { result } = renderHook(() => useGlobalQueue(mockQueue, false, onRefresh));
 
     const newOrder = [mockQueue[1], mockQueue[0]];
-    
+
     act(() => {
       result.current.handleDragStart();
       result.current.handleReorder(newOrder);
@@ -108,9 +121,7 @@ describe('useGlobalQueue', () => {
     expect(onRefresh).toHaveBeenCalled();
   });
 
-  // TODO: SKIPPED due to async act() deadlock in this environment. 
-  // Coverage deferred to GlobalQueue component integration tests.
-  it.skip('handles removal', async () => {
+  it('handles removal', async () => {
     const onRefresh = vi.fn();
     const { result } = renderHook(() => useGlobalQueue(mockQueue, false, onRefresh));
 
@@ -122,17 +133,15 @@ describe('useGlobalQueue', () => {
     expect(onRefresh).toHaveBeenCalled();
   });
 
-  // TODO: SKIPPED due to async act() deadlock in this environment.
-  // Coverage deferred to GlobalQueue component integration tests.
-  it.skip('handles clear all with confirmation', async () => {
-    const { result } = renderHook(() => useGlobalQueue([], false));
+  it('handles clear all with confirmation', async () => {
+    const { result } = renderHook(() => useGlobalQueue(EMPTY_QUEUE, false));
 
     act(() => {
       result.current.handleClearAll();
     });
 
     expect(result.current.confirmConfig).not.toBeNull();
-    
+
     await act(async () => {
       await result.current.confirmConfig?.onConfirm();
     });

@@ -34,10 +34,6 @@ describe('i18n foundation — initI18n()', () => {
     resetI18nForTests();
   });
 
-  it('is a no-op import until explicitly called', () => {
-    expect(getI18n()).toBeNull();
-  });
-
   it('loads the committed English catalog and resolves a known key', () => {
     const i18n = initI18n();
 

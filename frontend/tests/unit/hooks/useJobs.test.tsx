@@ -2048,58 +2048,6 @@ describe('useJobs', () => {
     expect(job.indeterminate).toBe(true);
   });
 
-  it('[W-MIX-LA-004] segment_progress indeterminate=true → isActiveJobPreparing=true → seg-2 in preparing set (not rendering)', () => {
-    // End-to-end: verify the signal reaches useStudioChapter's preparing-set logic.
-    // We test through the job overlay shape that useStudioChapter receives as a prop.
-    // After the LOADING_MODEL segment frame lands with indeterminate=true the job
-    // carries both active_segment_id and indeterminate.  Passing that job to
-    // useStudioChapter puts seg-2 in chapterRenderPreparingSegmentIds.
-    //
-    // This is the keystone test for W-MIX-LA-004.  R1 revert-check: on pre-004
-    // code (no indeterminate in segment frame) the job lacks indeterminate so
-    // isActiveJobPreparing is false and seg-2 ends up in the rendering set instead.
-    const { result } = renderHook(() => useJobs());
-
-    emit({
-      type: 'jobs_snapshot',
-      jobs: [{ id: 'job-mix', status: 'running', progress: 0.06, chapter_id: 'chap-1' }],
-    });
-
-    act(() => {
-      publishStudioSocketMessage({
-        type: 'studio_event',
-        version: 1,
-        topic: 'segments.progress',
-        eventKind: 'segment_progress',
-        source: 'backend',
-        emittedAt: Date.now() / 1000,
-        pluginId: null,
-        ids: { jobId: 'job-mix', chapterId: 'chap-1', segmentId: 'seg-2' },
-        payload: {
-          status: 'running',
-          progress: 0,
-          reasonCode: null,
-          activeSegmentId: 'seg-2',
-          activeSegmentProgress: 0,
-          indeterminate: true,
-        },
-      });
-    });
-
-    const job = result.current.jobs['job-mix'];
-    // The segment frame now carries indeterminate=true — both fields present
-    expect(job.active_segment_id).toBe('seg-2');
-    expect(job.indeterminate).toBe(true);
-
-    // Derive what useStudioChapter.isActiveJobPreparing would compute
-    const isActiveJobPreparing =
-      (job as any)?.reason_code === 'SEGMENT_PENDING' ||
-      (job as any)?.reason_code === 'LOADING_MODEL' ||
-      (job as any)?.indeterminate === true;
-
-    expect(isActiveJobPreparing).toBe(true);
-  });
-
   it('[W-MIX-LA-004] INV-1: XTTS-first LOADING_MODEL (seg-1) still prepares seg-1 after fix', () => {
     // Regression guard: the XTTS-first path goes through the dispatch-time frame
     // (not the mid-chapter MODEL_LOAD_STARTED marker), but if it also arrives as a

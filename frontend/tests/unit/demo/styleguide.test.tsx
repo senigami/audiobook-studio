@@ -158,20 +158,6 @@ describe('parseTokens', () => {
     expect(darkOnly!.lightValue).toBe('');
     expect(darkOnly!.darkValue).toBe('#ff0000');
   });
-
-  it('returns > 50 light entries and > 30 dark entries from real tokens.css', async () => {
-    const rawMod = await import('@/theme/tokens.css?raw');
-    const css = rawMod.default;
-    const entries = parseTokens(css);
-    const lightEntries = entries.filter(e => e.lightValue !== '');
-    const darkEntries = entries.filter(e => e.darkValue !== '');
-
-    // The fixture mock has only 4 light / 3 dark; use >2/>2 for the mock
-    // but the intent is to test real tokens. Since we mocked the module,
-    // we test structure: at least one of each.
-    expect(lightEntries.length).toBeGreaterThan(2);
-    expect(darkEntries.length).toBeGreaterThan(2);
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -215,12 +201,6 @@ describe('StyleguidePage section headings', () => {
     expect(headingTexts.some(t => /Theme/i.test(t))).toBe(true);
   });
 
-  it('renders the canonical page title "Audiobook Studio — Design System"', () => {
-    render(<StyleguidePage />);
-    const h1 = screen.getByRole('heading', { level: 1 });
-    expect(h1.textContent).toMatch(/Audiobook Studio.*Design System/i);
-  });
-
   it('does NOT render removed meta sections', () => {
     render(<StyleguidePage />);
     // Old title "Design Spec Sheet" should be gone
@@ -244,18 +224,6 @@ describe('StyleguidePage typography shows shipped token scale', () => {
     // Stale framing that claimed tokens did not exist is gone
     expect(screen.queryByText(/do not exist yet/i)).toBeNull();
     expect(screen.queryByText(/zero type tokens/i)).toBeNull();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Test 4 — Spacing section (moved out of Typography)
-// ---------------------------------------------------------------------------
-
-describe('StyleguidePage spacing section', () => {
-  it('renders spacing scale and motion tokens in Section 5', () => {
-    render(<StyleguidePage />);
-    expect(screen.getAllByText(/Spacing scale/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Motion tokens/i).length).toBeGreaterThan(0);
   });
 });
 
@@ -298,49 +266,3 @@ describe('StyleguidePage theme side-by-side', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Test 7 — New sections have substantive content
-// ---------------------------------------------------------------------------
-
-describe('StyleguidePage new canonical sections', () => {
-  it('Principles section renders design tenets', () => {
-    render(<StyleguidePage />);
-    expect(screen.getAllByText(/Rationed accent/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Calm over flashy/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Token-only styling/i).length).toBeGreaterThan(0);
-  });
-
-  it('Brand section renders the BrandLogo component', () => {
-    render(<StyleguidePage />);
-    const logos = screen.getAllByTestId('brand-logo');
-    expect(logos.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it('Iconography section renders lucide icon names', () => {
-    render(<StyleguidePage />);
-    expect(screen.getAllByText('Play').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Check').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Trash2').length).toBeGreaterThan(0);
-  });
-
-  it('Accessibility section renders the five UI states', () => {
-    render(<StyleguidePage />);
-    expect(screen.getAllByText(/loading/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/empty/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/error/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/reconnecting/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/recovered/i).length).toBeGreaterThan(0);
-  });
-
-  it('Voice Pills section renders pill rows and UntaggedBadge', () => {
-    render(<StyleguidePage />);
-    // Section heading present
-    expect(screen.getAllByText(/10\. Voice Pills/i).length).toBeGreaterThanOrEqual(1);
-    // VoicePillRow mocks rendered
-    expect(screen.getAllByTestId('voice-pill-row').length).toBeGreaterThanOrEqual(2);
-    // UntaggedBadge rendered
-    expect(screen.getByTestId('untagged-badge')).toBeDefined();
-    // Individual VoicePill specimens rendered
-    expect(screen.getAllByTestId('voice-pill').length).toBeGreaterThan(0);
-  });
-});

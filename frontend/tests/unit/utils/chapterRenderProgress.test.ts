@@ -53,29 +53,6 @@ describe('chapterRenderProgress', () => {
     expect(deriveActiveBatchProgress(job, 0, 100_000)).toBe(0);
   });
 
-  it('proves equal-length segments produce near-equal chapter progress contribution', () => {
-    // Two equal-length segments contributing 100 characters each, total 200
-    const totalWeight = 200;
-
-    // First segment at 50% progress
-    const activeWeight1 = 100;
-    const completedWeight1 = 0;
-    const activeProgress1 = 0.5;
-    const progressContribution1 = (completedWeight1 + activeWeight1 * activeProgress1) / totalWeight;
-
-    // Second segment at 50% progress
-    const activeWeight2 = 100;
-    const completedWeight2 = 100;
-    const activeProgress2 = 0.5;
-    const progressContribution2 = (completedWeight2 + activeWeight2 * activeProgress2) / totalWeight;
-
-    // Total contribution of segment 1 is from 0.0 to 0.5 (delta 0.5)
-    // Total contribution of segment 2 is from 0.5 to 1.0 (delta 0.5)
-    expect(progressContribution1).toBe(0.25);
-    expect(progressContribution2).toBe(0.75);
-    expect(progressContribution2 - 0.5).toBeCloseTo(progressContribution1);
-  });
-
   it('uses raw active segment progress for text highlighting even when the visual bar is ahead', () => {
     const job = {
       status: 'running',

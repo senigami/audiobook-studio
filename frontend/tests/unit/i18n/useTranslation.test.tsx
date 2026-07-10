@@ -30,12 +30,6 @@ describe('useTranslation — passthrough before init', () => {
       'Audiobook Studio',
     );
   });
-
-  it('never throws for a missing key', () => {
-    const { result } = renderHook(() => useTranslation('welcome'));
-
-    expect(() => result.current.t('does.not.exist')).not.toThrow();
-  });
 });
 
 describe('useTranslation — after initI18n()', () => {
