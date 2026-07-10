@@ -6,7 +6,6 @@ old inline key form `(vpdir or "", sw)` is used with a list sw value, producing
 TypeError: unhashable type: 'list'.  See test_old_key_form_raises_for_list for
 that explicit regression guard.
 """
-import pytest
 from plugins.tts_xtts.plugin.core.serve_speakers import build_unique_speakers
 
 
@@ -86,25 +85,3 @@ def test_mixed_list_and_string_wavs():
     result = build_unique_speakers(script, default_voice_profile_dir="/default")
     # /vp/a list appears twice → deduped; /vp/b string once → one more
     assert len(result) == 2
-
-
-# ---------------------------------------------------------------------------
-# R1 revert-check: documents the old bug explicitly
-# ---------------------------------------------------------------------------
-
-def test_old_key_form_raises_for_list():
-    """
-    Regression guard: confirm that the OLD key construction
-    `key = (vpdir or "", sw)` raises TypeError when sw is a list.
-
-    This test MUST PASS (i.e., TypeError IS raised) — it documents the
-    pre-fix behaviour.  If build_unique_speakers starts using the old form
-    again, the primary tests above will also fail, but this one makes the
-    root cause explicit.
-    """
-    sw = ["a.wav", "b.wav"]
-    vpdir = "/vp/test"
-    with pytest.raises(TypeError, match="unhashable type"):
-        bad_dict = {}
-        bad_key = (vpdir or "", sw)   # list in tuple → unhashable
-        bad_dict[bad_key] = (sw, vpdir)

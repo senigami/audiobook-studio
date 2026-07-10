@@ -125,11 +125,17 @@ def test_idle_timeout_kills_worker(tmp_path):
             worker = mgr._worker
         assert worker is not None and worker.is_alive
 
-        # Wait for the idle timer to fire (2x the timeout for reliability).
-        time.sleep(2.5)
+        # Poll until the real threading.Timer-driven idle timeout fires and
+        # terminates the worker, rather than blindly sleeping a fixed duration.
+        deadline = time.monotonic() + 5.0
+        worker_after = worker
+        while time.monotonic() < deadline:
+            with mgr._lock:
+                worker_after = mgr._worker
+            if worker_after is None or not worker_after.is_alive:
+                break
+            time.sleep(0.05)
 
-        with mgr._lock:
-            worker_after = mgr._worker
         assert worker_after is None or not worker_after.is_alive, (
             "Worker should have been terminated by idle timeout"
         )
