@@ -13,7 +13,10 @@ import { CastingCallPlaceholder, ScriptSupervisorPlaceholder, PluginPlaceholder 
 export const directorsConsoleTools: DirectorsTool[] = [
   CastTool,
   BoothTool,
-  ReviseTool,
+  // Richer rail tooltip added here (not in ReviseTool/index.tsx, which is
+  // out of scope for this pass) — Write/Revise read as near-synonyms
+  // without it. See design-docs/specs/voice-tone.md.
+  { ...ReviseTool, description: 'Revise — fix one segment (other audio untouched)' },
   WriteTool,
   CastingCallPlaceholder,
   ScriptSupervisorPlaceholder,

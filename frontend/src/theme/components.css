@@ -1651,6 +1651,29 @@
   font-weight: 700;
 }
 
+/* Write mode's persistent entry banner (variant="immediate") — calm, not
+   alarming, since it replaces a click-through warning rather than gating
+   anything. Accent tint, not warning tint. */
+.chapter-text-panel__info-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--accent-tint-border);
+  background: var(--accent-tint-bg);
+  color: var(--text-secondary);
+}
+
+.chapter-text-panel__info-banner svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.chapter-text-panel__info-banner p {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
 .chapter-text-panel__textarea,
 .chapter-text-panel__preview {
   flex: 1 1 auto;
@@ -1727,8 +1750,11 @@
 .chapter-text-panel__footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  /* Discard + Commit Changes read as a paired action group (§7b "commit…
+     discard"), not opposite ends of the row — there's no counterpart
+     content on the left. */
+  justify-content: flex-end;
+  gap: 0.6rem;
   padding: 0.5rem 1rem 0.75rem;
   color: var(--text-secondary);
   font-size: 0.82rem;
@@ -4168,6 +4194,29 @@
   align-items: center;
   color: var(--text-muted);
   flex-shrink: 0;
+}
+
+/* ── Write mode: full source editor (Director's Console) ─────────────────── */
+.write-tool {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  gap: 8px;
+  padding: 12px;
+}
+
+.write-tool__hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.write-tool .chapter-text-panel {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* ==========================================================================

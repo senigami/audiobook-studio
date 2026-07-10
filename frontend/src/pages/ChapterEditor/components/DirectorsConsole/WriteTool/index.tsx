@@ -9,9 +9,12 @@ import { useDirtyGuard } from '../DirtyGuardContext';
 /**
  * Write mode — the full chapter source editor. Thin wrapper around the
  * already-working `ChapterTextPanel`/`useChapterText` (unchanged), matching
- * Contents' existing full-text-edit behavior for the same chapter, including
- * the produced-chapter lock/warning banner. See
- * design-docs/workflows/chapter-editor-modes.md §7b/§13.
+ * Contents' existing full-text-edit behavior for the same chapter — except
+ * entry is never gated here (`variant="immediate"`): per
+ * design-docs/workflows/chapter-editor-modes.md §7b ("always accessible, no
+ * advanced gate"), the commit-time `ResyncPreviewModal` is the real safety
+ * net, so the produced-chapter "Edit Text" → "Edit Anyway" click-through
+ * (kept for Contents/Manuscript) would just be redundant friction here.
  *
  * Dirty-exit guard (DirtyGuardContext.tsx): forwards `ChapterTextPanel`'s
  * `onDirtyChange` (uncommitted produced-chapter edit) up to the console so
@@ -29,12 +32,23 @@ const WriteToolBody: React.FC = () => {
     setDirty(dirty, dirty ? 'Uncommitted chapter text edit' : undefined);
   }, [setDirty]);
 
-  return <ChapterTextPanel chapter={selectedChapter} onSaved={reload} onDirtyChange={handleDirtyChange} />;
+  return (
+    <div className="write-tool" data-testid="write-tool">
+      <p className="write-tool__hint">Full-chapter editor · commits re-sync voice assignments</p>
+      <ChapterTextPanel
+        chapter={selectedChapter}
+        onSaved={reload}
+        onDirtyChange={handleDirtyChange}
+        variant="immediate"
+      />
+    </div>
+  );
 };
 
 export const WriteTool: DirectorsTool = {
   id: 'write',
   label: 'Write',
+  description: 'Write — rewrite the whole chapter (voices re-synced on commit)',
   icon: FileText,
   component: WriteToolBody,
   demoPlaceholder: false

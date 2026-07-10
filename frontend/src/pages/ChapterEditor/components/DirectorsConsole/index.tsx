@@ -90,7 +90,7 @@ export const DirectorsConsole: React.FC<DirectorsConsoleProps> = ({ initialToolI
               role="tab"
               aria-selected={isActive}
               aria-label={tool.label}
-              title={tool.label}
+              title={tool.description ?? tool.label}
               onClick={() => handleToolClick(tool.id)}
               className={isActive ? 'btn-primary' : 'btn-ghost'}
               style={{

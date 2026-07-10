@@ -116,14 +116,14 @@ describe('ChapterTextPanel', () => {
     });
     expect(screen.queryByLabelText('Chapter manuscript text')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Edit text' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Text' }));
     expect(screen.getByRole('alert')).toHaveTextContent('Editing re-analyzes this chapter');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Edit anyway' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Anyway' }));
     fireEvent.change(screen.getByLabelText('Chapter manuscript text'), {
       target: { value: 'Updated rendered text' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Commit changes' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Commit Changes' }));
 
     await waitFor(() => {
       expect(api.previewSourceTextResync).toHaveBeenCalledWith('chapter-rendered', 'Updated rendered text');
@@ -140,8 +140,8 @@ describe('ChapterTextPanel', () => {
     });
     expect(onDirtyChange).toHaveBeenLastCalledWith(false);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Edit text' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Edit anyway' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Text' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Anyway' }));
 
     fireEvent.change(screen.getByLabelText('Chapter manuscript text'), {
       target: { value: 'Updated rendered text' },
@@ -150,7 +150,7 @@ describe('ChapterTextPanel', () => {
       expect(onDirtyChange).toHaveBeenLastCalledWith(true);
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Commit changes' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Commit Changes' }));
     await waitFor(() => {
       expect(api.previewSourceTextResync).toHaveBeenCalled();
     });
@@ -160,6 +160,70 @@ describe('ChapterTextPanel', () => {
     await waitFor(() => {
       expect(onDirtyChange).toHaveBeenLastCalledWith(false);
     });
+  });
+
+  it('discards an in-flight produced-chapter edit back to the original text and re-locks', async () => {
+    render(<ChapterTextPanel chapter={producedChapter} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Original rendered text')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Text' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Anyway' }));
+    fireEvent.change(screen.getByLabelText('Chapter manuscript text'), {
+      target: { value: 'Updated rendered text' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+
+    // Discard re-locks the gated variant, matching the pre-edit read-only view.
+    expect(screen.queryByLabelText('Chapter manuscript text')).not.toBeInTheDocument();
+    expect(screen.getByText('Original rendered text')).toBeInTheDocument();
+  });
+
+  it('disables Discard and Commit Changes while there are no uncommitted changes', async () => {
+    render(<ChapterTextPanel chapter={producedChapter} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Original rendered text')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Text' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Anyway' }));
+
+    expect(screen.getByRole('button', { name: 'Discard' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Commit Changes' })).toBeDisabled();
+  });
+
+  it('Write mode (variant="immediate") skips the Edit Text/Edit Anyway click-through for a produced chapter', async () => {
+    render(<ChapterTextPanel chapter={producedChapter} variant="immediate" />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Chapter manuscript text')).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: 'Edit Text' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByText(/Editing the full source\. Committing re-syncs voice assignments/)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Chapter manuscript text'), {
+      target: { value: 'Updated rendered text' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Commit Changes' }));
+
+    await waitFor(() => {
+      expect(api.previewSourceTextResync).toHaveBeenCalledWith('chapter-rendered', 'Updated rendered text');
+    });
+  });
+
+  it('gated variant (Contents/Manuscript default) still shows the original click-through unchanged', async () => {
+    render(<ChapterTextPanel chapter={producedChapter} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Original rendered text')).toBeInTheDocument();
+    });
+    expect(screen.queryByLabelText('Chapter manuscript text')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit Text' })).toBeInTheDocument();
   });
 
   it('never reports dirty for a draft chapter (autosave, not the commit flow, owns those edits)', async () => {

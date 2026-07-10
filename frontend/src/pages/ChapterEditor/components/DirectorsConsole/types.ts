@@ -15,6 +15,12 @@ import type { ComponentType } from 'react';
 export interface DirectorsTool {
   id: string;
   label: string;
+  /**
+   * Optional richer rail-tooltip copy (the `title` attribute on the rail
+   * button). Falls back to `label` when omitted — see
+   * DirectorsConsole/index.tsx.
+   */
+  description?: string;
   icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean | 'true' | 'false' }>;
   component: ComponentType;
   shortcut?: string;
