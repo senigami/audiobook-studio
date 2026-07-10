@@ -142,6 +142,7 @@ describe('Chapter Editor Rendering & Queue Orchestration Tests', () => {
       completionPollAttemptsRef: { current: 0 },
       setLoading: vi.fn(),
       setScriptViewLoading: vi.fn(),
+      setChapterNotFound: vi.fn(),
       segments: [],
     };
 

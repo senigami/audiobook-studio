@@ -68,8 +68,8 @@ async def api_create_chapter(
 
 
 @router.get("/chapters/{chapter_id}")
-def api_get_chapter_details(chapter_id: str):
-    c = get_chapter(chapter_id)
+def api_get_chapter_details(chapter_id: str, project_id: Optional[str] = None):
+    c = get_chapter(chapter_id, project_id=project_id)
     if not c:
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
     return JSONResponse(c)

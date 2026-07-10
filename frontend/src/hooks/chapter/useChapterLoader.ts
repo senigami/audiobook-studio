@@ -20,6 +20,7 @@ export const useChapterLoader = (
     pendingGenerationTimesRef, segmentRefreshTimerRef,
     completionPollTimerRef, completionPollAttemptsRef,
     setLoading, setScriptViewLoading,
+    setChapterNotFound,
     segments
   } = state;
 
@@ -47,7 +48,8 @@ export const useChapterLoader = (
       // other chapter's full text_content) — this only needs `chapterId`'s own
       // metadata/text, and this loader re-runs on mount, on every WS
       // chapter-update tick, and on completion-poll ticks.
-      const target = await api.fetchChapter(chapterId);
+      const target = await api.fetchChapter(chapterId, projectId);
+      setChapterNotFound(false);
       if (shouldLogLoadTimings) {
         recordStudioDebugSnapshot('load:chapter metadata', {
           chapterId,
@@ -118,6 +120,16 @@ export const useChapterLoader = (
       });
     } catch (e) {
       console.error(`Failed to load chapter (${source})`, e);
+      if ((e as { status?: number })?.status === 404) {
+        // Chapter deleted while viewing / bad deep link — clear stale
+        // chapter/segment/character state and surface an explicit
+        // not-found indicator rather than leaving old content visible.
+        setChapterNotFound(true);
+        setChapter(null);
+        setSegments([]);
+        setCharacters([]);
+        setScriptViewData(null);
+      }
     } finally {
       if (shouldLogLoadTimings) {
         recordStudioDebugSnapshot('load:chapter view complete', {
@@ -130,7 +142,7 @@ export const useChapterLoader = (
       setLoading(false);
       setScriptViewLoading(false);
     }
-  }, [chapterId, projectId, setChapter, setTitle, setText, setLocalVoice, setSegments, setCharacters, setScriptViewData, setGeneratingSegmentIds, setLoading, setScriptViewLoading]);
+  }, [chapterId, projectId, setChapter, setTitle, setText, setLocalVoice, setSegments, setCharacters, setScriptViewData, setGeneratingSegmentIds, setLoading, setScriptViewLoading, setChapterNotFound]);
 
   useEffect(() => { loadChapter('mount'); }, [loadChapter]);
 

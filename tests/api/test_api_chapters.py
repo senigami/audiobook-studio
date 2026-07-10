@@ -44,6 +44,29 @@ def test_chapter_list_and_create(clean_db, client):
     assert len(data) == 1
     assert data[0]["title"] == "Chapter 1"
 
+def test_get_chapter_rejects_mismatched_project_id(clean_db, client):
+    """A chapter fetched with a project_id it doesn't belong to must 404,
+    not silently return another project's chapter data."""
+    from app.db.projects import create_project
+    pid_a = create_project("ProjectA")
+    pid_b = create_project("ProjectB")
+    cid = client.post(
+        f"/api/projects/{pid_a}/chapters", data={"title": "A1", "text_content": "Content"}
+    ).json()["chapter"]["id"]
+
+    # No project_id passed: unscoped lookup still works.
+    response = client.get(f"/api/chapters/{cid}")
+    assert response.status_code == 200
+
+    # Correct project_id: still works.
+    response = client.get(f"/api/chapters/{cid}", params={"project_id": pid_a})
+    assert response.status_code == 200
+
+    # Wrong project_id: must 404, not return project A's chapter.
+    response = client.get(f"/api/chapters/{cid}", params={"project_id": pid_b})
+    assert response.status_code == 404
+
+
 def test_chapter_crud(clean_db, client):
     from app.db.projects import create_project
     pid = create_project("TestProj")

@@ -1,0 +1,70 @@
+{
+  "at": "2026-07-10T17:00:00Z",
+  "commit": "uncommitted",
+  "task": "Adversarial review of a recent GET /chapters/{chapter_id} single-chapter-fetch optimization found three real issues: (W1) the single-chapter fetch had no project scoping (the old code implicitly discarded a chapter belonging to a different project via `fetchChapters(projectId).find(...)`; the new direct-by-id endpoint had no equivalent check). (W3) get_chapter_segments_counts/get_chapter/list_chapters in app/db/chapters.py had triplicated `audio_status = 'done'` count-query SQL with inconsistent column naming. (W2, judgment call) useChapterLoader.ts's catch block left stale chapter/segment/character state on screen after a 404 instead of surfacing a not-found state. Fixed all three.",
+  "files": {
+    "app/db/chapters.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "get_chapter(chapter_id, project_id=None) now takes an optional project_id and returns None (same as not-found) if the chapter belongs to a different project. Extracted the shared segment-count subquery shape into _segment_counts_sql(alias) / _SEGMENT_COUNTS_SQL_TEMPLATE, used by get_chapter_segments_counts, get_chapter, and list_chapters — standardized on the done_segments_count/total_segments_count naming (matches Chapter type in frontend/src/types/index.ts and the existing list_chapters consumers), including inside get_chapter_segments_counts which previously used done_count/total_count column aliases internally (its (done, total) tuple return order is unchanged, so callers in app/jobs/worker_metrics.py and app/studio_plugin_sdk/context.py needed no changes)."
+    },
+    "app/api/routers/chapters.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "GET /api/chapters/{chapter_id} now accepts an optional project_id query param and passes it through to get_chapter for scoping; a mismatched project_id now 404s instead of returning another project's chapter."
+    },
+    "frontend/src/api/index.ts": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "fetchChapter(chapterId, projectId?) now appends ?project_id=... when a projectId is supplied."
+    },
+    "frontend/src/hooks/chapter/useChapterLoader.ts": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Passes projectId to api.fetchChapter. On a 404 (error.status === 404) the catch block now clears chapter/segments/characters/scriptViewData and sets a new chapterNotFound flag instead of leaving stale state on screen with only a console.error."
+    },
+    "frontend/src/hooks/chapter/useChapterEditorState.ts": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added chapterNotFound/setChapterNotFound state, threaded through the hook's returned state object."
+    },
+    "frontend/src/hooks/useChapterEditor.ts": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Re-exports chapterNotFound from state so consumers (ChapterEditorPage via useStudioChapter) can see it; ChapterEditorPage's existing `if (!chapter) return <div>Chapter not found.</div>` already covers surfacing the not-found state once chapter is cleared."
+    },
+    "frontend/src/pages/Book/lib/useChapterText.ts": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Passes chapter.project_id to api.fetchChapter."
+    },
+    "frontend/src/pages/Book/studio/useStudioChapter.ts": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Threads chapterNotFound through from useChapterEditor's destructure/return."
+    },
+    "tests/api/test_api_chapters.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added test_get_chapter_rejects_mismatched_project_id: creates two projects, a chapter in project A, asserts GET /api/chapters/{id} with no project_id and with the correct project_id both succeed, and with project B's id 404s. R1 revert-checked (failed pre-fix)."
+    },
+    "frontend/tests/unit/pages/ChapterEditor/rendering_orchestration.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added missing setChapterNotFound: vi.fn() to the hand-built mockState fixture (required by the new useChapterLoader catch-block field)."
+    }
+  },
+  "flow_impact": "Chapter single-fetch path (GET /api/chapters/{chapter_id} -> app.db.chapters.get_chapter) is now project-scoped when a project_id is supplied; the three segment-count SQL sites in app/db/chapters.py share one fragment/naming convention. Frontend chapter-load 404 handling now clears stale state instead of leaving it.",
+  "tests_added": [
+    "tests/api/test_api_chapters.py::test_get_chapter_rejects_mismatched_project_id"
+  ],
+  "tests_deleted": [],
+  "verification": {
+    "pytest": "./venv/bin/python -m pytest tests/db/ tests/api/test_api_chapters.py -q -> 223 passed",
+    "ruff": "./venv/bin/python -m ruff check app/db/chapters.py app/api/routers/chapters.py -> All checks passed",
+    "frontend_tests": "npm -C frontend run test -- --run tests/unit/pages/ChapterEditor/ tests/unit/hooks/ --maxWorkers=1 -> 448 passed",
+    "lint": "npm run lint -> 0 errors, pre-existing warnings only",
+    "build": "npm run build -> succeeded",
+    "revert_check": "test_get_chapter_rejects_mismatched_project_id stashed against pre-fix chapters.py/chapters router -> failed (200 instead of 404) for the right reason; restored and passing"
+  }
+}

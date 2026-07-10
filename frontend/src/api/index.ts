@@ -137,8 +137,9 @@ export const api = {
     const res = await fetch(`/api/projects/${projectId}/chapters`);
     return parseApiResponse(res);
   },
-  fetchChapter: async (chapterId: string): Promise<Chapter> => {
-    const res = await fetch(`/api/chapters/${chapterId}`);
+  fetchChapter: async (chapterId: string, projectId?: string): Promise<Chapter> => {
+    const query = projectId ? `?project_id=${encodeURIComponent(projectId)}` : '';
+    const res = await fetch(`/api/chapters/${chapterId}${query}`);
     return parseApiResponse(res);
   },
   createChapter: async (projectId: string, data: { title: string; text_content?: string; sort_order?: number; file?: File }): Promise<{status: string, chapter: Chapter}> => {

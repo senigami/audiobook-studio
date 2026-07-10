@@ -35,7 +35,7 @@ export function useChapterText(chapter: Chapter | null, onSaved?: () => Promise<
     setText(chapter.text_content || '');
     setSaveState('idle');
     setLoading(true);
-    void api.fetchChapter(chapter.id)
+    void api.fetchChapter(chapter.id, chapter.project_id)
       .then((fullChapter) => {
         if (cancelled) return;
         setLoadedChapter(fullChapter);
