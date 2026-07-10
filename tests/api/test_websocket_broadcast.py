@@ -14,11 +14,19 @@ def test_websocket_connect_and_send():
             # Graceful connect/disconnect without error is the observable contract.
 
 def test_queue_start_not_redirect():
+    from app.orchestration.scheduler.resources import is_paused, set_paused
+
     client = TestClient(app)
+    set_paused(True)
+    assert is_paused() is True
+
     # This should return JSON now, not a redirect
     response = client.post("/api/generation/resume")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+    # Real side effect: the route must actually unpause the queue, not just
+    # return a success-shaped body.
+    assert is_paused() is False
 
 
 def test_broadcast_job_updated_no_broadcast_when_no_classification(monkeypatch):
