@@ -388,7 +388,7 @@ Plan: [final_release/stage3_sdk_migration_plan.md](active/final_release/stage3_s
   - [ ] API router sub-package restructure
   - [ ] doc-06 cleanup ([final_release/06](active/final_release/06_code_organization_cleanup.md)): `transient/` consolidation, `app/infra/subprocess` implement-or-delete, `app/infra/{cache,events,db}` stub decision (C-3), gate dev-only routes (`/progress-test`, `/event-stream`) behind `import.meta.env.DEV`, split `App.tsx` (QueueDrawerHost/NotificationsHost/StartupGate) + `runtimeDebug.ts`, normalize API error handling (`api/index.ts`), unify input styles (`.input-field`→`.form-input`) *(audit 2026-07-01: `app/infra/{subprocess,cache,events,db}` scaffold + `StorageManager`/`TRANSIENT_DIR` ALREADY BUILT; `api/index.ts` error-handling claim is a false positive — all 6 functions already route through `parseApiResponse`; `/progress-test` + `/event-stream` are frontend React Router routes, not backend)*
   - [ ] `JobHandlerRegistry` / plugin-driven reconciliation (`engine.check_output`) decision ([master_agnostic](active/master_agnostic_tasks.md) Phase 12)
-  - [ ] Phase-12 owner decisions: generic plugin setup-loop (implement or defer), voice-settings placement, system-API surface for 3rd-party controllers, Settings→API tab honesty
+  - [ ] Phase-12 owner decisions: generic plugin setup-loop (DECIDED 2026-07-10: deferred — see [master_agnostic](active/master_agnostic_tasks.md)), voice-settings placement, system-API surface for 3rd-party controllers, Settings→API tab honesty
   - [ ] `MobileNavDrawer` focus-trap fix (a11y — also tracked in 008)
   - [ ] `CONTRIBUTING.md` plugin/template docs + plugin-doc prep for release (Phase 13)
   - [ ] Vite ECONNRESET triage + large-book load timing check

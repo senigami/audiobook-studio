@@ -56,10 +56,28 @@ engine-agnostic historical checklist plus backlog parking lot. If a status confl
 - [x] Generalize mixed-render log messages such as `[voxtral-debug]`.
 - [x] Remove `app/engines.py` synthesis re-exports
 - [x] Sanitize `run.sh` and `run.ps1` (Conflict logic moved to plugin; variables generalized)
-- [ ] **Needs owner elaboration: generic plugin setup loop in `run.sh` / `run.ps1`.** This would
-  replace one-off install/setup handling with a loop that discovers installed engine/plugin
-  manifests and runs each plugin's declared setup/dependency step. Clarify whether this must ship
-  before v2.0 or can be deferred until standalone plugin repositories are active.
+- [x] **DECIDED 2026-07-10: generic plugin setup loop in `run.sh` / `run.ps1` — deferred, and
+  largely already resolved by a different (better) mechanism than a startup-script loop.**
+  Analysis: only 3 plugins exist today (xtts, voxtral, mixed). Voxtral's `requirements.txt`
+  (`httpx`, `pydantic`) and mixed's (none) are already subsumed by the shared app/TTS-Server venv,
+  and Studio already has a *generic, per-plugin* runtime dependency-install mechanism —
+  `POST /engines/{engine_id}/install` (`app/tts_server/server.py::install_dependencies`) — which
+  discovers any plugin's `requirements.txt` and installs it into the running TTS Server's venv via
+  `sys.executable`, then re-runs `check_env()`. That endpoint is already the "generic setup loop"
+  this backlog item asked for; it just lives at runtime (Settings UI "Install Dependencies") rather
+  than in the startup shell script. XTTS is the one plugin `run.sh`/`run.ps1` special-case, and it
+  is special for a reason a generic loop can't remove: it needs a fully separate Python env
+  (`~/xtts-env`) because its legacy Coqui/torch deps hard-conflict with the packages other engines
+  and the app itself use — the plugin already owns its own conflict-detection
+  (`plugins/tts_xtts/scripts/check_env.py`, invoked generically by `sync_python_requirements` via a
+  `scripts/check_env.py` convention any plugin needing this could reuse), so this is not ad hoc
+  engine-ID branching, it's a declared per-plugin isolation need. A future third-party plugin that
+  needs its own isolated env would need the *same* special-cased separate-venv treatment as XTTS
+  (a generic loop wouldn't spare it), while a future plugin that doesn't need isolation already gets
+  fully generic handling via the runtime install endpoint today. Net: building a shell-script setup
+  loop now, with only one real (inherently non-generic) case to generalize over, has low payoff.
+  Revisit if/when standalone plugin repos (Phase 10) bring in third-party plugins with unknown
+  setup needs, where a richer declared-setup-hook manifest field might earn its keep.
 - [x] Remove hardcoded `"xtts"` defaults in `app/api/routers/generation.py`
 - [x] Update all frontend URL references to match active generic routes
 
@@ -102,7 +120,7 @@ engine-agnostic historical checklist plus backlog parking lot. If a status confl
 - [ ] Manually verify fixed-but-pending Phase 11 app behaviors.
 - [ ] Triage Vite websocket `ECONNRESET` reconnect behavior.
 - [ ] Re-check large-book project/chapter load timings.
-- [ ] Resolve the generic plugin setup loop question above: implement before v2.0 or explicitly defer until standalone plugin repositories.
+- [x] Resolve the generic plugin setup loop question above: implement before v2.0 or explicitly defer until standalone plugin repositories. **DECIDED 2026-07-10: deferred — see decision note in Phase 12 above.**
 - [x] Complete or explicitly defer JobHandlerRegistry, `JobKind`, and mixed/composite naming (mixed renaming deferred to Phase 13).
 - [x] Complete or explicitly defer StorageManager and other remaining Phase 12 polish.
 - [ ] Prepare plugin docs and template docs enough for Phase 13 release documentation.
