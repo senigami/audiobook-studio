@@ -174,7 +174,7 @@ const BoothToolBody: React.FC = () => {
   // Auto-play acknowledgment: the first time an active segment resolves
   // after autoplay fired on mode entry, pulse it once so entry doesn't feel
   // silent. The pulse itself is a CSS animation gated behind
-  // prefers-reduced-motion (components.css).
+  // prefers-reduced-motion (theme/components/misc.css).
   useEffect(() => {
     if (autoplayPulseRef.current && activeSegmentId) {
       setPulseSegmentId(activeSegmentId);

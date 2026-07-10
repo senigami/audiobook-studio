@@ -1,0 +1,151 @@
+/* ==========================================================================
+   Keyframes
+   ========================================================================== */
+
+@keyframes calm-pulse {
+  0%, 100% { opacity: 0.7; }
+  50%       { opacity: 1.0; }
+}
+
+/* Calm-pulse — shared by running orb ring + progress bar fill.
+   Restores --pulse-duration even when the reduced-motion guard zeroed it at :root.
+   INV-5: structural motion (state communication) survives reduced-motion. */
+.is-running {
+  --pulse-duration: 3s;
+  animation: calm-pulse var(--pulse-duration) ease-in-out infinite;
+}
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+
+.btn-primary {
+  background: var(--action-primary);
+  color: var(--on-action);
+  border: 1px solid transparent;
+  box-shadow: inset 0 0 0 1px var(--primary-border-inset);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--action-primary-hover);
+  /* NO transform: translateY — flat */
+  box-shadow: inset 0 0 0 1px var(--primary-border-inset);
+}
+
+.btn-primary:active:not(:disabled) {
+  background: var(--action-primary-active);
+  box-shadow: inset 0 0 0 1px var(--primary-border-inset);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+.btn-success {
+  background: var(--success);
+  color: var(--on-success);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-success:hover:not(:disabled) {
+  background: var(--success-strong); /* darker success — flat, no lift */
+}
+
+.btn-success:active:not(:disabled) {
+  background: var(--success-strong-hover);
+}
+
+.btn-glass {
+  background: var(--surface-white);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-glass:hover:not(:disabled) {
+  background: var(--surface-alt);
+  border-color: var(--border-muted);
+}
+
+.btn-glass:active:not(:disabled) {
+  background: var(--surface-pressed);
+}
+
+.btn-glass:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+.btn-ghost:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--error-text);
+  border: 1px solid transparent;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--error-glow);
+  color: var(--error);
+  border-color: var(--error);
+}
+
+/* Primary-fill destructive — for confirm dialogs where delete IS the primary CTA.
+   Uses --on-action for text so it matches btn-primary's mode-switching (white in light, dark in dark). */
+.btn-danger-fill {
+  background: var(--action-danger);
+  color: var(--text-on-error);
+  border: 1px solid transparent;
+}
+
+.btn-danger-fill:hover:not(:disabled) {
+  background: var(--action-danger-hover);
+}
+
+.btn-danger-fill:active:not(:disabled) {
+  background: var(--action-danger-active);
+}
+
+.btn-danger-fill:disabled {
+  opacity: 0.4;
+}
+
+.glass-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-md);
+}
+
+.shell-grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: stretch;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.chapter-header {
+  width: 100%;
+}
+
+.chapter-header__main {
+  min-width: 0;
+}
+

@@ -1,0 +1,309 @@
+/* ---------------------------------------------------------------------------
+ * Voice Catalog Card — R5-T3
+ * --------------------------------------------------------------------------- */
+
+.voice-catalog-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 12px 10px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  text-align: center;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.voice-catalog-card:hover {
+  border-color: var(--border-muted);
+  box-shadow: var(--shadow-sm);
+}
+
+.voice-catalog-card__default-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-size: 0.55rem;
+  font-weight: 700;
+  color: var(--as-amber);
+  background: var(--as-amber-tint-bg);
+  border: 1px solid var(--as-amber-tint-border);
+  border-radius: var(--radius-card);
+  padding: 1px 5px;
+  pointer-events: none;
+}
+
+.voice-catalog-card__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent-tint-bg);
+  border: 1px solid var(--accent-tint-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
+
+.voice-catalog-card__name {
+  font-size: var(--type-caption);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.voice-catalog-card__description {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  max-width: 100%;
+}
+
+.voice-catalog-card__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.voice-catalog-card__preview-btn {
+  height: 26px;
+  padding: 0 8px;
+  font-size: 0.65rem;
+  border-radius: var(--radius-round);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.voice-catalog-card__cta-btn {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 0.65rem;
+  border-radius: var(--radius-round);
+}
+
+/* Voices catalog grid wrapper — R5-T3 */
+.voices-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+
+/* ---------------------------------------------------------------------------
+ * Voice Lab Page — R5-T5
+ * --------------------------------------------------------------------------- */
+
+.voice-lab-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 1rem 1.25rem;
+  max-width: 860px;
+  width: 100%;
+}
+
+.voice-lab-page__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  color: var(--accent);
+  padding: 4px 0;
+  margin-bottom: 10px;
+  border-radius: var(--radius-sm);
+}
+
+.voice-lab-page__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: var(--space-4);
+}
+
+.voice-lab-page__avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent-tint-bg);
+  border: 2px solid var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.voice-lab-page__header-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
+}
+
+.voice-lab-page__name {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.voice-lab-page__edit-meta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.7rem;
+  color: var(--accent);
+  padding: 2px 8px;
+  border-radius: var(--radius-round);
+  border: 1px solid var(--accent-tint-border);
+  background: var(--accent-tint-bg);
+  height: 24px;
+  white-space: nowrap;
+}
+
+.voice-lab-page__description {
+  font-size: var(--type-caption);
+  color: var(--text-secondary);
+  margin: 4px 0 0;
+  line-height: 1.5;
+  max-width: 560px;
+}
+
+.voice-lab-page__stepper-row {
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-4);
+}
+
+.voice-lab-page__sections {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.voice-lab-section-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.voice-lab-page__footer-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.voice-lab-page__footer-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Phase stepper — R5-T5 */
+.voice-lab-phase-stepper {
+  display: flex;
+  align-items: center;
+}
+
+.voice-lab-phase-stepper__connector {
+  flex: 1;
+  height: 1px;
+  margin: 0 2px;
+  transition: background 0.2s;
+}
+
+.voice-lab-phase-stepper__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.voice-lab-phase-stepper__dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-alt);
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  transition: all 0.2s;
+}
+
+.voice-lab-phase-stepper__dot--past {
+  background: var(--accent-tint-bg);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.voice-lab-phase-stepper__dot--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.voice-lab-phase-stepper__label {
+  font-size: 0.58rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+
+.voice-lab-phase-stepper__label--past {
+  color: var(--text-secondary);
+}
+
+.voice-lab-phase-stepper__label--active {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* Voice Lab section common block */
+.voice-lab-section {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.voice-lab-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.voice-lab-section__body {
+  padding: 12px 14px;
+}
+
