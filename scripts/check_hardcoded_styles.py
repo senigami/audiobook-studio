@@ -9,8 +9,16 @@ hex/rgb source values every token points to) for two classes of regression:
      or a literal ``rgb(``/``rgba(`` call (i.e. one that does NOT wrap a
      ``var(--...)`` channel reference, which is the established idiom for
      alpha-blended token colors, e.g. ``rgba(var(--accent-rgb), 0.08)``).
-     Checked in every ``style={{...}}`` block across ``frontend/src`` and in
-     every rule of ``frontend/src/theme/components/*.css``.
+     Checked in every ``style={{...}}`` block across ``frontend/src``, in
+     every rule of ``frontend/src/theme/components/*.css``, and in the 5
+     co-located stylesheets this plan created (see ``COLOCATED_CSS_FILES``).
+     NOT checked repo-wide across every ``.css`` file — other pre-existing
+     stylesheets (e.g. ``ScriptView.css``) are out of this plan's scope and
+     may contain violations this guard intentionally does not police; this
+     is deliberately named-file scoped, not repo-wide, despite colors having
+     no legitimate "close enough" case the way spacing does. Named CSS
+     colors (``red``, ``white``) and ``hsl()``/``hsla()`` are also not
+     detected — a known gap, not a claim of completeness.
   2. Raw px spacing regressions — a bare/quoted px number on a spacing
      property (``padding``/``margin``/``gap``/``top``/``left``/``right``/
      ``bottom`` and their per-side variants) that exactly equals one of the
@@ -20,11 +28,16 @@ hex/rgb source values every token points to) for two classes of regression:
      below. This check is intentionally NOT run repo-wide: a one-off audit
      during task 018 found ~136 pre-existing exact-px-match spacing literals
      in files this plan never touched, which would make a repo-wide check
-     either impossibly noisy or require an out-of-scope rewrite. Colors,
-     by contrast, are checked everywhere because there is no legitimate
-     "close enough" color literal the way there is a legitimate one-off
-     spacing value — see docs/code-map or the task's completion note for the
-     data behind this scoping decision.
+     either impossibly noisy or require an out-of-scope rewrite.
+     **Known gap:** this check only matches ``px`` literals, not the
+     equivalent ``rem`` form (e.g. ``padding: '1rem'`` — the majority literal
+     form this plan actually converted, at a 16px root) — a rem regression in
+     one of the converted files will NOT be caught. Closing that gap requires
+     either finishing the rem-vs-token reconciliation across the converted
+     set or a curated allowlist for the many legitimate non-token rem
+     one-offs (e.g. ``0.85rem``, ``1.25rem``) already present in those files;
+     both are out of this task's scope — tracked as a follow-up, not silently
+     claimed as covered.
 
 Both checks respect a small, explicit ``ALLOWLIST`` of (file, exact stripped
 line text) pairs for genuine one-offs that have no token equivalent (e.g. the
@@ -84,6 +97,20 @@ CONVERTED_FILES = [
     "pages/Voices/components/SampleManager.tsx",
 ]
 
+# Co-located stylesheets this plan created for a single-consumer component
+# (as opposed to theme/components/*.css, which is checked by directory).
+# Listed explicitly rather than scanning all *.css repo-wide, since a
+# repo-wide scan would also hit pre-existing, out-of-scope CSS files with
+# violations this plan never touched (e.g. ScriptView.css) — see the module
+# docstring's scoping note.
+COLOCATED_CSS_FILES = [
+    "components/queue/GlobalQueue.css",
+    "pages/Engines/components/EngineCard.css",
+    "pages/LiveOutput/LiveOutputPage.css",
+    "pages/ProjectLibrary/ProjectLibraryPage.css",
+    "pages/Welcome/WelcomePage.css",
+]
+
 SPACE_TOKEN_PX = {4, 8, 12, 16, 24, 32, 40, 48}
 SPACING_PROPS = [
     "padding", "margin", "gap", "top", "left", "right", "bottom", "inset",
@@ -93,8 +120,14 @@ SPACING_PROPS = [
 
 HEX_COLOR_RE = re.compile(r"#[0-9a-fA-F]{3,8}\b")
 LITERAL_RGB_RE = re.compile(r"\brgba?\(\s*\d")
+# NOTE: the value is matched with a trailing ``\b`` rather than a ``\2``
+# back-reference to the opening quote, so quoted CSS shorthand values like
+# ``padding: '16px 8px'`` (where the first token is a spacing value but the
+# quote does not close immediately after it) are still checked. Only the first
+# px value of a shorthand is validated, which is sufficient to catch a
+# token-exact regression.
 SPACING_PROP_RE = re.compile(
-    r"\b(" + "|".join(SPACING_PROPS) + r")\s*:\s*(['\"]?)(-?\d+(?:\.\d+)?)px\2"
+    r"\b(" + "|".join(SPACING_PROPS) + r")\s*:\s*(['\"]?)(-?\d+(?:\.\d+)?)px\b"
 )
 
 ALLOW_TAG = "style-guard-allow"
@@ -266,7 +299,10 @@ def run(src_dir: Path) -> int:
             violations.extend(
                 check_tsx_file(path, src_dir, allowlist, check_spacing=check_spacing)
             )
-        elif path.suffix == ".css" and path.parent == src_dir / "theme" / "components":
+        elif path.suffix == ".css" and (
+            path.parent == src_dir / "theme" / "components"
+            or str(path.relative_to(src_dir)) in COLOCATED_CSS_FILES
+        ):
             violations.extend(check_css_file(path, src_dir, allowlist))
 
     if violations:
