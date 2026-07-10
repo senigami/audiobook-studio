@@ -26,6 +26,22 @@ jobs:
       - name: Validate bundled plugin manifests
         run: python scripts/validate_plugin_manifests.py
 
+  # 0b. Hardcoded-style regression guard (styling-separation plan, task 018) —
+  # fast, no deps beyond Python stdlib, runs on every event.
+  check-hardcoded-styles:
+    name: Check hardcoded styles
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check for hardcoded colors / raw px spacing regressions
+        run: python scripts/check_hardcoded_styles.py
+
   # 1. The "Quick" check - only for local/pushes, NOT PRs
   backend-quick:
     name: Backend (Quick)
