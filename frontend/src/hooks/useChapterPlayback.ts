@@ -118,6 +118,7 @@ export function useChapterPlayback(
       loadAndPlay({
         scope: 'segment',
         title: seg.text_content || `Segment ${seg.id}`,
+        subtitle: `Block ${idx + 1} of ${queue.length}`,
         audioUrl: u,
         onEnded: () => {
           if (!isPlayingRef.current) return;

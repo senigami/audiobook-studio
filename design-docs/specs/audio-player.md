@@ -1,10 +1,10 @@
 # Global Audio Player
 
 ```
-spec_version: 1.6.0
+spec_version: 1.6.1
 status: active
 created: 2026-06-13
-updated: 2026-06-16
+updated: 2026-07-10
 sources:
   - design-docs/plans/reference/site_experience_north_star.md
   - design-docs/plans/proposals/audio_player_scrubbing_waveform_proposal.md
@@ -27,6 +27,7 @@ sources:
 | 1.5.0   | 2026-06-16 | Transport + toggle icons standardized on `lucide-react`; mock PlayerBar migrated off glyphs. Canonical control→icon mapping owned by `design-system.md` §9. |
 | 1.5.1   | 2026-06-16 | Visibility/persistence contract clarified (§3): keys solely on `audioUrl !== null`, mounted once in the global `AppShell`, persists across **all** routes. Added §4.1 (content-owned play affordances). |
 | 1.6.0   | 2026-06-16 | **Scope-agnostic player + scrubbing-waveform tape (§3, §5).** Removed the segment/chapter scope toggle entirely (`altScope`/`switchScope` retired from the bus): representation is now **duration-driven**, not scope-driven, and time is the loaded clip's position/duration. The `AudioLines` toggle, in bar mode, opens an **expandable tape** — paged (default) or moving motion, click+drag scrub, bounded discrete zoom presets (cover-slider style: 8/15/30/60/120 s), a whole-clip minimap, and a smart `m:ss` ruler. Peaks are **browser-decoded below a duration cap, server-sidecar above it** (§5.4; a `data-model.md` change). Annotation is post-V2. Reference implementation: the North-Star mock; live port tracked by `design-docs/plans/active/audio_player_waveform_scrubber/`. |
+| 1.6.1   | 2026-07-10 | Segment-scope playback (`useChapterPlayback.ts`) now sets a plain passive `subtitle` — `"Block N of M"` — on every `loadAndPlay` call, using the block-leader queue index/length the block-queue navigation fix (task 004) already computes. Closes the gap where `PlayerBar`'s generic subtitle rendering (§3) had no data feeding it during segment playback. No PlayerBar changes; richer speaker-labeled text was considered and explicitly deferred (would require threading character/speaker data into the hook). |
 
 ---
 
