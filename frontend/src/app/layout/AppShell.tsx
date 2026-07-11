@@ -6,7 +6,6 @@ import { MobileNavDrawer } from '@/app/layout/MobileNavDrawer';
 import { NavRail } from '@/app/layout/NavRail';
 import { TopBar } from '@/app/layout/TopBar';
 import { PlayerBar } from '@/app/layout/PlayerBar';
-import { usePlayerBus } from '@/store/playerBus';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -18,7 +17,6 @@ interface AppShellProps {
 
 export const AppShell: React.FC<AppShellProps> = ({ children, queueCount, shellState, onToggleQueue, isQueueOpen }) => {
   const [navOpen, setNavOpen] = useState(false);
-  const { audioUrl } = usePlayerBus();
 
   return (
     <div
@@ -45,6 +43,14 @@ export const AppShell: React.FC<AppShellProps> = ({ children, queueCount, shellS
         onToggleQueue={onToggleQueue}
       />
 
+      {/* shell-grid + PlayerBar are both flex children of this column
+          (flexDirection: column on the root above). PlayerBar is docked —
+          a normal-flow sibling with its own natural height (flex-shrink: 0,
+          see .player-bar) — not a fixed overlay, so it never covers content.
+          shell-grid's `flex: 1 1 auto; min-height: 0` (core.css) lets it
+          shrink to make room whenever PlayerBar grows (e.g. the tape
+          opening), and the inner content column's own `overflow-y: auto`
+          keeps scrolling working within whatever space remains. */}
       <div className="shell-grid">
         <NavRail queueCount={queueCount} />
 
@@ -57,7 +63,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children, queueCount, shellS
               position: 'relative',
               display: 'flex',
               flexDirection: 'column',
-              padding: audioUrl ? '3rem 2.5rem calc(3rem + 56px) 2.5rem' : '3rem 2.5rem',
+              padding: '3rem 2.5rem',
             }}
           >
             <div style={{ maxWidth: '1600px', width: '100%', margin: '0 auto' }}>
@@ -67,8 +73,9 @@ export const AppShell: React.FC<AppShellProps> = ({ children, queueCount, shellS
         </div>
       </div>
 
-      <MobileNavDrawer open={navOpen} onClose={() => setNavOpen(false)} queueCount={queueCount} />
       <PlayerBar />
+
+      <MobileNavDrawer open={navOpen} onClose={() => setNavOpen(false)} queueCount={queueCount} />
     </div>
   );
 };

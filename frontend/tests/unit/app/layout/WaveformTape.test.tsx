@@ -18,6 +18,7 @@ import {
   usePeaks,
   PEAKS_COUNT,
   snapZoom,
+  computeTapeBarCount,
 } from '@/app/layout/WaveformTape';
 import * as playerBus from '@/store/playerBus';
 
@@ -162,6 +163,85 @@ describe('usePeaks', () => {
     await waitFor(() => expect(decodeAudioDataMock).toHaveBeenCalledTimes(2));
   });
 
+  // ---------------------------------------------------------------------------
+  // Task 008 — suppliedPeaks seam (backward-compatible third argument)
+  // ---------------------------------------------------------------------------
+
+  it('returns suppliedPeaks directly and skips fetch/AudioContext entirely when a non-empty array is supplied', async () => {
+    installAudioContextMock(makeMockAudioBuffer([0.1, 0.2, 0.3]));
+    const suppliedPeaks = [0.9, 0.5, 0.1];
+
+    const captured: { current: number[] | null } = { current: null };
+    const Harness: React.FC = () => {
+      const peaks = usePeaks('https://example.com/a.wav', makeAudioEl(), suppliedPeaks);
+      useEffect(() => {
+        captured.current = peaks;
+      }, [peaks]);
+      return null;
+    };
+    render(<Harness />);
+
+    await waitFor(() => expect(captured.current).toEqual(suppliedPeaks));
+    // No network request or Web Audio decode should have occurred — the
+    // supplied array is returned directly, not merely preferred afterward.
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(mockAudioContextCtor).not.toHaveBeenCalled();
+  });
+
+  it('falls back to fetch+decode when suppliedPeaks is undefined (existing callers unaffected)', async () => {
+    installAudioContextMock(makeMockAudioBuffer(new Array(100).fill(0.4)));
+
+    const captured: { current: number[] | null } = { current: null };
+    const Harness: React.FC = () => {
+      const peaks = usePeaks('https://example.com/a.wav', makeAudioEl());
+      useEffect(() => {
+        captured.current = peaks;
+      }, [peaks]);
+      return null;
+    };
+    render(<Harness />);
+
+    await waitFor(() => expect(captured.current).not.toBeNull());
+    expect(global.fetch).toHaveBeenCalledWith('https://example.com/a.wav');
+    expect(mockAudioContextCtor).toHaveBeenCalled();
+  });
+
+  it('falls back to fetch+decode when suppliedPeaks is an empty array', async () => {
+    installAudioContextMock(makeMockAudioBuffer(new Array(100).fill(0.4)));
+
+    const captured: { current: number[] | null } = { current: null };
+    const Harness: React.FC = () => {
+      const peaks = usePeaks('https://example.com/a.wav', makeAudioEl(), []);
+      useEffect(() => {
+        captured.current = peaks;
+      }, [peaks]);
+      return null;
+    };
+    render(<Harness />);
+
+    await waitFor(() => expect(captured.current).not.toBeNull());
+    expect(mockAudioContextCtor).toHaveBeenCalled();
+  });
+
+  it('WaveformTape threads its own peaks prop into usePeaks, suppressing internal decode', async () => {
+    installAudioContextMock(makeMockAudioBuffer([0.1, 0.2, 0.3]));
+    const suppliedPeaks = Array.from({ length: 50 }, (_, i) => i / 49);
+    const audioEl = makeAudioEl();
+
+    render(
+      <WaveformTape
+        audioEl={audioEl}
+        audioUrl="https://example.com/a.wav"
+        duration={120}
+        peaks={suppliedPeaks}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByRole('slider')).toBeInTheDocument());
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(mockAudioContextCtor).not.toHaveBeenCalled();
+  });
+
   it('short clip (fewer raw samples than PEAKS_COUNT): every raw sample is represented, no zero-padded tail', async () => {
     // Raw sample count well under PEAKS_COUNT (4000). Every sample is loud
     // (0.9) so a flatlined padded tail is trivially distinguishable from
@@ -297,9 +377,13 @@ describe('WaveformTape', () => {
     let line = container.querySelector('svg.tape-canvas line');
     expect(Number(line?.getAttribute('x1'))).toBeGreaterThan(SVG_W * 0.9);
 
-    act(() => {
-      audioEl.currentTime = 31; // crosses into the next 30s page ([30, 60))
-      audioEl.dispatchEvent(new Event('timeupdate'));
+    audioEl.currentTime = 31; // crosses into the next 30s page ([30, 60))
+    // Paged mode now polls currentTime via the same rAF loop as moving mode
+    // (the playhead-jump fix — see WaveformTape.tsx), not the coarser
+    // `timeupdate` event, so advance one real animation frame instead of
+    // dispatching it.
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
     });
 
     slider = screen.getByRole('slider');
@@ -689,6 +773,38 @@ describe('WaveformTape — zoom + minimap wiring (task 007)', () => {
     expect(playerBus.seek).toHaveBeenLastCalledWith(25);
   });
 
+  it('feeds the internally decoded peaks into the minimap when peaks={null} (under-cap case), not flat fallback bars', async () => {
+    // PlayerBar passes peaks={sidecarPeaks}, which is `null` for every
+    // under-cap clip (the common case). The minimap must render from the
+    // internally decoded peakArray (varied sawtooth from the describe-block's
+    // AudioContext mock), NOT the raw null prop — a null prop collapses the
+    // minimap to uniform FALLBACK_AMP bars even though the canvas shows a real
+    // decoded shape.
+    const audioEl = makeAudioEl();
+    const { container } = render(
+      <WaveformTape
+        audioEl={audioEl}
+        audioUrl="https://example.com/a.mp3"
+        duration={120}
+        windowSec={30}
+        peaks={null}
+        onZoomChange={vi.fn()}
+      />,
+    );
+    await waitFor(() =>
+      expect(container.querySelectorAll('rect.tape-minimap-bar').length).toBeGreaterThan(0),
+    );
+    // Wait for the decode to resolve and flow into the minimap.
+    await waitFor(() => {
+      const heights = Array.from(container.querySelectorAll('rect.tape-minimap-bar')).map((b) =>
+        b.getAttribute('height'),
+      );
+      // A varied decoded shape produces multiple distinct bar heights; flat
+      // fallback bars would all be identical.
+      expect(new Set(heights).size).toBeGreaterThan(1);
+    });
+  });
+
   it('passes the peaks prop through to the minimap so it reflects real audio shape', async () => {
     const audioEl = makeAudioEl();
     const peaks = Array.from({ length: 1000 }, (_, i) => i / 999);
@@ -707,5 +823,62 @@ describe('WaveformTape — zoom + minimap wiring (task 007)', () => {
     const firstHeight = Number(bars[0].getAttribute('height'));
     const lastHeight = Number(bars[bars.length - 1].getAttribute('height'));
     expect(lastHeight).toBeGreaterThan(firstHeight);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeTapeBarCount — dynamic visual resolution (owner report: wide zoom
+// levels stayed blocky because bar count was a fixed 180 regardless of how
+// much real peak detail the window actually held)
+// ---------------------------------------------------------------------------
+
+describe('computeTapeBarCount', () => {
+  it('falls back to TAPE_BAR_COUNT (180) when container width is not yet known', () => {
+    expect(computeTapeBarCount(7200, 600, 120, 0)).toBe(180);
+  });
+
+  it('falls back to TAPE_BAR_COUNT (180) when peak data is not yet available', () => {
+    expect(computeTapeBarCount(null, 600, 120, 1400)).toBe(180);
+  });
+
+  it('renders more bars at a wide zoom window than at the tightest zoom, for the same real peak density', () => {
+    // 60 real peaks/sec (the sidecar density), a 600s chapter, 1400px canvas.
+    const availablePeaks = 60 * 600;
+    const duration = 600;
+    const containerWidthPx = 1400;
+
+    const tightest = computeTapeBarCount(availablePeaks, duration, 3, containerWidthPx);
+    const widest = computeTapeBarCount(availablePeaks, duration, 120, containerWidthPx);
+
+    // Tightest zoom (3s * 60/sec = 180 real samples) matches the old fixed
+    // bar count exactly — one real peak per bar, unchanged behavior.
+    expect(tightest).toBe(180);
+    // Widest zoom used to render the SAME 180 bars even though 7200 real
+    // peaks are available in the window — this is the reported bug. Now it
+    // must render substantially more (thinner, more distinct) bars.
+    expect(widest).toBeGreaterThan(tightest);
+  });
+
+  it('never exceeds the pixel budget (never renders bars thinner than MIN_SLOT_PX)', () => {
+    const availablePeaks = 60 * 600;
+    const containerWidthPx = 400; // narrow container
+    const widest = computeTapeBarCount(availablePeaks, 600, 120, containerWidthPx);
+    // 400px / 2px-per-slot floor = 200 bars max.
+    expect(widest).toBeLessThanOrEqual(200);
+  });
+
+  it('never fabricates: bar count growth reflects more REAL samples per bar, not invented resolution', () => {
+    // With only 500 real peaks total in a 600s clip (well under the sidecar
+    // density), widening the zoom should not be capped below the old floor,
+    // but it also must not be inflated past what a generous pixel budget
+    // allows — computeTapeBarCount only ever caps toward real density or
+    // pixel budget, it never adds a term that isn't one of those two.
+    const availablePeaks = 500;
+    const duration = 600;
+    const containerWidthPx = 1400;
+    const widest = computeTapeBarCount(availablePeaks, duration, 120, containerWidthPx);
+    const peaksPerSec = availablePeaks / duration;
+    const dataTarget = Math.round(120 * peaksPerSec);
+    expect(widest).toBe(Math.max(180, dataTarget));
   });
 });

@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Fixed] - 2026-07-11
+
+### Waveform tape visual & UX polish
+
+- **Zoom controls:** the +/- buttons now show proper magnifying-glass icons (were blank gray boxes); all zoom presets `[3,5,8,15,30,60,120]s` are reachable (the resolution cap previously stranded most of the slider), and the buttons zoom in the correct direction reliably.
+- **Waveform resolution:** peaks sidecar density raised 8→60 samples/sec, and the detail canvas + minimap now scale their rendered bar count to the zoom window's pixel width instead of a fixed 180 — so wide zoom levels look detailed instead of blocky. No fabricated detail (still max-abs-per-bucket, nearest real sample per bar). Cached low-density sidecars auto-regenerate (sidecar version 1→2).
+- **Minimap playhead** recolored to a muted gray so it's distinct from the two blue zoom-window selection edges.
+- **Smooth playhead:** paged/stationary mode now animates the playhead at 60fps like moving mode (was stepping at the browser's ~4Hz `timeupdate` cadence).
+- **Session-persistent view:** zoom level, motion mode, and tape open/closed state now carry over when you play a different track within a session.
+- **Play no longer flickers the tape:** fixed an effect that reloaded the `<audio>` element on every Play/Pause click.
+- **Docked player bar:** the player bar now occupies its own space at the bottom and pushes page content up instead of overlaying and covering it.
+- Specs `audio-player.md` (→1.6.7) and `data-model.md` (→1.10.1) updated.
+
+## [Added] - 2026-07-10
+
+### Audio player completion: waveform tape live, segment block navigation fixed, peaks sidecar
+
+- The global player bar now renders the expandable scrubbing "tape" (paged/moving motion, zoom presets, minimap, `m:ss` ruler) for chapters and segments under a 600s duration cap, via the far-right waveform toggle.
+- Fixed a real navigation bug: pressing the global player's Next button mid-way through a multi-segment audio block previously reloaded the same clip instead of advancing; Prev/Next now navigate correctly between distinct rendered blocks, with a "restart current block, then go back" convention on repeated Prev presses.
+- Long chapters (over the 600s cap) can now render the tape too, fed by a peaks sidecar computed lazily on the server the first time it's requested (and cached), instead of requiring a full in-browser audio decode.
+- `audio-player.md` (1.6.2) and `data-model.md` (1.10.0) updated to document the shipped tape/peaks-sidecar mechanism.
+- Plan: `design-docs/plans/active/audio_player_completion_004/`.
+
+## [Added] - 2026-07-10
+
+### Passive "Block N of M" label in the global player bar during segment playback
+
+- Segment-scope playback (Cast tool, chapter editor) now surfaces a passive `"Block N of M"` subtitle in the global `PlayerBar` while a block plays, using the block-leader queue index/length the block-queue navigation fix already tracks. `PlayerBar.tsx` required zero changes — it already renders `subtitle` generically.
+- `audio-player.md` bumped to `spec_version: 1.6.1` to document the closed gap.
+
 ## [Fix] - 2026-07-08
 
 ### Library project usability: series position storage and invalid-update handling

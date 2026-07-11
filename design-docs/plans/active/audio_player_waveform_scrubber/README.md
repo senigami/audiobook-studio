@@ -1,3 +1,11 @@
+> **Superseded (tasks 008–012 only):** the remaining unshipped tasks in this folder (008–012) are
+> replaced by corrected, verified specs in
+> [`../audio_player_completion_004/`](../audio_player_completion_004/README.md) — a fusion-reasoning
+> pass found real bugs in each (a redundant double-decode + TS narrowing bug in 008/009, a design that
+> would still fail on audio-group blocks, and a backend chokepoint that doesn't fire for this app's
+> default engines in 011). Do not execute 008–012 as written; tasks 001–007 here are already shipped
+> and remain load-bearing context. See the new plan folder for the current, execution-ready versions.
+
 # Audio Player — Scrubbing Waveform & Tape (implementation plan)
 
 This folder turns [`design-docs/plans/audio_player_scrubbing_waveform_proposal.md`](../../reference/audio_player_scrubbing_waveform_proposal.md) into an ordered, verifiable, hand-offable plan. The proposal is the **design source of truth**; the binding contract is [`design-docs/specs/audio-player.md`](../../../specs/audio-player.md) (currently 1.5.0), which Workload 1 rewrites.

@@ -15,14 +15,14 @@ import { WaveformTapeZoom, snapZoom } from '@/app/layout/WaveformTapeZoom';
 import { TAPE_ZOOM_PRESETS_SEC } from '@/app/layout/WaveformTape';
 
 describe('snapZoom', () => {
-  it('steps "out" toward larger window sizes, clamped at 120 (index 4)', () => {
+  it('steps "out" toward larger window sizes, clamped at 120 (last index)', () => {
     expect(snapZoom(30, 'out')).toBe(60);
     expect(snapZoom(120, 'out')).toBe(120); // already at cap
   });
 
-  it('steps "in" toward smaller window sizes, clamped at 8 (index 0)', () => {
-    expect(snapZoom(30, 'in')).toBe(15);
-    expect(snapZoom(8, 'in')).toBe(8); // already at floor
+  it('steps "in" toward smaller window sizes, clamped at 3 (index 0)', () => {
+    expect(snapZoom(8, 'in')).toBe(5);
+    expect(snapZoom(3, 'in')).toBe(3); // already at floor
   });
 });
 
@@ -56,7 +56,7 @@ describe('WaveformTapeZoom', () => {
     expect(screen.queryByText(/120s/)).not.toBeInTheDocument();
   });
 
-  it('slider aria attributes reflect the active preset index', () => {
+  it('slider aria attributes reflect the active preset index, in on-screen (right=tightest) position', () => {
     render(
       <WaveformTapeZoom
         windowSec={60}
@@ -67,12 +67,14 @@ describe('WaveformTapeZoom', () => {
       />,
     );
     const slider = screen.getByRole('slider', { name: 'Zoom level' });
+    const lastIdx = TAPE_ZOOM_PRESETS_SEC.length - 1;
     expect(slider).toHaveAttribute('aria-valuemin', '0');
-    expect(slider).toHaveAttribute('aria-valuemax', '4');
-    expect(slider).toHaveAttribute('aria-valuenow', String(TAPE_ZOOM_PRESETS_SEC.indexOf(60)));
+    expect(slider).toHaveAttribute('aria-valuemax', String(lastIdx));
+    // 60s is index 5 of 6 (LAST_IDX); on-screen position is LAST_IDX - idx.
+    expect(slider).toHaveAttribute('aria-valuenow', String(lastIdx - TAPE_ZOOM_PRESETS_SEC.indexOf(60)));
   });
 
-  it('moving the slider calls onZoomChange with the preset at the new index', () => {
+  it('moving the slider to its rightmost position (tightest zoom) calls onZoomChange with 3s', () => {
     const onZoomChange = vi.fn();
     render(
       <WaveformTapeZoom
@@ -84,18 +86,41 @@ describe('WaveformTapeZoom', () => {
       />,
     );
     const slider = screen.getByRole('slider', { name: 'Zoom level' });
-    fireEvent.change(slider, { target: { value: '4' } });
+    const lastIdx = TAPE_ZOOM_PRESETS_SEC.length - 1;
+    // The DOM range input's own value space is on-screen position, not raw
+    // preset index (see WaveformTapeZoom.tsx visPos) — its max is the
+    // rightmost (tightest, 3s) position.
+    fireEvent.change(slider, { target: { value: String(lastIdx) } });
+    expect(onZoomChange).toHaveBeenCalledWith(3);
+  });
+
+  it('moving the slider to its leftmost position (widest zoom) calls onZoomChange with 120s', () => {
+    const onZoomChange = vi.fn();
+    render(
+      <WaveformTapeZoom
+        windowSec={30}
+        onZoomChange={onZoomChange}
+        duration={120}
+        availablePeaks={4000}
+        containerWidthPx={800}
+      />,
+    );
+    const slider = screen.getByRole('slider', { name: 'Zoom level' });
+    fireEvent.change(slider, { target: { value: '0' } });
     expect(onZoomChange).toHaveBeenCalledWith(120);
   });
 
-  it('zoom-in cap: presets that would exceed available peak resolution are disabled and unselectable', () => {
-    // containerWidthPx=800, duration=120 → peaks/sec available = 3600/120 = 30.
-    // A preset at `secs` needs peaks/sec >= containerWidthPx/secs to be valid:
-    //   8s  → needs 100 px/s (30 < 100: invalid)
-    //   15s → needs 53.3 px/s (30 < 53.3: invalid)
-    //   30s → needs 26.7 px/s (30 >= 26.7: valid — first valid preset)
+  it('zoom-in cap: presets with too few real samples in the visible window are disabled and unselectable', () => {
+    // MIN_SAMPLES_IN_VIEW = 4 (WaveformTapeZoom.tsx): a preset at `secs` needs
+    // secs * peaksPerSec >= 4 to be enabled. duration=120, availablePeaks=24
+    // → peaksPerSec = 0.2.
+    //   3s  → 0.6 samples (invalid)
+    //   5s  → 1.0 samples (invalid)
+    //   8s  → 1.6 samples (invalid)
+    //   15s → 3.0 samples (invalid)
+    //   30s → 6.0 samples (valid — first valid preset)
     //   60s, 120s → also valid (looser requirement)
-    // So only presets 8s (idx 0) and 15s (idx 1) are below the cap; 30s (idx 2)
+    // So presets 3s/5s/8s/15s (indices 0-3) are below the cap; 30s (index 4)
     // is the first enabled preset.
     const onZoomChange = vi.fn();
     render(
@@ -103,25 +128,58 @@ describe('WaveformTapeZoom', () => {
         windowSec={30}
         onZoomChange={onZoomChange}
         duration={120}
-        availablePeaks={3600}
+        availablePeaks={24}
         containerWidthPx={800}
       />,
     );
     const dots = document.querySelectorAll('.ns-size-tick');
-    // 8s dot (index 0) and 15s dot (index 1) must be disabled.
+    // 3s/5s/8s/15s dots (indices 0-3) must be disabled.
     expect(dots[0]).toHaveClass('tape-zoom-dot--disabled');
     expect(dots[1]).toHaveClass('tape-zoom-dot--disabled');
-    // 30s (index 2) must remain enabled.
-    expect(dots[2]).not.toHaveClass('tape-zoom-dot--disabled');
+    expect(dots[2]).toHaveClass('tape-zoom-dot--disabled');
+    expect(dots[3]).toHaveClass('tape-zoom-dot--disabled');
+    // 30s (index 4) must remain enabled.
+    expect(dots[4]).not.toHaveClass('tape-zoom-dot--disabled');
 
     const slider = screen.getByRole('slider', { name: 'Zoom level' });
-    expect(slider).toHaveAttribute('min', '2');
+    const lastIdx = TAPE_ZOOM_PRESETS_SEC.length - 1;
+    // Reachable on-screen range is [0, LAST_IDX - zoomInCapIdx] = [0, 2].
+    expect(slider).toHaveAttribute('min', '0');
+    expect(slider).toHaveAttribute('max', String(lastIdx - 4));
 
-    // Attempting to select a disabled preset (index 0) must not fire onZoomChange
-    // with that value — the slider's min already prevents reaching it, but
-    // guard defensively too.
-    fireEvent.change(slider, { target: { value: '0' } });
-    expect(onZoomChange).not.toHaveBeenCalledWith(8);
+    // Attempting to select a disabled preset (index 0 = 3s, on-screen
+    // position LAST_IDX) must not fire onZoomChange with that value — the
+    // slider's max already prevents reaching it, but guard defensively too.
+    fireEvent.change(slider, { target: { value: String(lastIdx) } });
+    expect(onZoomChange).not.toHaveBeenCalledWith(3);
+  });
+
+  it('zoom-in cap: a realistic sidecar peak density (8 peaks/sec) leaves every preset reachable', () => {
+    // Regression for the bug where a bars-vs-peaks-parity cap made only 3 of
+    // 7 presets reachable for any chapter long enough to need the
+    // server-computed peaks sidecar. 8 peaks/sec is used here as a
+    // deliberately LOW density (below compute_peaks_sidecar's current fixed
+    // PEAKS_PER_SEC = 60, app/engines/audio_ops.py, and below the previous
+    // PEAKS_PER_SEC = 8 this bug shipped with) to prove the cap's floor logic
+    // holds at either density: even at 8 peaks/sec the tightest 3s preset has
+    // 24 real samples in view — comfortably above MIN_SAMPLES_IN_VIEW (4) —
+    // so nothing should be capped.
+    const durationSec = 867; // ~14:27, a typical chapter length
+    const availablePeaks = Math.ceil(durationSec * 8);
+    render(
+      <WaveformTapeZoom
+        windowSec={30}
+        onZoomChange={vi.fn()}
+        duration={durationSec}
+        availablePeaks={availablePeaks}
+        containerWidthPx={800}
+      />,
+    );
+    const dots = document.querySelectorAll('.ns-size-tick');
+    dots.forEach((dot) => expect(dot).not.toHaveClass('tape-zoom-dot--disabled'));
+    const slider = screen.getByRole('slider', { name: 'Zoom level' });
+    expect(slider).toHaveAttribute('min', '0');
+    expect(slider).toHaveAttribute('max', String(TAPE_ZOOM_PRESETS_SEC.length - 1));
   });
 
   it('the "Zoom out" button steps one preset toward more seconds, not jump-to-extreme', () => {
@@ -173,14 +231,14 @@ describe('WaveformTapeZoom', () => {
   });
 
   it('the "Zoom in" button clamps at the zoom-in cap, not the raw index-0 floor', () => {
-    // Same fixture as the zoom-in-cap test above: the cap lands on index 2 (30s).
+    // Same fixture as the zoom-in-cap test above: the cap lands on index 4 (30s).
     const onZoomChange = vi.fn();
     render(
       <WaveformTapeZoom
         windowSec={30}
         onZoomChange={onZoomChange}
         duration={120}
-        availablePeaks={3600}
+        availablePeaks={24}
         containerWidthPx={800}
       />,
     );

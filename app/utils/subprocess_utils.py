@@ -50,3 +50,38 @@ def probe_audio_duration(audio_path: Path, *, timeout: int = 2) -> float:
     if returncode != 0:
         return 0.0
     return float(stdout.strip())
+
+
+def probe_audio_stream_info(audio_path: Path, *, timeout: int = 2) -> tuple[int, int]:
+    """Returns (sample_rate, channels). Mirrors probe_audio_duration's shape/safety."""
+    result = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "stream=sample_rate,channels",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            str(audio_path),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        timeout=timeout,
+    )
+    stdout = coerce_subprocess_output(getattr(result, "stdout", ""))
+    if stdout:
+        write_subprocess_output(stdout=stdout)
+    returncode = getattr(result, "returncode", 0)
+    if not isinstance(returncode, int):
+        returncode = 0
+    if returncode != 0:
+        return (0, 0)
+    lines = [line.strip() for line in stdout.strip().splitlines() if line.strip()]
+    if len(lines) < 2:
+        return (0, 0)
+    try:
+        return (int(lines[0]), int(lines[1]))
+    except ValueError:
+        return (0, 0)
