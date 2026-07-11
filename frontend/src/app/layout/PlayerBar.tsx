@@ -6,6 +6,7 @@ import { WaveformTape } from './WaveformTape';
 import type { TapeZoomPreset } from './waveformTapeZoomPresets';
 import { LAYERS } from './layering';
 import { fitsLegibly } from './playerRepresentation';
+import { fetchPeaksSidecar } from '@/api/fetchPeaksSidecar';
 
 /**
  * Duration cap in seconds above which the tape is never offered (browser-decode
@@ -78,6 +79,24 @@ export const PlayerBar: React.FC = () => {
     setWindowSec(30);
     setTapeMode('paged');
   }, [requestId]);
+
+  // Server-computed peaks sidecar (task 008) — lets long chapters (over
+  // TAPE_DURATION_CAP_SEC) get a tape fed by a precomputed peaks array
+  // instead of a browser AudioContext decode. Only fetched for over-cap
+  // clips; under-cap clips already decode via usePeaks inside WaveformTape.
+  const [sidecarPeaks, setSidecarPeaks] = useState<number[] | null>(null);
+
+  useEffect(() => {
+    setSidecarPeaks(null); // reset on new source
+    if (duration <= TAPE_DURATION_CAP_SEC || !audioUrl) return;
+    let cancelled = false;
+    fetchPeaksSidecar(audioUrl).then(peaks => {
+      if (!cancelled) setSidecarPeaks(peaks);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [requestId, duration, audioUrl]);
 
   // Measures the scrub container's actual rendered width so fitsLegibly() can
   // compare it against the clip duration. Starts at 0 (unmeasured) so the
@@ -171,7 +190,7 @@ export const PlayerBar: React.FC = () => {
   // overrides when the user flips the AudioLines toggle.
   const showWave = forceWave ?? fitsLegibly(duration, measuredWidth);
 
-  const tapeAvailable = duration > 0 && duration <= TAPE_DURATION_CAP_SEC;
+  const tapeAvailable = (duration > 0 && duration <= TAPE_DURATION_CAP_SEC) || sidecarPeaks !== null;
 
   const handleWaveToggle = () => {
     if (tapeAvailable && !showWave) {
@@ -200,6 +219,7 @@ export const PlayerBar: React.FC = () => {
             windowSec={windowSec}
             mode={tapeMode}
             onZoomChange={setWindowSec}
+            peaks={sidecarPeaks}
           />
           <button
             type="button"

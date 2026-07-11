@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PlayerBar, TAPE_DURATION_CAP_SEC } from '@/app/layout/PlayerBar';
 import * as playerBus from '@/store/playerBus';
@@ -395,7 +395,7 @@ describe('PlayerBar', () => {
       expect(screen.getByLabelText('Open tape view')).toBeInTheDocument();
     });
 
-    it('the AudioLines toggle still flips bar → waveform regardless of scope', () => {
+    it('the AudioLines toggle still flips bar → waveform regardless of scope', async () => {
       playerBus.loadAndPlay({
         scope: 'segment',
         title: 'Flip test 2',
@@ -409,6 +409,13 @@ describe('PlayerBar', () => {
 
       render(<PlayerBar />);
       fireResize(600);
+
+      // duration is over TAPE_DURATION_CAP_SEC, so mounting fires the task-008
+      // peaks-sidecar fetch effect; flush its (non-matching-URL, null-result)
+      // microtask under act() before interacting further.
+      await act(async () => {
+        await Promise.resolve();
+      });
 
       expect(screen.getByRole('slider')).toBeInTheDocument();
       const toggle = screen.getByLabelText('Show waveform');
@@ -479,7 +486,7 @@ describe('PlayerBar', () => {
       expect(document.querySelector('.player-tape-region')).toBeNull();
     });
 
-    it('never offers the tape above the duration cap — toggle keeps the representation-flip label', () => {
+    it('never offers the tape above the duration cap — toggle keeps the representation-flip label', async () => {
       playerBus.loadAndPlay({
         scope: 'chapter',
         title: 'Over Cap Test',
@@ -489,12 +496,167 @@ describe('PlayerBar', () => {
 
       render(<PlayerBar />);
 
+      // duration is over TAPE_DURATION_CAP_SEC, so mounting fires the task-008
+      // peaks-sidecar fetch effect; flush its (non-matching-URL, null-result)
+      // microtask under act() before interacting further.
+      await act(async () => {
+        await Promise.resolve();
+      });
+
       const toggle = screen.getByLabelText('Show waveform');
       act(() => {
         fireEvent.click(toggle);
       });
 
       expect(document.querySelector('.player-tape-region')).toBeNull();
+      expect(screen.queryByLabelText('Open tape view')).toBeNull();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Peaks sidecar source-swap (task 008) — over-cap clips fetch a
+  // server-computed peaks sidecar (app/api/routers/chapters_assets.py) to
+  // make the tape available without a browser decode. `global.fetch` is the
+  // only mock (R2 — network boundary); PlayerBar/fetchPeaksSidecar
+  // themselves are the unit under test.
+  // -------------------------------------------------------------------------
+
+  describe('Peaks sidecar source-swap (task 008)', () => {
+    const CHAPTER_AUDIO_URL = (name: string) =>
+      `/api/projects/proj1/chapters/ch1/assets/audio?filename=${name}`;
+
+    function validSidecarResponse(filename: string) {
+      return {
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            version: 1,
+            peaks: [0, 0.5, 1],
+            duration_sec: 700,
+            sample_rate: 44100,
+            channels: 1,
+            peaks_per_sec: 10,
+            source: { filename, size_bytes: 1, mtime_ns: 1 },
+          }),
+      };
+    }
+
+    afterEach(() => {
+      (global.fetch as ReturnType<typeof vi.fn>).mockReset();
+    });
+
+    it('does not fetch the peaks sidecar for an under-cap clip', () => {
+      const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+      fetchMock.mockResolvedValue({ ok: false, json: () => Promise.resolve({}) });
+
+      playerBus.loadAndPlay({
+        scope: 'chapter',
+        title: 'Under cap',
+        audioUrl: CHAPTER_AUDIO_URL('short.wav'),
+      });
+      playerBus.reportTime(0, 300); // under TAPE_DURATION_CAP_SEC
+
+      render(<PlayerBar />);
+
+      const peaksCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes('/assets/peaks'));
+      expect(peaksCalls).toHaveLength(0);
+    });
+
+    it('fetches the peaks sidecar for an over-cap clip and offers the tape once it resolves', async () => {
+      const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+      fetchMock.mockImplementation((url: string) =>
+        String(url).includes('/assets/peaks')
+          ? Promise.resolve(validSidecarResponse('long.wav'))
+          : Promise.resolve({ ok: false, json: () => Promise.resolve({}) }),
+      );
+
+      playerBus.loadAndPlay({
+        scope: 'chapter',
+        title: 'Over cap',
+        audioUrl: CHAPTER_AUDIO_URL('long.wav'),
+      });
+      playerBus.reportTime(0, TAPE_DURATION_CAP_SEC + 300);
+
+      render(<PlayerBar />);
+
+      // Before the fetch resolves, the tape is not yet available.
+      expect(screen.getByLabelText('Show waveform')).toBeInTheDocument();
+
+      await waitFor(() => expect(screen.getByLabelText('Open tape view')).toBeInTheDocument());
+
+      const peaksCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes('/assets/peaks'));
+      expect(peaksCalls.length).toBeGreaterThan(0);
+    });
+
+    it('leaves the tape unavailable when the peaks sidecar fetch 404s', async () => {
+      const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+      fetchMock.mockResolvedValue({ ok: false, json: () => Promise.resolve({}) });
+
+      playerBus.loadAndPlay({
+        scope: 'chapter',
+        title: 'Over cap 404',
+        audioUrl: CHAPTER_AUDIO_URL('long.wav'),
+      });
+      playerBus.reportTime(0, TAPE_DURATION_CAP_SEC + 300);
+
+      render(<PlayerBar />);
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(screen.getByLabelText('Show waveform')).toBeInTheDocument();
+      expect(screen.queryByLabelText('Open tape view')).toBeNull();
+    });
+
+    it('discards a stale in-flight peaks fetch result after requestId bumps to a new source', async () => {
+      const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+      let resolveFirst!: (value: unknown) => void;
+      const firstPending = new Promise((resolve) => {
+        resolveFirst = resolve;
+      });
+      const secondPending = new Promise(() => {}); // never resolves in this test
+
+      fetchMock.mockImplementation((url: string) => {
+        const s = String(url);
+        if (s.includes('filename=first.wav')) return firstPending;
+        if (s.includes('filename=second.wav')) return secondPending;
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+      });
+
+      playerBus.loadAndPlay({
+        scope: 'chapter',
+        title: 'First (stale)',
+        audioUrl: CHAPTER_AUDIO_URL('first.wav'),
+      });
+      playerBus.reportTime(0, TAPE_DURATION_CAP_SEC + 300);
+
+      render(<PlayerBar />);
+      expect(screen.getByLabelText('Show waveform')).toBeInTheDocument();
+
+      // Bump requestId with a new over-cap source before the first fetch resolves.
+      act(() => {
+        playerBus.loadAndPlay({
+          scope: 'chapter',
+          title: 'Second (fresh)',
+          audioUrl: CHAPTER_AUDIO_URL('second.wav'),
+        });
+        playerBus.reportTime(0, TAPE_DURATION_CAP_SEC + 300);
+      });
+      expect(screen.getByLabelText('Show waveform')).toBeInTheDocument();
+
+      // Resolve the stale first fetch's promise now — its result must be
+      // discarded (the effect's cleanup already set cancelled=true).
+      await act(async () => {
+        resolveFirst(validSidecarResponse('first.wav'));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      // Still unavailable: the stale first-source peaks were not applied,
+      // and the second source's own fetch is still pending.
+      expect(screen.getByLabelText('Show waveform')).toBeInTheDocument();
       expect(screen.queryByLabelText('Open tape view')).toBeNull();
     });
   });
