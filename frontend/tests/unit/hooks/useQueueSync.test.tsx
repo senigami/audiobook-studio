@@ -221,6 +221,64 @@ describe('useQueueSync', () => {
     expect(observed?.subscribers.map(s => s.subscriber)).toContain('main-queue');
   });
 
+  it('T5 coverage gap: does not record a main-queue observation for a skipped overlay-only frame', async () => {
+    // CONTRACT: chapters.progress is overlay-only — dispatchQueueEvent returns
+    // {action: 'skipped'} for a job unknown to both the snapshot and the store
+    // (queue.items is row authority). useQueueSync's applyEvent must NOT record
+    // a main-queue subscriber observation in that case.
+    (api.getProcessingQueue as any).mockResolvedValue([]);
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'running',
+      progress: 0.5,
+      groupedProgress: null,
+      etaSeconds: 25,
+      message: 'running',
+      reasonCode: null,
+      renderGroupCount: null,
+      completedRenderGroups: null,
+    }, { jobId: 'unknown-job', projectId: 'proj-1', chapterId: 'chap-1' });
+
+    await waitFor(() => {
+      const records = getLiveEventAuditSnapshot();
+      expect(records.find(r => r.event.topic === 'chapters.progress')).toBeTruthy();
+    });
+
+    const records = getLiveEventAuditSnapshot();
+    const observed = records.find(r => r.event.topic === 'chapters.progress');
+    expect(observed?.subscribers.map(s => s.subscriber)).not.toContain('main-queue');
+  });
+
+  it('T5 coverage gap: does not record a main-queue observation for an unhandled frame', async () => {
+    // CONTRACT: a queue.items frame with no jobId and a non-invalidation
+    // eventKind falls through dispatchQueueEvent to {action: 'unhandled'}.
+    // useQueueSync's applyEvent must NOT record a main-queue observation.
+    // NOTE (Fable/fusion review, 2026-07-05): every real backend queue.items
+    // frame carries a jobId (build_queue_item_status_event requires it) — the
+    // only jobId-less queue.items eventKinds are queue_item_invalidated/
+    // queue_paused, which are intercepted earlier by the invalidation branch
+    // and never reach 'unhandled'. This fixture is a defensive/malformed-input
+    // guard for the fallback branch, not a reproduction of an observed
+    // production frame shape.
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('queue.items', 'queue_item_status', {
+      status: 'running',
+    }, {});
+
+    await waitFor(() => {
+      const records = getLiveEventAuditSnapshot();
+      expect(records.find(r => r.event.topic === 'queue.items')).toBeTruthy();
+    });
+
+    const records = getLiveEventAuditSnapshot();
+    const observed = records.find(r => r.event.topic === 'queue.items');
+    expect(observed?.subscribers.map(s => s.subscriber)).not.toContain('main-queue');
+  });
+
   it('records queue consumer path for job_updated messages', async () => {
     const { result } = renderHook(() => useQueueSync());
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -1116,5 +1174,175 @@ describe('useQueueSync', () => {
       expect(job).toBeDefined();
     });
     expect(api.getProcessingQueue).toHaveBeenCalledTimes(1);
+  });
+
+  // ── P7 — Fallback-poll interval hygiene ──────────────────────────────────
+
+  it('[P7] fallback-poll interval is cleared on unmount (no leak)', async () => {
+    vi.useFakeTimers();
+
+    try {
+      const clearIntervalSpy = vi.spyOn(window, 'clearInterval');
+
+      // Disconnect so the fallback interval effect is active
+      act(() => { setStudioSocketConnected(false); });
+
+      const { unmount } = renderHook(() => useQueueSync());
+
+      // Flush microtasks so the hook fully mounts and the interval is registered
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      // Unmount — the fallback-poll effect cleanup must call clearInterval
+      const clearCallsBefore = clearIntervalSpy.mock.calls.length;
+      unmount();
+
+      // At least one clearInterval call must have been made on unmount
+      expect(clearIntervalSpy.mock.calls.length).toBeGreaterThan(clearCallsBefore);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('[P7] reconnecting removes the fallback interval so no overlap fires', async () => {
+    vi.useFakeTimers();
+
+    try {
+      const clearIntervalSpy = vi.spyOn(window, 'clearInterval');
+
+      // Start disconnected so the fallback interval is created
+      act(() => { setStudioSocketConnected(false); });
+
+      renderHook(() => useQueueSync());
+
+      // Flush microtasks so the hook fully mounts
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      const clearCallsBefore = clearIntervalSpy.mock.calls.length;
+
+      // Reconnect — the effect dep array includes `connected`, so React will run the
+      // cleanup (clearInterval) before re-running the effect; with connected=true the
+      // new effect body returns early without creating an interval.
+      act(() => { setStudioSocketConnected(true); });
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      // clearInterval must have been called (the old interval was torn down)
+      expect(clearIntervalSpy.mock.calls.length).toBeGreaterThan(clearCallsBefore);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // ── Integration: indeterminate / loadingElapsedSeconds survive pickOverlayFields ──
+
+  it('[W3-integration] chapters.progress frame carries indeterminate+loadingElapsedSeconds through pickOverlayFields to the store overlay', async () => {
+    // This test exercises the REAL dispatch path:
+    //   socket → useQueueSync dispatchQueueEvent → pickOverlayFields → applyJobUpdated → store
+    // If indeterminate / loadingElapsedSeconds are absent from QUEUE_OVERLAY_FIELDS the
+    // fields are stripped before reaching the store and this test goes red.
+    const jobItem = {
+      id: 'job-indeterminate',
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      status: 'preparing',
+      progress: 0,
+      created_at: Date.now() / 1000,
+    };
+    (api.getProcessingQueue as any).mockResolvedValue([jobItem]);
+
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // Publish a chapters.progress frame via the live-event bus (R3 — typed payload)
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'preparing',
+      progress: 0,
+      groupedProgress: null,
+      etaSeconds: null,
+      message: 'Loading model…',
+      reasonCode: 'LOADING_MODEL',
+      renderGroupCount: null,
+      completedRenderGroups: null,
+      indeterminate: true,
+      loadingElapsedSeconds: 5,
+    }, { jobId: 'job-indeterminate', projectId: 'proj-1', chapterId: 'chap-1' });
+
+    await waitFor(() => {
+      const job = result.current.queue.find((q: any) => q.id === 'job-indeterminate');
+      expect(job?.indeterminate).toBe(true);
+      expect(job?.loadingElapsedSeconds).toBe(5);
+    });
+
+    // Follow-up frame clears the flag — must not stay latched
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'running',
+      progress: 0.1,
+      groupedProgress: null,
+      etaSeconds: 30,
+      message: null,
+      reasonCode: null,
+      renderGroupCount: null,
+      completedRenderGroups: null,
+      indeterminate: false,
+      loadingElapsedSeconds: null,
+    }, { jobId: 'job-indeterminate', projectId: 'proj-1', chapterId: 'chap-1' });
+
+    await waitFor(() => {
+      const job = result.current.queue.find((q: any) => q.id === 'job-indeterminate');
+      expect(job?.indeterminate).toBe(false);
+      expect(job?.loadingElapsedSeconds).toBeNull();
+    });
+  });
+
+  // ── W-PAR 006: multi-active segments (active_segments_map four-point wire) ──
+
+  it('[W-PAR 006] chapters.progress frame with active_segments_map lands both segments in the store overlay', async () => {
+    // This exercises the REAL dispatch path (socket -> useQueueSync -> pickOverlayFields
+    // -> applyJobUpdated -> store) per the C7 wire-integrity rule. If the field is not
+    // extracted (jobEventAdapters.ts) AND whitelisted (queueOverlayFields.ts) AND merged
+    // (hydration/index.ts) it is dead at runtime and this test goes red.
+    const jobItem = {
+      id: 'job-multi-active',
+      project_id: 'proj-1',
+      chapter_id: 'chap-1',
+      status: 'running',
+      progress: 0.2,
+      created_at: Date.now() / 1000,
+    };
+    (api.getProcessingQueue as any).mockResolvedValue([jobItem]);
+
+    const { result } = renderHook(() => useQueueSync());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    emitEvent('chapters.progress', 'chapter_progress', {
+      status: 'running',
+      progress: 0.4,
+      groupedProgress: null,
+      etaSeconds: 20,
+      message: null,
+      reasonCode: null,
+      renderGroupCount: null,
+      completedRenderGroups: null,
+      active_segments_map: {
+        S1: { phase: 'rendering', progress: 0.3, eta_seconds: 10 },
+        S2: { phase: 'rendering', progress: 0.6, eta_seconds: 5 },
+      },
+    }, { jobId: 'job-multi-active', projectId: 'proj-1', chapterId: 'chap-1' });
+
+    await waitFor(() => {
+      const job = result.current.queue.find((q: any) => q.id === 'job-multi-active');
+      expect(job?.active_segments_map).toBeDefined();
+      expect(job?.active_segments_map?.S1).toMatchObject({ phase: 'rendering', progress: 0.3, eta_seconds: 10 });
+      expect(job?.active_segments_map?.S2).toMatchObject({ phase: 'rendering', progress: 0.6, eta_seconds: 5 });
+    });
   });
 });

@@ -2,6 +2,19 @@ export type Engine = string;
 export type VoiceEngine = string;
 export type JobClassification = 'job' | 'chapter' | 'segment';
 
+/**
+ * Per-segment lifecycle entry within an `active_segments_map` (W-PAR 006).
+ * Frozen contract (C2, design-docs/plans/active/parallel-segment-rendering):
+ * consumed verbatim from the chapter progress frame.
+ */
+export interface ActiveSegmentMapEntry {
+  phase: 'preparing' | 'rendering' | 'done';
+  progress: number;
+  eta_seconds: number | null;
+  reason_code?: string;
+  indeterminate?: boolean;
+}
+
 export interface TtsEngine {
   engine_id: string;
   display_name: string;
@@ -53,9 +66,11 @@ export interface Project {
   id: string;
   name: string;
   series: string | null;
+  series_position: number | null;
   author: string | null;
   speaker_profile_name: string | null;
   cover_image_path: string | null;
+  description: string | null;
   created_at: number;
   updated_at: number;
   chapter_map?: Record<string, any>;
@@ -68,6 +83,7 @@ export interface Character {
   speaker_profile_name: string | null;
   default_emotion: string | null;
   color: string;
+  chapter_id?: string | null;
 }
 
 export interface ChapterSegment {
@@ -210,11 +226,14 @@ export interface ProcessingQueueItem {
   active_render_group_weight?: number;
   active_segment_id?: string | null;
   active_segment_progress?: number;
+  active_segments_map?: Record<string, ActiveSegmentMapEntry> | null;
   audio_length_seconds?: number;
   produced_audio_length?: number;
   produced_chars?: number;
   produced_word_count?: number;
   produced_segment_count?: number;
+  indeterminate?: boolean | null;
+  loadingElapsedSeconds?: number | null;
 }
 
 export interface SpeakerProfile {
@@ -249,17 +268,35 @@ export interface Speaker {
   updated_at: number;
 }
 
-/** Voice attributes — controlled vocabularies per docs/specs/voice-taxonomy.json v1.0 */
+/** Voice attributes — controlled vocabularies per design-docs/specs/voice-taxonomy.json v2.0 */
 export interface VoiceAttributes {
   class?: string;
   gender?: string;
   age?: string;
   accent?: string;
+  language?: string[];
+  style?: string[];
   tone?: string[];
   timbre?: string[];
   pace?: string;
   use_case?: string[];
   quality?: string[];
+}
+
+/** One ranked voice suggestion — an entry of CastingResponse.recommendations (voice-bundles.md §9). */
+export interface CastingRecommendation {
+  voice_id: string;
+  score: number;
+  reason: string;
+}
+
+/** Response shape of POST /api/voices/cast (casting contract, voice-bundles.md §9). */
+export interface CastingResponse {
+  contract_version: string;
+  character: string;
+  recommendations: CastingRecommendation[];
+  /** True when fewer than 2 catalog cards were eligible — brief/catalog too thin to rank meaningfully. */
+  needs_input: boolean;
 }
 
 /** Full metadata for a voice — returned by GET /api/voices/ and PATCH /api/voices/{id}/metadata */
@@ -273,6 +310,48 @@ export interface VoiceMetadata {
   tags?: string[];
   /** True when the attributes block is absent (voice has not been tagged yet) */
   is_untagged: boolean;
+  /** voice-bundles.md §8.1 — only present when the voice has recorded provenance. */
+  provenance?: {
+    source: 'recorded' | 'cloned' | 'imported' | 'designed';
+    author?: string;
+    consent_ack?: boolean;
+    created_at?: string;
+  };
+}
+
+// --- Hugging Face voice browse/import (GET/POST /api/voices/huggingface/*) ---
+
+/** One row of a Hub search result — GET /api/voices/huggingface/search */
+export interface HfSearchResult {
+  hub_id: string;
+  author?: string | null;
+  tags: string[];
+  likes: number;
+}
+
+/** Full parsed card — GET /api/voices/huggingface/inspect */
+export interface HfVoiceCard {
+  hub_id: string;
+  revision?: string | null;
+  license?: string | null;
+  is_restrictive_license: boolean;
+  languages: string[];
+  tags: string[];
+  author?: string | null;
+  description?: string | null;
+  sample_url?: string | null;
+}
+
+/** Response shape of POST /api/voices/huggingface/import */
+export interface HfImportResult {
+  status: string;
+  voice_id: string;
+  voice_name: string;
+  profile_name: string;
+  saved_samples: string[];
+  license?: string | null;
+  is_restrictive_license: boolean;
+  metadata: VoiceMetadata;
 }
 
 export interface Job {
@@ -318,6 +397,7 @@ export interface Job {
   active_segment_eta_seconds?: number | null;
   active_segment_eta_basis?: string | null;
   active_segment_updated_at?: number | null;
+  active_segments_map?: Record<string, ActiveSegmentMapEntry> | null;
   render_group_count?: number;
   completed_render_groups?: number;
   active_render_group_index?: number;
@@ -330,6 +410,11 @@ export interface Job {
   segmentProgressUpdates?: any[];
   has_segment_support?: boolean;
   hasSegmentSupport?: boolean;
+  // Model-load / indeterminate telemetry (W-MIX-LA 004) — populated from the live
+  // event payload; mirrors ProcessingQueueItem. The progress bar honors these for
+  // the mid-chapter model-load window.
+  indeterminate?: boolean | null;
+  loadingElapsedSeconds?: number | null;
 }
 
 export interface SegmentProgress {
@@ -337,6 +422,13 @@ export interface SegmentProgress {
   chapter_id?: string;
   segment_id: string;
   progress: number;
+  // Escaped defect fix (2026-07-05): captured from the same segments.progress
+  // wire frame that already carries `progress`, so useStudioChapter.ts can
+  // derive a usable active-segments fallback (phase/eta), not just a bare
+  // percentage, when the backend's own active_segments_map is absent.
+  eta_seconds?: number | null;
+  status?: string;
+  updated_at?: number;
 }
 
 export interface Settings {
@@ -347,6 +439,8 @@ export interface Settings {
   enabled_plugins?: Record<string, boolean>;
   cloud_model?: string;
   mistral_api_key?: string;
+  tts_parallel_cap?: number;
+  tts_engine_caps?: Record<string, number>;
 }
 
 export interface Audiobook {
@@ -432,4 +526,13 @@ export interface RuntimeService {
   message?: string | null;
   can_restart?: boolean;
   circuit_open?: boolean;
+}
+
+/** Per-book pronunciation lexicon entry — plain-text respelling, book-scoped only. */
+export interface LexiconEntry {
+  id: string;
+  project_id: string;
+  word: string;
+  replacement: string;
+  created_at?: number;
 }

@@ -75,7 +75,8 @@ const makeTimeline = (): DemoTimeline => ({
 
 // Dynamic imports so they pick up the vi.mock above
 const { DemoStage } = await import('@/demo/DemoStage');
-const { DemoApp, demoStages } = await import('@/demo/DemoApp');
+const { DemoApp } = await import('@/demo/DemoApp');
+const { demoStages } = await import('@/demo/demoStages');
 
 // ---------------------------------------------------------------------------
 // Test 1 — DemoStage: renders title, caption, chips; chip click; play/pause
@@ -103,13 +104,15 @@ describe('DemoStage', () => {
     };
   });
 
-  it('renders the stage title', () => {
+  it('renders the provided stage content', () => {
+    // The stage title is owned by the DemoApp stage strip (see routing tests), not by
+    // DemoStage itself — DemoStage wraps and presents the stage content + scene chrome.
     render(
       <DemoStage timeline={makeTimeline()} title="My Stage">
         <div>content</div>
       </DemoStage>,
     );
-    expect(screen.getByText('My Stage')).toBeInTheDocument();
+    expect(screen.getByText('content')).toBeInTheDocument();
   });
 
   it('renders the current scene caption', () => {
@@ -210,18 +213,20 @@ describe('DemoApp routing', () => {
     });
   });
 
-  it('stage hash with embedded query string still routes and hides the header', async () => {
+  it('stage hash with embedded query string routes (strips the query) and hides the chrome', async () => {
     // The showcase iframe uses src="demo/#/stage/<id>?embed=1" — the query
     // lives inside the hash, so routing must strip it and embed must be detected.
     window.location.hash = `#/stage/${demoStages[0].id}?embed=1`;
     render(<DemoApp />);
 
     await waitFor(() => {
-      expect(screen.getByText(demoStages[0].title)).toBeInTheDocument();
+      // Routing resolved the stage (NOT the not-found path) despite the ?embed=1 in the hash.
+      expect(screen.queryByText(/stage not found/i)).not.toBeInTheDocument();
     });
-    expect(screen.queryByText(/stage not found/i)).not.toBeInTheDocument();
-    // embed=1 → header (with the "demo mode" badge) is hidden
-    expect(screen.queryByText(/demo mode/i)).not.toBeInTheDocument();
+    // embed=1 hides ALL chrome — neither the index header badge ("live demo") nor the
+    // stage strip ("← stages") render.
+    expect(screen.queryByText('live demo')).not.toBeInTheDocument();
+    expect(screen.queryByText('← stages')).not.toBeInTheDocument();
   });
 
   it('unknown stage hash shows not-found message', async () => {
@@ -297,14 +302,16 @@ describe('DemoApp routing', () => {
     });
 
     const discoverPortraitImages = Array.from(container.querySelectorAll<HTMLImageElement>('.ns-voice-portrait img'));
+    // "Warden Baritone" (Gruff tone, Senior age) resolves via getVoicePortraitSrc's
+    // age-before-tone precedence to the senior silhouette, not a gruff-specific asset.
     expect(
       discoverPortraitImages.some((image) =>
-        image.getAttribute('src')?.includes('/demo-voice-raster/gruff-character.png'),
+        image.getAttribute('src')?.includes('/demo-voice-silhouettes/senior.svg'),
       ),
     ).toBe(true);
-    const clearToneCard = screen.getByText('ClearTone-F').closest('.ns-card');
-    expect(clearToneCard).not.toBeNull();
-    expect(clearToneCard?.querySelector('.ns-voice-portrait')).toBeNull();
+    const wardenCard = screen.getByText('Warden Baritone').closest('.ns-card');
+    expect(wardenCard).not.toBeNull();
+    expect(wardenCard?.querySelector('.ns-voice-portrait')).not.toBeNull();
   });
 
   it('site mockup voice profile editor generates the reusable image prompt', async () => {
@@ -390,29 +397,23 @@ describe('DemoApp theme toggle', () => {
     localStorage.removeItem('studio-theme');
   });
 
-  it('toggle button flips data-theme on documentElement', async () => {
+  // The demo has no in-app theme toggle anymore (removed in #125) — it follows the
+  // shared studio theme preference, applying + persisting it on mount.
+  it('applies a theme to documentElement on mount', async () => {
     render(<DemoApp />);
 
-    // Initial theme applied on mount
     await waitFor(() => {
       expect(document.documentElement).toHaveAttribute('data-theme');
     });
-
-    const initial = document.documentElement.getAttribute('data-theme');
-    const toggleBtn = screen.getByRole('button', { name: /theme/i });
-    fireEvent.click(toggleBtn);
-
-    const flipped = document.documentElement.getAttribute('data-theme');
-    expect(flipped).not.toBe(initial);
+    expect(['light', 'dark']).toContain(document.documentElement.getAttribute('data-theme'));
   });
 
-  it('persists theme to localStorage under the shared studio-theme key', async () => {
+  it('persists the theme to localStorage under the shared studio-theme key on mount', async () => {
     render(<DemoApp />);
-    const toggleBtn = await screen.findByRole('button', { name: /theme/i });
-    fireEvent.click(toggleBtn);
 
-    const stored = localStorage.getItem('studio-theme');
-    expect(['light', 'dark']).toContain(stored);
+    await waitFor(() => {
+      expect(['light', 'dark']).toContain(localStorage.getItem('studio-theme'));
+    });
   });
 });
 

@@ -6,13 +6,12 @@ python-multipart>=0.0.26
 httpx
 pytest
 watchdog
-ruff
+ruff  # dev/CI lint tool (not an app-runtime dependency)
 pytest-cov
-mistralai
 
 # XTTS requirements (Managed separately for compatibility)
 # See plugins/tts_xtts/requirements.txt
-beautifulsoup4
 psutil
 jsonschema>=4.0
 pillow
+huggingface_hub>=0.20

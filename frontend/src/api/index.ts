@@ -33,22 +33,27 @@ export const api = {
     const res = await fetch(`/api/projects/${id}`);
     return parseApiResponse(res);
   },
-  createProject: async (data: { name: string; series?: string; author?: string; speaker_profile_name?: string | null; cover?: File }): Promise<{ status: string; project_id: string }> => {
+  createProject: async (data: { name: string; series?: string; series_position?: number | null; author?: string; speaker_profile_name?: string | null; cover?: File }): Promise<{ status: string; project_id: string }> => {
     const formData = new FormData();
     formData.append('name', data.name);
     if (data.series) formData.append('series', data.series);
+    if (data.series_position !== undefined && data.series_position !== null) formData.append('series_position', String(data.series_position));
     if (data.author) formData.append('author', data.author);
     if (data.speaker_profile_name !== undefined) formData.append('speaker_profile_name', data.speaker_profile_name || DEFAULT_VOICE_SENTINEL);
     if (data.cover) formData.append('cover', data.cover);
     const res = await fetch('/api/projects', { method: 'POST', body: formData });
     return parseApiResponse(res);
   },
-  updateProject: async (id: string, data: { name?: string; series?: string; author?: string; speaker_profile_name?: string | null; cover?: File }): Promise<any> => {
+  updateProject: async (id: string, data: { name?: string; series?: string; series_position?: number | null; author?: string; speaker_profile_name?: string | null; description?: string; cover?: File }): Promise<any> => {
     const formData = new FormData();
     if (data.name) formData.append('name', data.name);
     if (data.series) formData.append('series', data.series);
+    if (data.series_position !== undefined) {
+      formData.append('series_position', data.series_position === null ? '' : String(data.series_position));
+    }
     if (data.author) formData.append('author', data.author);
     if (data.speaker_profile_name !== undefined) formData.append('speaker_profile_name', data.speaker_profile_name || DEFAULT_VOICE_SENTINEL);
+    if (data.description !== undefined) formData.append('description', data.description);
     if (data.cover) formData.append('cover', data.cover);
     const res = await fetch(`/api/projects/${id}`, { method: 'PUT', body: formData });
     return parseApiResponse(res);
@@ -92,18 +97,24 @@ export const api = {
   },
 
   // --- Characters ---
-  fetchCharacters: async (projectId: string): Promise<import('@/types').Character[]> => {
-    const res = await fetch(`/api/projects/${projectId}/characters`);
+  fetchCharacters: async (projectId: string, chapterId?: string | null): Promise<import('@/types').Character[]> => {
+    const params = chapterId ? `?chapter_id=${encodeURIComponent(chapterId)}` : '';
+    const res = await fetch(`/api/projects/${projectId}/characters${params}`);
     const data = await parseApiResponse(res);
     return data.characters || [];
   },
-  createCharacter: async (projectId: string, name: string, speaker_profile_name?: string, default_emotion?: string, color?: string): Promise<{status: string, character_id: string}> => {
+  createCharacter: async (projectId: string, name: string, speaker_profile_name?: string, default_emotion?: string, color?: string, chapterId?: string | null): Promise<{status: string, character_id: string}> => {
     const formData = new FormData();
     formData.append('name', name);
     if (speaker_profile_name) formData.append('speaker_profile_name', speaker_profile_name);
     if (default_emotion) formData.append('default_emotion', default_emotion);
     if (color) formData.append('color', color);
+    if (chapterId) formData.append('chapter_id', chapterId);
     const res = await fetch(`/api/projects/${projectId}/characters`, { method: 'POST', body: formData });
+    return parseApiResponse(res);
+  },
+  promoteCharacter: async (characterId: string): Promise<{status: string}> => {
+    const res = await fetch(`/api/characters/${encodeURIComponent(characterId)}/promote`, { method: 'POST' });
     return parseApiResponse(res);
   },
   updateCharacter: async (characterId: string, name?: string, speaker_profile_name?: string, default_emotion?: string, color?: string): Promise<{status: string}> => {
@@ -126,8 +137,9 @@ export const api = {
     const res = await fetch(`/api/projects/${projectId}/chapters`);
     return parseApiResponse(res);
   },
-  fetchChapter: async (chapterId: string): Promise<Chapter> => {
-    const res = await fetch(`/api/chapters/${chapterId}`);
+  fetchChapter: async (chapterId: string, projectId?: string): Promise<Chapter> => {
+    const query = projectId ? `?project_id=${encodeURIComponent(projectId)}` : '';
+    const res = await fetch(`/api/chapters/${chapterId}${query}`);
     return parseApiResponse(res);
   },
   createChapter: async (projectId: string, data: { title: string; text_content?: string; sort_order?: number; file?: File }): Promise<{status: string, chapter: Chapter}> => {
@@ -162,11 +174,13 @@ export const api = {
     return parseApiResponse(res);
   },
   fetchScriptView: async (chapterId: string): Promise<ScriptViewResponse> => {
-    const res = await fetch(`/api/chapters/${chapterId}/script-view`);
+    // Live, mutable render state — never serve a stale browser-cached payload
+    // (a cached "rendered" payload replays a black prefix on soft nav; see cache: 'no-store').
+    const res = await fetch(`/api/chapters/${chapterId}/script-view`, { cache: 'no-store' });
     return parseApiResponse(res);
   },
   fetchChapterRenderGroups: async (projectId: string, chapterId: string): Promise<import('@/api/types').RenderGroupsResponse> => {
-    const res = await fetch(`/api/projects/${projectId}/chapters/${chapterId}/render_groups`);
+    const res = await fetch(`/api/projects/${projectId}/chapters/${chapterId}/render_groups`, { cache: 'no-store' });
     return parseApiResponse(res);
   },
   saveScriptAssignments: async (chapterId: string, payload: ScriptAssignmentsUpdate): Promise<ScriptViewResponse> => {
@@ -233,15 +247,17 @@ export const api = {
 
   // --- Segments ---
   fetchSegments: async (chapterId: string): Promise<import('@/types').ChapterSegment[]> => {
-    const res = await fetch(`/api/chapters/${chapterId}/segments`);
+    // Live, mutable segment state — bypass the browser HTTP cache so soft nav re-hydrates fresh.
+    const res = await fetch(`/api/chapters/${chapterId}/segments`, { cache: 'no-store' });
     const data = await parseApiResponse(res);
     return data.segments || [];
   },
-  updateSegment: async (segmentId: string, data: { character_id?: string | null; speaker_profile_name?: string | null; audio_status?: string }): Promise<any> => {
+  updateSegment: async (segmentId: string, data: { character_id?: string | null; speaker_profile_name?: string | null; audio_status?: string; text_content?: string }): Promise<any> => {
     const formData = new FormData();
     if (data.character_id !== undefined) formData.append('character_id', data.character_id || "");
     if (data.speaker_profile_name !== undefined) formData.append('speaker_profile_name', data.speaker_profile_name || "");
     if (data.audio_status) formData.append('audio_status', data.audio_status);
+    if (data.text_content !== undefined) formData.append('text_content', data.text_content);
     const res = await fetch(`/api/segments/${segmentId}`, { method: 'PUT', body: formData });
     return parseApiResponse(res);
   },
@@ -452,6 +468,41 @@ export const api = {
     return parseApiResponse(res);
   },
 
+  // --- Pronunciation Lexicon ---
+  fetchLexicon: async (projectId: string): Promise<import('@/types').LexiconEntry[]> => {
+    const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/lexicon`);
+    const data = await parseApiResponse(res);
+    return Array.isArray(data?.entries) ? data.entries : [];
+  },
+  addLexiconEntry: async (projectId: string, word: string, replacement: string): Promise<import('@/types').LexiconEntry> => {
+    const formData = new FormData();
+    formData.append('word', word);
+    formData.append('replacement', replacement);
+    const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/lexicon`, {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await parseApiResponse(res);
+    return { id: String(data.id), project_id: projectId, word, replacement };
+  },
+  updateLexiconEntry: async (projectId: string, entryId: string, word: string, replacement: string): Promise<import('@/types').LexiconEntry> => {
+    const formData = new FormData();
+    formData.append('word', word);
+    formData.append('replacement', replacement);
+    const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/lexicon/${encodeURIComponent(entryId)}`, {
+      method: 'PUT',
+      body: formData,
+    });
+    await parseApiResponse(res);
+    return { id: entryId, project_id: projectId, word, replacement };
+  },
+  deleteLexiconEntry: async (projectId: string, entryId: string): Promise<{ status: string }> => {
+    const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/lexicon/${encodeURIComponent(entryId)}`, {
+      method: 'DELETE',
+    });
+    return parseApiResponse(res);
+  },
+
   exportVoiceBundleUrl: (voiceName: string, includeSourceWavs: boolean = false): string => {
     const params = new URLSearchParams({ include_source_wavs: String(includeSourceWavs) });
     return `/api/voices/${encodeURIComponent(voiceName)}/bundle/download?${params.toString()}`;
@@ -493,6 +544,81 @@ export const api = {
       method: 'POST',
       body: formData,
     });
+    return parseApiResponse(res);
+  },
+  castVoices: async (params: {
+    character: { name: string; description?: string; notes?: string; inferred_gender?: string; inferred_age?: string; inferred_class?: string };
+    catalog: Array<Record<string, unknown>>;
+    projectLanguage?: string;
+    limit?: number;
+  }): Promise<import('@/types').CastingResponse> => {
+    const res = await fetch('/api/voices/cast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contract_version: '1.0',
+        character: params.character,
+        project_language: params.projectLanguage || '',
+        catalog: params.catalog,
+        limit: params.limit ?? 5,
+      }),
+    });
+    // Surface 422 (unknown contract_version/card_version major) verbatim — caller catches the thrown Error.message
+    return parseApiResponse(res);
+  },
+
+  // --- Hugging Face voice browse/import/export ---
+  searchHfVoices: async (query?: string): Promise<import('@/types').HfSearchResult[]> => {
+    const params = new URLSearchParams();
+    if (query) params.append('q', query);
+    const qs = params.toString();
+    const res = await fetch(`/api/voices/huggingface/search${qs ? `?${qs}` : ''}`);
+    return parseApiResponse(res);
+  },
+  inspectHfVoice: async (hubId: string, revision?: string): Promise<import('@/types').HfVoiceCard> => {
+    const params = new URLSearchParams({ hub_id: hubId });
+    if (revision) params.append('revision', revision);
+    const res = await fetch(`/api/voices/huggingface/inspect?${params.toString()}`);
+    return parseApiResponse(res);
+  },
+  importHfVoice: async (params: {
+    hubId: string;
+    revision?: string;
+    consent: boolean;
+    voiceName?: string;
+  }): Promise<import('@/types').HfImportResult> => {
+    const res = await fetch('/api/voices/huggingface/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        hub_id: params.hubId,
+        revision: params.revision,
+        consent: params.consent,
+        voice_name: params.voiceName,
+      }),
+    });
+    // Surface 422 (consent not granted, no usable audio, invalid hub_id) verbatim.
+    return parseApiResponse(res);
+  },
+  exportHfVoice: async (voiceId: string): Promise<{ status: string; bundle_path: string; bundle_name: string }> => {
+    const res = await fetch('/api/voices/huggingface/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voice_id: voiceId }),
+    });
+    return parseApiResponse(res);
+  },
+  uploadHfVoice: async (params: {
+    voiceId: string;
+    hubId: string;
+    extraTags?: string[];
+  }): Promise<{ status: string; hub_id: string; commit_id: string }> => {
+    const res = await fetch('/api/voices/huggingface/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voice_id: params.voiceId, hub_id: params.hubId, extra_tags: params.extraTags || [] }),
+    });
+    // Surface 422 (no token configured, invalid hub_id) verbatim.
     return parseApiResponse(res);
   },
 };

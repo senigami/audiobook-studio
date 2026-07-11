@@ -75,15 +75,17 @@ describe('RailBookBlock', () => {
       });
     });
 
+    // Chapter workspace route — chapters expand in the rail under 'contents'
     render(
-      <MemoryRouter initialEntries={['/book/book-1/studio?chapter=chapter-1']}>
+      <MemoryRouter initialEntries={['/book/book-1/chapter/chapter-1']}>
         <LocationProbe />
         <RailBookBlock />
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('link', { name: 'Studio' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: 'Casting' })).toHaveAttribute('href', '/book/book-1/casting');
+    // Rail renders the 4 book-level tabs; 'Contents' is the first one
+    expect(screen.getByRole('link', { name: 'Contents' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Cast' })).toHaveAttribute('href', '/book/book-1/cast');
     const row = screen.getByTestId('rail-book-row-chapter-1');
     expect(row).toHaveClass('rail-book-block__chapter-wrap--active');
 
@@ -97,8 +99,9 @@ describe('RailBookBlock', () => {
     expect(screen.getByLabelText(/Rendering/i)).toBeInTheDocument();
     expect(screen.getByTestId('rail-book-progress-chapter-1')).toBeInTheDocument();
 
+    // Clicking a chapter row navigates to the chapter workspace
     fireEvent.click(screen.getByRole('button', { name: /Opening Chapter/i }));
-    expect(screen.getByTestId('location')).toHaveTextContent('/book/book-1/studio?chapter=chapter-1');
+    expect(screen.getByTestId('location')).toHaveTextContent('/book/book-1/chapter/chapter-1');
 
     fireEvent.click(within(row).getByRole('button', { name: 'More actions' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Queue' }));
@@ -137,8 +140,9 @@ describe('RailBookBlock', () => {
       });
     });
 
+    // Contents stage — chapters expand in the rail
     render(
-      <MemoryRouter initialEntries={['/book/book-1/studio?chapter=chapter-1']}>
+      <MemoryRouter initialEntries={['/book/book-1/contents']}>
         <RailBookBlock />
       </MemoryRouter>,
     );
@@ -169,8 +173,9 @@ describe('RailBookBlock', () => {
       });
     });
 
+    // Contents stage — chapters expand in the rail
     render(
-      <MemoryRouter initialEntries={['/book/book-1/studio?chapter=chapter-1']}>
+      <MemoryRouter initialEntries={['/book/book-1/contents']}>
         <RailBookBlock />
       </MemoryRouter>,
     );
@@ -178,7 +183,7 @@ describe('RailBookBlock', () => {
     expect(screen.getByText('loading voice model…')).toBeInTheDocument();
   });
 
-  it('hides chapter rows outside the Studio stage', () => {
+  it('hides chapter rows outside the Contents stage and chapter workspace', () => {
     act(() => {
       setBookIdentity({
         id: 'book-1',
@@ -195,7 +200,7 @@ describe('RailBookBlock', () => {
     });
 
     render(
-      <MemoryRouter initialEntries={['/book/book-1/casting']}>
+      <MemoryRouter initialEntries={['/book/book-1/cast']}>
         <RailBookBlock />
       </MemoryRouter>,
     );

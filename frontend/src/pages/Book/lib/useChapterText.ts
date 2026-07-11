@@ -35,7 +35,7 @@ export function useChapterText(chapter: Chapter | null, onSaved?: () => Promise<
     setText(chapter.text_content || '');
     setSaveState('idle');
     setLoading(true);
-    void api.fetchChapter(chapter.id)
+    void api.fetchChapter(chapter.id, chapter.project_id)
       .then((fullChapter) => {
         if (cancelled) return;
         setLoadedChapter(fullChapter);
@@ -57,7 +57,9 @@ export function useChapterText(chapter: Chapter | null, onSaved?: () => Promise<
     () => (loadedChapter ? deriveChapterLifecycle(loadedChapter) : 'Draft'),
     [loadedChapter],
   );
-  const isProduced = lifecycle === 'Cast' || lifecycle === 'Rendered';
+  // Stale/Error chapters already have (or attempted) a production run, so edits
+  // must go through the explicit resync flow rather than silently autosaving.
+  const isProduced = lifecycle === 'Cast' || lifecycle === 'Rendered' || lifecycle === 'Stale' || lifecycle === 'Error';
   const originalText = loadedChapter?.text_content || '';
   const hasTextChanges = text.replace(/\r\n/g, '\n') !== originalText.replace(/\r\n/g, '\n');
 

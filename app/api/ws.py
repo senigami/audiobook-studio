@@ -348,6 +348,7 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
     _enriched_eta_basis: str | None = None
     _enriched_estimated_end_at: float | None = None
     _enriched_grouped_progress: float | None = None
+    _enriched_eta_updated_at: float | None = None
     _enrich_sample = not skip_job_updated  # FIX 1: only push sample on Path B
     try:
         _ps = _get_progress_service()
@@ -358,6 +359,15 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
         _enriched_eta_basis = _enrich_payload.get("eta_basis")
         _enriched_estimated_end_at = _enrich_payload.get("estimated_end_at")
         _enriched_grouped_progress = _enrich_payload.get("grouped_progress")
+        # §4A eta_updated_at dedupe (service.py enrich()): reuses the previous
+        # anchor when eta_seconds/progress are unchanged from the last publish.
+        # Must be threaded through to build_chapter_progress_event below —
+        # omitting it silently falls back to time.time() on EVERY call,
+        # defeating the dedupe at the wire (2026-07-06 debug session: an
+        # unchanged eta=57 during a long preparing window re-anchored its
+        # end-time forward on every skip_job_updated=True map-only tick,
+        # visible as the queue bar's countdown never actually counting down).
+        _enriched_eta_updated_at = _enrich_payload.get("eta_updated_at")
     except Exception:
         # FIX 5: on enrich failure, set a safe floor so the fail-loud builder
         # contract holds.  Terminal frames get 1.0; live frames get BASE_FLOOR.
@@ -400,6 +410,17 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
         )
         broadcast_studio_event(lifecycle_event)
 
+    # W-PAR 003 (R-F): this block infers a single segment's completion from the
+    # active_segment_id TRANSITION (prev -> new). It is correct and remains the
+    # live emission path at cap=1/N=1 fan-out (INV-1) — the orchestrator only
+    # ever tracks one active segment per chapter task today, so "transition"
+    # and "this segment's own validated completion" are the same event. This
+    # is NOT sufficient once fan-out > 1 is wired (task 005/enable-gate): with
+    # N concurrent children there is no single prev->next handoff, and each
+    # child's own SEGMENT_SAVED must drive its own scoped event independently.
+    # Preserve exactly: failed/cancelled statuses map the segment's own status
+    # through (not force "done"); only a clean completion is inferred as
+    # SEGMENT_SAVED/"done".
     if prev_active_segment_id and prev_active_segment_id != new_active_segment_id:
         if not skip_studio_job_event:
             status = str(merged.get("status") or "running")
@@ -456,6 +477,10 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
             produced_segment_count=merged.get("produced_segment_count"),
             source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
             confidence=_enriched_confidence,
+            # W-PAR 003 (C2 contract): additive-only field (INV-1/INV-9) — absent
+            # unless the orchestrator actually published a concurrent-segment
+            # snapshot via `_publish(active_segments_map=...)`.
+            active_segments_map=merged.get("active_segments_map"),
         )
         broadcast_studio_event(q_event)
 
@@ -503,6 +528,7 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
                 progress=merged.get("progress") or 0.0,
                 grouped_progress=_enriched_grouped_progress if _enriched_grouped_progress is not None else merged.get("grouped_progress"),
                 eta_seconds=_enriched_eta_seconds if _enriched_eta_seconds is not None else (updates.get("eta_seconds") or merged.get("eta_seconds")),
+                eta_updated_at=_enriched_eta_updated_at if _enriched_eta_updated_at is not None else merged.get("eta_updated_at"),
                 message=message,
                 reason_code=merged.get("reason_code"),
                 render_group_count=merged.get("render_group_count"),
@@ -511,6 +537,13 @@ def broadcast_job_updated(job_id: str, updates: dict, current_job: dict | None =
                 project_id=merged.get("project_id"),
                 source=source or _resolve_source("app.api.ws.broadcast_job_updated"),
                 confidence=_enriched_confidence,
+                # W-PAR 008 (event-driven live map, 2026-07-05): the missing
+                # delivery leg — without this, a map-only mid-render update
+                # (skip_job_updated=True, no status change) never reached the
+                # frontend at all, since queue.items below is gated on
+                # status_changed/terminal_reset and chapters.progress was the
+                # only other frame for a chapter-classified job.
+                active_segments_map=merged.get("active_segments_map"),
             )
             broadcast_studio_event(event)
         if not skip_job_updated and (status_changed or terminal_reset):

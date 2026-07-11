@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 vi.mock('@/api', () => ({
   api: {
     fetchChapters: vi.fn(),
+    fetchChapter: vi.fn(),
     fetchSegments: vi.fn(),
     fetchCharacters: vi.fn(),
     updateChapter: vi.fn(),
@@ -79,7 +80,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    (api.fetchChapters as any).mockResolvedValue([mockChapter]);
+    (api.fetchChapter as any).mockResolvedValue(mockChapter);
     (api.fetchSegments as any).mockResolvedValue(mockSegments);
     (api.fetchCharacters as any).mockResolvedValue([]);
     (api.fetchScriptView as any).mockResolvedValue(mockScriptView);
@@ -145,13 +146,13 @@ describe('ChapterEditor - Queueing & Generation', () => {
       await vi.advanceTimersByTimeAsync(1100);
     });
 
-    expect(api.fetchChapters).toHaveBeenCalledTimes(3);
+    expect(api.fetchChapter).toHaveBeenCalledTimes(3);
     expect(api.addProcessingQueue).toHaveBeenCalledTimes(1);
   });
 
   it('warns before queuing large chapters', async () => {
     const largeChapter = { ...mockChapter, char_count: 60000 };
-    (api.fetchChapters as any).mockResolvedValue([largeChapter]);
+    (api.fetchChapter as any).mockResolvedValue(largeChapter);
 
     render(
       <ChapterEditor
@@ -192,7 +193,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
       audio_generated_at: Date.now() / 1000
     }];
 
-    (api.fetchChapters as any).mockResolvedValue([renderedChapter]);
+    (api.fetchChapter as any).mockResolvedValue(renderedChapter);
     (api.fetchSegments as any).mockResolvedValue(renderedSegments);
     (api.resetChapter as any).mockResolvedValue({ status: 'ok' });
 
@@ -235,7 +236,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
       audio_generated_at: Date.now() / 1000
     }];
 
-    (api.fetchChapters as any).mockResolvedValue([renderedChapter]);
+    (api.fetchChapter as any).mockResolvedValue(renderedChapter);
     (api.fetchSegments as any).mockResolvedValue(renderedSegments);
     (api.resetChapter as any).mockResolvedValue({ status: 'ok' });
     (api.addProcessingQueue as any).mockResolvedValue({ status: 'ok' });
@@ -278,7 +279,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
       audio_generated_at: Date.now() / 1000
     }];
 
-    (api.fetchChapters as any).mockResolvedValue([renderedChapter]);
+    (api.fetchChapter as any).mockResolvedValue(renderedChapter);
     (api.fetchSegments as any).mockResolvedValue(renderedSegments);
     (api.resetChapter as any).mockRejectedValue(new Error('reset failed'));
 
@@ -329,7 +330,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
       },
     ];
 
-    (api.fetchChapters as any).mockResolvedValue([partialChapter]);
+    (api.fetchChapter as any).mockResolvedValue(partialChapter);
     (api.fetchSegments as any).mockResolvedValue(partialSegments);
 
     render(
@@ -437,7 +438,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
       active_segment_progress: 0.25,
     } as any;
 
-    (api.fetchChapters as any).mockResolvedValue([renderingChapter]);
+    (api.fetchChapter as any).mockResolvedValue(renderingChapter);
     (api.fetchSegments as any).mockResolvedValue(renderingSegments);
     (api.fetchScriptView as any).mockResolvedValue(renderingScriptView);
 
@@ -499,7 +500,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
       audio_groups: [],
     };
 
-    (api.fetchChapters as any).mockResolvedValue([renderingChapter]);
+    (api.fetchChapter as any).mockResolvedValue(renderingChapter);
     (api.fetchSegments as any).mockResolvedValue(renderingSegments);
     (api.fetchScriptView as any).mockResolvedValue(renderingScriptView);
 
@@ -579,7 +580,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
       ],
     };
 
-    (api.fetchChapters as any).mockResolvedValue([renderedChapter]);
+    (api.fetchChapter as any).mockResolvedValue(renderedChapter);
     (api.fetchSegments as any).mockResolvedValue(renderedSegments);
     (api.fetchScriptView as any).mockResolvedValue(renderingScriptView);
 
@@ -668,7 +669,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
       ],
     };
 
-    (api.fetchChapters as any).mockResolvedValue([renderedChapter]);
+    (api.fetchChapter as any).mockResolvedValue(renderedChapter);
     (api.fetchSegments as any).mockResolvedValue(renderedSegments);
     (api.fetchScriptView as any).mockResolvedValue(renderingScriptView);
 
@@ -762,9 +763,9 @@ describe('ChapterEditor - Queueing & Generation', () => {
       active_segment_progress: 1,
     } as any;
 
-    (api.fetchChapters as any)
-      .mockResolvedValueOnce([pendingChapter])
-      .mockResolvedValue([completedChapter]);
+    (api.fetchChapter as any)
+      .mockResolvedValueOnce(pendingChapter)
+      .mockResolvedValue(completedChapter);
     (api.fetchSegments as any).mockResolvedValue(groupedSegments);
     (api.fetchScriptView as any).mockResolvedValue(groupedScriptView);
 
@@ -784,7 +785,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
     expect(screen.getByText('Finalizing')).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(api.fetchChapters).toHaveBeenCalledTimes(2);
+      expect(api.fetchChapter).toHaveBeenCalledTimes(2);
     });
 
     await waitFor(() => {
@@ -829,7 +830,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
       audio_groups: [],
     };
 
-    (api.fetchChapters as any).mockResolvedValue([renderingChapter]);
+    (api.fetchChapter as any).mockResolvedValue(renderingChapter);
     (api.fetchSegments as any).mockResolvedValue(renderingSegments);
     (api.fetchScriptView as any).mockResolvedValue(renderingScriptView);
 
@@ -917,7 +918,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
       audio_groups: [],
     };
 
-    (api.fetchChapters as any).mockResolvedValue([renderingChapter]);
+    (api.fetchChapter as any).mockResolvedValue(renderingChapter);
     (api.fetchSegments as any).mockResolvedValue(renderingSegments);
     (api.fetchScriptView as any).mockResolvedValue(renderingScriptView);
 
@@ -969,7 +970,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
 
-    const generateBtn = screen.getByRole('button', { name: 'Generate' });
+    const generateBtn = screen.getByRole('button', { name: 'Generate segment audio' });
     fireEvent.click(generateBtn);
     fireEvent.click(generateBtn);
 
@@ -994,7 +995,7 @@ describe('ChapterEditor - Queueing & Generation', () => {
 
     await waitFor(() => screen.findByDisplayValue('Test Chapter'));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Generate segment audio' }));
 
     expect(await screen.findByText('Generation Blocked')).toBeInTheDocument();
   });

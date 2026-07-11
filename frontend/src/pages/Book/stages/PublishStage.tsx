@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AssemblyChapterPicker } from '@/pages/Book/components/AssemblyChapterPicker';
-import { BookInfoCard } from '@/pages/Book/components/BookInfoCard';
+import { BookIdentityStrip } from '@/pages/Book/components/BookIdentityStrip';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
 import { AssemblyPanel } from '@/pages/ProjectDetail/components/AssemblyPanel';
 import { AssemblyProgress } from '@/pages/ProjectDetail/components/AssemblyProgress';
@@ -16,8 +16,6 @@ export function PublishStage() {
     chapters,
     jobs,
     project,
-    totalPredicted,
-    totalRuntime,
   } = useBookDataContext();
   const [isAssemblyMode, setIsAssemblyMode] = useState(false);
   const [selectedChapterIds, setSelectedChapterIds] = useState<Set<string>>(new Set());
@@ -120,12 +118,7 @@ export function PublishStage() {
       </div>
 
       <aside className="publish-stage__sidebar">
-        <BookInfoCard
-          project={project}
-          totalRuntime={totalRuntime}
-          totalPredicted={totalPredicted}
-          onUpdateProject={actions.handleUpdateProject}
-        />
+        <BookIdentityStrip project={project} />
       </aside>
     </section>
   );

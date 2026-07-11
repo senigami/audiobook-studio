@@ -1,8 +1,22 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ScriptEditor } from '@/pages/Voices/components/ScriptEditor';
+import { suggestRecordingPrompt } from '@/pages/Voices/components/metadata/recordingPromptSuggester';
+import type { VoiceAttributes } from '@/types';
+
+// R2 (mock boundaries only): suggestRecordingPrompt is the neighboring pure-function
+// module Task 002 owns — mock it here rather than re-implementing its scoring/composition logic.
+vi.mock('@/pages/Voices/components/metadata/recordingPromptSuggester', () => ({
+    suggestRecordingPrompt: vi.fn(),
+}));
+
+const mockSuggestRecordingPrompt = vi.mocked(suggestRecordingPrompt);
 
 describe('ScriptEditor', () => {
+    beforeEach(() => {
+        mockSuggestRecordingPrompt.mockReset();
+    });
+
     it('renders and handles interactions', () => {
         const onVariantNameChange = vi.fn();
         const onTestTextChange = vi.fn();
@@ -23,8 +37,6 @@ describe('ScriptEditor', () => {
                 availableSamples={[]}
                 engineVoiceId=""
                 onEngineVoiceIdChange={vi.fn()}
-                settings={{}}
-                onSettingsChange={vi.fn()}
                 onResetTestText={onResetTestText}
                 onSave={onSave}
                 isSaving={false}
@@ -63,8 +75,6 @@ describe('ScriptEditor', () => {
                 availableSamples={[]}
                 engineVoiceId=""
                 onEngineVoiceIdChange={vi.fn()}
-                settings={{}}
-                onSettingsChange={vi.fn()}
                 onResetTestText={vi.fn()}
                 onSave={vi.fn()}
                 isSaving={true}
@@ -89,8 +99,6 @@ describe('ScriptEditor', () => {
                 availableSamples={['sample1.wav']}
                 engineVoiceId="voice-123"
                 onEngineVoiceIdChange={vi.fn()}
-                settings={{}}
-                onSettingsChange={vi.fn()}
                 onResetTestText={vi.fn()}
                 onSave={vi.fn()}
                 isSaving={false}
@@ -117,8 +125,6 @@ describe('ScriptEditor', () => {
                 availableSamples={[]}
                 engineVoiceId=""
                 onEngineVoiceIdChange={vi.fn()}
-                settings={{}}
-                onSettingsChange={vi.fn()}
                 onResetTestText={vi.fn()}
                 onSave={vi.fn()}
                 isSaving={false}
@@ -144,8 +150,6 @@ describe('ScriptEditor', () => {
                 availableSamples={[]}
                 engineVoiceId=""
                 onEngineVoiceIdChange={vi.fn()}
-                settings={{}}
-                onSettingsChange={vi.fn()}
                 onResetTestText={vi.fn()}
                 onSave={vi.fn()}
                 isSaving={false}
@@ -154,5 +158,65 @@ describe('ScriptEditor', () => {
 
         expect(screen.getByLabelText('Engine')).toHaveValue('cloud_engine');
         expect(screen.getByText(/assigned to Cloud Engine, but it is currently turned off in Settings/i)).toBeInTheDocument();
+    });
+
+    describe('"Suggest from voice qualities" button', () => {
+        const baseProps = {
+            variantName: 'Voice',
+            onVariantNameChange: vi.fn(),
+            engine: 'xtts' as const,
+            onEngineChange: vi.fn(),
+            engines: [{ engine_id: 'xtts', display_name: 'XTTS', enabled: true } as any],
+            testText: 'Preview',
+            referenceSample: '',
+            onReferenceSampleChange: vi.fn(),
+            availableSamples: [],
+            engineVoiceId: '',
+            onEngineVoiceIdChange: vi.fn(),
+            onResetTestText: vi.fn(),
+            onSave: vi.fn(),
+            isSaving: false,
+        };
+
+        it('is disabled with an explanatory tooltip when attributes is absent (INV-4)', () => {
+            mockSuggestRecordingPrompt.mockReturnValue(null);
+
+            render(<ScriptEditor {...baseProps} onTestTextChange={vi.fn()} />);
+
+            const button = screen.getByRole('button', { name: /Suggest from voice qualities/i });
+            expect(button).toBeDisabled();
+            expect(button).toHaveAttribute('title', expect.stringMatching(/tag this voice/i));
+        });
+
+        it('is disabled with an explanatory tooltip when the suggester returns null for tagged-but-empty attributes (INV-4)', () => {
+            mockSuggestRecordingPrompt.mockReturnValue(null);
+            const attributes: VoiceAttributes = {};
+
+            render(<ScriptEditor {...baseProps} attributes={attributes} onTestTextChange={vi.fn()} />);
+
+            expect(mockSuggestRecordingPrompt).toHaveBeenCalledWith(attributes);
+            expect(screen.getByRole('button', { name: /Suggest from voice qualities/i })).toBeDisabled();
+        });
+
+        it('is enabled and fills the test text via onTestTextChange when the suggester returns a result', () => {
+            const attributes: VoiceAttributes = { class: 'human', tone: ['gruff'], timbre: ['velvety'] };
+            mockSuggestRecordingPrompt.mockReturnValue({
+                prompt: 'A suggested recording prompt.',
+                directionNote: 'Some direction.',
+                matchedArchetype: null,
+                confidence: 'composed',
+            });
+            const onTestTextChange = vi.fn();
+
+            render(<ScriptEditor {...baseProps} attributes={attributes} onTestTextChange={onTestTextChange} />);
+
+            const button = screen.getByRole('button', { name: /Suggest from voice qualities/i });
+            expect(button).not.toBeDisabled();
+
+            fireEvent.click(button);
+
+            expect(mockSuggestRecordingPrompt).toHaveBeenCalledWith(attributes);
+            expect(onTestTextChange).toHaveBeenCalledWith('A suggested recording prompt.');
+        });
     });
 });

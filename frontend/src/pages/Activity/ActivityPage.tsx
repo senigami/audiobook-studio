@@ -4,6 +4,9 @@ import { GlobalQueue } from '@/components/queue/GlobalQueue';
 import { QueueStats } from '@/components/queue/QueueStats';
 import { EngineCalibrationCard } from '@/pages/Activity/components/EngineCalibrationCard';
 import { ProductionTallyCard } from '@/pages/Activity/components/ProductionTallyCard';
+import { SegmentRenderMonitor } from '@/components/progress/SegmentRenderMonitor/SegmentRenderMonitor';
+import { useDevMode } from '@/utils/devMode';
+import { DEV_FIXTURE_RENDER_MONITOR_JOB } from '@/pages/Activity/devSegmentRenderMonitorFixture';
 
 export interface ActivityPageProps {
   paused: boolean;
@@ -29,6 +32,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({
   isReconnecting,
 }) => {
   const [historyFilter, setHistoryFilter] = useState<(typeof HISTORY_FILTERS)[number]>('All');
+  const devMode = useDevMode();
   const connectionState = useMemo(() => {
     if (isReconnecting) return 'reconnecting';
     if (connected === false) return 'disconnected';
@@ -68,6 +72,21 @@ const ActivityPage: React.FC<ActivityPageProps> = ({
               );
             })}
           </div>
+          {/*
+            TEMPORARY (W-PAR Phase 2 foundation slice, dev-gated): there is no
+            real per-segment character-count hydration path into the Activity
+            page yet, so this renders a local fixture rather than live segment
+            data. Remove the fixture import once real hydration lands and feed
+            SegmentRenderMonitor from the actual active job's segment map.
+          */}
+          {devMode && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <SegmentRenderMonitor
+                segments={DEV_FIXTURE_RENDER_MONITOR_JOB.segments}
+                cap={DEV_FIXTURE_RENDER_MONITOR_JOB.cap}
+              />
+            </div>
+          )}
           <GlobalQueue
             paused={paused}
             jobs={jobs}

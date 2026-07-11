@@ -7,7 +7,10 @@ export {
   BOOK_STAGE_LABELS,
   BOOK_STAGES,
   getBookStageStorageKey,
+  getLastChapter,
+  getLastChapterStorageKey,
   getLastStage,
   isBookStage,
+  setLastChapter,
   setLastStage,
 } from '@/pages/Book/lib/stages';

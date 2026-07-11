@@ -24,7 +24,7 @@ describe('Layout', () => {
     document.documentElement.removeAttribute('data-theme');
   });
 
-  it('renders the correct branding text', () => {
+  it('renders the top bar with an accessible home button', () => {
     render(
       <MemoryRouter>
         <Layout {...defaultProps} />
@@ -33,8 +33,6 @@ describe('Layout', () => {
 
     expect(screen.getByRole('button', { name: /Audiobook Studio home/i })).toBeTruthy();
     expect(document.querySelector('.top-bar')).toBeTruthy();
-    expect(document.querySelector('.header-container')).toBeNull();
-    expect(document.querySelector('.header-nav')).toBeNull();
   });
 
   it('renders the rail as the primary navigation surface', () => {

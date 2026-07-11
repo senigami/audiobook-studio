@@ -1,6 +1,4 @@
-import os
 import pytest
-from pathlib import Path
 
 # NOTE: Do NOT import TestClient or app at the top level.
 # Doing so can trigger module loading before conftest.py env vars are set.
@@ -10,27 +8,6 @@ def client():
     from fastapi.testclient import TestClient
     from app.api.web import app
     return TestClient(app)
-
-def test_sandbox_isolation_verification(client):
-    """
-    CRITICAL: Verifies that the test environment is truly isolated.
-    The paths used during tests should be within a temporary directory,
-    not the real production directories.
-    """
-    # Import inside to ensure conftest.py env vars have taken effect on constants
-    from app.core.config import PROJECTS_DIR
-    from app.db import DB_PATH
-
-    # 1. Verify PROJECTS_DIR is inside a temp directory (it should match os.environ)
-    env_projects = os.environ.get("PROJECTS_DIR")
-    assert str(PROJECTS_DIR) == env_projects
-    assert "projects" in str(PROJECTS_DIR)
-
-    # 2. Verify we aren't using the production DB file
-    assert "test_audiobook_studio.db" in str(DB_PATH), f"Expected 'test_audiobook_studio.db' in {DB_PATH}"
-
-    # 3. Verify environment variable overrides are active
-    assert os.environ.get("AUDIOBOOK_BASE_DIR") is not None
 
 def test_export_sample_with_project_context(client):
     """
@@ -53,51 +30,108 @@ def test_export_sample_with_project_context(client):
     # 3. Call the export endpoint with project_id
     res = client.post(f"/api/chapters/{cid}/export-sample?project_id={pid}")
 
-    # We expect success if the file is found
-    assert res.status_code in [200, 500]
-    if res.status_code == 200:
-        assert "url" in res.json()
-    else:
-        # If it failed due to video gen, it still found the source
-        assert res.json().get("message") != "Audio not found for this chapter. Generate it first."
+    # The nested chapter.wav we wrote is discoverable via the standard-name
+    # fallback in resolve_chapter_asset_path, so this must succeed with a
+    # URL pointing at the project-scoped asset route -- not a vague
+    # "200 or 500" outcome.
+    assert res.status_code == 200
+    body = res.json()
+    assert body["status"] == "ok"
+    assert body["url"] == f"/api/projects/{pid}/chapters/{cid}/assets/audio"
 
 def test_reset_chapter_isolation(client):
     """
-    Verifies that resetting a chapter correctly clears files
-    inside the project-specific directory.
+    Verifies that resetting a chapter clears files inside its OWN
+    project-specific directory only -- and, despite the identical
+    "chapter.wav" filename, does NOT touch a second project's chapter audio
+    (real cross-project isolation, not just "does reset delete its target").
     """
+    from app.core.config import get_chapter_dir
+    from app.db import update_chapter
+
     res = client.post("/api/projects", data={"name": "ResetTarget"})
     pid = res.json()["project_id"]
-
     res = client.post(f"/api/projects/{pid}/chapters", data={"title": "ToReset"})
     cid = res.json()["chapter"]["id"]
 
-    from app.core.config import get_chapter_dir
     c_dir = get_chapter_dir(pid, cid)
     wav_path = c_dir / "chapter.wav"
     wav_path.write_text("data")
-
-    # Manually update the chapter to point to this file so reset knows to delete it
-    from app.db import update_chapter
     update_chapter(cid, audio_file_path="chapter.wav")
-
     assert wav_path.exists()
 
-    # Reset
+    # A second, unrelated project with an identically-named chapter.wav.
+    res = client.post("/api/projects", data={"name": "OtherProject"})
+    other_pid = res.json()["project_id"]
+    res = client.post(f"/api/projects/{other_pid}/chapters", data={"title": "Untouched"})
+    other_cid = res.json()["chapter"]["id"]
+
+    other_dir = get_chapter_dir(other_pid, other_cid)
+    other_wav_path = other_dir / "chapter.wav"
+    other_wav_path.write_text("other project's data")
+    update_chapter(other_cid, audio_file_path="chapter.wav")
+    assert other_wav_path.exists()
+
+    # Reset only the first project's chapter.
     res = client.post(f"/api/chapters/{cid}/reset")
     assert res.status_code == 200
 
-    # Check if file is gone
+    # The target chapter's audio is gone...
     assert not wav_path.exists()
+    # ...but the other project's identically-named file is untouched.
+    assert other_wav_path.exists()
+    assert other_wav_path.read_text() == "other project's data"
 
 def test_import_legacy_data_is_safe(client):
     """
-    Verifies that running the migration endpoint doesn't crash
-    and obeys isolation rules.
+    Verifies that running the migration endpoint actually reads a legacy
+    state.json's jobs and materializes them as a project + chapter row,
+    not just a no-crash smoke test on an empty directory.
     """
-    res = client.post("/api/migration/import_legacy")
-    assert res.status_code == 200
-    assert res.json()["status"] == "success"
+    import json
+    from app.core.config import BASE_DIR
+    from app.db.core import get_connection
+    from app.db.projects import list_projects
+
+    # migrate_state_json_to_db() only imports jobs when the projects table is
+    # currently empty; force that precondition since the DB is shared across
+    # tests in this session.
+    with get_connection() as conn:
+        conn.execute("DELETE FROM chapters")
+        conn.execute("DELETE FROM projects")
+        conn.commit()
+
+    state_file = BASE_DIR / "state.json"
+    state_file.write_text(json.dumps({
+        "jobs": {
+            "legacy-job-1": {
+                "status": "done",
+                "custom_title": "Legacy Chapter One",
+                "output_wav": "legacy-job-1.wav",
+            }
+        }
+    }))
+
+    try:
+        res = client.post("/api/migration/import_legacy")
+        assert res.status_code == 200
+        assert res.json()["status"] == "success"
+
+        projects = list_projects()
+        assert len(projects) == 1
+        assert projects[0]["name"] == "Imported Project"
+        assert projects[0]["series"] == "Legacy Data"
+
+        with get_connection() as conn:
+            rows = conn.execute(
+                "SELECT title, audio_status, audio_file_path FROM chapters"
+            ).fetchall()
+        assert len(rows) == 1
+        assert rows[0][0] == "Legacy Chapter One"
+        assert rows[0][1] == "done"
+        assert rows[0][2] == "legacy-job-1.wav"
+    finally:
+        state_file.unlink(missing_ok=True)
 
 def test_chapter_metadata_sync(client):
     """

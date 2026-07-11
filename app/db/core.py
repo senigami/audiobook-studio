@@ -61,6 +61,15 @@ def get_connection():
     _assert_safe_db_path_for_tests(db_path)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
+    # R-C (W-PAR 005): WAL mode allows concurrent per-segment status writers
+    # (one connection per write, per the app's connect-per-call pattern) to
+    # commit without blocking readers/other writers on the same DB file —
+    # required once multiple children write `chapter_segments` rows
+    # concurrently. A no-op (already WAL) on every call after the first.
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+    except sqlite3.Error:
+        logger.debug("Failed to set WAL journal mode for %s", db_path, exc_info=True)
     return conn
 
 def get_studio_connection():
@@ -68,6 +77,10 @@ def get_studio_connection():
     _assert_safe_db_path_for_tests(db_path)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+    except sqlite3.Error:
+        logger.debug("Failed to set WAL journal mode for %s", db_path, exc_info=True)
     return conn
 
 def verify_and_cleanup_legacy_tables(conn: sqlite3.Connection):
@@ -146,13 +159,21 @@ def init_db():
                     id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
                     series TEXT,
+                    series_position INTEGER,
                     author TEXT,
                     speaker_profile_name TEXT,
                     cover_image_path TEXT,
+                    description TEXT,
                     created_at REAL,
                     updated_at REAL
                 )
             """)
+            cursor.execute("PRAGMA table_info(projects)")
+            project_columns = {row[1] for row in cursor.fetchall()}
+            if "series_position" not in project_columns:
+                cursor.execute("ALTER TABLE projects ADD COLUMN series_position INTEGER")
+            if "description" not in project_columns:
+                cursor.execute("ALTER TABLE projects ADD COLUMN description TEXT")
 
             # Chapters table
             cursor.execute("""
@@ -235,6 +256,18 @@ def init_db():
                 )
             """)
 
+            # Lexicon table (per-project pronunciation substitutions)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS lexicon (
+                    id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL,
+                    word TEXT NOT NULL,
+                    replacement TEXT NOT NULL,
+                    created_at REAL,
+                    FOREIGN KEY (project_id) REFERENCES projects (id)
+                )
+            """)
+
             # Projects/User migrations
             def add_column_if_missing(sql: str, label: str):
                 try:
@@ -253,6 +286,7 @@ def init_db():
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN custom_title TEXT", "processing_queue.custom_title")
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN engine TEXT", "processing_queue.engine")
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN segment_ids TEXT", "processing_queue.segment_ids")
+            add_column_if_missing("ALTER TABLE characters ADD COLUMN chapter_id TEXT", "characters.chapter_id")
 
             # Migration: Ensure project_id and chapter_id allow NULLs for system tasks
             try:

@@ -5,16 +5,18 @@ import threading
 import logging
 from typing import Optional, List
 from pathlib import Path
+from urllib.parse import urlparse
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Depends, HTTPException
 from fastapi.responses import JSONResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..core.config import (
-    VOICES_DIR, UPLOAD_DIR, REPORT_DIR, COVER_DIR, PROJECTS_DIR,
+    VOICES_DIR, COVER_DIR, PROJECTS_DIR,
     FRONTEND_DIST, get_project_cover_dir, get_project_m4b_dir,
 )
 from ..db import init_db
 from .routers import projects, chapters, voices, queue, settings, generation, system, analysis, migration, engines
+from .routers.projects_lexicon import router as lexicon_router
 from .ws import manager, broadcast_job_updated
 from .tts_api import tts_app
 from .routers.analysis import AnalysisError
@@ -22,7 +24,6 @@ from .routers.analysis import AnalysisError
 # Compatibility for tests that monkeypatch these
 COVER_DIR = COVER_DIR
 PROJECTS_DIR = PROJECTS_DIR
-REPORT_DIR = REPORT_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +204,7 @@ def get_voice_preview_hardened(full_path: str):
 
 @app.get("/out/covers/{filename}")
 def get_legacy_cover_output(filename: str):
-    """Legacy route for shared covers in UPLOAD_DIR/covers."""
+    """Legacy route for shared covers in the shared upload directory's covers subfolder."""
     file_path = _contained_root_file(COVER_DIR, filename)
     if not file_path:
         raise HTTPException(status_code=404)
@@ -215,8 +216,49 @@ def get_legacy_cover_output(filename: str):
 # --- WebSockets ---
 _main_loop = [None]
 
+# urlparse(...).hostname strips IPv6 brackets, so store the bare "::1" form
+# (keep "[::1]" too in case a raw bracketed host is ever compared).
+_WS_LOCALHOST_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "[::1]"})
+
+
+def _ws_origin_allowed(origin: str, host_header: str) -> bool:
+    """Return True if the WebSocket upgrade Origin is from a permitted host.
+
+    Permitted hosts:
+    - localhost / 127.0.0.1 / [::1]  (loopback variants)
+    - the server's own Host header value (same-origin requests)
+
+    This prevents cross-site WebSocket hijacking (CSWSH) from browsers.
+    Non-browser clients omit the Origin header entirely and must be allowed by
+    the caller (absence-of-Origin ≠ rejected).
+    """
+    try:
+        parsed = urlparse(origin)
+        # urlparse puts host+port in netloc; extract just the hostname
+        host = parsed.hostname or ""
+    except Exception:
+        return False
+    if host in _WS_LOCALHOST_HOSTS:
+        return True
+    # Compare against the server's own Host header (strip port for comparison)
+    server_host = host_header.split(":")[0].lower() if host_header else ""
+    return host.lower() == server_host
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    # S6: Origin check — reject cross-origin browser upgrade attempts (CSWSH prevention).
+    # Non-browser clients (native apps, CLI tools) omit Origin entirely; treat absence as allowed
+    # since the CSWSH attack vector requires a browser to send the Origin header automatically.
+    # NOTE: This is a localhost-first app; the meaningful protection is against pages on
+    # other origins running in the same browser session making background WS connections.
+    origin = websocket.headers.get("origin")
+    if origin is not None:
+        host_header = websocket.headers.get("host", "")
+        if not _ws_origin_allowed(origin, host_header):
+            logger.warning("WebSocket upgrade rejected: cross-origin request from %r", origin)
+            await websocket.close(code=1008)
+            return
     await manager.connect(websocket)
     if not _main_loop[0]:
         try:
@@ -418,11 +460,6 @@ def shutdown_event():
     configure_progress_broadcaster(None)
     terminate_all_subprocesses()
 
-async def tts_generate_stub(*args, **kwargs):
-    """Dummy for tests that patch app.web.tts_generate_stub"""
-    pass
-
-
 
 @app.middleware("http")
 async def lan_protection_middleware(request: Request, call_next):
@@ -455,6 +492,7 @@ app.include_router(system.router)
 app.include_router(analysis.router)
 app.include_router(migration.router)
 app.include_router(engines.router)
+app.include_router(lexicon_router, prefix="/api")
 
 # --- External TTS API ---
 app.mount("/api/v1/tts", tts_app)

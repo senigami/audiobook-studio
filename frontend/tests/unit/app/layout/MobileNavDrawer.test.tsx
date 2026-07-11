@@ -119,4 +119,41 @@ describe('MobileNavDrawer', () => {
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
     expect(screen.getByRole('button', { name: 'Switch to light mode' })).toBeTruthy();
   });
+
+  it('traps focus inside the drawer, wrapping Tab from the last item back to the first', () => {
+    render(
+      <MemoryRouter>
+        <MobileNavDrawer open={true} onClose={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    const nav = screen.getByRole('complementary', { name: 'Mobile navigation' });
+    const buttons = within(nav).getAllByRole('button');
+    const first = buttons[0];
+    const last = buttons[buttons.length - 1];
+
+    expect(document.activeElement).toBe(first);
+
+    last.focus();
+    expect(document.activeElement).toBe(last);
+
+    fireEvent.keyDown(document, { key: 'Tab', bubbles: true });
+
+    expect(document.activeElement).toBe(first);
+  });
+
+  it('calls onClose when Escape is pressed', () => {
+    const onClose = vi.fn();
+
+    render(
+      <MemoryRouter>
+        <MobileNavDrawer open={true} onClose={onClose} />
+      </MemoryRouter>,
+    );
+
+    const nav = screen.getByRole('complementary', { name: 'Mobile navigation' });
+    fireEvent.keyDown(nav, { key: 'Escape' });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });

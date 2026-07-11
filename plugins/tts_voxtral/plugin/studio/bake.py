@@ -1,33 +1,30 @@
 from __future__ import annotations
 import logging
 import shutil
-import time
-from pathlib import Path
 
 try:
     from studio_plugin_sdk.errors import BridgeError  # alias registered by plugin_loader
+    from studio_plugin_sdk.plugin_utils import make_segment_output_handler
 except ImportError:
     from app.studio_plugin_sdk.errors import BridgeError  # fallback for test/direct import
+    from app.studio_plugin_sdk.plugin_utils import make_segment_output_handler
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Module-level SDK context factory (lazy singleton)
+# Module-level SDK context accessor — delegates to the shared PL-1 factory
+# (app.studio_plugin_sdk.get_plugin_ctx), which owns the per-engine-id
+# lazy singleton cache. Kept as a local, patchable name because existing
+# tests patch ``<this module>._get_ctx`` directly.
 # ---------------------------------------------------------------------------
-
-_ctx_instance = None
-
 
 def _get_ctx():
     """Return the shared StudioPluginContext for the voxtral engine."""
-    global _ctx_instance  # noqa: PLW0603
-    if _ctx_instance is None:
-        try:
-            from studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
-        except ImportError:
-            from app.studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
-        _ctx_instance = StudioPluginContext("voxtral")
-    return _ctx_instance
+    try:
+        from studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
+    except ImportError:
+        from app.studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
+    return get_plugin_ctx("voxtral")
 
 
 # ---------------------------------------------------------------------------
@@ -78,6 +75,18 @@ def get_audio_duration(path):
     return _fn(path)
 
 
+def get_project_lexicon(project_id: str) -> list:
+    """Module-level alias for db.lexicon.get_lexicon — patchable by tests."""
+    from app.db.lexicon import get_lexicon as _fn  # noqa: PLC0415
+    return _fn(project_id)
+
+
+def apply_project_lexicon(text: str, entries: list) -> str:
+    """Module-level alias for utils.text.lexicon.apply_lexicon — patchable by tests."""
+    from app.utils.text.lexicon import apply_lexicon as _fn  # noqa: PLC0415
+    return _fn(text, entries)
+
+
 # ---------------------------------------------------------------------------
 # Lazy handler accessor — avoids circular import at module body level.
 # ---------------------------------------------------------------------------
@@ -85,27 +94,6 @@ def get_audio_duration(path):
 def _handler():
     from . import handler  # noqa: PLC0415
     return handler
-
-
-def _group_needs_render(group: dict, pdir: Path, force_rerender: bool = False) -> bool:
-    """Return True if the group's segment audio is missing or stale.
-
-    ``force_rerender`` (a rebuild) forces re-synthesis: cached segment audio is
-    never reused even when the segment is marked done on disk. Mirrors the xtts
-    bake/standard guard so the bake path can't silently reuse on a rebuild.
-    """
-    if force_rerender:
-        return True
-    expected_name = f"{group['segments'][0]['id']}.wav"
-    expected_path = pdir / "segments" / expected_name
-    if not expected_path.exists():
-        return True
-    for segment in group["segments"]:
-        if segment.get("audio_status") != "done":
-            return True
-        if segment.get("audio_file_path") != expected_name:
-            return True
-    return False
 
 
 def handle_voxtral_bake(jid, j, start, on_output, cancel_check, pdir, out_wav, voice_profile_dir, spk):
@@ -124,13 +112,21 @@ def handle_voxtral_bake(jid, j, start, on_output, cancel_check, pdir, out_wav, v
     all_groups = ctx.build_chunk_groups(segs, default_profile=j.speaker_profile)
     missing_groups = [
         group for group in all_groups
-        if _group_needs_render(group, pdir, getattr(j, "force_rerender", False))
+        if ctx.group_needs_render(group, pdir, force_rerender=getattr(j, "force_rerender", False))
     ]
 
     total_groups = len(all_groups)
     offset = total_groups - len(missing_groups)
 
     if missing_groups:
+        # Load the project lexicon once for the whole render (zero-impact when empty).
+        _lexicon_entries: list = []
+        if j.project_id:
+            try:
+                _lexicon_entries = get_project_lexicon(j.project_id)
+            except Exception:
+                logger.warning("Failed to load lexicon for project %s; proceeding without substitution.", j.project_id, exc_info=True)
+
         full_script = []
         path_to_group = {}
 
@@ -138,6 +134,11 @@ def handle_voxtral_bake(jid, j, start, on_output, cancel_check, pdir, out_wav, v
             combined_text = " ".join((s.get("text_content") or "").strip() for s in group["segments"])
             if j.safe_mode:
                 combined_text = ctx.sanitize_text(combined_text, sanitize_cats)
+            if _lexicon_entries:
+                try:
+                    combined_text = apply_project_lexicon(combined_text, _lexicon_entries)
+                except Exception:
+                    logger.warning("Lexicon substitution failed for group %s; using original text.", group["segments"][0].get("id"), exc_info=True)
 
             sid = group["segments"][0]["id"]
             seg_out = pdir / "segments" / f"{sid}.wav"
@@ -164,60 +165,29 @@ def handle_voxtral_bake(jid, j, start, on_output, cancel_check, pdir, out_wav, v
 
         completed_groups = [offset]
 
-        def bake_on_output(line):
-            on_output(line)
-            # A cancelled render must not write segment 'done' state: a chapter
-            # reset clears segments to 'unprocessed', and a straggler [SEGMENT_SAVED]
-            # from the not-yet-stopped engine would otherwise resurrect
-            # audio_status='done' and make the next render reuse stale audio.
-            # (Mirrors the standard_handler chapter_on_output guard / I17.)
-            if "[SEGMENT_SAVED]" in line and not cancel_check():
-                saved_path = line.split("[SEGMENT_SAVED]")[1].strip()
-                group_segs = path_to_group.get(saved_path)
-                if group_segs:
-                    seg_filename = Path(saved_path).name
-                    for s in group_segs:
-                        _update_seg(s["id"], audio_status="done", audio_file_path=seg_filename, audio_generated_at=time.time())
-                    completed_groups[0] += 1
-                    prog = round(min(completed_groups[0] / total_groups * 0.9, 0.9), 2) if total_groups else 0.9
-                    h.update_job(
-                        jid,
-                        progress=prog,
-                        active_segment_id=None,
-                        active_segment_progress=0.0,
-                        skip_studio_job_event=True,
-                        skip_job_updated=True,
-                    )
+        def _bake_progress_formula(completed, total, active_segment_progress, *, active_index):
+            # Linear (unweighted) curve, distinct from xtts's weighted formula.
+            # NOTE: the [SEGMENT_SAVED] call site historically had a
+            # zero-groups fallback of 0.9 while [START_SEGMENT]/[PROGRESS]
+            # fell back to 0.0 — both are unreachable in practice (a
+            # zero-group bake never enters the `if missing_groups:` block
+            # that constructs this closure), so a single formula covers all
+            # three call sites without changing observable behavior.
+            base = completed / total * 0.9 if total else 0.0
+            frac = active_segment_progress / total * 0.9 if total else 0.0
+            return {"progress": round(min(base + frac, 0.9), 2)}
 
-            if "[START_SEGMENT]" in line:
-                asid = line.split("[START_SEGMENT]")[1].strip()
-                prog = round(min(completed_groups[0] / total_groups * 0.9, 0.9), 2) if total_groups else 0.0
-                h.update_job(
-                    jid,
-                    force_broadcast=True,
-                    progress=prog,
-                    active_segment_id=asid,
-                    active_segment_progress=0.0,
-                    skip_studio_job_event=True,
-                    skip_job_updated=True,
-                )
-
-            if "[PROGRESS]" in line:
-                try:
-                    p_str = line.split("[PROGRESS]")[1].split("%")[0].strip()
-                    segment_progress = float(p_str) / 100.0
-                    base = completed_groups[0] / total_groups * 0.9 if total_groups else 0.0
-                    frac = segment_progress / total_groups * 0.9 if total_groups else 0.0
-                    h.update_job(
-                        jid,
-                        force_broadcast=True,
-                        progress=round(min(base + frac, 0.9), 2),
-                        active_segment_progress=segment_progress,
-                        skip_studio_job_event=True,
-                        skip_job_updated=True,
-                    )
-                except Exception:
-                    logger.warning("Failed to parse [PROGRESS] line: %r", line, exc_info=True)
+        bake_on_output = make_segment_output_handler(
+            on_output=on_output,
+            cancel_check=cancel_check,
+            path_to_group=path_to_group,
+            update_seg=_update_seg,
+            completed_groups=completed_groups,
+            total_groups=total_groups,
+            update_job_fn=h.update_job,
+            jid=jid,
+            progress_formula=_bake_progress_formula,
+        )
 
         scratch_wav = pdir / f"output_{j.id}.wav"
         try:

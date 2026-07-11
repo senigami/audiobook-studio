@@ -632,9 +632,23 @@ def _validate_manifest(*, manifest: dict[str, Any], folder_name: str) -> None:
                 "Update the plugin manifest or install a compatible version of Studio."
             )
 
-    # Validate optional behavior.sanitize_categories field.
+    # Validate optional behavior fields.
     behavior = manifest.get("behavior", {})
     if isinstance(behavior, dict):
+        # Validate behavior.max_concurrent_workers (W-PAR task 001).
+        mcw = behavior.get("max_concurrent_workers")
+        if mcw is not None:
+            if not isinstance(mcw, int) or isinstance(mcw, bool):
+                raise PluginLoadError(
+                    f"behavior.max_concurrent_workers must be an integer ≥ 1 in {folder_name}, "
+                    f"got {mcw!r}"
+                )
+            if mcw < 1:
+                raise PluginLoadError(
+                    f"behavior.max_concurrent_workers must be ≥ 1 in {folder_name}, "
+                    f"got {mcw!r}"
+                )
+
         sanitize_cats = behavior.get("sanitize_categories")
         if sanitize_cats is not None:
             from app.utils.text.textops_cleaning import SANITIZE_CATEGORIES  # noqa: PLC0415
@@ -938,6 +952,31 @@ def _validate_engine_signatures(engine_cls: type, class_name: str, folder_name: 
                     f"parameter #{idx + 1} must be named {expected_name!r} but found {actual_name!r}. "
                     f"Expected signature: {_expected_sig}."
                 )
+
+
+def get_manifest_max_concurrent_workers(manifest: dict[str, object]) -> int:
+    """Return the ``behavior.max_concurrent_workers`` value from a manifest dict.
+
+    Absent or None → 1 (safe default; backward compatible with manifests that
+    predate W-PAR task 001).  Always returns an integer ≥ 1.
+
+    Args:
+        manifest: A parsed manifest dict (or any dict with a ``"behavior"`` key).
+
+    Returns:
+        int: The declared concurrency cap (≥ 1).
+    """
+    behavior = manifest.get("behavior", {})
+    if not isinstance(behavior, dict):
+        return 1
+    mcw = behavior.get("max_concurrent_workers")
+    if mcw is None:
+        return 1
+    try:
+        val = int(mcw)
+    except (TypeError, ValueError):
+        return 1
+    return max(1, val)
 
 
 def get_plugin_dir(engine_id: str) -> Path:

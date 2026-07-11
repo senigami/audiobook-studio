@@ -40,3 +40,5 @@ def test_boot_tts_server_uses_repo_root_plugins_dir():
     mock_cleanup.assert_called_once()
     mock_start.assert_called_once()
     assert mock_start.call_args.kwargs["plugins_dir"] == PLUGINS_DIR
+
+

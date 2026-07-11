@@ -55,7 +55,11 @@ for d in ["uploads", "reports", "voices", "uploads/covers", "projects"]:
 # 2. NOW import modules that rely on these env vars
 from app.db import init_db  # noqa: E402
 from app.db.state import clear_all_jobs  # noqa: E402
-from app.orchestration.scheduler.resources import set_paused, get_gpu_gate, get_exclusive_gate  # noqa: E402
+from app.orchestration.scheduler.resources import (  # noqa: E402
+    set_paused, get_gpu_gate, get_exclusive_gate,
+    _global_cap_gate as _resources_global_cap_gate,
+    _engine_semaphores as _resources_engine_semaphores,
+)
 from app.engines.proc_utils import terminate_all_subprocesses  # noqa: E402
 
 
@@ -121,6 +125,11 @@ def _cleanup_test_runtime():
         set_paused(False)
         get_gpu_gate().reset()
         get_exclusive_gate().reset()
+        # W-PAR task 001: also reset the new per-engine-class semaphores so
+        # tests that acquire engine-class slots don't leak into subsequent tests.
+        _resources_global_cap_gate.reset()
+        for _sem in list(_resources_engine_semaphores.values()):
+            _sem.reset()
     except Exception:
         pass
     # Join any lingering progress-heartbeat daemon threads so they cannot leak
@@ -256,6 +265,10 @@ def clean_storage():
     set_paused(False)
     get_gpu_gate().reset()
     get_exclusive_gate().reset()
+    # W-PAR task 001: reset per-engine-class semaphores between tests.
+    _resources_global_cap_gate.reset()
+    for _sem in list(_resources_engine_semaphores.values()):
+        _sem.reset()
 
     # Reset the shared session workspace so tests do not leak filesystem
     # state into one another. We intentionally operate on the fixed session

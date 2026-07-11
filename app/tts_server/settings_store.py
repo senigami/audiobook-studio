@@ -205,6 +205,62 @@ def _strip_read_only_settings(settings: dict[str, Any], schema: dict[str, Any]) 
     return {key: value for key, value in settings.items() if key not in read_only_keys}
 
 
+# Sentinel value returned/expected for secret fields — mirrors the S1 pattern
+# used by _redact_settings() in app/api/routers/system.py.
+_SECRET_SENTINEL = "***"
+
+
+def secret_keys(schema: dict[str, Any]) -> set[str]:
+    """Return the set of setting keys marked ``"secret": true`` in *schema*.
+
+    Args:
+        schema: JSON Schema dict from the engine's ``settings_schema.json``.
+
+    Returns:
+        set[str]: Keys whose property object carries ``"secret": true``.
+    """
+    properties = schema.get("properties", {}) if isinstance(schema, dict) else {}
+    if not isinstance(properties, dict):
+        return set()
+    return {
+        key
+        for key, prop in properties.items()
+        if isinstance(prop, dict) and prop.get("secret") is True
+    }
+
+
+def redact_secret_settings(settings: dict[str, Any], schema: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of *settings* with all schema-declared secret fields redacted.
+
+    A secret field that holds a truthy value is replaced with ``"***"``.
+    A secret field that is falsy (empty string, None, etc.) is replaced with ``""``.
+    Non-secret fields are returned unchanged.
+
+    This mirrors ``_redact_settings()`` in ``app/api/routers/system.py`` (the S1
+    precedent) but is driven by the plugin's ``settings_schema.json`` rather than
+    a hard-coded set.
+
+    NOTE: If a settings dict is ever logged at the save/merge path, this function
+    MUST be called on it first so secrets are not written to log files.
+
+    Args:
+        settings: Current settings dict for an engine.
+        schema: JSON Schema dict (from ``_load_settings_schema`` or
+            ``engine.settings_schema()``).
+
+    Returns:
+        dict[str, Any]: Copy of *settings* with secret values masked.
+    """
+    keys = secret_keys(schema)
+    if not keys:
+        return dict(settings)
+    out = dict(settings)
+    for key in keys:
+        if key in out:
+            out[key] = _SECRET_SENTINEL if out[key] else ""
+    return out
+
+
 def merge_settings(
     base: dict[str, Any],
     updates: dict[str, Any],
@@ -229,6 +285,9 @@ def merge_settings(
     errors: list[str] = []
     merged = dict(base)
 
+    # Pre-compute secret keys once so the loop is O(1) per key.
+    _secret_keys = secret_keys(schema)
+
     for key, value in updates.items():
         if properties and key not in properties:
             errors.append(f"Unknown setting key: {key!r}")
@@ -236,6 +295,14 @@ def merge_settings(
 
         prop = properties.get(key, {})
         if prop.get("readOnly"):
+            continue
+
+        # Secret-field sentinel guard: when a client round-trips the masked
+        # value ("***") back to us, silently drop it so the real stored
+        # secret is never overwritten by the placeholder.
+        # NOTE: if logging is ever added here, use redact_secret_settings()
+        # on the merged dict before writing to logs — never log raw secrets.
+        if key in _secret_keys and value == _SECRET_SENTINEL:
             continue
 
         expected_type = prop.get("type")

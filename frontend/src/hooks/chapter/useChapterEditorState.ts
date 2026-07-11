@@ -26,6 +26,7 @@ export const useChapterEditorState = (chapterId: string) => {
   const queueSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const completionPollAttemptsRef = useRef(0);
   const [saveConflictError, setSaveConflictError] = useState<string | null>(null);
+  const [chapterNotFound, setChapterNotFound] = useState(false);
 
   const {
     analysis, setAnalysis, analyzing, loadingVoiceChunks,
@@ -52,6 +53,7 @@ export const useChapterEditorState = (chapterId: string) => {
     queueSyncTimerRef,
     completionPollAttemptsRef,
     saveConflictError, setSaveConflictError,
+    chapterNotFound, setChapterNotFound,
     analysis, setAnalysis,
     analyzing, loadingVoiceChunks,
     ensureVoiceChunks, runAnalysis

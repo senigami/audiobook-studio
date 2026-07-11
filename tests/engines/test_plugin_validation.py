@@ -17,7 +17,7 @@ from app.tts_server.plugin_validation import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-TEMPLATE_PLUGIN_DIR = Path(__file__).parents[2] / "docs" / "plugin-template"
+TEMPLATE_PLUGIN_DIR = Path(__file__).parents[2] / "docs" / "plugin-sdk" / "plugin-template"
 
 
 def _make_studio_handler(tmp_path: Path, source: str) -> Path:
@@ -34,10 +34,15 @@ def _make_studio_handler(tmp_path: Path, source: str) -> Path:
 
 class TestTemplateManifest:
     def test_template_manifest_has_version_fields(self):
+        """Route the check through the real manifest validator (not a hand-rolled
+        field-by-field re-check) so this actually proves the shipped template
+        satisfies the contract the loader enforces on every plugin."""
+        from app.tts_server.plugin_loader import _validate_manifest
+
         manifest = json.loads((TEMPLATE_PLUGIN_DIR / "manifest.json").read_text())
-        for field in ("contract_version", "sdk_version", "settings_schema_version", "event_envelope_version"):
-            assert field in manifest, f"manifest.json missing '{field}'"
-            assert manifest[field] == "1.0", f"manifest.json {field} should be '1.0'"
+        # Must not raise PluginLoadError — the real S8 version-field gate (and
+        # every other required-field check) is satisfied by the shipped template.
+        _validate_manifest(manifest=manifest, folder_name="tts_template")
 
 
 # ---------------------------------------------------------------------------

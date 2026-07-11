@@ -1,10 +1,16 @@
 from __future__ import annotations
 import re
-from typing import Iterable, Optional
+from pathlib import Path
+from typing import Any, Iterable, Optional
 
 from ..db.core import get_connection
 from ..engines.voice_engines import resolve_profile_engine
-from ..engines.behavior import get_text_chunk_limit
+from ..engines.behavior import (
+    get_text_chunk_limit,
+    get_text_split_target,
+    get_sanitize_categories,
+    has_behavior,
+)
 
 
 def load_chunk_segments(chapter_id: str) -> list[dict]:
@@ -86,6 +92,87 @@ def build_chunk_groups(
         )
 
     return groups
+
+
+def build_script_entry_for_group(
+    group: dict,
+    chapter_dir: Path,
+    *,
+    default_profile: Optional[str] = None,
+    safe_mode: bool = True,
+) -> dict[str, Any]:
+    """Build a single orchestrator ``script`` entry for one chunk group.
+
+    Extracted (W-PAR 008, R2) from ``app.api.routers.generation``'s
+    ``_build_script_for_chapter`` per-group loop body so both the live
+    chapter-script builder AND the per-child synthetic-task path (W-PAR 008's
+    ``ChapterSynthesisTask``/``SegmentSynthesisTask`` reuse of
+    ``_dispatch_segment``) share one script-entry shape — no duplicate logic.
+
+    The returned dict is the shape ``_dispatch_segment``
+    (``orchestration/scheduler/orchestrator_helpers.py``) reads for weighted
+    progress tracking: ``id``, ``ids``, ``save_path`` (absolute), ``weight``,
+    ``text``, ``engine``, plus optional ``speaker_wav``/``voice_profile_dir``.
+
+    Args:
+        group: A ``build_chunk_groups`` chunk-group dict.
+        chapter_dir: The chapter's asset directory (segment WAVs are written
+            under ``chapter_dir / "segments"``).
+        default_profile: Fallback engine-resolution profile when the group
+            itself does not carry a resolved ``engine``.
+        safe_mode: Whether to sanitize/split the group's joined text before
+            it reaches the engine.
+
+    Returns:
+        dict[str, Any]: One orchestrator script entry for this group.
+    """
+    from ..db.speakers import get_profile_wavs, get_profile_dir  # noqa: PLC0415
+
+    first = group["segments"][0]
+    profile_name = group["profile_name"]
+    engine_id = group.get("engine") or resolve_profile_engine(profile_name, default_profile)
+
+    # Resolve voice details
+    try:
+        sw = get_profile_wavs(profile_name) if profile_name else None
+        # Standard single-sample resolution for bridge transport
+        if sw and "," in sw:
+            sw = sw.split(",")[0]
+    except Exception:
+        sw = None
+
+    vdir = None
+    if profile_name:
+        try:
+            vdir = str(get_profile_dir(profile_name))
+        except Exception:
+            vdir = None
+
+    processed = " ".join(group["text_parts"]).strip()
+    if safe_mode:
+        if has_behavior(engine_id, "sanitize_text"):
+            from ..utils.text.textops import sanitize_text  # noqa: PLC0415
+            processed = sanitize_text(processed, get_sanitize_categories(engine_id))
+        from ..utils.text.textops import safe_split_long_sentences  # noqa: PLC0415
+        processed = safe_split_long_sentences(processed, target=get_text_split_target(engine_id))
+
+    # V2 segment path: chapters/{chapter_id}/segments/{first_segment_id}.wav
+    # The orchestrator uses absolute paths for bridge transport
+    seg_out = chapter_dir / "segments" / f"{first['id']}.wav"
+
+    script_entry: dict[str, Any] = {
+        "text": processed,
+        "speaker_wav": sw,
+        "id": first["id"],
+        "ids": [s["id"] for s in group["segments"]],
+        "save_path": str(seg_out.absolute()),
+        "weight": max(1, len(processed)),  # Store weight for orchestrator progress tracking
+        "engine": engine_id,
+    }
+    if vdir:
+        script_entry["voice_profile_dir"] = vdir
+
+    return script_entry
 
 
 def get_chunk_group_indexes_for_segment_ids(

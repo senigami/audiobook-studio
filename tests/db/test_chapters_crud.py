@@ -26,6 +26,23 @@ def test_chapter_crud(db_conn):
     assert chapter["title"] == "Updated Title"
     assert chapter["audio_status"] == "completed"
 
+def test_get_chapter_includes_segment_counts(db_conn):
+    # Matches list_chapters' shape so callers (e.g. the chapter editor loader)
+    # can use the single-chapter endpoint instead of re-fetching the whole
+    # project chapter list just to get segment counts.
+    pid = create_project("P_SEG_SINGLE", "/tmp")
+    cid = create_chapter(pid, "C_SEG_SINGLE")
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO chapter_segments (id, chapter_id, segment_order, text_content, audio_status) VALUES (?, ?, ?, ?, ?)", ("s1", cid, 1, "t1", "done"))
+        cursor.execute("INSERT INTO chapter_segments (id, chapter_id, segment_order, text_content, audio_status) VALUES (?, ?, ?, ?, ?)", ("s2", cid, 2, "t2", "unprocessed"))
+        conn.commit()
+
+    chapter = get_chapter(cid)
+    assert chapter["total_segments_count"] == 2
+    assert chapter["done_segments_count"] == 1
+
 def test_get_chapter_segments_counts(db_conn):
     pid = create_project("P_SEG", "/tmp")
     cid = create_chapter(pid, "C_SEG")

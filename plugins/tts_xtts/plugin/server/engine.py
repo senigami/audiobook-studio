@@ -23,6 +23,18 @@ from typing import Any, Optional
 from app.engines.voice.sdk import TTSRequest, TTSResult, VerificationResult
 from app.engines.voice.base import StudioTTSEngine
 from app.engines.proc_utils import run_cmd_stream
+# Shared, process-wide stderr write lock (see diagnostics.py's own docstring
+# for why the lock must live in a leaf module every stderr writer imports,
+# not be redefined per-module — a separate lock per writer wouldn't
+# serialize writers against EACH OTHER, defeating the point).
+from ..core.diagnostics import emit_stderr_atomic as _emit_stderr_atomic_line
+
+
+def _emit_stderr_atomic(line: str) -> None:
+    """Write one complete marker/log line to ``sys.stderr`` as a single
+    locked write (appends the trailing newline ``print()`` used to add).
+    """
+    _emit_stderr_atomic_line(line + "\n")
 
 
 def relay_marker(line: str, task_id: str) -> Optional[str]:
@@ -134,51 +146,24 @@ class XttsPlugin(StudioTTSEngine):
                 message=f"XTTS dependencies are present but the engine failed to load: {exc}"
             )
 
+    def model_warm(self) -> bool:
+        """Return True if the XTTS warm worker has already loaded the model in memory."""
+        try:
+            from ..core.implementation import _warm_worker_manager, _warm_worker_lock  # noqa: PLC0415
+            with _warm_worker_lock:
+                mgr = _warm_worker_manager
+            if mgr is None:
+                return False
+            return bool(mgr.is_model_ready())
+        except Exception:
+            return False
+
     def run_test(self) -> VerificationResult:
         """Run a self-contained synthesis test."""
-        ok, msg = self.check_env()
-        if not ok:
-            return VerificationResult(ok=False, message=msg)
-
-        plugin_dir = Path(__file__).parents[2]
-        assets_dir = plugin_dir / "assets"
-        assets_dir.mkdir(exist_ok=True)
-
-        # 1. Resolve input asset
-        voice_ref = None
-        for name in ["latent.pth", "voice.wav", "sample.wav"]:
-            cand = assets_dir / name
-            if cand.is_file():
-                voice_ref = str(cand)
-                break
-
-        if not voice_ref:
-            return VerificationResult(ok=False, message="No test assets found in assets/ folder.")
-
-        # 2. Setup output path inside plugin folder
-        output_path = assets_dir / "test_output.wav"
-
-        # 3. Create request
-        manifest_path = plugin_dir / "manifest.json"
-        test_text = "This is an internal XTTS verification test."
-        try:
-            if manifest_path.exists():
-                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-                test_text = manifest.get("test_text") or test_text
-        except Exception:
-            pass
-
-        req = TTSRequest(
-            text=test_text,
-            output_path=str(output_path),
-            voice_ref=voice_ref,
+        return super().run_test(
+            asset_search_order=["latent.pth", "voice.wav", "sample.wav"],
+            default_text="This is an internal XTTS verification test.",
         )
-
-        # 4. Run synthesis
-        result = self.synthesize(req)
-        if result.ok:
-            return VerificationResult(ok=True, message=f"Test passed. Output: {output_path.name}")
-        return VerificationResult(ok=False, message=f"Test failed: {result.error}")
 
     def check_request(self, req: TTSRequest) -> tuple[bool, str]:
         """Validate an XTTS synthesis request."""
@@ -391,11 +376,38 @@ class XttsPlugin(StudioTTSEngine):
             # "preparing" → "running" and emit per-segment highlights.
             # The worker's stderr is a separate captured PIPE; writing to sys.stderr
             # here writes to the server process's stderr — no recursion risk.
+            try:
+                normalized = relay_marker(line, req.task_id) if req.task_id else None
+                if normalized is not None:
+                    _emit_stderr_atomic(normalized)
+                else:
+                    # W-MIX-LA: forward raw non-marker worker output so the Engine
+                    # Diagnostics page shows the complete live log, and status/load
+                    # lines reach the orchestrator. Forwarded regardless of task_id so
+                    # internal run_test/verify calls (task_id=None) are never silently dropped.
+                    _emit_stderr_atomic(line)
+            except Exception:
+                pass
+
+            # Emit a dedicated [MODEL_LOAD_STARTED] marker when the XTTS worker's
+            # cold-load line is observed.  These bare text lines are dropped by
+            # relay_marker (which only recognizes bracketed markers), but they are
+            # the only real-load signal: the worker prints them ONCE per process on
+            # cold load; warm reuse and Voxtral never print them.  Re-emitting as a
+            # recognized bracketed marker lets the watchdog and orchestrator see the
+            # real-load event (INV-2 safe — never fires on warm/cloud groups).
             if req.task_id:
                 try:
-                    normalized = relay_marker(line, req.task_id)
-                    if normalized is not None:
-                        print(normalized, file=sys.stderr, flush=True)
+                    stripped_for_load = line.strip()
+                    if (
+                        stripped_for_load == "Loading XTTS model..."
+                        or stripped_for_load == "XTTS serve mode: loading model..."
+                    ):
+                        if active_segment_id:
+                            load_marker = f"[MODEL_LOAD_STARTED] {active_segment_id} {req.task_id}"
+                        else:
+                            load_marker = f"[MODEL_LOAD_STARTED] {req.task_id}"
+                        _emit_stderr_atomic(load_marker)
                 except Exception:
                     pass
 

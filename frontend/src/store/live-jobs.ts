@@ -27,6 +27,20 @@ export interface OverlayDelta {
   active_render_batch_progress?: number | null;
   active_segment_id?: string | null;
   active_segment_progress?: number | null;
+  /**
+   * Chapter-level map of concurrently-active segments (W-PAR 006). Keyed by
+   * segment id; each entry carries the full per-segment lifecycle (phase,
+   * progress, ETA, optional reason_code/indeterminate). Frozen contract (C2):
+   * consumed verbatim. When absent, callers fall back to the singular
+   * active_segment_id/active_segment_progress scalars above (INV-1).
+   */
+  active_segments_map?: Record<string, {
+    phase: 'preparing' | 'rendering' | 'done';
+    progress: number;
+    eta_seconds: number | null;
+    reason_code?: string;
+    indeterminate?: boolean;
+  }> | null;
   render_group_count?: number | null;
   completed_render_groups?: number | null;
   active_render_group_index?: number | null;
@@ -35,6 +49,8 @@ export interface OverlayDelta {
   active_render_group_weight?: number | null;
   grouped_progress?: number | null;
   reason_code?: string | null;
+  indeterminate?: boolean | null;
+  loadingElapsedSeconds?: number | null;
   message?: string | null;
   error?: string | null;
   audio_length_seconds?: number | null;
@@ -245,6 +261,8 @@ export const createLiveJobsStore = (): LiveJobsStore => {
     if (event.message) nextDelta.message = event.message;
     if (event.message) nextDelta.error = event.message;
     if (event.reason_code) nextDelta.reason_code = event.reason_code;
+    if (event.indeterminate !== undefined) nextDelta.indeterminate = event.indeterminate;
+    if (event.loadingElapsedSeconds !== undefined) nextDelta.loadingElapsedSeconds = event.loadingElapsedSeconds;
     if (event.active_render_batch_id !== undefined) {
       nextDelta.active_render_batch_id = event.active_render_batch_id;
     }
@@ -252,16 +270,32 @@ export const createLiveJobsStore = (): LiveJobsStore => {
       nextDelta.active_render_batch_progress = event.active_render_batch_progress;
     }
     // Clearing (explicit null) applies regardless of scope so callers can reset
-    // the active segment; setting a concrete value only applies on segment scope.
+    // the active segment; setting a concrete value applies on segment scope OR
+    // when the frame carries a concrete active_segment_id together with a load
+    // signal (reason_code === 'LOADING_MODEL' or indeterminate === true) — the
+    // R-C relaxation for mid-chapter cold-load frames (W-MIX-LA 004).
+    // Never set from a stale/absent id; never from a regular chapter frame.
+    const isLoadSignal = event.reason_code === 'LOADING_MODEL' || event.indeterminate === true;
+    const hasConcreteSegmentId =
+      typeof event.active_segment_id === 'string' && event.active_segment_id.length > 0;
     if (event.active_segment_id === null) {
       nextDelta.active_segment_id = null;
-    } else if (event.scope === 'segment' && event.active_segment_id !== undefined) {
+    } else if (
+      (event.scope === 'segment' || (isLoadSignal && hasConcreteSegmentId)) &&
+      event.active_segment_id !== undefined
+    ) {
       nextDelta.active_segment_id = event.active_segment_id;
     }
     if (event.active_segment_progress === null) {
       nextDelta.active_segment_progress = null;
     } else if (event.scope === 'segment' && event.active_segment_progress !== undefined) {
       nextDelta.active_segment_progress = event.active_segment_progress;
+    }
+    // active_segments_map (W-PAR 006) — chapter-level, consumed verbatim (C2 contract).
+    // Not scope-gated like the single-segment scalars above: it rides the existing
+    // chapter progress frame regardless of scope (INV-9).
+    if (event.active_segments_map !== undefined) {
+      nextDelta.active_segments_map = event.active_segments_map;
     }
     if (event.render_group_count !== undefined) {
       nextDelta.render_group_count = event.render_group_count;
@@ -360,6 +394,7 @@ export const createLiveJobsStore = (): LiveJobsStore => {
       active_render_batch_progress: jobUpdated.active_render_batch_progress,
       active_segment_id: jobUpdated.active_segment_id,
       active_segment_progress: jobUpdated.active_segment_progress,
+      active_segments_map: jobUpdated.active_segments_map,
       render_group_count: jobUpdated.render_group_count,
       completed_render_groups: jobUpdated.completed_render_groups,
       active_render_group_index: jobUpdated.active_render_group_index,
@@ -369,6 +404,8 @@ export const createLiveJobsStore = (): LiveJobsStore => {
       grouped_progress: jobUpdated.grouped_progress,
       message: jobUpdated.message || jobUpdated.log || jobUpdated.error || undefined,
       reason_code: jobUpdated.reason_code,
+      indeterminate: jobUpdated.indeterminate,
+      loadingElapsedSeconds: jobUpdated.loadingElapsedSeconds,
       eta_updated_at: typeof jobUpdated.eta_updated_at === 'number' ? jobUpdated.eta_updated_at : (typeof jobUpdated.etaUpdatedAt === 'number' ? jobUpdated.etaUpdatedAt : undefined),
       etaUpdatedAt: typeof jobUpdated.etaUpdatedAt === 'number' ? jobUpdated.etaUpdatedAt : (typeof jobUpdated.eta_updated_at === 'number' ? jobUpdated.eta_updated_at : undefined),
       confidence: typeof jobUpdated.confidence === 'number' ? jobUpdated.confidence : undefined,

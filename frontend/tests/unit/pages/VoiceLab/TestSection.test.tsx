@@ -77,18 +77,6 @@ describe('TestSection', () => {
         vi.clearAllMocks();
     });
 
-    it('renders the Test section label', () => {
-        render(<TestSection {...commonProps} />);
-        // Multiple "Test" elements exist (label + options); just assert presence
-        const allTest = screen.getAllByText(/Test/i);
-        expect(allTest.length).toBeGreaterThan(0);
-    });
-
-    it('renders the Generate test button', () => {
-        render(<TestSection {...commonProps} />);
-        expect(screen.getByRole('button', { name: /generate test/i })).toBeInTheDocument();
-    });
-
     it('fires onTest when Generate test is clicked', async () => {
         const onTest = vi.fn().mockResolvedValue(undefined);
         render(<TestSection {...commonProps} onTest={onTest} />);
@@ -102,12 +90,14 @@ describe('TestSection', () => {
         expect(onTest).toHaveBeenCalledWith(defaultProfile.name);
     });
 
-    it('renders a variant selector with the profile variant name', () => {
+    it('renders a variant selector with the interpolated variant name and engine label', () => {
         render(<TestSection {...commonProps} />);
         const select = screen.getByRole('combobox', { name: /test variant/i });
         expect(select).toBeInTheDocument();
-        // The option should contain the variant name
-        expect(screen.getByRole('option', { name: /default/i })).toBeInTheDocument();
+        // The option label interpolates both the profile's variant_name and the
+        // looked-up engine display_name — assert the full computed string, not
+        // just a substring, so a regression in either half is caught.
+        expect(screen.getByRole('option', { name: 'Default (XTTS v2)' })).toBeInTheDocument();
     });
 
     it('renders a reference sample selector when samples are present', () => {

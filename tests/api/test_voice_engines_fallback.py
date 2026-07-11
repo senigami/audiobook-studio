@@ -341,7 +341,6 @@ def test_explicit_valid_default_engine_resolves():
 
 
 def test_normalize_profile_metadata_empty_does_not_write_file(tmp_path, monkeypatch):
-    import json
     from app.db.speakers import normalize_profile_metadata
     from app.core import config
 
@@ -353,7 +352,16 @@ def test_normalize_profile_metadata_empty_does_not_write_file(tmp_path, monkeypa
     profile_dir.mkdir(parents=True)
     profile_file = profile_dir / "profile.json"
 
-    assert not profile_file.exists(), "profile.json should not be created if metadata was empty"
+    # persist defaults to False: normalize_profile_metadata is a pure
+    # computation (fill in derived variant_name/engine fields) unless the
+    # caller explicitly opts into writing profile.json to disk.
+    result = normalize_profile_metadata("Dracula - Default", {})
+
+    assert result["variant_name"] == "Default"
+    assert not profile_file.exists(), (
+        "normalize_profile_metadata(persist=False) must not write profile.json "
+        "even when the derived metadata is non-trivial"
+    )
 
 
 def test_update_settings_explicit_invalid_default_engine_preserves_on_disk(tmp_path, monkeypatch):

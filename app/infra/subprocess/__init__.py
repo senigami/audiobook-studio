@@ -4,18 +4,10 @@ This package will hold safe wrappers for engine launches, ffmpeg, and other
 external processes so engine adapters do not manage process details ad hoc.
 """
 
-# Intentional plugin-boundary allowlist: installed plugin bundles are
-# authorized to manage subprocess lifecycles for external engine binaries.
-INTENDED_UPSTREAM_CALLERS = (
-    "plugins.",
-    "app.domain.artifacts.cache",
-)
-INTENDED_DOWNSTREAM_DEPENDENCIES = ()
-FORBIDDEN_DIRECT_IMPORTS = (
-    "app.api.routers",
-    "app.domain.projects",
-    "app.domain.chapters",
-)
+# Intentional plugin-boundary allowlist: installed plugin bundles are authorized to manage
+# subprocess lifecycles for external engine binaries. Upstream: plugins.*, app.domain.artifacts.cache.
+# No downstream deps. Must not import app.api.routers / app.domain.projects / app.domain.chapters
+# directly.
 
 
 def run_managed_subprocess(*, command: list[str], context: str) -> dict[str, object]:

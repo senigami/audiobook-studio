@@ -1,3 +1,3 @@
 // Project view route exports for Studio 2.0.
 
-export { createProjectViewRoute } from '@/pages/ProjectDetail/ProjectViewRoute';
+export { ProjectViewRoute } from '@/pages/ProjectDetail/ProjectViewRoute';

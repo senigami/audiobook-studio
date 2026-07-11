@@ -4,10 +4,9 @@
  *  - "Assemble M4B" switches assembly card to selection mode (checkbox list of chapters,
  *    Select all, only Rendered enabled, Cancel / Confirm Assembly (N))
  *  - Assembly-progress strip at top when confirmed (static 42%)
- *  - Create-backup row (description input + Save)
  */
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Btn, ProgressBar, Card, SemanticChip, BookCover, Panel } from '../shared';
+import { Row, Col, Btn, ProgressBar, Card, SemanticChip, BookCover } from '../shared';
 import { Check, Square, Download, Edit3 } from 'lucide-react';
 
 type ChapterLifecycle = 'Draft' | 'Ready' | 'Cast' | 'Rendered';
@@ -34,10 +33,6 @@ const RENDERED_CHAPTER_NS = ASSEMBLE_CHAPTERS.filter(c => c.lifecycle === 'Rende
 export const PublishPane: React.FC = () => {
   const [assembleMode, setAssembleMode] = useState<'idle' | 'selecting' | 'assembling' | 'assembled'>('idle');
   const [selectedChapters, setSelectedChapters] = useState<Set<number>>(new Set(RENDERED_CHAPTER_NS));
-  const [backupDesc, setBackupDesc] = useState('');
-  const [includeAudio, setIncludeAudio] = useState(true);
-  const [restoringBackup, setRestoringBackup] = useState<string | null>(null);
-
   const [assemblyProgress, setAssemblyProgress] = useState(42);
 
   const renderedCount = selectedChapters.size;
@@ -81,36 +76,6 @@ export const PublishPane: React.FC = () => {
 
   return (
     <div className="ns-enter" style={{ display: 'contents' }}>
-      {restoringBackup && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 300,
-          background: 'var(--overlay-backdrop)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Panel style={{ padding: 'var(--space-4) var(--space-5)', width: 320, boxShadow: 'var(--shadow-xl)' }}>
-            <div style={{ fontSize: 'var(--type-headline)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 'var(--space-2)' }}>
-              Restore Backup?
-            </div>
-            <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', marginBottom: 'var(--space-3)', lineHeight: 'var(--leading-normal)' }}>
-              Are you sure you want to restore the backup from <strong>{restoringBackup}</strong>?
-              <br /><br />
-              <span style={{ color: 'var(--error)' }}>
-                <strong>WARNING:</strong> Restoring this backup will overwrite all current chapters, audio files, and voice assignments. This action cannot be undone.
-              </span>
-            </div>
-            <Row gap={8} style={{ justifyContent: 'flex-end' }}>
-              <Btn small onClick={() => setRestoringBackup(null)}>Cancel</Btn>
-              <Btn small primary onClick={() => {
-                alert(`Restored backup: ${restoringBackup}`);
-                setRestoringBackup(null);
-              }} style={{ background: 'var(--error)', border: '1px solid var(--error)' }}>
-                Restore &amp; Overwrite
-              </Btn>
-            </Row>
-          </Panel>
-        </div>
-      )}
-
       <Row className="ns-publish-grid" gap={16} style={{ flex: 1, alignItems: 'stretch' }}>
         {/* Left: assembly card */}
         <Col gap={12} style={{ flex: 1 }}>
@@ -277,7 +242,7 @@ export const PublishPane: React.FC = () => {
           )}
         </Col>
 
-        {/* Right: book info + export + backups */}
+        {/* Right: book info + export + quality checks */}
         <Col gap={12} style={{ flex: 2 }} className="ns-stagger">
           {/* Book info section */}
           <Card style={{ overflow: 'hidden' }}>
@@ -354,84 +319,6 @@ export const PublishPane: React.FC = () => {
                 EPUB3
               </Btn>
             </Row>
-          </Card>
-
-          {/* Backups */}
-          <Card style={{ padding: 'var(--space-3) var(--space-4)', boxShadow: 'var(--shadow-md)' }}>
-            <div style={{
-              fontSize: 'var(--type-micro)',
-              fontWeight: 700,
-              letterSpacing: 'var(--tracking-wide)',
-              textTransform: 'uppercase',
-              color: 'var(--text-muted)',
-              marginBottom: 'var(--space-2)',
-            }}>Backups</div>
-            <Col gap={4}>
-              {[
-                '2026-06-11 23:14 — auto (pre-assemble)',
-                '2026-06-10 18:30 — manual',
-                '2026-06-09 09:05 — auto',
-              ].map(b => (
-                <div key={b} style={{
-                  fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', padding: 'var(--space-2) var(--space-3)',
-                  background: 'var(--surface-alt)', border: '1px solid var(--hairline)',
-                  borderRadius: 'var(--radius-button)', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                }}>
-                  <span>{b}</span>
-                  <button
-                    type="button"
-                    style={{
-                      border: 0,
-                      background: 'transparent',
-                      padding: 0,
-                      fontFamily: 'inherit',
-                      fontSize: 'var(--type-caption)',
-                      fontWeight: 600,
-                      color: 'var(--accent)',
-                      cursor: 'pointer',
-                    }}
-                    onClick={() => setRestoringBackup(b)}
-                  >
-                    Restore
-                  </button>
-                </div>
-              ))}
-              {/* Create backup section */}
-              <div style={{
-                padding: 'var(--space-3)',
-                background: 'var(--surface-alt)', border: '1px dashed var(--border)',
-                borderRadius: 'var(--radius-button)',
-                marginTop: 'var(--space-1)',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
-                  <input
-                    value={backupDesc}
-                    onChange={e => setBackupDesc(e.target.value)}
-                    placeholder="Backup description…"
-                    style={{
-                      flex: 1, fontSize: 'var(--type-caption)', padding: 'var(--space-1) var(--space-2)',
-                      borderRadius: 'var(--radius-button)', border: '1px solid var(--border)',
-                      background: 'var(--surface)', color: 'var(--text-primary)', outline: 'none',
-                    }}
-                  />
-                  <Btn primary small onClick={() => {
-                    alert(`Backup saved: "${backupDesc}" (audio included: ${includeAudio ? 'yes' : 'no'})`);
-                    setBackupDesc('');
-                  }}>Save</Btn>
-                </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={includeAudio}
-                    onChange={e => setIncludeAudio(e.target.checked)}
-                    style={{ cursor: 'pointer', width: 14, height: 14 }}
-                  />
-                  <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>
-                    Include rendered audio files in backup (increases file size)
-                  </span>
-                </label>
-              </div>
-            </Col>
           </Card>
 
           {/* Export quality controls */}

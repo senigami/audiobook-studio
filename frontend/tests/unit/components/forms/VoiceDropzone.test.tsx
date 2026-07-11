@@ -22,11 +22,6 @@ describe('VoiceDropzone', () => {
     global.alert = vi.fn();
   });
 
-  it('renders correctly', () => {
-    render(<VoiceDropzone onFilesChange={vi.fn()} />);
-    expect(screen.getByText(/Drop audio samples here/i)).toBeInTheDocument();
-  });
-
   it('handles file selection via input', async () => {
     const onFilesChange = vi.fn();
     const { container } = render(<VoiceDropzone onFilesChange={onFilesChange} />);

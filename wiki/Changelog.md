@@ -2,6 +2,199 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Fix] - 2026-07-08
+
+### Library project usability: series position storage and invalid-update handling
+
+- Projects now persist an optional `series_position` field in the durable SQLite schema, and the library/project edit flows round-trip it for sorting and display.
+- Project update requests now treat an invalid `series_position` value as a structured 400 response instead of allowing a backend `ValueError` to escape as a 500.
+
+### Book import dropzones now reuse drag-state highlight behavior
+
+- The manuscript and contents import dropzones now visually highlight during file drag-over, matching the reusable sample-upload drag/drop pattern.
+- The contents import bar now sits above the publish CTA, and the drop target exposes a compact mode so the bar can stay narrow instead of expanding into a large card.
+- The shared drag/drop state lives in `useDragDropHighlight`, so the book import dropzones and voice sample uploads now share the same drag-depth handling and reset behavior.
+
+## [Cleanup] - 2026-07-04
+
+### Backlog sweep: dead code, plugin-staging split, timing dedup, test-infra fixes
+
+Fusion-reasoning-triaged cleanup pass over the remaining `simplification/` and logic-audit (doc 09)
+backlog. Ten independent items landed, each its own commit, full backend suite green throughout
+(2221 passed, 3 skipped, unchanged from the pre-sweep baseline) and frontend suite green (1712
+passed, same 2 pre-existing unrelated failures confirmed present before this work started):
+
+- **Dead code removed:** `useSegmentProgressLifecycle.ts` hook (zero importers); a duplicate
+  `wav_to_mp3` wrapper in both the xtts and voxtral plugin adapters; dead `REPORT_DIR`/`UPLOAD_DIR`
+  import + a dead `tts_generate_stub` function in `app/api/web.py`; a dead dual-mode
+  `isinstance(dict)` job-access fallback and an orphaned `_should_emit()` shim in
+  `app/orchestration/progress/service.py` (both confirmed dead — `get_jobs()` always returns `Job`
+  dataclasses now); dead frontend route-stub infrastructure (`app/routes/index.tsx` and its
+  null-stub `createX()` exports across several page-route files — found and preserved a live
+  `VoiceModulesPanel` export that shared a file with one of the dead stubs).
+- **Voxtral plugin refactor:** extracted a shared `_run_voxtral_generate` helper from
+  `synthesize()`/`preview()`'s duplicated reference-audio-staging + cleanup-on-error logic,
+  preserving every genuine behavioral difference between the two callers via parameters.
+- **`app/tts_server/server.py` split (1351→914 lines):** moved the plugin import/staging pipeline
+  (zip upload, GitHub-repo preview, confirm/cancel, path containment, symlink rejection) to a new
+  `app/tts_server/plugin_staging.py` (493 lines) verbatim — every containment/security check
+  preserved exactly, route decorators stay in `server.py` as thin wrappers per its "sole HTTP
+  boundary" docstring.
+- **Segment-timing math deduped:** `server.py`'s `/synthesize` response and
+  `orchestrator_helpers.py`'s render-stats recorder each independently computed the same
+  duration/overhead formulas from raw timestamps. Extracted the shared math to
+  `app/utils/render_timing.py` (kept outside both `app.tts_server` and `app.orchestration` to
+  respect the two-process boundary); the recorder now prefers the server's precomputed values when
+  present. A real, pre-existing `model_load_seconds` None-vs-0.0 default divergence between the two
+  call sites was found and deliberately preserved, not silently unified.
+- **Test-infra:** added real behavioral coverage for the `ETA_PROJECTION_SKIP_REASONS` gate (the
+  prior test only checked set membership); migrated two hardcoded `/tmp/*.db` test fixture paths to
+  `tmp_path`. Investigated two previously-flagged test-quality items (an "environment-dependent"
+  test and a one-time flaky test) and found both were stale reports of issues already fixed by
+  earlier, unrelated commits — no changes needed. A coverage-honesty spot-check (10 lines across
+  `state_jobs.py`/`queue.py`/`useQueueSync.ts`) found an 80% real-mutation-sensitivity hit rate and
+  flagged two genuine coverage gaps for follow-up (not fixed in this pass).
+
+Deliberately deferred: `App.tsx`'s large-file split (touched twice today already, left to cool);
+`progress/service.py`'s large-file split (standing gate on ETA-work quiescence); the `app/jobs`
+package rename (plan doc explicitly calls for its own dedicated session, 97 references across ~40
+files); the styling-separation inline-`style`→class conversion (requires per-file owner visual
+sign-off, not something to self-certify).
+
+## [Fix] - 2026-07-04
+
+### ScriptView crash guard + startup fetch-failure error UI (logic-audit F14/F15)
+
+- `ScriptView`'s Book/Script render paths (`renderBook`/`renderScript`) now null-guard
+  `data.paragraphs`/`data.spans` instead of throwing a `TypeError` when the chapter editor is
+  handed a malformed or partial script-view payload.
+- `useInitialData` now tracks and exposes an `error` state on a rejected `/api/home` fetch
+  (cleared on the next successful fetch). Previously a rejection only logged to console and left
+  `loading: true` forever, so a backend outage on startup showed an infinite, unexplained spinner.
+  `App.tsx` now renders a retryable error banner ("Couldn't reach Audiobook Studio" + a manual
+  "Retry now" button) in place of the silent spinner while the error is set; the existing
+  1s auto-retry poll is unchanged.
+
+## [Fix] - 2026-07-04
+
+### W-PAR enable-gate: ephemeral child fan-out no longer creates phantom job rows; chapter completion is size-weighted and order-independent
+
+- A chapter render's per-child fan-out tasks (`SegmentSynthesisTask` / the synthetic per-child task
+  each one dispatches through) are now marked `ephemeral` on their `TaskContext` and the orchestrator's
+  publish path skips creating a durable job row and skips the job-scoped broadcasts (job list, queue
+  rows, chapter progress) for them — a chapter with N chunk groups now produces exactly ONE durable
+  job (the parent), not N+1 phantom `{parent}-seg-{index}` rows. Per-segment live visibility is
+  preserved: children still emit their segment-scoped frames (the live per-segment progress bar is
+  keyed by real segment id, so those were load-bearing), and the parent continues to own the
+  `active_segments_map` aggregation.
+- Chapter completion percentage (`groupedProgress`) is now weighted by completed segment TEXT SIZE
+  (`LENGTH(text_content)`), not segment count, and is order-independent — a large segment completing
+  before smaller ones now correctly reports a large jump instead of a naive `1/N` count-based fraction.
+  A new `app.db.segments.chapter_completion_by_size(chapter_id)` helper is the DB-backed source of
+  truth for resume/recompute call sites; the live fan-out computes the same ratio from in-memory
+  segment sizes so it has no dependency on mid-render DB status-write timing.
+
+## [Added] - 2026-07-03
+
+### Voice taxonomy v2: `language` and `style` attributes (007 Phase G1-G6)
+
+Closes out the last open scope of the voice taxonomy v2 plan (`accent` shipped earlier; this adds
+the two remaining new attributes).
+
+- **Two new controlled-vocabulary attributes**, both many-optional (a voice can carry several):
+  `language` (english/spanish/french/german/italian/portuguese/polish/turkish/russian/dutch/czech/arabic/chinese/japanese/korean/hindi/hungarian/other)
+  and `style` (conversational/narration/characters/social-media/educational/advertisement/entertainment).
+  `language` is a catalog-search facet distinct from the existing top-level BCP-47 `languages[]`
+  array, which continues to drive the AI casting hard-filter unchanged.
+- Wired through the same lenient/strict validation path as every other attribute
+  (`app/domain/voices/taxonomy.py`): unknown values demote to free tags on read, reject with 422 +
+  valid-values list on `PATCH /api/voices/{id}/metadata` write. `GET /api/voices/search` gained
+  `?language=` and `?style=` OR-within-field query params, matching `?tone=`/`?timbre=`.
+- Voice Lab's Edit Metadata modal gained Language/Style multi-select chip sections. Catalog pills
+  needed no code change — `voicePillsFromMetadata` already walks `attributes` generically, so the
+  new fields render as `extended`-hue pills automatically.
+- HF bundle README export now emits `as-language-*`/`as-style-*` tags when present.
+- `voice-taxonomy.json` → `taxonomy_version: "2.0"`; `voice.schema.json` `attributes` gained the two
+  optional array properties; `voice-bundles.md` → 1.4.0. Fully additive — a pre-existing
+  `voice.json` with no `language`/`style` fields loads, validates, and exports unchanged.
+
+## [Change] - 2026-07-03
+
+### Global player: scope toggle removed, scrub representation is now duration-driven (audio-player.md 1.6.0, W1)
+
+Closes the spec-ahead-of-code gap between `audio-player.md` 1.6.0 (rewritten 2026-06-16) and the live `PlayerBar`.
+
+- **The segment/chapter scope toggle is gone.** `altScope`/`switchScope`/`AltScope` are deleted from `playerBus.ts`; the pill-toggle/badge UI and its CSS are deleted from `PlayerBar.tsx`/`components.css`. The Review stage's chapter-play adapter no longer registers an alternate segment source.
+- **Waveform-vs-bar is decided by clip duration, not by scope.** New `frontend/src/app/layout/playerRepresentation.ts` exports `fitsLegibly(durationSec, barWidthPx)`: a clip renders as an inline waveform when it fits legibly at the measured scrub-bar width (≥ 3 px/sec), else falls back to a plain seek slider; before the bar width is measured it bootstraps off duration alone (≤ 120s → waveform). `PlayerBar.tsx` measures its scrub container via `ResizeObserver` and feeds it into the predicate. A short chapter clip and a short segment clip now render identically; only duration and width matter.
+- The far-right `AudioLines` override toggle is unchanged — it still flips the default representation on demand and resets on every new source.
+- No behavior change to transport, single-`<audio>`-owner, or `position/duration` time display (already scope-agnostic).
+
+Sets up task 006 (the live `WaveformTape` port) on a stable, scope-free foundation.
+
+## [Fix] - 2026-07-03
+
+### Per-engine concurrency cap silently capped at 1 regardless of manifest (W-PAR)
+
+Raising an engine's `max_concurrent_workers` in its manifest (e.g. XTTS to 2) had no effect — two separately-queued jobs on the same engine always ran strictly sequentially even with the `ENGINE_CLASS_ADMISSION` parallelism flag enabled.
+
+- **Root cause.** The deprecated `GpuAdmissionGate`/`ExclusiveAdmissionGate` backward-compat wrapper classes called `get_engine_semaphore("gpu"/"exclusive", 1)` in their constructors — hardcoded cap 1. Since they're built as module-level singletons at import time, and the shared semaphore registry cached capacity at first creation while silently ignoring it on every later call, these wrappers always won the race and permanently locked the `"gpu"` engine-class slot at 1 before any real manifest-derived claim could register its intended cap. The same "first caller wins forever" design also meant *any* caller anywhere — including an unrelated test — could accidentally poison a shared engine-class slot for the rest of the process.
+- **Fix.** `GpuAdmissionGate`/`ExclusiveAdmissionGate` now use private, non-shared semaphores. `get_engine_semaphore`/`EngineClassSemaphore` are now self-healing: capacity grows to the largest value any caller legitimately requests instead of freezing at the first caller's value; a lowered request now logs a warning instead of silently doing nothing (capacity still can't shrink at runtime — needs a restart).
+- **Verified live:** two XTTS jobs queued at once actually overlap now. Regression test `test_xtts_cap2_admits_two_concurrent_via_real_path` added (R1 revert-checked — fails on the pre-fix code for the right reason).
+- **XTTS `max_concurrent_workers` bumped 1 → 2** to exercise this fix. Still fully dark — `ENGINE_CLASS_ADMISSION` defaults off, so this has no production effect until W-PAR 007's toggle lands. Fable merge-gate review flagged that the admission registry is keyed by engine *class*, not engine *id* — a future second GPU-class plugin with a lower cap than XTTS's could unintentionally inherit XTTS's cap via the shared class semaphore; tracked as a W-PAR 007 follow-up (not a risk today — XTTS is the only "gpu"-class engine).
+
+## [Fix] - 2026-07-02
+
+### Mixed-render end-game ETA clipping and confidence whipsaw (W-MIX-LA)
+
+Diagnosed from a live mixed 4-group render (job-47213119): the chapter ETA at the end of the render was being clipped low, and `eta_confidence` bounced up and down instead of climbing steadily.
+
+- **§4A.4 mechanical ceiling no longer clips a correct end-game ETA.** The ceiling was fed by `EtaSampleRing.mean()`, a flat historical average — early fast-engine samples kept dragging the mean up long after the engine switch, so the ceiling clipped a correct ~3s composed ETA down to ~2s. New `EtaSampleRing.weighted_mean()` (linear recency weighting, oldest=1…newest=n) feeds the ceiling instead; `cv()` deliberately keeps using flat statistics since it measures instability, not rate.
+- **Chapter `eta_confidence` floors monotonically within a running job.** Per-frame variance and segment-boundary handoffs were making the emitted confidence bounce (0.63→0.33→0.20 observed live) instead of ramping. It now floors at the previous running frame's value while `status == "running"`; queued/requeue and terminal transitions still reset as before. Per-segment confidence (B12, resets per `segment_id`) is unchanged.
+- **Frontend predictive bar snaps instead of crawling after a backend frame gap.** `clampSlope`'s upper bound was proportional to `prevDuration`, so once a stall let the countdown free-run a stale anchor down to ~1-2s, a correcting extension could only crawl back up a couple seconds per frame. New `MIN_SLOPE_CAP_BASE_MS = 2500` floors the cap base so the correction can snap to the true end time in one frame instead.
+
+Spec `progress-presentation.md` → 1.8.4. Backend orchestration suite (445 tests) + frontend confidence suite green; no backend heartbeat during engine stalls remains a known residual, tracked under W-MIX-LA task 007.
+
+## [Feature] - 2026-07-02
+
+### Load-aware ETA: the chapter countdown now accounts for cold-engine model load (W-MIX-LA)
+
+Previously, `model_load_seconds` was recorded per render but never factored into the live ETA — a cold-engine dispatch showed a countdown as if the model load wouldn't happen, then the bar stalled through the load window with no honest signal.
+
+- **Proactive load term at dispatch.** When the TTS server reports an engine as cold (`model_warm=false`) and there's enough render history to estimate a typical load time (`app/db/performance.py::expected_model_load_seconds`, a trimmed mean of past cold-load samples for that engine/model), the chapter progress frame now carries a real `eta_seconds = synthesis_expected + load_term` from the very first frame (`reason_code="pre_load_eta"`) — a determinate countdown, not a blank "Preparing…".
+- **Reconciled at the real load marker.** When the engine actually confirms the load (`[MODEL_LOAD_STARTED]`), the ETA is reconciled to `synthesis_remaining + decaying_load_remainder` — the load term shrinks by elapsed time since the proactive estimate, so the countdown keeps ticking through the load instead of resetting or going blank.
+- **Display-only.** The load term never enters recorded `synthesis_duration_seconds`, `cps`, or `model_load_seconds` performance stats — those stay synthesis-only, so future ETA calibration isn't polluted by this display adjustment.
+- **Global queue row shows the countdown too.** The queue drawer previously suppressed any ETA while a row was `preparing`; it now retains and displays the countdown whenever a positive load-aware ETA is present.
+
+No fabricated numbers: if there's no load history for an engine yet, no load term is added and the bar shows the plain busy label until real data exists. Specs: `live-events.md` → 1.8.0, `queue-jobs.md` → 1.7.0, `data-model.md` → 1.5.0, `progress-presentation.md` (already at 1.8.0+ from prior entries in this series).
+
+## [Progress honesty] - 2026-06-29
+
+### Mixed-render progress: no fabricated numbers, zero is not special (W-MIX-LA)
+
+Fixed the long-running mixed-render progress bugs (segment pulse missing, bar jumping to ~50%, fake early speed-up) by removing every place the UI invented a number or treated `progress == 0` as a signal.
+
+- **No fabricated ETA/progress.** Removed the hardcoded `DEFAULT_BASELINE_ENGINE_CPS = 16.7` cold-start ETA fallback everywhere it produced a user-facing countdown (active-segment ETA, task startup, the enrich() cold ETA, the SEGMENT_SAVED re-anchor): with no real calibration the bar now shows **no ETA** until real observed throughput exists, instead of a made-up one. Also removed the arbitrary `×0.90` "stitching reserve" scale on chapter `grouped_progress` (it reported the true synthesis fraction as 90%) and the placeholder `finalizing ≈ 0.9` progress on voice-sample tasks.
+- **Zero is not special.** Removed `isSegmentStartAtZero`, the confidence-forced-to-1.0-at-zero, the backend `running 0% → preparing` flip, and the reducer `preparing + zero → suppress status` guard. The bar's phase is now driven by explicit triggers: `SEGMENT_PENDING`/`indeterminate` → preparing (highlight, indeterminate, no determinate bar); `START_SEGMENT`/`running` → animate from 0; loading is the explicit `indeterminate` flag. (Kept the genuine divide-by-zero guard in the ETA math.)
+- **Mid-chapter segment jump fixed.** A segment that starts after a model load no longer jumps to ~50%: forcing the load/announce window to `preparing` makes the preparing→running handoff snap the predictive lane fresh to 0, so it animates from zero on the real datapoints.
+- **Engine logs fully forwarded.** All raw XTTS worker lines now reach `tts.logs` (engine diagnostics view) — nothing hidden.
+- **Script-view preparing render.** The per-segment "preparing" block + pulse now renders in script view (it previously only worked in book view).
+
+Spec `progress-presentation.md` → 1.7.1 (amends invariant B10). Backend orchestration + frontend progress/bar/contract suites green.
+
+## [Cleanup] - 2026-06-20
+
+### Foundation cleanup (master fix plan — Milestone 1, W1)
+
+Low-risk dead-weight removal and a design-system compliance pass, with no behavior change.
+
+- **Dead dependencies removed.** Frontend: `clsx`, `tailwind-merge` (no imports; no Tailwind in the project). Backend: `mistralai`, `beautifulsoup4` (zero imports across `app/` + plugins). `package-lock.json` regenerated.
+- **Legacy files deleted.** Top-level v1 utilities `audiobook.py`, `audit_routes.py`, the standalone `text_progress_demo.html`, and the redundant `.coveragerc` (its `concurrency`/`show_missing`/`exclude_lines` settings were migrated into `pyproject.toml` to preserve coverage behavior). Two obsolete `export {}` frontend stubs (`predictiveProgressBarEngine.ts`, `utils/predictiveProgress.ts`) and three empty `shared/` placeholder barrels.
+- **Runtime artifacts untracked.** `plugins/*/assets/last_test.json` (runtime-written) added to `.gitignore` and removed from the index so engine tests no longer dirty the tree.
+- **§2.2 color compliance (QW-7).** Converted the last five hardcoded color literals in real-app components to CSS tokens (`StatusOrb`, `LiveOutputTable`, `ColorSwatchPicker`); added `--text-on-error` and `--text-on-warning` to `tokens.css` (both themes). Light theme is visually unchanged; two intentional dark-mode effects: the `LiveOutputTable` on-accent labels now use `--text-on-accent` (dark text on the lightened dark-mode accent — a contrast *fix*, the old `#fff` was low-contrast there), and the warning glyph moved from pure `#000` to `--text-on-warning` `#1c1300`. `design-system.md` → 1.6.4.
+- **Excluded as still-live** (the plan's fold-in list was stale): `app/infra/`, `frontend/src/api/client.ts`, `frontend/src/api/queries/index.ts` are imported and were kept. **Deferred:** QW-6 dead-CSS removal folds into the `components.css` split (Milestone 3 / task 005) to avoid touching the file twice and to safely relocate the styleguide-referenced rules.
+
+Verification: `ruff`, `pytest` (1800 passed), frontend `build` + `lint` + `test` (1375 passed) all green.
+
 ## [Fix] - 2026-06-19
 
 ### Segment progress bar: confidence-gated ETA decay + per-segment confidence
@@ -26,7 +219,7 @@ R1-verified tests added/updated for both bake handlers and `handleQueueChapter`.
 
 Chapter reset (and "Rebuild") cancels the active render, then clears the chapter's segments to `unprocessed`. But cancellation is cooperative: the engine subprocess keeps emitting `[SEGMENT_SAVED]` for its in-flight segment until it stops. Those straggler saves were re-marking segments `audio_status="done"` *after* the reset committed, so the next render saw every group "done" and reused stale audio instead of re-synthesizing (seen as a no-synthesis re-stitch).
 
-**What changed (`docs/specs/queue-jobs.md` → 1.3.0, invariant I17):**
+**What changed (`design-docs/specs/queue-jobs.md` → 1.3.0, invariant I17):**
 
 - `orchestrator.cancel()` now synchronously detaches the cancelled task's engine-log listener (right after `on_cancel()` sets the cancel flag), so straggler output stops reaching the orchestrator the moment the user cancels.
 - Both `[SEGMENT_SAVED]` → `audio_status="done"` write sites — the orchestrator `log_listener` and the xtts handler's `chapter_on_output` — now drop the write while the task is cancelled. A save that races the listener detach is still ignored.
@@ -37,7 +230,7 @@ This complements the earlier `force_rerender` fix (which made the explicit Rebui
 
 ### Progress-routing unification — single-source contract at the event-builder layer
 
-Shipped the complete §4A progress contract. `docs/specs/progress-presentation.md` bumped to 1.4.2; `docs/specs/live-events.md` bumped to 1.5.2.
+Shipped the complete §4A progress contract. `design-docs/specs/progress-presentation.md` bumped to 1.4.2; `design-docs/specs/live-events.md` bumped to 1.5.2.
 
 **What changed:**
 
@@ -48,8 +241,8 @@ Shipped the complete §4A progress contract. `docs/specs/progress-presentation.m
 - **Snapshot enrichment (PI6).** `jobs_snapshot` and running-queue row serializers call `enrich(sample=False)` — read-only enrichment without mutating the ETA ring — so hydration frames carry the same §4A values as live frames.
 - **LOADING_MODEL UX (§2.6).** During the model-load window (status `preparing`, before the first engine marker), the backend emits `indeterminate: true` + `reasonCode: "LOADING_MODEL"`. The frontend renders a pulsing indeterminate bar and "loading voice model…" copy; reverts to determinate on the next frame.
 - **Two-layer floor clarification (§2.5).** Documented that the server `enrich` provides monotonically-clamped values while the client `progressMemory` is the display floor authority — the two layers are complementary, not contradictory.
-- **New ADR-0012** (`docs/decisions/ADR-0012-enrich-kernel-at-event-builder-layer.md`) records the problem, rejected alternative (`broadcast_job_updated` as chokepoint), D7 lock hierarchy, and consequences.
-- Five superseded progress plans marked at their heads. See `plans/progress_routing_unification/02-plan-reconciliation.md`.
+- **New ADR-0012** (`design-docs/decisions/ADR-0012-enrich-kernel-at-event-builder-layer.md`) records the problem, rejected alternative (`broadcast_job_updated` as chokepoint), D7 lock hierarchy, and consequences.
+- Five superseded progress plans marked at their heads. See `design-docs/plans/progress_routing_unification/02-plan-reconciliation.md`.
 
 ---
 

@@ -7,8 +7,8 @@
  * Built from voice attributes + description so uniform icons can be created
  * across the catalog. No API call is made — clipboard-only (R-F).
  *
- * Spec reference: docs/specs/voice-bundles.md §11.1 "Copy icon prompt (doc 04 C6)"
- * and plans/final_release/04_voice_metadata_and_tagging.md item C6.
+ * Spec reference: design-docs/specs/voice-bundles.md §11.1 "Copy icon prompt (doc 04 C6)"
+ * and design-docs/plans/final_release/04_voice_metadata_and_tagging.md item C6.
  */
 
 import type { VoiceMetadata, VoiceAttributes } from '@/types';

@@ -4,20 +4,8 @@ This package will hold persistence plumbing that repositories can depend on
 without coupling domain code to legacy DB modules directly.
 """
 
-INTENDED_UPSTREAM_CALLERS = (
-    "app.domain.projects.repository",
-    "app.domain.chapters.repository",
-    "app.domain.voices.repository",
-    "app.domain.settings.repository",
-    "app.domain.artifacts.repository",
-    "app.domain.jobs.repository",
-)
-INTENDED_DOWNSTREAM_DEPENDENCIES = ()
-FORBIDDEN_DIRECT_IMPORTS = (
-    "app.api.routers",
-    "app.orchestration",
-    "app.engines",
-)
+# Upstream: app.domain.{projects,chapters,voices,settings,artifacts,jobs}.repository. No
+# downstream deps. Must not import app.api.routers / app.orchestration / app.engines directly.
 
 
 def get_db_session():

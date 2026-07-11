@@ -2,8 +2,67 @@
  * siteMockup/panes/settings.tsx — Settings pane (General/About/Developer)
  */
 import React, { useState } from 'react';
-import { ExternalLink, RefreshCw, ChevronDown } from 'lucide-react';
+import { ExternalLink, RefreshCw, ChevronDown, Globe2, Check } from 'lucide-react';
 import { Row, Col, Chip, SemanticChip, Card, Btn, PaneHeader } from '../shared';
+
+const APP_LANGUAGES = [
+  { code: 'en', label: 'English', complete: true },
+  { code: 'es', label: 'Español', complete: false },
+  { code: 'fr', label: 'Français', complete: false },
+  { code: 'de', label: 'Deutsch', complete: false },
+  { code: 'pt', label: 'Português', complete: false },
+  { code: 'ja', label: '日本語', complete: false },
+];
+
+const LanguageSelector: React.FC = () => {
+  const [open, setOpen] = useState(false);
+  const [lang, setLang] = useState('en');
+  const current = APP_LANGUAGES.find(l => l.code === lang) ?? APP_LANGUAGES[0];
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <span
+        role="button"
+        tabIndex={0}
+        onClick={() => setOpen(v => !v)}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setOpen(v => !v); }}
+        style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 3, cursor: 'pointer' }}
+      >
+        {current.label}<ChevronDown size={12} strokeWidth={2} aria-hidden="true" />
+      </span>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} aria-hidden="true" />
+          <div style={{
+            position: 'absolute', right: 0, top: '100%', marginTop: 4, zIndex: 50,
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-card)', boxShadow: 'var(--shadow-lg)',
+            minWidth: 180, padding: '4px 0', textAlign: 'left',
+          }}>
+            {APP_LANGUAGES.map(l => (
+              <button
+                key={l.code}
+                type="button"
+                onClick={() => { setLang(l.code); setOpen(false); }}
+                style={{
+                  width: '100%', border: 0, background: l.code === lang ? 'var(--accent-tint-bg)' : 'transparent',
+                  fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer',
+                  padding: '6px 12px', fontSize: 'var(--type-caption)',
+                  color: l.code === lang ? 'var(--accent)' : 'var(--text-primary)',
+                  display: 'flex', alignItems: 'center', gap: 8,
+                }}
+              >
+                <span style={{ flex: 1 }}>{l.label}</span>
+                {!l.complete && <SemanticChip variant="warning">partial</SemanticChip>}
+                {l.code === lang && <Check size={12} aria-hidden="true" />}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 export const SettingsPane: React.FC = () => {
   const [settingsTab, setSettingsTab] = useState<'General' | 'About' | 'Developer'>('General');
@@ -73,6 +132,17 @@ export const SettingsPane: React.FC = () => {
             <div className="ns-settings-list-row" style={{ fontSize: 'var(--type-caption)', padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-primary)' }}>Theme</span>
               <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>System<ChevronDown size={12} strokeWidth={2} aria-hidden="true" /></span>
+            </div>
+            {/* Language (app display language — i18n scaffold, see TASKS.md deferred/post-v2.0) */}
+            <div className="ns-settings-list-row" style={{ fontSize: 'var(--type-caption)', padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Col gap={1} style={{ flex: 1 }}>
+                <Row gap={5} style={{ alignItems: 'center' }}>
+                  <Globe2 size={11} color="var(--text-muted)" aria-hidden="true" />
+                  <span style={{ color: 'var(--text-primary)' }}>Language</span>
+                </Row>
+                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic' }}>app display language — voices keep their own spoken language</span>
+              </Col>
+              <LanguageSelector />
             </div>
             {/* Stability Mode */}
             <div className="ns-settings-list-row" style={{ fontSize: 'var(--type-caption)', padding: '7px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

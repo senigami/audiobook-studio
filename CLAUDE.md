@@ -4,27 +4,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Audiobook Studio is a local-first FastAPI + React app that turns manuscripts into audiobooks using AI voice cloning. This branch is the **Studio 2.0** line: synthesis runs through a managed, plugin-based TTS Server subprocess, and background work flows through a task orchestrator rather than the legacy worker loop.
 
+## Lessons (auto-loaded, always-on)
+
+Read `docs/lessons/INDEX.md` at session start — a capped list of project-specific operational lessons (things that cost a real debugging round to learn). Its topic-pointer section names situations that warrant reading a full shard from `docs/lessons/topics/`.
+
 ## Owner directives (binding)
 
 - **Clean break (Studio 2.0):** legacy/v1 code is deleted, not preserved; only the v1→v2 data migration path survives. Compatibility obligations begin at the v2.0.0 release.
 - **Versioned contracts:** every contract/manifest/schema (plugin manifest, SDK, event envelope, voice bundle, casting card) declares an explicit version validated at load time.
 - **Audio formats:** voice samples/previews are MP3 (`sample.mp3`, `samples/preview.mp3`); chapter/book render audio is WAV; portable voice bundles are MP3.
-- The release plan lives in `plans/final_release/` (doc 08 is the execution order). Where it conflicts with older `plans/` docs or other guidance in this file, the final_release folder wins.
+- The release plan lives in `design-docs/plans/active/final_release/` (doc 08 is the execution order). Where it conflicts with older `design-docs/plans/` docs or other guidance in this file, the final_release folder wins.
 
-## Canonical specs (binding — read `docs/specs/README.md` first)
+## Canonical specs (binding — read `design-docs/specs/README.md` first)
 
-`docs/specs/` is the source of truth for how the system works. Before changing behavior in any area, read `docs/specs/README.md` (the router index) and the matching spec — it tells you the contract you must preserve. Specs and code are jointly authoritative: when they disagree, resolve the drift explicitly (fix one, in the same change), never silently. Behavior changes MUST update the matching spec (bump `spec_version`, add a changelog row) in the same commit. The *why* behind architectural shapes lives in `docs/decisions/` (ADRs) — read the relevant ADR before reversing a structural decision.
+`design-docs/specs/` is the source of truth for how the system works. Before changing behavior in any area, read `design-docs/specs/README.md` (the router index) and the matching spec — it tells you the contract you must preserve. Specs and code are jointly authoritative: when they disagree, resolve the drift explicitly (fix one, in the same change), never silently. Behavior changes MUST update the matching spec (bump `spec_version`, add a changelog row) in the same commit. The *why* behind architectural shapes lives in `design-docs/decisions/` (ADRs) — read the relevant ADR before reversing a structural decision.
 
-## Testing standards (binding — see docs/specs/testing-standards.md)
+## Testing standards (binding — see design-docs/specs/testing-standards.md)
 
-Authoritative spec: `docs/specs/testing-standards.md`.
+Authoritative spec: `design-docs/specs/testing-standards.md`.
 
 - **R1 — Revert-check every bug-fix test:** a test landing with a fix must fail on the pre-fix code. Verify it: stash the fix, run the test, confirm red, restore.
 - **R2 — Mock boundaries only:** a test may mock only what is *outside* the unit under test (network, clock, filesystem, the TTS engine, broadcast capture at the websocket boundary) — never the module the test file is named for, and never the state-store internals of the function under test.
 - **R3 — Contract-shaped event frames:** frontend live-event tests build socket frames via the types in `frontend/src/api/contracts/liveEvents.ts` and publish through `publishStudioSocketMessage` — no untyped hand-rolled frame literals.
 - **R4 — No sleep-based timing:** use vitest fake timers / `waitFor` on the frontend and explicit synchronization (threading events) in pytest. No `setTimeout(n)`/`sleep(n)` waits.
 - A test that re-implements the unit's internal math and asserts it against itself is a mocked-out test — assert observable behavior instead.
-- Test-quality classification tables live in `plans/final_release/audits/`.
+- Test-quality classification tables live in `design-docs/plans/active/final_release/audits/`.
 
 ## Read first: agent rules & memory
 
@@ -34,7 +38,7 @@ Authoritative spec: `docs/specs/testing-standards.md`.
   - **Importing a module must not start threads, register listeners, mutate global settings, or reconcile state.** All such side effects belong behind the explicit boot sequence (`app/core/boot.py`).
   - Engine-specific logic lives behind the engine registry + voice bridge. Queue code, routes, and UI must not branch on engine IDs for core behavior.
   - Completion/reuse/recovery decisions use validated artifact metadata, not raw file existence. Shared artifact cache entries are immutable.
-- **`Memory/`** is referenced by `AGENTS.md` for durable project context/handoffs but is gitignored (absent in fresh clones). Don't assume it exists; `plans/` holds the committed roadmap and phase docs.
+- **`.memory/`** (see `AGENTS.md`) is gitignored session-continuity state — `HANDOFF.md`/`state.json`/`log.md` — absent in fresh clones. Don't assume it exists; `design-docs/plans/` holds the committed roadmap and phase docs. (A legacy `Memory/` capital-M directory from an earlier Codex/Antigravity/Gemini workflow was retired 2026-07-04.)
 - TDD is expected (`verification.md`): write the failing test first, confirm it fails for the right reason, then implement.
 
 ## Commands
@@ -120,6 +124,16 @@ React 19 + TypeScript + Vite, React Router, Framer Motion. Standard shape under 
 ## Notes
 
 - Files over 500 lines are candidates for splitting; over 600 should be refactored when touched for meaningful changes — along existing boundaries, not mechanically by line count (`modular_architecture.md`).
-- `docs/` holds the plugin SDK docs (`plugin-guide.md`, `plugin-submission-guidelines.md`, `plugin-template/`, `studio-as-tts-gateway.md`). `plans/` holds the v2 conversion roadmap and phase delivery plans.
-- Top-level `audiobook.py` and `audit_routes.py` are legacy/standalone utilities, not part of the running app. `app.db`/`database.sqlite` at the repo root are empty placeholder files.
+- `docs/` is the public GitHub Pages site: `index.html`, `demo/`, `handbook/`, `user-guide/`, `assets/`, and the plugin SDK under `docs/plugin-sdk/` (`plugin-guide.md`, `plugin-submission-guidelines.md`, `plugin-template/`, `studio-as-tts-gateway.md`). `design-docs/plans/` holds the v2 conversion roadmap and phase delivery plans.
 - Update `wiki/` pages and add a dated `wiki/Changelog.md` entry when shipped behavior changes. CI (`.github/workflows/ci.yml`) runs ruff + pytest and eslint + vitest + build; `codeql.yml` runs security scanning.
+
+## Code map (docs/code-map/)
+
+This repo has a persistent code map. Before any cross-cutting task, load
+`docs/code-map/map.json`'s `meta`+`flows`+`invariants`+`modules` (+`coupling`+`hotspots`),
+pulling `files`/`data` records on demand. When debugging or changing a function's
+signature, run the map's **symbol trace** on it (callers/callees with sites) instead of
+exploring by hand; for "what can be simplified", request the simplification report.
+**After any task that changes mapped code, append a changelog-queue entry to
+`docs/code-map/queue/` before declaring the task done — part of the definition of
+done, not optional.** See the `map-code` skill.

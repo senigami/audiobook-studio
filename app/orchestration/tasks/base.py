@@ -28,6 +28,8 @@ class TaskContext:
             ``"api"`` for external API tasks.  Used by priority policies.
         submitted_at: Monotonic timestamp set at submission time.  Used for
             FIFO tie-breaking within priority buckets.
+        ephemeral: Synthetic per-child fan-out task; must not create a
+            durable Job row or queue.items broadcast (W-PAR 008, Finding A).
     """
 
     task_id: str
@@ -38,6 +40,7 @@ class TaskContext:
     payload: dict[str, Any] = field(default_factory=dict)
     source: str = "ui"
     submitted_at: float = field(default_factory=time.monotonic)
+    ephemeral: bool = False
 
 
 @dataclass(frozen=True)
@@ -48,6 +51,10 @@ class TaskResult:
     message: str | None = None
     retriable: bool = False
     timing: dict[str, Any] | None = None
+    # W-PAR 005: validated output artifact path for a completed segment child
+    # (INV-2 stitch ordering, INV-3 artifact validation). Additive/optional —
+    # unset for non-segment task types.
+    output_path: str | None = None
 
 
 
@@ -149,8 +156,11 @@ class StudioTask:
 
             params = get_calibrated_model_params(history)
             if not params:
-                from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
-                return float(len(text)) / float(DEFAULT_BASELINE_ENGINE_CPS)
+                # No calibration history for this engine/model yet — return None
+                # (unknown expected duration) rather than fabricating one from a
+                # hardcoded default rate. The first ETA then comes from the real
+                # observed throughput once synthesis starts reporting progress.
+                return None
 
             calibrated_cps, calibrated_overhead = params
 

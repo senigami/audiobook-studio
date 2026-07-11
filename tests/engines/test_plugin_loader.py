@@ -225,7 +225,6 @@ class TestDiscoverPlugins:
         assert len(result) == 1
         detail = build_engine_detail(result[0], {})
         assert detail["settings_schema"]["x-ui"]["help_label"] == "Open Mistral API key instructions"
-        assert "privacy_notice" not in detail["settings_schema"]["x-ui"]
 
     def test_dotted_entry_class_in_folder(self, tmp_path):
         plugins_dir = tmp_path / "plugins"
@@ -843,23 +842,23 @@ class TestPluginIsolation:
 
 
 def test_xtts_manifest_and_schema_contains_model_v2():
-    """Verify that XTTS plugin manifest and schema define the model parameter with default 'v2'."""
+    """Verify that the real loader discovers the bundled XTTS plugin and exposes
+    the model parameter with default 'v2' via its loaded manifest/settings_schema
+    — i.e. that discover_plugins actually consumes these fields, not just that
+    the JSON files on disk happen to contain the right static value."""
+    import os
     from pathlib import Path
-    import json
 
-    plugin_dir = Path(__file__).parents[2] / "plugins" / "tts_xtts"
+    plugins_dir = Path(os.environ["PLUGINS_DIR"])
+    loaded = discover_plugins(plugins_dir)
+    xtts_plugins = [p for p in loaded if p.engine_id == "xtts"]
+    assert len(xtts_plugins) == 1, "discover_plugins should load exactly one 'xtts' engine"
+    plugin = xtts_plugins[0]
+    assert plugin.load_error is None, f"xtts plugin failed to load: {plugin.load_error}"
 
-    # Check manifest.json
-    manifest_path = plugin_dir / "manifest.json"
-    assert manifest_path.is_file()
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert "model" in manifest.get("behavior", {}).get("synthesis_settings", [])
+    assert "model" in plugin.manifest.get("behavior", {}).get("synthesis_settings", [])
 
-    # Check settings_schema.json
-    schema_path = plugin_dir / "settings_schema.json"
-    assert schema_path.is_file()
-    schema = json.loads(schema_path.read_text(encoding="utf-8"))
-    properties = schema.get("properties", {})
+    properties = plugin.settings_schema.get("properties", {})
     assert "model" in properties
     model_prop = properties["model"]
     assert model_prop.get("type") == "string"

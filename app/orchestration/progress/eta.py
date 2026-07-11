@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 from collections import deque
 from math import ceil
+from typing import Mapping
 
 # ---------------------------------------------------------------------------
 # §4A.2 numeric eta_confidence constants
@@ -262,6 +263,29 @@ class EtaSampleRing:
         vals = list(self._samples)
         return sum(vals) / len(vals)
 
+    def weighted_mean(self) -> float | None:
+        """Return the recency-weighted mean of stored velocity samples.
+
+        Linear weights (oldest=1 … newest=n) so the velocity feeding the
+        §4A.4 mechanical ceiling tracks the CURRENT rate instead of a flat
+        historical average. In a mixed render the early fast-engine samples
+        otherwise inflate the mean long after the engine switch, shrinking
+        the ceiling below the honest composed ETA at the end of the chapter
+        (observed live 2026-07-02, job-47213119: flat mean ≈3.7× the true
+        recent rate clipped a correct 3s end-game ETA to 2s). ``cv()``
+        deliberately keeps flat statistics — it measures instability.
+
+        Returns ``None`` when no samples are available.
+        """
+        if not self._samples:
+            return None
+        acc = 0.0
+        total_w = 0.0
+        for i, v in enumerate(self._samples, start=1):
+            acc += i * v
+            total_w += i
+        return acc / total_w
+
     def cv(self) -> float:
         """Return the coefficient of variation of stored velocity samples.
 
@@ -345,3 +369,179 @@ def _select_eta_baseline(
     if observed < baseline * 0.25:
         return baseline
     return observed
+
+
+# ---------------------------------------------------------------------------
+# Bracketed throughput ETA under parallelism (W-PAR task 007, Part H)
+# ---------------------------------------------------------------------------
+ESTIMATING_LABEL: str = "estimating…"
+_MIN_COMPLETIONS_FOR_ESTIMATE: int = 3
+_POOL_WINDOW_SIZE: int = 10
+
+
+class BracketedEtaResult:
+    """Bracketed ETA snapshot returned by ``BracketedEtaTracker.bracket``.
+
+    Attributes:
+        eta_low_seconds: Optimistic ETA (all engines at full declared cap),
+            or ``None`` before enough completions have been observed.
+        eta_high_seconds: Pessimistic ETA (worst case: effectively 1 worker),
+            or ``None`` before enough completions have been observed.
+        eta_display: Human-readable bracket string, e.g. ``"~40–70 s"``.
+            ``"~40 s"`` (no bracket) when ``eta_low == eta_high`` (cap=1 or a
+            single remaining pool). ``"estimating…"`` until at least 3
+            completions have been recorded.
+    """
+
+    __slots__ = ("eta_low_seconds", "eta_high_seconds", "eta_display")
+
+    def __init__(
+        self,
+        *,
+        eta_low_seconds: int | None,
+        eta_high_seconds: int | None,
+        eta_display: str,
+    ) -> None:
+        self.eta_low_seconds = eta_low_seconds
+        self.eta_high_seconds = eta_high_seconds
+        self.eta_display = eta_display
+
+    def __repr__(self) -> str:  # pragma: no cover - debugging aid
+        return (
+            f"BracketedEtaResult(eta_low_seconds={self.eta_low_seconds!r}, "
+            f"eta_high_seconds={self.eta_high_seconds!r}, eta_display={self.eta_display!r})"
+        )
+
+
+class BracketedEtaTracker:
+    """Rolling-throughput / bottleneck-pool ETA model for N parallel workers.
+
+    Maintains a sliding window of the last ``K`` segment completions per pool
+    (engine class or engine id — caller's choice of key), and derives a
+    bracketed ``[low, high]`` ETA from the per-pool throughput and declared
+    per-pool concurrency caps.
+
+    - **Rolling throughput**: per pool, ``pool_cps = sum(chars) / sum(wall_seconds)``
+      over the last ``K`` completions (default ``K=10``).
+    - **Bottleneck pool**: ``effective_cps = min(pool_cps * pool_cap)`` across
+      pools with at least one completion — the slowest pool's throughput,
+      scaled by its own concurrency, bounds overall progress.
+    - **Bracket**: ``eta_low = remaining_chars / (effective_cps * global_cap)``
+      (optimistic: every pool at full cap); ``eta_high = remaining_chars /
+      effective_cps`` (pessimistic: single-worker-equivalent). With a single
+      pool at ``cap=1`` the two collapse to the same value — the model
+      reduces exactly to today's single-stream CPS (INV-1 cap=1 parity).
+    - **Cold start**: returns ``"estimating…"`` (no numeric ETA) until at
+      least 3 completions have been recorded across all pools, matching the
+      "no fabrication" principle — no ETA is emitted before there is enough
+      real throughput data to support one.
+
+    Args:
+        pool_caps: Mapping of pool key -> declared concurrency cap (≥ 1).
+        window_size: Number of recent completions retained per pool for the
+            rolling throughput calculation (default 10).
+    """
+
+    def __init__(
+        self,
+        *,
+        pool_caps: Mapping[str, int] | None = None,
+        window_size: int = _POOL_WINDOW_SIZE,
+    ) -> None:
+        self._pool_caps: dict[str, int] = {
+            str(k): max(1, int(v)) for k, v in (pool_caps or {}).items()
+        }
+        self._window_size = max(1, int(window_size))
+        self._pool_chars: dict[str, deque[float]] = {}
+        self._pool_wall: dict[str, deque[float]] = {}
+        self._completion_count: int = 0
+
+    def record_completion(self, *, pool: str, chars_completed: float, wall_seconds: float) -> None:
+        """Record one segment completion for ``pool``.
+
+        Args:
+            pool: Pool key (engine class or engine id).
+            chars_completed: Characters synthesized by this completion.
+            wall_seconds: Wall-clock seconds the completion took.
+        """
+        if chars_completed <= 0 or wall_seconds <= 0:
+            return
+        chars_ring = self._pool_chars.setdefault(pool, deque(maxlen=self._window_size))
+        wall_ring = self._pool_wall.setdefault(pool, deque(maxlen=self._window_size))
+        chars_ring.append(float(chars_completed))
+        wall_ring.append(float(wall_seconds))
+        self._pool_caps.setdefault(pool, 1)
+        self._completion_count += 1
+
+    def pool_cps(self, pool: str) -> float | None:
+        """Return the rolling characters-per-second rate for ``pool``.
+
+        Returns ``None`` when no completions have been recorded for ``pool``.
+        """
+        chars_ring = self._pool_chars.get(pool)
+        wall_ring = self._pool_wall.get(pool)
+        if not chars_ring or not wall_ring:
+            return None
+        total_wall = sum(wall_ring)
+        if total_wall <= 0:
+            return None
+        return sum(chars_ring) / total_wall
+
+    def effective_cps(self) -> float | None:
+        """Return the bottleneck throughput across all active pools.
+
+        ``effective_cps = min(pool_cps * pool_cap)`` over pools with at least
+        one recorded completion. Returns ``None`` when no pool has data.
+        """
+        rates: list[float] = []
+        for pool in self._pool_chars:
+            cps = self.pool_cps(pool)
+            if cps is None:
+                continue
+            cap = self._pool_caps.get(pool, 1)
+            rates.append(cps * cap)
+        if not rates:
+            return None
+        return min(rates)
+
+    def bracket(self, *, remaining_chars: float) -> BracketedEtaResult:
+        """Compute the bracketed ETA for ``remaining_chars`` of remaining work.
+
+        Returns ``"estimating…"`` (no numeric ETA) until at least 3
+        completions have been observed. With a single pool at cap=1, the
+        bracket collapses to a single value (no dash) — numerically identical
+        to ``estimate_eta_seconds`` for the same throughput (INV-1 cap=1
+        parity, pinned by test B).
+        """
+        if self._completion_count < _MIN_COMPLETIONS_FOR_ESTIMATE:
+            return BracketedEtaResult(
+                eta_low_seconds=None, eta_high_seconds=None, eta_display=ESTIMATING_LABEL,
+            )
+
+        remaining = max(0.0, float(remaining_chars))
+        if remaining == 0:
+            return BracketedEtaResult(eta_low_seconds=0, eta_high_seconds=0, eta_display="~0 s")
+
+        effective_cps = self.effective_cps()
+        if effective_cps is None or effective_cps <= 0:
+            return BracketedEtaResult(
+                eta_low_seconds=None, eta_high_seconds=None, eta_display=ESTIMATING_LABEL,
+            )
+
+        global_cap = max(1, sum(self._pool_caps.values())) if self._pool_caps else 1
+        # Optimistic: every pool's declared concurrency fully utilised.
+        low = max(1, int(ceil(remaining / (effective_cps * global_cap))))
+        # Pessimistic: bottleneck throughput with no extra concurrency headroom.
+        high = max(1, int(ceil(remaining / effective_cps)))
+
+        if low == high or global_cap <= 1:
+            return BracketedEtaResult(
+                eta_low_seconds=high, eta_high_seconds=high, eta_display=f"~{high} s",
+            )
+
+        low, high = min(low, high), max(low, high)
+        return BracketedEtaResult(
+            eta_low_seconds=low,
+            eta_high_seconds=high,
+            eta_display=f"~{low}–{high} s",
+        )

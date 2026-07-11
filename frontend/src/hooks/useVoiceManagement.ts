@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Speaker, SpeakerProfile, Job, VoiceEngine } from '@/types';
+import { emitToast } from '@/utils/toast';
 
 export function useVoiceManagement(
     onRefresh: () => void, 
@@ -262,8 +263,11 @@ export function useVoiceManagement(
                 onRefresh();
                 return true;
             }
+            console.error('Failed to update profile settings: non-ok response', resp.status);
+            emitToast('Failed to save voice settings — try again.');
         } catch (err) {
             console.error('Failed to update profile settings', err);
+            emitToast('Failed to save voice settings — try again.');
         }
         return false;
     }, [onRefresh]);

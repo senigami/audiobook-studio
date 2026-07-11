@@ -39,6 +39,19 @@ from app.engines.tts_client import TtsClient
 
 logger = logging.getLogger(__name__)
 
+# Every bracketed marker token a plugin's stderr relay can emit — used only by
+# the merged-line tripwire in _drain_stream (a legitimate line names exactly
+# one of these once).
+_KNOWN_MARKER_TOKENS = (
+    "START_SYNTHESIS",
+    "PROGRESS",
+    "START_SEGMENT",
+    "SEGMENT_SAVED",
+    "MODEL_LOAD_STARTED",
+    "ENGINE_ACTIVITY_STARTED",
+    "CHAPTER_SYNTHESIS_COMPLETE",
+)
+
 # ---------------------------------------------------------------------------
 # Global singleton — used by the bridge when tts_client_factory is not set
 # ---------------------------------------------------------------------------
@@ -100,6 +113,12 @@ def get_watchdog() -> "TtsServerWatchdog | None":
     Server without owning the lifecycle.
     """
     return _global_watchdog
+
+
+def get_server_health() -> "dict | None":
+    """Return TTS server /health payload, or None if watchdog is unavailable."""
+    wd = get_watchdog()
+    return wd.get_health() if wd is not None else None
 
 
 # Watchdog default configuration.
@@ -249,6 +268,13 @@ class TtsServerWatchdog:
         """Return the captured stderr logs from the TTS Server."""
         with self._lock:
             return "\n".join(self._log_buffer)
+
+    def get_health(self) -> "dict | None":
+        """Return the TTS server /health payload, or None if unavailable."""
+        try:
+            return self._client.health()
+        except Exception:
+            return None
 
     def restart(self) -> None:
         """Manually restart the TTS Server and clear failure history."""
@@ -547,6 +573,25 @@ class TtsServerWatchdog:
                             logger.warning("Failed to parse READY port from line: %r", line)
 
 
+                # Merged-line tripwire (2026-07-06, escaped defect): a physical
+                # line carrying more than one marker token can only arrive if
+                # two writers' unsynchronized stderr writes interleaved before
+                # either's trailing newline landed (see
+                # plugins/tts_xtts/plugin/server/engine.py's
+                # _emit_stderr_atomic, the fix for the write side of this).
+                # This is a cheap, always-on diagnostic for the read side: a
+                # hit here means a marker line got corrupted/merged and the
+                # per-marker parsing below only reliably attributes the FIRST
+                # embedded marker — surfacing it beats silently mis-parsing.
+                _marker_hits = sum(line.count(f"[{_marker}]") for _marker in _KNOWN_MARKER_TOKENS)
+                if _marker_hits > 1:
+                    logger.warning(
+                        "Watchdog: merged/corrupted marker line detected (%d marker "
+                        "tokens in one physical line) — likely two writers' "
+                        "unsynchronized stderr writes interleaved: %r",
+                        _marker_hits, line,
+                    )
+
                 # Try to extract task_id from markers for correlation
                 task_id = None
                 if "[START_SYNTHESIS]" in line:
@@ -578,6 +623,14 @@ class TtsServerWatchdog:
                         sub_parts = parts[1].strip().split()
                         if len(sub_parts) >= 2:
                             task_id = sub_parts[1]
+                elif "[MODEL_LOAD_STARTED]" in line:
+                    parts = line.split("[MODEL_LOAD_STARTED]")
+                    if len(parts) > 1:
+                        # Grammar: [MODEL_LOAD_STARTED] {sid?} {task_id}
+                        # task_id is always the LAST token; sid is optional.
+                        sub_parts = parts[1].strip().split()
+                        if sub_parts:
+                            task_id = sub_parts[-1]
 
                 with self._lock:
                     self._log_buffer.append(f"[{name}] {line}")

@@ -36,16 +36,11 @@ JOB_LIFECYCLE_COMMANDS = {
     JobLifecycleCommand.JOB_DONE,
     JobLifecycleCommand.JOB_FAILED,
     JobLifecycleCommand.QUEUE_INVALIDATED,
-    "JOB_QUEUED",
-    "JOB_PREPARING",
-    "START_SYNTHESIS",
-    "JOB_RESET_TO_ACTIVE",
-    "JOB_FINALIZING",
-    "JOB_DONE",
-    "JOB_FAILED",
-    "QUEUE_INVALIDATED",
 }
 
+# JobLifecycleCommand is a `str, Enum`, so its members already compare equal to
+# (and hash the same as) their raw string values — e.g. `"JOB_QUEUED" in
+# JOB_LIFECYCLE_COMMANDS` is True without listing the raw string separately.
 COMMAND_TOPIC_SCOPES = {
     "jobs.lifecycle": JOB_LIFECYCLE_COMMANDS,
     "queue.items": {
@@ -57,15 +52,6 @@ COMMAND_TOPIC_SCOPES = {
         JobLifecycleCommand.JOB_DONE,
         JobLifecycleCommand.JOB_FAILED,
         JobLifecycleCommand.QUEUE_INVALIDATED,
-        # Allow string versions
-        "JOB_QUEUED",
-        "JOB_PREPARING",
-        "START_SYNTHESIS",
-        "JOB_RESET_TO_ACTIVE",
-        "JOB_FINALIZING",
-        "JOB_DONE",
-        "JOB_FAILED",
-        "QUEUE_INVALIDATED",
     },
     "chapters.progress": {
         JobLifecycleCommand.JOB_PREPARING,
@@ -79,26 +65,12 @@ COMMAND_TOPIC_SCOPES = {
         JobLifecycleCommand.JOB_FINALIZING,
         JobLifecycleCommand.JOB_DONE,
         JobLifecycleCommand.JOB_FAILED,
-        # Allow string versions
-        "JOB_PREPARING",
-        "START_SYNTHESIS",
-        "START_SEGMENT",
-        "SEGMENT_PENDING",
-        "JOB_RESET_TO_ACTIVE",
-        "JOB_FINALIZING",
-        "JOB_DONE",
-        "JOB_FAILED",
     },
     "segments.progress": {
         JobLifecycleCommand.START_SEGMENT,
         JobLifecycleCommand.SEGMENT_PENDING,
         JobLifecycleCommand.SEGMENT_PROGRESS,
         JobLifecycleCommand.SEGMENT_SAVED,
-        # Allow string versions
-        "START_SEGMENT",
-        "SEGMENT_PENDING",
-        "SEGMENT_PROGRESS",
-        "SEGMENT_SAVED",
     },
 }
 
@@ -124,9 +96,8 @@ SEGMENT_SCOPED_COMMANDS = {
     JobLifecycleCommand.START_SEGMENT,
     JobLifecycleCommand.SEGMENT_PROGRESS,
     JobLifecycleCommand.SEGMENT_SAVED,
-    "START_SEGMENT",
-    "SEGMENT_PROGRESS",
-    "SEGMENT_SAVED",
+    # Legacy lowercase reason codes (pre-canonicalization) — not enum members,
+    # so these must remain listed explicitly.
     "segment_start",
     "synthesis_progress",
     "segment_saved",
@@ -421,6 +392,7 @@ def build_queue_item_status_event(
     confidence: float | None = None,
     indeterminate: bool | None = None,
     loading_elapsed_seconds: float | None = None,
+    active_segments_map: dict | None = None,
 ) -> dict:
     """Build a queue.items status envelope."""
     canonical_command = normalize_to_canonical_command(reason_code, status, has_segment_support)
@@ -456,6 +428,10 @@ def build_queue_item_status_event(
         payload["indeterminate"] = bool(indeterminate)
     if loading_elapsed_seconds is not None:
         payload["loadingElapsedSeconds"] = round(float(loading_elapsed_seconds), 1)
+    if active_segments_map is not None:
+        # W-PAR 003 (C2 contract): snake_case on the wire — no camelCase variant.
+        # The frontend adapter (jobEventAdapters.ts) reads this key directly.
+        payload["active_segments_map"] = active_segments_map
     resolved_source = source or _resolve_source_path()
     return build_studio_event(
         topic="queue.items",
@@ -528,6 +504,7 @@ def build_chapter_progress_event(
     confidence: float | None = None,
     indeterminate: bool | None = None,
     loading_elapsed_seconds: float | None = None,
+    active_segments_map: dict | None = None,
 ) -> dict:
     """Build a chapters.progress topic envelope."""
     canonical_command = normalize_to_canonical_command(reason_code, status, has_segment_support)
@@ -564,6 +541,15 @@ def build_chapter_progress_event(
         payload["indeterminate"] = bool(indeterminate)
     if loading_elapsed_seconds is not None:
         payload["loadingElapsedSeconds"] = round(float(loading_elapsed_seconds), 1)
+    if active_segments_map is not None:
+        # W-PAR 008 (event-driven live map, 2026-07-05): additive-only field
+        # (INV-1/INV-9), snake_case on the wire, matching
+        # build_queue_item_status_event's existing convention — no camelCase
+        # variant. This is the missing delivery leg: without it, no matter
+        # how often the backend writes active_segments_map to job state, a
+        # status-unchanged mid-render update never reaches the frontend at
+        # all (chapters.progress was the only frame that could carry it here).
+        payload["active_segments_map"] = active_segments_map
     if resolved_eta_updated_at is not None:
         payload["etaUpdatedAt"] = resolved_eta_updated_at
     if updated_at is not None:
@@ -599,6 +585,8 @@ def build_segment_progress_event(
     has_segment_support: bool | None = None,
     eta_updated_at: float | None = None,
     confidence: float | None = None,
+    indeterminate: bool | None = None,
+    loading_elapsed_seconds: float | None = None,
 ) -> dict:
     """Build a segments.progress topic envelope."""
     canonical_command = normalize_to_canonical_command(reason_code, status, has_segment_support)
@@ -628,6 +616,10 @@ def build_segment_progress_event(
         "hasSegmentSupport": has_segment_support,
         "confidence": confidence,
     }
+    if indeterminate is not None:
+        payload["indeterminate"] = bool(indeterminate)
+    if loading_elapsed_seconds is not None:
+        payload["loadingElapsedSeconds"] = round(float(loading_elapsed_seconds), 1)
     if resolved_eta_updated_at is not None:
         payload["etaUpdatedAt"] = resolved_eta_updated_at
     if updated_at is not None:

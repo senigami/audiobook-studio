@@ -1092,7 +1092,7 @@ export const EnginesPane: React.FC = () => {
             position: 'fixed', inset: 0, zIndex: 1000,
             background: 'var(--overlay-backdrop)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            backdropFilter: 'blur(4px)',
+            backdropFilter: 'var(--blur-glass)',
           }}
           onClick={e => { if (e.target === e.currentTarget) setShowInstallModal(false); }}
         >
@@ -1669,7 +1669,7 @@ export const IntegrationsPane: React.FC = () => {
             position: 'fixed', inset: 0, zIndex: 1000,
             background: 'var(--overlay-backdrop)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            backdropFilter: 'blur(4px)',
+            backdropFilter: 'var(--blur-glass)',
           }}
           onClick={e => { if (e.target === e.currentTarget) setShowKeyRotation(false); }}
         >
@@ -1708,7 +1708,7 @@ export const IntegrationsPane: React.FC = () => {
             position: 'fixed', inset: 0, zIndex: 1000,
             background: 'var(--overlay-backdrop)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            backdropFilter: 'blur(4px)',
+            backdropFilter: 'var(--blur-glass)',
           }}
           onClick={e => { if (e.target === e.currentTarget) setShowLanWarning(false); }}
         >

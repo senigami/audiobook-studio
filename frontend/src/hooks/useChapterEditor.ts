@@ -79,6 +79,7 @@ export const useChapterEditor = (
     text: state.text, 
     setText: state.setText,
     loading: state.loading,
+    chapterNotFound: state.chapterNotFound,
     saving: state.saving, 
     setSaving: state.setSaving,
     submitting: state.submitting, 

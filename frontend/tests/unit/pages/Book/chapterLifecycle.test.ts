@@ -41,4 +41,34 @@ describe('deriveChapterLifecycle', () => {
     expect(deriveChapterLifecycle(baseChapter)).toBe('Draft');
     expect(deriveChapterLifecycle({ ...baseChapter, char_count: 120, total_segments_count: 0 })).toBe('Draft');
   });
+
+  it('marks chapters with a failed render as Error, even if audio assets exist', () => {
+    expect(deriveChapterLifecycle({ ...baseChapter, audio_status: 'error' })).toBe('Error');
+    expect(deriveChapterLifecycle({ ...baseChapter, audio_status: 'failed' })).toBe('Error');
+    expect(deriveChapterLifecycle({ ...baseChapter, audio_status: 'error', has_wav: true })).toBe('Error');
+  });
+
+  it('marks chapters whose text changed after their last render as Stale, even if audio assets exist', () => {
+    expect(
+      deriveChapterLifecycle({
+        ...baseChapter,
+        has_wav: true,
+        audio_status: 'done',
+        text_last_modified: 200,
+        audio_generated_at: 100,
+      }),
+    ).toBe('Stale');
+  });
+
+  it('does not mark a chapter Stale when audio was generated after the last text edit', () => {
+    expect(
+      deriveChapterLifecycle({
+        ...baseChapter,
+        has_wav: true,
+        audio_status: 'done',
+        text_last_modified: 100,
+        audio_generated_at: 200,
+      }),
+    ).toBe('Rendered');
+  });
 });

@@ -24,6 +24,39 @@ def test_chapter_progress_event_preserves_start_segment_reason_code():
     assert event["payload"]["reasonCode"] == "START_SEGMENT"
 
 
+def test_chapter_progress_event_carries_active_segments_map():
+    """chapters.progress must carry active_segments_map when the producer has one.
+
+    R1: before this fix, build_chapter_progress_event had no active_segments_map
+    parameter at all — the field could never reach a chapters.progress frame no
+    matter how often the backend wrote it to job state, so live per-segment
+    highlighting during a chapter fan-out render was structurally impossible.
+    build_queue_item_status_event already supports this field (queue.items); this
+    pins the same support on chapters.progress.
+    """
+    event = build_chapter_progress_event(
+        chapter_id="ch-1",
+        status="running",
+        progress=0.5,
+        confidence=1.0,
+        active_segments_map={"seg-1": {"phase": "rendering", "progress": 0.4, "eta_seconds": 12}},
+    )
+    assert event["payload"]["active_segments_map"] == {
+        "seg-1": {"phase": "rendering", "progress": 0.4, "eta_seconds": 12}
+    }
+
+
+def test_chapter_progress_event_omits_active_segments_map_when_absent():
+    """Absent active_segments_map must not appear in the payload at all (additive-only, INV-1/INV-9)."""
+    event = build_chapter_progress_event(
+        chapter_id="ch-1",
+        status="running",
+        progress=0.5,
+        confidence=1.0,
+    )
+    assert "active_segments_map" not in event["payload"]
+
+
 def test_chapter_progress_event_preserves_start_synthesis_reason_code():
     event = build_chapter_progress_event(
         chapter_id="ch-1",

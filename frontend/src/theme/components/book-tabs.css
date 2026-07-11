@@ -1,0 +1,269 @@
+.casting-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.casting-stage__warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--error-tint-border);
+  border-radius: var(--radius-panel);
+  background: var(--error-tint-bg);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.casting-stage__warning div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.casting-stage__warning strong {
+  color: var(--error);
+}
+
+.casting-stage__warning span {
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+}
+
+.casting-stage__narrator-row {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(16rem, 0.9fr);
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.casting-stage__narrator-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.casting-stage__narrator-copy strong {
+  color: var(--text-primary);
+}
+
+.casting-stage__narrator-copy span {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.casting-stage__narrator-select {
+  min-width: 0;
+}
+
+/* ==========================================================================
+   Lexicon Stage — pronunciation replacement table
+   Used in two places:
+     1. LexiconStage (the /book/:id/lexicon tab) — fills the book content area
+     2. WorkspacePanel (dockable side panel) — fills a narrow scrollable column
+   ========================================================================== */
+
+/* Outer container: flex column, fills and scrolls its parent */
+.lexicon-stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  /* As a stage tab, inherit the flow of .book-layout (flex column).
+     As a WorkspacePanel child it lives inside a scrollable flex column —
+     both cases are served by a simple block-level flex column. */
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Header row: title+description on the left, "Add entry" button on the right */
+.lexicon-stage__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.lexicon-stage__header-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* "Add entry" button — reuses .btn-primary; this class adds no extra visual,
+   only a size hint to prevent it from growing on wrapping rows */
+.lexicon-stage__add-btn {
+  flex-shrink: 0;
+}
+
+/* Add-entry form block */
+.lexicon-stage__add-form {
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-alt);
+}
+
+/* Entry list */
+.lexicon-stage__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+/* Single entry row — view and edit-in-place share this base */
+.lexicon-stage__entry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2.75rem;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.lexicon-stage__entry:last-child {
+  border-bottom: 0;
+}
+
+/* Editing state: slightly tinted background to distinguish from view rows */
+.lexicon-stage__entry--editing {
+  background: var(--surface-alt);
+}
+
+/* Word span (read mode) */
+.lexicon-stage__word {
+  flex: 0 1 auto;
+  min-width: 5rem;
+  font-size: var(--type-body);
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Arrow glyph between word and replacement */
+.lexicon-stage__arrow {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: var(--type-caption);
+  user-select: none;
+}
+
+/* Replacement span (read mode) */
+.lexicon-stage__replacement {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--type-body);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Inputs (edit-in-place and add form) */
+.lexicon-stage__input {
+  flex: 1 1 auto;
+  min-width: 5rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  background: var(--surface);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--type-body);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.lexicon-stage__input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.lexicon-stage__input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* The replacement input grows a bit more than the word input */
+.lexicon-stage__input--replacement {
+  flex: 1.5 1 7rem;
+}
+
+/* Small icon-only action buttons (Edit / Save / Delete / Cancel) */
+.lexicon-stage__action-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-button);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--type-caption);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.lexicon-stage__action-btn:hover:not(:disabled) {
+  background: var(--accent-glow);
+  color: var(--accent);
+  border-color: var(--border);
+}
+
+.lexicon-stage__action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Save confirmation button gets a success tint */
+.lexicon-stage__action-btn--save {
+  color: var(--success);
+}
+
+.lexicon-stage__action-btn--save:hover:not(:disabled) {
+  background: var(--success-tint-bg);
+  color: var(--success);
+  border-color: var(--success-muted);
+}
+
+/* Delete button gets a danger tint */
+.lexicon-stage__action-btn--delete {
+  color: var(--error-text);
+}
+
+.lexicon-stage__action-btn--delete:hover:not(:disabled) {
+  background: var(--error-glow);
+  color: var(--error);
+  border-color: var(--error);
+}
+
+/* Submit/Cancel buttons in the add form — reuse .btn-primary / .btn-ghost;
+   these modifiers just pin flex-shrink so they don't collapse in the row */
+.lexicon-stage__submit-btn,
+.lexicon-stage__cancel-btn {
+  flex-shrink: 0;
+}
+

@@ -45,6 +45,8 @@ class OrchestratorPublishMixin:
         force: bool = False,
         indeterminate: bool | None = None,
         loading_elapsed_seconds: float | None = None,
+        clear_eta: bool = False,
+        active_segments_map: dict[str, dict] | None = None,
     ) -> None:
         # Derive char_count once from context payload (chapter-total chars for chapter jobs,
         # script_text length for single-unit synthesis/api tasks).  A pre-stashed integer
@@ -85,26 +87,19 @@ class OrchestratorPublishMixin:
             except Exception:
                 pass
 
-        if state_status == "running" and reason_code in ("synthesis_progress", "SEGMENT_PROGRESS") and (progress is None or progress == 0.0):
-            if not has_started:
-                state_status = "preparing"
-
+        # Zero progress is NOT used to infer "not started" — a running frame stays running
+        # even at 0%. Loading/preparing is conveyed by explicit signals (SEGMENT_PENDING /
+        # indeterminate), never by progress == 0.
         if has_started and state_status == "preparing":
             state_status = "running"
         state_progress = progress
         if state_progress is None:
             if state_status == "done":
                 state_progress = 1.0
-            elif context.task_type in {"sample_build", "sample_test"}:
-                # Provide synthetic progress fallbacks for voice tasks ONLY if no task-reported progress is available
-                progress_map = {
-                    "queued": 0.0,
-                    "preparing": 0.0,
-                    "running": 0.0,  # start at 0.0, real task will report progress via heartbeat
-                    "finalizing": 0.9,
-                }
-                state_progress = progress_map.get(state_status, 0.0)
             else:
+                # No task-reported progress yet: start at 0.0. Do not fabricate a
+                # "finalizing ≈ 90%" placeholder for voice sample tasks — the bar
+                # reflects real heartbeat progress or 0, never a made-up percentage.
                 state_progress = 0.0
         # Safety: Do not emit eta_seconds=0 for active jobs; it's better to show no ETA than a false zero.
         if eta_seconds == 0 and state_status not in {"done", "failed", "cancelled"}:
@@ -129,6 +124,26 @@ class OrchestratorPublishMixin:
             active_segment_progress=active_segment_progress,
             force=force,
         )
+        # Ephemeral fan-out children (W-PAR 008, Finding A) must never create a
+        # durable Job row or trigger the job-list (queue.items/jobs.lifecycle/
+        # chapters.progress) broadcasts — only the parent ChapterSynthesisTask
+        # is the externally visible unit (INV-4). Without this, every call for
+        # the same never-persisted synthetic task_id would keep hitting the
+        # "first-seen" put_job branch below (no existing_job is ever found),
+        # creating a fresh phantom row on every single progress tick.
+        #
+        # BUT: segment-scoped frames (segments.progress ticks + the prev→new
+        # SEGMENT_SAVED transition frame) are multiplexed through this same
+        # publish chokepoint and are keyed by the REAL segment id on the
+        # frontend (setSegmentProgress in useJobs.ts) — the phantom job id was
+        # never load-bearing for them. Suppressing the whole publish here
+        # (review-ratchet finding, 2026-07-04) killed the live per-segment
+        # progress bar for every fan-out chapter. So ephemeral contexts still
+        # route through ProgressService.publish, which suppresses only the
+        # job-scoped emissions (ephemeral=True), and we skip ALL durable
+        # job-state writes (put_job/update_job) after it.
+        ephemeral = bool(getattr(context, "ephemeral", False))
+
         try:
             # Sync with the persistent state.json for UI visibility and polling.
             # We import lazily to stay behind the state boundary.
@@ -136,7 +151,7 @@ class OrchestratorPublishMixin:
 
             # Anti-Regression: If this is an update to an existing job, don't allow progress to regress
             # unless the status itself has regressed (e.g. requeued).
-            existing_job = get_jobs().get(context.task_id)
+            existing_job = None if ephemeral else get_jobs().get(context.task_id)
             if existing_job and state_status == existing_job.status and state_progress is not None:
                 if state_progress < (existing_job.progress or 0.0):
                     state_progress = existing_job.progress
@@ -179,7 +194,40 @@ class OrchestratorPublishMixin:
                 char_count=_char_count,
                 indeterminate=indeterminate,
                 loading_elapsed_seconds=loading_elapsed_seconds,
+                ephemeral=ephemeral,
             )
+
+            if ephemeral:
+                # No durable job-state write for a synthetic fan-out child —
+                # the segment-scoped frames above are its only output.
+                #
+                # Event-driven live active_segments_map (2026-07-05, escaped
+                # defect fix): a fan-out child's own per-tick publish call
+                # (already ≥1%-gated by ProgressService above) is the single
+                # existing chokepoint every child's progress already flows
+                # through — piggybacking the parent's live-map update here
+                # needs no new timer/thread/join lifecycle. The callback is a
+                # plain opaque callable stashed in the ephemeral context's own
+                # payload by `_SyntheticSegmentTask.describe()` (never a new
+                # import/coupling into this module); duck-typed via
+                # `getattr`-equivalent `.get(...)` exactly like
+                # `skip_registry_dispatch`/`is_chapter_fanout` elsewhere in
+                # this codebase.
+                on_segment_tick = _payload.get("on_segment_tick")
+                if callable(on_segment_tick):
+                    try:
+                        on_segment_tick(
+                            segment_id=active_segment_id,
+                            status=state_status,
+                            progress=active_segment_progress if active_segment_progress is not None else state_progress,
+                            eta_seconds=eta_seconds,
+                            reason_code=reason_code,
+                        )
+                    except Exception:
+                        logger.warning(
+                            "Task %s: on_segment_tick callback raised.", context.task_id, exc_info=True,
+                        )
+                return
 
             # Initialize job state if this is the first event (usually 'queued')
             if not existing_job:
@@ -211,6 +259,7 @@ class OrchestratorPublishMixin:
                     active_render_group_weight=active_render_group_weight,
                     grouped_progress=grouped_progress,
                     has_segment_support=has_segment_support,
+                    active_segments_map=active_segments_map,
                 )
                 put_job(job)
             else:
@@ -234,8 +283,17 @@ class OrchestratorPublishMixin:
                     "grouped_progress": grouped_progress,
                     "has_segment_support": has_segment_support,
                 }
+                if active_segments_map is not None:
+                    # W-PAR 003 (C2 contract): additive field (INV-1/INV-9) —
+                    # only written when the caller actually has a concurrent-
+                    # segment snapshot to report. Absent at cap=1 unless the
+                    # caller opts in, so the existing single-active fields
+                    # above are unaffected either way.
+                    updates["active_segments_map"] = active_segments_map
                 if eta_seconds is not None:
                     updates["eta_seconds"] = eta_seconds
+                elif clear_eta:
+                    updates["eta_seconds"] = None
                 if eta_confidence is not None:
                     updates["eta_confidence"] = eta_confidence
                 if started_at is not None:

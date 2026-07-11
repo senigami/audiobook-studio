@@ -14,11 +14,19 @@ def test_websocket_connect_and_send():
             # Graceful connect/disconnect without error is the observable contract.
 
 def test_queue_start_not_redirect():
+    from app.orchestration.scheduler.resources import is_paused, set_paused
+
     client = TestClient(app)
+    set_paused(True)
+    assert is_paused() is True
+
     # This should return JSON now, not a redirect
     response = client.post("/api/generation/resume")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+    # Real side effect: the route must actually unpause the queue, not just
+    # return a success-shaped body.
+    assert is_paused() is False
 
 
 def test_broadcast_job_updated_no_broadcast_when_no_classification(monkeypatch):
@@ -1298,6 +1306,138 @@ def test_broadcast_job_updated_segment_completion(monkeypatch):
     assert messages[2]["payload"]["status"] == "running"
 
 
+def test_broadcast_job_updated_segment_completion_failed_status_preserved(monkeypatch):
+    """W-PAR 003 directive 2: the per-segment transition emission must preserve
+    the prior segment's failed/cancelled status rather than forcing 'done'.
+
+    Pins the `seg_status = status if status in ("failed", "cancelled") else "done"`
+    mapping in `broadcast_job_updated`'s transition block — this is the exact
+    semantics that must survive the W-PAR 003 rework (a bare "always done"
+    regression here would silently mark failed segments as completed).
+    """
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    # The job (and thus its previously-active segment) transitioned to "failed".
+    # active_segment_id also advances (seg-1 -> seg-2) so the transition block fires.
+    broadcast_job_updated(
+        "job-seg-failed",
+        {"status": "failed", "active_segment_id": "seg-2", "error": "synthesis error"},
+        current_job={
+            "status": "running",
+            "active_segment_id": "seg-1",
+            "active_segment_progress": 0.4,
+            "chapter_id": "chap-1",
+            "project_id": "proj-1",
+        },
+    )
+
+    seg1_events = [
+        m for m in messages
+        if m.get("topic") == "segments.progress" and m.get("ids", {}).get("segmentId") == "seg-1"
+    ]
+    assert seg1_events, "expected a segments.progress event for the prior active segment (seg-1)"
+    # Failed must be preserved verbatim — NOT forced to "done" (SEGMENT_SAVED).
+    assert seg1_events[0]["payload"]["status"] == "failed"
+    assert seg1_events[0]["payload"]["reasonCode"] != "SEGMENT_SAVED"
+
+
+def test_broadcast_job_updated_chapter_progress_dedupes_eta_updated_at_across_map_only_ticks(monkeypatch):
+    """Regression (2026-07-06 debug session, found from a fresh owner render
+    capture after the concurrent fan-out + queue-bar-ETA fixes): a repeated
+    ``active_segments_map``-only tick (``skip_job_updated=True``, the shape
+    ``ChapterSynthesisTask._on_child_segment_tick`` emits on every child
+    progress tick) with an UNCHANGED ``eta_seconds``/``progress`` must reuse
+    the SAME ``etaUpdatedAt`` anchor on the wire, not stamp a fresh one.
+
+    ``ProgressService.enrich()`` already computes this dedupe correctly
+    (§4A eta_updated_at dedupe) into its own payload dict — but
+    ``broadcast_job_updated`` never extracted ``eta_updated_at`` from that
+    enriched payload and never passed it to ``build_chapter_progress_event``,
+    which silently defaults to ``time.time()`` when neither ``eta_updated_at``
+    nor ``updated_at`` is given. The correctly-deduped value was computed and
+    then dropped before it ever reached the frame. Invisible before now
+    because ``eta_seconds`` was never positive for an extended multi-tick
+    ``preparing`` window; the new chapter-dispatch-ETA fix (bc4b4899) makes it
+    positive for tens of seconds while children tick repeatedly, exposing it:
+    the queue bar's determinate fill re-anchored its end-time forward on every
+    tick instead of counting down, observed live as a countdown that never
+    seems to move.
+    """
+    from app.orchestration.progress.service import (
+        ProgressService,
+        estimate_eta_seconds,
+        reconcile_work_item,
+        reset_progress_service,
+        set_progress_service,
+    )
+
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr("app.api.ws.manager", DummyManager())
+
+    fake_now = [1000.0]
+    service = ProgressService(
+        reconcile_fn=reconcile_work_item,
+        eta_fn=estimate_eta_seconds,
+        broadcaster=lambda **kw: None,
+        wall_clock=lambda: fake_now[0],
+    )
+    set_progress_service(service)
+    try:
+        # Seed the ProgressService's own dedupe cache exactly like the real
+        # dispatch-time announce (bc4b4899's _publish_chapter_dispatch_eta ->
+        # service.publish) does.
+        service.publish(
+            job_id="job-dedupe", status="preparing", chapter_id="chap-1",
+            parent_job_id="proj-1", progress=0.0, eta_seconds=57,
+        )
+
+        current_job = {
+            "status": "preparing", "progress": 0.0, "eta_seconds": 57,
+            "chapter_id": "chap-1", "project_id": "proj-1",
+        }
+
+        # Two map-only ticks, several real seconds apart, eta/progress unchanged.
+        fake_now[0] = 1005.0
+        broadcast_job_updated(
+            "job-dedupe",
+            {"active_segments_map": {"seg-1": {"phase": "rendering", "progress": 0.2, "eta_seconds": None}}, "skip_job_updated": True},
+            current_job=current_job,
+        )
+        fake_now[0] = 1021.0
+        broadcast_job_updated(
+            "job-dedupe",
+            {"active_segments_map": {"seg-1": {"phase": "rendering", "progress": 0.4, "eta_seconds": None}}, "skip_job_updated": True},
+            current_job=current_job,
+        )
+
+        chap_events = [m for m in messages if m.get("topic") == "chapters.progress"]
+        assert len(chap_events) == 2, f"expected 2 chapters.progress frames; got {messages}"
+        first_anchor = chap_events[0]["payload"].get("etaUpdatedAt")
+        second_anchor = chap_events[1]["payload"].get("etaUpdatedAt")
+        assert first_anchor is not None
+        assert second_anchor == first_anchor, (
+            "eta_seconds/progress were unchanged across both ticks (16s of real "
+            "wall-clock time apart) -- the etaUpdatedAt anchor must be reused, "
+            f"not refreshed; got {first_anchor} then {second_anchor}"
+        )
+        # Both frames still carry the real, unchanged ETA value.
+        assert chap_events[0]["payload"]["etaSeconds"] == 57
+        assert chap_events[1]["payload"]["etaSeconds"] == 57
+    finally:
+        reset_progress_service()
+
+
 def test_broadcast_job_updated_segment_handoff_preserves_segment_commands(monkeypatch):
     messages = []
 
@@ -2061,3 +2201,39 @@ def test_terminal_latch_cleared_by_clear_all_jobs(monkeypatch, tmp_path):
         {"status": "running", "progress": 0.2, "chapter_id": "chap-l4", "project_id": "proj-l4"},
     )
     assert any(m["topic"] == "chapters.progress" for m in messages), "latch must not survive clear_all_jobs"
+
+
+# --- S6: WebSocket Origin check ---
+
+def test_websocket_cross_origin_is_rejected():
+    """S6: A connection from a disallowed cross-origin is closed with code 1008 (policy violation).
+
+    R1 revert-check: before the Origin-check is in place, this test would pass (connect succeeds)
+    rather than see a rejection — confirming it truly fails on pre-fix code.
+    """
+    client = TestClient(app)
+    rejected = False
+    try:
+        with client.websocket_connect("/ws", headers={"origin": "https://evil.example.com"}):
+            pass
+    except Exception:
+        # TestClient raises WebSocketDisconnect or similar when the server closes the socket.
+        rejected = True
+    assert rejected, (
+        "Expected cross-origin WebSocket connection to be rejected (close 1008), "
+        "but the connection was accepted"
+    )
+
+
+def test_websocket_no_origin_is_allowed():
+    """S6: A connection with no Origin header (native/CLI clients) must be accepted.
+
+    Non-browser clients (native apps, CLI tools) do not send an Origin header, so
+    absence of the header MUST be treated as allowed — the risk is browser-based
+    CSWSH, not direct programmatic access.
+    """
+    with timeout_after(5, "websocket connect without Origin should not hang"):
+        client = TestClient(app)
+        with client.websocket_connect("/ws") as websocket:
+            # Graceful connect/disconnect without error is the observable contract.
+            pass

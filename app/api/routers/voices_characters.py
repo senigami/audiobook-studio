@@ -1,6 +1,6 @@
 import logging
 from typing import Optional
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form, Query, Request
 from fastapi.responses import JSONResponse
 from ... import db
 
@@ -9,18 +9,20 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/projects/{project_id}/characters")
-def api_list_characters(project_id: str):
-    return JSONResponse({"status": "ok", "characters": db.get_characters(project_id)})
+def api_list_characters(project_id: str, chapter_id: Optional[str] = Query(None)):
+    return JSONResponse({"status": "ok", "characters": db.get_characters(project_id, chapter_id=chapter_id)})
 
 @router.post("/projects/{project_id}/characters")
 def api_create_character_route(
     project_id: str,
     name: str = Form(...),
     speaker_profile_name: Optional[str] = Form(None),
-    color: Optional[str] = Form(None)
+    color: Optional[str] = Form(None),
+    chapter_id: Optional[str] = Form(None),
 ):
     normalized_profile_name = (speaker_profile_name or "").strip() or None
-    cid = db.create_character(project_id, name, normalized_profile_name, color=color)
+    normalized_chapter_id = (chapter_id or "").strip() or None
+    cid = db.create_character(project_id, name, normalized_profile_name, color=color, chapter_id=normalized_chapter_id)
     return JSONResponse({"status": "ok", "id": cid, "character_id": cid})
 
 @router.put("/characters/{character_id}")
@@ -44,3 +46,11 @@ async def api_update_character_route(
 def api_delete_character_route(character_id: str):
     db.delete_character(character_id)
     return JSONResponse({"status": "ok"})
+
+@router.post("/characters/{character_id}/promote")
+def api_promote_character_route(character_id: str):
+    """Promote a chapter-scoped temp character to book scope (sets chapter_id = NULL)."""
+    success = db.promote_character(character_id)
+    if not success:
+        return JSONResponse({"status": "error", "message": "Character not found"}, status_code=404)
+    return JSONResponse({"status": "ok", "character_id": character_id})

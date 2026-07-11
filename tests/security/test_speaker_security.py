@@ -53,15 +53,34 @@ def test_new_profile_dir_traversal_rejected(mock_voices_root):
 
 
 def test_new_profile_dir_traversal_variant_rejected(mock_voices_root):
-    """_new_profile_dir must reject traversal in the variant part of 'Speaker - ../escape'."""
+    """_new_profile_dir must reject traversal in the variant part of a
+    'Speaker - <variant>' name via safe_basename(), not merely via the
+    earlier, unrelated SAFE_PROFILE_NAME_RE full-name gate.
+
+    "Speaker - ../escape" (used previously here) contains a literal "/",
+    so SAFE_PROFILE_NAME_RE._profile_name_or_error() rejects the whole name
+    before the " - " split/safe_basename logic this test is meant to guard
+    ever runs -- passing for the wrong reason. "Speaker - .." has no "/" so
+    it clears that earlier gate and specifically exercises
+    safe_basename("..") raising for the variant part.
+    """
     from app.db.speakers import _new_profile_dir
+    from app.db.speaker_paths import SAFE_PROFILE_NAME_RE
     import pytest
 
-    with pytest.raises(ValueError):
-        _new_profile_dir(mock_voices_root, "Speaker - ../escape")
+    payload = "Speaker - .."
+    assert SAFE_PROFILE_NAME_RE.fullmatch(payload), (
+        "Payload must clear the earlier full-name gate to prove this test "
+        "exercises the variant-splitting safe_basename() check, not the gate."
+    )
 
-    outside = mock_voices_root.parent / "escape"
-    assert not outside.exists()
+    with pytest.raises(ValueError):
+        _new_profile_dir(mock_voices_root, payload)
+
+    # Nothing was created inside voices_dir, and ".." couldn't have escaped
+    # to create a "Speaker" directory alongside it.
+    assert list(mock_voices_root.iterdir()) == []
+    assert not (mock_voices_root.parent / "Speaker").exists()
 
 
 def test_update_speaker_settings_success(mock_voices_root):

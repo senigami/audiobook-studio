@@ -1,8 +1,8 @@
 import React from 'react';
-import { RotateCcw, Loader2 } from 'lucide-react';
+import { RotateCcw, Loader2, Sparkles } from 'lucide-react';
 import { GlassInput } from '@/components/forms/GlassInput';
-import { JsonSchemaForm } from '@/pages/Settings/components/JsonSchemaForm';
-import type { VoiceEngine, TtsEngine } from '@/types';
+import type { VoiceEngine, TtsEngine, VoiceAttributes } from '@/types';
+import { suggestRecordingPrompt } from './metadata/recordingPromptSuggester';
 
 interface ScriptEditorProps {
     variantName: string;
@@ -17,11 +17,11 @@ interface ScriptEditorProps {
     availableSamples: string[];
     engineVoiceId: string;
     onEngineVoiceIdChange: (val: string) => void;
-    settings: Record<string, any>;
-    onSettingsChange: (val: Record<string, any>) => void;
     onResetTestText: () => void;
     onSave: () => void;
     isSaving: boolean;
+    /** Tagged attributes for the voice being edited — drives the "Suggest from voice qualities" button (INV-4: absent/untagged disables it, no generic fallback). */
+    attributes?: VoiceAttributes;
 }
 
 export const ScriptEditor: React.FC<ScriptEditorProps> = ({
@@ -37,45 +37,38 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
     availableSamples,
     engineVoiceId,
     onEngineVoiceIdChange,
-    settings,
-    onSettingsChange,
     onResetTestText,
     onSave,
-    isSaving
+    isSaving,
+    attributes
 }) => {
-    const activeEngine = engines.find(e => e.engine_id === engine);
-    const synthesisSettings = activeEngine?.behavior?.synthesis_settings || [];
+    const suggestion = suggestRecordingPrompt(attributes);
+    const suggestDisabledReason = !attributes || !suggestion
+        ? "Tag this voice's qualities in Edit Metadata first to get a suggested prompt."
+        : undefined;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.5rem' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>VARIANT NAME</label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+            <div className="glass-panel" style={{ padding: 'var(--space-5)' }}>
+                <div className="script-editor-field-group" style={{ marginBottom: 'var(--space-5)' }}>
+                    <label className="voice-field-label">VARIANT NAME</label>
                     <GlassInput
                         placeholder="Variant name"
                         value={variantName}
                         onChange={(e) => onVariantNameChange(e.target.value)}
                     />
-                    <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                    <p className="script-editor-helper-text" style={{ margin: 'var(--space-1) 0 0' }}>
                         Changing the variant label updates how this profile appears in the app. Use <strong>Rename Voice</strong> if you want to rename the voice itself.
                     </p>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.5rem' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>ENGINE</label>
+                <div className="script-editor-field-group" style={{ marginBottom: 'var(--space-5)' }}>
+                    <label className="voice-field-label">ENGINE</label>
                     <select
                         aria-label="Engine"
                         value={engine}
                         onChange={(e) => onEngineChange(e.target.value as VoiceEngine)}
-                        style={{
-                            width: '100%',
-                            padding: '10px 14px',
-                            borderRadius: '12px',
-                            border: '1px solid var(--border)',
-                            background: 'var(--surface)',
-                            color: 'var(--text)',
-                            fontSize: '0.95rem',
-                        }}
+                        className="script-editor-select"
                     >
                         {engines.map((e, idx) => {
                             const isSelected = engine === e.engine_id;
@@ -91,7 +84,7 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                         const activeEngine = engines.find(e => e.engine_id === engine);
                         if (activeEngine && !activeEngine.enabled) {
                             return (
-                                <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                                <p className="script-editor-helper-text" style={{ margin: 'var(--space-1) 0 0' }}>
                                     This profile is assigned to {activeEngine.display_name}, but it is currently turned off in Settings. New generation is blocked until you turn it back on.
                                 </p>
                             );
@@ -100,40 +93,18 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                     })()}
                 </div>
 
-                {activeEngine?.settings_schema && synthesisSettings.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.5rem', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--surface-dim)' }}>
-                        <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>PLUGIN SETTINGS</label>
-                        <JsonSchemaForm
-                            schema={activeEngine.settings_schema}
-                            values={settings}
-                            onSave={onSettingsChange}
-                            busy={isSaving}
-                            engineVerified={activeEngine.verified}
-                            propertyFilter={synthesisSettings}
-                        />
-                    </div>
-                )}
-
                 {(() => {
                     const activeEngine = engines.find(e => e.engine_id === engine);
                     if (activeEngine?.cloud || activeEngine?.capabilities?.includes('voice_asset_id')) {
                         return (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>REFERENCE SAMPLE</label>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', marginBottom: 'var(--space-5)' }}>
+                                <div className="script-editor-field-group">
+                                    <label className="voice-field-label">REFERENCE SAMPLE</label>
                                     <select
                                         aria-label="Reference Sample"
                                         value={referenceSample}
                                         onChange={(e) => onReferenceSampleChange(e.target.value)}
-                                        style={{
-                                            width: '100%',
-                                            padding: '10px 14px',
-                                            borderRadius: '12px',
-                                            border: '1px solid var(--border)',
-                                            background: 'var(--surface)',
-                                            color: 'var(--text)',
-                                            fontSize: '0.95rem',
-                                        }}
+                                        className="script-editor-select"
                                     >
                                         <option value="">Use profile samples automatically</option>
                                         {availableSamples.map((sample, idx) => (
@@ -142,8 +113,8 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                                     </select>
                                 </div>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>REMOTE VOICE ASSET ID</label>
+                                <div className="script-editor-field-group">
+                                    <label className="voice-field-label">REMOTE VOICE ASSET ID</label>
                                     <GlassInput
                                         placeholder="Optional remote voice asset id"
                                         value={engineVoiceId}
@@ -160,14 +131,14 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                     const activeEngine = engines.find(e => e.engine_id === engine);
                     if (activeEngine?.help_text || activeEngine?.privacy_text) {
                         return (
-                            <div style={{ padding: '12px', borderRadius: '12px', background: 'var(--surface-alt)', border: '1px solid var(--border)', marginBottom: '1.5rem' }}>
+                            <div className="script-editor-help-box">
                                 {activeEngine.help_text && (
-                                    <p style={{ margin: '0 0 8px 0', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                                    <p className="script-editor-helper-text" style={{ margin: '0 0 var(--space-2) 0' }}>
                                         {activeEngine.help_text}
                                     </p>
                                 )}
                                 {activeEngine.privacy_text && (
-                                    <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, lineHeight: 1.5 }}>
+                                    <p className="script-editor-helper-text" style={{ margin: 0, fontWeight: 600 }}>
                                         {activeEngine.privacy_text}
                                     </p>
                                 )}
@@ -177,33 +148,33 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
                     return null;
                 })()}
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>PREVIEW TEXT SCRIPT</label>
-                    <button 
-                        onClick={onResetTestText} 
-                        className="btn-ghost"
-                        style={{ fontSize: '0.7rem', height: '28px', padding: '0 8px' }}
-                    >
-                        <RotateCcw size={12} style={{ width: '12px', height: '12px', flexShrink: 0 }} />
-                        Reset to Default
-                    </button>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+                    <label className="voice-field-label">PREVIEW TEXT SCRIPT</label>
+                    <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                        <button
+                            onClick={() => {
+                                if (suggestion) onTestTextChange(suggestion.prompt);
+                            }}
+                            disabled={!suggestion}
+                            title={suggestDisabledReason}
+                            className="btn-ghost script-editor-btn-compact"
+                        >
+                            <Sparkles size={12} className="script-editor-icon-sm" />
+                            Suggest from voice qualities
+                        </button>
+                        <button
+                            onClick={onResetTestText}
+                            className="btn-ghost script-editor-btn-compact"
+                        >
+                            <RotateCcw size={12} className="script-editor-icon-sm" />
+                            Reset to Default
+                        </button>
+                    </div>
                 </div>
                 <textarea
                     value={testText}
                     onChange={(e) => onTestTextChange(e.target.value)}
-                    style={{
-                        width: '100%',
-                        minHeight: '200px',
-                        padding: '1rem',
-                        borderRadius: '12px',
-                        border: '1px solid var(--border)',
-                        background: 'var(--surface)',
-                        color: 'var(--text)',
-                        fontSize: '0.95rem',
-                        lineHeight: '1.6',
-                        resize: 'vertical',
-                        marginBottom: '1.5rem'
-                    }}
+                    className="script-editor-textarea"
                 />
                 <button
                     onClick={onSave}

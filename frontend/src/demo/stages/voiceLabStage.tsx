@@ -14,7 +14,7 @@ const noop = () => {};
 const noopAsync = async () => false as boolean;
 const noopConfirm = () => {};
 
-const VoiceLabStageInner: React.FC = () => {
+export const VoiceLabStageInner: React.FC = () => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   return (
@@ -46,12 +46,4 @@ const VoiceLabStageInner: React.FC = () => {
       ))}
     </div>
   );
-};
-
-export const voiceLabStage = {
-  id: 'voice-lab',
-  title: 'Voice Lab',
-  description:
-    'Real NarratorCard components showing 4 demo voices — READY, BUILD TO TEST, and NO SAMPLES states with engine badges. Voice previews are silent placeholders.',
-  element: <VoiceLabStageInner />,
 };

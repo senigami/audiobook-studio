@@ -151,8 +151,12 @@ class TestMigrateVoicesToV1Schema:
         state_data = json.loads((voices_root / "Test" / "state.json").read_text())
         assert state_data["default_variant"] == "Angry"
 
-    def test_no_attributes_block_written(self, tmp_path):
-        """B1-d: migrated voice.json has NO attributes block (D7)."""
+    def test_no_attributes_block_written_for_untagged_voice(self, tmp_path):
+        """B1-d: migrating a voice.json with no attributes must not add one (D7 --
+        no placeholder). Migration never touches the "attributes" key at all, so
+        this alone can't fail; paired with the sibling test below (a voice that
+        DOES already carry attributes), together they cover the real branch --
+        migration is attributes-neutral, neither adding nor stripping."""
         voices_root = tmp_path / "voices"
         _write_voice(voices_root, "Test", {"version": 2, "name": "Test", "id": "abc123"}, {
             "Default": {"variant_name": "Default", "engine": "xtts"},
@@ -162,6 +166,24 @@ class TestMigrateVoicesToV1Schema:
 
         data = json.loads((voices_root / "Test" / "voice.json").read_text())
         assert "attributes" not in data
+
+    def test_pre_existing_attributes_block_is_preserved(self, tmp_path):
+        """B1-d corollary: if a voice was already tagged (has an attributes
+        block) before migration, migration must NOT strip it -- per the source
+        comment in _migrate_one_voice_to_v1_schema: 'do NOT remove it here
+        because the voice may have been user-tagged since.'"""
+        voices_root = tmp_path / "voices"
+        attributes = {"class": "human", "gender": "masculine"}
+        _write_voice(voices_root, "Test", {
+            "version": 2, "name": "Test", "id": "abc123", "attributes": attributes,
+        }, {
+            "Default": {"variant_name": "Default", "engine": "xtts"},
+        })
+
+        self._run_migration(voices_root)
+
+        data = json.loads((voices_root / "Test" / "voice.json").read_text())
+        assert data["attributes"] == attributes
 
     def test_labels_migrated_to_tags(self, tmp_path):
         """B1-e: labels[] migrated to tags[]; labels field dropped."""
@@ -266,6 +288,17 @@ class TestMigrateVoicesToV1Schema:
         })
         result = self._run_migration(voices_root)
         assert result is True
+
+    def test_returns_false_on_fatal_scan_error(self, tmp_path):
+        """The docstring's other branch: a fatal error scanning voices_root
+        (here, voices_root is a *file*, so ``.iterdir()`` raises
+        NotADirectoryError) is caught by the outer try/except and reported
+        as False -- not just the always-True happy path."""
+        voices_root = tmp_path / "voices_root_is_a_file"
+        voices_root.write_text("not a directory")
+
+        result = self._run_migration(voices_root)
+        assert result is False
 
     def test_skips_non_directory_entries(self, tmp_path):
         """A stray file in voices/ does not crash migration."""

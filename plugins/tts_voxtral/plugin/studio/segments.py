@@ -1,32 +1,30 @@
 from __future__ import annotations
 import logging
 import time
-from pathlib import Path
 
 try:
     from studio_plugin_sdk.errors import BridgeError  # alias registered by plugin_loader
+    from studio_plugin_sdk.plugin_utils import make_segment_output_handler
 except ImportError:
     from app.studio_plugin_sdk.errors import BridgeError  # fallback for test/direct import
+    from app.studio_plugin_sdk.plugin_utils import make_segment_output_handler
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Module-level SDK context factory (lazy singleton)
+# Module-level SDK context accessor — delegates to the shared PL-1 factory
+# (app.studio_plugin_sdk.get_plugin_ctx), which owns the per-engine-id
+# lazy singleton cache. Kept as a local, patchable name because existing
+# tests patch ``<this module>._get_ctx`` directly.
 # ---------------------------------------------------------------------------
-
-_ctx_instance = None
-
 
 def _get_ctx():
     """Return the shared StudioPluginContext for the voxtral engine."""
-    global _ctx_instance  # noqa: PLW0603
-    if _ctx_instance is None:
-        try:
-            from studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
-        except ImportError:
-            from app.studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
-        _ctx_instance = StudioPluginContext("voxtral")
-    return _ctx_instance
+    try:
+        from studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
+    except ImportError:
+        from app.studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
+    return get_plugin_ctx("voxtral")
 
 
 # ---------------------------------------------------------------------------
@@ -54,6 +52,18 @@ def update_segment(segment_id: str, **kwargs):
     """Module-level alias for app.db.update_segment — patchable by tests."""
     from app.db import update_segment as _fn  # noqa: PLC0415
     return _fn(segment_id, **kwargs)
+
+
+def get_project_lexicon(project_id: str) -> list:
+    """Module-level alias for db.lexicon.get_lexicon — patchable by tests."""
+    from app.db.lexicon import get_lexicon as _fn  # noqa: PLC0415
+    return _fn(project_id)
+
+
+def apply_project_lexicon(text: str, entries: list) -> str:
+    """Module-level alias for utils.text.lexicon.apply_lexicon — patchable by tests."""
+    from app.utils.text.lexicon import apply_lexicon as _fn  # noqa: PLC0415
+    return _fn(text, entries)
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +99,14 @@ def handle_voxtral_segments(jid, j, start, on_output, cancel_check, pdir, voice_
         h.update_job(jid, status="done", progress=1.0)
         return 0
 
+    # Load the project lexicon once for the whole render (zero-impact when empty).
+    _lexicon_entries: list = []
+    if j.project_id:
+        try:
+            _lexicon_entries = get_project_lexicon(j.project_id)
+        except Exception:
+            logger.warning("Failed to load lexicon for project %s; proceeding without substitution.", j.project_id, exc_info=True)
+
     full_script = []
     path_to_group = {}
 
@@ -96,6 +114,11 @@ def handle_voxtral_segments(jid, j, start, on_output, cancel_check, pdir, voice_
         combined_text = " ".join((s.get("text_content") or "").strip() for s in group["segments"])
         if j.safe_mode:
             combined_text = ctx.sanitize_text(combined_text, sanitize_cats)
+        if _lexicon_entries:
+            try:
+                combined_text = apply_project_lexicon(combined_text, _lexicon_entries)
+            except Exception:
+                logger.warning("Lexicon substitution failed for group %s; using original text.", group["segments"][0].get("id"), exc_info=True)
 
         sid = group["segments"][0]["id"]
         seg_out = pdir / "segments" / f"{sid}.wav"
@@ -124,51 +147,29 @@ def handle_voxtral_segments(jid, j, start, on_output, cancel_check, pdir, voice_
     total_groups = len(gen_groups)
     completed_groups = [0]
 
-    def seg_on_output(line):
-        on_output(line)
-        # A cancelled render must not write segment 'done' state: a chapter reset
-        # clears segments to 'unprocessed', and a straggler [SEGMENT_SAVED] from the
-        # not-yet-stopped engine would otherwise resurrect audio_status='done' and
-        # make the next render reuse stale audio. (Mirrors the standard_handler
-        # chapter_on_output guard / I17.)
-        if "[SEGMENT_SAVED]" in line and not cancel_check():
-            saved_path = line.split("[SEGMENT_SAVED]")[1].strip()
-            group_segs = path_to_group.get(saved_path)
-            if group_segs:
-                seg_filename = Path(saved_path).name
-                for s in group_segs:
-                    _update_seg(s["id"], audio_status="done", audio_file_path=seg_filename, audio_generated_at=time.time())
-                completed_groups[0] += 1
+    def _segments_progress_formula(completed, total, active_segment_progress, *, active_index):
+        # Linear (unweighted) curve to limit=1.0, distinct from bake.py's
+        # limit=0.9 curve. NOTE: historically the [SEGMENT_SAVED] branch never
+        # called update_job at all (see emit_on_save=False below), so this
+        # formula is only ever evaluated from [START_SEGMENT]/[PROGRESS],
+        # both of whose original zero-groups fallback was 1.0 (unreachable in
+        # practice — an empty gen_groups returns before this closure exists).
+        base = completed / total if total else 1.0
+        overall = base + active_segment_progress / total if total else 1.0
+        return {"progress": round(min(overall, 1.0), 2)}
 
-        if "[START_SEGMENT]" in line:
-            asid = line.split("[START_SEGMENT]")[1].strip()
-            prog = round(completed_groups[0] / total_groups, 2) if total_groups else 1.0
-            h.update_job(
-                jid,
-                force_broadcast=True,
-                progress=prog,
-                active_segment_id=asid,
-                active_segment_progress=0.0,
-                skip_studio_job_event=True,
-                skip_job_updated=True,
-            )
-
-        if "[PROGRESS]" in line:
-            try:
-                p_str = line.split("[PROGRESS]")[1].split("%")[0].strip()
-                segment_progress = float(p_str) / 100.0
-                base = completed_groups[0] / total_groups if total_groups else 1.0
-                overall = base + segment_progress / total_groups if total_groups else 1.0
-                h.update_job(
-                    jid,
-                    force_broadcast=True,
-                    progress=round(min(overall, 1.0), 2),
-                    active_segment_progress=segment_progress,
-                    skip_studio_job_event=True,
-                    skip_job_updated=True,
-                )
-            except Exception:
-                logger.warning("Failed to parse [PROGRESS] line: %r", line, exc_info=True)
+    seg_on_output = make_segment_output_handler(
+        on_output=on_output,
+        cancel_check=cancel_check,
+        path_to_group=path_to_group,
+        update_seg=_update_seg,
+        completed_groups=completed_groups,
+        total_groups=total_groups,
+        update_job_fn=h.update_job,
+        jid=jid,
+        progress_formula=_segments_progress_formula,
+        emit_on_save=False,  # original never called update_job on [SEGMENT_SAVED] here
+    )
 
     try:
         rc = generate_via_bridge(

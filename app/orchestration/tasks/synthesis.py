@@ -26,6 +26,90 @@ from app.orchestration.tasks.base import StudioTask, TaskContext, TaskResult
 logger = logging.getLogger(__name__)
 
 
+def _manifest_resource_claim(engine_id: str) -> ResourceClaim:
+    """Derive a ``ResourceClaim`` from the engine manifest for ``engine_id``.
+
+    Reads ``behavior.max_concurrent_workers`` and the ``resource`` block from
+    the engine's ``manifest.json`` to construct a semaphore-backed claim.
+    No engine-ID string comparisons are used; the claim is entirely driven by
+    the manifest resource declarations (INV-5).
+
+    Engine-class mapping (from manifest ``resource`` block):
+    - ``resource.gpu = true``       → engine_class = ``"gpu"``
+    - ``resource.cpu_heavy = true`` → engine_class = ``"cpu_heavy"``
+    - otherwise                     → engine_class = ``"cloud"``
+
+    Falls back to a cap=1 ``"cloud"`` semaphore if the manifest cannot be
+    read (fail-safe, INV-10).
+
+    Args:
+        engine_id: Target engine identifier (e.g. ``"xtts"``, ``"voxtral"``,
+            ``"mixed"``).
+
+    Returns:
+        ResourceClaim: Manifest-derived claim for the semaphore scheduler.
+    """
+    try:
+        from app.tts_server.plugin_loader import get_plugin_dir, get_manifest_max_concurrent_workers  # noqa: PLC0415
+        from app.orchestration.scheduler.cap_settings import resolve_effective_cap  # noqa: PLC0415
+        import json  # noqa: PLC0415
+
+        plugin_dir = get_plugin_dir(engine_id)
+        manifest_path = plugin_dir / "manifest.json"
+        if manifest_path.is_file():
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        else:
+            manifest = {}
+
+        resource = manifest.get("resource", {})
+        if not isinstance(resource, dict):
+            resource = {}
+
+        is_gpu = bool(resource.get("gpu", False))
+        is_cpu_heavy = bool(resource.get("cpu_heavy", False))
+        vram_mb = int(resource.get("vram_mb", 0))
+        manifest_max = get_manifest_max_concurrent_workers(manifest)
+        # W-PAR task 007: the effective cap is min(setting/env cap, manifest max)
+        # — the operator-facing toggle can only lower the cap below the
+        # manifest ceiling, never raise it above what the plugin author
+        # declared safe. Defaults to DEFAULT_GLOBAL_CAP (2) when no
+        # setting/env override is present; engines with a lower manifest
+        # ceiling (e.g. Voxtral/Mixed at 1) stay sequential regardless.
+        cap = resolve_effective_cap(engine_id=engine_id, manifest_max=manifest_max)
+
+        if is_gpu:
+            engine_class = "gpu"
+        elif is_cpu_heavy:
+            engine_class = "cpu_heavy"
+        else:
+            engine_class = "cloud"
+
+        return ResourceClaim(
+            gpu=is_gpu,
+            vram_mb=vram_mb,
+            cpu_heavy=is_cpu_heavy,
+            exclusive=False,
+            engine_class=engine_class,
+            cap=cap,
+            engine_id=engine_id,
+        )
+    except Exception:
+        logger.warning(
+            "Could not load manifest for engine %r — falling back to cap=1 cloud semaphore.",
+            engine_id,
+            exc_info=True,
+        )
+        return ResourceClaim(
+            gpu=False,
+            vram_mb=0,
+            cpu_heavy=False,
+            exclusive=False,
+            engine_class="cloud",
+            cap=1,
+            engine_id=engine_id,
+        )
+
+
 class SynthesisTask(StudioTask):
     """Queueable synthesis task for one Studio render unit.
 
@@ -85,9 +169,7 @@ class SynthesisTask(StudioTask):
         self.voice_profile_id = voice_profile_id
         self.voice_ref = voice_ref
         self.language = language
-        self.resource_claim = resource_claim or (
-            ResourceClaim.none() if engine_id == "mixed" else ResourceClaim.exclusive_claim()
-        )
+        self.resource_claim = resource_claim or _manifest_resource_claim(engine_id)
         self.requested_revision = requested_revision or {}
         self.render_batch_id = render_batch_id
         self.is_bake = is_bake
@@ -294,9 +376,26 @@ class SynthesisTask(StudioTask):
         if self.engine_id == "mixed":
             return None
 
+        # Apply project lexicon before the text reaches the engine.
+        # Load once per task; zero-impact when the project has no entries.
+        script_text = self.script_text
+        if self.project_id:
+            try:
+                from app.db.lexicon import get_lexicon  # noqa: PLC0415
+                from app.utils.text.lexicon import apply_lexicon  # noqa: PLC0415
+                entries = get_lexicon(self.project_id)
+                if entries:
+                    script_text = apply_lexicon(script_text, entries)
+            except Exception:
+                logger.warning(
+                    "Failed to apply lexicon for project %s; using original text.",
+                    self.project_id,
+                    exc_info=True,
+                )
+
         return {
             "engine_id": self.engine_id,
-            "script_text": self.script_text,
+            "script_text": script_text,
             "output_path": self.output_path,
             "project_id": self.project_id,
             "chapter_id": self.chapter_id,
@@ -324,3 +423,4 @@ class SynthesisTask(StudioTask):
         wd = get_watchdog()
         if wd:
             wd._broadcast_log(line, task_id=self.task_id)
+

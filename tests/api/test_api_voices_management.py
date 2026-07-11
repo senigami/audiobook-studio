@@ -208,3 +208,80 @@ def test_create_speaker_profile_fails_when_no_engine_and_no_default(clean_db, vo
     update_settings({"default_engine": ""})
     response = client.post("/api/speaker-profiles", data={"speaker_id": "S1", "variant_name": "V1"})
     assert response.status_code == 400
+
+
+# ── Chapter-scoped temp character API tests ──────────────────────────────────
+
+def test_api_create_chapter_scoped_character(clean_db, client):
+    """POST /projects/{pid}/characters with chapter_id creates a chapter-scoped temp."""
+    from app.db.projects import create_project
+    pid = create_project("ProjTemp")
+
+    response = client.post(
+        f"/api/projects/{pid}/characters",
+        data={"name": "TempAlice", "chapter_id": "chap-abc"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "id" in data or "character_id" in data
+
+
+def test_api_list_characters_with_chapter_id_filter(clean_db, client):
+    """GET /projects/{pid}/characters?chapter_id=X returns book chars + chapter-X temps only."""
+    from app.db.projects import create_project
+    pid = create_project("ProjFilter")
+
+    # Create a book-scoped character
+    r_book = client.post(f"/api/projects/{pid}/characters", data={"name": "BookChar"})
+    assert r_book.status_code == 200
+    book_cid = r_book.json()["id"]
+
+    # Create chapter-x temp
+    r_x = client.post(
+        f"/api/projects/{pid}/characters",
+        data={"name": "ChapXTemp", "chapter_id": "chap-x"},
+    )
+    assert r_x.status_code == 200
+    x_cid = r_x.json()["id"]
+
+    # Create chapter-y temp
+    r_y = client.post(
+        f"/api/projects/{pid}/characters",
+        data={"name": "ChapYTemp", "chapter_id": "chap-y"},
+    )
+    assert r_y.status_code == 200
+    y_cid = r_y.json()["id"]
+
+    # Query scoped to chap-x
+    response = client.get(f"/api/projects/{pid}/characters?chapter_id=chap-x")
+    assert response.status_code == 200
+    ids = {c["id"] for c in response.json()["characters"]}
+    assert book_cid in ids
+    assert x_cid in ids
+    assert y_cid not in ids
+
+
+def test_api_promote_character(clean_db, client):
+    """POST /characters/{cid}/promote sets chapter_id=NULL; character appears book-wide."""
+    from app.db.projects import create_project
+    pid = create_project("ProjPromote")
+
+    # Create a chapter-scoped temp
+    r = client.post(
+        f"/api/projects/{pid}/characters",
+        data={"name": "ToPromote", "chapter_id": "chap-123"},
+    )
+    assert r.status_code == 200
+    cid = r.json()["id"]
+
+    # Promote
+    promote_response = client.post(f"/api/characters/{cid}/promote")
+    assert promote_response.status_code == 200
+    data = promote_response.json()
+    assert data["status"] == "ok"
+
+    # The character should now appear in the book-wide listing (no chapter_id filter)
+    list_response = client.get(f"/api/projects/{pid}/characters")
+    assert list_response.status_code == 200
+    all_ids = {c["id"] for c in list_response.json()["characters"]}
+    assert cid in all_ids

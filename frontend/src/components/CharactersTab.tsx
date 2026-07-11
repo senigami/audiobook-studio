@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import type { Character, Speaker, SpeakerProfile, TtsEngine } from '@/types';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import type { Character, Speaker, SpeakerProfile, TtsEngine, VoiceMetadata } from '@/types';
 import { api } from '@/api';
-import { Plus, Trash2, User as UserIcon } from 'lucide-react';
+import { Plus, Trash2, User as UserIcon, Sparkles } from 'lucide-react';
 import { ColorSwatchPicker } from '@/components/forms/ColorSwatchPicker';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
+import { CastingSuggestionsModal } from '@/components/CastingSuggestionsModal';
 import { VoiceProfileSelect } from '@/pages/ChapterEditor/components/VoiceProfileSelect';
 import { buildVoiceOptions } from '@/utils/voiceProfiles';
+import { emitToast } from '@/utils/toast';
 
 interface CharactersTabProps {
   projectId: string;
@@ -33,6 +35,10 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
     confirmText?: string;
   } | null>(null);
 
+  // AI casting — "Suggest voices for this character" (POST /api/voices/cast)
+  const [voiceMetadataList, setVoiceMetadataList] = useState<VoiceMetadata[]>([]);
+  const [castingCharacter, setCastingCharacter] = useState<Character | null>(null);
+
   const loadCharacters = async () => {
     setLoading(true);
     try {
@@ -48,6 +54,14 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
   useEffect(() => {
     loadCharacters();
   }, [projectId]);
+
+  useEffect(() => {
+    api.listVoicesWithMetadata()
+      .then(list => setVoiceMetadataList(Array.isArray(list) ? list : []))
+      .catch(() => {
+        // Non-fatal: the "Suggest voices" action degrades to an empty catalog message.
+      });
+  }, []);
 
   // Compute merged voices groupings
   const availableVoices = useMemo(() => {
@@ -66,6 +80,7 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
       await loadCharacters();
     } catch (e) {
       console.error("Failed to create character", e);
+      emitToast('Failed to create character.');
     }
   };
 
@@ -76,16 +91,28 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
       await api.updateCharacter(id, undefined, newProfile || "");
     } catch (e) {
       console.error("Failed to update character voice", e);
+      emitToast('Failed to update character voice.');
       loadCharacters(); // Revert on failure
     }
   };
 
+  // Confirming an AI casting suggestion goes through the exact same real
+  // assignment mutation as the manual voice dropdown above — it never auto-assigns.
+  const handleAssignSuggestedVoice = useCallback((characterId: string, speakerProfileName: string) => {
+    void handleUpdateVoice(characterId, speakerProfileName);
+  }, []);
+
   const handleUpdateName = async (id: string, newNameStr: string) => {
-      if (!newNameStr.trim()) return;
+      const trimmedName = newNameStr.trim();
+      if (!trimmedName) return;
       try {
-          await api.updateCharacter(id, newNameStr.trim());
+          // Optimistic update
+          setCharacters(prev => prev.map(c => c.id === id ? { ...c, name: trimmedName } : c));
+          await api.updateCharacter(id, trimmedName);
       } catch (e) {
           console.error("Failed to update character name", e);
+          emitToast('Failed to update character name.');
+          loadCharacters(); // Revert on failure
       }
   };
 
@@ -95,7 +122,19 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
       await api.updateCharacter(id, undefined, undefined, undefined, color);
     } catch (e) {
       console.error("Failed to update character color", e);
+      emitToast('Failed to update character color.');
       loadCharacters();
+    }
+  };
+
+  const handlePromote = async (id: string) => {
+    try {
+      setCharacters(prev => prev.map(c => c.id === id ? { ...c, chapter_id: null } : c));
+      await api.promoteCharacter(id);
+    } catch (e) {
+      console.error("Failed to promote character", e);
+      emitToast('Failed to promote character.');
+      loadCharacters(); // Revert on failure
     }
   };
 
@@ -110,6 +149,7 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
           setCharacters(prev => prev.filter(c => c.id !== id));
         } catch (e) {
           console.error("Failed to delete character", e);
+          emitToast('Failed to delete character.');
         }
       }
     });
@@ -190,12 +230,40 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
 
               <ColorSwatchPicker value={char.color || '#8b5cf6'} onChange={(color) => handleUpdateColor(char.id, color)} size="md" />
 
+              {char.chapter_id && (
+                <>
+                  <span title="Chapter-scoped temporary character" style={{
+                    fontSize: '0.65rem',
+                    fontWeight: 600,
+                    padding: '1px 6px',
+                    borderRadius: 999,
+                    background: 'var(--warning-tint-bg)',
+                    border: '1px solid var(--warning-tint-border)',
+                    color: 'var(--warning-text)',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                  }}>
+                    temp
+                  </span>
+                  <button
+                    onClick={() => handlePromote(char.id)}
+                    className="btn-ghost"
+                    style={{ fontSize: '0.7rem', padding: '2px 8px', color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}
+                    title="Promote to a permanent book-level character"
+                  >
+                    Promote
+                  </button>
+                </>
+              )}
+
               <div style={{ flex: 3 }}>
                   <input
+                      key={`${char.id}-${char.name}`}
                       type="text"
                       defaultValue={char.name}
                       onBlur={(e) => { if (e.target.value !== char.name) handleUpdateName(char.id, e.target.value); }}
                       className="input-field"
+                      aria-label={`Character name: ${char.name}`}
                       style={{ background: 'transparent', border: 'none', padding: 0, fontWeight: 600, fontSize: '1rem', color: 'var(--text-primary)', boxShadow: 'none', width: '100%' }}
                   />
               </div>
@@ -209,6 +277,23 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
                   style={{ width: '100%' }}
                 />
               </div>
+
+              <button
+                onClick={() => setCastingCharacter(char)}
+                className="btn-ghost"
+                style={{ padding: '0.4rem', color: 'var(--text-muted)' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'var(--accent)';
+                  e.currentTarget.style.background = 'var(--accent-tint-bg)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'var(--text-muted)';
+                  e.currentTarget.style.background = 'transparent';
+                }}
+                title="Suggest voices for this character"
+              >
+                <Sparkles size={16} />
+              </button>
 
               <button
                 onClick={() => handleDelete(char.id, char.name)}
@@ -242,6 +327,17 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
         onCancel={() => setConfirmConfig(null)}
         isDestructive={confirmConfig?.isDestructive}
         confirmText={confirmConfig?.confirmText}
+      />
+
+      <CastingSuggestionsModal
+        isOpen={!!castingCharacter}
+        character={castingCharacter}
+        voiceMetadataList={voiceMetadataList}
+        speakers={speakers}
+        speakerProfiles={speakerProfiles}
+        engines={engines}
+        onClose={() => setCastingCharacter(null)}
+        onAssign={handleAssignSuggestedVoice}
       />
     </div>
   );

@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('@/api', () => ({
   api: {
     fetchChapters: vi.fn(),
+    fetchChapter: vi.fn(),
     fetchSegments: vi.fn(),
     fetchCharacters: vi.fn(),
     updateChapter: vi.fn(),
@@ -69,7 +70,7 @@ describe('ChapterEditor - Assets & Voices', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
-    (api.fetchChapters as any).mockResolvedValue([mockChapter]);
+    (api.fetchChapter as any).mockResolvedValue(mockChapter);
     (api.fetchSegments as any).mockResolvedValue(mockSegments);
     (api.fetchCharacters as any).mockResolvedValue([]);
     (api.fetchScriptView as any).mockResolvedValue(mockScriptView);
@@ -155,7 +156,7 @@ describe('ChapterEditor - Assets & Voices', () => {
   });
 
   it('loads a saved chapter voice instead of falling back to the project voice', async () => {
-    (api.fetchChapters as any).mockResolvedValue([{ ...mockChapter, speaker_profile_name: 'Profile 1' }]);
+    (api.fetchChapter as any).mockResolvedValue({ ...mockChapter, speaker_profile_name: 'Profile 1' });
 
     render(
       <ChapterEditor

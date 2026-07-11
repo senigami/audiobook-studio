@@ -225,7 +225,7 @@ export const LiveOutputTable: React.FC<LiveOutputTableProps> = ({
               height: '30px',
               border: 'none',
               background: hiddenTopics.length === 0 ? 'var(--accent)' : 'transparent',
-              color: hiddenTopics.length === 0 ? '#fff' : 'var(--text-primary)',
+              color: hiddenTopics.length === 0 ? 'var(--text-on-accent)' : 'var(--text-primary)',
               fontWeight: hiddenTopics.length === 0 ? 600 : 400,
               cursor: 'pointer',
             }}
@@ -246,7 +246,7 @@ export const LiveOutputTable: React.FC<LiveOutputTableProps> = ({
                 height: '30px',
                 border: 'none',
                 background: isTopicHidden(id) ? 'transparent' : 'var(--accent)',
-                color: isTopicHidden(id) ? 'var(--text-primary)' : '#fff',
+                color: isTopicHidden(id) ? 'var(--text-primary)' : 'var(--text-on-accent)',
                 fontWeight: isTopicHidden(id) ? 400 : 600,
                 cursor: 'pointer',
                 opacity: isTopicHidden(id) ? 0.65 : 1,

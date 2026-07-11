@@ -284,7 +284,7 @@ _Extend Studio with engine plugins, drive it over the external API, and run it._
   - Refreshing plugin state
   - Note: in-app GitHub/HF download is post-release
 - [Using the Template](plugin-sdk/template.html) — Start from the bundled plugin template.
-  - Copy docs/plugin-template
+  - Copy docs/plugin-sdk/plugin-template
   - Update manifest & schema
   - Implement the interface
 - [Testing Your Plugin](plugin-sdk/testing.html) — Keeping tests and fixtures inside the plugin folder.

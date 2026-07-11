@@ -51,11 +51,13 @@ def _make_plugin_zip(
 def tts_client(tmp_path, monkeypatch):
     """Return (TestClient, tmp_path) with an isolated plugins dir."""
     import app.tts_server.server as server_mod
+    import app.tts_server.plugin_staging as plugin_staging_mod
 
     monkeypatch.setattr(server_mod, "_plugins_dir", tmp_path)
     monkeypatch.setattr(server_mod, "_plugins", [])
-    # Reset staging dict between tests
-    monkeypatch.setattr(server_mod, "_staging", {})
+    # Reset staging dict between tests — the staging store now lives in
+    # plugin_staging.py, not server.py (LF-7 extraction).
+    monkeypatch.setattr(plugin_staging_mod, "_staging", {})
 
     from app.tts_server.server import app
 

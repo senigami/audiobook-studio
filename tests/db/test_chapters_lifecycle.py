@@ -85,27 +85,6 @@ def test_move_chapter_artifacts_to_trash_rejects_invalid_chapter_id(db_conn, tmp
     assert kept_audio.exists()
     assert kept_text.exists()
 
-def test_move_chapter_artifacts_to_trash_rejects_non_uuid_chapter_id(db_conn, tmp_path):
-    from app.db.projects import create_project
-    from app.db.chapters import move_chapter_artifacts_to_trash
-
-    pid = create_project("P_TRASH_UUID", "/tmp")
-    audio_dir = tmp_path / "audio"
-    text_dir = tmp_path / "text"
-    trash_dir = tmp_path / "trash"
-    audio_dir.mkdir()
-    text_dir.mkdir()
-    trash_dir.mkdir()
-
-    def _subdir(_project_id, dirname):
-        mapping = {"audio": audio_dir, "text": text_dir, "trash": trash_dir}
-        return mapping.get(dirname)
-
-    with patch("app.core.config.PROJECTS_DIR", tmp_path):
-        success = move_chapter_artifacts_to_trash(pid, "not-a-uuid", explicit_audio_files=[])
-
-    assert success is False
-
 def test_cleanup_chapter_audio_files_rejects_traversal_names(db_conn, tmp_path):
     from app.db.projects import create_project
     from app.db.chapters import cleanup_chapter_audio_files

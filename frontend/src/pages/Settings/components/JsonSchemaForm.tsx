@@ -137,7 +137,7 @@ export const JsonSchemaForm: React.FC<{
             return (
           <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <label style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+              <label htmlFor={`setting-${key}`} style={{ fontWeight: 800, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
                 {prop.title || key}
               </label>
               {!isReadOnly && (prop.type === 'number' || prop.type === 'integer') && (
@@ -148,6 +148,7 @@ export const JsonSchemaForm: React.FC<{
             </div>
             {isReadOnly ? (
               <div
+                id={`setting-${key}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -179,6 +180,7 @@ export const JsonSchemaForm: React.FC<{
             ) : prop.type === 'boolean' ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <ToggleButton
+                  id={`setting-${key}`}
                   enabled={!!(localValues[key] ?? prop.default)}
                   busy={false}
                   disabled={isLocked}
@@ -190,12 +192,14 @@ export const JsonSchemaForm: React.FC<{
               </div>
             ) : prop.type === 'number' || prop.type === 'integer' ? (
               <input
+                id={`setting-${key}`}
                 type="range"
                 min={prop.minimum ?? 0}
                 max={prop.maximum ?? 100}
                 step={prop.type === 'integer' ? 1 : 0.01}
                 value={localValues[key] ?? prop.default ?? 0}
                 disabled={isLocked}
+                aria-valuetext={String(localValues[key] ?? prop.default ?? 0)}
                 onChange={(e) =>
                   handleChange(key, prop.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value))
                 }
@@ -203,6 +207,7 @@ export const JsonSchemaForm: React.FC<{
               />
             ) : prop.enum ? (
               <select
+                id={`setting-${key}`}
                 value={localValues[key] ?? prop.default ?? ''}
                 disabled={isLocked}
                 onChange={(e) => handleChange(key, e.target.value)}
@@ -224,6 +229,7 @@ export const JsonSchemaForm: React.FC<{
               </select>
             ) : (
               <input
+                id={`setting-${key}`}
                 type={prop.format === 'password' ? 'password' : 'text'}
                 value={localValues[key] ?? prop.default ?? ''}
                 disabled={isLocked}

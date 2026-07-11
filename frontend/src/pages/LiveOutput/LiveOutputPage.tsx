@@ -6,6 +6,7 @@ import { ALL_TOPIC_FILTER_IDS, type TopicFilterId } from '@/config/liveEventTopi
 import { useStudioSocketConnection } from '@/hooks/useStudioSocketConnection';
 import { getWebsocketRecentMessages } from '@/utils/runtimeDebug';
 import { subscribeLiveEventAudit } from '@/store/liveEventAuditStore';
+import '@/pages/LiveOutput/LiveOutputPage.css';
 
 const consumerTopicIds = (id: string): TopicFilterId[] => {
   const topicIds = LIVE_EVENT_CONSUMER_TOPIC_IDS[id];
@@ -48,93 +49,66 @@ export const LiveOutputPage: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - var(--header-height, 56px) - 2rem)', gap: '1rem', minHeight: 0 }}>
-      <section style={{
-        padding: '1.25rem 1.5rem',
-        borderRadius: '20px',
-        border: '1px solid var(--border)',
-        background: 'linear-gradient(180deg, var(--surface-white), var(--surface))',
-        boxShadow: 'var(--shadow-md)',
-        flexShrink: 0
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.25rem' }}>
+    <div className="live-output-page">
+      <section className="live-output-page__intro">
+        <div className="live-output-page__title-row">
           <Terminal size={18} color="var(--accent)" />
-          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>Live Output Stream</h1>
+          <h1 className="live-output-page__title">Live Output Stream</h1>
         </div>
-        <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+        <p className="live-output-page__subtitle">
           Internal audit log of normalized websocket events received by the client.
         </p>
-        <details style={{ marginTop: '0.9rem', borderTop: '1px solid var(--border)', paddingTop: '0.85rem' }}>
-          <summary style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '0.92rem', fontWeight: 600, listStyle: 'none' }}>
+        <details className="live-output-page__section">
+          <summary className="live-output-page__section-summary">
             <ChevronDown size={16} />
             Event map
           </summary>
-        <div style={{ marginTop: '0.85rem', display: 'grid', gap: '0.5rem' }}>
-          <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.5 }}>
+        <div className="live-output-page__event-map">
+          <div className="live-output-page__event-map-intro">
             `topic` is the routing key. `eventKind` is the event action, and `source` stays visible for provenance.
             The buttons below mirror the same listener map used by the page.
           </div>
-            <div style={{ display: 'grid', gap: '0.35rem' }}>
+            <div className="live-output-page__consumer-list">
               {LIVE_EVENT_CONSUMERS.map(consumer => (
-                <div key={consumer.id} style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '0.75rem', alignItems: 'start', fontSize: '0.82rem' }}>
+                <div key={consumer.id} className="live-output-page__topic-row">
                   <button
                     type="button"
-                    className="btn-ghost"
+                    className="btn-ghost live-output-page__consumer-btn"
                     onClick={() => showConsumerTopics(consumer.id)}
                     style={{
-                      justifySelf: 'start',
-                      padding: 0,
-                      border: 'none',
-                      background: 'transparent',
-                      color: 'var(--text-primary)',
-                      fontWeight: 700,
-                      font: 'inherit',
                       cursor: consumerTopicIds(consumer.id).length > 0 ? 'pointer' : 'default',
                     }}
                   >
                     {consumer.label}
                   </button>
-                  <div style={{ color: 'var(--text-secondary)' }}>{consumerTopicLabel(consumer.id)}</div>
+                  <div className="live-output-page__topic-value">{consumerTopicLabel(consumer.id)}</div>
                 </div>
               ))}
-              <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '0.75rem', alignItems: 'start', fontSize: '0.82rem' }}>
-                <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>plugin:&lt;plugin_id&gt;:&lt;area&gt;</div>
-                <div style={{ color: 'var(--text-secondary)' }}>exact match on `plugins.&lt;plugin_id&gt;.&lt;area&gt;`</div>
+              <div className="live-output-page__topic-row">
+                <div className="live-output-page__topic-label">plugin:&lt;plugin_id&gt;:&lt;area&gt;</div>
+                <div className="live-output-page__topic-value">exact match on `plugins.&lt;plugin_id&gt;.&lt;area&gt;`</div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '0.75rem', alignItems: 'start', fontSize: '0.82rem' }}>
-                <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>plugin-private</div>
-                <div style={{ color: 'var(--text-secondary)' }}>any topic beginning with `plugins.`</div>
+              <div className="live-output-page__topic-row">
+                <div className="live-output-page__topic-label">plugin-private</div>
+                <div className="live-output-page__topic-value">any topic beginning with `plugins.`</div>
               </div>
             </div>
           </div>
         </details>
 
-        <details style={{ marginTop: '0.9rem', borderTop: '1px solid var(--border)', paddingTop: '0.85rem' }}>
-          <summary style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '0.92rem', fontWeight: 600, listStyle: 'none' }}>
+        <details className="live-output-page__section">
+          <summary className="live-output-page__section-summary">
             <ChevronDown size={16} />
             Socket trace
           </summary>
-          <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+          <div className="live-output-page__trace">
             <div>
-              Connection: <strong style={{ color: 'var(--text-primary)' }}>{connected ? 'connected' : 'disconnected'}</strong>
+              Connection: <strong className="live-output-page__trace-value">{connected ? 'connected' : 'disconnected'}</strong>
             </div>
             <div>
-              Traced frames: <strong style={{ color: 'var(--text-primary)' }}>{socketTrace.length}</strong>
+              Traced frames: <strong className="live-output-page__trace-value">{socketTrace.length}</strong>
             </div>
-            <pre style={{
-              margin: 0,
-              padding: '0.75rem',
-              borderRadius: '8px',
-              border: '1px solid var(--border)',
-              background: 'var(--surface-dim)',
-              maxHeight: '18rem',
-              overflow: 'auto',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-              color: 'var(--text-primary)',
-              fontSize: '0.78rem',
-              lineHeight: 1.45,
-            }}>
+            <pre className="live-output-page__trace-pre">
               {JSON.stringify(socketTrace.slice(-10), null, 2)}
             </pre>
           </div>

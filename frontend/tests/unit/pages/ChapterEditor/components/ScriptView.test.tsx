@@ -618,6 +618,46 @@ describe('ScriptView', () => {
     expect(rebuildButtons?.length).toBe(1);
   });
 
+  it('keeps a just-completed segment lit via liveDoneSpanIds even before the DB refetch catches up', () => {
+    // Owner report, 2026-07-07: a segment's text went gray right after it
+    // finished rendering, instead of staying black — root cause was that
+    // ChapterSynthesisTask._on_child_segment_tick popped the segment from
+    // active_segments_map on completion with nothing else keeping it "ready"
+    // until the whole chapter's NEXT full details refetch (which does not
+    // happen mid-render), so it fell through to script-span-text-muted for
+    // the whole gap. `s2` here mirrors that gap: span.status is still
+    // 'draft' (DB hasn't caught up) AND it's still in pendingSpanIds (the
+    // stale "not yet processed" set), exactly the state a just-finished
+    // segment is in before this fix — liveDoneSpanIds must still force it
+    // ready/lit.
+    render(
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set(['s2'])}
+        liveDoneSpanIds={new Set(['s2'])}
+        onPlaySpan={onPlaySpan}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Script'));
+
+    const s2Text = screen.getByText('Sentence two.');
+    expect(s2Text).toHaveClass('script-span-text-ready');
+    expect(s2Text).not.toHaveClass('script-span-text-muted');
+    // Class presence alone is not enough: the pending/queued text classes sit
+    // LATER in ScriptView.css at equal specificity, so if one were also
+    // applied it would visually override text-ready and re-dim the span — the
+    // component must suppress pending/queued for a live-done span, not merely
+    // add the ready class alongside them. (Both mode variants asserted:
+    // renderSpan defaults to mode='book' even inside the script-line view.)
+    expect(s2Text).not.toHaveClass('script-span-text-pending');
+    expect(s2Text).not.toHaveClass('script-span-text-book-pending');
+    expect(s2Text).not.toHaveClass('script-span-text-queued');
+    expect(s2Text).not.toHaveClass('script-span-text-book-queued');
+  });
+
   it('shows Narrator label for all-null character_id spans in script mode', () => {
     const allNullData: ScriptViewResponse = {
       chapter_id: 'chap-null',
@@ -671,5 +711,139 @@ describe('ScriptView', () => {
     fireEvent.click(screen.getByText('Script'));
     // The first span must show 'Narrator' even though lastCharId starts as null
     expect(screen.getAllByText('Narrator').length).toBeGreaterThan(0);
+  });
+
+  it('renders a preparing span with data-render-status="preparing", preparing class, and no rendering cursor', () => {
+    render(
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set(['s2'])}
+        renderingSpanIds={new Set(['s2'])}
+        preparingSpanIds={new Set(['s2'])}
+        renderingBatchProgressById={{ b1: 0.4 }}
+        onPlaySpan={onPlaySpan}
+      />
+    );
+
+    const spanEl = screen.getByTestId('script-span-s2');
+
+    // data-render-status must be 'preparing'
+    expect(spanEl).toHaveAttribute('data-render-status', 'preparing');
+
+    // the text element must carry the preparing class (book mode)
+    const textEl = spanEl.querySelector('.script-span-text');
+    expect(textEl).toHaveClass('script-span-text-book-preparing');
+
+    // the span container must carry the book-mode preparing class
+    expect(spanEl).toHaveClass('is-book-preparing');
+
+    // no rendering cursor (SegmentProgressText) — no .script-progress-letter elements on this span
+    expect(spanEl.querySelectorAll('.script-progress-letter')).toHaveLength(0);
+  });
+
+  it('resolves a span in both preparingSpanIds and renderingSpanIds as preparing (precedence)', () => {
+    render(
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set(['s2'])}
+        renderingSpanIds={new Set(['s2'])}
+        preparingSpanIds={new Set(['s2'])}
+        renderingBatchProgressById={{ b1: 0.4 }}
+        onPlaySpan={onPlaySpan}
+      />
+    );
+
+    const spanEl = screen.getByTestId('script-span-s2');
+
+    // Must resolve to preparing, not rendering
+    expect(spanEl).toHaveAttribute('data-render-status', 'preparing');
+    expect(spanEl).not.toHaveAttribute('data-render-status', 'rendering');
+
+    // Must not have any rendering classes
+    const textEl = spanEl.querySelector('.script-span-text');
+    expect(textEl).not.toHaveClass('script-span-text-book-rendering');
+    expect(textEl).not.toHaveClass('script-span-text-rendering');
+  });
+
+  it('batch group gets is-preparing class when any span is preparing', () => {
+    render(
+      <ScriptView
+        data={mockData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set(['s1', 's2'])}
+        renderingSpanIds={new Set(['s1', 's2'])}
+        preparingSpanIds={new Set(['s1'])}
+        renderingBatchProgressById={{ b1: 0.3 }}
+        onPlaySpan={onPlaySpan}
+      />
+    );
+
+    const renderGroup = screen.getByTestId('script-render-group-b1');
+    expect(renderGroup).toHaveClass('is-preparing');
+    expect(renderGroup).not.toHaveClass('is-rendering');
+  });
+
+  it('does not crash when data.paragraphs is missing (F14)', () => {
+    const malformedData = {
+      chapter_id: 'chap-1',
+      base_revision_id: 'rev-1',
+      spans: [],
+      render_batches: [],
+      audio_groups: [],
+    } as unknown as ScriptViewResponse;
+
+    expect(() =>
+      render(
+        <ScriptView
+          data={malformedData}
+          characters={mockCharacters}
+          onGenerateBatch={onGenerateBatch}
+          pendingSpanIds={new Set()}
+          onPlaySpan={onPlaySpan}
+        />
+      )
+    ).not.toThrow();
+  });
+
+  // ── W-PAR 006: multi-active segments — two batches rendering simultaneously ──
+  it('[W-PAR 006] two spans in different batches render simultaneously with independent progress', () => {
+    const multiActiveData: ScriptViewResponse = {
+      ...mockData,
+      render_batches: [
+        { id: 'b1', span_ids: ['s1'], status: 'draft', estimated_work_weight: 1 },
+        { id: 'b2', span_ids: ['s3'], status: 'draft', estimated_work_weight: 1 },
+      ],
+    };
+
+    render(
+      <ScriptView
+        data={multiActiveData}
+        characters={mockCharacters}
+        onGenerateBatch={onGenerateBatch}
+        pendingSpanIds={new Set(['s1', 's3'])}
+        renderingSpanIds={new Set(['s1', 's3'])}
+        renderingBatchProgressById={{ b1: 0.3, b2: 0.6 }}
+        onPlaySpan={onPlaySpan}
+      />
+    );
+
+    const span1 = screen.getByTestId('script-span-s1');
+    const span3 = screen.getByTestId('script-span-s3');
+
+    // Both spans must be simultaneously non-idle (rendering), not just the last-emitted one.
+    expect(span1).toHaveAttribute('data-render-status', 'rendering');
+    expect(span3).toHaveAttribute('data-render-status', 'rendering');
+
+    // Each span's progress bar reflects its OWN batch's progress independently.
+    const litLetters1 = span1.querySelectorAll('.script-progress-letter.is-lit');
+    const litLetters3 = span3.querySelectorAll('.script-progress-letter.is-lit');
+
+    expect(litLetters1.length).toBe(Math.floor('Sentence one.'.length * 0.3));
+    expect(litLetters3.length).toBe(Math.floor('Different paragraph.'.length * 0.6));
   });
 });

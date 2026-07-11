@@ -3,25 +3,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { EditorTabs } from '@/pages/ChapterEditor/components/EditorTabs';
 
 describe('EditorTabs', () => {
-  it('renders all tab buttons', () => {
-    render(
-      <EditorTabs
-        editorTab="script"
-        setEditorTab={vi.fn()}
-        onSave={vi.fn().mockResolvedValue(true)}
-        onRequestEditSourceText={vi.fn()}
-        sourceTextMode="view"
-      />
-    );
-
-    expect(screen.getByText('Script')).toBeInTheDocument();
-    expect(screen.getByText('Source Text')).toBeInTheDocument();
-    expect(screen.queryByText('Live Output')).not.toBeInTheDocument();
-    expect(screen.queryByText('Production')).not.toBeInTheDocument();
-    expect(screen.queryByText('Performance')).not.toBeInTheDocument();
-    expect(screen.queryByText('Preview Safe Output')).not.toBeInTheDocument();
-  });
-
   it('calls setEditorTab when a tab is clicked', async () => {
     const setEditorTab = vi.fn();
     render(

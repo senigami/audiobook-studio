@@ -261,6 +261,9 @@ describe('useJobs', () => {
       chapter_id: 'chap-1',
       segment_id: 'seg-2',
       progress: 0.75,
+      eta_seconds: null,
+      status: undefined,
+      updated_at: expect.any(Number),
     });
   });
 
@@ -555,6 +558,9 @@ describe('useJobs', () => {
       chapter_id: 'chap-1',
       segment_id: 'seg-abc',
       progress: 0.85,
+      eta_seconds: null,
+      status: 'running',
+      updated_at: expect.any(Number),
     });
   });
 
@@ -586,6 +592,9 @@ describe('useJobs', () => {
       chapter_id: 'chap-1',
       segment_id: 'seg-abc',
       progress: 0.83,
+      eta_seconds: null,
+      status: 'running',
+      updated_at: expect.any(Number),
     });
 
     expect(result.current.jobs['job-seg']?.active_segment_progress).toBe(0.83);
@@ -819,6 +828,9 @@ describe('useJobs', () => {
       chapter_id: 'chap-1',
       segment_id: 'seg-abc',
       progress: 0.85,
+      eta_seconds: 15,
+      status: 'running',
+      updated_at: expect.any(Number),
     });
 
     // 2. Projected active segment metadata is placed on the chapter job
@@ -1531,20 +1543,21 @@ describe('useJobs', () => {
     expect(result.current.jobs['job-prep-test']?.status).toBe('running');
   });
 
-  it('prevents queue.items/chapter updates at 0% from flipping a starting job out of preparing before the first segments.progress frame', async () => {
+  it('honors a running status update at 0% (status is authoritative; zero is not special)', async () => {
     const { result } = renderHook(() => useJobs());
 
     emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-early-prep', status: 'preparing', progress: 0, classification: 'segment' }] });
     expect(result.current.jobs['job-early-prep']?.status).toBe('preparing');
 
-    // Emit queue.items status running update before any segment progress frame has arrived (active_segment_id is not attached yet)
+    // A queue.items 'running' frame means the job is running. We no longer hold it at
+    // 'preparing' just because progress is 0 — the segment-bar 'preparing' highlight is
+    // driven separately by SEGMENT_PENDING/indeterminate, not by faking the job status.
     emitEvent('queue.items', 'queue_item_status', {
       status: 'running',
       progress: 0.0,
     }, { jobId: 'job-early-prep' });
 
-    // Job status should stay preparing
-    expect(result.current.jobs['job-early-prep']?.status).toBe('preparing');
+    expect(result.current.jobs['job-early-prep']?.status).toBe('running');
   });
 
   it('goes running on a running 0% segment frame (the real segment start signal)', async () => {
@@ -1590,26 +1603,25 @@ describe('useJobs', () => {
     expect(job?.has_segment_support).toBe(true);
   });
 
-  it('transitions segment-scoped job out of preparing normally on first non-zero segments.progress frame', async () => {
+  it('honors running status at 0% and through progress (no zero-gated preparing hold)', async () => {
     const { result } = renderHook(() => useJobs());
 
     emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-early-prep-3', status: 'preparing', progress: 0, classification: 'segment' }] });
 
-    // Emit queue.items status running update (stays preparing)
+    // A running update at 0% is honored immediately (status authoritative; zero not special).
     emitEvent('queue.items', 'queue_item_status', {
       status: 'running',
       progress: 0.0,
     }, { jobId: 'job-early-prep-3' });
-    expect(result.current.jobs['job-early-prep-3']?.status).toBe('preparing');
+    expect(result.current.jobs['job-early-prep-3']?.status).toBe('running');
 
-    // Emit segments.progress with non-zero progress
+    // Continued non-zero progress stays running.
     emitEvent('segments.progress', 'segment_progress', {
       status: 'running',
       progress: 0.12,
       activeSegmentProgress: 0.12,
     }, { jobId: 'job-early-prep-3', segmentId: 'seg-3' });
 
-    // Job status should transition to running
     expect(result.current.jobs['job-early-prep-3']?.status).toBe('running');
   });
 
@@ -1938,5 +1950,175 @@ describe('useJobs', () => {
     expect(job).toBeDefined();
     // progress 0 + SEGMENT_PENDING → stays 'preparing' (not 'running') until engine confirms
     expect(job.status).toBe('preparing');
+  });
+
+  // ── W-MIX-LA 004 — mid-chapter XTTS cold-load preparing state ──────────────
+  //
+  // R1 revert-check keystone: when the backend emits a segments.progress frame
+  // carrying indeterminate=true for the LOADING_MODEL window, the job overlay must
+  // surface both active_segment_id AND indeterminate so the chapter editor can
+  // place the correct segment in the preparing (pulsing) set.
+  //
+  // Pre-fix (frame WITHOUT indeterminate): job does not gain indeterminate from
+  // the segment frame alone → isActiveJobPreparing would be false, segment renders
+  // as frozen-first-letter instead of the preparing pulse.
+  //
+  // Post-fix (frame WITH indeterminate=true): job gets both fields from a single
+  // frame → isActiveJobPreparing is true → correct preparing pulse.
+
+  it('[W-MIX-LA-004] segment_progress frame WITHOUT indeterminate does NOT set indeterminate on the job (R1 red baseline)', () => {
+    // Confirms the pre-fix behaviour: a segment frame that lacks indeterminate cannot
+    // drive isActiveJobPreparing on its own.  This is the scenario the backend fix
+    // resolves by including indeterminate=true in the LOADING_MODEL segment frame.
+    const { result } = renderHook(() => useJobs());
+
+    // Seed the chapter job
+    emit({
+      type: 'jobs_snapshot',
+      jobs: [{ id: 'job-mix', status: 'running', progress: 0.06, chapter_id: 'chap-1' }],
+    });
+
+    // Segment frame WITHOUT indeterminate (pre-fix backend behaviour)
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        source: 'backend',
+        emittedAt: Date.now() / 1000,
+        pluginId: null,
+        ids: { jobId: 'job-mix', chapterId: 'chap-1', segmentId: 'seg-2' },
+        payload: {
+          status: 'running',
+          progress: 0,
+          reasonCode: null,
+          activeSegmentId: 'seg-2',
+          activeSegmentProgress: 0,
+          // indeterminate intentionally absent — simulates pre-fix backend
+        },
+      });
+    });
+
+    const job = result.current.jobs['job-mix'];
+    expect(job).toBeDefined();
+    expect(job.active_segment_id).toBe('seg-2');
+    // Without indeterminate in the frame the job stays without indeterminate.
+    // The chapter editor's isActiveJobPreparing would be false → segment frozen.
+    expect(job.indeterminate).not.toBe(true);
+  });
+
+  it('[W-MIX-LA-004] segment_progress frame WITH indeterminate=true sets both active_segment_id and indeterminate (R1 green)', () => {
+    // R3: frame built from liveEvents.ts SegmentProgressPayload shape via publishStudioSocketMessage.
+    // R1: this test must fail on pre-004 code where the segment frame lacks indeterminate.
+    // Post-fix backend includes indeterminate=true in the LOADING_MODEL segment frame so
+    // a single frame atomically delivers both the segment id and the load signal.
+    const { result } = renderHook(() => useJobs());
+
+    emit({
+      type: 'jobs_snapshot',
+      jobs: [{ id: 'job-mix', status: 'running', progress: 0.06, chapter_id: 'chap-1' }],
+    });
+
+    // Segment frame WITH indeterminate=true — what the fixed backend emits
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        source: 'backend',
+        emittedAt: Date.now() / 1000,
+        pluginId: null,
+        ids: { jobId: 'job-mix', chapterId: 'chap-1', segmentId: 'seg-2' },
+        payload: {
+          status: 'running',
+          progress: 0,
+          reasonCode: null,      // LOADING_MODEL is stripped from segments.progress topic
+          activeSegmentId: 'seg-2',
+          activeSegmentProgress: 0,
+          indeterminate: true,   // ← W-MIX-LA-004 fix: backend now includes this
+        },
+      });
+    });
+
+    const job = result.current.jobs['job-mix'];
+    expect(job).toBeDefined();
+    expect(job.active_segment_id).toBe('seg-2');
+    expect(job.indeterminate).toBe(true);
+  });
+
+  it('[W-MIX-LA-004] INV-1: XTTS-first LOADING_MODEL (seg-1) still prepares seg-1 after fix', () => {
+    // Regression guard: the XTTS-first path goes through the dispatch-time frame
+    // (not the mid-chapter MODEL_LOAD_STARTED marker), but if it also arrives as a
+    // segment_progress with indeterminate=true it must still work.
+    const { result } = renderHook(() => useJobs());
+
+    emit({
+      type: 'jobs_snapshot',
+      jobs: [{ id: 'job-xtts', status: 'running', progress: 0, chapter_id: 'chap-1' }],
+    });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        source: 'backend',
+        emittedAt: Date.now() / 1000,
+        pluginId: null,
+        ids: { jobId: 'job-xtts', chapterId: 'chap-1', segmentId: 'seg-1' },
+        payload: {
+          status: 'running',
+          progress: 0,
+          reasonCode: null,
+          activeSegmentId: 'seg-1',
+          activeSegmentProgress: 0,
+          indeterminate: true,
+        },
+      });
+    });
+
+    const job = result.current.jobs['job-xtts'];
+    expect(job.active_segment_id).toBe('seg-1');
+    expect(job.indeterminate).toBe(true);
+  });
+
+  it('[W-MIX-LA-004] INV-1: Voxtral-only running segment frame (no indeterminate) does NOT produce preparing state', () => {
+    // Regression guard: a plain segments.progress frame (Voxtral rendering, no load)
+    // must NOT set indeterminate.  The preparing pulse must never flash for warm/cloud
+    // segments that don't need a cold load.
+    const { result } = renderHook(() => useJobs());
+
+    emit({
+      type: 'jobs_snapshot',
+      jobs: [{ id: 'job-voxtral', status: 'running', progress: 0.1, chapter_id: 'chap-1' }],
+    });
+
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'segments.progress',
+        eventKind: 'segment_progress',
+        source: 'backend',
+        emittedAt: Date.now() / 1000,
+        pluginId: null,
+        ids: { jobId: 'job-voxtral', chapterId: 'chap-1', segmentId: 'seg-3' },
+        payload: {
+          status: 'running',
+          progress: 0.25,
+          reasonCode: 'SEGMENT_PROGRESS',
+          activeSegmentId: 'seg-3',
+          activeSegmentProgress: 0.25,
+          // No indeterminate — Voxtral warm render
+        },
+      });
+    });
+
+    const job = result.current.jobs['job-voxtral'];
+    expect(job.active_segment_id).toBe('seg-3');
+    expect(job.indeterminate).not.toBe(true);
   });
 });

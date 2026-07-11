@@ -15,6 +15,8 @@ import {
   ExternalLink,
 } from 'lucide-react';
 
+import '@/pages/Welcome/WelcomePage.css';
+
 // ---------------------------------------------------------------------------
 // Status chip — semantically tinted inline badge
 
@@ -42,18 +44,7 @@ const StatusChip: React.FC<{ variant: ChipVariant; children: React.ReactNode }> 
   variant,
   children,
 }) => (
-  <span
-    style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      padding: '3px 10px',
-      borderRadius: 'var(--radius-round)',
-      fontSize: 'var(--type-micro)',
-      fontWeight: 600,
-      lineHeight: 1.4,
-      ...chipStyles[variant],
-    }}
-  >
+  <span className="welcome-status-chip" style={chipStyles[variant]}>
     {children}
   </span>
 );
@@ -67,70 +58,17 @@ const StepCard: React.FC<{
   heading: string;
   body: string;
 }> = ({ number, icon, heading, body }) => (
-  <div
-    style={{
-      flex: 1,
-      minWidth: 0,
-      padding: '18px 18px 16px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 10,
-      background: 'var(--surface)',
-      border: '1px solid var(--border)',
-      borderRadius: 'var(--radius-card)',
-      boxShadow: 'var(--shadow-sm)',
-    }}
-  >
-    <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <div
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: 'var(--radius-round)',
-          background: 'var(--accent-tint-bg)',
-          border: '1px solid var(--accent-tint-border)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
-        <span
-          style={{
-            fontSize: 'var(--type-micro)',
-            fontWeight: 800,
-            color: 'var(--accent)',
-            lineHeight: 1,
-            userSelect: 'none',
-          }}
-        >
-          {number}
-        </span>
+  <div className="welcome-step-card">
+    <div className="welcome-step-card__header">
+      <div className="welcome-step-card__number-badge">
+        <span className="welcome-step-card__number-badge-text">{number}</span>
       </div>
-      <span style={{ display: 'flex', alignItems: 'center', color: 'var(--accent)' }}>
+      <span className="text-accent" style={{ display: 'flex', alignItems: 'center' }}>
         {icon}
       </span>
-      <span
-        style={{
-          fontSize: 'var(--type-callout)',
-          fontWeight: 700,
-          color: 'var(--text-primary)',
-          lineHeight: 1.3,
-        }}
-      >
-        {heading}
-      </span>
+      <span className="welcome-step-card__heading">{heading}</span>
     </div>
-    <p
-      style={{
-        margin: 0,
-        fontSize: 'var(--type-caption)',
-        color: 'var(--text-secondary)',
-        lineHeight: 1.55,
-      }}
-    >
-      {body}
-    </p>
+    <p className="welcome-step-card__body">{body}</p>
   </div>
 );
 
@@ -138,51 +76,10 @@ const StepCard: React.FC<{
 // DocCard — muted link-style card
 
 const DocCard: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, label }) => (
-  <a
-    href="#"
-    aria-label={label}
-    style={{
-      flex: '1 1 0',
-      minWidth: 120,
-      padding: '10px 14px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 8,
-      cursor: 'pointer',
-      background: 'var(--surface)',
-      border: '1px solid var(--border)',
-      borderRadius: 'var(--radius-card)',
-      boxShadow: 'var(--shadow-sm)',
-      textDecoration: 'none',
-    }}
-  >
-    <span
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        color: 'var(--text-muted)',
-        flexShrink: 0,
-      }}
-    >
-      {icon}
-    </span>
-    <span
-      style={{
-        fontSize: 'var(--type-caption)',
-        color: 'var(--text-secondary)',
-        fontWeight: 600,
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-      }}
-    >
-      {label}
-    </span>
-    <ExternalLink
-      size={11}
-      strokeWidth={1.8}
-      style={{ color: 'var(--text-muted)', flexShrink: 0, marginLeft: 'auto' }}
-    />
+  <a href="#" aria-label={label} className="welcome-doc-card">
+    <span className="welcome-doc-card__icon">{icon}</span>
+    <span className="welcome-doc-card__label">{label}</span>
+    <ExternalLink size={11} strokeWidth={1.8} className="welcome-doc-card__external-icon" />
   </a>
 );
 
@@ -190,17 +87,7 @@ const DocCard: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, lab
 // Section label
 
 const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div
-    style={{
-      fontSize: 'var(--type-micro)',
-      fontWeight: 700,
-      letterSpacing: '0.08em',
-      textTransform: 'uppercase',
-      color: 'var(--text-muted)',
-    }}
-  >
-    {children}
-  </div>
+  <div className="label-micro-muted-strong welcome-section-label">{children}</div>
 );
 
 // ---------------------------------------------------------------------------
@@ -210,87 +97,25 @@ export const WelcomePage: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div
-      style={{
-        flex: 1,
-        overflowY: 'auto',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        padding: '40px 24px 48px',
-      }}
-    >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: 840,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 36,
-        }}
-      >
+    <div className="welcome-page">
+      <div className="welcome-page__container">
         {/* ── Brand hero ── */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            gap: 16,
-          }}
-        >
-          <img
-            src="/logo.png"
-            alt="Audiobook Studio"
-            style={{ width: 96, height: 96, objectFit: 'contain' }}
-          />
+        <div className="welcome-hero">
+          <img src="/logo.png" alt="Audiobook Studio" className="welcome-hero__logo" />
 
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            <h1
-              style={{
-                margin: 0,
-                fontSize: 'var(--type-title)',
-                fontWeight: 800,
-                color: 'var(--text-primary)',
-                lineHeight: 1.15,
-                letterSpacing: '-0.02em',
-              }}
-            >
+          <div className="welcome-hero__intro">
+            <h1 className="welcome-hero__title">
               Audiobook{' '}
-              <span style={{ color: 'var(--accent)' }}>Studio</span>
+              <span className="text-accent">Studio</span>
             </h1>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 'var(--type-body)',
-                color: 'var(--text-secondary)',
-                lineHeight: 1.6,
-                maxWidth: 480,
-              }}
-            >
+            <p className="welcome-hero__subtitle">
               Professional AI voice generation for creators and authors. Local-first,
               plugin-powered, and built for the long run.
             </p>
           </div>
 
           {/* Status chips */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'row',
-              gap: 8,
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              justifyContent: 'center',
-            }}
-          >
+          <div className="welcome-hero__chips">
             <StatusChip variant="success">Ready</StatusChip>
             <StatusChip variant="accent">Plugin-powered TTS</StatusChip>
             <StatusChip variant="neutral">Local-first</StatusChip>
@@ -298,17 +123,9 @@ export const WelcomePage: React.FC = () => {
         </div>
 
         {/* ── Getting started ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div className="welcome-section">
           <SectionLabel>Getting started</SectionLabel>
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'row',
-              gap: 12,
-              alignItems: 'stretch',
-              flexWrap: 'wrap',
-            }}
-          >
+          <div className="welcome-steps">
             <StepCard
               number={1}
               icon={<Mic size={16} strokeWidth={2} />}
@@ -331,9 +148,9 @@ export const WelcomePage: React.FC = () => {
         </div>
 
         {/* ── Learn more / Docs ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div className="welcome-section">
           <SectionLabel>Learn more</SectionLabel>
-          <div style={{ display: 'flex', flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+          <div className="welcome-docs">
             <DocCard icon={<FileText size={14} strokeWidth={1.8} />} label="Getting Started Guide" />
             <DocCard icon={<Mic size={14} strokeWidth={1.8} />} label="How voice cloning works" />
             <DocCard icon={<Puzzle size={14} strokeWidth={1.8} />} label="Plugins and engines" />
@@ -342,52 +159,12 @@ export const WelcomePage: React.FC = () => {
         </div>
 
         {/* ── CTAs ── */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'row',
-            gap: 10,
-            justifyContent: 'center',
-            flexWrap: 'wrap',
-          }}
-        >
-          <button
-            onClick={() => navigate('/library')}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '8px 28px',
-              background: 'var(--accent)',
-              color: 'var(--text-on-accent)',
-              border: 'none',
-              borderRadius: 'var(--radius-button)',
-              fontSize: 'var(--type-body)',
-              fontWeight: 600,
-              cursor: 'pointer',
-              lineHeight: 1.4,
-            }}
-          >
+        <div className="welcome-ctas">
+          <button onClick={() => navigate('/library')} className="welcome-cta-primary">
             Enter Library
-            <span style={{ fontSize: 'var(--type-caption)', opacity: 0.8 }}>→</span>
+            <span className="welcome-cta-primary__arrow">→</span>
           </button>
-          <a
-            href="#"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              padding: '8px 20px',
-              background: 'var(--surface-alt)',
-              color: 'var(--text-secondary)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-button)',
-              fontSize: 'var(--type-callout)',
-              fontWeight: 600,
-              cursor: 'pointer',
-              textDecoration: 'none',
-              lineHeight: 1.4,
-            }}
-          >
+          <a href="#" className="welcome-cta-secondary">
             View Documentation
           </a>
         </div>

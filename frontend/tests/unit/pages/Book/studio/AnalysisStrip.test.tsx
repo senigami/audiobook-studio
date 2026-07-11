@@ -37,11 +37,12 @@ describe('AnalysisStrip', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('956')).toBeInTheDocument();
-    expect(screen.getByText('174')).toBeInTheDocument();
-    expect(screen.getByText('Sentences').previousElementSibling).toHaveTextContent('9');
-    expect(screen.getByText('Segments').previousElementSibling).toHaveTextContent('9');
-    expect(screen.getByText('57s')).toBeInTheDocument();
+    // Reference-only stats are a single quiet caption line, not individual card values.
+    expect(screen.getByText(/956 chars/)).toBeInTheDocument();
+    expect(screen.getByText(/174 words/)).toBeInTheDocument();
+    expect(screen.getByText(/9 sentences/)).toBeInTheDocument();
+    expect(screen.getByText(/9 segments/)).toBeInTheDocument();
+    expect(screen.getByText(/~57s/)).toBeInTheDocument();
     expect(screen.getByText('3/5 auto-fixed')).toBeInTheDocument();
     expect(container.querySelector('.animate-spin')).toBeInTheDocument();
 

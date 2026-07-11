@@ -1,0 +1,229 @@
+/* ==========================================================================
+   PlayerBar Component
+   ========================================================================== */
+.player-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  /* Container for the U16 responsive rule: the inline waveform reflows above
+     the controls when the bar itself is too narrow (NOT a viewport query). */
+  container-type: inline-size;
+}
+
+.player-bar-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
+  gap: 1.5rem;
+  padding: 0.5rem 1.5rem;
+  min-height: 56px;
+}
+
+.player-bar-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.player-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* The lucide icons carry width/height as presentation attributes; inside a tiny
+   inline-flex button the flex algorithm collapses their main-axis (width) to 0,
+   leaving blank buttons. Pin them so they always render at their intrinsic size. */
+.player-btn svg {
+  flex-shrink: 0;
+}
+
+.player-btn:hover:not(:disabled) {
+  background: var(--surface-alt);
+  border-color: var(--text-muted);
+}
+
+.player-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.player-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.player-btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--text-on-accent);
+}
+
+/* Stop button — smaller secondary, visually separated from the VCR 5 */
+.player-btn-stop {
+  width: 26px;
+  height: 26px;
+  margin-left: 0.25rem;
+  color: var(--text-muted);
+  border-color: var(--border-muted);
+}
+
+.player-btn-stop:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+/* Primary play/pause button is slightly larger to anchor the VCR group */
+.player-btn-primary {
+  width: 36px;
+  height: 36px;
+}
+
+/* Thin vertical rule between the controls cluster and the info/seek area */
+.player-bar-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--border);
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.player-bar-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.player-bar-title-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.player-title {
+  font-size: var(--type-callout);
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-subtitle {
+  font-size: var(--type-caption);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Scrub area — holds either the inline waveform (short clip) or the plain
+   seek slider (long clip); representation is duration-driven, not scope-driven
+   (audio-player.md 1.6.0). Fills the available width like a scrub bar. */
+.player-scrub {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1.5 1 180px;
+  min-width: 120px;
+}
+
+/* Inline waveform = the scrub track when the clip fits legibly (fitsLegibly). */
+.player-waveform-inline {
+  width: 100%;
+  height: 32px;
+}
+
+/* U16 responsive exception: when the bar is too narrow to fit transport +
+   inline waveform + trailing controls on one row, the waveform reflows
+   ABOVE the controls (order:-1, full width) at reduced height. The plain-bar
+   representation uses .player-scrub WITHOUT --wave, so its slider never
+   reflows above. */
+@container (max-width: 720px) {
+  .player-scrub--wave {
+    flex-basis: 100%;
+    order: -1;
+  }
+  .player-scrub--wave .player-waveform-inline {
+    height: 24px;
+  }
+}
+
+.player-progress-slider {
+  flex: 1;
+  height: 4px;
+  border-radius: var(--radius-round);
+  background: var(--surface-alt);
+  outline: none;
+  cursor: pointer;
+  accent-color: var(--accent);
+  transition: background 0.2s ease;
+}
+
+.player-time-display {
+  font-size: var(--type-caption);
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-family: monospace;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+ * Player bar — inline waveform (duration-driven scrub track, audio-player.md 1.6.0)
+ * --------------------------------------------------------------------------- */
+
+/* Representation override toggle (far right) — flips waveform ↔ bar. Uses the
+   circular .player-btn base; --on adds the accent tint when the waveform shows. */
+.player-btn-wave {
+  flex-shrink: 0;
+}
+
+.player-btn-wave--on {
+  background: var(--accent-tint-bg);
+  border-color: var(--accent-tint-border);
+  color: var(--accent);
+}
+
+.player-btn-wave--on:hover:not(:disabled) {
+  background: var(--accent-tint-bg);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Waveform container — fills its inline slot (.player-waveform-inline). */
+.waveform-strip {
+  width: 100%;
+  height: 100%;
+  background: var(--color-wave-bg, transparent);
+  /* wavesurfer renders a <canvas> inside; let it fill */
+  display: block;
+  box-sizing: border-box;
+}
+
+/* Ensure wavesurfer's internal shadow DOM canvas fills the container */
+.waveform-strip > div,
+.waveform-strip canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+

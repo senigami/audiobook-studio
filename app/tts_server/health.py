@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
 from app.engines.enablement import can_enable_engine
-from app.tts_server.settings_store import load_settings
+from app.tts_server.settings_store import load_settings, redact_secret_settings, _load_settings_schema
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +134,15 @@ def build_health_response(plugins: "list[LoadedPlugin]") -> dict[str, Any]:
         except Exception:
             current_settings = {}
         status = engine_status(plugin, current_settings=current_settings)
+        engine = getattr(plugin, "engine", None)
+        model_warm: bool | None = None
+        if engine is not None:
+            model_warm_fn = getattr(engine, "model_warm", None)
+            if callable(model_warm_fn):
+                try:
+                    model_warm = bool(model_warm_fn())
+                except Exception:
+                    model_warm = None
         engine_summaries.append(
             {
                 "engine_id": plugin.engine_id,
@@ -145,6 +154,7 @@ def build_health_response(plugins: "list[LoadedPlugin]") -> dict[str, Any]:
                 # the TTS server is a localhost-only subprocess — surfacing it
                 # to the local operator is the designed contract.
                 "verification_error": plugin.load_error or plugin.verification_error,  # lgtm[py/stack-trace-exposure]
+                "model_warm": model_warm,
             }
         )
 
@@ -212,6 +222,13 @@ def build_engine_detail(
     elif status != STATUS_NEEDS_SETUP:
         setup_message = None
 
+    # Redact secret fields before embedding settings in the client-bound payload.
+    # Load the schema from disk (the authoritative source for secret declarations)
+    # rather than the injected schema above, which may have been augmented with
+    # sanitize_overrides and should not affect secret detection.
+    _fs_schema = _load_settings_schema(plugin.plugin_dir) if getattr(plugin, "plugin_dir", None) else {}
+    redacted_settings = redact_secret_settings(current_settings, _fs_schema)
+
     return {
         **info_extra,
         "engine_id": plugin.engine_id,
@@ -237,7 +254,7 @@ def build_engine_detail(
         "health_message": setup_message,
         "verification_error": getattr(plugin, "load_error", None) or getattr(plugin, "verification_error", None),
         "settings_schema": schema,
-        "current_settings": current_settings,
+        "current_settings": redacted_settings,
         "dependencies_satisfied": plugin.dependencies_satisfied,
         "missing_dependencies": plugin.missing_dependencies,
         "dev": manifest.get("dev"),

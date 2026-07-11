@@ -29,7 +29,7 @@ MODEL_ASSET_NAMES = {"latent.pth"}
 
 # Path to the canonical bundle schema (voice.schema.json)
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_BUNDLE_SCHEMA_PATH = _REPO_ROOT / "docs" / "specs" / "voice.schema.json"
+_BUNDLE_SCHEMA_PATH = _REPO_ROOT / "design-docs" / "specs" / "voice.schema.json"
 
 # Fields that are runtime-operational and MUST NOT appear in exported voice.json
 _EXPORT_STRIP_FIELDS = {"version", "default_variant", "_untagged", "_taxonomy_version"}
@@ -40,7 +40,7 @@ class VoiceBundleError(ValueError):
 
 
 def _load_bundle_schema() -> Dict[str, Any]:
-    """Load docs/specs/voice.schema.json once per process (cached on module)."""
+    """Load design-docs/specs/voice.schema.json once per process (cached on module)."""
     try:
         with _BUNDLE_SCHEMA_PATH.open(encoding="utf-8") as fh:
             return json.load(fh)
@@ -98,7 +98,7 @@ def _as_tag(field: str, value: str) -> str:
 def generate_readme_md(voice_manifest: Dict[str, Any]) -> str:
     """Generate a HuggingFace-compatible README.md from a voice.json manifest.
 
-    The output matches the shape in docs/specs/voice-bundle-template/README.md:
+    The output matches the shape in design-docs/specs/voice-bundle-template/README.md:
     - YAML frontmatter with license, language, pipeline_tag, library_name, tags, widget
     - Icon img tag
     - # <name> heading
@@ -121,7 +121,7 @@ def generate_readme_md(voice_manifest: Dict[str, Any]) -> str:
 
     # as-* namespaced attribute tags
     scalar_fields = ("class", "gender", "age", "accent", "pace")
-    array_fields = ("tone", "timbre", "use_case", "quality")
+    array_fields = ("language", "style", "tone", "timbre", "use_case", "quality")
 
     for field in scalar_fields:
         val = attributes.get(field)
@@ -187,6 +187,12 @@ def generate_readme_md(voice_manifest: Dict[str, Any]) -> str:
             attr_rows.append(("Age", attributes["age"].replace("-", " ").title()))
         if attributes.get("accent"):
             attr_rows.append(("Accent", attributes["accent"]))
+        if attributes.get("language"):
+            attr_rows.append(("Language", ", ".join(attributes["language"])))
+        if attributes.get("style"):
+            attr_rows.append(("Style", ", ".join(
+                s.replace("-", " ") for s in attributes["style"]
+            )))
         if attributes.get("tone"):
             attr_rows.append(("Tone", ", ".join(attributes["tone"])))
         if attributes.get("timbre"):

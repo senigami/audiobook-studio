@@ -19,15 +19,24 @@ def clean_state(tmp_path):
 
 def test_default_settings_refactor(client, clean_state):
     from app.db.state import get_settings
-    # Verify defaults match the new requirement (MP3 False)
+    # Fresh settings default safe_mode to True (see app/db/state_settings.py).
     settings = get_settings()
-    assert "safe_mode" in settings
+    assert settings["safe_mode"] is True
 
-def test_get_speaker_settings_uses_hardcoded_fallback(clean_state):
+def test_get_speaker_settings_falls_back_to_global_settings_speed(clean_state):
+    from app.db.state import update_settings
     from app.db.speakers import get_speaker_settings
 
-    # We don't need a real profile for this, it falls back to a dict
-    # which we modified to have "speed": 1.0 regardless of global settings
+    # For a profile that doesn't exist, "speed" is NOT hardcoded to 1.0 --
+    # it reads through to the global settings' "speed" key
+    # (`defaults.get("speed", 1.0)` in app/db/speakers.py). Prove that by
+    # setting a non-default global speed and confirming it propagates.
+    update_settings({"speed": 2.5})
+    res = get_speaker_settings("NonExistentProfile")
+    assert res["speed"] == 2.5
+
+    # With no global override, it falls back to the neutral default of 1.0.
+    update_settings({"speed": 1.0})
     res = get_speaker_settings("NonExistentProfile")
     assert res["speed"] == 1.0
 
@@ -37,17 +46,27 @@ def test_api_home_reflects_new_state_structure(client, clean_state):
     payload = response.json()
     settings = payload["settings"]
 
-    assert "safe_mode" in settings
+    # safe_mode defaults to True and the legacy per-engine "xtts_speed" key
+    # (superseded by the generic per-engine settings store) must not leak
+    # back into the API response.
+    assert settings["safe_mode"] is True
     assert "xtts_speed" not in settings
-    assert "render_stats" in payload
+    assert isinstance(payload["render_stats"], dict)
 
 
-def test_baseline_engine_cps_lives_in_behavior_not_core_config():
-    from app.core import config
+def test_baseline_engine_cps_drives_predicted_audio_length():
     from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
+    from app.utils.text.textops import get_text_stats
 
-    assert not hasattr(config, "BASELINE_ENGINE_CPS")
     assert DEFAULT_BASELINE_ENGINE_CPS == 16.7
+
+    # Prove the constant actually drives the runtime prediction (not just
+    # exists as an unused value) -- get_text_stats derives predicted_seconds
+    # from char_count / DEFAULT_BASELINE_ENGINE_CPS.
+    text = "a" * 167
+    stats = get_text_stats(text)
+    assert stats["char_count"] == 167
+    assert stats["predicted_seconds"] == int(167 / DEFAULT_BASELINE_ENGINE_CPS) == 10
 
 
 def test_verification_metadata_ignores_read_only_computed_settings(tmp_path):
@@ -158,20 +177,13 @@ class TestSettingsStoreTraversalGuard:
         from app.tts_server.settings_store import load_settings
         plugin_data_dir = tmp_path / "plugin_data"
         monkeypatch.setattr("app.core.config.PLUGIN_DATA_DIR", plugin_data_dir)
-        # Build a plugin_dir whose derived engine_id would escape (use a crafted name)
-        plugin_dir = tmp_path / "plugins" / "tts_mock"
-        plugin_dir.mkdir(parents=True)
-        with pytest.raises(ValueError):
-            # Force _engine_id_from_plugin_dir to return a traversal string by
-            # using a folder that starts with "pip:" and contains traversal chars.
-            # We monkey-patch _engine_id_from_plugin_dir directly to simulate it.
-            import app.tts_server.settings_store as ss
-            original = ss._engine_id_from_plugin_dir
-            monkeypatch.setattr(ss, "_engine_id_from_plugin_dir", lambda _: "../evil")
-            try:
-                load_settings(plugin_dir)
-            finally:
-                monkeypatch.setattr(ss, "_engine_id_from_plugin_dir", original)
+        # A real plugin folder name of "tts_.." naturally makes
+        # _engine_id_from_plugin_dir strip the "tts_" prefix down to "..",
+        # which _contained_path must then reject before ever touching disk --
+        # no internal helper needs to be monkeypatched to trigger this.
+        plugin_dir = tmp_path / "plugins" / "tts_.."
+        with pytest.raises(ValueError, match="path escapes containment root"):
+            load_settings(plugin_dir)
 
     def test_valid_id_round_trips_setting(self, tmp_path, monkeypatch):
         from app.tts_server.settings_store import load_settings, save_settings

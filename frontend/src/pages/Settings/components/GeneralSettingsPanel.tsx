@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ShieldCheck, PlugZap, Music, Palette, FlaskConical } from 'lucide-react';
+import { ShieldCheck, PlugZap, Music, Palette, FlaskConical, Layers } from 'lucide-react';
 import type { Settings as AppSettings, SpeakerProfile, TtsEngine, Speaker } from '@/types';
 import { buildVoiceOptions } from '@/utils/voiceProfiles';
 import { SettingCard, ToggleButton } from '@/pages/Settings/components/SettingsComponents';
@@ -43,6 +43,26 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
       const formData = new URLSearchParams();
       formData.append(key, (!currentValue).toString());
       await fetch('/api/settings', { method: 'POST', body: formData });
+      onRefresh();
+    } catch (error) {
+      console.error('Failed to update setting', error);
+      onShowNotification?.('Settings update failed. Please try again.');
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  // tts_parallel_cap is only read from the JSON body on the backend
+  // (app/api/routers/system.py's form branch doesn't parse it), so this
+  // posts JSON rather than reusing the form-encoded helpers above.
+  const updateParallelCap = async (cap: number) => {
+    setSavingKey('tts_parallel_cap');
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tts_parallel_cap: cap }),
+      });
       onRefresh();
     } catch (error) {
       console.error('Failed to update setting', error);
@@ -234,6 +254,18 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
                   </option>
                 ))}
               </select>
+            }
+          />
+          <SettingCard
+            icon={Layers}
+            title="Parallel Segment Rendering"
+            description="Render multiple segments at once when the engine allows it. Turn off to force strictly one-at-a-time (sequential) rendering."
+            action={
+              <ToggleButton
+                enabled={(settings?.tts_parallel_cap ?? 1) > 1}
+                busy={savingKey === 'tts_parallel_cap'}
+                onClick={() => updateParallelCap((settings?.tts_parallel_cap ?? 1) > 1 ? 1 : 2)}
+              />
             }
           />
         </div>

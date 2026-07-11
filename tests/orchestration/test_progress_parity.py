@@ -270,13 +270,13 @@ class TestPathABParity:
         )
 
     def test_cold_frame_eta_seconds_non_null_path_b(self):
-        """Cold frame on Path B: no incoming eta_seconds but char_count present.
+        """Cold frame on Path B: no incoming eta_seconds, no calibration → etaSeconds=None.
 
-        After wiring, Path B calls enrich() which computes a cold ETA from
-        char_count.  Pre-wiring, Path B passes eta_seconds=None directly to
-        the builder and the envelope carries etaSeconds=None.
+        With the fabricated baseline removed, Path B (like Path A) no longer produces
+        a cold ETA from char_count alone when there is no calibration history.
 
-        R1 revert-check: pre-wiring, path_b_eta is None; post-wiring it is non-null.
+        R1 revert-check: on pre-removal code, path_b_eta was non-null (char_count/16.7).
+        Post-removal it is None (no real calibration or observed data).
         """
         svc, _, wall_now, _ = _make_clock_injected_service()
         set_progress_service(svc)
@@ -292,16 +292,15 @@ class TestPathABParity:
                 "char_count": 800,
                 "chapter_id": chapter_id,
                 "classification": "chapter",
-                # deliberately no eta_seconds
+                # deliberately no eta_seconds, no calibration
             },
         )
 
         path_b_eta = _extract_eta_seconds(path_b_captured, "chapters.progress")
-        assert path_b_eta is not None, (
-            "Path B cold frame with char_count=800 must produce non-null etaSeconds — "
-            "Path B is not routing through enrich()"
+        assert path_b_eta is None, (
+            f"Path B cold frame with no calibration must yield etaSeconds=None, "
+            f"got {path_b_eta} — fabricated baseline has been removed"
         )
-        assert path_b_eta >= 0, f"etaSeconds must be non-negative, got {path_b_eta}"
 
     def test_grouped_progress_matches_between_paths(self):
         """grouped_progress must be value-equal between Path A and Path B."""

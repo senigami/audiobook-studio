@@ -34,10 +34,18 @@ def _get_warm_worker_manager(idle_seconds: int = 300):
             from .warm_worker import WarmWorkerManager  # noqa: PLC0415
             env = os.environ.copy()
             env["PYTHONUNBUFFERED"] = "1"
+            # Read concurrency cap from this plugin's own manifest behavior block.
+            # Every current manifest declares max_concurrent_workers=1, so this
+            # ships dark (cap=1 → single-worker, serialized, byte-identical).
+            try:
+                _cap = max(1, int(_get_local_behavior().get("max_concurrent_workers", 1)))
+            except Exception:
+                _cap = 1
             _warm_worker_manager = WarmWorkerManager(
                 XTTS_ENV_PYTHON,
                 idle_seconds=idle_seconds,
                 env=env,
+                cap=_cap,
             )
         return _warm_worker_manager
 

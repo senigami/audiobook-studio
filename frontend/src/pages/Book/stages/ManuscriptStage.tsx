@@ -1,16 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { api } from '@/api';
+import { ChapterImportBar } from '@/pages/Book/components/ChapterImportBar';
 import { AddChapterModal } from '@/pages/Book/components/AddChapterModal';
 import { ChapterTable } from '@/pages/Book/components/ChapterTable';
 import { ChapterTextPanel } from '@/pages/Book/components/ChapterTextPanel';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
+import { emitToast } from '@/utils/toast';
 import { requestRailAutoCollapse } from '@/utils/railState';
+import { getChapterImportError, getChapterImportFileTitle, isSupportedChapterImportFile } from '@/pages/Book/lib/chapterImport';
 import type { Chapter } from '@/types';
-
-function chapterTitleFromFile(file: File): string {
-  return file.name.replace(/\.[^/.]+$/, '') || 'Imported chapter';
-}
 
 export function ManuscriptStage() {
   const {
@@ -24,7 +23,6 @@ export function ManuscriptStage() {
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(chapters[0]?.id ?? null);
   const [showAddChapterModal, setShowAddChapterModal] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
-  const importInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!focusMode) return;
@@ -57,11 +55,14 @@ export function ManuscriptStage() {
     }
   };
 
-  const handleImportFile = async (file: File | undefined) => {
-    if (!file) return;
-    await actions.handleCreateChapter(chapterTitleFromFile(file), '', file, chapters.length);
-    if (importInputRef.current) {
-      importInputRef.current.value = '';
+  const handleImportFiles = async (files: FileList | File[] | null | undefined) => {
+    const fileList = files ? Array.from(files) : [];
+    if (fileList.length === 0) return;
+    const validFiles = fileList.filter(isSupportedChapterImportFile);
+    const invalidFiles = fileList.filter((file) => !isSupportedChapterImportFile(file));
+    invalidFiles.forEach((file) => emitToast(getChapterImportError(file)));
+    for (const [index, file] of validFiles.entries()) {
+      await actions.handleCreateChapter(getChapterImportFileTitle(file), '', file, chapters.length + index);
     }
   };
 
@@ -123,28 +124,7 @@ export function ManuscriptStage() {
             anyEnginesEnabled={projectVoiceStatus.enabled}
           />
 
-          <div className="manuscript-stage__import-row">
-            <div>
-              <strong>Import manuscript file</strong>
-              <span>.txt, .docx, or .epub</span>
-            </div>
-            <input
-              ref={importInputRef}
-              type="file"
-              accept=".txt,.docx,.epub"
-              className="sr-only"
-              aria-label="Import manuscript file"
-              onChange={(event) => void handleImportFile(event.target.files?.[0])}
-            />
-            <button
-              type="button"
-              className="btn-ghost"
-              onClick={() => importInputRef.current?.click()}
-              disabled={actions.submitting}
-            >
-              Choose file
-            </button>
-          </div>
+          <ChapterImportBar onImportFiles={handleImportFiles} submitting={actions.submitting} compact />
         </div>
         )}
 

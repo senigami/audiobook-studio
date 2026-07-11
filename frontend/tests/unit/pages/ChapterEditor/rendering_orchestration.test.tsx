@@ -9,7 +9,7 @@ import { api } from '@/api';
 // Mock API for useChapterLoader tests
 vi.mock('@/api', () => ({
   api: {
-    fetchChapters: vi.fn(),
+    fetchChapter: vi.fn(),
     fetchSegments: vi.fn().mockResolvedValue([]),
     fetchCharacters: vi.fn().mockResolvedValue([]),
     fetchScriptView: vi.fn().mockResolvedValue({ render_batches: [], spans: [] }),
@@ -19,7 +19,7 @@ vi.mock('@/api', () => ({
 describe('Chapter Editor Rendering & Queue Orchestration Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (api.fetchChapters as any).mockResolvedValue([]);
+    (api.fetchChapter as any).mockResolvedValue(null);
     (api.fetchSegments as any).mockResolvedValue([]);
     (api.fetchCharacters as any).mockResolvedValue([]);
     (api.fetchScriptView as any).mockResolvedValue({ render_batches: [], spans: [] });
@@ -142,6 +142,7 @@ describe('Chapter Editor Rendering & Queue Orchestration Tests', () => {
       completionPollAttemptsRef: { current: 0 },
       setLoading: vi.fn(),
       setScriptViewLoading: vi.fn(),
+      setChapterNotFound: vi.fn(),
       segments: [],
     };
 
@@ -159,15 +160,13 @@ describe('Chapter Editor Rendering & Queue Orchestration Tests', () => {
       },
     ];
 
-    (api.fetchChapters as any).mockResolvedValue([
-      {
-        id: 'chap-1',
-        project_id: 'proj-1',
-        title: 'Chapter 1',
-        audio_status: 'done', // Now completed on backend
-        has_wav: true, // Audio ready
-      },
-    ]);
+    (api.fetchChapter as any).mockResolvedValue({
+      id: 'chap-1',
+      project_id: 'proj-1',
+      title: 'Chapter 1',
+      audio_status: 'done', // Now completed on backend
+      has_wav: true, // Audio ready
+    });
     (api.fetchSegments as any).mockResolvedValue([]);
     (api.fetchCharacters as any).mockResolvedValue([]);
 
@@ -187,8 +186,8 @@ describe('Chapter Editor Rendering & Queue Orchestration Tests', () => {
       await vi.runAllTimersAsync();
     });
 
-    // Verify polling was triggered and api.fetchChapters was called to fetch updated details
-    expect(api.fetchChapters).toHaveBeenCalled();
+    // Verify polling was triggered and api.fetchChapter was called to fetch updated details
+    expect(api.fetchChapter).toHaveBeenCalled();
     expect(mockState.setChapter).toHaveBeenCalledWith(
       expect.objectContaining({
         audio_status: 'done',

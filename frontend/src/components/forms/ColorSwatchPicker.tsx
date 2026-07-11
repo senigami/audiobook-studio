@@ -54,7 +54,7 @@ export const ColorSwatchPicker: React.FC<ColorSwatchPickerProps> = ({ value, onC
     const swatchSize = size === 'sm' ? '18px' : '24px';
 
     return (
-        <div ref={containerRef} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+        <div ref={containerRef} className="color-swatch-picker">
             {/* Active Color Trigger */}
             <button
                 type="button"
@@ -77,7 +77,7 @@ export const ColorSwatchPicker: React.FC<ColorSwatchPickerProps> = ({ value, onC
                 }}
                 title="Change Color"
             >
-                <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'rgba(255,255,255,0.5)' }} />
+                <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--surface-glass-half)' }} />
             </button>
 
             {/* Popover */}

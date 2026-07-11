@@ -16,14 +16,6 @@ describe('PlaybackControls Component', () => {
     activeLabel: 'Test Segment'
   };
 
-  it('renders all controls', () => {
-    render(<PlaybackControls {...defaultProps} />);
-    expect(screen.getByLabelText('Play')).toBeInTheDocument();
-    expect(screen.getByLabelText('Stop')).toBeInTheDocument();
-    expect(screen.getByLabelText('Previous Segment')).toBeInTheDocument();
-    expect(screen.getByLabelText('Next Segment')).toBeInTheDocument();
-  });
-
   it('shows Play when not playing', () => {
     render(<PlaybackControls {...defaultProps} isPlaying={false} />);
     expect(screen.getByLabelText('Play')).toBeInTheDocument();

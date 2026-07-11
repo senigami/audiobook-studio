@@ -3,7 +3,7 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Form, File, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Form, File, UploadFile, Request
 from fastapi.responses import JSONResponse
 
 from ...db import (
@@ -24,6 +24,22 @@ from .projects_assembly import router as assembly_router
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
+
+
+def _schedule_segment_gc(project_id: str) -> None:
+    """Run the per-project segment GC pass.  Called as a BackgroundTask.
+
+    Errors are logged and swallowed — a GC failure must never surface to the
+    request that triggered the book-open.
+    """
+    try:
+        from app.db.segment_gc import reconcile_orphan_segment_files_for_project  # noqa: PLC0415
+
+        reconcile_orphan_segment_files_for_project(project_id)
+    except Exception:
+        logger.warning(
+            "segment_gc: background sweep failed for project %s", project_id, exc_info=True
+        )
 
 # Include sub-routers for backups and assembly
 router.include_router(backups_router)
@@ -48,7 +64,7 @@ def api_reorder_chapters_route(project_id: str, chapter_ids: str = Form(...)):
 
 
 @router.get("/{project_id}")
-def api_get_project(project_id: str):
+def api_get_project(project_id: str, background_tasks: BackgroundTasks):
     fetch_started_at = time.perf_counter()
     p = get_project(project_id)
     fetch_ms = round((time.perf_counter() - fetch_started_at) * 1000)
@@ -57,6 +73,7 @@ def api_get_project(project_id: str):
 
     if not p:
         return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+    background_tasks.add_task(_schedule_segment_gc, project_id)
     total_ms = round((time.perf_counter() - fetch_started_at) * 1000)
     if total_ms >= 100:
         logger.info("Project detail total timing project=%s ms=%s", project_id, total_ms)
@@ -67,12 +84,13 @@ def api_get_project(project_id: str):
 async def api_create_project(
     name: str = Form(...),
     series: Optional[str] = Form(None),
+    series_position: Optional[int] = Form(None),
     author: Optional[str] = Form(None),
     speaker_profile_name: Optional[str] = Form(None),
     cover: Optional[UploadFile] = File(None)
 ):
     normalized_profile_name = (speaker_profile_name or "").strip() or None
-    pid = create_project(name, series, author, None, normalized_profile_name)
+    pid = create_project(name, series, author, None, normalized_profile_name, series_position=series_position)
     if cover:
         cover_path = await _store_project_cover(pid, cover)
         update_project(pid, cover_image_path=cover_path)
@@ -82,10 +100,13 @@ async def api_create_project(
 @router.put("/{project_id}")
 async def api_update_project(
     project_id: str,
+    request: Request,
     name: Optional[str] = Form(None),
     series: Optional[str] = Form(None),
+    series_position: Optional[str] = Form(None),
     author: Optional[str] = Form(None),
     speaker_profile_name: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
     cover: Optional[UploadFile] = File(None)
 ):
     p = get_project(project_id)
@@ -95,7 +116,25 @@ async def api_update_project(
     updates = {}
     if name is not None: updates["name"] = name
     if series is not None: updates["series"] = series
+    form_data = await request.form()
+    if "series_position" in form_data:
+        if series_position is None or series_position.strip() == "":
+            updates["series_position"] = None
+        else:
+            try:
+                updates["series_position"] = int(series_position)
+            except (TypeError, ValueError):
+                return JSONResponse({"status": "error", "message": "Invalid series position"}, status_code=400)
     if author is not None: updates["author"] = author
+    if description is not None:
+        updates["description"] = description
+    elif "description" in form_data:
+        # FastAPI's Form(None) parsing coerces an empty-string form value to
+        # None (indistinguishable from "field omitted"), so the "is not None"
+        # check above can never observe a clear-to-empty-string request. Fall
+        # back to the raw form value (same idiom as the series_position check
+        # above) so an explicit empty string still clears the description.
+        updates["description"] = form_data.get("description") or ""
     if speaker_profile_name is not None:
         normalized_profile_name = (speaker_profile_name.strip() or None)
         if normalized_profile_name == DEFAULT_VOICE_SENTINEL:

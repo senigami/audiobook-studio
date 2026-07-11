@@ -1,18 +1,24 @@
 import { Navigate, NavLink, useParams, useSearchParams } from 'react-router-dom';
-import { useEffect } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
+import { BookOpen, X } from 'lucide-react';
 import { setBookIdentity } from '@/app/layout/bookIdentityStore';
 import type { Job, SegmentProgress, Settings, Speaker, SpeakerProfile, TtsEngine } from '@/types';
 import { BookDataProvider, useBookDataContext } from '@/pages/Book/BookDataContext';
+import { BookStage as BookInfoStage } from '@/pages/Book/stages/BookStage';
 import { CastingStage } from '@/pages/Book/stages/CastingStage';
-import { ManuscriptStage } from '@/pages/Book/stages/ManuscriptStage';
-import { ReviewStage } from '@/pages/Book/stages/ReviewStage';
-import { StudioStage } from '@/pages/Book/stages/StudioStage';
+import { ContentsStage } from '@/pages/Book/stages/ContentsStage';
+import { LexiconStage } from '@/pages/Book/stages/LexiconStage';
 import { PublishStage } from '@/pages/Book/stages/PublishStage';
+import { BackupsStage } from '@/pages/Book/stages/BackupsStage';
+import { ChapterWorkspaceHeader } from '@/pages/Book/components/ChapterWorkspaceHeader';
+import { LexiconPanel } from '@/pages/Book/components/LexiconPanel';
+import { DirectorsConsole } from '@/pages/ChapterEditor/components/DirectorsConsole';
 import {
   BOOK_STAGE_LABELS,
   BOOK_STAGES,
   getLastStage,
   isBookStage,
+  setLastChapter,
   setLastStage,
   type BookStage,
 } from '@/pages/Book/lib/stages';
@@ -41,20 +47,23 @@ export function BookIndexRedirect() {
 }
 
 function StageContent({ stage }: { stage: BookStage }) {
-  if (stage === 'manuscript') {
-    return <ManuscriptStage />;
+  if (stage === 'book') {
+    return <BookInfoStage />;
   }
-  if (stage === 'casting') {
+  if (stage === 'contents') {
+    return <ContentsStage />;
+  }
+  if (stage === 'cast') {
     return <CastingStage />;
   }
-  if (stage === 'studio') {
-    return <StudioStage />;
-  }
-  if (stage === 'review') {
-    return <ReviewStage />;
+  if (stage === 'lexicon') {
+    return <LexiconStage />;
   }
   if (stage === 'publish') {
     return <PublishStage />;
+  }
+  if (stage === 'backups') {
+    return <BackupsStage />;
   }
   return null;
 }
@@ -100,6 +109,187 @@ function BookIdentityPublisher() {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// WorkspacePanel — reusable dockable side panel for the Chapter Workspace.
+//
+// This is the first of the "dockable workspace panels" pattern.  To add more
+// panels (e.g. Cast, Notes), follow the same shape: a toggle button in the
+// toolbar row, an open/close boolean in ChapterWorkspace state, and render
+// a <WorkspacePanel> beside the stage body.  The pattern intentionally stays
+// simple (CSS flex + boolean state) — no plugin registry needed yet.
+// ---------------------------------------------------------------------------
+
+interface WorkspacePanelProps {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}
+
+function WorkspacePanel({ title, onClose, children }: WorkspacePanelProps) {
+  return (
+    <aside
+      className="workspace-side-panel"
+      aria-label={title}
+      style={{
+        width: 320,
+        flexShrink: 0,
+        borderLeft: '1px solid var(--border)',
+        background: 'var(--surface)',
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
+        overflowY: 'auto',
+      }}
+    >
+      {/* Panel header */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--space-2)',
+          padding: 'var(--space-2) var(--space-3)',
+          borderBottom: '1px solid var(--border)',
+          background: 'var(--surface)',
+          flexShrink: 0,
+        }}
+      >
+        <span
+          style={{
+            flex: 1,
+            fontSize: 'var(--type-caption)',
+            fontWeight: 700,
+            color: 'var(--text-primary)',
+          }}
+        >
+          {title}
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={`Close ${title} panel`}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 24,
+            height: 24,
+            border: '1px solid var(--border)',
+            background: 'transparent',
+            borderRadius: 'var(--radius-button)',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            padding: 0,
+          }}
+        >
+          <X size={12} aria-hidden="true" />
+        </button>
+      </div>
+
+      {/* Panel body */}
+      <div style={{ flex: 1, padding: 'var(--space-3)', minHeight: 0 }}>
+        {children}
+      </div>
+    </aside>
+  );
+}
+
+/** Chapter Workspace — renders when a chapter is opened from Contents. */
+function ChapterWorkspace({ bookId, chapterId }: { bookId: string; chapterId: string }) {
+  const { chapters } = useBookDataContext();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [lexiconOpen, setLexiconOpen] = useState(false);
+
+  const chapter = chapters.find((c) => c.id === chapterId);
+  const chapterTitle = chapter?.title ?? chapterId;
+
+  // Persist the last-opened chapter so Contents can restore it.
+  useEffect(() => {
+    setLastChapter(bookId, chapterId);
+  }, [bookId, chapterId]);
+
+  // Sync the route-level chapterId into ?chapter= so the DirectorsConsole tools
+  // (CastTool, BoothTool, etc., which read searchParams.get('chapter')) pick up
+  // the correct chapter without modification. Replace rather than push so the
+  // extra param doesn't pollute history.
+  // Depend only on chapterId: re-fire when the route param changes.
+  // searchParams is intentionally omitted — the conditional guard is idempotent,
+  // and including setSearchParams in deps would create a re-entrancy loop.
+  useEffect(() => {
+    if (searchParams.get('chapter') !== chapterId) {
+      const next = new URLSearchParams(searchParams);
+      next.set('chapter', chapterId);
+      setSearchParams(next, { replace: true });
+    }
+  }, [chapterId]); // intentional: see comment above
+
+  return (
+    <section className="chapter-workspace" aria-label={`Chapter workspace: ${chapterTitle}`}>
+      <ChapterWorkspaceHeader
+        bookId={bookId}
+        chapters={chapters}
+        activeChapterId={chapterId}
+      />
+
+      {/* Toolbar row: workspace panel toggles */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--space-2)',
+          flexWrap: 'wrap',
+        }}
+      >
+        {/* Dockable panel toggles */}
+        <button
+          type="button"
+          onClick={() => setLexiconOpen((v) => !v)}
+          aria-pressed={lexiconOpen}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 'var(--space-1)',
+            padding: '0.3rem 0.6rem',
+            border: `1px solid ${lexiconOpen ? 'var(--accent)' : 'var(--border)'}`,
+            borderRadius: 'var(--radius-button)',
+            background: lexiconOpen ? 'var(--accent-glow)' : 'var(--surface)',
+            color: lexiconOpen ? 'var(--accent)' : 'var(--text-secondary)',
+            fontSize: 'var(--type-caption)',
+            fontWeight: 600,
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+          }}
+        >
+          <BookOpen size={13} aria-hidden="true" />
+          Lexicon
+        </button>
+      </div>
+
+      {/* Sub-view body + optional docked side panels */}
+      <div
+        style={{
+          display: 'flex',
+          flex: 1,
+          minHeight: 0,
+          gap: 0,
+          border: lexiconOpen ? '1px solid var(--border)' : undefined,
+          borderRadius: lexiconOpen ? 'var(--radius-panel)' : undefined,
+          overflow: lexiconOpen ? 'hidden' : undefined,
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <DirectorsConsole />
+        </div>
+
+        {lexiconOpen && (
+          <WorkspacePanel title="Lexicon" onClose={() => setLexiconOpen(false)}>
+            <LexiconPanel projectId={bookId} />
+          </WorkspacePanel>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function BookLayout({
   jobs = {},
   segmentProgress = {},
@@ -112,21 +302,23 @@ export function BookLayout({
   chapterUpdate,
   onOpenQueue,
 }: BookLayoutProps) {
-  const { bookId, stage } = useParams<{ bookId: string; stage: string }>();
+  const { bookId, stage, chapterId } = useParams<{ bookId: string; stage: string; chapterId?: string }>();
   const [searchParams] = useSearchParams();
 
   if (!bookId) {
     return <Navigate to="/library" replace />;
   }
 
-  if (!isBookStage(stage)) {
+  // Chapter workspace route: /book/:bookId/chapter/:chapterId
+  const isChapterWorkspace = Boolean(chapterId);
+
+  if (!isChapterWorkspace && !isBookStage(stage)) {
     return <Navigate to={`/book/${bookId}`} replace />;
   }
 
-  // Preserve the active chapter across stage switches. Studio/Review read the
-  // chapter from the URL; without this, switching tabs (e.g. Studio → Review)
-  // drops `?chapter=` and resets to the first chapter. Book-level stages
-  // (Casting/Publish) ignore the param harmlessly, so we carry it on all tabs.
+  // Preserve the active chapter across stage switches when using the legacy
+  // ?chapter= param (the DirectorsConsole tools still read it). Book-level
+  // stages ignore this param harmlessly, so we carry it on all tabs.
   const chapterParam = searchParams.get('chapter');
   const stageHref = (s: BookStage) =>
     chapterParam ? `/book/${bookId}/${s}?chapter=${encodeURIComponent(chapterParam)}` : `/book/${bookId}/${s}`;
@@ -145,23 +337,30 @@ export function BookLayout({
       onOpenQueue={onOpenQueue}
     >
       <BookIdentityPublisher />
-      <section className="book-layout" aria-label="Book pipeline">
-        <nav className="book-stage-tabs" aria-label="Book stages">
-          {BOOK_STAGES.map((bookStage) => (
-            <NavLink
-              key={bookStage}
-              to={stageHref(bookStage)}
-              className={({ isActive }) =>
-                isActive ? 'book-stage-tabs__link book-stage-tabs__link--active' : 'book-stage-tabs__link'
-              }
-              onClick={() => setLastStage(bookId, bookStage)}
-            >
-              {BOOK_STAGE_LABELS[bookStage]}
-            </NavLink>
-          ))}
-        </nav>
+      <section className="book-layout" aria-label="Book">
+        {/* Book-level tab bar — hidden when the chapter workspace is open */}
+        {!isChapterWorkspace && (
+          <nav className="book-stage-tabs" aria-label="Book tabs">
+            {BOOK_STAGES.map((bookStage) => (
+              <NavLink
+                key={bookStage}
+                to={stageHref(bookStage)}
+                className={({ isActive }) =>
+                  isActive ? 'book-stage-tabs__link book-stage-tabs__link--active' : 'book-stage-tabs__link'
+                }
+                onClick={() => setLastStage(bookId, bookStage)}
+              >
+                {BOOK_STAGE_LABELS[bookStage]}
+              </NavLink>
+            ))}
+          </nav>
+        )}
 
-        <StageContent stage={stage} />
+        {isChapterWorkspace ? (
+          <ChapterWorkspace bookId={bookId} chapterId={chapterId!} />
+        ) : (
+          <StageContent stage={stage as BookStage} />
+        )}
       </section>
     </BookDataProvider>
   );

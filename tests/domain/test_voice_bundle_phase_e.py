@@ -3,7 +3,7 @@
 Phase E acceptance criteria (doc 04 §Phase E):
 
 E1-a  Export of a fully-tagged voice produces a voice.json that passes strict
-       jsonschema validation against docs/specs/voice.schema.json.
+       jsonschema validation against design-docs/specs/voice.schema.json.
 E1-b  Export of an UNTAGGED voice raises VoiceBundleError with an actionable message
        describing the missing required attributes.
 E1-c  Export of a voice with schema-invalid attribute values raises VoiceBundleError
@@ -138,7 +138,7 @@ class TestExportStrictValidation:
 
         # Validate against the schema
         repo_root = Path(__file__).resolve().parents[2]
-        schema = json.loads((repo_root / "docs" / "specs" / "voice.schema.json").read_text())
+        schema = json.loads((repo_root / "design-docs" / "specs" / "voice.schema.json").read_text())
         voice_data = json.loads(files["voice.json"])
         jsonschema.validate(instance=voice_data, schema=schema)  # should not raise
 
@@ -241,6 +241,29 @@ class TestReadmeGeneration:
         # The template shows a widget block with sample URL
         assert "samples/preview.mp3" in readme
 
+    def test_readme_frontmatter_has_language_and_style_as_tags(self, tmp_path):
+        """G5: README.md frontmatter includes as-language-*/as-style-* tags when present."""
+        voice_data = {
+            **_FULLY_TAGGED_VOICE_JSON,
+            "taxonomy_version": "2.0",
+            "attributes": {
+                **_FULLY_TAGGED_VOICE_JSON["attributes"],
+                "language": ["english", "spanish"],
+                "style": ["narration", "conversational"],
+            },
+        }
+        voices_root = tmp_path / "voices"
+        _write_voice(voices_root, "Gravel Road", voice_data, {
+            "Default": {"variant_name": "Default", "engine": "xtts"},
+        })
+        bundle = _export(voices_root, "Gravel Road")
+        readme = _zip_files(bundle)["README.md"].decode("utf-8")
+
+        assert "as-language-english" in readme
+        assert "as-language-spanish" in readme
+        assert "as-style-narration" in readme
+        assert "as-style-conversational" in readme
+
 
 # ---------------------------------------------------------------------------
 # E3 — Import validation and D8 state split
@@ -272,28 +295,26 @@ class TestImportValidation:
         assert voice_data["attributes"]["gender"] == "masculine"
         assert voice_data["spec"] == "audiobook-studio-voice"
 
-    def test_import_does_not_write_version_integer_to_voice_json(self, tmp_path):
-        """E3-b: import does NOT write integer `version` field into voice.json."""
-        voices_root = tmp_path / "voices"
-        voices_root.mkdir()
-        bundle = self._make_bundle(_FULLY_TAGGED_VOICE_JSON)
-
-        result = _import(voices_root, bundle)
-        voice_data = json.loads((voices_root / result["voice_name"] / "voice.json").read_text())
-        assert "version" not in voice_data, "Import must not write legacy 'version' field to voice.json"
-
     def test_import_does_not_write_default_variant_to_voice_json(self, tmp_path):
-        """E3-c: import does NOT write default_variant into voice.json; goes to state.json."""
+        """E3-c: import strips a *present* default_variant out of voice.json and
+        persists its real value (not the "Default" fallback) to state.json.
+
+        Uses a fixture that actually carries a non-default `default_variant`
+        value so the assertions exercise the real strip-and-relocate branch in
+        import_voice_bundle(), instead of a fixture that never had the key
+        (in which case "not in voice_data" would be trivially true).
+        """
         voices_root = tmp_path / "voices"
         voices_root.mkdir()
-        bundle = self._make_bundle(_FULLY_TAGGED_VOICE_JSON)
+        voice_json = {**_FULLY_TAGGED_VOICE_JSON, "default_variant": "Whisper"}
+        bundle = self._make_bundle(voice_json)
 
         result = _import(voices_root, bundle)
         voice_data = json.loads((voices_root / result["voice_name"] / "voice.json").read_text())
         assert "default_variant" not in voice_data, "Import must not write 'default_variant' to voice.json"
 
         state_data = json.loads((voices_root / result["voice_name"] / "state.json").read_text())
-        assert "default_variant" in state_data
+        assert state_data["default_variant"] == "Whisper"
 
     def test_import_legacy_bundle_succeeds(self, tmp_path):
         """E3-d: importing a legacy runtime bundle (version:2, no spec fields) still works."""

@@ -74,6 +74,8 @@ def search_voices_endpoint(
     gender: str | None = Query(default=None),
     age: str | None = Query(default=None),
     accent: str | None = Query(default=None),
+    language: list[str] = Query(default=[]),
+    style: list[str] = Query(default=[]),
     tone: list[str] = Query(default=[]),
     timbre: list[str] = Query(default=[]),
     use_case: list[str] = Query(default=[]),
@@ -81,8 +83,8 @@ def search_voices_endpoint(
 ):
     """Filter voices by any combination of attributes and free tags.
 
-    Multi-value params (tone, timbre, use_case, tag) are OR-within-field;
-    distinct params are AND-across-fields.
+    Multi-value params (language, style, tone, timbre, use_case, tag) are
+    OR-within-field; distinct params are AND-across-fields.
     """
     return search_voices(
         _voices_dir(),
@@ -91,6 +93,8 @@ def search_voices_endpoint(
         gender=gender,
         age=age,
         accent=accent,
+        language=language or None,
+        style=style or None,
         tone=tone or None,
         timbre=timbre or None,
         use_case=use_case or None,
@@ -150,14 +154,19 @@ class MetadataPatchModel(BaseModel):
     attributes: dict[str, Any] | None = None
     tags: list[str] | None = None
     languages: list[str] | None = None
+    provenance: dict[str, Any] | None = None
 
 
 @router.patch("/{voice_id}/metadata")
 def patch_voice_metadata(voice_id: str, body: MetadataPatchModel):
     """Update voice metadata fields.
 
-    ``attributes`` values are strictly validated against the controlled vocabulary.
-    Unknown values → 422 with a list of valid values.
+    ``attributes`` and ``provenance`` values are strictly validated against their
+    controlled vocabularies. Unknown values → 422 with a list of valid values.
+    ``provenance`` is a shared field (voice.schema.json §provenance): this endpoint
+    only persists what it's given — it does not populate provenance itself. A future
+    HuggingFace import module will write it through this same path, decoupled from
+    this change.
     """
     try:
         updated = update_voice_metadata(
@@ -168,13 +177,16 @@ def patch_voice_metadata(voice_id: str, body: MetadataPatchModel):
             attributes=body.attributes,
             tags=body.tags,
             languages=body.languages,
+            provenance=body.provenance,
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     except ValueError as exc:
-        # exc.args[0] is the errors list from validate_attributes_strict
+        # exc.args[0] is the errors list from validate_attributes_strict/validate_provenance_strict
         errors = exc.args[0]
         raise HTTPException(status_code=422, detail=errors)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
     return updated
 
 

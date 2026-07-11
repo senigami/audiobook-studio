@@ -32,15 +32,10 @@ vi.mock('@/components/ui/ActionMenu', () => ({
   ActionMenu: () => null,
 }));
 
-const { voiceLabStage } = await import('@/demo/stages/voiceLabStage');
+const { voiceLabStage } = await import('@/demo/stages/voiceLabStageDescriptor');
 const { demoVoices, demoVoiceEngines } = await import('@/demo/fixtures/voiceFixtures');
 
 describe('voiceLabStage', () => {
-  it('stage has expected id and title', () => {
-    expect(voiceLabStage.id).toBe('voice-lab');
-    expect(voiceLabStage.title).toBe('Voice Lab');
-  });
-
   it('renders all four fixture voice names', () => {
     render(voiceLabStage.element);
     for (const { speaker } of demoVoices) {

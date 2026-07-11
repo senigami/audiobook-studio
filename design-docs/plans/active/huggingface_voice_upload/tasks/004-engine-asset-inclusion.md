@@ -1,0 +1,146 @@
+# Task 004 — Include `assets/<engine_id>/` engine assets in the HF export (owner-gated)
+
+Status: pending
+
+## ⚠ Do not start implementation before resolving the decision below
+
+This task has a genuine, unresolved product-scoping question (see `00-overview.md` Open
+Question 1). **Step 1 is to get an explicit owner answer, not to guess.** The rest of this task
+file assumes answer (a) (always publish the default variant) as the default path, with (b) as an
+additive option — but confirm before writing code.
+
+## Goal
+
+Per `v2_huggingface_voice_repo_spec.md` §6, a published voice bundle may optionally include
+precomputed engine assets under `assets/<engine_id>/`, so a downloader gets "instant use" without
+needing to locally clone the voice from the sample audio. Studio already stores exactly this kind
+of asset locally (`latent.pth` per `app/domain/voices/bundles.py:28`,
+`MODEL_ASSET_NAMES = {"latent.pth"}`) — but scoped per **variant**, not per **engine_id**, and a
+voice can have multiple variants. This task wires that asset into the HF export for one
+specific variant.
+
+## The scoping decision (resolve first)
+
+A Studio voice's on-disk shape is `tts_voices/<voice_name>/<variant_name>/` (e.g.
+`tts_voices/Gravel Road/Default/latent.pth`), where each variant independently declares one
+`engine` (`variant_manifest["engine"]`, see `bundles.py:339`). The HF repo spec's `voice.json`
+has one flat `engines: [{engine_id, asset_type, path}]` list with no variant concept.
+
+- **(a) Always publish the default variant's asset.** The default variant is already computed by
+  existing code: `load_voice_state(voice_root).get("default_variant")`, falling back to a
+  directory literally named `"Default"`, falling back to the first variant directory
+  alphabetically (mirror the exact fallback chain in `bundles.py:304-309`'s
+  `export_voice_bundle`, since that's the established convention — do not invent a different
+  fallback order).
+- **(b) Let the caller pick a variant.** Add an optional `variant_name` to
+  `ExportRequestModel`/`UploadRequestModel` (default: `None`, meaning "use the default variant
+  per (a)").
+
+Implement (a) as the always-on behavior and (b) as the additive override — this task's code
+below does both. **Before merging, explicitly tell the owner**: "This publishes the Default (or
+otherwise-configured-default) variant's engine asset. If a voice has multiple variants on
+different engines, only one gets published per upload. Confirmed OK, or do you want a different
+default?" Do not silently ship without asking.
+
+## Files
+
+- `app/domain/voices/huggingface.py` — `export_hf_voice_bundle()` (as modified by task 002 —
+  this task builds on top of it)
+- `app/api/routers/voices_huggingface.py` — `ExportRequestModel`, `export_hub_voice()`
+- `tests/domain/test_voice_huggingface.py`, `tests/api/test_api_voices_huggingface.py`
+
+## Target contract addition
+
+`export_hf_voice_bundle()` gains one more optional parameter:
+
+```python
+def export_hf_voice_bundle(
+    *,
+    voice_manifest: dict[str, Any],
+    sample_mp3_bytes: bytes,
+    output_dir: Path,
+    bundle_name: str,
+    icon_bytes: bytes | None = None,
+    engine_assets: dict[str, list[tuple[str, bytes]]] | None = None,
+) -> Path:
+    """...
+    ``engine_assets`` maps ``engine_id -> [(filename, bytes), ...]`` for files to
+    write under ``assets/<engine_id>/`` in the bundle. Optional — a voice with no
+    resolvable engine asset still exports the base bundle (icon/README/sample)
+    with no ``assets/`` entries at all, not an empty ``assets/`` directory.
+    """
+```
+
+Inside the function, after the existing `zf.writestr` calls:
+```python
+    for engine_id, files in (engine_assets or {}).items():
+        for filename, file_bytes in files:
+            zf.writestr(f"assets/{engine_id}/{filename}", file_bytes)
+```
+
+## Router-side resolution (new helper in `voices_huggingface.py`, called from `export_hub_voice`)
+
+Write a small helper (name it `_resolve_engine_assets(voice_dir: Path, variant_name: str |
+None) -> dict[str, list[tuple[str, bytes]]]`) that:
+1. Reads `load_voice_state(voice_dir)` for `default_variant`, applying the exact fallback chain
+   described above if `variant_name` (from the request) is `None`.
+2. Locates that variant's directory (`voice_dir / <resolved_variant_name>`), reads its
+   `profile.json` for `"engine"`.
+2. If the variant dir has a `latent.pth` file (or whatever `MODEL_ASSET_NAMES` from `bundles.py`
+   currently lists — import the constant, don't hardcode the filename string, so this task stays
+   correct if that set ever grows), read its bytes and return
+   `{engine_id: [("latent.pth", bytes)]}` — otherwise return `{}` (no engine asset available,
+   not an error).
+3. Wrap all file reads in the existing containment pattern used elsewhere in this router
+   (`contained_path`), matching task 002's icon-read style — never trust a variant/engine name
+   without validating it stays under the voice's root.
+
+Add `variant_name: str | None = None` to both `ExportRequestModel` and `UploadRequestModel` in
+this router (upload's export-then-upload chain must pass `variant_name` through to the internal
+`export_hub_voice(ExportRequestModel(voice_id=..., variant_name=body.variant_name))` call).
+
+## Steps
+
+- [ ] Confirm the scoping decision with the owner (see above) before writing code.
+- [ ] Add `engine_assets` param to `export_hf_voice_bundle` per the target contract.
+- [ ] Write `_resolve_engine_assets` in the router, using `bundles.py`'s `MODEL_ASSET_NAMES`
+      constant (import it) and the same default-variant fallback chain as
+      `export_voice_bundle` (line 304-309) — do not reimplement a divergent fallback.
+- [ ] Wire `variant_name` through `ExportRequestModel` → `export_hub_voice` →
+      `_resolve_engine_assets` → `export_hf_voice_bundle(engine_assets=...)`.
+- [ ] Add `variant_name` to `UploadRequestModel`, passed through to the internal export call.
+- [ ] Add tests: a voice with a `latent.pth` in its default variant exports
+      `assets/<engine_id>/latent.pth`; a voice with no `latent.pth` exports with no `assets/`
+      entries at all (not an empty dir marker); an explicit `variant_name` overrides the default.
+
+## R1 revert-check
+
+Same pattern as tasks 002/003: stash the implementation files, confirm the new
+"asset present → included" test fails (missing `assets/` entry), restore, confirm green.
+
+## Acceptance criteria
+
+- [ ] Owner has explicitly confirmed the default-variant scoping decision (record the answer in
+      this task file's Status line or a note before marking complete).
+- [ ] `export_hf_voice_bundle(..., engine_assets=None)` behaves identically to task 002's version
+      (no `assets/` entries) — full backward compatibility for callers that don't pass it.
+- [ ] New tests green; full suite green; ruff clean.
+- [ ] `git diff app/domain/voices/bundles.py` empty (only importing `MODEL_ASSET_NAMES` as a
+      constant, never editing the file).
+
+## Dependencies
+
+Depends on task 002 (builds on the icon/README-enriched `export_hf_voice_bundle`).
+
+## Map links
+
+`01-map.md` — Open Questions section (this task IS the resolution of Open Question 1). Risk:
+"Silent scope-widening risk."
+
+## Out of scope
+
+- Publishing multiple variants' assets in one upload — out of scope; the repo spec models one
+  flat `engines[]` list, not a multi-variant structure. If the owner wants multi-variant
+  publishing, that's a repo-spec change, not this task.
+- Any change to how engine assets are *built* (`build_voice_asset`, the engine bridge) — this
+  task only reads an already-built local asset file, never triggers a build.

@@ -119,9 +119,26 @@ export function useVoicesTabActions({
                     await handleUpdateEngine(nameToUse, state.newVoiceEngine);
                 }
                 const data = await resp.json();
+
+                // Upload any samples provided at creation time.
+                const samplesToUpload: File[] = state.newVoiceSamples ?? [];
+                if (samplesToUpload.length > 0) {
+                    const formData = new FormData();
+                    samplesToUpload.forEach((f: File) => formData.append('files', f));
+                    try {
+                        await fetch(`/api/speaker-profiles/${encodeURIComponent(nameToUse)}/samples/upload`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                    } catch (uploadErr) {
+                        console.error('Failed to upload samples during voice creation', uploadErr);
+                    }
+                }
+
                 state.setIsCreateModalOpen(false);
                 state.setNewVoiceName('');
                 state.setNewVoiceEngine(firstReadyEngine);
+                state.setNewVoiceSamples([]);
                 await fetchSpeakers();
                 if (data.id) state.setExpandedVoiceId(data.id);
             }

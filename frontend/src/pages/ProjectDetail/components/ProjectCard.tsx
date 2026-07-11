@@ -9,6 +9,7 @@ interface ProjectCardProps {
     isHovered: boolean;
     onHover: (id: string | null) => void;
     onClick: (id: string) => void;
+    onOpenDetails: (id: string) => void;
     onDelete: (id: string, name: string) => void;
     formatDate: (timestamp: number) => string;
 }
@@ -18,6 +19,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
     isHovered,
     onHover,
     onClick,
+    onOpenDetails,
     onDelete,
     formatDate
 }) => {
@@ -175,6 +177,19 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500 }}>
                         <Clock size={14} opacity={0.7} /> Updated {formatDate(project.updated_at)}
                     </p>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.9rem' }}>
+                    <button
+                        type="button"
+                        className="btn-ghost"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onOpenDetails(project.id);
+                        }}
+                        style={{ flex: 1, padding: '0.55rem 0.75rem', fontSize: '0.8rem' }}
+                    >
+                        Details
+                    </button>
                 </div>
             </div>
         </motion.div>

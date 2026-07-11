@@ -1,0 +1,185 @@
+/* ==========================================================================
+   Engines domain (ST-3 task 015 — EngineCard.tsx + its split children, see
+   design-docs/plans/active/simplification/styling_separation_execution/
+   01-map.md Part 3). No dedicated Engines-domain file existed in
+   theme/components/*.css, so this is a co-located stylesheet per
+   000-conversion-procedure.md step 2 — imported by EngineCard.tsx,
+   EngineCalibrationSection.tsx, EngineSettingsForm.tsx and
+   EngineTestSample.tsx (all 4 files split from one component on 2026-07-04).
+   ========================================================================== */
+
+.engine-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-light);
+  overflow: hidden;
+}
+
+.engine-card__header {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem;
+}
+
+.engine-card__logo {
+  width: var(--space-6);
+  height: var(--space-6);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.engine-card__logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.engine-card__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.engine-card__dev-badge {
+  font-size: 0.62rem;
+  font-weight: 900;
+  background: var(--accent-glow);
+  color: var(--accent);
+  padding: 1px 4px;
+  border-radius: 4px;
+  border: 1px solid var(--accent-tint-border);
+  letter-spacing: 0.05em;
+}
+
+.engine-card__subtitle {
+  margin: 0.2rem 0 0 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.engine-card__body {
+  padding: 0 1rem 1.25rem 2.95rem;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+/* Status + verification chips in the header — static shell; the tone-driven
+   color/background/border still come from getBadgeStyles() inline (dynamic,
+   see settingsRouteHelpers.ts). */
+.engine-status-badge {
+  border-radius: 999px;
+  padding: 0.28rem 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.engine-card__footer {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+/* Shared shell for the Run Test / Verify / Install Deps / Uninstall buttons
+   — each still layers its own dynamic opacity (and, for Install Deps /
+   Uninstall, static tone colors) via an inline style alongside this class. */
+.engine-icon-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.engine-setup-notice {
+  margin-bottom: 1.1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.9rem;
+  border-radius: 12px;
+  border: 1px solid var(--warning-tint-border);
+  background: var(--warning-tint-bg);
+  color: var(--warning-text);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.engine-setup-notice__title {
+  font-size: 0.86rem;
+}
+
+/* Shared between EngineCalibrationSection.tsx's calibration summary panel
+   and EngineSettingsForm.tsx's settings panel — margin/padding still vary
+   per usage and stay inline. */
+.engine-highlight-panel {
+  border-radius: 16px;
+  border: 1px solid var(--accent-tint-border);
+  background: linear-gradient(180deg, var(--surface-tinted-light), var(--surface));
+}
+
+/* Shared uppercase micro-label, used by EngineCalibrationSection.tsx and
+   EngineTestSample.tsx section headers. */
+.engine-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.engine-calibration-chip__value {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-tint-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-tint-border);
+}
+
+.engine-calibration-chip__reset {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.engine-test-sample {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  background: var(--surface-dim);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  animation: fade-in 0.3s ease-out;
+}
+
+.engine-test-sample__play-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}

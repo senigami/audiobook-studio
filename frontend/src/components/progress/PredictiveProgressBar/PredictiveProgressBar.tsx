@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     clamp01,
     formatStylePercent,
-    formatStatusLabel,
-    formatTime,
     getBusyStatusText,
     getProgressInfo,
     getRemainingTicks,
@@ -26,6 +24,16 @@ import {
 } from '@/components/progress/PredictiveProgressBar/predictiveProgressBarDebug';
 import { useEtaConfidence } from '@/components/progress/PredictiveProgressBar/useEtaConfidence';
 import { recordExternalHandoffEvent } from '@/hooks/useSegmentHandoffQueue';
+import {
+    type ProgressLane,
+    type LaneMigration,
+    resolveEndAtMs,
+    getLaneProgress,
+    getRenderedStartAtMs,
+    getRenderedEndAtMs,
+    getRenderedStartProgress,
+} from '@/components/progress/PredictiveProgressBar/predictiveProgressBarLane';
+import { ProgressStatusRow } from '@/components/progress/PredictiveProgressBar/ProgressStatusRow';
 
 export type { PredictiveProgressDebugSnapshot } from '@/components/progress/PredictiveProgressBar/predictiveProgressBarDebug';
 
@@ -61,6 +69,21 @@ export interface PredictiveProgressBarProps {
     /** Fires every animation tick with the bar's live interpolated progress (0–1). */
     onDisplayProgress?: (progress: number) => void;
     dataTestId?: string;
+    /**
+     * Per-bar label override for the indeterminate busy-text (right-side status string).
+     * Only takes effect when the bar is indeterminate; finalizing and all other states
+     * continue to use the standard getBusyStatusText path. Leave undefined for the
+     * generic "Preparing…" fallback (assembly / export / queue-row bars).
+     * Model-load bars set this to "Preparing… / Loading voice model…".
+     */
+    busyLabel?: string;
+    /**
+     * When true the bar renders as indeterminate (preparing pulse, no predictive lane)
+     * regardless of status. Used for mid-chapter model-load frames that arrive with
+     * status:'running' + indeterminate:true (W-MIX-LA 004).
+     * Has no effect when status is already 'preparing'.
+     */
+    indeterminate?: boolean;
 }
 
 const progressMemory = new Map<string, number>();
@@ -99,114 +122,6 @@ const getProgressMemoryKey = (persistenceKey?: string, startedAt?: number) =>
 const getRememberedProgress = (memoryKey?: string) =>
     memoryKey ? (progressMemory.get(memoryKey) ?? 0) : 0;
 
-type ProgressLane = {
-    startedAtMs: number;
-    startProgress: number;
-    endAtMs: number | null;
-};
-
-type LaneMigration = {
-    startedAtMs: number;
-    durationMs: number;
-    fromLane: ProgressLane;
-    toLane: ProgressLane;
-};
-
-const resolveEndAtMs = ({
-    nowMs,
-    startedAt,
-    etaSeconds,
-    etaBasis,
-    estimatedEndAt,
-    updatedAt,
-    presentationState,
-}: {
-    nowMs: number;
-    startedAt?: number;
-    etaSeconds?: number;
-    etaBasis?: 'remaining_from_update' | 'total_from_start';
-    estimatedEndAt?: number;
-    updatedAt?: number;
-    presentationState?: string;
-}) => {
-    // I10 (progress-presentation §2.6): a determinate ETA countdown is valid only
-    // once synthesis is running.  queued / preparing (incl. the model cold-load
-    // window) have no synthesis clock — honoring an ETA there anchors the
-    // countdown to queue time and makes it "jump" when synthesis starts.
-    // Defense-in-depth: ignore any ETA on these statuses even if a frame carries one.
-    if (isQueuedStatus(presentationState) || isPreparingStatus(presentationState)) {
-        return null;
-    }
-    // NaN-safety: a NaN etaSeconds is `typeof 'number'` and `NaN < 0` is false, so
-    // every numeric branch must use Number.isFinite or NaN flows into endAtMs and
-    // surfaces as "NaN:NaN" in the ETA countdown. (Mirrors the clamp01 sink fix.)
-    if (etaBasis === 'remaining_from_update' && typeof etaSeconds === 'number' && Number.isFinite(etaSeconds) && etaSeconds >= 0) {
-        const anchorSeconds = (typeof updatedAt === 'number' && Number.isFinite(updatedAt)) ? updatedAt : (nowMs / 1000);
-        return (anchorSeconds + etaSeconds) * 1000;
-    }
-
-    if (typeof estimatedEndAt === 'number' && Number.isFinite(estimatedEndAt) && estimatedEndAt > 0) {
-        return estimatedEndAt * 1000;
-    }
-
-    if (typeof etaSeconds !== 'number' || !Number.isFinite(etaSeconds) || etaSeconds < 0) {
-        return null;
-    }
-
-    if (typeof startedAt === 'number' && startedAt > 0) {
-        return (startedAt + etaSeconds) * 1000;
-    }
-
-    return nowMs + (etaSeconds * 1000);
-};
-
-const getLaneProgress = (startAtMs: number, endAtMs: number | null, startProgress: number, nowMs: number) => {
-    if (endAtMs === null) return startProgress;
-    const duration = endAtMs - startAtMs;
-    // `!(duration > 0)` also catches NaN duration (a NaN lane end from a
-    // null<->number migration blend) — `NaN <= 0` is false and would leak NaN.
-    if (!(duration > 0)) return startProgress;
-    const t = Math.max(0, Math.min(1, (nowMs - startAtMs) / duration));
-    const result = startProgress + ((0.995 - startProgress) * t);
-    return Number.isFinite(result) ? result : startProgress;
-};
-
-const getRenderedStartAtMs = (currentLane: ProgressLane | null, migration: LaneMigration | null, nowMs: number) => {
-    if (!currentLane) return nowMs;
-    if (!migration) return currentLane.startedAtMs;
-
-    const fromStartAtMs = migration.fromLane.startedAtMs;
-    const toStartAtMs = migration.toLane.startedAtMs;
-
-    const t = Math.max(0, Math.min(1, (nowMs - migration.startedAtMs) / migration.durationMs));
-    return fromStartAtMs + ((toStartAtMs - fromStartAtMs) * t);
-};
-
-const getRenderedEndAtMs = (currentLane: ProgressLane | null, migration: LaneMigration | null, nowMs: number) => {
-    if (!currentLane) return null;
-    if (!migration) return currentLane.endAtMs;
-
-    const fromEndAtMs = migration.fromLane.endAtMs;
-    const toEndAtMs = migration.toLane.endAtMs;
-    if (fromEndAtMs == null || toEndAtMs == null) {
-        return toEndAtMs ?? fromEndAtMs ?? null;
-    }
-
-    const t = Math.max(0, Math.min(1, (nowMs - migration.startedAtMs) / migration.durationMs));
-    return fromEndAtMs + ((toEndAtMs - fromEndAtMs) * t);
-};
-
-const getRenderedStartProgress = (currentLane: ProgressLane | null, migration: LaneMigration | null, nowMs: number) => {
-    if (!currentLane) return 0;
-    if (!migration) return currentLane.startProgress;
-
-    const fromStartProgress = migration.fromLane.startProgress;
-    const toStartProgress = migration.toLane.startProgress;
-
-    const t = Math.max(0, Math.min(1, (nowMs - migration.startedAtMs) / migration.durationMs));
-    return fromStartProgress + ((toStartProgress - fromStartProgress) * t);
-};
-
 export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     progress,
     startedAt,
@@ -232,11 +147,19 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     onDebugSnapshot,
     onDisplayProgress,
     dataTestId,
+    busyLabel,
+    indeterminate: incomingIndeterminate,
 }) => {
     const presentationState = state ?? status;
     const effectiveAllowBackward = allowBackwardProgress ?? !authoritativeFloor;
     const memoryKey = getProgressMemoryKey(persistenceKey, startedAt);
-    const preparingIndeterminate = isPreparingStatus(presentationState);
+    // Queue bar with a positive ETA renders DETERMINATE even during preparing/indeterminate:
+    // the predictive fill starts at ETA-arrival and progresses continuously into running,
+    // eliminating the "hidden catch-up jump" at the START_SYNTHESIS transition.
+    // All other bars (segment, default) keep the existing indeterminate-pulse behavior.
+    const hasPositiveEta = typeof etaSeconds === 'number' && Number.isFinite(etaSeconds) && etaSeconds > 0;
+    const queueBarWithEta = checkpointMode === 'queue' && hasPositiveEta;
+    const preparingIndeterminate = !queueBarWithEta && (isPreparingStatus(presentationState) || incomingIndeterminate === true);
     const [tickState, forceUpdate] = useState(Date.now());
     const [currentLane, setCurrentLane] = useState<ProgressLane | null>(null);
     const [migration, setMigration] = useState<LaneMigration | null>(null);
@@ -491,7 +414,9 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         !doneTransitionRef.current ||
         (tickState - doneTransitionRef.current.startTimeMs >= doneTransitionRef.current.durationMs)
     );
-    const shouldTick = isLiveAnimatedStatus(presentationState) || (presentationState === 'done' && !isDoneAnimating);
+    // Queue bar with a positive ETA must tick even during 'preparing' so the
+    // determinate fill advances continuously from ETA-arrival.
+    const shouldTick = isLiveAnimatedStatus(presentationState) || (presentationState === 'done' && !isDoneAnimating) || queueBarWithEta;
     const now = shouldTick ? tickState : initialNow;
 
     const renderedStartAtMs = getRenderedStartAtMs(currentLane, migration, now);
@@ -537,7 +462,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             doneTransitionPendingRef.current = false;
         }
 
-        const nextEndAtMs = resolveEndAtMs({
+        const resolvedEndAtMs = resolveEndAtMs({
             nowMs,
             startedAt,
             etaSeconds,
@@ -546,6 +471,14 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
             updatedAt,
             presentationState,
         });
+        // I10 extension (parallel-render update, §2.6 v1.8.0): when the bar is
+        // indeterminate the fill is width-locked (100% pulse or 35% sweep — never
+        // driven by the lane end time), so passing a real ETA through to the lane
+        // does NOT cause fill creep.  Passing it through is what populates
+        // renderedEndAtMs → displayedRemaining → the countdown number.
+        // Only suppress when there is no real ETA (null resolvedEndAtMs); suppress
+        // always for queued (resolveEndAtMs already returned null).
+        const nextEndAtMs = resolvedEndAtMs;
 
         const isTransitionAnimating = presentationState === 'done' && (
             !isDoneAnimating || prevPresentationStateRef.current !== 'done'
@@ -617,21 +550,18 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     }, [localProgress, onDisplayProgress]);
 
     const visualState = autoFinalizing ? 'finalizing' : presentationState;
-    const displayStatusLabel = presentationState === 'running' && checkpointMode === 'queue'
-        ? 'Rendering'
-        : formatStatusLabel(presentationState);
     const shouldAnimateWidth = !indeterminate && isActiveStatus(visualState);
     const indeterminateClassName = indeterminate
         ? (visualState === 'finalizing' ? 'progress-bar-finalizing' : preparingIndeterminate ? 'progress-bar-pending' : 'progress-bar-animated')
         : undefined;
-    const busyStatusText = getBusyStatusText(presentationState, indeterminate);
+    const busyStatusText = (indeterminate && busyLabel) ? busyLabel : getBusyStatusText(presentationState, indeterminate);
     const terminalStatusText = getTerminalStatusText(presentationState);
     const terminalFillStyle = getTerminalFillStyle(presentationState);
 
     // Deriving a stable phase key forces a remount on broad mode transitions (preparing -> active),
     // which prevents the browser from trying to animate widthRegressions from 100% back to 0.
     const stablePhaseKey = indeterminate
-        ? (visualState === 'preparing' ? 'preparing-indeterminate' : 'finalizing-indeterminate')
+        ? (preparingIndeterminate ? 'preparing-indeterminate' : 'finalizing-indeterminate')
         : (isActiveStatus(visualState) || visualState === 'running' ? 'determinate-active' : 'terminal');
 
     useEffect(() => {
@@ -683,12 +613,16 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         presentationState, currentLane, migration, activeTargetLane, renderedEndAtMs, tickMs
     ]);
 
+    // Apply bar-breathe on the fill when live-animated (5% opacity swell, 4s hold-and-ease).
+    // StatusOrb ring keeps calm-pulse (30%); fills use this gentler class instead.
+    const fillRunningClass = isLiveAnimatedStatus(presentationState) ? 'progress-bar-breathe' : undefined;
+
     if (barOnly) {
         return (
             <div style={{ height: '6px', background: 'var(--progress-track)', borderRadius: '3px', overflow: 'hidden' }} data-testid={dataTestId ?? "progress-bar-tiny"}>
                 <div
                     key={stablePhaseKey}
-                    className={visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName}
+                    className={[visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName, fillRunningClass].filter(Boolean).join(' ') || undefined}
                     style={{
                         height: '100%',
                         width: indeterminate ? '100%' : (isDoneStatus(visualState) && localProgress < 1.0) ? formatStylePercent(localProgress) : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : formatStylePercent(localProgress),
@@ -704,44 +638,23 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
 
     return (
         <div style={{ width: '100%' }} data-testid={dataTestId ?? "progress-bar"}>
-            {(showLabel || showPercent || showEta) && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0 }}>
-                        {showLabel && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>}
-                        {presentationState && checkpointMode !== 'segment' && (
-                            <span style={{
-                                fontSize: '0.58rem', textTransform: 'uppercase', letterSpacing: '0.08em',
-                                padding: '0.14rem 0.42rem', borderRadius: '999px', border: '1px solid var(--progress-badge-border)',
-                                background: presentationState === 'running' || presentationState === 'processing' ? 'var(--progress-badge-running)' : presentationState === 'preparing' ? 'var(--progress-badge-preparing)' : presentationState === 'finalizing' ? 'var(--progress-badge-finalizing)' : 'var(--progress-badge-default)',
-                                color: 'var(--text-secondary)', fontWeight: 800, whiteSpace: 'nowrap',
-                            }}>
-                                {displayStatusLabel}
-                            </span>
-                        )}
-                    </div>
-                    <div>
-                        {showEta && displayedRemaining !== null && !terminalStatusText && !busyStatusText ? (
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                {showPercent && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{Math.round(localProgress * 100)}%</span>}
-                                <span style={{ fontSize: '0.65rem', color: 'var(--accent)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-                                    ETA: {formatTime(displayedRemaining)}
-                                </span>
-                            </div>
-                        ) : (
-                            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--accent)' }}>
-                                {terminalStatusText ?? busyStatusText ?? (showPercent ? `${Math.round(localProgress * 100)}%` : '')}
-                            </span>
-                        )}
-                    </div>
-                </div>
-            )}
+            <ProgressStatusRow
+                showLabel={showLabel}
+                showPercent={showPercent}
+                showEta={showEta}
+                label={label}
+                localProgress={localProgress}
+                displayedRemaining={displayedRemaining}
+                terminalStatusText={terminalStatusText}
+                busyStatusText={busyStatusText}
+            />
             <div style={{ height: '6px', background: 'var(--progress-track)', borderRadius: '3px', overflow: 'hidden' }}>
                 <div
                     key={stablePhaseKey}
-                    className={visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName}
+                    className={[visualState === 'finalizing' ? 'progress-bar-finalizing' : indeterminateClassName, fillRunningClass].filter(Boolean).join(' ') || undefined}
                     style={{
                         height: '100%',
-                        width: indeterminate ? (visualState === 'preparing' ? '0%' : visualState === 'finalizing' ? '100%' : '35%') : (isDoneStatus(visualState) && localProgress < 1.0) ? formatStylePercent(localProgress) : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : formatStylePercent(localProgress),
+                        width: indeterminate ? (preparingIndeterminate ? '100%' : visualState === 'finalizing' ? '100%' : '35%') : (isDoneStatus(visualState) && localProgress < 1.0) ? formatStylePercent(localProgress) : terminalStatusText ? (isDoneStatus(visualState) || isFailedStatus(visualState) ? '100%' : '0%') : formatStylePercent(localProgress),
                         background: visualState === 'finalizing' ? 'var(--progress-finalizing-fill)' : (indeterminate && preparingIndeterminate ? 'var(--progress-preparing-fill)' : terminalFillStyle?.background ?? 'var(--accent)'),
                         opacity: terminalStatusText && (isQueuedStatus(visualState) || isCancelledStatus(visualState)) ? 0.55 : 1,
                         boxShadow: visualState === 'finalizing' ? '0 0 15px var(--progress-finalizing-glow)' : (indeterminate && preparingIndeterminate ? '0 0 10px var(--progress-preparing-glow)' : terminalFillStyle?.boxShadow ?? '0 0 15px var(--accent)'),

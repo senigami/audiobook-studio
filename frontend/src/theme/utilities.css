@@ -49,6 +49,31 @@
   to { transform: rotate(360deg); }
 }
 
+@keyframes calm-pulse {
+  0%, 100% { opacity: 0.7; }
+  50%       { opacity: 1.0; }
+}
+
+/* Stripe overlay breathe — pulses opacity 1.0→0.75 (maps to stripe rgba 0.44→0.33 / 0.20→0.15).
+   Applied as second animation on .progress-bar-pending::before. */
+@keyframes stripe-breathe {
+  0%   { opacity: 1; }
+  20%  { opacity: 1;    animation-timing-function: ease-in-out; }
+  48%  { opacity: 0.75; }
+  68%  { opacity: 0.75; animation-timing-function: ease-in-out; }
+  100% { opacity: 1; }
+}
+
+/* Fill breathe — 5% opacity swell on active progress fills. Calmer than calm-pulse (30%).
+   Replaces is-running on fills; StatusOrb ring keeps calm-pulse. */
+@keyframes bar-breathe {
+  0%   { opacity: 1; }
+  20%  { opacity: 1;    animation-timing-function: ease-in-out; }
+  48%  { opacity: 0.70; }
+  68%  { opacity: 0.70; animation-timing-function: ease-in-out; }
+  100% { opacity: 1; }
+}
+
 @keyframes fadeInDown {
   from {
     opacity: 0;
@@ -100,18 +125,22 @@
   inset: 0;
   background-image: repeating-linear-gradient(
     135deg,
-    var(--progress-stripe-sheen) 0px,
-    var(--progress-stripe-sheen) 7px,
-    var(--progress-stripe-sheen-soft) 9px,
-    var(--progress-stripe-pending) 12px,
-    var(--progress-stripe-pending) 17px,
-    var(--progress-stripe-pending-soft) 20px,
-    var(--progress-stripe-sheen) 24px
+    transparent                          0px,
+    transparent                          7px,
+    var(--progress-stripe-pending-soft)  9px,
+    var(--progress-stripe-pending)       12px,
+    var(--progress-stripe-pending)       17px,
+    var(--progress-stripe-pending-soft)  20px,
+    transparent                          24px
   );
   background-size: 36px 36px;
-  animation: barber-pole 0.7s linear infinite;
+  animation: barber-pole 0.7s linear infinite, stripe-breathe 3s linear infinite;
   will-change: background-position;
   pointer-events: none;
+}
+
+.progress-bar-breathe {
+  animation: bar-breathe 4s linear infinite;
 }
 
 .progress-bar-finalizing {

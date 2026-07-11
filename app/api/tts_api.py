@@ -7,6 +7,7 @@ from typing import Any, Optional, Dict, List
 from pathlib import Path
 
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request, BackgroundTasks
+from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
@@ -20,13 +21,22 @@ from app.utils.pathing import contained_path
 logger = logging.getLogger(__name__)
 
 # Create the dedicated sub-app for the external TTS API.
-# This allows us to have separate OpenAPI docs at /api/v1/tts/docs.
+#
+# NOTE: docs_url/openapi_url are intentionally left unset here. FastAPI's
+# auto-generated docs/openapi/redoc routes are registered via `add_route()`
+# (plain Starlette routing), which bypasses the FastAPI dependency-injection
+# system entirely -- so `dependencies=[...]` passed to the constructor below
+# does NOT protect them. Per design-docs/specs/api-conventions.md ("All
+# routes require verify_api_key + rate_limit"), we instead serve the docs
+# and OpenAPI schema ourselves below, as ordinary routes on `router`, so they
+# inherit the same auth/rate-limit enforcement as every other endpoint.
 tts_app = FastAPI(
     title="Audiobook Studio TTS API",
     description="External gateway for Studio's TTS engines.",
     version="1.0.0",
-    docs_url="/docs",
-    openapi_url="/openapi",
+    docs_url=None,
+    openapi_url=None,
+    redoc_url=None,
     dependencies=[Depends(verify_api_key), Depends(rate_limit)],
 )
 
@@ -255,6 +265,20 @@ async def get_job_audio(job_id: str):
         raise HTTPException(status_code=410, detail="Audio file has expired or been removed.")
 
     return FileResponse(output_path, filename=output_path.name)
+
+@router.get("/openapi", include_in_schema=False)
+async def get_openapi_schema():
+    """Serve the OpenAPI schema behind the same auth/rate-limit gate as the rest of the API."""
+    return JSONResponse(tts_app.openapi())
+
+@router.get("/docs", include_in_schema=False)
+async def get_docs(req_context: Request):
+    """Serve the Swagger UI behind the same auth/rate-limit gate as the rest of the API."""
+    root_path = req_context.scope.get("root_path", "").rstrip("/")
+    return get_swagger_ui_html(
+        openapi_url=f"{root_path}/openapi",
+        title=f"{tts_app.title} - Swagger UI",
+    )
 
 # Mount the router into the sub-app
 tts_app.include_router(router)

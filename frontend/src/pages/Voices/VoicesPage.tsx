@@ -9,7 +9,7 @@ import { useVoicesTabActions } from '@/hooks/useVoicesTabActions';
 import { VoicesTabHeader } from '@/pages/Voices/components/VoicesTabHeader';
 import type { VoicesTab as VoicesTabId } from '@/pages/Voices/components/VoicesTabHeader';
 import { VoicesTabContent } from '@/pages/Voices/components/VoicesTabContent';
-import { DiscoverPlaceholder } from '@/pages/Voices/components/DiscoverPlaceholder';
+import { HuggingFaceDiscover } from '@/pages/Voices/components/HuggingFaceDiscover';
 import { MetadataEditorModal } from '@/pages/Voices/components/MetadataEditorModal';
 import { getDefaultEngineId, isVoiceProfileSelectable } from '@/utils/voiceProfiles';
 import { api } from '@/api';
@@ -39,6 +39,31 @@ const AGE_OPTIONS = [
     { id: 'senior', label: 'Senior' },
     { id: 'ageless', label: 'Ageless' },
 ];
+
+/**
+ * Resolve the VoiceMetadata for `editingProfile` — reuses the exact id-first/name-fallback
+ * convention as `handleEditMetadata` in this file — drives ScriptEditor's "Suggest from voice
+ * qualities" button (INV-4). Exported (pure, no hooks) so this stable-primitive matching can be
+ * unit tested directly against stale/rebuilt `voiceGroups` arrays.
+ *
+ * Matches on `editingProfile.name` (the stable primitive key already used elsewhere for this
+ * profile — e.g. handleUpdateSettings/rename/reset-test-text all key off it), not on reference
+ * identity: `data.activeVoices`/`disabledVoices` are rebuilt from `speakerProfiles`, which gets
+ * entirely new object references on every refetchHome() (unrelated websocket events elsewhere in
+ * the app trigger this), so a `.includes(editingProfile)` reference-equality search would
+ * silently go stale mid-session.
+ */
+export function resolveEditingVoiceMetadata(
+    editingProfile: SpeakerProfile | null | undefined,
+    voiceGroups: Array<{ id: string; name: string; profiles: SpeakerProfile[] }>,
+    voiceMetadataMap: Map<string, VoiceMetadata>,
+    voiceMetadataList: VoiceMetadata[]
+): VoiceMetadata | undefined {
+    if (!editingProfile) return undefined;
+    const group = voiceGroups.find(v => v.profiles.some(p => p.name === editingProfile.name));
+    if (!group) return undefined;
+    return voiceMetadataMap.get(group.id) ?? voiceMetadataList.find(m => m.name === group.name);
+}
 
 interface VoicesTabProps {
     onRefresh: () => void | Promise<void>;
@@ -121,6 +146,13 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         setMetadataEditorVoice(meta);
     }, [voiceMetadataMap, voiceMetadataList]);
 
+    // See resolveEditingVoiceMetadata above — drives ScriptEditor's "Suggest from voice
+    // qualities" button (INV-4).
+    const editingVoiceMetadata = useMemo<VoiceMetadata | undefined>(
+        () => resolveEditingVoiceMetadata(state.editingProfile, [...data.activeVoices, ...data.disabledVoices], voiceMetadataMap, voiceMetadataList),
+        [state.editingProfile, data.activeVoices, data.disabledVoices, voiceMetadataMap, voiceMetadataList]
+    );
+
     const handleMetadataSaved = useCallback((updated: VoiceMetadata) => {
         setVoiceMetadataList(prev =>
             prev.some(m => m.id === updated.id)
@@ -131,6 +163,9 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
+            <h1 style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
+                Voices
+            </h1>
             <VoicesTabHeader
                 searchQuery={state.searchQuery}
                 setSearchQuery={state.setSearchQuery}
@@ -201,13 +236,29 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                     setExpandedVoiceId={state.setExpandedVoiceId}
                     engines={engines}
                     onCreateClick={() => state.setIsCreateModalOpen(true)}
-                    onEditTestText={state.setEditingProfile}
+                    onEditTestText={(profile) => {
+                        state.setEditSurface('script');
+                        state.setEditingProfile(profile);
+                    }}
+                    onEditVoiceSettings={(profile) => {
+                        state.setEditSurface('settings');
+                        state.setEditingProfile(profile);
+                    }}
                     voiceMetadataMap={voiceMetadataMap}
                     onEditMetadata={handleEditMetadata}
                     onNavigateToLab={(id) => navigate(`/voices/${id}`)}
                 />
             ) : (
-                <DiscoverPlaceholder />
+                <div style={{ flex: 1, overflowY: 'auto', padding: '2rem' }}>
+                    <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+                        <HuggingFaceDiscover
+                            onImported={() => {
+                                void onRefresh();
+                                void fetchMetadata();
+                            }}
+                        />
+                    </div>
+                </div>
             )}
 
             <VoicesModals
@@ -220,6 +271,8 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 engines={engines}
                 isCreatingVoice={state.isCreatingVoice}
                 handleCreateVoice={actions.handleCreateVoice}
+                newVoiceSamples={state.newVoiceSamples}
+                setNewVoiceSamples={state.setNewVoiceSamples}
                 isRenameModalOpen={state.isRenameModalOpen}
                 setIsRenameModalOpen={state.setIsRenameModalOpen}
                 originalSpeakerName={state.originalSpeakerName}
@@ -260,9 +313,12 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 setEngineVoiceId={state.setEngineVoiceId}
                 editingSettings={state.editingSettings}
                 setEditingSettings={state.setEditingSettings}
+                editSurface={state.editSurface}
+                setEditSurface={state.setEditSurface}
                 isSavingText={state.isSavingText}
                 handleResetTestText={actions.handleResetTestText}
                 handleSaveTestText={actions.handleSaveTestText}
+                editingVoiceMetadata={editingVoiceMetadata}
                 confirmConfig={state.confirmConfig}
                 setConfirmConfig={state.setConfirmConfig}
                 exportVoiceName={state.exportVoiceName}

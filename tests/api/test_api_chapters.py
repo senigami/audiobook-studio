@@ -44,6 +44,29 @@ def test_chapter_list_and_create(clean_db, client):
     assert len(data) == 1
     assert data[0]["title"] == "Chapter 1"
 
+def test_get_chapter_rejects_mismatched_project_id(clean_db, client):
+    """A chapter fetched with a project_id it doesn't belong to must 404,
+    not silently return another project's chapter data."""
+    from app.db.projects import create_project
+    pid_a = create_project("ProjectA")
+    pid_b = create_project("ProjectB")
+    cid = client.post(
+        f"/api/projects/{pid_a}/chapters", data={"title": "A1", "text_content": "Content"}
+    ).json()["chapter"]["id"]
+
+    # No project_id passed: unscoped lookup still works.
+    response = client.get(f"/api/chapters/{cid}")
+    assert response.status_code == 200
+
+    # Correct project_id: still works.
+    response = client.get(f"/api/chapters/{cid}", params={"project_id": pid_a})
+    assert response.status_code == 200
+
+    # Wrong project_id: must 404, not return project A's chapter.
+    response = client.get(f"/api/chapters/{cid}", params={"project_id": pid_b})
+    assert response.status_code == 404
+
+
 def test_chapter_crud(clean_db, client):
     from app.db.projects import create_project
     pid = create_project("TestProj")
@@ -101,6 +124,14 @@ def test_chapter_segments_sync_and_update(clean_db, client):
     assert response.status_code == 200
     assert get_chapter_segments(cid)[0]["text_content"] == "Updated segment text"
 
+    # Reject unknown fields rather than passing them through as raw SQL column
+    # names (app.api.routers.chapters.SEGMENT_UPDATE_ALLOWED_FIELDS)
+    response = client.put(f"/api/segments/{sid}", json={"text_content": "x", "evil_column": "y"})
+    assert response.status_code == 400
+    assert "evil_column" in response.json()["detail"]
+    # The allowed field must not have been applied either — the whole request is rejected
+    assert get_chapter_segments(cid)[0]["text_content"] != "x"
+
     # Bulk status update without a backing file gets normalized back to
     # unprocessed when segments are reloaded from the DB/disk view.
     response = client.post(f"/api/chapters/{cid}/segments/bulk-status", json={"segment_ids": [sid], "status": "done"})
@@ -110,6 +141,20 @@ def test_chapter_segments_sync_and_update(clean_db, client):
     # Bulk update
     response = client.post("/api/segments/bulk-update", json={"segment_ids": [sid], "updates": {"audio_status": "done"}})
     assert response.status_code == 200
+
+    # Reject unknown fields on the bulk route too — same raw-SQL-column hazard
+    # as PUT /segments/{id} (app.api.routers.chapters.SEGMENT_UPDATE_ALLOWED_FIELDS).
+    # Uses speaker_profile_name (not audio_status) for the allowed-field assertion
+    # below, since audio_status gets normalized back to "unprocessed" on read when
+    # there's no backing audio file — that would mask whether the update landed.
+    response = client.post(
+        "/api/segments/bulk-update",
+        json={"segment_ids": [sid], "updates": {"speaker_profile_name": "evil-profile", "evil_column": "x"}},
+    )
+    assert response.status_code == 400
+    assert "evil_column" in response.json()["detail"]
+    # The allowed field must not have been applied either — the whole request is rejected
+    assert get_chapter_segments(cid)[0]["speaker_profile_name"] != "evil-profile"
 
 def test_chapter_cancel_and_reset(clean_db, client):
     from app.db.projects import create_project

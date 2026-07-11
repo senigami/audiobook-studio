@@ -13,22 +13,19 @@ from .helpers import _segment_group_weight
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Module-level SDK context factory (lazy singleton)
+# Module-level SDK context accessor — delegates to the shared PL-1 factory
+# (app.studio_plugin_sdk.get_plugin_ctx), which owns the per-engine-id
+# lazy singleton cache. Kept as a local, patchable name because existing
+# tests patch ``<this module>._get_ctx`` directly.
 # ---------------------------------------------------------------------------
-
-_ctx_instance = None
-
 
 def _get_ctx():
     """Return the shared StudioPluginContext for the xtts engine."""
-    global _ctx_instance  # noqa: PLW0603
-    if _ctx_instance is None:
-        try:
-            from studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
-        except ImportError:
-            from app.studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
-        _ctx_instance = StudioPluginContext("xtts")
-    return _ctx_instance
+    try:
+        from studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
+    except ImportError:
+        from app.studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
+    return get_plugin_ctx("xtts")
 
 
 # ---------------------------------------------------------------------------
@@ -56,6 +53,18 @@ def safe_split_long_sentences(text: str, *, target: int) -> str:
     """Module-level alias for textops.safe_split_long_sentences — patchable by tests."""
     from app.utils.text.textops import safe_split_long_sentences as _fn  # noqa: PLC0415
     return _fn(text, target=target)
+
+
+def get_project_lexicon(project_id: str) -> list:
+    """Module-level alias for db.lexicon.get_lexicon — patchable by tests."""
+    from app.db.lexicon import get_lexicon as _fn  # noqa: PLC0415
+    return _fn(project_id)
+
+
+def apply_project_lexicon(text: str, entries: list) -> str:
+    """Module-level alias for utils.text.lexicon.apply_lexicon — patchable by tests."""
+    from app.utils.text.lexicon import apply_lexicon as _fn  # noqa: PLC0415
+    return _fn(text, entries)
 
 
 # ---------------------------------------------------------------------------
@@ -96,7 +105,7 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
 
                 first = g["segments"][0]
                 chunk_path = pdir / "segments" / f"{first['id']}.wav"
-                if chunk_path.exists():
+                if ctx.is_valid_segment_artifact(chunk_path):
                     return True
 
                 logger.warning("RESUME: Group %s claims done but %s is missing. Healing to unprocessed.", first["id"], chunk_path)
@@ -112,6 +121,14 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
 
             total_weight = sum(_group_weight(g) for g in groups)
             total_groups = len(groups)
+
+            # Load the project lexicon once for the whole render (zero-impact when empty).
+            _lexicon_entries: list = []
+            if j.project_id:
+                try:
+                    _lexicon_entries = get_project_lexicon(j.project_id)
+                except Exception:
+                    logger.warning("Failed to load lexicon for project %s; proceeding without substitution.", j.project_id, exc_info=True)
 
             script = []
             path_to_group = {}
@@ -143,6 +160,11 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                     sanitize_cats = ctx.get_sanitize_categories("xtts")
                     processed = ctx.sanitize_text(processed, sanitize_cats)
                     processed = _split(processed, target=sent_char_limit)
+                if _lexicon_entries:
+                    try:
+                        processed = apply_project_lexicon(processed, _lexicon_entries)
+                    except Exception:
+                        logger.warning("Lexicon substitution failed for group %s; using original text.", first["id"], exc_info=True)
 
                 seg_out = pdir / "segments" / f"{first['id']}.wav"
                 seg_out.parent.mkdir(parents=True, exist_ok=True)
@@ -272,25 +294,35 @@ def handle_xtts_standard(jid, j, start, on_output, cancel_check, default_sw, spe
                     except Exception:
                         pass
 
-            scratch_wav = pdir / f"output_{j.id}.wav"
-            try:
-                rc = generate_via_bridge(
-                    engine="xtts",
-                    text=text or "",
-                    out_wav=scratch_wav,
-                    profile_name=j.speaker_profile,
-                    on_output=chapter_on_output,
-                    cancel_check=cancel_check,
-                    speed=speed,
-                    script=script,
-                    task_id=jid,
-                )
-            except BridgeError as exc:
-                logger.error("Bridge synthesis failed in xtts_standard: %s", exc)
-                return 1
-            finally:
-                if scratch_wav.exists():
-                    scratch_wav.unlink()
+            if script:
+                scratch_wav = pdir / f"output_{j.id}.wav"
+                try:
+                    rc = generate_via_bridge(
+                        engine="xtts",
+                        text=text or "",
+                        out_wav=scratch_wav,
+                        profile_name=j.speaker_profile,
+                        on_output=chapter_on_output,
+                        cancel_check=cancel_check,
+                        speed=speed,
+                        script=script,
+                        task_id=jid,
+                    )
+                except BridgeError as exc:
+                    logger.error("Bridge synthesis failed in xtts_standard: %s", exc)
+                    return 1
+                finally:
+                    if scratch_wav.exists():
+                        scratch_wav.unlink()
+            else:
+                # Every group in this chapter is already satisfied — e.g. a
+                # concurrent fan-out sibling (or an earlier run) already
+                # rendered them all. There is nothing to synthesize; calling
+                # the bridge with an empty text/script produced a real "text
+                # must not be empty" 422 here (escaped defect, fixed
+                # 2026-07-05). Treat it as success and fall through to the
+                # existing stitch/finalize block below.
+                rc = 0
 
             if rc == 0:
                 h.update_job(

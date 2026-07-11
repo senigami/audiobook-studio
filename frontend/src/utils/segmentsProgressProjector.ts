@@ -80,6 +80,7 @@ export function buildSegmentsProgressProjection(
         has_segment_support: typeof rawHasSegmentSupport === 'boolean' ? rawHasSegmentSupport : undefined,
         status: projectedStatus,
         reason_code: rawReasonCode,
+        indeterminate: getVal(payload, 'indeterminate', 'indeterminate'),
         log: payload.message || payload.log,
         updated_at: resolveEventUpdatedAt(event as any, payload),
         db_updated_at: typeof rawUpdatedAt === 'number' ? rawUpdatedAt : (typeof rawUpdatedAt === 'string' ? Date.parse(rawUpdatedAt) / 1000 : undefined),
@@ -126,6 +127,10 @@ export function buildSegmentsProgressProjection(
             progress: payload.progress ?? null,
             reasonCode: rawReasonCode || null,
             updatedAt: projectedUpdates.updated_at,
+            // Surface the model-load signal (indeterminate + elapsed) on the projected
+            // update so the LOADING_MODEL window is represented in segment progress.
+            indeterminate: projectedUpdates.indeterminate ?? null,
+            loadingElapsedSeconds: getVal(payload, 'loadingElapsedSeconds', 'loading_elapsed_seconds') ?? null,
         },
         ignoredFields: Object.keys(payload).filter(
             k => ![

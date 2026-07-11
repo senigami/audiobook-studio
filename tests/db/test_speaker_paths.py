@@ -1,6 +1,5 @@
 """Unit tests for app.db.speaker_paths — path resolution and containment."""
 import json
-import os
 import pytest
 from pathlib import Path
 from app.db.speaker_paths import resolve_existing_profile_dir, new_profile_dir
@@ -61,20 +60,28 @@ class TestResolveExistingProfileDir:
         assert result is None
 
     def test_containment_rejection_via_symlink(self, voices_root, tmp_path):
+        # Build a fully valid-looking V2 voice layout *outside* voices_root
+        # (voice.json + a "Default" variant with profile.json) — this is
+        # exactly the shape resolve_existing_profile_dir looks for, so if the
+        # containment check were skipped it WOULD resolve successfully to a
+        # path outside voices_root.
         outside = tmp_path / "outside"
-        outside.mkdir()
-        (outside / "profile.json").write_text("{}")
+        outside_default = outside / "Default"
+        outside_default.mkdir(parents=True)
+        (outside / "voice.json").write_text('{"default_variant": "Default"}')
+        (outside_default / "profile.json").write_text("{}")
+
+        # Symlink a voice-root entry inside voices_root to the outside target,
+        # simulating an attacker-controlled/renamed-in voice directory.
         link = voices_root / "Evil"
         link.symlink_to(outside)
-        (voices_root / "Evil" / "voice.json").write_text('{}') if False else None
-        # We can't make Evil look like a voice root without a real voice.json inside the symlink target
-        # Just confirm the resolver doesn't blow up
+
         result = resolve_existing_profile_dir(voices_root, "Evil")
-        # If it resolves, it must be contained
-        if result is not None:
-            resolved = os.path.abspath(os.path.realpath(str(result)))
-            voices_resolved = os.path.abspath(os.path.realpath(str(voices_root)))
-            assert resolved.startswith(voices_resolved + os.sep)
+
+        # The containment check must reject this before ever inspecting
+        # voice.json/Default, so resolution must fail outright rather than
+        # returning the escaped path.
+        assert result is None
 
     def test_invalid_profile_name_raises(self, voices_root):
         with pytest.raises(ValueError):

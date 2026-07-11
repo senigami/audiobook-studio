@@ -97,10 +97,11 @@ export const Rail: React.FC<{
   };
 
   return (
+    <div style={{ display: 'flex', flexDirection: 'row', flexShrink: 0 }}>
     <div
+      id="ns-nav-rail"
       style={{
         width: collapsed ? 52 : 190,
-        flexShrink: 0,
         background: 'var(--surface)',
         borderRight: '1px solid var(--border)',
         display: 'flex',
@@ -272,6 +273,7 @@ export const Rail: React.FC<{
                                       <div
                                         key={ch.n}
                                         onClick={() => onChapterSelect(ch.n)}
+                                        title={`${ch.n}. ${ch.title}`}
                                         style={{
                                           padding: '4px 6px 3px 14px',
                                           background: isChActive ? 'var(--accent-tint-bg)' : 'transparent',
@@ -282,7 +284,7 @@ export const Rail: React.FC<{
                                           textAlign: 'left',
                                         }}
                                       >
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 4 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 6 }}>
                                           <StatusOrb
                                             status={orbStatus}
                                             progress={renderPct / 100}
@@ -294,11 +296,9 @@ export const Rail: React.FC<{
                                             fontWeight: isChActive ? 700 : 400,
                                             flex: 1,
                                             whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
                                             lineHeight: 1.3,
                                           }}>
-                                            {ch.n}. {ch.title}
+                                            Ch {ch.n}
                                           </span>
                                           {isChActive && (
                                             <button
@@ -398,26 +398,6 @@ export const Rail: React.FC<{
               : <Sun size={15} strokeWidth={1.8} />
             }
           </button>
-          {/* Collapsed: chevron below */}
-          <button
-            type="button"
-            onClick={onToggle}
-            style={{
-              padding: '8px',
-              width: '100%',
-              display: 'flex',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              border: 0,
-              borderTop: '1px solid var(--border)',
-              background: 'transparent',
-              color: 'var(--text-muted)',
-            }}
-            title="Expand rail"
-            aria-label="Expand rail"
-          >
-            <ChevronRight size={14} strokeWidth={2} />
-          </button>
         </>
       ) : (
         /* Expanded: single horizontal row */
@@ -442,7 +422,6 @@ export const Rail: React.FC<{
               flex: 1,
               background: 'none',
               border: 'none',
-              borderRight: isMobileLocal ? 'none' : '1px solid var(--border)',
               padding: '8px 14px',
               cursor: 'pointer',
               color: 'var(--text-muted)',
@@ -462,29 +441,51 @@ export const Rail: React.FC<{
               {theme === 'light' ? 'Dark mode' : 'Light mode'}
             </span>
           </button>
-          {/* Chevron — right */}
-          {!isMobileLocal && (
-            <button
-              type="button"
-              onClick={onToggle}
-              style={{
-                padding: '8px 12px',
-                cursor: 'pointer',
-                color: 'var(--text-muted)',
-                display: 'flex',
-                alignItems: 'center',
-                flexShrink: 0,
-                border: 0,
-                background: 'transparent',
-              }}
-              title="Collapse rail"
-              aria-label="Collapse rail"
-            >
-              <ChevronLeft size={14} strokeWidth={2} />
-            </button>
-          )}
         </div>
       )}
+    </div>
+    {/* Collapse handle — thin vertical pill at the rail's trailing edge.
+        Button spans full height for hover detection + WCAG 2.5.8 hit target (24px wide);
+        only the pill visual is rendered, centered at 50% height.
+        Lights up on hover; doubles as a future drag-resize handle. */}
+    {!isMobileLocal && (
+      <button
+        type="button"
+        onClick={onToggle}
+        title={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+        aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+        aria-expanded={!collapsed}
+        aria-controls="ns-nav-rail"
+        style={{
+          width: 24, flexShrink: 0, cursor: 'pointer', alignSelf: 'stretch',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'transparent', padding: 0, border: 0,
+          fontFamily: 'inherit',
+          marginLeft: -12, zIndex: 1,
+        }}
+        onMouseEnter={e => {
+          const pill = e.currentTarget.querySelector('span') as HTMLElement | null;
+          if (pill) { pill.style.background = 'var(--surface-alt)'; pill.style.borderColor = 'var(--text-secondary)'; }
+        }}
+        onMouseLeave={e => {
+          const pill = e.currentTarget.querySelector('span') as HTMLElement | null;
+          if (pill) { pill.style.background = 'transparent'; pill.style.borderColor = 'var(--border)'; }
+        }}
+      >
+        {/* Pill: 14px wide × 44px tall, border-radius = half width = fully rounded sides */}
+        <span style={{
+          width: 14, height: 44, borderRadius: 7,
+          background: 'transparent', border: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'background 0.15s ease, border-color 0.15s ease',
+          flexShrink: 0,
+        }}>
+          {collapsed
+            ? <ChevronRight size={10} strokeWidth={2.5} style={{ width: 10, height: 10 }} />
+            : <ChevronLeft size={10} strokeWidth={2.5} style={{ width: 10, height: 10 }} />}
+        </span>
+      </button>
+    )}
     </div>
   );
 };

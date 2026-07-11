@@ -10,6 +10,7 @@ import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } fr
 import { getRawActiveRenderProgress } from '@/utils/chapterRenderProgress';
 import { resolveVoiceEngineStatus, downloadBlob, formatExportFilename } from '@/utils/chapterEditorHelpers';
 import { useSegmentHandoffQueue, getHandoffTransitions, recordExternalHandoffEvent } from '@/hooks/useSegmentHandoffQueue';
+import { useAnimatedSegmentProgress } from '@/hooks/useAnimatedSegmentProgress';
 import type { Job, SegmentProgress, SpeakerProfile, TtsEngine } from '@/types';
 import type { ResyncPreviewData } from '@/pages/ChapterEditor/components/ResyncPreviewModal';
 import type { ChapterEditorTab } from '@/pages/ChapterEditor/components/EditorTabs';
@@ -44,6 +45,7 @@ export function useStudioChapter({
   engines = [],
   job: propJob,
   chapterJobs = [],
+  segmentProgress,
   selectedVoice: externalVoice,
   segmentUpdate,
   chapterUpdate,
@@ -89,6 +91,7 @@ export function useStudioChapter({
     text,
     setText,
     loading,
+    chapterNotFound,
     saving,
     submitting,
     localVoice,
@@ -117,11 +120,13 @@ export function useStudioChapter({
   const { count: renderGroupCount, firstSpanGroupNumber } = useRenderGroups(projectId, chapterId, renderGroupsRefreshKey);
 
   const effectiveSelectedVoice = localVoice || externalVoice || '';
-  const chapterDefaultVoiceLabel = useMemo(() => {
+  const chapterDefaultVoiceName = useMemo(() => {
     const fallbackVoiceValue = externalVoice || getDefaultVoiceProfileName(speakerProfiles || [], engines) || '';
-    const fallbackVoiceLabel = getVoiceOptionLabel(fallbackVoiceValue, speakerProfiles || [], speakers || [], engines, characters);
-    return fallbackVoiceLabel ? `Use Project Default (${fallbackVoiceLabel})` : 'Use Project Default';
+    return getVoiceOptionLabel(fallbackVoiceValue, speakerProfiles || [], speakers || [], engines, characters) ?? '';
   }, [externalVoice, speakerProfiles, speakers, engines, characters]);
+  const chapterDefaultVoiceLabel = chapterDefaultVoiceName
+    ? `Use Project Default (${chapterDefaultVoiceName})`
+    : 'Use Project Default';
 
   const availableVoices = useMemo(
     () => buildVoiceOptions(speakerProfiles || [], speakers || [], engines, characters),
@@ -145,6 +150,32 @@ export function useStudioChapter({
     || chapter?.audio_status === 'processing'
     || chapterJobs.some((chapterJob) => ['queued', 'preparing', 'running', 'finalizing'].includes(chapterJob.status))
   ), [job, chapter?.audio_status, chapterJobs]);
+
+  // W-PAR 006: chapter-level map of concurrently-active segments (C2 contract,
+  // consumed verbatim). Absent ⇒ fall back to the singular active_segment_id
+  // path below unchanged (INV-1 — byte-identical at cap=1).
+  const backendActiveSegmentsMap = job?.active_segments_map ?? generatingSegmentJob?.active_segments_map;
+  // Escaped defect fix (2026-07-05): a fallback derived from the per-segment
+  // segments.progress stream (already flowing via useJobs.ts's segmentProgress
+  // state — real progress/eta, previously accepted as a prop and silently
+  // ignored). Used ONLY when the backend hasn't supplied its OWN map AT ALL
+  // (undefined) — an explicit {} from the backend is a real "nothing
+  // rendering right now" signal and must win over any local fallback.
+  const fallbackActiveSegmentsMap = useMemo(() => {
+    if (backendActiveSegmentsMap !== undefined || !segmentProgress || !isChapterProcessing) return undefined;
+    const entries: Record<string, { phase: string; progress: number; eta_seconds: number | null }> = {};
+    for (const sp of Object.values(segmentProgress)) {
+      if (sp.chapter_id !== chapterId) continue;
+      if ((sp.progress ?? 0) >= 1 || sp.status === 'done' || sp.status === 'failed' || sp.status === 'cancelled') continue;
+      entries[sp.segment_id] = {
+        phase: 'rendering',
+        progress: sp.progress ?? 0,
+        eta_seconds: sp.eta_seconds ?? null,
+      };
+    }
+    return Object.keys(entries).length ? entries : undefined;
+  }, [backendActiveSegmentsMap, segmentProgress, isChapterProcessing, chapterId]);
+  const chapterRenderActiveSegmentsMap = backendActiveSegmentsMap ?? fallbackActiveSegmentsMap;
 
   const rawActiveSegmentId = job?.active_segment_id || generatingSegmentJob?.active_segment_id || null;
   const rawActiveSegmentProgress = rawActiveSegmentId && typeof job?.active_segment_progress === 'number'
@@ -217,17 +248,71 @@ export function useStudioChapter({
     return new Set(activeBatch.span_ids);
   }, [chapterRenderActiveSegmentId, scriptViewData?.render_batches]);
 
+  const isActiveJobPreparing =
+    (job as any)?.reason_code === 'SEGMENT_PENDING' ||
+    (job as any)?.reason_code === 'LOADING_MODEL' ||
+    (job as any)?.indeterminate === true;
+
+  // W-PAR 006: map entries carry the batch *leader* segment id; the visual
+  // contract (matching the legacy single-ID path) highlights every span in
+  // that leader's render batch. Expanding here keeps cap=1 visuals identical
+  // to the pre-map path (INV-1).
+  const expandToBatchSpanIds = useCallback((segId: string, into: Set<string>) => {
+    const batch = scriptViewData?.render_batches?.find((candidate) =>
+      candidate.span_ids.includes(segId),
+    );
+    if (!batch) {
+      into.add(segId);
+      return;
+    }
+    for (const id of batch.span_ids) into.add(id);
+  }, [scriptViewData?.render_batches]);
+
+  // W-PAR: map entries whose phase just transitioned to "done" (2026-07-07
+  // fix) — a live signal that a segment finished THIS render, ahead of the
+  // next full chapter/segment DB refetch (which does not happen mid-render).
+  // Expanded to batch span ids like preparing/rendering already are, so a
+  // multi-span render batch's whole leader-driven group lights up together.
+  const chapterRenderDoneSegmentIds = useMemo(() => {
+    if (!chapterRenderActiveSegmentsMap) return new Set<string>();
+    const ids = new Set<string>();
+    for (const [segId, entry] of Object.entries(chapterRenderActiveSegmentsMap)) {
+      if (entry.phase === 'done') expandToBatchSpanIds(segId, ids);
+    }
+    return ids;
+  }, [chapterRenderActiveSegmentsMap, expandToBatchSpanIds]);
+
   const chapterRenderPendingSegmentIds = useMemo(() => {
     const ids = new Set<string>(effectivePendingSegmentIds);
     if (!isChapterProcessing) return ids;
     if (ids.size === 0) {
       for (const segment of segments) {
         if (segment.audio_status === 'done' || segment.audio_file_path) continue;
+        if (chapterRenderDoneSegmentIds.has(segment.id)) continue;
         ids.add(segment.id);
       }
     }
+    for (const id of chapterRenderDoneSegmentIds) ids.delete(id);
     return ids;
-  }, [effectivePendingSegmentIds, isChapterProcessing, segments]);
+  }, [effectivePendingSegmentIds, isChapterProcessing, segments, chapterRenderDoneSegmentIds]);
+
+  const chapterRenderPreparingSegmentIds = useMemo(() => {
+    // W-PAR 006: with a map present, each entry's own `phase` decides preparing
+    // vs rendering — never keyed off START_SEGMENT/presence alone.
+    if (chapterRenderActiveSegmentsMap) {
+      const ids = new Set<string>();
+      for (const [segId, entry] of Object.entries(chapterRenderActiveSegmentsMap)) {
+        if (entry.phase === 'preparing') expandToBatchSpanIds(segId, ids);
+      }
+      return ids;
+    }
+    if (!isActiveJobPreparing || !chapterRenderActiveSegmentId) return new Set<string>();
+    const ids = new Set<string>([chapterRenderActiveSegmentId]);
+    for (const id of chapterRenderActiveBatchSegmentIds) {
+      ids.add(id);
+    }
+    return ids;
+  }, [isActiveJobPreparing, chapterRenderActiveSegmentId, chapterRenderActiveBatchSegmentIds, chapterRenderActiveSegmentsMap, expandToBatchSpanIds]);
 
   const chapterRenderRenderingSegmentIds = useMemo(() => {
     const ids = new Set<string>();
@@ -237,12 +322,27 @@ export function useStudioChapter({
         if (!liveSegmentJobIds.has(id)) ids.add(id);
       }
     }
+    // W-PAR 006: when active_segments_map is present, its keys are the source of
+    // truth for which segments are simultaneously active (N-way, not single-ID).
+    // Only `rendering`-phase entries belong here: preparing entries surface via
+    // chapterRenderPreparingSegmentIds, and `done` entries (e.g. the SEGMENT_SAVED
+    // frame at cap=1) are finished — including them would leave a completed span
+    // stuck in the visual "rendering" state (never key rendering off presence
+    // alone; phase decides).
+    if (chapterRenderActiveSegmentsMap) {
+      for (const [segId, entry] of Object.entries(chapterRenderActiveSegmentsMap)) {
+        if (entry.phase !== 'rendering') continue;
+        expandToBatchSpanIds(segId, ids);
+      }
+      for (const id of chapterRenderPreparingSegmentIds) ids.delete(id);
+      return ids;
+    }
     if (!chapterRenderActiveSegmentId) return ids;
     for (const id of chapterRenderActiveBatchSegmentIds) {
-      ids.add(id);
+      if (!chapterRenderPreparingSegmentIds.has(id)) ids.add(id);
     }
     return ids;
-  }, [isChapterProcessing, pageHandoff.hasPending, generatingSegmentIds, liveSegmentJobIds, chapterRenderActiveSegmentId, chapterRenderActiveBatchSegmentIds]);
+  }, [isChapterProcessing, pageHandoff.hasPending, generatingSegmentIds, liveSegmentJobIds, chapterRenderActiveSegmentId, chapterRenderActiveBatchSegmentIds, chapterRenderPreparingSegmentIds, chapterRenderActiveSegmentsMap, expandToBatchSpanIds]);
 
   const chapterRenderQueuedSegmentIds = useMemo(() => {
     if (!job || !['queued', 'preparing', 'running'].includes(job.status)) return new Set<string>();
@@ -251,13 +351,21 @@ export function useStudioChapter({
       const activeIdx = allIds.indexOf(chapterRenderActiveSegmentId || '');
       const result = new Set(activeIdx === -1 ? allIds : allIds.slice(activeIdx + 1));
       for (const id of chapterRenderRenderingSegmentIds) result.delete(id);
+      // 2026-07-07 fix: under concurrent fan-out a segment can COMPLETE out of
+      // order at a higher segment_ids index than the (single, lagging)
+      // active_segment_id, so it lands in this "after the active one" slice.
+      // A phase="done" segment must never re-dim as "queued" — that would
+      // undo liveDoneSpanIds (both text-queued and text-ready get applied and
+      // the later CSS rule, text-queued, wins), regressing exactly the
+      // stays-lit behavior this map marker exists to provide.
+      for (const id of chapterRenderDoneSegmentIds) result.delete(id);
       return result;
     }
     const renderBatchesForQueue = scriptViewData?.render_batches ?? [];
     const renderBatchSpanIds = renderBatchesForQueue.flatMap((batch) => batch.span_ids);
     if (renderBatchSpanIds.length === 0) return new Set<string>();
     if (!chapterRenderActiveSegmentId) {
-      return new Set(renderBatchSpanIds.filter((id) => !chapterRenderRenderingSegmentIds.has(id)));
+      return new Set(renderBatchSpanIds.filter((id) => !chapterRenderRenderingSegmentIds.has(id) && !chapterRenderDoneSegmentIds.has(id)));
     }
     const activeBatchIndex = renderBatchesForQueue.findIndex((batch) =>
       batch.span_ids.includes(chapterRenderActiveSegmentId),
@@ -265,11 +373,34 @@ export function useStudioChapter({
     const queuedBatchSpanIds = activeBatchIndex >= 0
       ? renderBatchesForQueue.slice(activeBatchIndex + 1).flatMap((batch) => batch.span_ids)
       : renderBatchSpanIds;
-    return new Set(queuedBatchSpanIds.filter((id) => !chapterRenderRenderingSegmentIds.has(id)));
-  }, [job, chapterRenderActiveSegmentId, chapterRenderRenderingSegmentIds, scriptViewData?.render_batches]);
+    return new Set(queuedBatchSpanIds.filter((id) => !chapterRenderRenderingSegmentIds.has(id) && !chapterRenderDoneSegmentIds.has(id)));
+  }, [job, chapterRenderActiveSegmentId, chapterRenderRenderingSegmentIds, chapterRenderDoneSegmentIds, scriptViewData?.render_batches]);
+
+  // Per-segment interpolated display progress for the concurrent map path
+  // (progress-presentation.md §7 H5: the text fill follows ANIMATED display
+  // progress, never raw stepped event data). Each entry animates its own
+  // lane, keyed by its own segment id, on the shared 250 ms cadence.
+  const animatedSegmentProgress = useAnimatedSegmentProgress(chapterRenderActiveSegmentsMap);
 
   const chapterRenderRenderingBatchProgressById = useMemo(() => {
     const progressById: Record<string, number> = {};
+    // W-PAR 006: when active_segments_map is present, populate each rendering
+    // segment's own batch with its own progress — N batches can be non-idle
+    // simultaneously. Falls back to the single active-segment path (INV-1)
+    // when the map is absent.
+    if (chapterRenderActiveSegmentsMap) {
+      for (const [segId, entry] of Object.entries(chapterRenderActiveSegmentsMap)) {
+        if (entry.phase !== 'rendering') continue;
+        const batch = scriptViewData?.render_batches?.find((candidate) =>
+          candidate.span_ids.includes(segId),
+        );
+        if (!batch) continue;
+        // H5: prefer the segment's own animated lane value; the raw map value
+        // is the fallback for the very first render before the lane mounts.
+        progressById[batch.id] = animatedSegmentProgress[segId] ?? entry.progress;
+      }
+      return progressById;
+    }
     const activeJob = generatingSegmentJob && ['queued', 'preparing', 'running', 'finalizing'].includes(generatingSegmentJob.status)
       ? generatingSegmentJob
       : (job && ['queued', 'preparing', 'running', 'finalizing'].includes(job.status) ? job : null);
@@ -283,7 +414,7 @@ export function useStudioChapter({
     const effectiveProgress = liveBarSegmentProgress > 0 ? liveBarSegmentProgress : rawProgress;
     progressById[activeBatch.id] = effectiveProgress;
     return progressById;
-  }, [chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.render_batches, scriptViewData?.spans, liveBarSegmentProgress, chapterRenderActiveSegmentId]);
+  }, [chapterRenderRenderingSegmentIds, generatingSegmentJob, job, scriptViewData?.render_batches, scriptViewData?.spans, liveBarSegmentProgress, chapterRenderActiveSegmentId, chapterRenderActiveSegmentsMap, animatedSegmentProgress]);
 
   const handleGenerateWithFallback = useCallback(
     async (segmentIds: string[]) => {
@@ -412,6 +543,36 @@ export function useStudioChapter({
       ...progressBarSnapshotHistoryRef.current,
     ].slice(0, 8);
   }, []);
+
+  const handleCreateTempCharacter = useCallback(async (name: string, profileName?: string) => {
+    if (!chapterId || !projectId) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    try {
+      await api.createCharacter(projectId, trimmed, profileName || undefined, undefined, undefined, chapterId);
+      await loadChapter('create-temp');
+    } catch (error) {
+      console.error('Failed to create temp character', error);
+    }
+  }, [chapterId, projectId, loadChapter]);
+
+  const handlePromoteCharacter = useCallback(async (characterId: string) => {
+    try {
+      await api.promoteCharacter(characterId);
+      await loadChapter('promote-character');
+    } catch (error) {
+      console.error('Failed to promote character', error);
+    }
+  }, [loadChapter]);
+
+  const handleDeleteCharacter = useCallback(async (characterId: string) => {
+    try {
+      await api.deleteCharacter(characterId);
+      await loadChapter('delete-character');
+    } catch (error) {
+      console.error('Failed to delete character', error);
+    }
+  }, [loadChapter]);
 
   const handleRequestResyncPreview = useCallback(async () => {
     if (!text || text === chapter?.text_content) return;
@@ -698,6 +859,9 @@ export function useStudioChapter({
           chapterRenderQueuedSegmentIds: Array.from(chapterRenderQueuedSegmentIds),
           chapterRenderPendingSegmentIds: Array.from(chapterRenderPendingSegmentIds),
           chapterRenderRenderingBatchProgressById,
+          // Preparing state for the active segment (loading/indeterminate window).
+          chapterRenderPreparingSegmentIds: Array.from(chapterRenderPreparingSegmentIds),
+          isActiveJobPreparing,
         },
         segmentProgressUpdates: uniqueUpdates
           .slice(0, 20)
@@ -756,6 +920,7 @@ export function useStudioChapter({
     text,
     setText,
     loading,
+    chapterNotFound,
     saving,
     submitting,
     localVoice,
@@ -810,6 +975,7 @@ export function useStudioChapter({
     firstSpanGroupNumber,
     effectiveSelectedVoice,
     chapterDefaultVoiceLabel,
+    chapterDefaultVoiceName,
     availableVoices,
     chunkGroups,
     effectivePendingSegmentIds,
@@ -817,9 +983,12 @@ export function useStudioChapter({
     isChapterProcessing,
     pageHandoff,
     chapterRenderActiveSegmentId,
+    chapterRenderActiveSegmentsMap,
+    chapterRenderPreparingSegmentIds,
     chapterRenderRenderingSegmentIds,
     chapterRenderQueuedSegmentIds,
     chapterRenderPendingSegmentIds,
+    chapterRenderDoneSegmentIds,
     chapterRenderRenderingBatchProgressById,
     playingSegmentId,
     playingSegmentIds,
@@ -854,6 +1023,9 @@ export function useStudioChapter({
     handleProgressBarDebugSnapshot,
     handleQueue,
     handleStopAll,
+    handleCreateTempCharacter,
+    handlePromoteCharacter,
+    handleDeleteCharacter,
     handoffTransitions: getHandoffTransitions(),
   };
 }

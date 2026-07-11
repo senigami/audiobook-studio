@@ -257,7 +257,7 @@ export const SpeedPopover: React.FC<SpeedPopoverProps> = ({ value, onChange, tri
                     border: '1px solid var(--border)',
                     padding: '1.25rem',
                     zIndex: 99999,
-                    backdropFilter: 'blur(20px)',
+                    backdropFilter: 'var(--blur-glass-strong)',
                 }}
             >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

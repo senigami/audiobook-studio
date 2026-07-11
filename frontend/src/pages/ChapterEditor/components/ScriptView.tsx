@@ -31,6 +31,14 @@ interface ScriptViewProps {
   pendingSpanIds: Set<string>;
   renderingSpanIds?: Set<string>;
   queuedSpanIds?: Set<string>;
+  preparingSpanIds?: Set<string>;
+  /**
+   * Spans whose active_segments_map entry just transitioned to phase="done"
+   * (2026-07-07 fix) — a live signal that a segment finished THIS render,
+   * used to keep its text lit before the next full chapter/segment DB
+   * refetch catches up (which does not happen mid-render).
+   */
+  liveDoneSpanIds?: Set<string>;
   renderingBatchProgressById?: Record<string, number>;
   playingSpanId?: string | null;
   playingSpanIds?: Set<string>;
@@ -69,6 +77,7 @@ interface ScriptSpanItemProps {
   isPending: boolean;
   isRendering: boolean;
   isQueued: boolean;
+  isPreparing: boolean;
   isPlaying: boolean;
   isReady: boolean;
   canPlay: boolean;
@@ -98,6 +107,7 @@ const ScriptSpanItem = React.memo<ScriptSpanItemProps>(({
   isPending,
   isRendering,
   isQueued,
+  isPreparing,
   isPlaying,
   isReady,
   canPlay,
@@ -123,8 +133,8 @@ const ScriptSpanItem = React.memo<ScriptSpanItemProps>(({
   const textClassName = [
     'script-span-text',
     mode === 'script'
-      ? (isRendering ? 'script-span-text-rendering' : isQueued ? 'script-span-text-queued' : isPending ? 'script-span-text-pending' : '')
-      : (isRendering ? 'script-span-text-book-rendering' : isQueued ? 'script-span-text-book-queued' : isPending ? 'script-span-text-book-pending' : ''),
+      ? (isPreparing ? 'script-span-text-preparing' : isRendering ? 'script-span-text-rendering' : isQueued ? 'script-span-text-queued' : isPending ? 'script-span-text-pending' : '')
+      : (isPreparing ? 'script-span-text-book-preparing' : isRendering ? 'script-span-text-book-rendering' : isQueued ? 'script-span-text-book-queued' : isPending ? 'script-span-text-book-pending' : ''),
     isPlaying ? 'script-span-text-playing' : '',
     isReady ? 'script-span-text-ready' : 'script-span-text-muted',
   ].filter(Boolean).join(' ');
@@ -133,8 +143,8 @@ const ScriptSpanItem = React.memo<ScriptSpanItemProps>(({
     <span
       data-span-id={span.id}
       data-testid={`script-span-${span.id}`}
-      data-render-status={isRendering ? 'rendering' : isQueued ? 'queued' : isPending ? 'pending' : isReady ? 'rendered' : 'idle'}
-      className={`script-span ${char ? 'is-assigned' : ''} ${isHighlighted ? 'is-highlighted' : ''} ${isPlaying ? 'is-playing' : ''} ${mode === 'book' && isRendering ? 'is-book-rendering' : ''} ${mode === 'book' && isQueued ? 'is-book-queued' : ''} ${mode === 'book' && isPending && !isRendering && !isQueued ? 'is-book-pending' : ''} ${mode === 'script' && isRendering ? 'is-rendering' : ''} ${mode === 'script' && isQueued ? 'is-queued' : ''} ${mode === 'script' && isPending && !isRendering && !isQueued ? 'is-pending' : ''} ${activeCharacterId ? 'is-paintable' : ''}`}
+      data-render-status={isPreparing ? 'preparing' : isRendering ? 'rendering' : isQueued ? 'queued' : isPending ? 'pending' : isReady ? 'rendered' : 'idle'}
+      className={`script-span ${char ? 'is-assigned' : ''} ${isHighlighted ? 'is-highlighted' : ''} ${isPlaying ? 'is-playing' : ''} ${mode === 'book' && isPreparing ? 'is-book-preparing' : ''} ${mode === 'book' && isRendering && !isPreparing ? 'is-book-rendering' : ''} ${mode === 'book' && isQueued ? 'is-book-queued' : ''} ${mode === 'book' && isPending && !isRendering && !isQueued ? 'is-book-pending' : ''} ${mode === 'script' && isPreparing ? 'is-preparing' : ''} ${mode === 'script' && isRendering && !isPreparing ? 'is-rendering' : ''} ${mode === 'script' && isQueued ? 'is-queued' : ''} ${mode === 'script' && isPending && !isRendering && !isQueued ? 'is-pending' : ''} ${activeCharacterId ? 'is-paintable' : ''}`}
       style={char ? ({ '--script-span-accent': char.color } as React.CSSProperties) : undefined}
       onClick={(e) => {
         const selection = window.getSelection();
@@ -152,7 +162,7 @@ const ScriptSpanItem = React.memo<ScriptSpanItemProps>(({
       )}
 
       <span className={textClassName}>
-        {isRendering
+        {isRendering && !isPreparing
           ? <SegmentProgressText text={displayText} litCount={litCount} showCursor={showCursor} />
           : displayText}
       </span>
@@ -174,10 +184,11 @@ const ScriptSpanItem = React.memo<ScriptSpanItemProps>(({
             e.stopPropagation();
             onPlaySpan?.(span.id);
           }}
+          aria-label="Play audio"
           title="Play Audio"
           disabled={!canPlay}
         >
-          <Play size={14} fill={canPlay ? 'currentColor' : 'none'} />
+          <Play size={14} fill={canPlay ? 'currentColor' : 'none'} aria-hidden="true" />
         </button>
         <button
           className="span-control-btn"
@@ -186,6 +197,11 @@ const ScriptSpanItem = React.memo<ScriptSpanItemProps>(({
             e.stopPropagation();
             if (batchSpanIds && canGenerate) onGenerateBatch?.(batchSpanIds);
           }}
+          aria-label={!canGenerate
+            ? (unavailableEngine
+                ? `Engine ${formatVoiceEngineLabel(unavailableEngine)} is disabled in Settings`
+                : 'All engines disabled')
+            : (!anyEnginesEnabled ? 'All engines disabled' : (isReady ? 'Rebuild segment audio' : 'Generate segment audio'))}
           title={!canGenerate
             ? (unavailableEngine
                 ? `Engine ${formatVoiceEngineLabel(unavailableEngine)} is disabled in Settings`
@@ -193,7 +209,7 @@ const ScriptSpanItem = React.memo<ScriptSpanItemProps>(({
             : (!anyEnginesEnabled ? 'All engines disabled' : (isReady ? 'Rebuild' : 'Generate'))}
           disabled={isPending || !canGenerate || !onGenerateBatch}
         >
-          {isReady ? <RotateCcw size={14} /> : <WandSparkles size={14} />}
+          {isReady ? <RotateCcw size={14} aria-hidden="true" /> : <WandSparkles size={14} aria-hidden="true" />}
         </button>
       </div>
     </span>
@@ -238,6 +254,8 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   pendingSpanIds,
   renderingSpanIds = new Set<string>(),
   queuedSpanIds = new Set<string>(),
+  preparingSpanIds = new Set<string>(),
+  liveDoneSpanIds = new Set<string>(),
   renderingBatchProgressById = {},
   playingSpanId = null,
   playingSpanIds,
@@ -425,17 +443,19 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   const batchHasRenderState = (batch: ScriptRenderBatch | undefined) => {
     if (!batch) return false;
     return batch.span_ids.some(spanId =>
-      renderingSpanIds.has(spanId) || queuedSpanIds.has(spanId) || pendingSpanIds.has(spanId)
+      preparingSpanIds.has(spanId) || renderingSpanIds.has(spanId) || queuedSpanIds.has(spanId) || pendingSpanIds.has(spanId)
     );
   };
 
   const batchRenderClassName = (batch: ScriptRenderBatch) => {
-    const isRendering = batch.span_ids.some(spanId => renderingSpanIds.has(spanId));
-    const isQueued = !isRendering && batch.span_ids.some(spanId => queuedSpanIds.has(spanId));
-    const isPending = !isRendering && !isQueued && batch.span_ids.some(spanId => pendingSpanIds.has(spanId));
+    const isPreparing = batch.span_ids.some(spanId => preparingSpanIds.has(spanId));
+    const isRendering = !isPreparing && batch.span_ids.some(spanId => renderingSpanIds.has(spanId));
+    const isQueued = !isPreparing && !isRendering && batch.span_ids.some(spanId => queuedSpanIds.has(spanId));
+    const isPending = !isPreparing && !isRendering && !isQueued && batch.span_ids.some(spanId => pendingSpanIds.has(spanId));
 
     return [
       'script-render-group',
+      isPreparing ? 'is-preparing' : '',
       isRendering ? 'is-rendering' : '',
       isQueued ? 'is-queued' : '',
       isPending ? 'is-pending' : '',
@@ -446,14 +466,20 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
     const char = span.character_id ? charMap.get(span.character_id) : null;
     const batch = batchMap.get(span.id);
     const audioGroup = audioGroupMap.get(span.id);
-    const isPending = pendingSpanIds.has(span.id);
+    // A live-done span (finished THIS render, DB not yet refetched) must not
+    // count as pending/queued: those classes sit later in ScriptView.css at
+    // equal specificity, so they would visually override text-ready and
+    // re-dim a just-finished span even while isReady is true.
+    const isLiveDone = liveDoneSpanIds.has(span.id);
+    const isPending = pendingSpanIds.has(span.id) && !isLiveDone;
     const isRendering = renderingSpanIds.has(span.id);
-    const isQueued = queuedSpanIds.has(span.id);
+    const isQueued = queuedSpanIds.has(span.id) && !isLiveDone;
+    const isPreparing = preparingSpanIds.has(span.id);
     const renderingTextProgress = isRendering
       ? getRenderingTextProgress(batch, span)
       : { litCount: 0, showCursor: false };
     const isPlaying = isPlayingSpan(span.id);
-    const isReady = span.status === 'rendered' || !!(audioGroup && (audioGroup.status === 'rendered' || audioGroup.audio_file_path || audioGroup.asset_url));
+    const isReady = span.status === 'rendered' || !!(audioGroup && (audioGroup.status === 'rendered' || audioGroup.audio_file_path || audioGroup.asset_url)) || liveDoneSpanIds.has(span.id);
     const canPlay = span.status === 'rendered' || !!(audioGroup && (audioGroup.audio_file_path || audioGroup.asset_url));
     const displayText = getDisplayText(span);
     const batchStatus = batch ? batchEngineStatus(batch.span_ids) : { canGenerate: false, unavailableEngine: null as string | null };
@@ -473,6 +499,7 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
         isPending={isPending}
         isRendering={isRendering}
         isQueued={isQueued}
+        isPreparing={isPreparing}
         isPlaying={isPlaying}
         isReady={isReady}
         canPlay={canPlay}
@@ -497,6 +524,9 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   };
 
   const renderBook = () => {
+    // data.paragraphs is typed as required, but a malformed/partial payload has crashed this
+    // render before (F14) — guard defensively even though the type contract says it can't happen.
+    if (!data?.paragraphs) return null;
     return data.paragraphs.map(para => {
       const nodes: React.ReactNode[] = [];
       let groupBatch: ScriptRenderBatch | null = null;
@@ -575,6 +605,8 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
   };
 
   const renderScript = () => {
+    // Same defensive guard as renderBook (F14) — data.spans is typed as required.
+    if (!data?.spans) return null;
     let lastCharId: string | null | undefined = undefined;
 
     return data.spans.map(span => {
@@ -582,13 +614,18 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
       const lineIsPending = pendingSpanIds.has(span.id);
       const lineIsRendering = renderingSpanIds.has(span.id);
       const lineIsQueued = queuedSpanIds.has(span.id);
+      // Preparing (engine/model loading) takes precedence over the other states —
+      // script mode previously omitted it entirely, so a loading segment showed no
+      // block/pulse even though preparingSpanIds was correct. Precedence mirrors
+      // batchRenderClassName: preparing > rendering > queued > pending.
+      const lineIsPreparing = preparingSpanIds.has(span.id);
       const isFirstInRun = span.character_id !== lastCharId;
       lastCharId = span.character_id;
 
       return (
         <div
           key={span.id}
-          className={`script-line ${!isFirstInRun ? 'connected-top' : ''} ${lineIsRendering ? 'is-rendering' : ''} ${lineIsQueued ? 'is-queued' : ''} ${lineIsPending && !lineIsRendering && !lineIsQueued ? 'is-pending' : ''}`}
+          className={`script-line ${!isFirstInRun ? 'connected-top' : ''} ${lineIsPreparing ? 'is-preparing' : ''} ${lineIsRendering && !lineIsPreparing ? 'is-rendering' : ''} ${lineIsQueued && !lineIsPreparing && !lineIsRendering ? 'is-queued' : ''} ${lineIsPending && !lineIsPreparing && !lineIsRendering && !lineIsQueued ? 'is-pending' : ''}`}
           style={char ? ({ '--script-line-accent': char.color } as React.CSSProperties) : undefined}
         >
           <div className="script-line-speaker" style={char ? { color: char.color } : undefined}>

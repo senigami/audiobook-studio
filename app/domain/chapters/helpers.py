@@ -118,6 +118,12 @@ def _build_base_revision_id(chapter_row: dict[str, Any], segment_rows: Sequence[
         "chapter_id": chapter_row.get("id"),
         "text_content": chapter_row.get("text_content"),
         "text_last_modified": chapter_row.get("text_last_modified"),
+        # NOTE: audio_status is deliberately EXCLUDED. The revision id is an
+        # optimistic-concurrency token for *assignment* edits (character / profile /
+        # segment-set / text). audio_status is volatile render state — it flips when a
+        # render completes (and as a side effect of assignment itself), which is not a
+        # concurrent assignment edit. Including it produced false "modified by another
+        # process" conflicts when reassigning a line whose audio had since rendered.
         "segments": [
             {
                 "id": row.get("id"),
@@ -125,7 +131,6 @@ def _build_base_revision_id(chapter_row: dict[str, Any], segment_rows: Sequence[
                 "text_content": row.get("text_content"),
                 "character_id": row.get("character_id"),
                 "speaker_profile_name": _resolved_speaker_profile_name(row),
-                "audio_status": row.get("audio_status"),
             }
             for row in segment_rows
         ],

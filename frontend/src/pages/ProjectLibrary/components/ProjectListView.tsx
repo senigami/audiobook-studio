@@ -6,6 +6,7 @@ import { ActionMenu } from '@/components/ui/ActionMenu';
 interface ProjectListViewProps {
     projects: Project[];
     onSelect: (projectId: string) => void;
+    onOpenDetails: (projectId: string) => void;
     onDelete: (id: string, name: string) => void;
     formatDate: (timestamp: number) => string;
 }
@@ -13,6 +14,7 @@ interface ProjectListViewProps {
 export const ProjectListView: React.FC<ProjectListViewProps> = ({
     projects,
     onSelect,
+    onOpenDetails,
     onDelete,
     formatDate
 }) => {
@@ -107,6 +109,7 @@ export const ProjectListView: React.FC<ProjectListViewProps> = ({
                                     <ActionMenu 
                                         onDelete={() => onDelete(project.id, project.name)}
                                         items={[
+                                            { label: 'Project Details', icon: BookOpen, onClick: () => onOpenDetails(project.id) },
                                             { label: 'Open Project', icon: ExternalLink, onClick: () => onSelect(project.id) },
                                             { label: 'Delete Project', icon: Trash2, onClick: () => onDelete(project.id, project.name), isDestructive: true }
                                         ]}

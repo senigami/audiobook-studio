@@ -139,22 +139,15 @@ describe('VoiceLabPage', () => {
         });
     });
 
-    it('renders the back link to /voices', async () => {
+    it('navigates to /voices when the back button is clicked', async () => {
+        const user = userEvent.setup();
         renderAtPath(`/voices/${VOICE_ID}`);
-        await waitFor(() => {
-            const back = screen.getByRole('button', { name: /voices/i });
-            expect(back).toBeInTheDocument();
-        });
-    });
 
-    it('renders the phase stepper with 4 steps', async () => {
-        renderAtPath(`/voices/${VOICE_ID}`);
+        const back = await screen.findByRole('button', { name: /voices/i });
+        await user.click(back);
+
         await waitFor(() => {
-            // The stepper role=list contains 4 listitem steps
-            const list = screen.getByRole('list', { name: /voice setup progress/i });
-            expect(list).toBeInTheDocument();
-            const steps = screen.getAllByRole('listitem');
-            expect(steps.length).toBe(4);
+            expect(screen.getByTestId('voices-page')).toBeInTheDocument();
         });
     });
 

@@ -49,10 +49,10 @@ def test_split_into_parts():
 
     # Test paragraph break preference
     text = "Para 1\n\nPara 2\n\nPara 3"
-    # Implementations split at max_chars=15 might include "Para 1\n\nPara 2" if it fits?
-    # Actually split_into_parts has a rfind("\n\n") check.
     parts = split_into_parts(text, max_chars=20)
-    assert len(parts) >= 2
+    assert len(parts) == 2
+    assert parts[0][2] == "Para 1\n\nPara"
+    assert parts[1][2] == "2\n\nPara 3"
 
 def test_split_sentences():
     # The regex SENT_SPLIT_RE splits on .!? followed by space/end or newlines.
@@ -77,10 +77,13 @@ def test_safe_split_long_sentences():
     assert len(res_no_sep) > 40
 
 def test_text_utility_default_limits_remain_stable():
+    """Pin the literal constant values (regression guard against an
+    accidental change). The textops_splitting.SENT_CHAR_LIMIT/SAFE_SPLIT_TARGET
+    names are plain `as`-import aliases of these same constants, so comparing
+    them here would be tautological (guaranteed by Python's import mechanism,
+    not by any real logic) -- deliberately not asserted."""
     assert DEFAULT_SENT_CHAR_LIMIT == 500
     assert DEFAULT_SAFE_SPLIT_TARGET == 250
-    assert textops_splitting.SENT_CHAR_LIMIT == DEFAULT_SENT_CHAR_LIMIT
-    assert textops_splitting.SAFE_SPLIT_TARGET == DEFAULT_SAFE_SPLIT_TARGET
 
 def test_write_chapters_to_folder(tmp_path):
     chapters = [(1, "Chap 1", "Body 1"), (2, "Chap 2", "Body 2")]
@@ -164,6 +167,47 @@ def test_format_duration():
     assert format_duration(3661) == "1h 1m 1s"
 
 def test_compute_chapter_metrics():
-    metrics = compute_chapter_metrics("Some text here.")
-    assert "char_count" in metrics
-    assert "predicted_audio_length" in metrics
+    # 167 chars at the 16.7 baseline chars/sec (app.engines.behavior.
+    # DEFAULT_BASELINE_ENGINE_CPS) gives a clean, concrete expected duration
+    # instead of re-deriving the formula from the implementation.
+    text = "a" * 167 + " word"
+    metrics = compute_chapter_metrics(text)
+    assert metrics["char_count"] == 172
+    assert metrics["word_count"] == 2
+    assert metrics["predicted_audio_length"] == 10.0
+
+
+# ---------------------------------------------------------------------------
+# consolidate_single_word_sentences edge cases
+# (relocated from plugins/tts_xtts/tests/test_textops.py — predates the
+# Studio 2.0 plugin split and tests Studio-side app.utils.text.textops, not
+# anything XTTS-specific, so it belongs in this suite.)
+# ---------------------------------------------------------------------------
+
+def test_greedy_merge_forward():
+    text = "Wait. No. Stop. Go."
+    # 1+1+1+1 = 4 words. All should merge into one line.
+    expected = "Wait; No; Stop; Go."
+    assert consolidate_single_word_sentences(text) == expected
+
+def test_paragraph_preservation_with_merge():
+    # Even if they merge, we want to know it's one block now
+    text = "Effie.\nFine, fine.\nShe threw her hands up."
+    result = consolidate_single_word_sentences(text)
+    # The new logic updates line_idx as it merges, so "Effie" and "Fine, fine"
+    # are absorbed into the line of the latest sentence that made it "safe".
+    assert "Effie; Fine, fine; She threw her hands up." in result
+
+def test_short_merge_limit():
+    text = "Hello. This is a very long sentence that is safe."
+    # "Hello" (1) merges with "This..." (10) -> 11 words.
+    expected = "Hello; This is a very long sentence that is safe."
+    assert consolidate_single_word_sentences(text) == expected
+
+def test_no_merge_needed():
+    text = "This is four words. This is also four."
+    # Both are safe (>= 4 words)
+    # Note: consolidate_single_word_sentences strips trailing punc from left side ONLY IF it merges.
+    # Here no merge happens.
+    result = consolidate_single_word_sentences(text)
+    assert "This is four words.\nThis is also four." in result or "This is four words. This is also four." in result

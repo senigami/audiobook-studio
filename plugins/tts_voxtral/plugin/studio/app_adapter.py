@@ -6,12 +6,10 @@ contract without leaking engine-specific request handling into orchestration.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import shutil
 import tempfile
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -20,34 +18,12 @@ from app.engines.errors import EngineExecutionError, EngineRequestError
 from app.engines.voice.base import BaseVoiceEngine
 from app.engines.voice.sdk import TTSRequest, TTSResult, VoiceProcessingHooks, SynthesisPlan
 from app.engines.models import EngineHealthModel, EngineManifestModel
+from app.studio_plugin_sdk.plugin_utils import load_settings_schema
 
 logger = logging.getLogger(__name__)
 
-INTENDED_UPSTREAM_CALLERS = (
-    "app.engines.registry",
-)
-INTENDED_DOWNSTREAM_DEPENDENCIES = (
-    "app.engines.voice.base.BaseVoiceEngine",
-    "app.infra.subprocess.run_managed_subprocess",
-)
-FORBIDDEN_DIRECT_IMPORTS = (
-    "app.orchestration",
-    "app.api.routers",
-    "app.jobs",
-)
-
-
-def wav_to_mp3(in_wav: Path, out_mp3: Path, on_output=None, cancel_check=None) -> int:
-    """Invoke the shared audio conversion helper lazily."""
-
-    from app.engines.audio_ops import wav_to_mp3 as convert_wav_to_mp3
-
-    return convert_wav_to_mp3(
-        in_wav=in_wav,
-        out_mp3=out_mp3,
-        on_output=on_output,
-        cancel_check=cancel_check,
-    )
+# Upstream: app.engines.registry. Downstream: BaseVoiceEngine, run_managed_subprocess. Must
+# not import app.orchestration / app.api.routers / app.jobs directly.
 
 
 def resolve_mistral_api_key() -> str | None:
@@ -64,15 +40,6 @@ def resolve_voxtral_model() -> str:
     from ..core.implementation import resolve_voxtral_model as resolver
 
     return resolver(settings=get_settings())
-
-
-def _load_settings_schema() -> dict[str, object]:
-    schema_path = Path(__file__).parents[2] / "settings_schema.json"
-    try:
-        return json.loads(schema_path.read_text(encoding="utf-8"))
-    except Exception as e:
-        logger.warning(f"Failed to load Voxtral settings schema from {schema_path}: {e}")
-        return {}
 
 
 def voxtral_generate(
@@ -139,7 +106,11 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
 
     def settings_schema(self) -> dict[str, object]:
         """Return the Voxtral settings schema used by the Settings UI."""
-        schema = _load_settings_schema()
+        schema_path = Path(__file__).parents[2] / "settings_schema.json"
+        # cache=False preserves this engine's pre-PL-3 behavior: voxtral's original
+        # _load_settings_schema() had no @lru_cache (unlike xtts's), so schema edits
+        # took effect live without a restart. See plugin_utils.load_settings_schema.
+        schema = load_settings_schema(schema_path, engine_name="Voxtral", cache=False)
         return dict(schema) if isinstance(schema, dict) else {}
 
     def current_settings(self) -> dict[str, object]:
@@ -153,10 +124,6 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
             "voxtral_model": str(settings.get("voxtral_model") or ""),
         }
 
-    def validate_environment(self) -> None:
-        """Describe Voxtral environment validation."""
-        raise NotImplementedError
-
     def validate_request(self, request: dict[str, object]) -> None:
         """Describe Voxtral request validation."""
         if not isinstance(request, dict):
@@ -169,7 +136,7 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
         if not str(request.get("script_text") or "").strip():
             raise EngineRequestError("Voxtral requests must include script_text.")
         is_synthesis_request = bool(str(request.get("output_path") or "").strip())
-        output_format = self._normalize_output_format(request, allow_mp3=is_synthesis_request)
+        output_format = self.normalize_output_format(request, engine_name="Voxtral", allow_mp3=is_synthesis_request)
         reference_audio_path = str(request.get("reference_audio_path") or "").strip()
         _ = str(request.get("reference_sample") or "").strip()
         if reference_audio_path:
@@ -199,36 +166,20 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
 
         script_text = str(request["script_text"]).strip()
         voice_profile_id = str(request["voice_profile_id"]).strip()
-        output_format = self._normalize_output_format(request, allow_mp3=True)
-        output_path = self._resolve_output_path(request)
+        output_format = self.normalize_output_format(request, engine_name="Voxtral", allow_mp3=True)
+        output_path = self.resolve_output_path(request, engine_name="Voxtral")
         voice_asset_id = str(request.get("voice_asset_id") or "").strip() or None
         reference_audio_path = str(request.get("reference_audio_path") or "").strip() or None
         reference_sample = str(request.get("reference_sample") or "").strip() or None
-        on_output = self._resolve_on_output(request)
-        cancel_check = self._resolve_cancel_check(request)
-
-        cleanup_root: Path | None = None
-        temp_wav: Path | None = None
-        profile_name = voice_profile_id
-        voice_profile_dir: Path | None = None
+        on_output = self.resolve_on_output(request, engine_name="Voxtral")
+        cancel_check = self.resolve_cancel_check(request, engine_name="Voxtral")
 
         # Priority 1: Resolved voice_id from hook (becomes voice_asset_id for Voxtral)
         if request.get("voice_id"):
             voice_asset_id = str(request["voice_id"])
 
         render_wav_path = output_path
-        if reference_audio_path:
-            cleanup_root, profile_name, reference_sample = self._stage_reference_audio(
-                voice_profile_id=voice_profile_id,
-                reference_audio_path=Path(reference_audio_path),
-            )
-            voice_profile_dir = cleanup_root
-        elif not voice_asset_id:
-            from app.db.speakers import get_profile_dir as get_voice_profile_dir
-            try:
-                voice_profile_dir = get_voice_profile_dir(voice_profile_id)
-            except Exception:
-                pass
+        temp_wav: Path | None = None
         if output_format == "mp3":
             fd, temp_wav_path = tempfile.mkstemp(
                 prefix=f"{output_path.stem}_",
@@ -240,30 +191,32 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
             render_wav_path = temp_wav
 
         try:
-            from ..core.implementation import VoxtralError
-
-            rc = voxtral_generate(
-                text=script_text,
+            rc = self._run_voxtral_generate(
+                script_text=script_text,
+                voice_profile_id=voice_profile_id,
+                voice_asset_id=voice_asset_id,
+                reference_audio_path=reference_audio_path,
+                reference_sample=reference_sample,
                 out_wav=render_wav_path,
+                request=request,
                 on_output=on_output,
                 cancel_check=cancel_check,
-                profile_name=profile_name,
-                voice_id=voice_asset_id,
-                model=request.get("voxtral_model"),
-                reference_sample=reference_sample,
-                task_id=str(request.get("task_id") or "") or None,
-                voice_profile_dir=voice_profile_dir,
+                error_context="synthesis",
             )
-        except VoxtralError as exc:
-            raise EngineExecutionError(f"Voxtral synthesis failed: {exc}") from exc
-        finally:
-            if cleanup_root is not None:
-                shutil.rmtree(cleanup_root, ignore_errors=True)
+        except Exception:
+            # temp_wav is created before _run_voxtral_generate stages reference audio
+            # (order inverted from pre-extraction code, which staged first) - clean it
+            # up here so a staging failure doesn't leak an empty temp .wav.
+            if temp_wav is not None:
+                temp_wav.unlink(missing_ok=True)
+            raise
 
         if rc != 0 or not render_wav_path.exists():
             raise EngineExecutionError("Voxtral synthesis did not produce an audio file.")
 
         if output_format == "mp3":
+            from app.engines.audio_ops import wav_to_mp3
+
             conversion_rc = wav_to_mp3(
                 render_wav_path,
                 output_path,
@@ -305,26 +258,9 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
 
         script_text = str(request["script_text"]).strip()
         voice_profile_id = str(request["voice_profile_id"]).strip()
-        output_format = self._normalize_output_format(request)
+        output_format = self.normalize_output_format(request, engine_name="Voxtral")
         voice_asset_id = str(request.get("voice_asset_id") or "").strip() or None
         reference_audio_path = str(request.get("reference_audio_path") or "").strip() or None
-
-        cleanup_root: Path | None = None
-        profile_name = voice_profile_id
-        reference_sample: str | None = None
-        voice_profile_dir: Path | None = None
-        if reference_audio_path:
-            cleanup_root, profile_name, reference_sample = self._stage_reference_audio(
-                voice_profile_id=voice_profile_id,
-                reference_audio_path=Path(reference_audio_path),
-            )
-            voice_profile_dir = cleanup_root
-        elif not voice_asset_id:
-            from app.db.speakers import get_profile_dir as get_voice_profile_dir
-            try:
-                voice_profile_dir = get_voice_profile_dir(voice_profile_id)
-            except Exception:
-                pass
 
         safe_prefix = "".join(
             ch if ch.isalnum() or ch in {"-", "_"} else "_"
@@ -333,24 +269,17 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
         fd, out_wav_path = tempfile.mkstemp(prefix=f"{safe_prefix}_preview_", suffix=".wav")
         os.close(fd)
         out_wav = Path(out_wav_path)
-        try:
-            from ..core.implementation import VoxtralError
 
-            rc = voxtral_generate(
-                text=script_text,
-                out_wav=out_wav,
-                profile_name=profile_name,
-                voice_id=voice_asset_id,
-                model=request.get("voxtral_model"),
-                reference_sample=reference_sample,
-                task_id=str(request.get("task_id") or "") or None,
-                voice_profile_dir=voice_profile_dir,
-            )
-        except VoxtralError as exc:
-            raise EngineExecutionError(f"Voxtral preview failed: {exc}") from exc
-        finally:
-            if cleanup_root is not None:
-                shutil.rmtree(cleanup_root, ignore_errors=True)
+        rc = self._run_voxtral_generate(
+            script_text=script_text,
+            voice_profile_id=voice_profile_id,
+            voice_asset_id=voice_asset_id,
+            reference_audio_path=reference_audio_path,
+            reference_sample=None,
+            out_wav=out_wav,
+            request=request,
+            error_context="preview",
+        )
 
         if rc != 0 or not out_wav.exists():
             raise EngineExecutionError("Voxtral preview did not produce an audio file.")
@@ -374,9 +303,66 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
             },
         }
 
-    def build_voice_asset(self, request: dict[str, object]) -> dict[str, object]:
-        """Describe Voxtral voice-asset build flow through the standard contract."""
-        raise NotImplementedError
+    def _run_voxtral_generate(
+        self,
+        *,
+        script_text: str,
+        voice_profile_id: str,
+        voice_asset_id: str | None,
+        reference_audio_path: str | None,
+        reference_sample: str | None,
+        out_wav: Path,
+        request: dict[str, object],
+        on_output=None,
+        cancel_check=None,
+        error_context: str,
+    ) -> int:
+        """Stage reference audio (if any), run voxtral_generate, and guarantee cleanup.
+
+        Shared by synthesize()/preview(): both resolve a voice_profile_dir (via
+        reference-audio staging, or a direct profile-dir lookup when no reference
+        audio and no resolved voice_asset_id), then call the generator inside a
+        try/finally that always cleans up any staged temp directory. `reference_sample`
+        is the caller's pre-resolved default (synthesize reads it from the request;
+        preview always starts at None) — the staging branch may override it, exactly
+        as each caller did before this was unified.
+        """
+        cleanup_root: Path | None = None
+        profile_name = voice_profile_id
+        voice_profile_dir: Path | None = None
+        if reference_audio_path:
+            cleanup_root, profile_name, reference_sample = self._stage_reference_audio(
+                voice_profile_id=voice_profile_id,
+                reference_audio_path=Path(reference_audio_path),
+            )
+            voice_profile_dir = cleanup_root
+        elif not voice_asset_id:
+            from app.db.speakers import get_profile_dir as get_voice_profile_dir
+            try:
+                voice_profile_dir = get_voice_profile_dir(voice_profile_id)
+            except Exception:
+                pass
+
+        try:
+            from ..core.implementation import VoxtralError
+
+            return voxtral_generate(
+                text=script_text,
+                out_wav=out_wav,
+                on_output=on_output,
+                cancel_check=cancel_check,
+                profile_name=profile_name,
+                voice_id=voice_asset_id,
+                model=request.get("voxtral_model"),
+                reference_sample=reference_sample,
+                task_id=str(request.get("task_id") or "") or None,
+                voice_profile_dir=voice_profile_dir,
+            )
+        except VoxtralError as exc:
+            raise EngineExecutionError(f"Voxtral {error_context} failed: {exc}") from exc
+        finally:
+            if cleanup_root is not None:
+                shutil.rmtree(cleanup_root, ignore_errors=True)
 
     def _stage_reference_audio(
         self, *, voice_profile_id: str, reference_audio_path: Path
@@ -392,48 +378,6 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
         staged_name = reference_audio_path.name
         shutil.copy2(reference_audio_path, cleanup_root / staged_name)
         return cleanup_root, profile_name, staged_name
-
-    def _normalize_output_format(
-        self,
-        request: dict[str, object],
-        *,
-        allow_mp3: bool = False,
-    ) -> str:
-        output_format = str(request.get("output_format") or "wav").strip().lower() or "wav"
-        allowed_formats = {"wav", "mp3"} if allow_mp3 else {"wav"}
-        if output_format not in allowed_formats:
-            if allow_mp3:
-                raise EngineRequestError(
-                    "Voxtral bridge synthesis currently supports output_format='wav' or 'mp3' only."
-                )
-            raise EngineRequestError(
-                "Voxtral bridge preview currently supports output_format='wav' only."
-            )
-        return output_format
-
-    def _resolve_output_path(self, request: dict[str, object]) -> Path:
-        output_path = str(request.get("output_path") or "").strip()
-        if not output_path:
-            raise EngineRequestError("Voxtral synthesis requests must include output_path.")
-        resolved = Path(output_path)
-        resolved.parent.mkdir(parents=True, exist_ok=True)
-        return resolved
-
-    def _resolve_on_output(self, request: dict[str, object]) -> Callable[[str], None]:
-        on_output = request.get("on_output")
-        if on_output is None:
-            return lambda _line: None
-        if not callable(on_output):
-            raise EngineRequestError("Voxtral on_output callback must be callable.")
-        return on_output
-
-    def _resolve_cancel_check(self, request: dict[str, object]) -> Callable[[], bool]:
-        cancel_check = request.get("cancel_check")
-        if cancel_check is None:
-            return lambda: False
-        if not callable(cancel_check):
-            raise EngineRequestError("Voxtral cancel_check callback must be callable.")
-        return cancel_check
 
 class VoxtralProcessingHooks(VoiceProcessingHooks):
     """Voxtral-specific processing hooks for Studio 2.0."""

@@ -163,7 +163,7 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete, trigger
                             overflow: 'hidden',
                             zIndex: 99999,
                             padding: '6px',
-                            backdropFilter: 'blur(16px)',
+                            backdropFilter: 'var(--blur-glass-strong)',
                             pointerEvents: 'auto'
                         }}
                     >

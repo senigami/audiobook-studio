@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useProjectLibrary } from '@/hooks/useProjectLibrary';
 import { api } from '@/api';
 import { MemoryRouter } from 'react-router-dom';
+import * as toast from '@/utils/toast';
 
 // Mock the API
 vi.mock('@/api', () => ({
@@ -65,11 +66,34 @@ describe('useProjectLibrary', () => {
     expect(api.createProject).toHaveBeenCalledWith({
       name: 'New Project',
       series: '',
+      series_position: null,
       author: '',
       cover: undefined,
     });
     expect(onSelectProject).toHaveBeenCalledWith('new_id');
     expect(mockNavigate).toHaveBeenCalledWith('/project/new_id');
+  });
+
+  it('rejects invalid series positions before project creation', async () => {
+    (api.fetchProjects as any).mockResolvedValue([]);
+    const toastSpy = vi.spyOn(toast, 'emitToast').mockImplementation(() => undefined);
+
+    const onSelectProject = vi.fn();
+    const { result } = renderHook(() => useProjectLibrary(onSelectProject), { wrapper });
+
+    act(() => {
+      result.current.setTitle('New Project');
+      result.current.setSeriesPosition('NaN');
+    });
+
+    await act(async () => {
+      await result.current.handleCreateProject({ preventDefault: vi.fn() } as any);
+    });
+
+    expect(toastSpy).toHaveBeenCalledWith('Series position must be a whole number.');
+    expect(api.createProject).not.toHaveBeenCalled();
+    expect(onSelectProject).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('handles delete click and confirmation', async () => {
@@ -119,7 +143,7 @@ describe('useProjectLibrary', () => {
     });
   });
 
-  it('handles drag and drop', () => {
+  it('handles drag and drop', async () => {
     const { result } = renderHook(() => useProjectLibrary(), { wrapper });
     const preventDefault = vi.fn();
 
@@ -142,9 +166,34 @@ describe('useProjectLibrary', () => {
       }
     };
 
-    act(() => {
+    await act(async () => {
       result.current.handleDrop(dropEvent as any);
     });
-    expect(result.current.isDragging).toBe(false);
+
+    await waitFor(() => {
+      expect(result.current.isDragging).toBe(false);
+      expect(result.current.coverPreview).toBeDefined();
+    });
+  });
+
+  it('surfaces existing series and auto-suggests the next position', async () => {
+    (api.fetchProjects as any).mockResolvedValue([
+      { id: '1', name: 'Book One', series: 'Chronicles', series_position: 1, created_at: 1, updated_at: 1 },
+      { id: '2', name: 'Book Two', series: 'Chronicles', series_position: 2, created_at: 2, updated_at: 2 },
+      { id: '3', name: 'Standalone', series: null, series_position: null, created_at: 3, updated_at: 3 },
+    ]);
+
+    const { result } = renderHook(() => useProjectLibrary(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.existingSeries).toEqual(['Chronicles']);
+
+    act(() => {
+      result.current.setSeries('Chronicles');
+    });
+
+    await waitFor(() => {
+      expect(result.current.seriesPosition).toBe('3');
+    });
   });
 });

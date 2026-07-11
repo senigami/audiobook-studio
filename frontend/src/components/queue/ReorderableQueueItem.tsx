@@ -77,8 +77,11 @@ export const ReorderableQueueItem: React.FC<ReorderableQueueItemProps> = React.m
                     padding: '4px'
                 }}
                 title="Drag to reorder"
+                aria-label="Drag to reorder"
+                role="button"
+                tabIndex={0}
             >
-                <GripVertical size={18} strokeWidth={2} style={{ pointerEvents: 'none' }} />
+                <GripVertical size={18} strokeWidth={2} style={{ pointerEvents: 'none' }} aria-hidden="true" />
             </div>
             <div style={{ width: compact ? '30px' : '36px', height: compact ? '30px' : '36px', borderRadius: '8px', background: 'var(--surface-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
                 <Clock size={compact ? 14 : 18} strokeWidth={2} />
@@ -89,6 +92,7 @@ export const ReorderableQueueItem: React.FC<ReorderableQueueItemProps> = React.m
             </div>
             <button
                 onClick={(e) => { e.stopPropagation(); handleRemove(job.id); }}
+                aria-label="Remove from queue"
                 className="hover-bg-destructive"
                 style={{
                     background: 'none',
@@ -104,7 +108,7 @@ export const ReorderableQueueItem: React.FC<ReorderableQueueItemProps> = React.m
                     opacity: isHovered ? 1 : 0.6
                 }}
             >
-                <Trash2 size={16} strokeWidth={2} />
+                <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
             </button>
         </Reorder.Item>
     );

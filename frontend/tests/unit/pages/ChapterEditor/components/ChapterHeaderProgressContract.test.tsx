@@ -670,38 +670,6 @@ describe('ChapterHeader progress contract', () => {
     vi.useRealTimers();
   });
 
-  it('renders with data-testid="chapter-header-segment-progress-bar"', () => {
-    render(
-      <TestHeaderWrapper
-        chapter={mockChapter as any}
-        title={mockChapter.title}
-        setTitle={vi.fn()}
-        saving={false}
-        hasUnsavedChanges={false}
-        submitting={false}
-        queueLocked={false}
-        queuePending={false}
-        generatingJob={{
-          id: 'job-testid-test',
-          engine: 'xtts',
-          status: 'running',
-          progress: 0.5,
-          active_segment_id: 'seg-testid',
-          active_segment_progress: 0.5,
-          started_at: Date.now() / 1000,
-          hasSegmentSupport: true,
-        } as any}
-        generatingSegmentIdsCount={1}
-        queueLabel="Queue"
-        queueTitle="Queue Chapter"
-        onQueue={vi.fn()}
-        onStopAll={vi.fn()}
-      />
-    );
-
-    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toBeInTheDocument();
-  });
-
   it('resets Segment Progress bar persistence identity and props when activeSegmentId changes within the same job (after visual completion)', () => {
     vi.useFakeTimers();
     let generatingJob = {
@@ -1067,5 +1035,50 @@ describe('ChapterHeader progress contract', () => {
     // Also: the bar must not show the chapter-level eta (26) or the 120s fallback.
     expect(capturedEtaSeconds).not.toBe(120);
     expect(capturedEtaSeconds).not.toBe(26);
+  });
+
+  // -----------------------------------------------------------------------
+  // R1 revert-check: SEGMENT_PENDING frame must NOT seed the synthetic 120s ETA.
+  // Pre-fix: reasonCode was dropped at ChapterHeader ~:561 (not passed to
+  //   buildSegmentProgressBarProps), so isSegmentPending=false → 120s seeded.
+  // Post-fix: reasonCode: selectedSegmentReasonCode wired through → 120s NOT seeded.
+  // -----------------------------------------------------------------------
+  it('(REASON-CODE-WIRE) SEGMENT_PENDING frame does not seed the 120s ETA lane', () => {
+    render(
+      <TestHeaderWrapper
+        chapter={mockChapter as any}
+        saving={false}
+        hasUnsavedChanges={false}
+        submitting={false}
+        queueLocked={false}
+        queuePending={false}
+        generatingJob={{
+          id: 'job-pending-wire',
+          engine: 'xtts',
+          status: 'running',
+          progress: 0,
+          // SEGMENT_PENDING: active segment id present but engine not confirmed
+          active_segment_id: 'seg-pending',
+          active_segment_progress: 0,
+          active_segment_eta_seconds: null,
+          active_segment_eta_basis: null,
+          active_segment_updated_at: null,
+          reason_code: 'SEGMENT_PENDING',
+          hasSegmentSupport: true,
+        } as any}
+        generatingSegmentIdsCount={1}
+        queueLabel="Queue"
+        queueTitle="Queue Chapter"
+        onQueue={vi.fn()}
+        onStopAll={vi.fn()}
+      />
+    );
+
+    // The bar must be mounted (active_segment_id present).
+    expect(screen.getByTestId('chapter-header-segment-progress-bar')).toBeInTheDocument();
+    // SEGMENT_PENDING: reasonCode must reach buildSegmentProgressBarProps → no 120s seed.
+    // R1: pre-fix this was capturedEtaSeconds === 120 because reasonCode was dropped.
+    expect(capturedEtaSeconds).toBeUndefined();
+    expect(capturedEtaSeconds).not.toBe(120);
   });
 });

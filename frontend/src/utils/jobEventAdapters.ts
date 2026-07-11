@@ -39,7 +39,7 @@ export const copyRenderGroupFields = (target: Record<string, any>, source: Recor
     'completed_render_weight',
     'active_render_group_weight',
     'grouped_progress',
-    ...(!excludeSegmentFields ? ['active_segment_id', 'active_segment_progress'] : []),
+    ...(!excludeSegmentFields ? ['active_segment_id', 'active_segment_progress', 'active_segments_map'] : []),
   ];
   for (const key of fields) {
     if (source[key] !== undefined) {
@@ -97,6 +97,9 @@ export const adaptEventToJobUpdates = (event: any) => {
     grouped_progress: getPayloadValue(payload, 'groupedProgress', 'grouped_progress'),
     active_segment_id: getPayloadValue(payload, 'activeSegmentId', 'active_segment_id'),
     active_segment_progress: getPayloadValue(payload, 'activeSegmentProgress', 'active_segment_progress'),
+    // active_segments_map is snake_case on the wire (C2 contract, 003) — no camelCase
+    // variant is emitted, so read it directly rather than through getPayloadValue.
+    active_segments_map: payload.activeSegmentsMap ?? payload.active_segments_map,
     active_segment_eta_seconds: getPayloadValue(payload, 'activeSegmentEtaSeconds', 'active_segment_eta_seconds'),
     active_segment_eta_basis: getPayloadValue(payload, 'activeSegmentEtaBasis', 'active_segment_eta_basis'),
     active_segment_updated_at: getPayloadValue(payload, 'activeSegmentUpdatedAt', 'active_segment_updated_at'),
@@ -108,6 +111,8 @@ export const adaptEventToJobUpdates = (event: any) => {
     produced_segment_count: getPayloadValue(payload, 'producedSegmentCount', 'produced_segment_count'),
     has_segment_support: getPayloadValue(payload, 'hasSegmentSupport', 'has_segment_support'),
     hasSegmentSupport: getPayloadValue(payload, 'hasSegmentSupport', 'has_segment_support'),
+    indeterminate: getPayloadValue(payload, 'indeterminate', 'indeterminate'),
+    loadingElapsedSeconds: getPayloadValue(payload, 'loadingElapsedSeconds', 'loading_elapsed_seconds'),
   };
 
   if (!shouldOmitMessage) {

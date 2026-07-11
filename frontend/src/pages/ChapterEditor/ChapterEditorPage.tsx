@@ -105,10 +105,12 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
     effectiveSelectedVoice,
     chapterDefaultVoiceLabel,
     availableVoices,
-    effectivePendingSegmentIds,
+    chapterRenderPendingSegmentIds,
+    chapterRenderDoneSegmentIds,
     pageHandoff,
     chapterRenderRenderingSegmentIds,
     chapterRenderQueuedSegmentIds,
+    chapterRenderPreparingSegmentIds,
     chapterRenderRenderingBatchProgressById,
     playingSegmentId,
     playingSegmentIds,
@@ -226,9 +228,11 @@ export const ChapterEditor: React.FC<ChapterEditorProps> = ({
                 engines={engines}
                 speakerProfiles={speakerProfiles}
                 onGenerateBatch={(sids) => handleGenerate(sids, effectiveSelectedVoice, (msg) => setConfirmConfig({ title: 'Generation Blocked', message: msg, onConfirm: () => {}, confirmText: 'OK' }))}
-                pendingSpanIds={effectivePendingSegmentIds}
+                pendingSpanIds={chapterRenderPendingSegmentIds}
                 renderingSpanIds={chapterRenderRenderingSegmentIds}
                 queuedSpanIds={chapterRenderQueuedSegmentIds}
+                preparingSpanIds={chapterRenderPreparingSegmentIds}
+                liveDoneSpanIds={chapterRenderDoneSegmentIds}
                 renderingBatchProgressById={chapterRenderRenderingBatchProgressById}
                 playingSpanId={playingSegmentId}
                 playingSpanIds={playingSegmentIds}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Clock, Loader2, Check, X } from 'lucide-react';
 import type { Chapter, Job } from '@/types';
 
 interface StatusOrbProps {
@@ -30,10 +30,6 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
   const isQueued = !activeJob && (queuePending || chap.audio_status === 'processing');
   const isStuckProcessing = !activeJob && chap.audio_status === 'processing' && !queuePending;
   
-  const isComplete = chap.audio_status === 'done' && chap.has_wav;
-  const isReadyToStitch = !isStale && !isTrulyProcessing && totalSegments > 0 && doneSegments === totalSegments && !chap.has_wav;
-  const isPartial = !isStale && !isTrulyProcessing && doneSegments > 0 && doneSegments < totalSegments;
-
   // Ornaments
   const hasM4a = chap.has_m4a;
 
@@ -48,61 +44,112 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
   let orbStrokeWidth = 1;
 
   if (isError) {
-    fill = 'var(--error)';
-    content = <span style={{ color: '#fff', fontSize: '10px', fontWeight: 'bold', lineHeight: '1' }}>!</span>;
+    fill = 'rgba(239,68,68,.10)';
+    orbStroke = 'var(--error)';
+    content = (
+      <span data-testid="orb-icon-error" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 0 }}>
+        <X size={10} strokeWidth={2.5} color="var(--error)" style={{ display: 'block' }} />
+      </span>
+    );
     tooltip = 'Render failed. View Queue for details.';
   } else if (isTrulyProcessing) {
-    fill = 'var(--surface-light)'; // Neutral/subtle blue or grey
-    content = <RefreshCw size={10} color="var(--accent)" className="animate-spin" style={{ display: 'block' }} />;
+    fill = 'rgba(30,79,216,.10)';
+    orbStroke = 'var(--live-indicator)';
+    content = (
+      <span data-testid="orb-icon-running" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 0 }}>
+        <Loader2 size={10} color="var(--live-indicator)" className="animate-spin" style={{ display: 'block' }} />
+      </span>
+    );
     tooltip = 'Rendering... (see Queue for progress)';
   } else if (isQueued) {
-    fill = 'var(--surface-light)';
-    content = <RefreshCw size={10} color="var(--text-muted)" className="animate-spin" style={{ display: 'block' }} />;
+    fill = 'rgba(100,116,139,.10)';
+    orbStroke = 'rgba(100,116,139,.30)';
+    content = (
+      <span data-testid="orb-icon-queued" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 0 }}>
+        <Clock size={10} color="var(--text-muted)" style={{ display: 'block' }} />
+      </span>
+    );
     tooltip = 'Queued for rendering';
   } else if (isStale || isStuckProcessing) {
     fill = 'var(--warning)';
     orbRadius = 8.5; // Slightly larger
     orbStroke = 'var(--warning-text)'; // Orange border
     orbStrokeWidth = 1.2;
-    content = <AlertTriangle size={10} color="#000" strokeWidth={3} style={{ display: 'block' }} />;
+    content = <AlertTriangle size={10} color="var(--text-on-warning)" strokeWidth={3} style={{ display: 'block' }} />;
     tooltip = isStuckProcessing 
       ? 'Render was interrupted. Needs rebuild.' 
       : 'Needs rebuild: script or voice assignment changed since last render';
-  } else if (isComplete) {
-    fill = 'var(--success)';
-    content = null;
-    tooltip = 'WAV rendered (in sync)';
-  } else if (isReadyToStitch) {
-    fill = 'var(--surface)';
-    showArc = true;
-    percent = 100;
-    tooltip = 'All segments rendered. Ready to stitch final audio.';
-  } else if (isPartial) {
-    fill = 'var(--surface)'; // Light gray interior
-    showArc = true;
-    percent = totalSegments > 0 ? Math.round((doneSegments / totalSegments) * 100) : 0;
-    tooltip = `${percent}% of segments rendered. Queue remaining to finish WAV.`;
   } else {
-    // Empty state
-    fill = 'var(--surface)';
-    tooltip = 'No audio yet';
+    // Stable state — S × W × M combinatorial:
+    //   S (segments) → blue arc at actual segment percentage
+    //   W (wav)      → green orb + green check (or gold if M)
+    //   M (m4a)      → gold orb
+    const hasSeg = totalSegments > 0 && doneSegments > 0;
+    const allSegsDone = totalSegments > 0 && doneSegments >= totalSegments;
+    const segPercent = hasSeg ? (doneSegments / totalSegments) * 100 : 0;
+
+    if (hasM4a) {
+      fill = 'var(--status-m4a)';
+      orbStroke = 'var(--status-m4a-border)';
+      if (chap.has_wav) {
+        content = (
+          <span data-testid="orb-icon-gold-done" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 0 }}>
+            <Check size={10} strokeWidth={2.5} color="var(--status-m4a-icon)" style={{ display: 'block' }} />
+          </span>
+        );
+        tooltip = 'WAV rendered and M4A exported';
+      } else {
+        tooltip = 'M4A exported';
+      }
+      if (hasSeg) {
+        showArc = true;
+        percent = segPercent;
+        if (!allSegsDone) tooltip += `. ${Math.round(segPercent)}% of segments rendered.`;
+      }
+    } else if (chap.has_wav) {
+      fill = 'rgba(22,163,74,.10)';
+      orbStroke = 'var(--success)';
+      content = (
+        <span data-testid="orb-icon-done" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 0 }}>
+          <Check size={10} strokeWidth={2} color="var(--success)" style={{ display: 'block' }} />
+        </span>
+      );
+      if (hasSeg) {
+        showArc = true;
+        percent = segPercent;
+        tooltip = allSegsDone
+          ? 'WAV rendered (in sync)'
+          : `WAV rendered. ${Math.round(segPercent)}% of segments rendered.`;
+      } else {
+        tooltip = 'WAV rendered (in sync)';
+      }
+    } else if (hasSeg) {
+      fill = 'var(--surface)';
+      showArc = true;
+      percent = segPercent;
+      tooltip = allSegsDone
+        ? 'All segments rendered. Ready to stitch final audio.'
+        : `${Math.round(segPercent)}% of segments rendered. Queue remaining to finish WAV.`;
+    } else {
+      fill = 'var(--surface)';
+      tooltip = 'No audio yet';
+    }
   }
 
-  // Main tooltip base
-  const baseTooltip = tooltip;
-  const statusTooltip = `\nM4A cached: ${hasM4a ? 'yes' : 'no'}`;
-  const combinedTooltip = baseTooltip + statusTooltip;
+  const combinedTooltip = tooltip;
 
-  // Calculate ring parameters
-  const ringRadius = 10.2;
+  // Outer decorative ring — sits outside arc track
+  const ringRadius = 11.2;
 
-  // Partial Arc progress parameters
-  const progressRadius = orbRadius;
-  const progressCircumference = 2 * Math.PI * progressRadius;
+  // Arc drawn outside the orb so it never overlaps the fill.
+  // r=9.5: inner edge (8.5) is flush with orb stroke outer edge (orbRadius 8 + half stroke 0.5).
+  const arcRadius = 9.5;
+  const progressCircumference = 2 * Math.PI * arcRadius;
   const strokeDashoffset = showArc ? progressCircumference - (percent / 100) * progressCircumference : progressCircumference;
 
   return (
     <div
+      role="img"
       title={combinedTooltip}
       aria-label={combinedTooltip}
       style={{
@@ -121,22 +168,26 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
           <circle
             cx="12" cy="12" r={ringRadius}
             fill="none"
-            stroke={hasM4a ? 'var(--accent)' : 'var(--border)'}
+            stroke={isTrulyProcessing ? 'var(--live-indicator)' : 'var(--border)'}
             strokeWidth="1.2"
             strokeLinecap="round"
-            style={{ opacity: isStale ? 0 : (hasM4a ? 0.8 : 0.3), transition: 'all 0.3s' }}
+            className={isTrulyProcessing ? 'is-running' : undefined}
+            style={{ opacity: isStale ? 0 : (isTrulyProcessing ? 0.8 : 0.3), transition: 'all 0.3s' }}
           />
 
           {/* Base Orb */}
           <circle cx="12" cy="12" r={orbRadius} fill={fill} stroke={orbStroke} strokeWidth={orbStrokeWidth} />
-          
-          {/* Partial Arc (Progress) */}
+
+          {/* Arc track placeholder — always present so layout never shifts */}
+          <circle cx="12" cy="12" r={arcRadius} fill="none" stroke="transparent" strokeWidth="2" />
+
+          {/* Partial Arc (Progress) — outside the orb, never overlaps fill */}
           {showArc && (
             <circle
-              cx="12" cy="12" r={orbRadius}
+              cx="12" cy="12" r={arcRadius}
               fill="none"
               stroke="var(--accent)"
-              strokeWidth="2.5"
+              strokeWidth="2"
               strokeDasharray={progressCircumference}
               strokeDashoffset={strokeDashoffset}
               transform="rotate(-90 12 12)"

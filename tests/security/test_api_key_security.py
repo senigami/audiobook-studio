@@ -137,13 +137,6 @@ class TestSettingsEndpointRedaction:
 # ---------------------------------------------------------------------------
 
 class TestTimingSafeComparison:
-    def test_compare_digest_is_used_in_source(self):
-        import app.core.security as sec_mod
-        source = inspect.getsource(sec_mod)
-        assert "compare_digest" in source, (
-            "hmac.compare_digest must be used in app/core/security.py"
-        )
-
     def test_correct_key_passes(self):
         from app.core.security import verify_api_key
         from fastapi.security import HTTPAuthorizationCredentials

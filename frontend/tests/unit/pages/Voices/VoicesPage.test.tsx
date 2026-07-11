@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { VoicesTab } from '@/pages/Voices/VoicesPage'
+import { VoicesTab, resolveEditingVoiceMetadata } from '@/pages/Voices/VoicesPage'
 import { NarratorCard } from '@/pages/Voices/components/NarratorCard'
 import { ScriptEditor } from '@/pages/Voices/components/ScriptEditor'
 import { describe, it, expect, vi } from 'vitest'
-import type { Speaker, SpeakerProfile, TtsEngine } from '@/types'
+import type { Speaker, SpeakerProfile, VoiceMetadata, TtsEngine } from '@/types'
 
 // ---------------------------------------------------------------------------
 // Mock framer-motion so catalog-card and NarratorCard animations work in JSDOM
@@ -266,6 +266,40 @@ describe('VoicesTab', () => {
         expect(onRefresh).toHaveBeenCalled()
     })
 
+    it('wires the catalog card "Edit Recording Script" action to open the Script Editor drawer', async () => {
+        // Regression: onEditTestText was declared in VoicesTabContentProps but never
+        // destructured/forwarded to VoiceCatalogCard, and VoiceCatalogCard had no menu
+        // item to trigger it — making the Script Editor drawer unreachable from the
+        // live Voices catalog. This exercises the full path: catalog card action menu
+        // → state.setEditingProfile → VoicesModals → ScriptEditor drawer.
+        await act(async () => {
+            render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
+        })
+
+        const actionMenus = await screen.findAllByRole('button', { name: /more actions/i })
+        fireEvent.click(actionMenus[0])
+        fireEvent.click(await screen.findByText('Edit Recording Script'))
+
+        expect(await screen.findByText('Suggest from voice qualities')).toBeInTheDocument()
+    })
+
+    it('wires the catalog card "Voice Settings" action to open the standalone Voice Settings drawer (not the Script Editor)', async () => {
+        // Phase 12 backlog: per-voice plugin settings were relocated out of the Script
+        // Editor drawer into their own drawer, reached via a distinct "Voice Settings"
+        // action menu item. This exercises the full path: catalog card action menu
+        // → state.setEditingProfile/setIsVoiceSettingsOpen → VoicesModals → VoiceSettingsPanel drawer.
+        await act(async () => {
+            render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
+        })
+
+        const actionMenus = await screen.findAllByRole('button', { name: /more actions/i })
+        fireEvent.click(actionMenus[0])
+        fireEvent.click(await screen.findByText('Voice Settings'))
+
+        expect(await screen.findByText(/Voice Settings:/)).toBeInTheDocument()
+        expect(screen.queryByText('Suggest from voice qualities')).not.toBeInTheDocument()
+    })
+
     it('filters voices by engine', async () => {
         await act(async () => {
             render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
@@ -343,5 +377,75 @@ describe('VoicesTab', () => {
         const engineSelect = await screen.findByLabelText(/ENGINE/i) as HTMLSelectElement
         expect(engineSelect.value).toBe('custom-engine')
         expect(engineSelect.value).not.toBe('xtts')
+    })
+})
+
+describe('resolveEditingVoiceMetadata', () => {
+    // Regression for the bug where editingVoiceMetadata matched
+    // `group.profiles.includes(editingProfile)` by object identity. Any
+    // refetchHome() elsewhere in the app (e.g. an unrelated job_completed
+    // websocket event) replaces `speakerProfiles` — and therefore the
+    // `voiceGroups` built from it — with brand-new object references, which
+    // silently broke the "Suggest from voice qualities" button even though
+    // the voice was still fully tagged.
+    const makeProfile = (): SpeakerProfile => ({
+        name: 'Woman',
+        wav_count: 3,
+        speed: 1.0,
+        is_default: true,
+        preview_url: null,
+        speaker_id: 'speaker-1',
+        variant_name: 'New Zealand',
+        engine: 'xtts',
+        test_text: 'Original script',
+    } as any)
+
+    const taggedMetadata: VoiceMetadata = {
+        id: 'speaker-1',
+        name: 'Woman',
+        is_untagged: false,
+        attributes: { class: 'human', gender: 'feminine', age: 'adult', pace: 'moderate' },
+    }
+
+    it('resolves metadata even when the voice group array has been rebuilt with new-but-equivalent object references', () => {
+        const staleEditingProfile = makeProfile()
+        const staleGroup = { id: 'speaker-1', name: 'Woman', profiles: [staleEditingProfile] }
+
+        // Sanity check: resolves fine against the group that actually contains
+        // the referentially-identical profile.
+        expect(
+            resolveEditingVoiceMetadata(staleEditingProfile, [staleGroup], new Map([['speaker-1', taggedMetadata]]), [])
+        ).toEqual(taggedMetadata)
+
+        // Now simulate refetchHome(): a brand-new profile object/array (same
+        // `name`/`speaker_id` values, different references) replaces the group
+        // this profile lives in, while `editingProfile` still points at the
+        // old (stale) reference.
+        const rebuiltGroup = { id: 'speaker-1', name: 'Woman', profiles: [makeProfile()] }
+        expect(staleEditingProfile).not.toBe(rebuiltGroup.profiles[0])
+
+        expect(
+            resolveEditingVoiceMetadata(staleEditingProfile, [rebuiltGroup], new Map([['speaker-1', taggedMetadata]]), [])
+        ).toEqual(taggedMetadata)
+    })
+
+    it('returns undefined when there is no editing profile', () => {
+        expect(resolveEditingVoiceMetadata(null, [], new Map(), [])).toBeUndefined()
+    })
+
+    it('returns undefined when no voice group contains a profile with the matching name', () => {
+        const editingProfile = makeProfile()
+        const unrelatedGroup = { id: 'speaker-2', name: 'Other', profiles: [{ ...editingProfile, name: 'SomeoneElse' }] }
+        expect(
+            resolveEditingVoiceMetadata(editingProfile, [unrelatedGroup], new Map([['speaker-1', taggedMetadata]]), [])
+        ).toBeUndefined()
+    })
+
+    it('falls back to name-based metadata lookup when the group id is not in the metadata map', () => {
+        const editingProfile = makeProfile()
+        const group = { id: 'speaker-1', name: 'Woman', profiles: [editingProfile] }
+        expect(
+            resolveEditingVoiceMetadata(editingProfile, [group], new Map(), [taggedMetadata])
+        ).toEqual(taggedMetadata)
     })
 })

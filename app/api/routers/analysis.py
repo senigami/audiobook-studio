@@ -20,9 +20,6 @@ from ...utils.pathing import safe_basename, safe_join_flat
 
 logger = logging.getLogger(__name__)
 
-# Compatibility for tests that monkeypatch these
-REPORT_DIR = config.REPORT_DIR
-
 
 class AnalysisError(Exception):
     def __init__(self, message: str, status_code: int = 400):
@@ -100,7 +97,7 @@ def api_analyze_chapter(chapter_id: str):
 
         def process_chapter():
             segs = get_chapter_segments(chapter_id)
-            chars = get_characters(chap["project_id"])
+            chars = get_characters(chap["project_id"], chapter_id=chapter_id)
             char_map = {c["id"]: c for c in chars}
 
             settings = state.get_settings()

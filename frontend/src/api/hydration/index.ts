@@ -105,6 +105,7 @@ function buildOverlayQueueItem(jobId: string, delta: OverlayDelta): ProcessingQu
     grouped_progress: delta.grouped_progress ?? delta.progress,
     active_segment_id: delta.active_segment_id ?? undefined,
     active_segment_progress: delta.active_segment_progress ?? undefined,
+    active_segments_map: delta.active_segments_map ?? undefined,
   };
 }
 
@@ -249,7 +250,10 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
         grouped_progress: isOverlayNewer ? (delta.grouped_progress !== undefined ? delta.grouped_progress ?? undefined : item.grouped_progress) : item.grouped_progress,
         active_segment_id: isOverlayNewer ? (delta.active_segment_id !== undefined ? delta.active_segment_id ?? undefined : item.active_segment_id) : item.active_segment_id,
         active_segment_progress: isOverlayNewer ? (delta.active_segment_progress !== undefined ? delta.active_segment_progress ?? undefined : item.active_segment_progress) : item.active_segment_progress,
+        active_segments_map: isOverlayNewer ? (delta.active_segments_map !== undefined ? delta.active_segments_map ?? undefined : (item as any).active_segments_map) : (item as any).active_segments_map,
         confidence: isOverlayNewer ? (delta.confidence !== undefined ? delta.confidence ?? undefined : item.confidence) : item.confidence,
+        indeterminate: isOverlayNewer ? (delta.indeterminate !== undefined ? delta.indeterminate : item.indeterminate) : item.indeterminate,
+        loadingElapsedSeconds: isOverlayNewer ? (delta.loadingElapsedSeconds !== undefined ? delta.loadingElapsedSeconds : item.loadingElapsedSeconds) : item.loadingElapsedSeconds,
       };
 
       // Apply Finalizing Hold heuristic

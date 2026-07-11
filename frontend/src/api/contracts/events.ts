@@ -50,6 +50,13 @@ export interface StudioJobEvent {
   active_render_batch_progress?: number | null;
   active_segment_id?: string | null;
   active_segment_progress?: number | null;
+  active_segments_map?: Record<string, {
+    phase: 'preparing' | 'rendering' | 'done';
+    progress: number;
+    eta_seconds: number | null;
+    reason_code?: string;
+    indeterminate?: boolean;
+  }> | null;
   render_group_count?: number | null;
   completed_render_groups?: number | null;
   active_render_group_index?: number | null;
@@ -65,6 +72,8 @@ export interface StudioJobEvent {
   produced_audio_length?: number | null;
   produced_chars?: number | null;
   produced_segment_count?: number | null;
+  indeterminate?: boolean | null;
+  loadingElapsedSeconds?: number | null;
 }
 
 export const isStudioJobEvent = (value: unknown): value is StudioJobEvent => {

@@ -103,6 +103,265 @@ def _patch_xtts_load_audio() -> None:
 def _emit_stderr_line(message: str, *, flush: bool = False) -> None:
     print(message, file=sys.stderr, flush=flush)
 
+
+def _normalize_speaker_wav_paths(speaker_wav_paths, voice_profile_dir=None):
+    """Resolve a speaker-wav spec into (wav_input, combined_paths_key).
+
+    Accepts a list of wav paths, a comma-joined string of paths, a single path
+    string, or (if none of those) falls back to globbing `voice_profile_dir` for
+    `*.wav` files. `combined_paths_key` is a stable, sorted "|"-joined string used
+    as the cache key for latent lookups.
+
+    Hoisted to module level: serve mode (`_run_serve_job`) and one-shot mode
+    (`main`) previously each defined a byte-identical copy of this function.
+    """
+    if isinstance(speaker_wav_paths, list):
+        wavs = [os.path.abspath(p) for p in speaker_wav_paths if p]
+        return wavs, "|".join(sorted(wavs))
+
+    if isinstance(speaker_wav_paths, str) and "," in speaker_wav_paths:
+        wavs = [os.path.abspath(s.strip()) for s in speaker_wav_paths.split(",") if s.strip()]
+        return wavs, "|".join(sorted(wavs))
+
+    if isinstance(speaker_wav_paths, str) and speaker_wav_paths.strip():
+        wav = os.path.abspath(speaker_wav_paths)
+        return wav, wav
+
+    if voice_profile_dir:
+        profile_path = Path(voice_profile_dir)
+        profile_wavs = sorted(
+            str(p.resolve())
+            for p in profile_path.glob("*.wav")
+            if p.name != "latent.pth"
+        )
+        if profile_wavs:
+            return profile_wavs, "|".join(sorted(profile_wavs))
+        return None, str(profile_path.resolve())
+
+    return None, None
+
+
+def _run_synthesis_loop(
+    script,
+    tts,
+    xtts_model,
+    device,
+    *,
+    language,
+    speed,
+    temperature,
+    repetition_penalty,
+    task_id,
+    out_path,
+    speaker_latents,
+    emit_line,
+    default_voice_profile_dir=None,
+    voice_reference_error_detail=False,
+):
+    """Shared per-segment synthesis loop used by both the warm-worker serve path
+    (`_run_serve_job`) and the one-shot CLI path (`main`).
+
+    Handles: sentence splitting, semicolon sub-pause splitting, sentence/paragraph
+    pause insertion (SENTENCE_PAUSE_MS=180, PARAGRAPH_PAUSE_MS=650, PAUSE_CHAR_MS=400),
+    per-segment marker emission ([START_SEGMENT], [PROGRESS], [SEGMENT_SAVED]),
+    `_synthesize_one()` fallback between precomputed latents and a raw speaker_wav,
+    per-segment WAV save, and the final concatenated WAV save.
+
+    `device` is accepted for signature symmetry with both call sites (kept so the
+    caller can pass it even though the loop body does not need it directly — all
+    torch ops here run against tensors/models already bound to the right device).
+
+    Parameters that intentionally differ between callers and are NOT unified:
+      - `speaker_latents`: pre-computed per-speaker-key latents dict. The two
+        callers use different cache-staleness logic to build this dict *before*
+        calling this loop (serve: no invalidation, just exists-check; one-shot:
+        `_profile_fingerprint()`-gated invalidation via sha256 over wav
+        name+size+mtime). That is a genuine behavioral difference in cache
+        correctness, not boilerplate, so it stays outside this shared loop as an
+        upstream input.
+      - `emit_line`: how a marker/log line is written to stderr. Serve mode always
+        flushes immediately (`_emit_stderr_line(msg, flush=True)`) — required so
+        the warm-worker's persistent stderr reader (commit 8b9ae90a) sees markers
+        promptly; the one-shot path's original `print(..., file=sys.stderr, ...)`
+        calls did NOT all pass `flush=True` explicitly (a few relied on Python's
+        default buffering / at-exit flush). Each caller passes a wrapper closure
+        that reproduces its own original flush behavior line-by-line; this loop
+        does not decide flushing.
+      - `voice_reference_error_detail`: the "no voice reference" ValueError message
+        differs between the two paths (serve: short "No voice reference available";
+        one-shot: longer message including the repr of the missing speaker_wav).
+        Set True to get the one-shot's more detailed message.
+
+    Returns the list of top-level wav chunk tensors that were synthesized
+    (`all_wav_chunks`); already saved to `out_path` if non-empty. Raises on
+    failure — translating an exception into a return code (serve, which
+    continues its loop) vs. `sys.exit(1)` (one-shot) is a genuine difference in
+    process-lifecycle behavior that is deliberately left to each caller, not
+    unified here.
+    """
+    import torch as _torch  # noqa: PLC0415
+    from tqdm import tqdm  # noqa: PLC0415
+
+    # Silence durations (in samples at 24kHz) — identical constants in both paths.
+    SAMPLE_RATE = 24000
+    SENTENCE_PAUSE_MS = 180
+    PARAGRAPH_PAUSE_MS = 650
+    PAUSE_CHAR = ";"
+    PAUSE_CHAR_MS = 400
+
+    all_wav_chunks: list = []
+    pause_indices: set = set()
+
+    def _synthesize_one(text_to_speak, latent_pair, fallback_sw):
+        if not latent_pair and not fallback_sw:
+            if voice_reference_error_detail:
+                raise ValueError(
+                    f"No voice reference available for synthesis (no latents and no "
+                    f"speaker_wav). sw={fallback_sw!r}"
+                )
+            raise ValueError("No voice reference available")
+        if latent_pair:
+            gpt_cond, spk_emb = latent_pair
+            out_dict = xtts_model.inference(
+                text=text_to_speak,
+                language=language,
+                gpt_cond_latent=gpt_cond,
+                speaker_embedding=spk_emb,
+                temperature=temperature,
+                speed=speed,
+                repetition_penalty=repetition_penalty,
+            )
+            return out_dict["wav"]
+        else:
+            return tts.synthesizer.tts(
+                text=text_to_speak,
+                speaker_wav=fallback_sw,
+                language_name=language,
+                speed=speed,
+                repetition_penalty=repetition_penalty,
+                temperature=temperature,
+            )
+
+    with tqdm(total=len(script), unit="seg", desc="Synthesizing", file=sys.stderr) as pbar:
+        for i, segment in enumerate(script):
+            if "id" in segment:
+                emit_line(f"[START_SEGMENT] {segment['id']}")
+            elif "save_path" in segment:
+                emit_line(f"[START_SEGMENT] {segment['save_path']}")
+            # True 0% start anchor: emit progress 0 at the real start of this
+            # segment's synthesis (before the first sentence), so the segment
+            # progress bar starts at 0% in sync with synthesis starting — not
+            # first appearing at the first sentence's non-zero percent.
+            _seg_start_progress = "[PROGRESS] 0%"
+            if task_id:
+                _seg_start_progress += f" {task_id}"
+            emit_line(_seg_start_progress)
+
+            text = segment.get("text", "")
+            sw = segment.get("speaker_wav")
+            vpdir = segment.get("voice_profile_dir") or default_voice_profile_dir
+
+            fallback_sw = sw
+            if not fallback_sw and vpdir:
+                _, combined_sw = _normalize_speaker_wav_paths(None, vpdir)
+                if combined_sw and "|" in combined_sw:
+                    fallback_sw = combined_sw.split("|")[0]
+                elif combined_sw:
+                    fallback_sw = combined_sw
+            # Ensure fallback_sw is a single path string (tts.synthesizer.tts expects one)
+            if isinstance(fallback_sw, (list, tuple)):
+                fallback_sw = fallback_sw[0] if fallback_sw else None
+
+            latents = speaker_latents.get(speaker_key(vpdir, sw))
+
+            paragraphs = [p.strip() for p in text.split("\n") if p.strip()]
+            all_sentences: list = []
+            total_sentences = 0
+            for paragraph in paragraphs:
+                if hasattr(tts, "synthesizer") and hasattr(tts.synthesizer, "split_into_sentences"):
+                    sentences = tts.synthesizer.split_into_sentences(paragraph)
+                elif hasattr(tts, "tts_tokenizer"):
+                    sentences = tts.tts_tokenizer.split_sentences(paragraph)
+                else:
+                    sentences = [paragraph]
+                sentences = [s for s in sentences if s and s.strip() and any(c.isalnum() for c in s)]
+                all_sentences.append(sentences)
+                total_sentences += len(sentences)
+
+            segment_wav_chunks: list = []
+            sentences_done = 0
+
+            for p_idx, sentences in enumerate(all_sentences):
+                for s_idx, sentence in enumerate(sentences):
+                    if PAUSE_CHAR in sentence:
+                        sub_parts = [p.strip() for p in sentence.split(PAUSE_CHAR) if p.strip()]
+
+                        def is_safe(t):
+                            words = [w for w in t.split() if any(c.isalnum() for c in w)]
+                            return len(words) >= 3
+
+                        if all(is_safe(p) for p in sub_parts):
+                            for sp_idx, sub_part in enumerate(sub_parts):
+                                sub_text = sub_part.strip()
+                                if sub_text and any(c.isalnum() for c in sub_text):
+                                    wav_chunk = _synthesize_one(sub_text, latents, fallback_sw)
+                                    chunk_tensor = _torch.FloatTensor(wav_chunk)
+                                    all_wav_chunks.append(chunk_tensor)
+                                    segment_wav_chunks.append(chunk_tensor)
+                                if sp_idx < len(sub_parts) - 1:
+                                    pause_samples = int(SAMPLE_RATE * PAUSE_CHAR_MS / 1000)
+                                    silence = _torch.zeros(pause_samples)
+                                    all_wav_chunks.append(silence)
+                                    segment_wav_chunks.append(silence)
+                                    pause_indices.add(len(all_wav_chunks) - 1)
+                        else:
+                            wav_chunk = _synthesize_one(sentence, latents, fallback_sw)
+                            chunk_tensor = _torch.FloatTensor(wav_chunk)
+                            all_wav_chunks.append(chunk_tensor)
+                            segment_wav_chunks.append(chunk_tensor)
+                    else:
+                        wav_chunk = _synthesize_one(sentence, latents, fallback_sw)
+                        chunk_tensor = _torch.FloatTensor(wav_chunk)
+                        all_wav_chunks.append(chunk_tensor)
+                        segment_wav_chunks.append(chunk_tensor)
+
+                    sentences_done += 1
+                    if total_sentences > 0:
+                        perc = int((sentences_done / total_sentences) * 100)
+                        progress_line = f"[PROGRESS] {perc}%"
+                        if task_id:
+                            progress_line += f" {task_id}"
+                        emit_line(progress_line)
+
+                    is_last_sentence = s_idx == len(sentences) - 1
+                    is_last_paragraph = p_idx == len(paragraphs) - 1
+                    pause_ms = 0
+                    if not (is_last_sentence and is_last_paragraph):
+                        pause_ms = PARAGRAPH_PAUSE_MS if is_last_sentence else SENTENCE_PAUSE_MS
+                    elif i < len(script) - 1:
+                        pause_ms = PARAGRAPH_PAUSE_MS
+                    if pause_ms > 0:
+                        pause_samples = int(SAMPLE_RATE * pause_ms / 1000)
+                        silence = _torch.zeros(pause_samples)
+                        all_wav_chunks.append(silence)
+                        segment_wav_chunks.append(silence)
+                        pause_indices.add(len(all_wav_chunks) - 1)
+
+            if "save_path" in segment and segment_wav_chunks:
+                seg_wav = _torch.cat(segment_wav_chunks, dim=0)
+                _save_wav(segment["save_path"], seg_wav, SAMPLE_RATE)
+                emit_line(f"[SEGMENT_SAVED] {segment['save_path']}")
+
+            pbar.update(1)
+
+    if all_wav_chunks:
+        final_wav = _torch.cat(all_wav_chunks, dim=0)
+        _save_wav(out_path, final_wav, SAMPLE_RATE)
+        emit_line(f"Successfully synthesized {len(all_wav_chunks)} audio chunks.")
+
+    return all_wav_chunks
+
+
 def serve_loop():
     """Persistent serve mode: load model once, read line-delimited JSON jobs from stdin.
 
@@ -227,41 +486,11 @@ def _run_serve_job(job: dict, tts, xtts_model, device) -> int:
         _emit_stderr_line("[error] XTTS serve: out_path is required", flush=True)
         return 1
 
-    # ---- constants (same as one-shot) --------------------------------
-    SAMPLE_RATE = 24000
-    SENTENCE_PAUSE_MS = 180
-    PARAGRAPH_PAUSE_MS = 650
-    PAUSE_CHAR = ";"
-    PAUSE_CHAR_MS = 400
-
     # ---- latent helpers (same logic as main()) -----------------------
     torch, F = _get_torch_modules()
 
     voice_dir = os.path.expanduser("~/.cache/audiobook-studio/voices")
     os.makedirs(voice_dir, exist_ok=True)
-
-    def _normalize_speaker_wav_paths(speaker_wav_paths, vpdir=None):
-        if isinstance(speaker_wav_paths, list):
-            wavs = [os.path.abspath(p) for p in speaker_wav_paths if p]
-            return wavs, "|".join(sorted(wavs))
-        if isinstance(speaker_wav_paths, str) and "," in speaker_wav_paths:
-            wavs = [os.path.abspath(s.strip()) for s in speaker_wav_paths.split(",") if s.strip()]
-            return wavs, "|".join(sorted(wavs))
-        if isinstance(speaker_wav_paths, str) and speaker_wav_paths.strip():
-            wav = os.path.abspath(speaker_wav_paths)
-            return wav, wav
-        if vpdir:
-            from pathlib import Path as _Path
-            profile_path = _Path(vpdir)
-            profile_wavs = sorted(
-                str(p.resolve())
-                for p in profile_path.glob("*.wav")
-                if p.name != "latent.pth"
-            )
-            if profile_wavs:
-                return profile_wavs, "|".join(sorted(profile_wavs))
-            return None, str(profile_path.resolve())
-        return None, None
 
     def _get_latents(speaker_wav_paths, vpdir=None):
         import hashlib as _hashlib
@@ -269,6 +498,13 @@ def _run_serve_job(job: dict, tts, xtts_model, device) -> int:
         # Mirror the one-shot path's .pth branch (see get_latents() ~line 569):
         # if the speaker ref is already a pre-computed latent file, load it directly
         # without attempting audio decoding (which explodes on .pth input).
+        #
+        # NOTE (PL-4 deliberate divergence — see _run_synthesis_loop docstring):
+        # serve mode's latent cache has NO staleness/fingerprint check — once a
+        # latent.pth exists it is trusted forever. One-shot mode's get_latents()
+        # below gates reuse on _profile_fingerprint(). This difference predates
+        # the PL-4 extraction and is NOT unified here; it governs only the
+        # speaker_latents dict built before _run_synthesis_loop runs.
         if (
             isinstance(speaker_wav_paths, str)
             and speaker_wav_paths.lower().endswith(".pth")
@@ -323,156 +559,28 @@ def _run_serve_job(job: dict, tts, xtts_model, device) -> int:
     _emit_stderr_line(f"Synthesizing {len(script)} segments to {out_path}...", flush=True)
     _emit_stderr_line(f"[START_SYNTHESIS] {task_id}".strip(), flush=True)
 
+    def _emit(line: str) -> None:
+        # Serve mode always flushes immediately — required by the warm-worker's
+        # persistent stderr reader (commit 8b9ae90a) to see markers promptly.
+        _emit_stderr_line(line, flush=True)
+
     try:
-        from tqdm import tqdm  # noqa: PLC0415
-
-        all_wav_chunks: list = []
-        pause_indices: set = set()
-
-        def _synthesize_one(text_to_speak, latent_pair, fallback_sw):
-            if not latent_pair and not fallback_sw:
-                raise ValueError("No voice reference available")
-            if latent_pair:
-                gpt_cond, spk_emb = latent_pair
-                out_dict = xtts_model.inference(
-                    text=text_to_speak,
-                    language=language,
-                    gpt_cond_latent=gpt_cond,
-                    speaker_embedding=spk_emb,
-                    temperature=temperature,
-                    speed=speed,
-                    repetition_penalty=repetition_penalty,
-                )
-                return out_dict["wav"]
-            else:
-                return tts.synthesizer.tts(
-                    text=text_to_speak,
-                    speaker_wav=fallback_sw,
-                    language_name=language,
-                    speed=speed,
-                    repetition_penalty=repetition_penalty,
-                    temperature=temperature,
-                )
-
-        with tqdm(total=len(script), unit="seg", desc="Synthesizing", file=sys.stderr) as pbar:
-            for i, segment in enumerate(script):
-                if "id" in segment:
-                    _emit_stderr_line(f"[START_SEGMENT] {segment['id']}", flush=True)
-                elif "save_path" in segment:
-                    _emit_stderr_line(f"[START_SEGMENT] {segment['save_path']}", flush=True)
-                # True 0% start anchor: emit progress 0 at the real start of this
-                # segment's synthesis (before the first sentence), so the segment
-                # progress bar starts at 0% in sync with synthesis starting — not
-                # first appearing at the first sentence's non-zero percent.
-                _seg_start_progress = "[PROGRESS] 0%"
-                if task_id:
-                    _seg_start_progress += f" {task_id}"
-                _emit_stderr_line(_seg_start_progress, flush=True)
-
-                text = segment.get("text", "")
-                sw = segment.get("speaker_wav")
-                vpdir = segment.get("voice_profile_dir") or voice_profile_dir
-
-                fallback_sw = sw
-                if not fallback_sw and vpdir:
-                    _, combined_sw = _normalize_speaker_wav_paths(None, vpdir)
-                    if combined_sw and "|" in combined_sw:
-                        fallback_sw = combined_sw.split("|")[0]
-                    elif combined_sw:
-                        fallback_sw = combined_sw
-                # Ensure fallback_sw is a single path string (tts.synthesizer.tts expects one)
-                if isinstance(fallback_sw, (list, tuple)):
-                    fallback_sw = fallback_sw[0] if fallback_sw else None
-
-                latents = speaker_latents.get(speaker_key(vpdir, sw))
-
-                paragraphs = [p.strip() for p in text.split("\n") if p.strip()]
-                all_sentences: list = []
-                total_sentences = 0
-                for paragraph in paragraphs:
-                    if hasattr(tts, "synthesizer") and hasattr(tts.synthesizer, "split_into_sentences"):
-                        sentences = tts.synthesizer.split_into_sentences(paragraph)
-                    elif hasattr(tts, "tts_tokenizer"):
-                        sentences = tts.tts_tokenizer.split_sentences(paragraph)
-                    else:
-                        sentences = [paragraph]
-                    sentences = [s for s in sentences if s and s.strip() and any(c.isalnum() for c in s)]
-                    all_sentences.append(sentences)
-                    total_sentences += len(sentences)
-
-                segment_wav_chunks: list = []
-                sentences_done = 0
-
-                for p_idx, sentences in enumerate(all_sentences):
-                    for s_idx, sentence in enumerate(sentences):
-                        if PAUSE_CHAR in sentence:
-                            sub_parts = [p.strip() for p in sentence.split(PAUSE_CHAR) if p.strip()]
-
-                            def is_safe(t):
-                                words = [w for w in t.split() if any(c.isalnum() for c in w)]
-                                return len(words) >= 3
-
-                            if all(is_safe(p) for p in sub_parts):
-                                for sp_idx, sub_part in enumerate(sub_parts):
-                                    sub_text = sub_part.strip()
-                                    if sub_text and any(c.isalnum() for c in sub_text):
-                                        wav_chunk = _synthesize_one(sub_text, latents, fallback_sw)
-                                        chunk_tensor = torch.FloatTensor(wav_chunk)
-                                        all_wav_chunks.append(chunk_tensor)
-                                        segment_wav_chunks.append(chunk_tensor)
-                                    if sp_idx < len(sub_parts) - 1:
-                                        pause_samples = int(SAMPLE_RATE * PAUSE_CHAR_MS / 1000)
-                                        silence = torch.zeros(pause_samples)
-                                        all_wav_chunks.append(silence)
-                                        segment_wav_chunks.append(silence)
-                                        pause_indices.add(len(all_wav_chunks) - 1)
-                            else:
-                                wav_chunk = _synthesize_one(sentence, latents, fallback_sw)
-                                chunk_tensor = torch.FloatTensor(wav_chunk)
-                                all_wav_chunks.append(chunk_tensor)
-                                segment_wav_chunks.append(chunk_tensor)
-                        else:
-                            wav_chunk = _synthesize_one(sentence, latents, fallback_sw)
-                            chunk_tensor = torch.FloatTensor(wav_chunk)
-                            all_wav_chunks.append(chunk_tensor)
-                            segment_wav_chunks.append(chunk_tensor)
-
-                        sentences_done += 1
-                        if total_sentences > 0:
-                            perc = int((sentences_done / total_sentences) * 100)
-                            progress_line = f"[PROGRESS] {perc}%"
-                            if task_id:
-                                progress_line += f" {task_id}"
-                            _emit_stderr_line(progress_line, flush=True)
-
-                        is_last_sentence = s_idx == len(sentences) - 1
-                        is_last_paragraph = p_idx == len(paragraphs) - 1
-                        pause_ms = 0
-                        if not (is_last_sentence and is_last_paragraph):
-                            pause_ms = PARAGRAPH_PAUSE_MS if is_last_sentence else SENTENCE_PAUSE_MS
-                        elif i < len(script) - 1:
-                            pause_ms = PARAGRAPH_PAUSE_MS
-                        if pause_ms > 0:
-                            pause_samples = int(SAMPLE_RATE * pause_ms / 1000)
-                            silence = torch.zeros(pause_samples)
-                            all_wav_chunks.append(silence)
-                            segment_wav_chunks.append(silence)
-                            pause_indices.add(len(all_wav_chunks) - 1)
-
-                if "save_path" in segment and segment_wav_chunks:
-                    seg_wav = torch.cat(segment_wav_chunks, dim=0)
-                    _save_wav(segment["save_path"], seg_wav, SAMPLE_RATE)
-                    _emit_stderr_line(f"[SEGMENT_SAVED] {segment['save_path']}", flush=True)
-
-                pbar.update(1)
-
-        if all_wav_chunks:
-            final_wav = torch.cat(all_wav_chunks, dim=0)
-            _save_wav(out_path, final_wav, SAMPLE_RATE)
-            _emit_stderr_line(
-                f"Successfully synthesized {len(all_wav_chunks)} audio chunks.", flush=True
-            )
-
+        _run_synthesis_loop(
+            script,
+            tts,
+            xtts_model,
+            device,
+            language=language,
+            speed=speed,
+            temperature=temperature,
+            repetition_penalty=repetition_penalty,
+            task_id=task_id,
+            out_path=out_path,
+            speaker_latents=speaker_latents,
+            emit_line=_emit,
+            default_voice_profile_dir=voice_profile_dir,
+            voice_reference_error_detail=False,
+        )
         return 0
 
     except Exception as exc:
@@ -496,13 +604,6 @@ def main():
     parser.add_argument("--task_id", "--task-id", help="Optional task identifier for logging")
 
     args = parser.parse_args()
-
-    # Silence durations (in samples at 24kHz)
-    SAMPLE_RATE = 24000
-    SENTENCE_PAUSE_MS = 180   # pause between sentences
-    PARAGRAPH_PAUSE_MS = 650  # pause at segment boundaries (paragraph breath)
-    PAUSE_CHAR = ";"           # semicolons become silence pauses (stripped before XTTS)
-    PAUSE_CHAR_MS = 400        # duration of a semicolon pause
 
     script = []
     if args.script_json:
@@ -546,34 +647,14 @@ def main():
             h.update(b"\0")
         return h.hexdigest()
 
-    def _normalize_speaker_wav_paths(speaker_wav_paths, voice_profile_dir=None):
-        if isinstance(speaker_wav_paths, list):
-            wavs = [os.path.abspath(p) for p in speaker_wav_paths if p]
-            return wavs, "|".join(sorted(wavs))
-
-        if isinstance(speaker_wav_paths, str) and "," in speaker_wav_paths:
-            wavs = [os.path.abspath(s.strip()) for s in speaker_wav_paths.split(",") if s.strip()]
-            return wavs, "|".join(sorted(wavs))
-
-        if isinstance(speaker_wav_paths, str) and speaker_wav_paths.strip():
-            wav = os.path.abspath(speaker_wav_paths)
-            return wav, wav
-
-        if voice_profile_dir:
-            profile_path = Path(voice_profile_dir)
-            profile_wavs = sorted(
-                str(p.resolve())
-                for p in profile_path.glob("*.wav")
-                if p.name != "latent.pth"
-            )
-            if profile_wavs:
-                return profile_wavs, "|".join(sorted(profile_wavs))
-            return None, str(profile_path.resolve())
-
-        return None, None
-
     def get_latents(speaker_wav_paths, device, tts_model, voice_profile_dir=None):
-
+        # NOTE (PL-4 deliberate divergence — see _run_synthesis_loop docstring in
+        # this module): one-shot mode gates latent-cache reuse on
+        # _profile_fingerprint() (sha256 over wav name+size+mtime), rebuilding
+        # when a voice profile's source wavs changed. Serve mode's _get_latents
+        # (in _run_serve_job) has no such check — this difference predates the
+        # PL-4 extraction and is intentionally NOT unified; it governs only the
+        # speaker_latents dict built before _run_synthesis_loop runs.
         wav_input, combined_paths = _normalize_speaker_wav_paths(speaker_wav_paths, voice_profile_dir)
 
         if wav_input is None and not voice_profile_dir:
@@ -644,13 +725,11 @@ def main():
     finally:
         sys.stderr = original_stderr
 
-    # Pre-load all unique latents
-    unique_speakers = {}
-    for s in script:
-        profile_dir = s.get("voice_profile_dir") or args.voice_profile_dir
-        sw = s.get('speaker_wav') or ''
-        key = speaker_key(profile_dir, sw)
-        unique_speakers[key] = (sw or None, profile_dir)
+    # Pre-load all unique latents. build_unique_speakers is the same
+    # torch-free helper serve mode uses (core/serve_speakers.py) — verified
+    # equivalent to this function's previous inline loop (same speaker_key(),
+    # same "sw or None" storage), so switching to it is not a behavior change.
+    unique_speakers = build_unique_speakers(script, args.voice_profile_dir)
 
     speaker_latents = {}
     for key, (sw, profile_dir) in unique_speakers.items():
@@ -663,168 +742,35 @@ def main():
     _emit_stderr_line(f"Synthesizing {len(script)} segments to {args.out_path}...", flush=True)
     print(f"[START_SYNTHESIS] {args.task_id or ''}".strip(), file=sys.stderr, flush=True)
 
+    def _emit(line: str) -> None:
+        # Reproduces the one-shot path's original per-line flush behavior exactly:
+        # [SEGMENT_SAVED] and the final "Successfully synthesized..." line were
+        # bare `print(..., file=sys.stderr)` (no explicit flush=True); every other
+        # marker line (START_SEGMENT, PROGRESS) was flushed immediately. Not
+        # unified with serve mode's always-flush behavior — see
+        # _run_synthesis_loop's docstring.
+        if line.startswith("[SEGMENT_SAVED]") or line.startswith("Successfully synthesized"):
+            print(line, file=sys.stderr)
+        else:
+            print(line, file=sys.stderr, flush=True)
+
     try:
-        from tqdm import tqdm
-        all_wav_chunks = []
-        pause_indices = set()  # indices that are already silence tensors from <PAUSE> markers
-
-        def _synthesize_one(text_to_speak, latent_pair, fallback_sw):
-            """Synthesize a single text string, returning the raw wav numpy array."""
-            # Debug: print(f"DEBUG: _synthesize_one text={text_to_speak[:20]}... latents={latent_pair is not None} sw={fallback_sw}", file=sys.stderr)
-            if not latent_pair and not fallback_sw:
-                raise ValueError(f"No voice reference available for synthesis (no latents and no speaker_wav). sw={repr(fallback_sw)}")
-
-            if latent_pair:
-                gpt_cond, spk_emb = latent_pair
-                out_dict = xtts_model.inference(
-                    text=text_to_speak,
-                    language=args.language,
-                    gpt_cond_latent=gpt_cond,
-                    speaker_embedding=spk_emb,
-                    temperature=args.temperature,
-                    speed=args.speed,
-                    repetition_penalty=args.repetition_penalty
-                )
-                return out_dict['wav']
-            else:
-                return tts.synthesizer.tts(
-                    text=text_to_speak,
-                    speaker_wav=fallback_sw,
-                    language_name=args.language,
-                    speed=args.speed,
-                    repetition_penalty=args.repetition_penalty,
-                    temperature=args.temperature
-                )
-
-        with tqdm(total=len(script), unit="seg", desc="Synthesizing", file=sys.stderr) as pbar:
-            for i, segment in enumerate(script):
-                if 'id' in segment:
-                    print(f"[START_SEGMENT] {segment['id']}", file=sys.stderr, flush=True)
-                elif 'save_path' in segment:
-                    print(f"[START_SEGMENT] {segment['save_path']}", file=sys.stderr, flush=True)
-                # True 0% start anchor (see _run_serve_job): segment bar starts at 0%.
-                _seg_start = "[PROGRESS] 0%"
-                if args.task_id:
-                    _seg_start += f" {args.task_id}"
-                print(_seg_start, file=sys.stderr, flush=True)
-
-                text = segment.get('text', '')
-                sw = segment.get('speaker_wav')
-                profile_dir = segment.get("voice_profile_dir") or args.voice_profile_dir
-
-                # If sw is missing but we have a profile, try to find a fallback WAV in the profile
-                fallback_sw = sw
-                if not fallback_sw and profile_dir:
-                    _, combined_sw = _normalize_speaker_wav_paths(None, profile_dir)
-                    if combined_sw and "|" in combined_sw:
-                        fallback_sw = combined_sw.split("|")[0]
-                    elif combined_sw:
-                        fallback_sw = combined_sw
-                # Ensure fallback_sw is a single path string (tts.synthesizer.tts expects one)
-                if isinstance(fallback_sw, (list, tuple)):
-                    fallback_sw = fallback_sw[0] if fallback_sw else None
-
-                latents = speaker_latents.get(speaker_key(profile_dir, sw))
-
-                # Pre-calculate total sentences for progress reporting
-                total_sentences = 0
-                paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
-                all_sentences = []
-                for p_idx, paragraph in enumerate(paragraphs):
-                    if hasattr(tts, 'synthesizer') and hasattr(tts.synthesizer, 'split_into_sentences'):
-                        sentences = tts.synthesizer.split_into_sentences(paragraph)
-                    elif hasattr(tts, 'tts_tokenizer'):
-                        sentences = tts.tts_tokenizer.split_sentences(paragraph)
-                    else:
-                        sentences = [paragraph]
-                    # Filter empty/noise sentences immediately
-                    sentences = [s for s in sentences if s and s.strip() and any(c.isalnum() for c in s)]
-                    all_sentences.append(sentences)
-                    total_sentences += len(sentences)
-
-                segment_wav_chunks = []
-                sentences_done = 0
-
-                for p_idx, sentences in enumerate(all_sentences):
-                    for s_idx, sentence in enumerate(sentences):
-                        # Handle semicolons: split around them, synthesize each part,
-                        # and insert a silence tensor where each semicolon was.
-                        if PAUSE_CHAR in sentence:
-                            sub_parts = [p.strip() for p in sentence.split(PAUSE_CHAR) if p.strip()]
-
-                            def is_safe(t):
-                                words = [w for w in t.split() if any(c.isalnum() for c in w)]
-                                return len(words) >= 3
-
-                            # Only perform a manual split-pause if every resulting segment is safe (>= 3 words).
-                            # This prevents XTTS from hallucinating on tiny fragments like "Effie."
-                            if all(is_safe(p) for p in sub_parts):
-                                for sp_idx, sub_part in enumerate(sub_parts):
-                                    sub_text = sub_part.strip()
-                                    if sub_text and any(c.isalnum() for c in sub_text):
-                                        wav_chunk = _synthesize_one(sub_text, latents, fallback_sw)
-                                        chunk_tensor = torch.FloatTensor(wav_chunk)
-                                        all_wav_chunks.append(chunk_tensor)
-                                        segment_wav_chunks.append(chunk_tensor)
-                                    if sp_idx < len(sub_parts) - 1:
-                                        pause_samples = int(SAMPLE_RATE * PAUSE_CHAR_MS / 1000)
-                                        silence = torch.zeros(pause_samples)
-                                        all_wav_chunks.append(silence)
-                                        segment_wav_chunks.append(silence)
-                                        pause_indices.add(len(all_wav_chunks) - 1)
-                            else:
-                                # Combined chunk is safer for the model
-                                wav_chunk = _synthesize_one(sentence, latents, fallback_sw)
-                                chunk_tensor = torch.FloatTensor(wav_chunk)
-                                all_wav_chunks.append(chunk_tensor)
-                                segment_wav_chunks.append(chunk_tensor)
-                        else:
-                            wav_chunk = _synthesize_one(sentence, latents, fallback_sw)
-                            chunk_tensor = torch.FloatTensor(wav_chunk)
-                            all_wav_chunks.append(chunk_tensor)
-                            segment_wav_chunks.append(chunk_tensor)
-
-                        sentences_done += 1
-                        if total_sentences > 0:
-                            perc = int((sentences_done / total_sentences) * 100)
-                            progress_line = f"[PROGRESS] {perc}%"
-                            if args.task_id:
-                                progress_line += f" {args.task_id}"
-                            print(progress_line, file=sys.stderr, flush=True)
-
-                        # Add sentence or paragraph pause
-
-                        # Add sentence or paragraph pause
-                        is_last_sentence = (s_idx == len(sentences) - 1)
-                        is_last_paragraph = (p_idx == len(paragraphs) - 1)
-
-                        pause_ms = 0
-                        if not (is_last_sentence and is_last_paragraph):
-                            pause_ms = PARAGRAPH_PAUSE_MS if is_last_sentence else SENTENCE_PAUSE_MS
-                        elif i < len(script) - 1:
-                            # End of a script entry (except the very last one)
-                            pause_ms = PARAGRAPH_PAUSE_MS
-
-                        if pause_ms > 0:
-                            pause_samples = int(SAMPLE_RATE * pause_ms / 1000)
-                            silence = torch.zeros(pause_samples)
-                            all_wav_chunks.append(silence)
-                            segment_wav_chunks.append(silence)
-                            pause_indices.add(len(all_wav_chunks) - 1)
-
-                # Save this segment individually if requested (for Performance tab playback)
-                if 'save_path' in segment and segment_wav_chunks:
-                    seg_wav = torch.cat(segment_wav_chunks, dim=0)
-                    _save_wav(segment['save_path'], seg_wav, SAMPLE_RATE)
-                    # Signal to parent process that this segment's audio is ready
-                    print(f"[SEGMENT_SAVED] {segment['save_path']}", file=sys.stderr)
-
-                pbar.update(1)
-
-        if all_wav_chunks:
-            final_wav = torch.cat(all_wav_chunks, dim=0)
-            _save_wav(args.out_path, final_wav, SAMPLE_RATE)
-            print(f"Successfully synthesized {len(all_wav_chunks)} audio chunks.", file=sys.stderr)
+        _run_synthesis_loop(
+            script,
+            tts,
+            xtts_model,
+            device,
+            language=args.language,
+            speed=args.speed,
+            temperature=args.temperature,
+            repetition_penalty=args.repetition_penalty,
+            task_id=args.task_id,
+            out_path=args.out_path,
+            speaker_latents=speaker_latents,
+            emit_line=_emit,
+            default_voice_profile_dir=args.voice_profile_dir,
+            voice_reference_error_detail=True,
+        )
 
     except Exception as e:
         print(f"\n[CRITICAL ERROR] XTTS failed: {str(e)}", file=sys.stderr)

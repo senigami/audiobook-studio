@@ -1,0 +1,322 @@
+# Data Model
+
+```
+spec_version: 1.9.0
+status: active
+updated: 2026-07-09
+sources:
+  - app/db/state.py
+  - app/db/state_jobs.py
+  - app/db/state_settings.py
+  - app/db/state_performance.py
+  - app/db/state_helpers.py
+  - app/db/__init__.py
+  - app/db/characters.py
+  - app/db/lexicon.py
+  - app/utils/text/lexicon.py
+  - app/db/segment_gc.py
+  - app/db/chapters_cleanup.py
+  - app/db/performance.py
+```
+
+> **TL;DR:** Studio 2.0 uses two complementary stores — volatile in-memory state.json for live job state and settings, and durable SQLite for project/chapter/queue history — with disk artifact state as the ultimate source of truth.
+
+## Changelog
+
+| Version | Date       | Change             |
+|---------|------------|--------------------|
+| 1.9.0   | 2026-07-09 | **`lexicon`: reject case-insensitive duplicate words on add.** `add_lexicon_entry()` now raises `ValueError` (surfaced by `POST /api/projects/{project_id}/lexicon` as a 400 `{"status": "error", "message": ...}`) when the project already has an entry whose `word` matches case-insensitively. Prevents two entries for the same word from silently chaining through `apply_lexicon`'s sequential-substitution pass (e.g. `read`→`red` then `red`→`reed` turning `read` into `reed`). Editing an existing entry's word (`update_lexicon_entry`) is unchanged — this only guards entry creation. |
+| 1.8.0   | 2026-07-09 | **Book tab front door: `projects.description`.** Add the optional `description` column to the durable `projects` table (additive migration, same idiom as `series_position`) and document it as part of the canonical schema. `update_project()` round-trips the field with no special-casing (plain string, unlike `series_position`'s null-vs-empty handling); no manifest or legacy v1→v2 migration change is needed (write-once manifest, no legacy source data for a field that didn't exist in v1). |
+| 1.7.0   | 2026-07-08 | **Library project usability: `projects.series_position`.** Add the optional `series_position` column to the durable `projects` table and document it as part of the canonical schema. Project create/update flows now round-trip the field, and update requests reject invalid `series_position` values with a structured 400 instead of crashing the handler. |
+| 1.6.0   | 2026-07-03 | **W-PAR task 007 — `tts_parallel_cap` / `tts_engine_caps` settings fields.** New `settings` keys documenting the cap-default-1 toggle surfaced as a real Studio setting (see `queue-jobs.md §7.3b`). No storage schema change beyond the two new keys; existing `state.json` files without them fall back to the documented defaults via `_normalize_settings`. Parent/child job shape and validated-artifact completion fields are unchanged by task 007 (confirmed no drift — those were introduced by W-PAR tasks 002/003/005, already documented in prior versions of this spec). |
+| 1.5.0   | 2026-07-02 | **`model_load_seconds` is now consumed, not just recorded (W-MIX-LA load-aware ETA).** Doc catch-up for `app/db/performance.py::expected_model_load_seconds(engine, tts_model)`, which reads a trimmed mean of `render_performance_samples.model_load_seconds` (filtered to `>= 1.0`, treating smaller values as warm-reuse noise, and to matching `tts_model` when known) to produce the load term the orchestrator adds to the live chapter ETA during a cold-engine dispatch (`live-events.md` 1.8.0 `pre_load_eta` / `LOADING_MODEL` frames). Returns `None` on no cold-load history — callers must not inject a load term in that case (no-fabrication principle). See render_performance_samples below. |
+| 1.4.1   | 2026-06-25 | Clarify render-performance samples are orchestrator-owned and `synthesis_duration_seconds` is synthesis-only (engine-confirmed group time), excluding load windows and inter-group overhead; align the mixed render contract with the single-writer path |
+| 1.4.0   | 2026-06-23 | Sharpen source-of-truth invariant to *validated metadata, not raw file existence*; add § Segment audio artifacts & orphan reconciliation (group→filename fan-out, orphan GC keyed on referenced filenames, per-book on-open sweep); see [ADR-0013](../decisions/ADR-0013-segment-orphan-reconciliation.md) |
+| 1.3.1   | 2026-06-21 | Correct lexicon application-point docs: xtts/voxtral apply it in per-plugin text-prep handlers, NOT in `SynthesisTask.to_bridge_request()` (api_synthesis path only) |
+| 1.3.0   | 2026-06-21 | Add `lexicon` table (per-project pronunciation substitutions); document `apply_lexicon` pre-synthesis application point |
+| 1.2.0   | 2026-06-21 | Add `chapter_id` column to `characters` table for chapter-scoped temp characters; document scope rule (NULL=book, set=chapter-temp) and promote semantics |
+| 1.1.0   | 2026-06-16 | Clarify `finalizing` is a transient phase coerced to `running` on persist in both `put_job` and `update_job`; not a stored value |
+| 1.0.0   | 2026-06-10 | Initial canonical spec |
+
+---
+
+## Overview
+
+Audiobook Studio maintains two tracking stores:
+
+| Store | File | Durability | Purpose |
+|-------|------|-----------|---------|
+| **state.json** (in-memory) | `state.json` | Volatile — lost on crash | Live job state, settings, event listeners |
+| **SQLite** | `audiobook_studio.db` | Durable | Projects, chapters, segments, characters, speakers, queue history, performance samples |
+
+**Source of truth invariant:** **validated artifact metadata** is the canonical source of truth — *not raw file existence*. An on-disk artifact is authoritative only when a durable DB row validates it (e.g. a `chapter_segments.audio_file_path` pointing at it); a file present on disk but referenced by no DB row is an **orphan**, never promoted to "done" on the strength of existing alone. Reconciliation enforces this. `state.json` is volatile and MUST NOT be treated as authoritative after a process restart. See [§ Segment audio artifacts & orphan reconciliation](#segment-audio-artifacts--orphan-reconciliation) and [ADR-0013](../decisions/ADR-0013-segment-orphan-reconciliation.md).
+
+---
+
+## state.json
+
+Managed by `app/db/state.py`, which is a facade over decomposed modules:
+
+- `state_jobs` — job map, status transitions, listener callbacks
+- `state_settings` — runtime settings
+- `state_performance` — ETA/performance samples
+- `state_helpers` — RLock, atomic writes, corruption-resistant persistence
+
+All access is RLock-guarded. Writes are atomic (write to a temp file, rename into place).
+
+### Top-level shape
+
+```json
+{
+  "jobs": { ... },
+  "settings": { ... }
+}
+```
+
+### jobs
+
+Each key is a job UUID. Values conform to:
+
+| Field | Type | Values |
+|-------|------|--------|
+| `id` | string | Job UUID |
+| `status` | string | `queued` \| `preparing` \| `running` \| `finalizing` \| `done` \| `failed` \| `cancelled` — note: `finalizing` is a transient phase only; both `put_job` and `update_job` coerce it to `running` before persisting, so it is never written to disk |
+| `kind` | string | `synthesis` \| `assembly` \| `voice_build` \| `voice_test` \| `mixed` \| `generic` |
+| `progress` | float | 0.0–1.0, rounded to 2 decimal places |
+| `eta_seconds` | number \| null | Estimated seconds remaining |
+| `chapter_id` | string \| null | Chapter UUID |
+| `project_id` | string \| null | Project UUID |
+| `engine` | string \| null | Engine ID |
+| `created_at` | float | Unix epoch seconds |
+| `started_at` | float \| null | Unix epoch seconds |
+| `finished_at` | float \| null | Unix epoch seconds |
+| `log` | string | Human-readable progress log |
+| `error` | string \| null | Error message if `status` = `failed` |
+
+**Invariants:**
+
+- Progress MUST advance monotonically (never decrease for a given job).
+- Progress broadcast MUST only fire when the new value advances ≥ 1% over the last broadcast value.
+- A job in `done`, `failed`, or `cancelled` status MUST NOT transition to any other status.
+
+### settings
+
+| Field | Type | Default | Notes |
+|-------|------|---------|-------|
+| `default_engine` | string | `"xtts"` | Active TTS engine ID |
+| `safe_mode` | bool | `true` | Enables extra sanitization guards |
+| `tts_api_enabled` | bool | `false` | Enables the external `/api/v1/tts` sub-app |
+| `tts_api_key` | string | `""` | Empty = open access (local-only) |
+| `tts_api_rate_limit` | integer | `10` | Requests per window |
+| `lan_binding_enabled` | bool | `false` | Binds to LAN interface |
+| `api_priority_mode` | string | `"studio_first"` | `studio_first` \| `equal` \| `api_first` |
+| `is_paused` | bool | `false` | Pauses the task queue |
+| `default_speaker_profile` | string | `""` | Default voice profile name |
+| `enabled_plugins` | object | `{}` | Map of engine ID → bool |
+| `verified_plugins` | object | `{}` | Map of engine ID → bool |
+| `tts_parallel_cap` | integer | `1` | W-PAR task 007: global per-engine concurrency cap; clamped to each engine's manifest `max_concurrent_workers` at claim-build time (never raises above it) |
+| `tts_engine_caps` | object | `{}` | W-PAR task 007: map of engine ID → per-engine cap override; takes precedence over `tts_parallel_cap` for that engine |
+
+Settings MUST be persisted to `state.json` on every mutation. Callers MUST NOT modify the settings dict directly — use the `state_settings` API.
+
+---
+
+## SQLite (audiobook_studio.db)
+
+Managed by `app/db/`. The DB MUST NOT auto-migrate on import — callers invoke `migrate_state_json_to_db()` explicitly via `app/db/__init__.py`.
+
+### projects
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | TEXT PK | UUID |
+| `name` | TEXT | |
+| `series` | TEXT | |
+| `series_position` | INTEGER | Optional series index used for sorting and display; NULL when unset |
+| `author` | TEXT | |
+| `speaker_profile_name` | TEXT | Default voice for the project |
+| `cover_image_path` | TEXT | Relative path to cover image |
+| `description` | TEXT | Optional book description/synopsis shown on the Book tab; NULL when unset |
+| `created_at` | REAL | Unix epoch seconds |
+| `updated_at` | REAL | Unix epoch seconds |
+
+### chapters
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | TEXT PK | UUID |
+| `project_id` | TEXT FK | → projects.id |
+| `title` | TEXT | |
+| `text_content` | TEXT | |
+| `speaker_profile_name` | TEXT | Overrides project default if set |
+| `sort_order` | INTEGER | Display/processing order |
+| `audio_status` | TEXT | `unprocessed` \| `processing` \| `done` \| `failed` |
+| `audio_file_path` | TEXT | |
+| `audio_generated_at` | REAL | Unix epoch seconds |
+| `audio_length_seconds` | REAL | |
+| `text_last_modified` | REAL | Unix epoch seconds |
+| `predicted_audio_length` | REAL | |
+| `char_count` | INTEGER | |
+| `word_count` | INTEGER | |
+
+### chapter_segments
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | TEXT PK | UUID |
+| `chapter_id` | TEXT FK | → chapters.id |
+| `segment_order` | INTEGER | Order within chapter |
+| `text_content` | TEXT | Raw text |
+| `sanitized_text` | TEXT | Sanitized for TTS |
+| `character_id` | TEXT FK nullable | → characters.id |
+| `speaker_profile_name` | TEXT | Resolved speaker for this segment |
+| `audio_file_path` | TEXT | Bare filename (no path) of the segment's rendered audio under `chapters/<id>/segments/`; NULL until rendered. See § below. |
+| `audio_status` | TEXT | `unprocessed` \| `processing` \| `done` \| `failed` |
+| `audio_generated_at` | REAL | Unix epoch seconds |
+
+#### Segment audio artifacts & orphan reconciliation
+
+Rendering groups consecutive compatible segments into a **render group** and synthesizes **one** WAV per group, written to `projects/<project_id>/chapters/<chapter_id>/segments/` and named `<batch_timestamp_ns>_<leader_segment_order_index>.wav`. On success that single filename is written as the `audio_file_path` of **every** member segment of the group (the **group→filename fan-out**): many `chapter_segments` rows share one bare filename.
+
+Consequences and rules:
+
+- **DB is the source of truth, not the disk.** A segment file is "live" only while at least one row references its basename. Reset paths (text re-segmentation, `update_segments_status_bulk('unprocessed')`, reassignment) NULL `audio_file_path` on rows; because the deletion helper (`cleanup_chapter_audio_files`) matches a segment file either by exact name (`explicit_files`) or by the `{segment_id}.*` prefix — and group files are named `<ts>_<index>`, never `{segment_id}` — a reset that does not pass `explicit_files` strands the group WAVs as **orphans** (on disk, referenced by no row).
+- **Orphans are garbage-collected, never adopted.** `app/db/segment_gc.py::reconcile_orphan_segment_files_for_project(project_id)` deletes every file in a chapter's `segments/` dir whose basename is not in the keep-set `{audio_file_path basenames of that chapter's rows}`. It is keyed on **referenced filenames** (NOT on `file.stem` as a segment id — that mistake, still present in the legacy `cleanup_orphaned_segments`, would delete valid shared group files). It skips chapters with an active render (`_chapter_has_active_generation`) and never touches chapter-root outputs (`chapter.wav`/`.m4a`).
+- **The GC runs per-book, on book open** (`GET /api/projects/{id}` schedules it via FastAPI `BackgroundTasks`), **not library-wide at boot.** Rationale and the boot-vs-on-open decision: [ADR-0013](../decisions/ADR-0013-segment-orphan-reconciliation.md).
+
+### processing_queue
+
+Records every job that has ever been submitted. This is the durable history; live status lives in `state.json`.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | TEXT PK | Job UUID |
+| `project_id` | TEXT FK nullable | → projects.id |
+| `chapter_id` | TEXT FK nullable | → chapters.id |
+| `segment_ids` | TEXT | JSON array of segment UUIDs, or NULL |
+| `split_part` | INTEGER | Default 0; chunk index for split jobs |
+| `status` | TEXT | `queued` \| `preparing` \| `running` \| `finalizing` \| `done` \| `failed` \| `cancelled` — note: `finalizing` is listed for completeness but is coerced to `running` in the state layer before any DB sync, so it will not appear in durable rows |
+| `created_at` | REAL | Unix epoch seconds |
+| `started_at` | REAL | Unix epoch seconds |
+| `completed_at` | REAL | Unix epoch seconds |
+| `error` | TEXT | Error message if failed |
+| `custom_title` | TEXT | Display title override |
+| `engine` | TEXT | Engine ID used |
+
+### characters
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | TEXT PK | UUID |
+| `project_id` | TEXT FK | → projects.id |
+| `name` | TEXT | Display name |
+| `speaker_profile_name` | TEXT | Assigned voice |
+| `default_emotion` | TEXT | |
+| `color` | TEXT | Hex color, default `"#8b5cf6"` |
+| `chapter_id` | TEXT nullable | Scope key: `NULL` = book-scoped (visible everywhere in the project); a chapter UUID = chapter-scoped temp (visible only within that chapter). Added via idempotent `ALTER TABLE` migration — existing rows default to `NULL`. |
+
+**Scope rule:** A character with `chapter_id IS NULL` is a book character and appears in all chapter contexts. A character with `chapter_id` set is a temporary character belonging to that chapter only.
+
+**`get_characters(project_id, chapter_id=None)` semantics:**
+- When `chapter_id` is `None` (default): returns all characters for the project regardless of scope (backwards-compatible).
+- When `chapter_id` is supplied: returns `WHERE project_id = ? AND (chapter_id IS NULL OR chapter_id = ?)` — book characters plus that chapter's temps, but NOT other chapters' temps.
+
+**Promote:** `promote_character(character_id)` sets `chapter_id = NULL`, converting a temp to a permanent book character. Exposed via `POST /api/characters/{character_id}/promote`.
+
+### lexicon
+
+Per-project pronunciation substitutions. Each entry maps a source word to a replacement string that is substituted **before** text is sent to the TTS engine.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | TEXT PK | UUID |
+| `project_id` | TEXT FK | → projects.id |
+| `word` | TEXT | Source word (matched whole-word, case-insensitive) |
+| `replacement` | TEXT | Plain-text replacement |
+| `created_at` | REAL | Unix epoch seconds |
+
+**Application:** `app/utils/text/lexicon.apply_lexicon(text, entries)` is called with all entries for a project loaded once per render job. Application points by path:
+- **xtts** (standard, bake, segments): loaded once then applied per group in `plugins/tts_xtts/plugin/studio/standard_handler.handle_xtts_standard()`, `bake.handle_xtts_bake()`, and `segments.handle_xtts_segments()`.
+- **voxtral** (bake, segments): same pattern in `plugins/tts_voxtral/plugin/studio/bake.handle_voxtral_bake()` and `segments.handle_voxtral_segments()`; standard (single-text) path: applied in `handler.handle_voxtral_job()` after `render_text` is resolved.
+- **mixed engine**: applied in `plugins/tts_mixed/handler.handle_mixed_job()` before each segment group is dispatched to `_render_segment`.
+- **api_synthesis (bridge) path**: applied in `app/orchestration/tasks/synthesis.SynthesisTask.to_bridge_request()` for external TTS API requests.
+
+**Zero-impact invariant:** when a project has no lexicon entries, the original text string is returned unchanged (no allocation, no regex compile). Existing renders for projects without a lexicon are byte-identical.
+
+**Scope:** book/project only (no series/global). Plain-text substitution only (no IPA/SSML).
+
+**Duplicate-word rejection:** `add_lexicon_entry(project_id, word, replacement)` raises `ValueError` when *project_id* already has an entry whose `word` case-insensitively matches *word*. `apply_lexicon` applies entries as sequential substitutions over the same running string in insertion order, so two entries for the same word would otherwise chain unpredictably (e.g. `read`→`red` followed by `red`→`reed` silently turns `read` into `reed`). This guards entry *creation* only — `update_lexicon_entry` does not re-check for collisions when a word is edited in place; general substitution-chaining semantics across *different* words are out of scope.
+
+API: `GET/POST /api/projects/{project_id}/lexicon`, `PUT/DELETE /api/projects/{project_id}/lexicon/{entry_id}`. `POST` returns `400 {"status": "error", "message": "A lexicon entry for \"<word>\" already exists."}` on a duplicate word.
+
+### speakers
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | TEXT PK | Speaker profile name (used as identity key) |
+| `name` | TEXT | Display name |
+| `default_profile_name` | TEXT | |
+| `created_at` | REAL | Unix epoch seconds |
+| `updated_at` | REAL | Unix epoch seconds |
+
+### render_performance_samples
+
+Stores per-render timing samples used for ETA prediction. (Lives in the separate Studio operational DB, alongside a key/value `settings` table.)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | INTEGER PK AUTO | |
+| `job_id` | TEXT | |
+| `project_id` | TEXT | |
+| `chapter_id` | TEXT | |
+| `engine` | TEXT | |
+| `tts_model` | TEXT | |
+| `speaker_profile` | TEXT | |
+| `chars` | INTEGER | Character count |
+| `word_count` | INTEGER | |
+| `segment_count` | INTEGER | |
+| `render_group_count` | INTEGER | |
+| `started_at` | REAL | Unix epoch seconds |
+| `completed_at` | REAL | Unix epoch seconds |
+| `duration_seconds` | REAL | Wall time |
+| `synthesis_duration_seconds` | REAL | Synthesis-only render duration; excludes model load and inter-group overhead |
+| `inter_group_overhead_seconds` | REAL | |
+| `model_load_seconds` | REAL | Consumed by `expected_model_load_seconds()` (trimmed mean of samples `>= 1.0`, per engine + `tts_model`) to compute the live load-aware ETA term (`live-events.md` 1.8.0 `pre_load_eta` / `LOADING_MODEL`); samples `< 1.0` are treated as warm reuse and excluded |
+| `sum_segment_render_seconds` | REAL | |
+| `cps` | REAL | Characters per second |
+| `seconds_per_segment` | REAL | |
+| `audio_duration_seconds` | REAL | Output audio length |
+| `sample_type` | TEXT | `chapter` \| `segment` \| `test` |
+
+Index: `idx_render_performance_completed_at` on `completed_at`.
+
+---
+
+## Voice Directory Layout (V2)
+
+```
+voices/
+  {VoiceName}/
+    voice.json              # { version: 2, name, id, default_variant }
+    {VariantName}/
+      profile.json          # { variant_name, engine, speaker_id }
+      1.wav .. 5.wav        # Reference audio samples
+      latent.pth            # Engine-specific cached state (optional)
+```
+
+Voice bundles for export/import are MP3. Reference audio samples (`.wav`) are only used internally. The `voice.json` manifest MUST declare `version: 2` — callers MUST reject bundles without a valid version field.
+
+---
+
+## Migration
+
+`app/db/__init__.py` exposes `migrate_state_json_to_db()` for explicit invocation. The DB MUST NOT run migrations on import. `boot_studio()` in `app/core/boot.py` is responsible for triggering migration at startup.
+
+---
+
+## Cross-references
+
+- Job lifecycle and status transitions: [queue-jobs.md](queue-jobs.md)
+- Live progress broadcasting rules: [live-events.md](live-events.md)
+- Path safety for file columns: [api-conventions.md](api-conventions.md)
+- System architecture and boot sequence: [system-architecture.md](system-architecture.md)

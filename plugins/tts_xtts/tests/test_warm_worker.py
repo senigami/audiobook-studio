@@ -125,11 +125,17 @@ def test_idle_timeout_kills_worker(tmp_path):
             worker = mgr._worker
         assert worker is not None and worker.is_alive
 
-        # Wait for the idle timer to fire (2x the timeout for reliability).
-        time.sleep(2.5)
+        # Poll until the real threading.Timer-driven idle timeout fires and
+        # terminates the worker, rather than blindly sleeping a fixed duration.
+        deadline = time.monotonic() + 5.0
+        worker_after = worker
+        while time.monotonic() < deadline:
+            with mgr._lock:
+                worker_after = mgr._worker
+            if worker_after is None or not worker_after.is_alive:
+                break
+            time.sleep(0.05)
 
-        with mgr._lock:
-            worker_after = mgr._worker
         assert worker_after is None or not worker_after.is_alive, (
             "Worker should have been terminated by idle timeout"
         )
@@ -347,3 +353,170 @@ def test_engine_shutdown_calls_reset(tmp_path):
         plugin.shutdown()
 
     assert reset_called, "engine.shutdown() should have called _reset_warm_worker()"
+
+
+# ---------------------------------------------------------------------------
+# is_model_ready tracking
+# ---------------------------------------------------------------------------
+
+def test_is_model_ready_false_before_ready_line():
+    """WarmWorker.is_model_ready is False when the 'model ready' line has not appeared."""
+    mgr = _make_manager()
+    # Acquire a worker without running a job (so no model-ready line is emitted)
+    with mgr._lock:
+        worker = mgr._get_or_spawn()
+    assert not worker.is_model_ready
+
+
+def test_is_model_ready_true_after_model_ready_line():
+    """WarmWorker.is_model_ready becomes True when the worker emits 'model ready'."""
+    mgr = _make_manager(extra_env={"FAKE_WORKER_EMIT_MODEL_READY": "1"})
+    mgr.run_job({"task_id": "t1", "text": "hi"}, lambda _: None, lambda: False)
+    worker = mgr._worker
+    assert worker._model_ready.wait(timeout=2.0), "model-ready event never fired"
+    assert worker.is_model_ready
+
+
+def test_manager_is_model_ready_reflects_pool():
+    """WarmWorkerManager.is_model_ready() is True when any pool worker is warm."""
+    mgr = _make_manager(extra_env={"FAKE_WORKER_EMIT_MODEL_READY": "1"})
+    mgr.run_job({"task_id": "t1", "text": "hi"}, lambda _: None, lambda: False)
+    assert mgr._worker._model_ready.wait(timeout=2.0)
+    assert mgr.is_model_ready()
+
+
+def test_dead_worker_not_counted_as_model_ready():
+    """Removing a dead worker from the pool means manager.is_model_ready() goes False."""
+    mgr = _make_manager(extra_env={"FAKE_WORKER_EMIT_MODEL_READY": "1"})
+    mgr.run_job({"task_id": "t1", "text": "hi"}, lambda _: None, lambda: False)
+    worker = mgr._worker
+    assert worker._model_ready.wait(timeout=2.0)
+    assert mgr.is_model_ready()
+    # Remove the worker from the pool
+    with mgr._lock:
+        mgr._remove_dead_worker(worker)
+    assert not mgr.is_model_ready()
+
+
+def test_all_waiters_unblock_when_every_pooled_worker_dies():
+    """W-PAR 008 review fix: when every pooled worker dies while MULTIPLE
+    acquirers wait on the free-list, EVERY waiter must give up (one-shot
+    fallback), not just the first.
+
+    The first waiter to detect total worker death clears ``_pool`` and
+    returns None; pre-fix, a second concurrent waiter then looped forever —
+    its all-dead check required a NON-empty pool (``self._pool and not
+    any(...)``), which could never again be true after the clear, so its job
+    hung permanently. (R1: pre-fix this test times out on the second
+    waiter's join.)
+
+    No real subprocesses needed — dead workers are simulated with stub
+    objects whose ``is_alive`` is False, exactly what ``_acquire_worker``
+    consults.
+    """
+    mgr = _make_manager()
+
+    class _DeadWorker:
+        is_alive = False
+
+    # Pool at cap, all workers dead, free-list empty — the exact state after
+    # a mid-render worker die-off with every worker checked out.
+    with mgr._lock:
+        mgr._pool = [_DeadWorker(), _DeadWorker()]
+        mgr._cap = 2
+
+    results: dict[int, object] = {}
+    done = [threading.Event(), threading.Event()]
+
+    def _wait(idx: int) -> None:
+        results[idx] = mgr._acquire_worker()
+        done[idx].set()
+
+    threads = [threading.Thread(target=_wait, args=(i,), daemon=True) for i in (0, 1)]
+    for t in threads:
+        t.start()
+
+    for i, evt in enumerate(done):
+        assert evt.wait(timeout=5), (
+            f"waiter {i} never unblocked after total worker death (pre-fix hang)"
+        )
+    assert results[0] is None and results[1] is None
+    assert mgr._pool == []
+
+
+# ---------------------------------------------------------------------------
+# Stale stderr queue drain (escaped defect, 2026-07-06)
+# ---------------------------------------------------------------------------
+
+
+def _make_bare_worker():
+    """Construct a WarmWorker without spawning a real subprocess — __init__
+    bypassed so _stderr_q/_done_q/_proc can be injected directly for a
+    focused unit test of run_job()'s queue handling."""
+    from plugins.tts_xtts.plugin.core.warm_worker import WarmWorker
+    import queue as _queue
+
+    worker = WarmWorker.__new__(WarmWorker)
+    worker._stderr_q = _queue.Queue()
+    worker._done_q = _queue.Queue()
+    worker._model_ready = threading.Event()
+    worker._proc = MagicMock()
+    worker._proc.stdin = MagicMock()
+    worker._proc.poll.return_value = None  # alive
+    return worker
+
+
+def test_stale_stderr_from_prior_job_is_discarded_not_relayed():
+    """A trailing stderr line from a PREVIOUS job that missed
+    _relay_trailing_stderr's grace window must be discarded when the worker
+    is handed a NEW job — never relayed to the new job's on_output (which
+    would let relay_marker stamp the new job's task_id onto a stale,
+    un-task-id'd marker naming the OLD job's segment — a second real
+    cross-attribution channel, independent of the stderr-write race fixed in
+    engine.py's _emit_stderr_atomic).
+
+    R1 revert-check: without the discard-on-run_job fix, the stale line
+    appears in the new job's collected output — this assertion fails.
+    """
+    worker = _make_bare_worker()
+
+    # Simulate a stale line left behind by the PREVIOUS job's incomplete
+    # drain (as if _relay_trailing_stderr's grace window elapsed too soon).
+    worker._stderr_q.put("[SEGMENT_SAVED] stale-from-old-job.wav\n")
+
+    # New job: worker writes it to stdin, then immediately reports done.
+    worker._done_q.put({"done": True, "rc": 0})
+
+    collected: list[str] = []
+    rc = worker.run_job({"task_id": "new-job"}, on_output=collected.append, cancel_check=lambda: False)
+
+    assert rc == 0
+    assert not any("stale-from-old-job" in ln for ln in collected), (
+        f"Stale line from a prior job must be discarded before the new job's "
+        f"stdin write, not relayed under the new job. Collected: {collected}"
+    )
+
+
+def test_current_job_stderr_still_relayed_after_stale_drain():
+    """The discard must only clear STALE (pre-existing) entries — lines the
+    new job itself produces (queued by the persistent reader thread after
+    run_job's discard point) must still reach on_output normally."""
+    worker = _make_bare_worker()
+
+    worker._stderr_q.put("[SEGMENT_SAVED] stale-from-old-job.wav\n")
+
+    def _write_side_effect(data):
+        # Simulate the persistent reader thread delivering THIS job's own
+        # marker line right as the job is dispatched (after the discard).
+        worker._stderr_q.put("[PROGRESS] 50% new-job\n")
+
+    worker._proc.stdin.write.side_effect = _write_side_effect
+    worker._done_q.put({"done": True, "rc": 0})
+
+    collected: list[str] = []
+    worker.run_job({"task_id": "new-job"}, on_output=collected.append, cancel_check=lambda: False)
+
+    assert any("50% new-job" in ln for ln in collected), (
+        f"The new job's own real marker line must still be relayed. Collected: {collected}"
+    )
+    assert not any("stale-from-old-job" in ln for ln in collected)

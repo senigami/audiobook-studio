@@ -1,0 +1,12 @@
+{
+  "at": "2026-07-10T20:05:00Z",
+  "commit": "52be0584237580e5f422a352a91185175299cde1",
+  "task": "Styling-separation lane (design-docs/plans/active/simplification/styling_separation_execution/, task 001-st1-delete-dead-selectors): removed 5 dead CSS selector families from frontend/src/theme/components.css ahead of the components.css domain split (task 002). Deleted .btn-home, .btn-menu-destructive, .action-menu-item, .select-glass, and .engine-chunk plus all their :hover/:active/:focus-visible/::before pseudo-variants and modifier classes (.btn-home.primary, .action-menu-item.standard/.destructive) — 109 lines total. Verified dead: none referenced from any .tsx/.ts className. Note: entry authored by a different session on the parallel lane's behalf (same-change rule enforcement); the commit itself was made by the styling lane.",
+  "files": {
+    "frontend/src/theme/components.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Deleted unused selector families .btn-home (+.primary, :hover, :active), .btn-menu-destructive:hover, .action-menu-item (+:focus-visible, .standard:hover, .destructive:hover), .select-glass (+:hover), .engine-chunk (+code, ::before, :hover) — 109 lines removed, no live styling affected since nothing in frontend/src references these class names."
+    }
+  }
+}

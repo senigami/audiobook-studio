@@ -14,23 +14,10 @@ from .repository import ProjectRepository
 from .snapshots import build_project_snapshot
 from ..chapters.repository import ChapterRepository
 
-INTENDED_UPSTREAM_CALLERS = (
-    "app.api.routers.projects",
-    "app.domain.projects.service_factory",
-)
-INTENDED_DOWNSTREAM_DEPENDENCIES = (
-    "app.domain.projects.repository.ProjectRepository",
-    "app.domain.projects.snapshots.build_project_snapshot",
-    "app.domain.projects.exports.build_project_export_manifest",
-    "app.orchestration.project_views",
-)
-FORBIDDEN_DIRECT_IMPORTS = (
-    "app.db.projects",
-    "app.jobs",
-    "app.engines",
-    "app.domain.chapters.service",
-    "app.domain.artifacts.service",
-)
+# Upstream: app.api.routers.projects, app.domain.projects.service_factory. Downstream:
+# ProjectRepository, build_project_snapshot, build_project_export_manifest,
+# orchestration.project_views. Must not import app.db.projects / app.jobs / app.engines /
+# app.domain.chapters.service / app.domain.artifacts.service directly.
 
 
 class ProjectService:

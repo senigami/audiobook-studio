@@ -168,6 +168,18 @@ export interface ChapterProgressPayload {
   indeterminate?: boolean | null;
   /** Seconds elapsed since engine_activity_started_at, for an optional elapsed counter. */
   loadingElapsedSeconds?: number | null;
+  /**
+   * Chapter-level map of concurrently-active segments (W-PAR 006, C2 contract).
+   * Snake_case on the wire — no camelCase variant is emitted. Consumed verbatim
+   * by the frontend; absent when the backend has not fanned the chapter out.
+   */
+  active_segments_map?: Record<string, {
+    phase: 'preparing' | 'rendering' | 'done';
+    progress: number;
+    eta_seconds: number | null;
+    reason_code?: string;
+    indeterminate?: boolean;
+  }> | null;
   // Legacy duplicate fields
   eta_seconds?: number | null;
   grouped_progress?: number | null;
@@ -414,12 +426,12 @@ export const computeProgressConfidence = (
   status?: string | null,
   progress?: number | null,
   activeRenderGroupWeight?: number | null,
-  reasonCode?: string | null
+  _reasonCode?: string | null
 ): number | null => {
   if (!status) return null;
-  if ((reasonCode === 'segment_start' || reasonCode === 'START_SEGMENT' || reasonCode === 'START_SYNTHESIS' || reasonCode === 'SEGMENT_PENDING') && progress === 0) {
-    return 1.0;
-  }
+  // No zero-special fabrication: confidence is NOT forced to 1.0 just because a segment
+  // is at the start with progress 0. It is derived from real progress below (and rises
+  // as progress accumulates); terminal states are fully confident.
   if (['done', 'failed', 'cancelled', 'finalizing'].includes(status)) {
     return 1.0;
   }

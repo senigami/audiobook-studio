@@ -24,6 +24,19 @@ from .chapters_cleanup import (
 
 logger = logging.getLogger(__name__)
 
+# Shared segment-count subquery shape used by get_chapter_segments_counts(),
+# get_chapter(), and list_chapters() so all three stay in sync (same
+# `audio_status = 'done'` semantics, same column naming). `{alias}` is the
+# chapters-table alias (or `chapters` when there is none) to correlate against.
+_SEGMENT_COUNTS_SQL_TEMPLATE = """
+                (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = {alias}.id) as total_segments_count,
+                (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = {alias}.id AND audio_status = 'done') as done_segments_count
+"""
+
+
+def _segment_counts_sql(alias: str = "c") -> str:
+    return _SEGMENT_COUNTS_SQL_TEMPLATE.format(alias=alias)
+
 
 def create_chapter(project_id: str, title: str, text_content: Optional[str] = None, sort_order: int = 0, predicted_audio_length: float = 0.0, char_count: int = 0, word_count: int = 0) -> str:
     with _db_lock:
@@ -58,26 +71,50 @@ def get_chapter_segments_counts(chapter_id: str) -> tuple[int, int]:
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                f"""
                 SELECT
-                    (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = ? AND audio_status = 'done') as done_count,
-                    (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = ?) as total_count
-            """, (chapter_id, chapter_id))
+                {_segment_counts_sql(alias="chapters")}
+                FROM chapters
+                WHERE chapters.id = ?
+                """,
+                (chapter_id,),
+            )
             row = cursor.fetchone()
             if row:
-                return row['done_count'], row['total_count']
+                return row['done_segments_count'], row['total_segments_count']
             return 0, 0
 
 
-def get_chapter(chapter_id: str) -> Optional[Dict[str, Any]]:
+def get_chapter(chapter_id: str, project_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Fetches a chapter by id.
+
+    If ``project_id`` is given, the chapter must belong to that project or
+    this returns None (same "not found" outcome as a missing id) — used by
+    callers that scope a chapter lookup to a specific project.
+    """
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM chapters WHERE id = ?", (chapter_id,))
+            # Mirrors list_chapters' segment-count subqueries so single-chapter
+            # callers (e.g. the chapter editor loader) don't need to re-fetch
+            # the whole project chapter list just to get these counts.
+            cursor.execute(
+                f"""
+                SELECT c.*,
+                {_segment_counts_sql(alias="c")}
+                FROM chapters c
+                WHERE c.id = ?
+                """,
+                (chapter_id,),
+            )
             row = cursor.fetchone()
             if not row:
                 return None
             chap = dict(row)
+
+    if project_id is not None and chap["project_id"] != project_id:
+        return None
 
     # Rule 3: Disk as Source of Truth - Outside Lock
     from ..storage.manager import get_storage_manager
@@ -106,10 +143,9 @@ def list_chapters(project_id: str) -> List[Dict[str, Any]]:
         with get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                """
+                f"""
                 SELECT c.*,
-                (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = c.id) as total_segments_count,
-                (SELECT COUNT(*) FROM chapter_segments WHERE chapter_id = c.id AND audio_status = 'done') as done_segments_count
+                {_segment_counts_sql(alias="c")}
                 FROM chapters c
                 WHERE project_id = ?
                 ORDER BY sort_order ASC

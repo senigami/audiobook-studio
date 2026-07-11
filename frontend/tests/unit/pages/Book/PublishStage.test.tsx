@@ -26,6 +26,7 @@ const project: Project = {
   id: 'book-1',
   name: 'Book One',
   series: 'Series One',
+  series_position: null,
   author: 'Author One',
   speaker_profile_name: null,
   cover_image_path: null,
@@ -115,7 +116,7 @@ describe('PublishStage', () => {
     expect(screen.getByText('Project Assemblies')).toBeInTheDocument();
     expect(screen.getByText('Book One Assembly')).toBeInTheDocument();
     expect(screen.getByText('Project Backups')).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Book info' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Book identity' })).toBeInTheDocument();
   });
 
   it('switches AssemblyPanel into rendered-only selection mode and confirms selected chapters', () => {

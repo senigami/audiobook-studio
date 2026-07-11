@@ -113,6 +113,33 @@ def test_settings_get_and_update(clean_db, client):
     assert data["default_engine"] == "xtts"
     assert data["default_engine"] == "xtts"
 
+def test_settings_get_returns_default_parallel_cap(clean_db, client):
+    """GET /api/home surfaces the effective TTS_PARALLEL_CAP setting (default 2, 2026-07-05)."""
+    response = client.get("/api/home")
+    assert response.status_code == 200
+    settings = response.json()["settings"]
+    assert settings["tts_parallel_cap"] == 2
+    assert settings["tts_engine_caps"] == {}
+
+
+def test_settings_post_updates_parallel_cap(clean_db, client):
+    """POST /api/settings persists tts_parallel_cap and tts_engine_caps (W-PAR task 007)."""
+    response = client.post("/api/settings", json={
+        "tts_parallel_cap": 3,
+        "tts_engine_caps": {"tts_voxtral": 4},
+    })
+    assert response.status_code == 200
+    data = response.json()["settings"]
+    assert data["tts_parallel_cap"] == 3
+    assert data["tts_engine_caps"] == {"tts_voxtral": 4}
+
+    # Persisted — a fresh GET reflects the same values.
+    follow_up = client.get("/api/home")
+    settings = follow_up.json()["settings"]
+    assert settings["tts_parallel_cap"] == 3
+    assert settings["tts_engine_caps"] == {"tts_voxtral": 4}
+
+
 def test_default_speaker_setting(clean_db, client, tmp_path, monkeypatch):
     # POST /api/settings/default-speaker
     voices_dir = tmp_path / "voices"

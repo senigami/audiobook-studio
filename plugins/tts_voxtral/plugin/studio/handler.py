@@ -9,22 +9,19 @@ from .bake import handle_voxtral_bake
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Module-level SDK context factory (lazy singleton)
+# Module-level SDK context accessor — delegates to the shared PL-1 factory
+# (app.studio_plugin_sdk.get_plugin_ctx), which owns the per-engine-id
+# lazy singleton cache. Kept as a local, patchable name because existing
+# tests patch ``<this module>._get_ctx`` directly.
 # ---------------------------------------------------------------------------
-
-_ctx_instance = None
-
 
 def _get_ctx():
     """Return the shared StudioPluginContext for the voxtral engine."""
-    global _ctx_instance  # noqa: PLW0603
-    if _ctx_instance is None:
-        try:
-            from studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
-        except ImportError:
-            from app.studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
-        _ctx_instance = StudioPluginContext("voxtral")
-    return _ctx_instance
+    try:
+        from studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
+    except ImportError:
+        from app.studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
+    return get_plugin_ctx("voxtral")
 
 
 # ---------------------------------------------------------------------------
@@ -63,6 +60,18 @@ def get_db_connection():
     """Module-level alias for app.db.get_connection — patchable by tests."""
     from app.db import get_connection as _fn  # noqa: PLC0415
     return _fn()
+
+
+def get_project_lexicon(project_id: str) -> list:
+    """Module-level alias for db.lexicon.get_lexicon — patchable by tests."""
+    from app.db.lexicon import get_lexicon as _fn  # noqa: PLC0415
+    return _fn(project_id)
+
+
+def apply_project_lexicon(text: str, entries: list) -> str:
+    """Module-level alias for utils.text.lexicon.apply_lexicon — patchable by tests."""
+    from app.utils.text.lexicon import apply_lexicon as _fn  # noqa: PLC0415
+    return _fn(text, entries)
 
 
 def _get_bridge_error():
@@ -197,6 +206,16 @@ def handle_voxtral_job(jid, j, start, on_output, cancel_check, text=None):
         render_text = text or str(spk.get("test_text") or "")
     else:
         render_text = text or (_chapter_text_from_segments(j.chapter_id) if j.chapter_id else "")
+
+    # Apply project lexicon substitution (zero-impact when no entries).
+    if j.project_id and not _is_sample_job(j):
+        try:
+            _lexicon_entries = get_project_lexicon(j.project_id)
+            if _lexicon_entries:
+                render_text = apply_project_lexicon(render_text, _lexicon_entries)
+        except Exception:
+            logger.warning("Failed to apply lexicon for project %s; proceeding without substitution.", j.project_id, exc_info=True)
+
     logger.info(
         "[%s-debug %s] start job=%s chapter=%s profile=%s out_wav=%s text_len=%s",
         j.engine,

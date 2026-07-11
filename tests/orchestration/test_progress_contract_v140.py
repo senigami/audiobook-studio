@@ -224,51 +224,148 @@ class TestB9CharacterCountWeighting:
 
     R1 revert-check: before fix, if the weight table was by segment count
     (1/N), a 340-char segment and a 1345-char segment would each contribute
-    0.5 to progress.  These tests verify proportional contribution.
+    0.5 to progress.  These tests verify proportional contribution by driving
+    a real 2-group marker stream through the actual ``_dispatch`` →
+    ``_dispatch_segment`` weight-table construction in
+    ``orchestrator_helpers.py`` (no local re-implementation of the math) and
+    reading ``grouped_progress`` off the real ``SEGMENT_SAVED`` publish.
+
+    Harness mirrors ``test_inter_group_gap_eta.py``'s ``TwoGroupTask`` /
+    ``MockStream`` pattern. Mock boundaries (R2): the watchdog's process I/O
+    (``MockStream`` in place of a real subprocess pipe), segment DB writes,
+    and the websocket broadcast — never the weight-table/progress math itself.
     """
 
-    def _make_dispatch_weight_table(self, char_counts: list[int]) -> tuple[dict, int]:
-        """Simulate the weight-table construction from _dispatch."""
-        id_to_weight = {}
-        total_weight = 0
-        for i, chars in enumerate(char_counts):
-            sid = f"seg-{i}"
-            id_to_weight[sid] = max(1, chars)
-            total_weight += max(1, chars)
-        return id_to_weight, total_weight
+    def _run_two_group_dispatch(self, char_counts: list[int]) -> list[dict]:
+        """Dispatch a real 2-group script (weights driven purely by ``text``
+        length, exactly like production) and return every ``SEGMENT_SAVED``
+        publish captured from the real ``_dispatch`` path."""
+        from unittest.mock import MagicMock, patch
+        from app.engines.watchdog import TtsServerWatchdog
+        from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+        from app.orchestration.tasks.base import TaskContext, StudioTask, TaskResult
+
+        assert len(char_counts) == 2, "harness is written for exactly 2 groups"
+
+        class MockStream:
+            def __init__(self, lines):
+                self._lines = list(lines)
+
+            def readline(self):
+                return self._lines.pop(0) if self._lines else ""
+
+            def close(self):
+                pass
+
+        class MockOrchestrator(OrchestratorHelpersMixin):
+            def __init__(self):
+                self.voice_bridge = MagicMock()
+                self.progress_service = MagicMock()
+                self.published: list[dict] = []
+
+            def _publish(self, **kwargs):
+                self.published.append(kwargs)
+
+        script = [
+            {
+                "id": f"seg-{i}",
+                "ids": [f"seg-{i}"],
+                # No explicit "weight" — the production code must derive the
+                # weight from character count (``max(1, len(text))``), which
+                # is exactly the behavior under test.
+                "text": "x" * chars,
+                "save_path": f"/tmp/b9-seg-{i}.wav",
+            }
+            for i, chars in enumerate(char_counts)
+        ]
+
+        class TwoGroupTask(StudioTask):
+            def get_expected_duration(self, text, engine_id):
+                return 30.0
+
+            def describe(self):
+                return TaskContext(
+                    task_id="job-b9",
+                    task_type="synthesis",
+                    payload={"script_text": "x" * sum(char_counts), "engine_id": "xtts", "script": script},
+                )
+
+            @property
+            def prefers_local_execution(self):
+                return True
+
+            def run(self):
+                self.bridge.synthesize({"text": "test"})
+                return TaskResult(status="completed")
+
+        task = TwoGroupTask()
+        task.script = script
+        task.bridge = MagicMock()
+        orc = MockOrchestrator()
+        context = task.describe()
+        wd = TtsServerWatchdog()
+
+        stream = [
+            "[START_SYNTHESIS] job-b9\n",
+            "[START_SEGMENT] seg-0 job-b9\n",
+            "[PROGRESS] 50% job-b9\n",
+            "[SEGMENT_SAVED] /tmp/b9-seg-0.wav job-b9\n",
+            "[START_SEGMENT] seg-1 job-b9\n",
+            "[PROGRESS] 50% job-b9\n",
+            "[SEGMENT_SAVED] /tmp/b9-seg-1.wav job-b9\n",
+        ]
+
+        with patch("app.engines.watchdog.get_watchdog", return_value=wd), \
+             patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None), \
+             patch("app.db.update_segments_bulk", lambda *a, **kw: None), \
+             patch("app.api.ws.broadcast_segments_updated", lambda *a, **kw: None), \
+             patch("app.api.ws.broadcast_tts_log_line", lambda *a, **kw: None), \
+             patch("app.orchestration.scheduler.eta.get_calibrated_model_params", return_value=None):
+            def _side_effect(*args, **kwargs):
+                wd._drain_stream(None, "stdout", MockStream(stream[:]))
+                return {"status": "ok"}
+            task.bridge.synthesize.side_effect = _side_effect
+            orc._dispatch(task=task, context=context)
+
+        return [e for e in orc.published if e.get("reason_code") == "SEGMENT_SAVED"]
 
     def test_char_weights_proportional_340_vs_1345(self):
         """Segment weights must be proportional to char counts (340 vs 1345)."""
-        char_counts = [340, 1345]
-        id_to_weight, total_weight = self._make_dispatch_weight_table(char_counts)
+        saved = self._run_two_group_dispatch([340, 1345])
+        assert len(saved) == 2, f"expected 2 SEGMENT_SAVED publishes, got {len(saved)}"
 
-        assert total_weight == 1685
-        share_0 = id_to_weight["seg-0"] / total_weight
-        share_1 = id_to_weight["seg-1"] / total_weight
+        share_0 = saved[0].get("grouped_progress")
+        share_1 = saved[1].get("grouped_progress")
 
-        assert share_0 == pytest.approx(340 / 1685, abs=1e-6), (
-            f"seg-0 share: expected {340/1685:.4f}, got {share_0:.4f}"
+        # Production rounds grouped_progress to 4 decimal places
+        # (`_get_grouped_progress`'s `round(min(0.99, raw), 4)`).
+        assert share_0 == pytest.approx(round(340 / 1685, 4), abs=1e-9), (
+            f"seg-0 grouped_progress: expected {round(340/1685, 4)}, got {share_0!r}"
         )
-        assert share_1 == pytest.approx(1345 / 1685, abs=1e-6), (
-            f"seg-1 share: expected {1345/1685:.4f}, got {share_1:.4f}"
+        # `_get_grouped_progress` clamps below 1.0 until terminal reconciliation
+        # (the bar must never read "done" mid-render); with both groups
+        # complete the raw share is 1685/1685 == 1.0, so it hits the 0.99 clamp.
+        assert share_1 == pytest.approx(0.99, abs=1e-6), (
+            f"seg-1 (final) grouped_progress: expected the 0.99 clamp, got {share_1!r}"
         )
 
     def test_char_weight_not_segment_count(self):
-        """With unequal char counts, weights MUST NOT be 0.5/0.5."""
-        id_to_weight, total_weight = self._make_dispatch_weight_table([340, 1345])
-        share_0 = id_to_weight["seg-0"] / total_weight
-        # Must not be equal-weight (0.5/0.5)
+        """With unequal char counts, the first group's grouped_progress MUST NOT be 0.5."""
+        saved = self._run_two_group_dispatch([340, 1345])
+        share_0 = saved[0].get("grouped_progress")
+        # Must not be equal-weight (0.5/0.5), which is what a segment-count
+        # (1/N) weight table would have produced instead of char-count weighting.
         assert share_0 != pytest.approx(0.5, abs=0.05), (
-            "Char-weight must not produce equal shares for unequal char counts"
+            f"Char-weight must not produce an equal share for unequal char counts, got {share_0!r}"
         )
 
     def test_char_weight_completes_at_correct_share(self):
         """After completing seg-0 (340 chars), grouped_progress must be ≈0.20."""
-        id_to_weight, total_weight = self._make_dispatch_weight_table([340, 1345])
-
-        completed_weight = id_to_weight["seg-0"]  # 340
-        progress_after_first = completed_weight / total_weight
-        assert progress_after_first == pytest.approx(340 / 1685, abs=1e-6)
+        saved = self._run_two_group_dispatch([340, 1345])
+        progress_after_first = saved[0].get("grouped_progress")
+        assert progress_after_first == pytest.approx(round(340 / 1685, 4), abs=1e-9), (
+            f"expected grouped_progress ≈ {round(340/1685, 4)} after seg-0 completes, got {progress_after_first!r}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -867,25 +964,25 @@ class TestEnrichMethod:
 # ---------------------------------------------------------------------------
 
 class TestColdEtaCrossfade:
-    """003b: enrich() must emit non-null, bounded, converging eta_seconds on cold frames.
+    """003b (reversed): cold frames with no real calibration/observed data yield eta_seconds=None.
 
-    R1 revert-check: before 003b wiring, enrich() left eta_seconds=None when no
-    incoming eta_seconds was provided (cold/sparse frame).  The primary test
-    (test_cold_frame_emits_non_null_eta) would fail on pre-wiring code because
-    the result["eta_seconds"] would still be None.
+    The fabricated cold-ETA path (DEFAULT_BASELINE_ENGINE_CPS as fallback) has been
+    removed.  enrich() now returns eta_seconds=None when there is no incoming
+    eta_seconds and no observed ring throughput.
+
+    R1 revert-check: on the old fabricated code, result["eta_seconds"] was non-null
+    (computed from char_count / 16.7).  These tests are RED on the old code and
+    GREEN on the new honest contract.
     """
 
     def test_cold_frame_emits_non_null_eta(self):
-        """Cold frame: no incoming eta_seconds, char_count present, empty engine_cps.
+        """Cold frame: no incoming eta_seconds, char_count present, no calibration.
 
-        enrich() must produce a non-null eta_seconds using the calculated baseline.
-        R1 red: pre-003b, result["eta_seconds"] is None because there is no
-        incoming eta_seconds and no ring samples.  Post-003b it is non-null.
+        New honest contract: without a real calibrated CPS or observed throughput,
+        enrich() returns eta_seconds=None.
+        R1 red: pre-removal, result["eta_seconds"] was ~21s (fabricated baseline).
         """
         svc, _, _, _ = _make_service()
-        # char_count = 500; DEFAULT_BASELINE_ENGINE_CPS = 16.7
-        # spc = 1/16.7 ≈ 0.060s/char; remaining = 500 * (1 - 0.3) = 350 chars
-        # eta_calculated ≈ 350 * 0.060 ≈ 21s
         payload_in = {
             "status": "running",
             "progress": 0.3,
@@ -894,19 +991,18 @@ class TestColdEtaCrossfade:
             # deliberately no eta_seconds
         }
         result = svc.enrich("cold-job", payload_in)
-        assert result.get("eta_seconds") is not None, (
-            "Cold frame with char_count must produce non-null eta_seconds"
+        assert result.get("eta_seconds") is None, (
+            "Cold frame with no calibration/observed data must yield eta_seconds=None"
         )
-        assert result["eta_seconds"] >= 0, "eta_seconds must be non-negative"
 
     def test_cold_frame_eta_bounded_by_ceiling(self):
-        """Cold frame ETA must never exceed the §4A.4 mechanical ceiling.
+        """Cold frame with no calibration/observed data yields None (no ceiling needed).
 
-        With no ring samples, velocity=None so ceiling is skipped in crossfade.
-        The calculated path should still produce a reasonable number.
+        The fabricated baseline no longer runs, so there is no calculated value to
+        bound.  Assert None rather than a ceiling-bounded positive number.
+        R1 red: pre-removal, result["eta_seconds"] was ~150s (5000 chars / 16.7 cps).
         """
         svc, _, _, _ = _make_service()
-        # Large script: 5000 chars at 50% progress
         payload_in = {
             "status": "running",
             "progress": 0.5,
@@ -915,9 +1011,9 @@ class TestColdEtaCrossfade:
         }
         result = svc.enrich("cold-ceil-job", payload_in)
         eta = result.get("eta_seconds")
-        assert eta is not None
-        # spc=1/16.7; remaining=2500 chars; eta_calc≈150s → reasonable bound
-        assert eta <= 1000, f"Cold ETA {eta} is unreasonably large"
+        assert eta is None, (
+            f"Cold frame with no calibration must yield eta_seconds=None, got {eta}"
+        )
 
     def test_cold_frame_terminal_still_null(self):
         """Terminal status must still yield null/0 eta, even with char_count present."""
@@ -969,14 +1065,18 @@ class TestColdEtaCrossfade:
             "Without char_count or eta_seconds, eta should remain None"
         )
 
-    @pytest.mark.parametrize("progress,has_eta_seconds", [
-        (0.05, True),   # start phase: dominated by calculated
-        (0.5,  True),   # mid phase: blended
-        (0.8,  True),   # end phase: observed dominates (but no observed → calculated only)
-        (0.999, False), # near-complete → 0 (treated as False since 0 is falsy)
+    @pytest.mark.parametrize("progress,expected_eta", [
+        (0.05,  None),  # start phase: no calibration → None
+        (0.5,   None),  # mid phase: no calibration → None
+        (0.8,   None),  # end phase: no calibration → None
+        (0.999, 0),     # near-complete → 0 (unchanged)
     ])
-    def test_crossfade_phases_produce_expected_eta(self, progress, has_eta_seconds):
-        """Parametric: crossfade at each phase produces bounded, converging ETA."""
+    def test_crossfade_phases_produce_expected_eta(self, progress, expected_eta):
+        """Parametric: without calibration each phase yields None; near-complete yields 0.
+
+        R1 red: pre-removal, phases 0.05/0.5/0.8 yielded a fabricated non-null ETA
+        (chars/16.7); post-removal they yield None.  The near-complete→0 case is unchanged.
+        """
         svc, _, _, _ = _make_service()
         payload_in = {
             "status": "running",
@@ -989,9 +1089,10 @@ class TestColdEtaCrossfade:
         if progress >= 0.999:
             assert eta == 0, f"Near-complete must yield 0, got {eta}"
         else:
-            # With only calculated (no ring), should be non-null
-            assert eta is not None, f"progress={progress} with char_count must yield non-null eta"
-            assert eta >= 0
+            # No calibration, no observed throughput → None
+            assert eta is None, (
+                f"progress={progress} with no calibration must yield None, got {eta}"
+            )
 
     def test_observed_eta_used_when_present(self):
         """When eta_seconds is provided (observed), it is used and crossfaded."""
@@ -1086,19 +1187,39 @@ class TestPreSynthesisEtaGate:
         assert result.get("estimated_end_at") is None
         assert result.get("eta_updated_at") is None
 
-    @pytest.mark.parametrize("status", ["queued", "preparing"])
-    def test_no_observed_eta_before_running(self, status):
-        """An incoming observed ETA must also be suppressed pre-running."""
+    def test_no_observed_eta_when_queued(self):
+        """An incoming observed ETA is suppressed while queued (no synthesis clock).
+
+        Amended by progress-presentation 1.8.0 (positive ETA always wins): only
+        *queued* suppresses now — a real observed ETA on a *preparing* frame
+        (the pre-factored cold-load ETA, reason_code=pre_load_eta) survives so
+        the queue bar can render the countdown through the load window.
+        """
         svc, _, _, _ = _make_service()
         payload_in = {
-            "status": status,
+            "status": "queued",
             "progress": 0.0,
             "engine_id": "tts_xtts",
             "eta_seconds": 42,  # observed value present but synthesis not started
         }
-        result = svc.enrich(f"pre-obs-{status}", payload_in)
+        result = svc.enrich("pre-obs-queued", payload_in)
         assert result.get("eta_seconds") is None, (
-            f"{status} frame must suppress even an incoming observed eta_seconds, "
+            f"queued frame must suppress even an incoming observed eta_seconds, "
+            f"got {result.get('eta_seconds')}"
+        )
+
+    def test_preparing_frame_keeps_observed_eta(self):
+        """1.8.0 amendment: preparing frames KEEP a real incoming observed ETA."""
+        svc, _, _, _ = _make_service()
+        payload_in = {
+            "status": "preparing",
+            "progress": 0.0,
+            "engine_id": "tts_xtts",
+            "eta_seconds": 42,
+        }
+        result = svc.enrich("pre-obs-preparing", payload_in)
+        assert result.get("eta_seconds") == 42, (
+            f"preparing frame must keep a real observed eta_seconds (1.8.0), "
             f"got {result.get('eta_seconds')}"
         )
 
@@ -1125,10 +1246,14 @@ class TestPreSynthesisEtaGate:
         assert result.get("indeterminate") is True
 
     def test_eta_appears_at_first_running_frame(self):
-        """The cold ETA must still appear at the first running frame (progress=0).
+        """Without a real calibration, the first running frame has no fabricated ETA.
 
-        Guards against over-suppression: the determinate ETA begins exactly at
-        START_SYNTHESIS (status=running), anchored to that frame.
+        The gate allows running frames through, but without calibration history or
+        an observed eta_seconds, enrich() returns None — no fabricated baseline ETA.
+        A real ETA only appears once observed throughput or an incoming eta_seconds
+        is present.
+
+        R1 red: pre-removal, the first running frame produced ~57s (962/16.7).
         """
         svc, _, _, _ = _make_service()
         payload_in = {
@@ -1136,12 +1261,12 @@ class TestPreSynthesisEtaGate:
             "progress": 0.0,
             "engine_id": "tts_xtts",
             "char_count": 962,
+            # no eta_seconds, no ring samples — cold with no calibration
         }
         result = svc.enrich("first-running-job", payload_in)
-        assert result.get("eta_seconds") is not None, (
-            "First running frame must produce the cold calculated ETA"
+        assert result.get("eta_seconds") is None, (
+            "First running frame without calibration/observed data must yield eta_seconds=None"
         )
-        assert result["eta_seconds"] > 0
 
 
 # ---------------------------------------------------------------------------
@@ -1149,57 +1274,46 @@ class TestPreSynthesisEtaGate:
 # ---------------------------------------------------------------------------
 
 class TestColdEtaViaPublish:
-    """Verify that the cold-ETA fix is wired through the full production path.
+    """Verify that the cold publish path (no fabrication) works through the full production path.
 
     publish() → _build_progress_payload() → enrich()
 
-    The blocker: enrich() only sees what _build_progress_payload puts in the
-    payload dict.  These tests confirm that char_count is threaded through so
-    the production path actually produces a non-null cold ETA.
+    With the fabricated baseline removed, cold publish() calls (char_count present
+    but no eta_seconds and no calibration) now yield eta_seconds=None.
 
-    R1 revert-check (verified):
-      - Pre-fix (before char_count param on publish/_build_progress_payload):
-        publish(..., char_count=500) ignores the value; enrich sees no char_count;
-        eta_seconds is None.  test_publish_cold_eta_non_null FAILS.
-      - Post-fix: char_count is written into the payload dict; enrich reads it;
-        eta_seconds is non-null.  test_publish_cold_eta_non_null PASSES.
+    R1 revert-check: on the old fabricated code, publish(..., char_count=500) would
+    return eta_seconds ≥ 1 (from char_count / 16.7).  These tests are RED on the
+    old code and GREEN on the new honest contract.
     """
 
     def test_publish_cold_eta_non_null(self):
-        """publish() with char_count and NO eta_seconds emits non-null eta_seconds.
+        """publish() with char_count but no eta_seconds and no calibration yields eta_seconds=None.
 
-        This is PI3: the production path (publish → _build_progress_payload →
-        enrich) must produce a cold ETA from char_count alone.
-
-        R1 red: on pre-fix code publish() has no char_count param; the call
-        raises TypeError, or if ignoring the kwarg, eta_seconds stays None.
-        R1 green: after fix, broadcaster receives payload with eta_seconds ≥ 1.
+        R1 red: pre-removal, publish() returned eta_seconds ≥ 1 (fabricated baseline).
+        R1 green: post-removal, eta_seconds is None (no real data available).
         """
         svc, events, _, _ = _make_service()
         emitted = svc.publish(
             job_id="pi3-cold-job",
             status="running",
             progress=0.3,
-            # NO eta_seconds — cold frame
+            # NO eta_seconds — cold frame, no calibration
             char_count=500,
             chapter_id="ch-pi3",
         )
         assert emitted is not None, "publish() must return the emitted payload"
         eta = emitted.get("eta_seconds")
-        assert eta is not None, (
-            "publish() with char_count=500 and no eta_seconds must produce "
-            "non-null eta_seconds via the cold-ETA path (PI3)"
+        assert eta is None, (
+            f"publish() with no calibration/observed data must yield eta_seconds=None, got {eta}"
         )
-        assert eta >= 1, f"Cold ETA must be at least 1s, got {eta}"
 
     def test_publish_cold_eta_broadcasted(self):
-        """The cold ETA produced via publish() reaches the broadcaster sink.
+        """Cold publish reaches the broadcaster with eta_seconds=None (no fabricated value).
 
         Verifies the full chain: publish → enrich → broadcaster.
-        The chapters.progress event payload in the broadcaster must have a
-        non-null etaSeconds (the camelCase field in the envelope).
-        We also check the returned internal payload directly as a belt-and-suspenders
-        assertion.
+        With no calibration, the chapters.progress envelope carries etaSeconds=null.
+
+        R1 red: pre-removal, etaSeconds was non-null (fabricated).
         """
         svc, events, _, _ = _make_service()
         emitted = svc.publish(
@@ -1209,22 +1323,22 @@ class TestColdEtaViaPublish:
             char_count=500,
             chapter_id="ch-pi3-b",
         )
-        # 1. Internal payload returned by publish() must have eta_seconds
+        # 1. Internal payload returned by publish() must have eta_seconds=None
         assert emitted is not None
-        assert emitted.get("eta_seconds") is not None, (
-            "publish() return value must carry non-null eta_seconds (PI3)"
+        assert emitted.get("eta_seconds") is None, (
+            "publish() with no calibration must yield eta_seconds=None (no fabrication)"
         )
 
         # 2. Broadcaster received at least one event (lifecycle + queue + chapter)
         assert events, "Broadcaster must have received at least one event"
 
-        # 3. The chapters.progress envelope carries etaSeconds from the enriched payload.
+        # 3. The chapters.progress envelope must also carry null etaSeconds.
         chap_events = [p for p, ch in events if p.get("topic") == "chapters.progress"]
         assert chap_events, "Expected at least one chapters.progress event in broadcaster"
         chap_payload = chap_events[-1].get("payload", {})
-        assert chap_payload.get("etaSeconds") is not None, (
-            "Broadcasted chapters.progress payload must have non-null etaSeconds "
-            "when char_count is provided (PI3 production path)"
+        assert chap_payload.get("etaSeconds") is None, (
+            "Broadcasted chapters.progress payload must have null etaSeconds "
+            "when no calibration/observed data is present (no fabrication)"
         )
 
     def test_publish_no_char_count_no_eta_seconds_emits_null_eta(self):
@@ -1268,29 +1382,111 @@ class TestB8DiagnosticLogging:
     """
 
     def test_start_segment_diagnostic_emitted_at_debug(self, caplog):
-        """When a [START_SEGMENT] line is received, a B8-diag DEBUG log is emitted."""
-        import logging
-        from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+        """A real [START_SEGMENT] marker, driven through the actual dispatch
+        path (``_dispatch`` → ``_dispatch_segment``, W-PAR 003), must produce
+        a real DEBUG ``caplog`` record carrying the B8-diag payload (sid,
+        weight-table membership, dedup-guard state) — not merely have the
+        right substrings present somewhere in the source text.
 
-        # Build the minimal closure manually to test the log_listener logic.
-        # We call the relevant code path by reconstructing the key parts.
-        # The fastest approach: patch via the log message text check.
-        # We trigger the actual log_listener by invoking it directly via _dispatch
-        # with a mock task — but that requires too much wiring.
-        # Instead, verify the logger name and message pattern exist in the module.
-        import inspect
-        source = inspect.getsource(OrchestratorHelpersMixin._dispatch)
-        assert "B8-diag" in source, (
-            "B8 diagnostic logging marker 'B8-diag' not found in _dispatch source"
+        Mock boundaries (R2): the watchdog's process I/O (``MockStream`` in
+        place of a real subprocess pipe), segment DB writes, and the
+        websocket broadcast/log-line helpers — never the log_listener
+        closure or its diagnostic logging itself.
+        """
+        import logging
+        from unittest.mock import MagicMock, patch
+        from app.engines.watchdog import TtsServerWatchdog
+        from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
+        from app.orchestration.tasks.base import TaskContext, StudioTask, TaskResult
+
+        class MockStream:
+            def __init__(self, lines):
+                self._lines = list(lines)
+
+            def readline(self):
+                return self._lines.pop(0) if self._lines else ""
+
+            def close(self):
+                pass
+
+        class MockOrchestrator(OrchestratorHelpersMixin):
+            def __init__(self):
+                self.voice_bridge = MagicMock()
+                self.progress_service = MagicMock()
+                self.published: list[dict] = []
+
+            def _publish(self, **kwargs):
+                self.published.append(kwargs)
+
+        script = [
+            {"id": "seg-b8", "ids": ["seg-b8"], "text": "Diagnostic text.", "save_path": "/tmp/seg-b8.wav", "weight": 100},
+        ]
+
+        class _ScriptedTask(StudioTask):
+            def __init__(self):
+                self.script = script
+                self.engine_id = "mixed"
+                self.on_run = None
+
+            def get_expected_duration(self, text, engine_id):
+                return 30.0
+
+            def describe(self):
+                return TaskContext(
+                    task_id="job-b8-diag",
+                    task_type="synthesis",
+                    payload={"script_text": "Diagnostic text.", "engine_id": "mixed", "script": script},
+                )
+
+            @property
+            def prefers_local_execution(self):
+                return True
+
+            def run(self):
+                if self.on_run is not None:
+                    self.on_run()
+                return TaskResult(status="completed")
+
+        task = _ScriptedTask()
+        context = task.describe()
+        orc = MockOrchestrator()
+        wd = TtsServerWatchdog()
+
+        def _drive():
+            wd._drain_stream(None, "stdout", MockStream([
+                "[START_SEGMENT] seg-b8 job-b8-diag\n",
+            ]))
+
+        task.on_run = _drive
+
+        logger_name = "app.orchestration.scheduler.orchestrator_helpers"
+        with caplog.at_level(logging.DEBUG, logger=logger_name), \
+             patch("app.engines.watchdog.get_watchdog", return_value=wd), \
+             patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None), \
+             patch("app.db.update_segments_bulk", lambda *a, **kw: None), \
+             patch("app.api.ws.broadcast_segments_updated", lambda *a, **kw: None), \
+             patch("app.api.ws.broadcast_tts_log_line", lambda *a, **kw: None):
+            orc._dispatch_segment(task=task, context=context)
+
+        b8_records = [r for r in caplog.records if "[B8-diag]" in r.getMessage()]
+        assert b8_records, (
+            f"expected a real [B8-diag] DEBUG log record from a live [START_SEGMENT] "
+            f"marker; got records: {[r.getMessage() for r in caplog.records]}"
         )
-        assert "in_id_to_weight" in source, (
-            "B8 diagnostic must log 'in_id_to_weight' (weight-table membership)"
+        record = b8_records[0]
+        assert record.levelno == logging.DEBUG, (
+            f"B8-diag record must be logged at DEBUG, got level {record.levelname}"
         )
-        assert "dedup_guard" in source, (
-            "B8 diagnostic must log 'dedup_guard' (dedup short-circuit detection)"
+        message = record.getMessage()
+        assert "sid='seg-b8'" in message, f"expected sid in message, got: {message!r}"
+        assert "in_id_to_weight=True" in message, (
+            f"seg-b8 IS in the weight table (weight=100); expected in_id_to_weight=True, got: {message!r}"
         )
-        assert "logger.isEnabledFor" in source, (
-            "B8 diagnostic must be guarded by logger.isEnabledFor(logging.DEBUG)"
+        assert "dedup_guard=False" in message, (
+            f"first-time arrival must not trip the dedup guard; expected dedup_guard=False, got: {message!r}"
+        )
+        assert "known_keys=['seg-b8']" in message, (
+            f"expected the known weight-table keys in the message, got: {message!r}"
         )
 
 
@@ -1372,15 +1568,15 @@ class TestSegmentPathCharCount:
         )
 
     def test_segment_path_cold_publish_emits_non_null_eta(self):
-        """Segment-path cold publish (no eta_seconds) must produce non-null eta_seconds.
+        """Segment-path cold publish (no eta_seconds, no calibration) yields eta_seconds=None.
 
         Simulates the orchestrator's _publish calling progress_service.publish()
-        with the context payload that now carries char_count from the chapter row.
+        with the context payload that carries char_count from the chapter row.
+        With the fabricated baseline removed, the publish yields None when there
+        is no real observed data.
 
-        R1 red: pre-fix → context.payload has no char_count; publish sees
-        char_count=None; enrich produces eta_seconds=None.
-        R1 green: post-fix → context.payload["char_count"]=962; enrich computes
-        eta_calculated and returns non-null eta_seconds.
+        R1 red: pre-removal → publish with char_count computed eta from 16.7 cps → non-null.
+        R1 green: post-removal → no calibration → eta_seconds=None.
         """
         from app.db.projects import create_project
         from app.db.chapters import create_chapter
@@ -1400,7 +1596,7 @@ class TestSegmentPathCharCount:
         )
         ctx = task.describe()
 
-        # Verify the context builder populated char_count (pre-condition).
+        # Verify the context builder populated char_count (pre-condition for plumbing).
         char_count = ctx.payload.get("char_count")
         assert isinstance(char_count, int) and char_count > 0, (
             f"Pre-condition failed: context.payload['char_count'] must be a "
@@ -1409,12 +1605,12 @@ class TestSegmentPathCharCount:
 
         svc, events, _, _ = self._make_service_with_sink()
 
-        # Cold publish: no incoming eta_seconds (mirrors the live segment-render path).
+        # Cold publish: no incoming eta_seconds, no calibration.
         emitted = svc.publish(
             job_id=ctx.task_id,
             status="running",
             progress=0.3,
-            # NO eta_seconds — cold/sparse frame
+            # NO eta_seconds — cold/sparse frame, no calibration history
             char_count=ctx.payload.get("char_count"),
             chapter_id=ctx.chapter_id,
             parent_job_id=ctx.project_id,
@@ -1422,10 +1618,7 @@ class TestSegmentPathCharCount:
 
         assert emitted is not None, "publish() must return the emitted payload"
         eta = emitted.get("eta_seconds")
-        assert eta is not None, (
-            "Segment-path cold publish must produce non-null eta_seconds "
-            f"(char_count={char_count}, render_group_count:2, chapter char_count 962)"
+        assert eta is None, (
+            f"Segment-path cold publish with no calibration must yield eta_seconds=None, "
+            f"got {eta} (char_count={char_count})"
         )
-        assert eta >= 1, f"Cold ETA must be at least 1s, got {eta}"
-        # Sanity-bound: 962 chars at baseline ~16.7 cps, remaining 70% → ~40s; cap at 1000s
-        assert eta <= 1000, f"Cold ETA {eta}s is unreasonably large for 962 chars"

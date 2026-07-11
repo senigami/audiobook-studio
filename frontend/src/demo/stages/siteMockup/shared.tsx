@@ -949,9 +949,45 @@ export const onPill: React.CSSProperties = {
 // ---------------------------------------------------------------------------
 // Shared data
 
+// Deterministic varied segment widths (incl. slivers) for the block-fill demo —
+// a tiny LCG so widths are stable across reloads. ~30% land as slivers (28–70
+// chars), the rest 90–500, mirroring how a real chapter splits into uneven runs.
+const genSegChars = (n: number, seed: number): number[] => {
+  let s = seed >>> 0;
+  const rnd = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+  return Array.from({ length: n }, () =>
+    rnd() < 0.3 ? Math.round(28 + rnd() * 42) : Math.round(90 + rnd() * 410),
+  );
+};
+
+// `plan` drives the SegmentRenderStrip torrent-style block-fill on the Activity
+// queue screen: variable-width segment blocks (sized by char count) across N
+// render groups, `cap` segments rendering at once, with one optionally-doomed
+// segment that fails once then retries.
+// pct/eta/segs are retained for the compact queue drawer in siteMockupStage.tsx.
 export const IN_FLIGHT_JOBS = [
-  { title: 'The Whispering Vale — Ch 7', engine: 'XTTS', pct: 64, eta: '~12m left', segs: '3/7' },
-  { title: 'Iron Meridian — Ch 3', engine: 'Voxtral', pct: 18, eta: '~34m left', segs: '1/9' },
+  {
+    // Single-narrator chapter: fewer, larger segments, rendered slowly (local
+    // GPU, cap 3). `speed` < 1 stretches the render so it reads as the longer job.
+    title: 'The Whispering Vale — Ch 7', engine: 'XTTS', pct: 64, eta: '~24m left', segs: '3/20',
+    plan: {
+      chars: genSegChars(20, 4242),
+      groups: 3,
+      cap: 3,
+      speed: 0.3,
+      doomed: null as number | null,
+    },
+  },
+  {
+    // Large chapter: ~50 segments incl. slivers, rendering 4 at a time.
+    title: 'Iron Meridian — Ch 3', engine: 'Voxtral', pct: 18, eta: '~34m left', segs: '6/50',
+    plan: {
+      chars: genSegChars(50, 9171),
+      groups: 5,
+      cap: 4,
+      doomed: 23 as number | null,
+    },
+  },
 ];
 export const QUEUED_JOBS = [
   { title: 'Echoes of Ember — Ch 5', engine: 'XTTS' },
@@ -971,8 +1007,8 @@ export const CHAPTERS = [
   { n: 7, title: 'Whispers at Threshold', words: 2775, status: 'Drafting' },
 ];
 
-export type BookTab = 'Contents' | 'Cast' | 'Publish' | 'Backups';
-export const BOOK_TABS: BookTab[] = ['Contents', 'Cast', 'Publish', 'Backups'];
+export type BookTab = 'Book' | 'Contents' | 'Cast' | 'Publish' | 'Backups';
+export const BOOK_TABS: BookTab[] = ['Book', 'Contents', 'Cast', 'Publish', 'Backups'];
 export const BOOK_STAGE_LINKS: BookTab[] = ['Contents', 'Cast', 'Publish', 'Backups'];
 
 export type RailDest = 'Library' | 'Voices' | 'Activity' | 'Engines' | 'Integrations' | 'Settings';

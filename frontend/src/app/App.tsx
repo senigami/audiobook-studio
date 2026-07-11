@@ -1,6 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation, useParams, useMatch } from 'react-router-dom';
-import { api } from '@/api';
+import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { AppShell } from '@/app/layout/AppShell';
 import { ProjectLibrary } from '@/pages/ProjectLibrary/ProjectLibraryPage';
 import { WelcomePage } from '@/pages/Welcome/WelcomePage';
@@ -9,9 +8,14 @@ import { useJobs } from '@/hooks/useJobs';
 import { useQueueSync } from '@/hooks/useQueueSync';
 import { useStudioSocketTransport } from '@/hooks/useStudioSocketTransport';
 import { useInitialData } from '@/hooks/useInitialData';
+import { useToast } from '@/hooks/useToast';
+import { APP_TOAST_EVENT } from '@/utils/toast';
+import { useStartupOverlay } from '@/hooks/useStartupOverlay';
+import { useChapterRedirect } from '@/hooks/useChapterRedirect';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { createStudioShellState } from '@/app/layout/StudioShell';
 import { QueueRoute } from '@/pages/Queue/QueueRoute';
+import { ProjectViewRoute } from '@/pages/ProjectDetail/ProjectViewRoute';
 import type { Chapter } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Drawer } from '@/pages/Voices/components/VoiceUtils';
@@ -20,6 +24,7 @@ const VoicesTab = lazy(() => import('@/pages/Voices/VoicesPage').then(m => ({ de
 const VoiceLabPage = lazy(() => import('@/pages/VoiceLab/VoiceLabPage').then(m => ({ default: m.VoiceLabPage })));
 const BookLayout = lazy(() => import('@/pages/Book').then(m => ({ default: m.BookLayout })));
 const BookIndexRedirect = lazy(() => import('@/pages/Book').then(m => ({ default: m.BookIndexRedirect })));
+const ProjectViewPage = lazy(() => import('@/pages/ProjectDetail/ProjectDetailPage').then(m => ({ default: m.ProjectView })));
 const EnginesPage = lazy(() => import('@/pages/Engines').then(m => ({ default: m.EnginesPage })));
 const IntegrationsPage = lazy(() => import('@/pages/Integrations').then(m => ({ default: m.IntegrationsPage })));
 const ActivityPage = lazy(() => import('@/pages/Activity/ActivityPage'));
@@ -56,10 +61,12 @@ function navigateToBookStage(projectId: string, search: string): { pathname: str
   const params = new URLSearchParams(search);
   const tab = params.get('tab');
   const stage = tab === 'characters'
-    ? 'casting'
-    : tab === 'assemblies' || tab === 'backups'
+    ? 'cast'
+    : tab === 'assemblies'
       ? 'publish'
-      : 'manuscript';
+      : tab === 'backups'
+        ? 'backups'
+        : 'contents';
   params.delete('tab');
   const nextSearch = params.toString();
   return {
@@ -106,7 +113,7 @@ function ChapterRedirectRoute({
     <Navigate
       replace
       to={{
-        pathname: `/book/${chapter.project_id}/studio`,
+        pathname: `/book/${chapter.project_id}/chapter/${chapterId}`,
         search: nextSearch ? `?${nextSearch}` : '',
       }}
     />
@@ -117,8 +124,7 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
   useStudioSocketTransport();
-  const chapterMatch = useMatch('/chapter/:chapterId');
-  const chapterIdFromRoute = chapterMatch?.params.chapterId;
+  const { chapterIdFromRoute, chapterRouteData, chapterRouteLoading } = useChapterRedirect();
   const [queueRefreshTrigger, setQueueRefreshTrigger] = useState(0);
   const {
     queue: mergedQueue,
@@ -145,9 +151,7 @@ function App() {
   const [chapterUpdate, setChapterUpdate] = useState<{ chapterId: string; tick: number }>({ chapterId: '', tick: 0 });
 
   const [segmentUpdate, setSegmentUpdate] = useState<{ chapterId: string; tick: number }>({ chapterId: '', tick: 0 });
-  const { data: initialData, loading: initialLoading, refetch: refetchHome } = useInitialData();
-  const [chapterRouteData, setChapterRouteData] = useState<Chapter | null>(null);
-  const [chapterRouteLoading, setChapterRouteLoading] = useState(false);
+  const { data: initialData, loading: initialLoading, error: initialError, refetch: refetchHome } = useInitialData();
   // Topic ownership for queue refresh:
   //   - useQueueSync owns queue-visible live overlays from jobs.lifecycle,
   //     queue.items, chapters.lifecycle, chapters.progress, and voice.test.
@@ -180,40 +184,6 @@ function App() {
     handleSegmentsUpdate,
     handleChapterUpdate
   );
-  useEffect(() => {
-    let cancelled = false;
-    if (!chapterIdFromRoute) {
-      setChapterRouteData(null);
-      setChapterRouteLoading(false);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    setChapterRouteLoading(true);
-    api.fetchChapter(chapterIdFromRoute)
-      .then(chapter => {
-        if (!cancelled) {
-          setChapterRouteData(chapter);
-        }
-      })
-      .catch(err => {
-        if (!cancelled) {
-          console.error('Failed to load chapter route data', err);
-          setChapterRouteData(null);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setChapterRouteLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [chapterIdFromRoute]);
-
 
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
@@ -223,26 +193,7 @@ function App() {
     confirmText?: string;
   } | null>(null);
 
-  const [toast, setToast] = useState<{ message: string; visible: boolean; action?: { label: string; onClick: () => void } } | null>(null);
-  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const showToast = useCallback((message: string, action?: { label: string; onClick: () => void }) => {
-    // Clear any pending timeout before setting a new one
-    if (toastTimeoutRef.current !== null) {
-      clearTimeout(toastTimeoutRef.current);
-    }
-    setToast({ message, visible: true, action });
-    toastTimeoutRef.current = setTimeout(() => setToast(prev => prev ? { ...prev, visible: false } : null), 4000);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      // Clear any pending toast timeout on unmount
-      if (toastTimeoutRef.current !== null) {
-        clearTimeout(toastTimeoutRef.current);
-      }
-    };
-  }, []);
+  const { toast, showToast, dismissToast } = useToast();
 
   const [isQueueDrawerOpen, setIsQueueDrawerOpen] = useState(false);
   const prevPathRef = useRef(location.pathname);
@@ -256,6 +207,17 @@ function App() {
       prevPathRef.current = location.pathname;
     }
   }, [location.pathname, navigate]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ message?: string }>).detail;
+      if (detail?.message) {
+        showToast(detail.message);
+      }
+    };
+    window.addEventListener(APP_TOAST_EVENT, handler);
+    return () => window.removeEventListener(APP_TOAST_EVENT, handler);
+  }, [showToast]);
 
   const handleRefresh = async () => {
     setRefreshingSource('refresh');
@@ -277,23 +239,7 @@ function App() {
   }, [location.pathname, initialLoading, queueLoading, connected, isReconnecting, activeSource, refreshingSource]);
   const startupMessage = initialData?.system_info?.startup_message || 'Starting Audiobook Studio Services...';
   const startupDetail = initialData?.system_info?.startup_detail;
-  const [showStartupCopy, setShowStartupCopy] = useState(false);
-
-  useEffect(() => {
-    if (!initialLoading) {
-      setShowStartupCopy(false);
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setShowStartupCopy(true);
-    }, 180);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [initialLoading]);
-
+  const showStartupCopy = useStartupOverlay(initialLoading);
 
   return (
     <div className="app-container">
@@ -331,7 +277,45 @@ function App() {
                   onOpenQueue={() => setIsQueueDrawerOpen(true)}
                 />
               } />
+              <Route path="/book/:bookId/chapter/:chapterId" element={
+                <BookLayout
+                  jobs={jobs}
+                  segmentProgress={segmentProgress}
+                  speakerProfiles={initialData?.speaker_profiles || []}
+                  speakers={initialData?.speakers || []}
+                  settings={initialData?.settings}
+                  engines={initialData?.engines || []}
+                  refreshTrigger={queueRefreshTrigger}
+                  segmentUpdate={segmentUpdate}
+                  chapterUpdate={chapterUpdate}
+                  onOpenQueue={() => setIsQueueDrawerOpen(true)}
+                />
+              } />
               <Route path="/project/:projectId" element={<ProjectRedirectRoute />} />
+              <Route path="/project/:projectId/details" element={
+                <ProjectViewRoute
+                  loading={initialLoading || queueLoading}
+                  connected={connected}
+                  isReconnecting={isReconnecting}
+                  refreshingSource={refreshingSource}
+                >
+                  {({ shellState }) => (
+                    <ProjectViewPage
+                      jobs={jobs}
+                      segmentProgress={segmentProgress}
+                      speakerProfiles={initialData?.speaker_profiles || []}
+                      speakers={initialData?.speakers || []}
+                      settings={initialData?.settings}
+                      engines={initialData?.engines || []}
+                      refreshTrigger={queueRefreshTrigger}
+                      segmentUpdate={segmentUpdate}
+                      chapterUpdate={chapterUpdate}
+                      shellState={shellState}
+                      onOpenQueue={() => setIsQueueDrawerOpen(true)}
+                    />
+                  )}
+                </ProjectViewRoute>
+              } />
               <Route path="/chapter/:chapterId" element={
                 <ChapterRedirectRoute
                   chapterId={chapterIdFromRoute || ''}
@@ -445,23 +429,73 @@ function App() {
               fontWeight: 700,
             }}
           >
-            <div
-              className="animate-spin"
-              style={{
-                width: 18,
-                height: 18,
-                borderRadius: '50%',
-                border: '2px solid var(--accent-glow)',
-                borderTopColor: 'var(--accent)',
-              }}
-            />
-            {showStartupCopy && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', minHeight: '2.1rem' }}>
-                <span>{startupMessage}</span>
-                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', minHeight: '1.1rem' }}>
-                  {startupDetail || '\u00A0'}
-                </span>
+            {initialError ? (
+              <div
+                role="alert"
+                aria-live="assertive"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}
+              >
+                <div
+                  data-testid="startup-error-indicator"
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    border: '2px solid var(--danger, #d64545)',
+                    flexShrink: 0,
+                  }}
+                />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                  <span>Couldn't reach Audiobook Studio</span>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                    {/* The 1s startup poll only retries automatically before the first
+                        successful load (!initialData) - a later refetch failure (e.g. after
+                        a job-complete event) does not re-arm it, so that copy is omitted then.
+                        Note: the em dash/ellipsis below must stay inside a JS string literal
+                        (not bare JSX text) for the \uXXXX escapes to actually decode - see F15's
+                        original bug where a bare-JSX-text escape rendered literally. */}
+                    {initialError}{!initialData ? ' \u2014 retrying automatically\u2026' : ''}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => refetchHome()}
+                  data-testid="startup-retry-button"
+                  style={{
+                    marginLeft: '0.5rem',
+                    padding: '0.4rem 0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface-hover, transparent)',
+                    color: 'var(--text-primary)',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Retry now
+                </button>
               </div>
+            ) : (
+              <>
+                <div
+                  className="animate-spin"
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    border: '2px solid var(--accent-glow)',
+                    borderTopColor: 'var(--accent)',
+                  }}
+                />
+                {showStartupCopy && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', minHeight: '2.1rem' }}>
+                    <span>{startupMessage}</span>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', minHeight: '1.1rem' }}>
+                      {startupDetail || '\u00A0'}
+                    </span>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -539,7 +573,7 @@ function App() {
               <button
                 onClick={() => {
                   toast.action?.onClick();
-                  setToast(null);
+                  dismissToast();
                 }}
                 style={{
                   background: 'var(--accent)',

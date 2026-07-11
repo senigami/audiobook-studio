@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { api } from '@/api';
+import { emitToast } from '@/utils/toast';
 import type { Chapter } from '@/types';
 
 export function useProjectActions(
@@ -24,19 +25,22 @@ export function useProjectActions(
       return true;
     } catch (e) {
       console.error("Failed to create chapter", e);
+      emitToast("Couldn't create chapter. Please try again.");
       return false;
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleUpdateProject = async (data: { name: string; series: string; author: string; cover?: File | null }) => {
+  const handleUpdateProject = async (data: { name: string; series: string; series_position?: number | null; author: string; description?: string; cover?: File | null }) => {
     setSubmitting(true);
     try {
       await api.updateProject(projectId, {
         name: data.name,
         series: data.series,
+        series_position: data.series_position ?? null,
         author: data.author,
+        description: data.description,
         cover: data.cover || undefined
       });
       await onDataRefresh();

@@ -12,6 +12,7 @@ import sys
 from collections.abc import Callable, Mapping
 
 from .broadcaster import broadcast_progress
+from .emit_gate import EmitGateMixin
 from .eta import (
     EtaSampleRing,
     N_MATURE,
@@ -23,20 +24,11 @@ from .eta import (
 )
 from .reconciliation import reconcile_work_item
 
-INTENDED_UPSTREAM_CALLERS = (
-    "app.orchestration.scheduler.orchestrator",
-    "app.orchestration.tasks",
-)
-INTENDED_DOWNSTREAM_DEPENDENCIES = (
-    "app.orchestration.progress.reconciliation.reconcile_work_item",
-    "app.orchestration.progress.eta.estimate_eta_seconds",
-    "app.orchestration.progress.broadcaster.broadcast_progress",
-)
-FORBIDDEN_DIRECT_IMPORTS = (
-    "app.api.routers",
-    "app.engines",
-    "app.db.queue",
-)
+# Upstream: the orchestrator and orchestration.tasks. Downstream: reconciliation, eta, and the
+# broadcaster. Intent is to avoid app.api.routers/app.engines/app.db.queue direct imports, but
+# note this module already makes lazy, function-local imports of
+# app.api.routers.voices_helpers._voice_job_title and app.engines.behavior.DEFAULT_BASELINE_ENGINE_CPS
+# for voice-test title/CPS lookups (pre-existing drift, not enforced here — see BE-2).
 
 
 def _resolve_source(default: str, depth: int = 1) -> str:
@@ -55,7 +47,7 @@ def _resolve_source(default: str, depth: int = 1) -> str:
         return default
 
 
-class ProgressService:
+class ProgressService(EmitGateMixin):
     """Progress-service entry points.
 
     Intended flow:
@@ -204,6 +196,7 @@ class ProgressService:
         char_count: int | None = None,
         indeterminate: bool | None = None,
         loading_elapsed_seconds: float | None = None,
+        ephemeral: bool = False,
     ) -> dict[str, object] | None:
         """Publish normalized progress updates for queue and chapter surfaces.
 
@@ -226,6 +219,13 @@ class ProgressService:
             allow_progress_regression: Allow an explicit recovery/reset event to
                 move progress backward instead of clamping to the previous floor.
             force: Emit even if the payload is unchanged.
+            ephemeral: Synthetic fan-out child context (W-PAR 008, Finding A):
+                suppress every JOB-scoped emission (jobs.lifecycle, queue.items,
+                chapters.progress) — those must come only from the durable
+                parent — while still emitting the SEGMENT-scoped frames
+                (segments.progress ticks and the prev→new SEGMENT_SAVED
+                transition), which are keyed by real segment ids and carry the
+                live per-segment progress bar.
 
         Returns:
             dict[str, object] | None: The emitted payload, or ``None`` when the
@@ -304,7 +304,7 @@ class ProgressService:
             else bool(has_segment_support)
         )
 
-        if status_changed or previous is None:
+        if (status_changed or previous is None) and not ephemeral:
             from app.api.contracts.events import build_job_lifecycle_event  # noqa: PLC0415
             lifecycle_event = build_job_lifecycle_event(
                 job_id=job_id,
@@ -343,7 +343,7 @@ class ProgressService:
             and isinstance(_curr_progress, (int, float))
             and abs(float(_curr_progress) - float(_prev_progress)) >= self.min_progress_delta
         )
-        if scope != "voice_test" and (_is_status_change or _progress_advanced):
+        if scope != "voice_test" and not ephemeral and (_is_status_change or _progress_advanced):
             from app.api.contracts.events import build_queue_item_status_event  # noqa: PLC0415
             queue_status = {"completed": "done", "cancelling": "cancelled"}.get(status, status)
             existing_title = None
@@ -373,7 +373,7 @@ class ProgressService:
                 source=payload.get("source"),
                 has_segment_support=resolved_has_segment_support,
                 confidence=payload.get("eta_confidence"),
-                indeterminate=payload.get("indeterminate") if payload.get("indeterminate") else None,
+                indeterminate=payload.get("indeterminate") if isinstance(payload.get("indeterminate"), bool) else None,
                 loading_elapsed_seconds=payload.get("loading_elapsed_seconds"),
             )
             self.broadcaster(payload=queue_event, channel="jobs")
@@ -469,6 +469,12 @@ class ProgressService:
                     if payload.get("active_segment_eta_confidence") is not None
                     else payload.get("eta_confidence")
                 ),
+                # W-MIX-LA 004: thread the load-window signal into the segment frame so
+                # the frontend can drive the preparing pulse from a single atomic frame
+                # (active_segment_id + indeterminate together).  Only present when the
+                # orchestrator has set indeterminate=True (LOADING_MODEL window).
+                indeterminate=payload.get("indeterminate") if isinstance(payload.get("indeterminate"), bool) else None,
+                loading_elapsed_seconds=payload.get("loading_elapsed_seconds"),
             )
             self.broadcaster(payload=seg_event, channel="jobs")
 
@@ -485,25 +491,11 @@ class ProgressService:
             existing_custom_title = None
             existing_engine = None
             if existing_job:
-                if hasattr(existing_job, "speaker_profile"):
-                    voice_name = existing_job.speaker_profile or "default"
-                elif isinstance(existing_job, dict) and existing_job.get("speaker_profile"):
-                    voice_name = existing_job["speaker_profile"]
-                if hasattr(existing_job, "started_at"):
-                    existing_started_at = existing_job.started_at
-                elif isinstance(existing_job, dict):
-                    existing_started_at = existing_job.get("started_at")
-                    existing_completed_at = existing_job.get("finished_at") or existing_job.get("completed_at")
-                if hasattr(existing_job, "finished_at"):
-                    existing_completed_at = existing_job.finished_at
-                if hasattr(existing_job, "custom_title"):
-                    existing_custom_title = existing_job.custom_title
-                elif isinstance(existing_job, dict):
-                    existing_custom_title = existing_job.get("custom_title")
-                if hasattr(existing_job, "engine"):
-                    existing_engine = existing_job.engine
-                elif isinstance(existing_job, dict):
-                    existing_engine = existing_job.get("engine")
+                voice_name = existing_job.speaker_profile or "default"
+                existing_started_at = existing_job.started_at
+                existing_completed_at = existing_job.finished_at
+                existing_custom_title = existing_job.custom_title
+                existing_engine = existing_job.engine
 
             resolved_custom_title = existing_custom_title or _voice_job_title(voice_name, action="Voice Test:", include_variant=False)
             resolved_engine = existing_engine or "voice_test"
@@ -535,7 +527,7 @@ class ProgressService:
                 voice_name=voice_name,
                 status=status,
                 progress=payload.get("progress") if payload.get("progress") is not None else 0.0,
-                started_at=started_at or (existing_job.started_at if existing_job and hasattr(existing_job, "started_at") else None) or (existing_job.get("started_at") if existing_job and isinstance(existing_job, dict) else None) or time.time(),
+                started_at=started_at or (existing_job.started_at if existing_job else None) or time.time(),
                 job_id=job_id,
                 message=message,
                 source=payload.get("source"),
@@ -547,7 +539,7 @@ class ProgressService:
         is_chapter_progress = (
             scope == "chapter"
             or (chapter_id is not None and scope != "segment")
-        )
+        ) and not ephemeral
         if is_chapter_progress:
             from app.api.contracts.events import build_chapter_progress_event  # noqa: PLC0415
             chap_event = build_chapter_progress_event(
@@ -567,7 +559,7 @@ class ProgressService:
                 has_segment_support=resolved_has_segment_support,
                 eta_updated_at=payload.get("eta_updated_at"),
                 confidence=payload.get("eta_confidence"),
-                indeterminate=payload.get("indeterminate") if payload.get("indeterminate") else None,
+                indeterminate=payload.get("indeterminate") if isinstance(payload.get("indeterminate"), bool) else None,
                 loading_elapsed_seconds=payload.get("loading_elapsed_seconds"),
             )
             self.broadcaster(payload=chap_event, channel="jobs")
@@ -683,6 +675,10 @@ class ProgressService:
         if is_terminal:
             payload["eta_seconds"] = None
             payload["eta_updated_at"] = None
+            # Explicitly clear the load-window flag: frontend overlay merges keep
+            # the last present value, so a terminal frame that merely OMITS
+            # `indeterminate` leaves a stale `true` from the load window behind.
+            payload["indeterminate"] = False
 
         # --- §4A progress rounding + clamp ------------------------------------
         raw_progress = payload.get("progress")
@@ -690,6 +686,24 @@ class ProgressService:
         if raw_progress is not None:
             normalized_progress = round(max(0.0, min(float(raw_progress), 1.0)), 2)
             payload["progress"] = normalized_progress
+
+        # --- §2.5 server-side monotonic floor (running → running) --------------
+        # Both producers funnel through this kernel, but they compute progress
+        # independently (orchestrator marker math vs the plugin SDK's own
+        # update_job_fields). A late plugin frame can carry a lower progress than
+        # the orchestrator already published (observed live: 0.91 after 0.99 just
+        # before done), which forces a visible backward correction on every bar.
+        # Clamp running-frame progress to the previous running frame's floor.
+        # Scope is deliberately narrow: only running→running (requeue/recovery
+        # transitions through queued/preparing keep their explicit reset paths).
+        if status == "running" and normalized_progress is not None:
+            with self._lock:
+                _prev_for_floor = self._last_payload_by_job.get(job_id)
+            if _prev_for_floor is not None and str(_prev_for_floor.get("status", "")) == "running":
+                _prev_progress = _prev_for_floor.get("progress")
+                if isinstance(_prev_progress, (int, float)) and normalized_progress < float(_prev_progress):
+                    normalized_progress = float(_prev_progress)
+                    payload["progress"] = normalized_progress
 
         # --- §4A eta_updated_at dedupe ----------------------------------------
         eta_seconds = payload.get("eta_seconds")
@@ -748,7 +762,8 @@ class ProgressService:
             if isinstance(eta_confidence, float):
                 # Caller pre-computed the numeric confidence — pass through.
                 # Still need ring_velocity for §4A.8 crossfade below (FIX 2).
-                ring_velocity = ring.mean() if ring is not None else None
+                # §4A.4 (1.8.4): recency-weighted — see EtaSampleRing.weighted_mean.
+                ring_velocity = ring.weighted_mean() if ring is not None else None
             else:
                 if ring is None:
                     ring = EtaSampleRing()  # ephemeral, not stored — sample=False path
@@ -788,7 +803,8 @@ class ProgressService:
                     )
                 payload["eta_confidence"] = numeric_conf
                 # FIX 2: capture ring velocity while still holding the lock.
-                ring_velocity = ring.mean()
+                # §4A.4 (1.8.4): recency-weighted — see EtaSampleRing.weighted_mean.
+                ring_velocity = ring.weighted_mean()
 
             # --- Task 006-A: per-segment EtaSampleRing sampling (inside same lock) ---
             seg_confidence: float | None = None
@@ -889,14 +905,14 @@ class ProgressService:
         else:
             p = float(normalized_progress) if normalized_progress is not None else 0.0
 
-            # §2.6 / I10: a determinate ETA is valid only once synthesis is
-            # actually running.  Before START_SYNTHESIS (queued / preparing /
-            # model cold-load) there is no synthesis clock — a calculated or
-            # observed ETA would anchor to queue time and drift across the load
-            # window, then re-anchor at START_SYNTHESIS and make the bar "jump".
-            # Suppress the observed input here; the calculated input is gated
-            # below; the trailing else then nulls all determinate ETA fields.
-            if status != "running":
+            # §2.6 / I10 (amended 1.8.0 — positive ETA always wins): queued still
+            # never carries a determinate ETA (no synthesis clock), but a REAL
+            # incoming observed ETA on a *preparing* frame survives — the
+            # pre-factored cold-load ETA (reason_code=pre_load_eta) and the
+            # LOADING_MODEL reconcile publish during the load window are honest
+            # observed inputs the queue bar must render as a countdown.  The
+            # calculated input stays running-gated below.
+            if status not in {"running", "preparing"}:
                 eta_observed = None
 
             # Compute eta_calculated from character count + engine baseline.
@@ -909,8 +925,10 @@ class ProgressService:
                 engine_id_str = str(engine_id) if engine_id else ""
                 try:
                     from app.db.state_performance import seconds_per_char as _spc  # noqa: PLC0415
-                    from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS  # noqa: PLC0415
-                    spc = _spc(engine_id_str, fallback_cps=DEFAULT_BASELINE_ENGINE_CPS)
+                    # No fabricated fallback rate: seconds_per_char returns None when the
+                    # engine has no recorded throughput, so eta_calculated stays None and
+                    # the crossfade relies on the real observed ETA instead of a made-up one.
+                    spc = _spc(engine_id_str)
                     if spc is not None and spc > 0:
                         remaining_chars = char_count * (1.0 - p)
                         eta_calculated = remaining_chars * spc
@@ -962,33 +980,34 @@ class ProgressService:
                     and completed_w is not None
                     and active_w is not None
                 ):
-                    remaining_w = max(float(total_w) - float(completed_w), 0.0)
-                    if remaining_w > 0:
-                        share = min(float(active_w) / remaining_w, 1.0)
+                    # §4A.3 share is the active segment's share of the TRUE remaining
+                    # work = its own *remaining* weight + the not-yet-started segments'
+                    # weight. The naive `active_w / (total − completed)` is wrong on two
+                    # counts at a segment boundary: (1) `completed_weight` lags until
+                    # SEGMENT_SAVED, so a finishing segment is still counted as "remaining"
+                    # at full weight; (2) a finishing segment's own remaining work is ~0.
+                    # Together those made a finishing NON-LAST segment (whose ETA → 0)
+                    # dominate the composition and collapse the chapter ETA toward 0 —
+                    # discounting the not-yet-started segments (the "stuck at 100% before
+                    # the last segment renders" bug). Using true-remaining keeps the
+                    # §4A.3 intent intact: when the active segment IS all remaining work
+                    # (not_started = 0), share → 1 and a confident segment still fully
+                    # dominates; when later segments remain, a finishing segment's share
+                    # → 0 and the chapter ETA holds the whole-remaining estimate.
+                    _asp = active_seg_p if active_seg_p is not None else 0.0
+                    _asp = min(max(float(_asp), 0.0), 1.0)
+                    active_remaining_w = max(float(active_w) * (1.0 - _asp), 0.0)
+                    not_started_w = max(float(total_w) - float(completed_w) - float(active_w), 0.0)
+                    true_remaining_w = active_remaining_w + not_started_w
+                    if true_remaining_w > 0:
+                        share = min(active_remaining_w / true_remaining_w, 1.0)
                         w_seg = seg_confidence * share
-                        # chapter_eta_excluding_active: per §4A.3, the residual represents
-                        # only the remaining work OUTSIDE the active segment.  When the
-                        # active segment covers all remaining work (share→1), the residual
-                        # must vanish so a mature high-confidence segment can fully
-                        # dominate the chapter ETA.
-                        #
-                        # Guard for cold-start (low seg_confidence): if we trust the
-                        # segment weakly, we still want the chapter-level baseline to
-                        # provide a fallback rather than collapsing to zero.  The residual
-                        # is therefore blended between the pure non-active fraction
-                        # (fully trusted segment) and the full chapter ETA (fully
-                        # untrusted segment), weighted by seg_confidence:
-                        #   non_active_fraction = (remaining_w - active_w) / remaining_w
-                        #   chapter_eta_excl = (non_active_fraction + share*(1-seg_confidence))
-                        #                      * bounded_eta
-                        # At seg_confidence=1: chapter_eta_excl = non_active_fraction * bounded_eta
-                        # At seg_confidence=0: chapter_eta_excl = (non_active_fraction + share) * bounded_eta
-                        #                    = 1.0 * bounded_eta  (full chapter ETA preserved)
-                        non_active_fraction = max(1.0 - share, 0.0)
-                        blended_residual_fraction = non_active_fraction + share * (1.0 - seg_confidence)
-                        chapter_eta_excl = blended_residual_fraction * float(bounded_eta)
-                        # eta_display = w_seg * seg_eta + (1 - w_seg) * chapter_eta_excluding_active
-                        composed_eta = w_seg * active_seg_eta + (1.0 - w_seg) * chapter_eta_excl
+                        # §4A.3: trust-weighted blend — w_seg is the trust placed in
+                        # the active-segment ETA; (1-w_seg) falls back to the whole-chapter
+                        # observed baseline.  Coefficients always sum to 1.0.
+                        #   seg_confidence=1, share=1 → composed = seg_eta (full trust)
+                        #   seg_confidence=0 or share=0 → composed = bounded_eta (no trust)
+                        composed_eta = w_seg * active_seg_eta + (1.0 - w_seg) * float(bounded_eta)
                         # Re-apply ceiling to the composed value.
                         composed_eta_bounded = apply_eta_ceiling(
                             eta_seconds=composed_eta,
@@ -1004,8 +1023,29 @@ class ProgressService:
                             conf_display = max(chapter_conf, seg_confidence * share)
                             payload["eta_confidence"] = conf_display
 
+            # --- §4A.2 monotone chapter-confidence floor (running → running) ----
+            # Owner design (2026-07-02): the chapter-level confidence is ONE steady
+            # estimation→live ramp across the whole chapter. The per-frame variance
+            # term (ring cv) and segment-boundary eta whipsaws made the emitted
+            # value bounce (0.63→0.33→0.20 observed live, job-47213119). Floor it
+            # at the previous running frame's value; queued/requeue and terminal
+            # paths keep their resets. Per-segment confidence (B12: resets per
+            # segment_id) is deliberately NOT floored.
+            if status == "running":
+                _conf_now = payload.get("eta_confidence")
+                if isinstance(_conf_now, float):
+                    with self._lock:
+                        _prev_conf_payload = self._last_payload_by_job.get(job_id)
+                    if (
+                        _prev_conf_payload is not None
+                        and str(_prev_conf_payload.get("status", "")) == "running"
+                    ):
+                        _prev_conf = _prev_conf_payload.get("eta_confidence")
+                        if isinstance(_prev_conf, (int, float)) and _conf_now < float(_prev_conf):
+                            payload["eta_confidence"] = float(_prev_conf)
+
             if bounded_eta is not None:
-                sanitized_eta = max(0, int(bounded_eta))
+                sanitized_eta = max(0, round(bounded_eta))
                 # Determine eta_basis: "calculated" when no observed input, else "remaining_from_update"
                 eta_basis = "calculated" if eta_observed is None else "remaining_from_update"
                 payload["eta_seconds"] = sanitized_eta
@@ -1173,212 +1213,6 @@ class ProgressService:
 
         # Delegate §4A math to enrich()
         return self.enrich(job_id, payload)
-
-
-    def _claim_emit_slot(
-        self,
-        payload: dict[str, object],
-        *,
-        allow_progress_regression: bool = False,
-        force: bool = False,
-    ) -> tuple[bool, dict[str, object] | None]:
-        """Atomically decide whether to emit AND reserve the throttle state.
-
-        Both the emit decision and the state reservation happen inside a single
-        ``self._lock`` acquisition:
-          1. Read the current ``previous`` snapshot and ``last_emit_tick``.
-          2. Run ``_should_emit_unlocked`` against those snapshots.
-          3. If emitting: write both ``_last_emit_tick_by_job`` AND
-             ``_last_payload_by_job`` under the same lock acquisition.
-
-        Writing ``_last_payload_by_job`` inside the claim ensures that a
-        concurrent thread for the same job_id sees the *new* payload as its
-        ``previous`` when it enters the gate, not the stale pre-emit value.
-        This closes the double-emit race: the second thread compares its
-        candidate against the already-claimed payload; if they are identical
-        (or below the progress/ETA delta thresholds) it returns False.
-
-        D7 constraint: NO ``get_jobs()`` / ``state_jobs`` call inside this
-        critical section.  Only ``_last_payload_by_job``, ``_last_emit_tick_by_job``,
-        and ``self.monotonic_clock()`` are touched inside the lock.
-
-        Args:
-            payload: The candidate payload dict (already enriched by ``enrich()``).
-            allow_progress_regression: Passed through to ``_should_emit_unlocked``.
-            force: When ``True`` the throttle/change-detection gates are bypassed.
-
-        Returns:
-            ``(should_emit, previous)`` — when ``should_emit`` is ``True`` the
-            caller must emit; ``previous`` is the PRE-CLAIM snapshot needed by
-            the segment-transition and status-change logic in ``publish()``
-            (i.e. the state that existed before we reserved the slot).
-        """
-        job_id = str(payload["job_id"])
-        with self._lock:
-            previous = self._last_payload_by_job.get(job_id)
-            last_emit_tick = self._last_emit_tick_by_job.get(job_id)
-
-            if force:
-                # Reserve both tick and payload atomically.
-                self._last_emit_tick_by_job[job_id] = float(self.monotonic_clock())
-                self._last_payload_by_job[job_id] = payload
-                return True, previous
-
-            should = self._should_emit_unlocked(
-                payload=payload,
-                previous=previous,
-                last_emit_tick=last_emit_tick,
-                allow_progress_regression=allow_progress_regression,
-            )
-            if should:
-                # Reserve tick AND payload so a racing same-job thread sees both.
-                # D7: monotonic_clock is injected (no lock nesting); no state_jobs call.
-                self._last_emit_tick_by_job[job_id] = float(self.monotonic_clock())
-                self._last_payload_by_job[job_id] = payload
-            return should, previous
-
-    def _should_emit_unlocked(
-        self,
-        *,
-        payload: dict[str, object],
-        previous: dict[str, object] | None,
-        last_emit_tick: float | None,
-        allow_progress_regression: bool = False,
-    ) -> bool:
-        """Core emit-gate logic operating on already-snapshotted state.
-
-        Called INSIDE ``self._lock`` from ``_claim_emit_slot``.  Must NOT
-        acquire any other lock or call ``get_jobs()`` / any ``state_jobs``
-        function (D7).
-
-        Returns:
-            bool: ``True`` when the payload should be emitted.
-        """
-        if previous is None:
-            return True
-
-        self._apply_progress_regression_guard(
-            payload=payload,
-            previous=previous,
-            allow_progress_regression=allow_progress_regression,
-        )
-
-        prev_status = previous.get("status")
-        curr_status = payload.get("status")
-        if prev_status in {"done", "failed", "cancelled"} and curr_status not in {"done", "failed", "cancelled", "queued", "preparing"}:
-            return False
-
-        if payload.get("status") != previous.get("status"):
-            return True
-        if payload.get("reason_code") != previous.get("reason_code"):
-            return True
-        if payload.get("message") != previous.get("message"):
-            return True
-        if payload.get("started_at") != previous.get("started_at"):
-            return True
-        if payload.get("active_render_batch_id") != previous.get("active_render_batch_id"):
-            return True
-        if payload.get("active_segment_id") != previous.get("active_segment_id"):
-            return True
-        if payload.get("active_render_batch_progress") != previous.get("active_render_batch_progress"):
-            previous_batch_progress = previous.get("active_render_batch_progress")
-            current_batch_progress = payload.get("active_render_batch_progress")
-            if isinstance(previous_batch_progress, (int, float)) and isinstance(current_batch_progress, (int, float)):
-                if abs(float(current_batch_progress) - float(previous_batch_progress)) >= self.min_progress_delta:
-                    return True
-            elif previous_batch_progress != current_batch_progress:
-                return True
-
-        if payload.get("active_segment_progress") != previous.get("active_segment_progress"):
-            previous_seg_progress = previous.get("active_segment_progress")
-            current_seg_progress = payload.get("active_segment_progress")
-            if isinstance(previous_seg_progress, (int, float)) and isinstance(current_seg_progress, (int, float)):
-                if abs(float(current_seg_progress) - float(previous_seg_progress)) >= self.min_progress_delta:
-                    return True
-            elif previous_seg_progress != current_seg_progress:
-                return True
-        previous_segment_eta = previous.get("active_segment_eta_seconds")
-        current_segment_eta = payload.get("active_segment_eta_seconds")
-        if isinstance(previous_segment_eta, int) and isinstance(current_segment_eta, int):
-            if abs(current_segment_eta - previous_segment_eta) >= 1:
-                return True
-        elif current_segment_eta is not None and previous_segment_eta != current_segment_eta:
-            return True
-        # Confidence changes gradually as the maturity ring fills (§4A.5 cold-start).
-        # The maturity factor increments in steps of 1/N_MATURE (= 0.2 with N=5),
-        # so consecutive cold frames can differ by ~0.2 per step.  Only treat a
-        # confidence shift as meaningful when it exceeds 0.25 — large enough to skip
-        # the natural cold-start increment but small enough to surface real transitions
-        # (e.g. a large c_fresh decay or a convergence/divergence event).
-        _MIN_CONF_DELTA: float = 0.25
-        prev_conf = previous.get("eta_confidence")
-        curr_conf = payload.get("eta_confidence")
-        if isinstance(prev_conf, float) and isinstance(curr_conf, float):
-            if abs(curr_conf - prev_conf) >= _MIN_CONF_DELTA:
-                return True
-        elif curr_conf != prev_conf:
-            return True
-
-        previous_progress = previous.get("progress")
-        current_progress = payload.get("progress")
-        if isinstance(previous_progress, (int, float)) and isinstance(current_progress, (int, float)):
-            if abs(float(current_progress) - float(previous_progress)) >= self.min_progress_delta:
-                return True
-
-        previous_eta = previous.get("eta_seconds")
-        current_eta = payload.get("eta_seconds")
-        if isinstance(previous_eta, int) and isinstance(current_eta, int):
-            if abs(current_eta - previous_eta) >= 1:
-                return True
-
-        now = float(self.monotonic_clock())
-        if last_emit_tick is None:
-            return True
-        return (now - last_emit_tick) >= self.max_silence_seconds
-
-    def _should_emit(self, payload: dict[str, object], *, allow_progress_regression: bool = False) -> bool:
-        """Public shim kept for backward compatibility with test code.
-
-        The emit-gate logic has moved to ``_should_emit_unlocked`` (called
-        atomically from ``_claim_emit_slot``).  This shim acquires the lock,
-        snapshots state, then delegates — it does NOT commit the tick, so use
-        ``_claim_emit_slot`` for the production path.
-        """
-        job_id = str(payload["job_id"])
-        # D7 leaf-lock: snapshot per-job state — no state_jobs call inside.
-        with self._lock:
-            previous = self._last_payload_by_job.get(job_id)
-            last_emit_tick = self._last_emit_tick_by_job.get(job_id)
-        return self._should_emit_unlocked(
-            payload=payload,
-            previous=previous,
-            last_emit_tick=last_emit_tick,
-            allow_progress_regression=allow_progress_regression,
-        )
-
-    def _apply_progress_regression_guard(
-        self,
-        *,
-        payload: dict[str, object],
-        previous: dict[str, object],
-        allow_progress_regression: bool,
-    ) -> None:
-        """Clamp backward progress unless the caller explicitly allows it."""
-        if allow_progress_regression:
-            return
-
-        previous_progress = previous.get("progress")
-        current_progress = payload.get("progress")
-        if payload.get("status") == "queued":
-            return
-        if not isinstance(previous_progress, (int, float)):
-            return
-        if not isinstance(current_progress, (int, float)):
-            return
-        if current_progress >= previous_progress:
-            return
-
-        payload["progress"] = previous_progress
 
 
 def create_progress_service() -> ProgressService:

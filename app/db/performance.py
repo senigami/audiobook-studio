@@ -175,6 +175,50 @@ def _normalize_tts_model(tts_model: Optional[str]) -> str | None:
     return normalized or None
 
 
+def expected_model_load_seconds(engine: str, tts_model: str | None = None) -> float | None:
+    """Return trimmed-mean expected cold-load seconds for engine/model from history.
+
+    Cold-vs-warm heuristic: samples where model_load_seconds < 1.0 are treated
+    as warm reuse and excluded. Returns None when no cold-load samples exist —
+    the caller must not inject a load term.
+    """
+    if not engine:
+        return None
+    try:
+        normalized_model = _normalize_tts_model(tts_model)
+        with _db_lock:
+            with get_studio_connection() as conn:
+                cursor = conn.cursor()
+                if normalized_model:
+                    cursor.execute(
+                        """
+                        SELECT model_load_seconds FROM render_performance_samples
+                        WHERE engine = ?
+                        AND model_load_seconds >= 1.0
+                        AND (tts_model = ? OR tts_model IS NULL)
+                        """,
+                        (engine, normalized_model),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        SELECT model_load_seconds FROM render_performance_samples
+                        WHERE engine = ?
+                        AND model_load_seconds >= 1.0
+                        """,
+                        (engine,),
+                    )
+                rows = cursor.fetchall()
+        values = [float(row[0]) for row in rows if row[0] is not None]
+        if not values:
+            return None
+        from app.orchestration.scheduler.eta import _trimmed_mean  # noqa: PLC0415
+        return round(_trimmed_mean(values, fallback=sum(values) / len(values)), 2)
+    except Exception:
+        logger.debug("expected_model_load_seconds(%s): query failed", engine, exc_info=True)
+        return None
+
+
 def _read_stats_reset_at(cursor) -> float | None:
     _ensure_settings_table(cursor)
     cursor.execute("SELECT value FROM settings WHERE key = ?", (_STATS_RESET_KEY,))

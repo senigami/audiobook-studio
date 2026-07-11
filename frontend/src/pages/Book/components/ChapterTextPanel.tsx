@@ -1,12 +1,58 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertTriangle, Check, Info } from 'lucide-react';
 import { ResyncPreviewModal } from '@/pages/ChapterEditor/components/ResyncPreviewModal';
 import { useChapterText } from '@/pages/Book/lib/useChapterText';
+import type { ChapterLifecycle } from '@/pages/Book/lib/chapterLifecycle';
 import type { Chapter } from '@/types';
+
+// Consequence-aware eyebrow wording for this editor surface only — the raw
+// `ChapterLifecycle` enum ("Rendered"/"Cast") reads as text-rendering
+// jargon here; readers of this panel care about "is this chapter's audio
+// done" rather than the pipeline-stage name. `ChapterTable`'s status pill
+// keeps the raw lifecycle value (a different surface, out of scope).
+function eyebrowLabel(lifecycle: ChapterLifecycle): string {
+  switch (lifecycle) {
+    case 'Rendered':
+      return 'Audio rendered';
+    case 'Cast':
+      return 'Audio in progress';
+    case 'Stale':
+      return 'Needs re-render';
+    case 'Error':
+      return 'Render error';
+    case 'Ready':
+      return 'Ready';
+    case 'Draft':
+    default:
+      return 'Draft';
+  }
+}
 
 interface ChapterTextPanelProps {
   chapter: Chapter | null;
   onSaved?: () => Promise<void> | void;
+  /**
+   * Reports whether there is an uncommitted edit to a produced chapter's
+   * text (i.e. the chapter has already been Cast/Rendered/gone
+   * Stale/Error and the user has unlocked + changed the text but not yet
+   * committed via the resync flow). Non-produced chapters autosave, so
+   * they never report dirty here. Used by DirectorsConsole's WriteTool
+   * wrapper to gate rail-tab switches (see DirtyGuardContext.tsx).
+   */
+  onDirtyChange?: (dirty: boolean) => void;
+  /**
+   * `'gated'` (default) preserves the Contents/Manuscript-stage behavior:
+   * a produced chapter opens read-only behind an "Edit Text" → "Edit
+   * Anyway" click-through before the textarea unlocks.
+   *
+   * `'immediate'` is for DirectorsConsole's Write mode
+   * (design-docs/workflows/chapter-editor-modes.md §7b — "always
+   * accessible, no advanced gate"): the textarea is editable the moment
+   * the panel mounts, with a calm persistent info banner in place of the
+   * click-through warning. The commit-time `ResyncPreviewModal` is the
+   * real safety net either way.
+   */
+  variant?: 'gated' | 'immediate';
 }
 
 function sentenceCount(text: string): number {
@@ -37,17 +83,21 @@ function formatDuration(seconds?: number | null): string {
 }
 
 function SaveChip({ state }: { state: ReturnType<typeof useChapterText>['saveState'] }) {
-  if (state === 'saving') return <span className="chapter-text-panel__chip">saving...</span>;
-  if (state === 'saved') return <span className="chapter-text-panel__chip chapter-text-panel__chip--saved">editing - autosaved <Check size={12} aria-hidden="true" /></span>;
-  if (state === 'error') return <span className="chapter-text-panel__chip chapter-text-panel__chip--error">autosave failed</span>;
+  if (state === 'saving') return <span className="chapter-text-panel__chip">saving…</span>;
+  if (state === 'saved') return <span className="chapter-text-panel__chip chapter-text-panel__chip--saved">editing — autosaved <Check size={12} aria-hidden="true" /></span>;
+  if (state === 'error') return <span className="chapter-text-panel__chip chapter-text-panel__chip--error">Autosave failed</span>;
   return <span className="chapter-text-panel__chip">editing</span>;
 }
 
-export function ChapterTextPanel({ chapter, onSaved }: ChapterTextPanelProps) {
+export function ChapterTextPanel({ chapter, onSaved, onDirtyChange, variant = 'gated' }: ChapterTextPanelProps) {
   const chapterText = useChapterText(chapter, onSaved);
   const [showUnlockWarning, setShowUnlockWarning] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  useEffect(() => {
+    onDirtyChange?.(chapterText.isProduced && chapterText.hasTextChanges);
+  }, [chapterText.isProduced, chapterText.hasTextChanges, onDirtyChange]);
 
   if (!chapter) {
     return (
@@ -57,8 +107,12 @@ export function ChapterTextPanel({ chapter, onSaved }: ChapterTextPanelProps) {
     );
   }
 
-  const canEditDirectly = !chapterText.isProduced || unlocked;
-  const isUnlockedProduced = chapterText.isProduced && unlocked;
+  // Write mode (variant="immediate") never gates entry — it's always
+  // effectively unlocked, per §7b. Contents/Manuscript ("gated", the
+  // default) keep today's click-through unlock.
+  const effectivelyUnlocked = variant === 'immediate' || unlocked;
+  const canEditDirectly = !chapterText.isProduced || effectivelyUnlocked;
+  const isUnlockedProduced = chapterText.isProduced && effectivelyUnlocked;
   const analysisChapter = chapterText.chapter ?? chapter;
   const analysisText = chapterText.text;
   const charCount = analysisText.length;
@@ -82,16 +136,23 @@ export function ChapterTextPanel({ chapter, onSaved }: ChapterTextPanelProps) {
     }
   };
 
+  const handleDiscard = () => {
+    chapterText.setText(chapterText.chapter?.text_content ?? '');
+    if (variant === 'gated') {
+      setUnlocked(false);
+    }
+  };
+
   return (
     <section className="chapter-text-panel" aria-label="Chapter preview">
       <div className="chapter-text-panel__header">
         <div>
-          <span className="chapter-text-panel__eyebrow">{chapterText.lifecycle}</span>
+          <span className="chapter-text-panel__eyebrow">{eyebrowLabel(chapterText.lifecycle)}</span>
           <h2>{chapterText.chapter?.title || chapter.title}</h2>
         </div>
         {!canEditDirectly && (
           <button type="button" className="btn-ghost" onClick={() => setShowUnlockWarning(true)}>
-            Edit text
+            Edit Text
           </button>
         )}
         {canEditDirectly && !chapterText.isProduced && <SaveChip state={chapterText.saveState} />}
@@ -100,9 +161,9 @@ export function ChapterTextPanel({ chapter, onSaved }: ChapterTextPanelProps) {
       {showUnlockWarning && !unlocked && (
         <div className="chapter-text-panel__warning" role="alert">
           <AlertTriangle size={18} />
-          <p>Editing re-analyzes this chapter. Voice assignments are matched best-effort - some may be lost.</p>
+          <p>Editing re-analyzes this chapter. Voice assignments are matched best-effort — some may be lost.</p>
           <button type="button" className="btn-primary" onClick={() => { setUnlocked(true); setShowUnlockWarning(false); }}>
-            Edit anyway
+            Edit Anyway
           </button>
           <button type="button" className="btn-ghost" onClick={() => setShowUnlockWarning(false)}>
             Cancel
@@ -111,9 +172,16 @@ export function ChapterTextPanel({ chapter, onSaved }: ChapterTextPanelProps) {
       )}
 
       {isUnlockedProduced && (
-        <div className="chapter-text-panel__unlock-strip">
-          Assignment-safe edit mode. Changes are not saved until you commit them.
-        </div>
+        variant === 'immediate' ? (
+          <div className="chapter-text-panel__info-banner" role="status">
+            <Info size={16} aria-hidden="true" />
+            <p>Editing the full source. Committing re-syncs voice assignments — you'll preview what's kept before anything changes.</p>
+          </div>
+        ) : (
+          <div className="chapter-text-panel__unlock-strip">
+            Changes aren't saved until you commit them.
+          </div>
+        )
       )}
 
       {canEditDirectly ? (
@@ -123,7 +191,7 @@ export function ChapterTextPanel({ chapter, onSaved }: ChapterTextPanelProps) {
           onChange={(event) => chapterText.setText(event.target.value)}
           disabled={chapterText.loading}
           className="chapter-text-panel__textarea"
-          placeholder="Start typing your chapter text here..."
+          placeholder="Start typing your chapter text here…"
         />
       ) : (
           <pre className="chapter-text-panel__preview">{chapterText.text}</pre>
@@ -164,11 +232,19 @@ export function ChapterTextPanel({ chapter, onSaved }: ChapterTextPanelProps) {
         <div className="chapter-text-panel__footer">
           <button
             type="button"
+            className="btn-ghost"
+            onClick={handleDiscard}
+            disabled={!chapterText.hasTextChanges || chapterText.previewLoading || chapterText.resyncing}
+          >
+            Discard
+          </button>
+          <button
+            type="button"
             className="btn-primary"
             onClick={() => void handleCommitProduced()}
             disabled={!chapterText.hasTextChanges || chapterText.previewLoading || chapterText.resyncing}
           >
-            Commit changes
+            Commit Changes
           </button>
         </div>
       )}

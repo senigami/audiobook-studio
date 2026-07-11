@@ -110,7 +110,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                             right: 0,
                             background: 'var(--surface)',
                             border: '1px solid var(--border)',
-                            borderRadius: '12px',
+                            borderRadius: 'var(--radius-card)',
                             boxShadow: 'var(--shadow-lg)',
                             zIndex: 1000,
                             overflow: 'hidden',
@@ -129,10 +129,10 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                                     style={{
                                         width: '100%',
                                         padding: '8px 12px 8px 32px',
-                                        fontSize: '0.85rem',
+                                        fontSize: 'var(--type-callout)',
                                         background: 'var(--surface-alt)',
                                         border: '1px solid var(--border-light)',
-                                        borderRadius: '8px',
+                                        borderRadius: 'var(--radius-button)',
                                         color: 'var(--text-primary)',
                                         outline: 'none'
                                     }}

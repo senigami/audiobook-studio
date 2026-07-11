@@ -39,7 +39,20 @@ def verify_api_key(credentials: HTTPAuthorizationCredentials = Security(security
 
 
 class SimpleRateLimiter:
-    """Basic sliding-window rate limiter for the public TTS API."""
+    """Basic sliding-window rate limiter for the public TTS API.
+
+    Documented limitations (S7 — acceptable for the local-first 2.0 release; not
+    a substitute for an edge rate limiter if Studio is ever exposed publicly):
+
+    - **In-memory, per-process.** Counters live in ``self._history`` only; they
+      are **reset on every restart** and are **not shared** across multiple
+      worker processes. A restart (or a multi-worker deployment) effectively
+      clears/splits the limit.
+    - **Keyed by client IP.** Callers behind the same NAT / proxy / VPN share a
+      single bucket, so one busy client can throttle its neighbours, and a
+      client that rotates IPs is not effectively limited. There is no
+      per-API-key bucketing.
+    """
 
     def __init__(self, requests_per_minute: int = 60):
         self.requests_per_minute = requests_per_minute

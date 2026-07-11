@@ -35,18 +35,23 @@ describe('annotations store', () => {
     expect(typeof annotations[0].updatedAt).toBe('number');
   });
 
-  it('updates an existing annotation and updatedAt changes', async () => {
+  it('updates an existing annotation and updatedAt changes', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000);
+
     saveAnnotation('chapter-1', 'seg-1', 'First note');
     const firstTime = getAnnotations('chapter-1')[0].updatedAt;
 
-    // Small delay to ensure timestamp changes if based on Date.now()
-    await new Promise((resolve) => setTimeout(resolve, 5));
+    // Advance the clock to ensure Date.now() ticks forward before the update.
+    vi.setSystemTime(1_000_005);
 
     saveAnnotation('chapter-1', 'seg-1', 'Updated note');
     const annotations = getAnnotations('chapter-1');
     expect(annotations).toHaveLength(1);
     expect(annotations[0].notes).toBe('Updated note');
     expect(annotations[0].updatedAt).toBeGreaterThan(firstTime);
+
+    vi.useRealTimers();
   });
 
   it('can delete an annotation', () => {

@@ -18,6 +18,9 @@ def _default_state() -> Dict[str, Any]:
             "tts_api_rate_limit": 10,
             "lan_binding_enabled": False,
             "api_priority_mode": "studio_first",
+            "huggingface_token": "",
+            "tts_parallel_cap": 2,
+            "tts_engine_caps": {},
         },
     }
 
@@ -89,11 +92,36 @@ def _normalize_settings(
     normalized["tts_api_key"] = str(normalized.get("tts_api_key") or "").strip()
     normalized["tts_api_rate_limit"] = int(normalized.get("tts_api_rate_limit", defaults["tts_api_rate_limit"]))
     normalized["lan_binding_enabled"] = bool(normalized.get("lan_binding_enabled", defaults["lan_binding_enabled"]))
+    normalized["huggingface_token"] = str(normalized.get("huggingface_token") or "").strip()
 
     priority_mode = str(normalized.get("api_priority_mode") or defaults["api_priority_mode"])
     if priority_mode not in ("studio_first", "equal", "api_first"):
         priority_mode = defaults["api_priority_mode"]
     normalized["api_priority_mode"] = priority_mode
+
+    # W-PAR task 007: parallel-cap toggle surfaced as a real setting.
+    # Default 2 (2026-07-05): parallel rendering ships as the default mode —
+    # sequential is just the cap=1 case of this same code path, not a
+    # separately maintained mode. Effective cap is further clamped to each
+    # engine's manifest max_concurrent_workers at claim-build time
+    # (app.orchestration.scheduler.cap_settings.resolve_effective_cap), so
+    # engines that only declare 1 worker (e.g. Voxtral, Mixed) stay sequential
+    # regardless of this default.
+    try:
+        normalized["tts_parallel_cap"] = max(1, int(normalized.get("tts_parallel_cap", defaults["tts_parallel_cap"])))
+    except (TypeError, ValueError):
+        normalized["tts_parallel_cap"] = defaults["tts_parallel_cap"]
+
+    engine_caps = normalized.get("tts_engine_caps")
+    if not isinstance(engine_caps, dict):
+        engine_caps = {}
+    coerced_caps: Dict[str, int] = {}
+    for engine_id, cap_value in engine_caps.items():
+        try:
+            coerced_caps[str(engine_id)] = max(1, int(cap_value))
+        except (TypeError, ValueError):
+            continue
+    normalized["tts_engine_caps"] = coerced_caps
 
     return normalized
 

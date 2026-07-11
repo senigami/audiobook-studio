@@ -58,11 +58,20 @@ class TestVerificationIsolation:
         assert "run_test() raised an unhandled exception" in result.error
         assert "run_test crash" not in result.error  # exception text must not leak
 
-    def test_verify_does_not_depend_on_studio_voices(self, tmp_path):
-        """Verification must not call into Studio voice resolution logic."""
-        # This is a regression test for the new architecture.
-        # Since verify_plugin only calls engine.run_test(), it shouldn't even
-        # be looking at settings or voices.
+    def test_verify_does_not_depend_on_studio_voices(self, tmp_path, monkeypatch):
+        """Verification must not call into Studio voice resolution logic.
+
+        Installs a real spy on ``app.db.speakers.get_speaker_settings`` --
+        Studio's speaker/voice-resolution entry point -- so a future
+        regression that wires verify_plugin() into Studio voice lookups
+        would actually be caught here, instead of the test just asserting
+        the (unmocked) happy path succeeds.
+        """
+        from app.db import speakers as speakers_module
+
+        voice_spy = MagicMock(wraps=speakers_module.get_speaker_settings)
+        monkeypatch.setattr(speakers_module, "get_speaker_settings", voice_spy)
+
         engine = MagicMock()
         engine.run_test.return_value = SDKVerificationResult(ok=True)
 
@@ -73,10 +82,9 @@ class TestVerificationIsolation:
             engine=engine
         )
 
-        # If it were reaching into Studio, these mocks would be triggered or would fail.
-        # We don't even need to mock them because they shouldn't be called.
         result = verify_plugin(plugin)
         assert result.ok is True
+        voice_spy.assert_not_called()
 
     def test_verify_passes_persisted_engine_settings_when_supported(self, tmp_path):
         """Cloud plugins need saved settings during verification."""

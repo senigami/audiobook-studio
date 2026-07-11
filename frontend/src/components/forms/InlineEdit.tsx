@@ -7,6 +7,8 @@ interface InlineEditProps {
   className?: string;
   style?: React.CSSProperties;
   inputStyle?: React.CSSProperties;
+  inputAriaLabel?: string;
+  inputSize?: number;
   multiline?: boolean;
   disabled?: boolean;
 }
@@ -26,11 +28,14 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
   className,
   style,
   inputStyle,
+  inputAriaLabel,
+  inputSize,
   multiline = false,
   disabled = false
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempValue, setTempValue] = useState(value);
+  const [isHovering, setIsHovering] = useState(false);
   const skipBlurSave = useRef(false);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
 
@@ -81,12 +86,15 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
       },
       onClick: (e: React.MouseEvent) => e.stopPropagation(),
       placeholder,
+      'aria-label': inputAriaLabel,
+      className: `inline-edit-input ${className || ''}`,
+      size: inputSize,
       style: {
-        background: 'var(--surface-light)',
-        border: '1px solid var(--accent)',
-        borderRadius: '4px',
+        background: 'var(--surface)',
+        border: '1px solid rgba(var(--accent-rgb), 0.35)',
+        borderRadius: '8px',
         color: 'var(--text-primary)',
-        padding: '2px 4px',
+        padding: '0.45rem 0.6rem',
         width: '100%',
         fontSize: 'inherit',
         fontWeight: 'inherit',
@@ -106,6 +114,8 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
   return (
     <div
       className={`inline-edit-trigger ${className || ''}`}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
       onClick={(e) => {
         if (disabled) return;
         e.stopPropagation();
@@ -116,11 +126,15 @@ export const InlineEdit: React.FC<InlineEditProps> = ({
         minHeight: '1em',
         display: 'flex',
         alignItems: 'center',
+        borderRadius: '8px',
+        padding: '0.3rem 0.45rem',
+        transition: 'background-color 120ms ease, box-shadow 120ms ease, color 120ms ease',
+        background: isHovering && !disabled ? 'rgba(var(--text-primary-rgb), 0.03)' : 'transparent',
         ...style 
       }}
       title={disabled ? undefined : (placeholder || 'Click to edit')}
     >
-      {value || (placeholder && <span style={{ opacity: 0.5 }}>{placeholder}</span>)}
+      {value || (placeholder && <span style={{ opacity: 'inherit' }}>{placeholder}</span>)}
     </div>
   );
 };

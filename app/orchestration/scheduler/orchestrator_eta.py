@@ -80,9 +80,9 @@ def estimate_active_segment_eta_seconds(
         baseline_cps = calibrated_cps
     elif expected_duration is not None and expected_duration > 0 and total_weight > 0:
         baseline_cps = float(total_weight) / float(expected_duration)
-    else:
-        from app.engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
-        baseline_cps = DEFAULT_BASELINE_ENGINE_CPS
+    # else: no real throughput basis — leave baseline_cps None. estimate_eta_seconds
+    # then returns None (no ETA) until the live run yields observed_cps, instead of
+    # fabricating a countdown from a hardcoded default rate.
 
     observed_cps = None
     if started_at is not None and progress > 0:

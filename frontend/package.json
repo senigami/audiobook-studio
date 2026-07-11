@@ -14,15 +14,24 @@
     "sync:showcase-tokens": "node ../scripts/sync_showcase_tokens.mjs"
   },
   "dependencies": {
+    "@fontsource-variable/fraunces": "^5.2.9",
+    "@fontsource-variable/geist": "^5.2.9",
     "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource-variable/lexend": "^5.2.11",
+    "@fontsource-variable/newsreader": "^5.2.10",
+    "@fontsource-variable/roboto-serif": "^5.2.9",
+    "@fontsource-variable/source-serif-4": "^5.2.9",
+    "@fontsource/atkinson-hyperlegible": "^5.2.8",
+    "@fontsource/geist-mono": "^5.2.8",
+    "@fontsource/source-serif-4": "^5.2.9",
     "@fontsource/space-grotesk": "^5.2.10",
-    "clsx": "^2.1.1",
     "framer-motion": "^12.29.2",
+    "i18next": "^26.3.4",
     "lucide-react": "^0.563.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-i18next": "^17.0.8",
     "react-router-dom": "^7.17.0",
-    "tailwind-merge": "^3.4.0",
     "wavesurfer.js": "^7.12.8"
   },
   "devDependencies": {
@@ -44,7 +53,7 @@
     "jsdom": "^27.0.1",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.3.2",
+    "vite": "^7.3.5",
     "vitest": "^3.2.6"
   }
 }

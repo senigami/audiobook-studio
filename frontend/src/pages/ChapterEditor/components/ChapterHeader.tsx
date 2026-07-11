@@ -146,14 +146,9 @@ export const useChapterStatus = (
   const block_char_count = activeRenderBatchWeight ?? 0;
   const progressVal = liveSegmentProgressValue;
   const coverageRatio = block_char_count > 0 ? clamp01(block_char_count / CHUNK_CHAR_LIMIT) : 1;
-  const isSegmentStartAtZero = hasSegmentSupport && (
-    selectedSegmentReasonCode === 'segment_start' ||
-    selectedSegmentReasonCode === 'START_SEGMENT' ||
-    selectedSegmentReasonCode === 'START_SYNTHESIS'
-  ) && progressVal === 0;
   const evidenceWeightFraction = typeof liveSegmentProgressJob?.confidence === 'number'
     ? liveSegmentProgressJob.confidence
-    : (isSegmentStartAtZero ? 1.0 : coverageRatio * clamp01(progressVal));
+    : coverageRatio * clamp01(progressVal);
   const selectedEtaSource = !liveSegmentProgressJob
     ? 'none'
     : hasActiveSegment
@@ -194,13 +189,12 @@ export const useChapterStatus = (
     selectedEtaSource,
     selectedUpdatedAtSource,
     evidenceWeightFraction,
-    isSegmentStartAtZero
   };
   return {
     queueStatus, heldQueueStatus, effectiveQueueLocked, isQueued,
     liveSegmentProgressJob, liveSegmentProgressValue, hasChapterAudio,
     generatingSegmentIdsCount, liveSegmentProgressIsRenderBlock,
-    segmentProgressBarSelection
+    segmentProgressBarSelection, selectedSegmentReasonCode
   };
 };
 
@@ -495,21 +489,28 @@ export const ChapterScriptToolbar: React.FC<{
         )}
 
         {!status.liveSegmentProgressJob && status.queueStatus && (
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                padding: '0.35rem 0.65rem',
-                borderRadius: '999px',
-                background: status.isQueued ? 'var(--accent)' : 'var(--accent-tint)',
-                color: status.isQueued ? 'white' : 'var(--accent)',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em',
-                border: '1px solid var(--accent)',
-                boxShadow: status.isQueued ? '0 0 0 1px var(--accent-glow)' : 'none'
-            }}>
+            // Before any segment has an active_segment_id (real cold start / model
+            // load), the animated PredictiveProgressBar below never mounts — this
+            // static pill is the only load-window indicator, so it must pulse
+            // (shared .is-running/calm-pulse class) rather than sit frozen.
+            // Queued (nothing active yet) stays still on purpose.
+            <div
+                className={status.queueStatus === 'Preparing' ? 'is-running' : undefined}
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    padding: '0.35rem 0.65rem',
+                    borderRadius: '999px',
+                    background: status.isQueued ? 'var(--accent)' : 'var(--accent-tint)',
+                    color: status.isQueued ? 'white' : 'var(--accent)',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    border: '1px solid var(--accent)',
+                    boxShadow: status.isQueued ? '0 0 0 1px var(--accent-glow)' : 'none'
+                }}>
                 {status.queueStatus}
             </div>
         )}
@@ -566,8 +567,14 @@ export const ChapterScriptToolbar: React.FC<{
                             etaSeconds: displayedEtaSeconds,
                             etaBasis: displayedEtaBasis as any,
                             updatedAt: displayedUpdatedAt,
+                            reasonCode: status.selectedSegmentReasonCode,
+                            indeterminate: status.liveSegmentProgressJob?.indeterminate ?? null,
+                            // Non-load-window state is purely job-status-driven. The
+                            // SEGMENT_PENDING/indeterminate load window forces 'preparing'
+                            // inside buildSegmentProgressBarProps (the explicit-trigger model),
+                            // so zero progress is never used to infer the bar's phase here.
                             state: liveJobStatus === 'preparing'
-                                ? (status.segmentProgressBarSelection.isSegmentStartAtZero ? 'processing' : 'preparing')
+                                ? 'preparing'
                                 : liveJobStatus === 'finalizing'
                                     ? 'finalizing'
                                     : liveJobStatus === 'running'

@@ -5,14 +5,24 @@
    the dark tokens from a [data-theme="dark"] ancestor and renders dark. */
 :root,
 [data-theme="light"] {
-  --bg: #f8fafc;
+  --bg: #f5f7fb;
   --surface: #ffffff;
-  --surface-alt: #f1f5f9;
-  --accent: #2b6eff;
+  --surface-alt: #f0f3f9;
+  --surface-reading: #fffef9;  /* pending — manuscript reading column; not yet wired (no migration phase owns the reading-column adoption — P3 is StatusOrb/progress) */
+  --accent: #1e4fd8;                               /* aliased from #2b6eff — value changed, name kept as a transition alias for the existing var(--accent) consumers (~94 files per plans/quiet_studio_migration/02-roadmap.md); --action-primary is the canonical role name going forward (full rename is phase P5) */
   --accent-secondary: #ff8a1f;
-  --accent-hover: #1d54da;
-  --accent-active: #1642b5;
-  --accent-glow: rgba(43, 110, 255, 0.1);
+  --accent-hover: #1a45c0;                         /* was #1d54da */
+  --accent-active: #163aa3;                        /* was #1642b5 */
+  --action-primary: #1e4fd8;                       /* NEW role-named alias */
+  --action-primary-hover: #1a45c0;                 /* NEW */
+  --action-primary-active: #163aa3;                /* NEW */
+  --action-danger:        #c41a1a;                 /* danger fill button — deep red, ~10:1 with white */
+  --action-danger-hover:  #a81515;                 /* darkens on hover (light mode) */
+  --action-danger-active: #901010;                 /* even darker on press */
+  --on-action: #ffffff;                            /* NEW (≡ --text-on-accent) */
+  --primary-border-inset: rgba(255,255,255,.18);   /* NEW — 1px inset border on flat buttons */
+  --live-indicator: #1e4fd8;                       /* NEW; pending P3 (progress/nav-active) */
+  --accent-glow: rgba(30, 79, 216, 0.1);
   --success: #10b981;
   --success-muted: #d1fae5;
   --error: #ef4444;
@@ -20,10 +30,12 @@
   --warning: #f59e0b;
   --glass-hover: rgba(0, 0, 0, 0.04);
   --error-glow: rgba(239, 68, 68, 0.1);
-  --text-primary: #0f172a;
+  --text-primary: #1c2b4a;     /* was #0f172a */
   --text-secondary: #475569;
-  --text-muted: #64748b;
+  --text-muted: #5c6a80;       /* was #64748b */
+  --text-subtle: #69788f;      /* lightest near-edge placeholder tone on white */
   --border: #e6eaf2;
+  --border-strong: #c3cbdb;    /* more visible border for compact controls (e.g. series-position stepper) */
   --glass: rgba(255, 255, 255, 0.8);
   --glass-border: rgba(255, 255, 255, 0.5);
   --surface-light: #f8fafc;
@@ -33,11 +45,17 @@
   --rail-width: 190px;
   --rail-width-collapsed: 56px;
 
+  /* Z-index scale — see src/app/layout/layering.ts for the app-shell tiers
+     (header/rail-overlay/player-bar). --z-drawer sits between contextual
+     dropdowns/menus (~300) and modal/toast overlays (~1000-1200). */
+  --z-drawer: 400;
+
   /* Unified Design Tokens */
-  --radius-button: 10px;
-  --radius-card: 14px;
+  --radius-button: 8px;    /* was 10px */
+  --radius-card: 10px;     /* was 14px */
   --radius-panel: 18px;
   --radius-round: 9999px;
+  --radius-compact: 6px;   /* NEW — compact controls, badges; pending P2 (compact controls) */
 
   /* Elevation — soft, layered, Apple-style ambient shadows (a wide diffuse
      halo + a tight contact shadow) rather than a single hard drop. */
@@ -49,7 +67,7 @@
   /* Material — Liquid Glass. Apply --blur-glass via backdrop-filter on chrome
      (top bar, player, rail, drawers) over a translucent --glass surface. */
   --blur-glass: saturate(180%) blur(20px);
-  --blur-glass-strong: saturate(180%) blur(40px);
+  --blur-glass-strong: saturate(180%) blur(28px);
   --hairline: rgba(15, 23, 42, 0.08);   /* softer than --border, for inner divisions */
 
   /* Motion — shared easing + duration tokens so transitions feel consistent.
@@ -60,6 +78,7 @@
   --dur-fast: 0.14s;
   --dur-med: 0.24s;
   --dur-slow: 0.4s;
+  --pulse-duration: 3s;   /* the reduced-motion guard zeroes animation-duration on *; .is-running re-enables it to var(--pulse-duration) */
 
   /* Focus — one consistent visible ring for keyboard nav (a11y). */
   --focus-ring: 0 0 0 3px var(--accent-focus-ring);
@@ -81,7 +100,7 @@
   --space-8: 48px;
 
   /* RGB channel tokens (for rgba() usage) */
-  --accent-rgb: 43, 110, 255;
+  --accent-rgb: 30, 79, 216;
 
   /* Brand tokens */
   --as-ink: #0f172a; /* sleek slate-dark */
@@ -99,6 +118,14 @@
   --success-text: #15803d;                       /* success status text */
   --warning-text-strong: #b45309;               /* warning/caution inline text */
   --text-on-accent: #ffffff;                    /* text on colored accent surfaces */
+  --text-on-error: #ffffff;                     /* text/icon on error fills (stays white in both themes) */
+  --text-on-warning: #1c1300;                   /* text/icon on warning fills (fixed dark in both themes) */
+  --on-success: #04240f;                        /* NEW — text on success fills */
+  --status-cached-text: #9a4d0a;               /* NEW; pending P3 (StatusOrb cached state) */
+  --status-cached-ring: #a8530a;               /* NEW — ring/icon use only, NOT text; pending P3 (StatusOrb cached state) */
+  --status-m4a: #d4a020;                       /* gold fill for M4A exported state */
+  --status-m4a-border: #9a7010;               /* darker gold border/stroke */
+  --status-m4a-icon: #1c2b4a;                  /* dark icon on gold fill (check mark) */
   --glass-surface-light: rgba(248, 249, 252, 0.78); /* panel glass in light mode */
   --glass-subtle: rgba(255, 255, 255, 0.05);    /* very subtle glass tint */
 
@@ -117,15 +144,15 @@
   --error-tint-bg: rgba(239, 68, 68, 0.1);        /* error surface tint */
   --error-tint-border: rgba(239, 68, 68, 0.2);    /* error surface border */
   --error-text-strong: #b91c1c;                   /* error body text (darker red) */
-  --accent-tint-bg: rgba(43, 110, 255, 0.12);     /* accent-blue surface tint (brand blue) */
-  --accent-tint-border: rgba(43, 110, 255, 0.2);  /* accent-blue surface border */
+  --accent-tint-bg: rgba(30, 79, 216, 0.12);     /* accent-blue surface tint (brand blue) */
+  --accent-tint-border: rgba(30, 79, 216, 0.2);  /* accent-blue surface border */
   --surface-tinted-light: rgba(240, 247, 255, 0.9); /* very light blue tinted surface */
   --surface-glass-white: rgba(255, 255, 255, 0.8); /* glass white (higher opacity) */
   --surface-glass-half: rgba(255, 255, 255, 0.5); /* 50% glass white */
   --surface-dim: rgba(0, 0, 0, 0.03);             /* barely-there dark tint */
   --success-tint-bg: rgba(16, 185, 129, 0.1);     /* success surface tint */
   --success-color: #10b981;                        /* success status color (= --success alias) */
-  --accent-focus-ring: rgba(43, 110, 255, 0.08);  /* focus ring glow around inputs */
+  --accent-focus-ring: rgba(30, 79, 216, 0.08);  /* focus ring glow around inputs */
   --cloud-tint-bg: rgba(14, 165, 233, 0.12);      /* cloud-engine accent tint */
   --cloud-color: #0ea5e9;                          /* cloud engine icon/text color */
 
@@ -155,8 +182,8 @@
   --progress-track: rgba(0, 0, 0, 0.05);           /* progress bar track background */
   --progress-finalizing-fill: rgba(191, 219, 254, 0.34); /* finalizing state fill color */
   --progress-finalizing-glow: rgba(59, 130, 246, 0.45);  /* finalizing glow shadow */
-  --progress-preparing-fill: rgba(248, 250, 252, 0.96);  /* preparing indeterminate fill */
-  --progress-preparing-glow: rgba(226, 232, 240, 0.45);  /* preparing glow shadow */
+  --progress-preparing-fill: #ffffff;                     /* white — blue stripes define the state */
+  --progress-preparing-glow: transparent;                 /* no glow needed on white fill */
   --progress-badge-running: rgba(37, 99, 235, 0.10);     /* running/processing badge bg */
   --progress-badge-preparing: rgba(245, 158, 11, 0.12);  /* preparing badge bg */
   --progress-badge-finalizing: rgba(59, 130, 246, 0.10); /* finalizing badge bg */
@@ -171,12 +198,18 @@
   /* Progress barber-pole stripe overlays (animated ::before; overlay a colored fill, theme-agnostic) */
   --progress-stripe-sheen:            rgba(255, 255, 255, 0.16);
   --progress-stripe-sheen-soft:       rgba(255, 255, 255, 0.09);
-  --progress-stripe-pending:          rgba(148, 163, 184, 0.22);
-  --progress-stripe-pending-soft:     rgba(148, 163, 184, 0.10);
+  --progress-stripe-pending:          rgba(30, 79, 216, 0.44);    /* blue stripe over white fill */
+  --progress-stripe-pending-soft:     rgba(30, 79, 216, 0.20);    /* soft blue */
   --progress-stripe-finalizing:       rgba(96, 165, 250, 0.36);
   --progress-stripe-finalizing-soft:  rgba(96, 165, 250, 0.20);
   --progress-stripe-finalizing-tint:      rgba(219, 234, 254, 0.20);
   --progress-stripe-finalizing-tint-soft: rgba(219, 234, 254, 0.10);
+
+  /* Typography stacks — updated by Task 000 */
+  --font-ui:      'Geist Variable', 'Geist', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Space Grotesk', 'Geist Variable', system-ui, sans-serif;
+  --font-reading: 'Source Serif 4', Georgia, 'Times New Roman', serif;  /* pending — reading column; not yet wired (no migration phase owns reading-column adoption) */
+  --font-mono:    'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* Type scale tokens — design-system §4 (additive; theme-independent) */
   --type-display:     2.25rem;   /* 36px — splash / large hero moments */
@@ -218,10 +251,11 @@
 
 [data-theme="dark"] {
   /* Surfaces */
-  --bg:                   #0f1117;
-  --background:           #0f1117;
+  --bg:                   #0d0f14;   /* was #0f1117 — studio near-black */
+  --background:           #0d0f14;
   --surface:              #1a1d27;
-  --surface-alt:          #22263a;
+  --surface-alt:          #161922;   /* was #22263a */
+  --surface-reading:      #1c1f2a;   /* NEW; pending — manuscript reading column; not yet wired (no migration phase owns reading-column adoption) */
   --surface-light:        #1a1d27;
   --surface-white:        #1a1d27;
   --surface-pressed:      #2d3148;
@@ -234,8 +268,9 @@
 
   /* Text */
   --text-primary:         #e8eaf0;
-  --text-secondary:       #9ca3af;
-  --text-muted:           #6b7280;
+  --text-secondary:       #a8b2c4;   /* was #9ca3af */
+  --text-muted:           #8b95a8;   /* was #6b7280 — fixes AA failure in §2.4 */
+  --text-subtle:          #6b7a92;   /* NEW; pending — no consumers yet (no specific migration phase assigned) */
   --text:                 var(--text-primary);
   --text-code-muted:      #b0b8c8;
   --text-code-info:       #38bdf8;
@@ -249,6 +284,7 @@
   /* Borders */
   --border:               #2d3148;
   --border-muted:         #3d4460;
+  --border-strong:        #5a6480;    /* more visible border for compact controls (e.g. series-position stepper) */
   --hairline:             rgba(255, 255, 255, 0.08);
 
   /* Glass */
@@ -258,12 +294,28 @@
   --glass-surface-light:  rgba(15, 17, 23, 0.78);
   --glass-subtle:         rgba(0, 0, 0, 0.25);
 
+  /* Accent alias + role-named action tokens (dark) */
+  --accent:               #6b9fff;              /* dark alias — aligns with --action-primary dark */
+  --accent-hover:         #5b90f5;
+  --accent-active:        #4f86ff;
+  --action-primary:       #6b9fff;              /* NEW */
+  --action-primary-hover: #5b90f5;              /* NEW */
+  --action-primary-active: #4f86ff;             /* NEW */
+  --action-danger:        #c41a1a;              /* deep red on dark surface — white text */
+  --action-danger-hover:  #e53e3e;              /* lightens on hover (dark mode) */
+  --action-danger-active: #a81515;              /* darkens on press */
+  --on-action:            #0d0f14;              /* NEW — dark bg, not white */
+  --text-on-accent:       #0d0f14;              /* dark-aware (was inheriting #fff): dark --accent is light-blue #6b9fff, so on-accent text must be dark — 7.33:1 */
+  --primary-border-inset: rgba(0,0,0,.12);      /* NEW */
+  --live-indicator:       #6b9fff;              /* NEW; pending P3 (progress/nav-active) */
+  --accent-rgb:           107, 159, 255;        /* dark-aware override (was inheriting light 30,79,216): keeps rgba(var(--accent-rgb)) tints on the dark accent #6b9fff */
+
   /* Accent tints */
   --accent-tint:          rgba(99, 102, 241, 0.18);
-  --accent-tint-bg:       rgba(43, 110, 255, 0.15);
-  --accent-tint-border:   rgba(43, 110, 255, 0.3);
-  --accent-glow:          rgba(43, 110, 255, 0.15);
-  --accent-focus-ring:    rgba(43, 110, 255, 0.15);
+  --accent-tint-bg:       rgba(107, 159, 255, 0.15);
+  --accent-tint-border:   rgba(107, 159, 255, 0.3);
+  --accent-glow:          rgba(107, 159, 255, 0.15);
+  --accent-focus-ring:    rgba(107, 159, 255, 0.15);
 
   /* Success */
   --success:              #10b981;
@@ -273,6 +325,15 @@
   --success-text:         #34d399;
   --success-color:        #10b981;
   --success-tint-bg:      rgba(16, 185, 129, 0.12);
+  --on-success:           #052e16;              /* NEW */
+  --status-cached-text:   #fbbf24;              /* NEW; pending P3 (StatusOrb cached state) */
+  --status-cached-ring:   #fbbf24;              /* NEW; pending P3 (StatusOrb cached state) */
+  --status-m4a: #e6aa18;                        /* gold fill — brighter on dark bg */
+  --status-m4a-border: #b08010;               /* darker gold border on dark bg */
+
+  /* On-state text tokens (fixed values — same in both themes) */
+  --text-on-error: #ffffff;                     /* text/icon on error fills (stays white in both themes) */
+  --text-on-warning: #1c1300;                   /* text/icon on warning fills (fixed dark in both themes) */
 
   /* Warning */
   --warning:              #f59e0b;
@@ -323,8 +384,10 @@
   --progress-track:            rgba(255, 255, 255, 0.06);
   --progress-finalizing-fill:  rgba(96, 165, 250, 0.3);
   --progress-finalizing-glow:  rgba(59, 130, 246, 0.5);
-  --progress-preparing-fill:   rgba(51, 65, 85, 0.96);
-  --progress-preparing-glow:   rgba(71, 85, 105, 0.45);
+  --progress-preparing-fill:       #0d0f14;                   /* studio-dark — stripes define the state */
+  --progress-preparing-glow:       transparent;               /* no glow needed on dark fill */
+  --progress-stripe-pending:       rgba(107, 159, 255, 0.44); /* periwinkle stripe over dark fill */
+  --progress-stripe-pending-soft:  rgba(107, 159, 255, 0.20); /* soft periwinkle */
   --progress-badge-running:    rgba(99, 102, 241, 0.18);
   --progress-badge-preparing:  rgba(245, 158, 11, 0.18);
   --progress-badge-finalizing: rgba(59, 130, 246, 0.18);

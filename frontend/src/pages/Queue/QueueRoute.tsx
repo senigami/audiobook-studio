@@ -55,8 +55,4 @@ export const QueueRoute: React.FC<QueueRouteProps> = ({
   return <>{children({ shellState })}</>;
 };
 
-export const createQueueRoute = () => {
-  return null;
-};
-
 const consumeContractMarkers = (..._values: readonly unknown[]) => undefined;

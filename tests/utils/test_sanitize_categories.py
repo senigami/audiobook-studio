@@ -83,16 +83,6 @@ def test_golden_none_categories_equals_all():
 # SANITIZE_CATEGORIES registry sanity
 # ---------------------------------------------------------------------------
 
-def test_registry_contains_all_default_categories():
-    for cat in DEFAULT_CATEGORY_ORDER:
-        assert cat in SANITIZE_CATEGORIES, f"Missing category: {cat!r}"
-
-
-def test_default_order_is_tuple_of_strings():
-    assert isinstance(DEFAULT_CATEGORY_ORDER, tuple)
-    assert all(isinstance(c, str) for c in DEFAULT_CATEGORY_ORDER)
-
-
 # ---------------------------------------------------------------------------
 # Per-category unit tests — each function transforms ONLY its target
 # ---------------------------------------------------------------------------

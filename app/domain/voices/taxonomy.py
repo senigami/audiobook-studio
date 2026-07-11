@@ -1,6 +1,6 @@
 """Voice taxonomy validation (Phase A — voice metadata plan).
 
-Loads docs/specs/voice-taxonomy.json and docs/specs/voice.schema.json to provide:
+Loads design-docs/specs/voice-taxonomy.json and design-docs/specs/voice.schema.json to provide:
   - controlled-vocabulary validation for ``attributes`` fields
   - lenient degrading: unknown enum values dropped from ``attributes``, appended to ``tags``
   - ``taxonomy_version`` compatibility check (unknown major version → warning, still loads)
@@ -20,14 +20,14 @@ logger = logging.getLogger(__name__)
 # Paths (relative to the repo root, resolved at import time)
 # ---------------------------------------------------------------------------
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_TAXONOMY_PATH = _REPO_ROOT / "docs" / "specs" / "voice-taxonomy.json"
-_SCHEMA_PATH = _REPO_ROOT / "docs" / "specs" / "voice.schema.json"
+_TAXONOMY_PATH = _REPO_ROOT / "design-docs" / "specs" / "voice-taxonomy.json"
+_SCHEMA_PATH = _REPO_ROOT / "design-docs" / "specs" / "voice.schema.json"
 
 # Required attribute fields (per voice.schema.json §attributes.required)
 REQUIRED_ATTRIBUTES = ("class", "gender", "age")
 
 # Taxonomy version this code was written against
-SUPPORTED_TAXONOMY_VERSION = "1.0"
+SUPPORTED_TAXONOMY_VERSION = "2.0"
 
 
 # ---------------------------------------------------------------------------
@@ -176,6 +176,64 @@ def get_valid_values(field: str) -> list[str] | None:
     _ensure_loaded()
     vs = _VALID_VALUES.get(field)
     return sorted(vs) if vs is not None else None
+
+
+# provenance shape (voice.schema.json §provenance). Only `source` is a controlled
+# vocabulary; the other fields are typed but free-form. Kept in sync manually with
+# the schema — bump both together if the shape changes.
+_PROVENANCE_SOURCE_VALUES = {"recorded", "cloned", "imported", "designed"}
+_PROVENANCE_FIELD_TYPES: dict[str, type | tuple[type, ...]] = {
+    "source": str,
+    "author": str,
+    "consent_ack": bool,
+    "created_at": str,
+}
+# Free-form string fields have no natural upper bound from the caller; cap
+# them so a malformed/hostile PATCH can't persist multi-MB strings that get
+# replayed on every GET /api/voices.
+_PROVENANCE_STRING_FIELD_MAX_LEN = 512
+
+
+def validate_provenance_strict(provenance: dict[str, Any]) -> list[str]:
+    """Strict validation used on the PATCH /metadata write path for ``provenance``.
+
+    ``provenance`` records where a voice came from (recorded / cloned / imported /
+    designed) — see voice.schema.json §provenance. This function only validates
+    shape and vocabulary; it never populates the field itself. Population is owned
+    by whichever caller sets it (e.g. a future HuggingFace import module), fully
+    decoupled from this validator.
+
+    Returns a list of error strings (empty = valid). Unknown fields and unknown
+    ``source`` values are rejected rather than demoted — callers get 422.
+    """
+    errors: list[str] = []
+
+    for field, value in provenance.items():
+        expected_type = _PROVENANCE_FIELD_TYPES.get(field)
+        if expected_type is None:
+            errors.append(f"Unknown provenance field: {field!r}")
+            continue
+
+        if not isinstance(value, expected_type):
+            errors.append(
+                f"Invalid type for provenance field {field!r}: expected "
+                f"{expected_type.__name__}, got {type(value).__name__}"
+            )
+            continue
+
+        if field == "source" and value not in _PROVENANCE_SOURCE_VALUES:
+            errors.append(
+                f"Invalid value {value!r} for provenance field 'source'. "
+                f"Valid values: {sorted(_PROVENANCE_SOURCE_VALUES)}"
+            )
+
+        if expected_type is str and len(value) > _PROVENANCE_STRING_FIELD_MAX_LEN:
+            errors.append(
+                f"Provenance field {field!r} exceeds max length "
+                f"{_PROVENANCE_STRING_FIELD_MAX_LEN} ({len(value)} chars)"
+            )
+
+    return errors
 
 
 def validate_attributes_strict(attributes: dict[str, Any]) -> list[str]:

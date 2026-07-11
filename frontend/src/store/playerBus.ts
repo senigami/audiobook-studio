@@ -4,23 +4,13 @@ import { useSyncExternalStore } from 'react';
 // Types
 // ---------------------------------------------------------------------------
 
-export type PlayerScope = 'segment' | 'chapter' | 'preview';
-
-/** An alternate scope source registered alongside the primary — enables the scope toggle. */
-export interface AltScope {
-  scope: PlayerScope;
-  audioUrl: string;
-  title?: string;
-  subtitle?: string;
-}
+export type PlayerScope = 'segment' | 'chapter' | 'preview' | 'book';
 
 export interface PlayerBusState {
   scope: PlayerScope | null;
   title: string;
   subtitle?: string;
   audioUrl: string | null;
-  /** When present, a second source the user can switch to via switchScope(). */
-  altScope?: AltScope;
   playing: boolean;
   position: number;   // seconds
   duration: number;   // seconds
@@ -34,8 +24,6 @@ export interface LoadAndPlayOptions {
   title: string;
   subtitle?: string;
   audioUrl: string;
-  /** Optional alternate source to register — enables the Segment↔Chapter scope toggle. */
-  altScope?: AltScope;
   onEnded?: () => void;
   onPrev?: () => void;
   onNext?: () => void;
@@ -53,7 +41,6 @@ const IDLE_STATE: PlayerBusState = {
   title: '',
   subtitle: undefined,
   audioUrl: null,
-  altScope: undefined,
   playing: false,
   position: 0,
   duration: 0,
@@ -105,7 +92,6 @@ export function loadAndPlay(opts: LoadAndPlayOptions): void {
     title: opts.title,
     subtitle: opts.subtitle,
     audioUrl: opts.audioUrl,
-    altScope: opts.altScope,
     playing: true,
     position: 0,
     duration: 0,
@@ -113,34 +99,6 @@ export function loadAndPlay(opts: LoadAndPlayOptions): void {
       hasPrev: opts.hasPrev ?? false,
       hasNext: opts.hasNext ?? false,
     },
-    requestId: nextRequestId++,
-  });
-}
-
-/**
- * Swap the active {scope, audioUrl, title, subtitle} with the registered altScope.
- * Bumps requestId so PlayerBar reloads + plays the swapped source.
- * No-op when altScope is undefined.
- */
-export function switchScope(): void {
-  if (!state.altScope) return;
-
-  const incoming = state.altScope;
-  const outgoing: AltScope = {
-    scope: state.scope!,
-    audioUrl: state.audioUrl!,
-    title: state.title,
-    subtitle: state.subtitle,
-  };
-
-  setState({
-    scope: incoming.scope,
-    audioUrl: incoming.audioUrl,
-    title: incoming.title ?? state.title,
-    subtitle: incoming.subtitle,
-    altScope: outgoing,
-    position: 0,
-    duration: 0,
     requestId: nextRequestId++,
   });
 }

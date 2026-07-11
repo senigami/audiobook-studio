@@ -77,6 +77,10 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
         reasonCode: prov.selectedFields?.reasonCode || null,
         updatedAt: prov.selectedFields?.updatedAt || null,
         renderedJobId: prov.rawEnvelope?.jobId || null,
+        // Carry the model-load signal (indeterminate + elapsed) through to the
+        // segment progress history so the LOADING_MODEL window is represented.
+        indeterminate: prov.selectedFields?.indeterminate ?? null,
+        loadingElapsedSeconds: prov.selectedFields?.loadingElapsedSeconds ?? null,
       };
       globalSegmentProgressUpdates.push(entry);
       if (globalSegmentProgressUpdates.length > 20) globalSegmentProgressUpdates.shift();
@@ -197,6 +201,12 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
               chapter_id: event.chapterId || '',
               segment_id: event.segmentId,
               progress: segmentProg,
+              // Escaped defect fix (2026-07-05): captured so useStudioChapter.ts
+              // can build a usable active-segments fallback from data that was
+              // already flowing here and being discarded.
+              eta_seconds: projectedUpdates.active_segment_eta_seconds ?? null,
+              status: projectedUpdates.status,
+              updated_at: projectedUpdates.updated_at,
             };
             setSegmentProgress(prev => ({ ...prev, [next.segment_id]: next }));
           }

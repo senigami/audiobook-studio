@@ -21,8 +21,11 @@ describe('ProjectLibrary', () => {
                             name: 'Test Project',
                             series: 'Test Series',
                             author: 'Test Author',
-                            created_at: 1000,
-                            updated_at: 2000,
+                            // Noon UTC on distinct known dates so the formatted output is
+                            // stable across local timezones and Created/Updated map to
+                            // visibly different, verifiable calendar dates.
+                            created_at: 1709985600, // 2024-03-09T12:00:00Z
+                            updated_at: 1713182400, // 2024-04-15T12:00:00Z
                             cover_image_path: null
                         }
                     ])
@@ -65,8 +68,11 @@ describe('ProjectLibrary', () => {
 
         await screen.findByText('Test Project')
 
-        expect(screen.getByText(/^Created/i)).toBeTruthy()
-        expect(screen.getByText(/^Updated/i)).toBeTruthy()
+        // Ties the displayed text to the actual formatted values of the fixture's
+        // created_at/updated_at unix timestamps, so a broken formatDate call (e.g.
+        // wrong field, missing *1000) would be caught rather than just checking labels exist.
+        expect(screen.getByText('Created Mar 9, 2024')).toBeTruthy()
+        expect(screen.getByText('Updated Apr 15, 2024')).toBeTruthy()
     })
 
     it('opens create modal', async () => {

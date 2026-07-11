@@ -9,6 +9,11 @@ studio.db
 studio.db-journal
 db.sqlite3
 db.sqlite3-journal
+# WAL mode (W-PAR 005) writes -wal/-shm sidecar files next to every DB
+*.db-wal
+*.db-shm
+*.sqlite3-wal
+*.sqlite3-shm
 state.json
 /projects/
 /voices/
@@ -54,8 +59,11 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Anchored to repo root: these are Python build/packaging dirs. An unanchored
+# "lib/" footgun-matched nested source dirs like frontend/src/pages/Book/lib/,
+# silently leaving source files untracked.
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -166,8 +174,12 @@ mkdocs/_build/
 __pypackages__/
 /scratch
 plugins/*/assets/test_output.wav
+plugins/*/assets/last_test.json
 /Memory
 /debug
+
+# session memory (agent-local, not project history)
+/.memory/
 
 # SQLite backups produced by cleanup steps
 *.db.bak

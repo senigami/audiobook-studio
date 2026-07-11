@@ -1,6 +1,8 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ConfirmModal } from '@/components/overlays/ConfirmModal'
 import { describe, it, expect, vi } from 'vitest'
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
 
 function baseProps(overrides = {}) {
   return {
@@ -25,18 +27,20 @@ describe('ConfirmModal', () => {
     expect(heading?.textContent).toBe('Delete it?')
   })
 
-  it('close (X) button has an accessible name', () => {
-    render(<ConfirmModal {...baseProps()} />)
-    const closeBtn = screen.getByLabelText('Close dialog')
-    expect(closeBtn).toBeTruthy()
-  })
-
   it('X button hit area is at least 40×40px via padding', () => {
     render(<ConfirmModal {...baseProps()} />)
     const closeBtn = screen.getByLabelText('Close dialog') as HTMLElement
-    // padding is set to 10px; min-width/min-height to 40px
-    expect(closeBtn.style.minWidth).toBe('40px')
-    expect(closeBtn.style.minHeight).toBe('40px')
+    // min-width/min-height (40px) and padding (10px) live on the .modal-close-btn CSS class (P5).
+    // jsdom in this project doesn't process the theme stylesheet (no `css: true` in
+    // vitest.config.ts), so read the source rule directly rather than asserting computed style.
+    expect(closeBtn.classList.contains('modal-close-btn')).toBe(true)
+
+    const cssPath = resolve(process.cwd(), 'src/theme/components/misc.css')
+    const css = readFileSync(cssPath, 'utf-8')
+    const rule = css.match(/\.modal-close-btn\s*\{[^}]*\}/)?.[0]
+    expect(rule).toBeTruthy()
+    expect(rule).toMatch(/min-width:\s*40px/)
+    expect(rule).toMatch(/min-height:\s*40px/)
   })
 
   it('calls onCancel when Escape key is pressed', () => {

@@ -93,6 +93,340 @@ class TestJobDataclasses:
 
 
 # ---------------------------------------------------------------------------
+# §2b — get_plugin_ctx shared factory (PL-1: kills 9 copies of _get_ctx())
+# ---------------------------------------------------------------------------
+
+class TestGetPluginCtxFactory:
+    """PL-1: one SDK context factory, keyed per engine_id.
+
+    Each of the 9 formerly-duplicated ``_get_ctx()`` blocks hardcoded a
+    single engine_id and expected a shared, lazily-built singleton for that
+    engine. ``get_plugin_ctx`` must preserve that exact semantic: same
+    engine_id -> same cached instance; different engine_id -> independent
+    instances (never collide).
+    """
+
+    def setup_method(self):
+        # The cache is process-lifetime module state; reset it around each
+        # test so tests don't leak instances into each other.
+        from app.studio_plugin_sdk import plugin_utils
+        plugin_utils._ctx_cache.clear()
+
+    def test_returns_studio_plugin_context(self):
+        from app.studio_plugin_sdk import get_plugin_ctx, StudioPluginContext
+        ctx = get_plugin_ctx("xtts")
+        assert isinstance(ctx, StudioPluginContext)
+
+    def test_same_engine_id_returns_same_cached_instance(self):
+        from app.studio_plugin_sdk import get_plugin_ctx
+        first = get_plugin_ctx("xtts")
+        second = get_plugin_ctx("xtts")
+        assert first is second
+
+    def test_different_engine_ids_do_not_collide(self):
+        from app.studio_plugin_sdk import get_plugin_ctx
+        xtts_ctx = get_plugin_ctx("xtts")
+        voxtral_ctx = get_plugin_ctx("voxtral")
+        mixed_ctx = get_plugin_ctx("mixed")
+        assert xtts_ctx is not voxtral_ctx
+        assert xtts_ctx is not mixed_ctx
+        assert voxtral_ctx is not mixed_ctx
+        # Re-fetching each still returns its own cached instance.
+        assert get_plugin_ctx("xtts") is xtts_ctx
+        assert get_plugin_ctx("voxtral") is voxtral_ctx
+        assert get_plugin_ctx("mixed") is mixed_ctx
+
+    def test_engine_id_recorded_on_context(self):
+        # StudioPluginContext stores engine_id privately (_engine_id) and
+        # uses it downstream (e.g. as the logger name / plugin dir lookup
+        # key) — verify the factory threads the exact engine_id through
+        # rather than a hardcoded default.
+        from app.studio_plugin_sdk import get_plugin_ctx
+        ctx = get_plugin_ctx("voxtral")
+        assert ctx._engine_id == "voxtral"
+
+
+class TestLoadSettingsSchemaCaching:
+    """PL-3 merged xtts's ``@lru_cache(maxsize=1)`` and voxtral's uncached ``_load_settings_schema``.
+
+    The two originals were NOT behaviorally identical: xtts cached forever, voxtral re-read the
+    file on every call (schema edits took effect live, no restart needed). ``cache`` defaults to
+    True (xtts's call site, unchanged) but must be overridable to False (voxtral's call site) so
+    voxtral keeps its live-reload behavior instead of silently inheriting xtts's permanent cache.
+    """
+
+    def setup_method(self):
+        from app.studio_plugin_sdk import plugin_utils
+        plugin_utils._settings_schema_cache.clear()
+
+    def test_cache_true_returns_stale_content_after_file_changes(self, tmp_path):
+        from app.studio_plugin_sdk.plugin_utils import load_settings_schema
+        schema_path = tmp_path / "settings_schema.json"
+        schema_path.write_text(json.dumps({"version": 1}))
+        first = load_settings_schema(schema_path, engine_name="XTTS", cache=True)
+        schema_path.write_text(json.dumps({"version": 2}))
+        second = load_settings_schema(schema_path, engine_name="XTTS", cache=True)
+        assert first == {"version": 1}
+        assert second == {"version": 1}  # stale — cached, matching xtts's original lru_cache
+
+    def test_cache_false_reflects_file_changes_live(self, tmp_path):
+        from app.studio_plugin_sdk.plugin_utils import load_settings_schema
+        schema_path = tmp_path / "settings_schema.json"
+        schema_path.write_text(json.dumps({"version": 1}))
+        first = load_settings_schema(schema_path, engine_name="Voxtral", cache=False)
+        schema_path.write_text(json.dumps({"version": 2}))
+        second = load_settings_schema(schema_path, engine_name="Voxtral", cache=False)
+        assert first == {"version": 1}
+        assert second == {"version": 2}  # live — matching voxtral's original uncached behavior
+
+    def test_voxtral_call_site_passes_cache_false(self):
+        # Pins the actual call site, not just the helper's capability — a future edit that drops
+        # the cache=False kwarg would silently regress voxtral back to permanent caching.
+        repo_root = Path(__file__).parents[2]
+        source = (repo_root / "plugins/tts_voxtral/plugin/studio/app_adapter.py").read_text(encoding="utf-8")
+        assert 'load_settings_schema(schema_path, engine_name="Voxtral", cache=False)' in source
+
+
+# ---------------------------------------------------------------------------
+# §2c — make_segment_output_handler factory (PL-2: kills 4 on_output copies)
+# ---------------------------------------------------------------------------
+
+class TestMakeSegmentOutputHandlerFactory:
+    """PL-2: one shared on_output closure factory, parameterized on the
+    progress formula and on the two genuine per-plugin behavioral
+    differences found while enumerating the four originals (see the
+    docstring/comment in plugin_utils.py) — never on engine_id.
+    """
+
+    def _build(self, **overrides):
+        from app.studio_plugin_sdk.plugin_utils import make_segment_output_handler
+
+        forwarded: list[str] = []
+        update_seg_calls: list[tuple] = []
+        update_job_calls: list[dict] = []
+
+        def _on_output(line):
+            forwarded.append(line)
+
+        def _update_seg(segment_id, **kwargs):
+            update_seg_calls.append((segment_id, kwargs))
+
+        def _update_job_fn(jid, **kwargs):
+            update_job_calls.append({"jid": jid, **kwargs})
+
+        def _progress_formula(completed, total, active_segment_progress, *, active_index):
+            return {"progress": round(completed / total, 2) if total else 0.0}
+
+        kwargs = dict(
+            on_output=_on_output,
+            cancel_check=lambda: False,
+            path_to_group={"/out/seg-1.wav": [{"id": "seg-1"}]},
+            update_seg=_update_seg,
+            completed_groups=[0],
+            total_groups=2,
+            update_job_fn=_update_job_fn,
+            jid="job-1",
+            progress_formula=_progress_formula,
+        )
+        kwargs.update(overrides)
+        handler = make_segment_output_handler(**kwargs)
+        return handler, forwarded, update_seg_calls, update_job_calls, kwargs
+
+    def test_every_line_is_forwarded_to_on_output_first(self):
+        handler, forwarded, _, _, _ = self._build()
+        handler("some random log line")
+        handler("[SEGMENT_SAVED] /out/seg-1.wav")
+        assert forwarded == ["some random log line", "[SEGMENT_SAVED] /out/seg-1.wav"]
+
+    def test_segment_saved_writes_segment_rows_and_calls_update_job(self):
+        handler, _, update_seg_calls, update_job_calls, _ = self._build()
+        handler("[SEGMENT_SAVED] /out/seg-1.wav")
+        assert update_seg_calls == [
+            ("seg-1", {"audio_status": "done", "audio_file_path": "seg-1.wav", "audio_generated_at": update_seg_calls[0][1]["audio_generated_at"]})
+        ]
+        assert len(update_job_calls) == 1
+        call = update_job_calls[0]
+        assert call["active_segment_id"] is None
+        assert call["active_segment_progress"] == 0.0
+        assert call["skip_studio_job_event"] is True
+        assert call["skip_job_updated"] is True
+        assert call["progress"] == 0.5  # completed=1, total=2
+
+    def test_i17_cancel_guard_drops_segment_saved_write(self):
+        """I17: a cancelled render must not write segment 'done' state on a
+        straggler [SEGMENT_SAVED]. R1: before the `and not cancel_check()`
+        guard, this assertion fails (the write fires regardless)."""
+        handler, _, update_seg_calls, update_job_calls, _ = self._build(cancel_check=lambda: True)
+        handler("[SEGMENT_SAVED] /out/seg-1.wav")
+        assert update_seg_calls == []
+        assert update_job_calls == []
+
+    def test_unmatched_path_is_a_noop_besides_forwarding(self):
+        handler, forwarded, update_seg_calls, update_job_calls, _ = self._build()
+        handler("[SEGMENT_SAVED] /out/unknown.wav")
+        assert forwarded == ["[SEGMENT_SAVED] /out/unknown.wav"]
+        assert update_seg_calls == []
+        assert update_job_calls == []
+
+    def test_start_segment_calls_update_job_with_force_broadcast(self):
+        handler, _, _, update_job_calls, _ = self._build()
+        handler("[START_SEGMENT] seg-2")
+        assert len(update_job_calls) == 1
+        call = update_job_calls[0]
+        assert call["force_broadcast"] is True
+        assert call["active_segment_id"] == "seg-2"
+        assert call["active_segment_progress"] == 0.0
+
+    def test_progress_marker_parses_percent_and_calls_update_job(self):
+        handler, _, _, update_job_calls, _ = self._build()
+        handler("[PROGRESS] 42%")
+        assert len(update_job_calls) == 1
+        call = update_job_calls[0]
+        assert call["force_broadcast"] is True
+        assert call["active_segment_progress"] == pytest.approx(0.42)
+
+    def test_malformed_progress_line_is_swallowed_not_raised(self):
+        handler, _, _, update_job_calls, _ = self._build()
+        handler("[PROGRESS] not-a-number%")  # must not raise
+        assert update_job_calls == []
+
+    def test_emit_on_save_false_suppresses_update_job_but_still_writes_segment(self):
+        """voxtral segments.py's original asymmetry: SEGMENT_SAVED still marks
+        the segment row done and increments the counter, but never calls
+        update_job. Every other original (emit_on_save defaults True) does
+        call update_job on SEGMENT_SAVED — see test above."""
+        handler, _, update_seg_calls, update_job_calls, _ = self._build(emit_on_save=False)
+        handler("[SEGMENT_SAVED] /out/seg-1.wav")
+        assert update_seg_calls  # segment row still written
+        assert update_job_calls == []  # but update_job is NOT called
+
+    def test_on_group_completed_hook_invoked_with_new_count(self):
+        seen = []
+        handler, _, _, _, _ = self._build(on_group_completed=seen.append)
+        handler("[SEGMENT_SAVED] /out/seg-1.wav")
+        assert seen == [1]
+
+    def test_on_group_started_hook_invoked_with_active_index(self):
+        seen = []
+        handler, _, _, _, _ = self._build(on_group_started=seen.append)
+        handler("[START_SEGMENT] seg-2")
+        assert seen == [1]  # completed_groups[0]=0 -> active_index = min(0+1, total=2) = 1
+
+    def test_progress_formula_extra_keys_are_merged_into_update_job_call(self):
+        """xtts's formula returns extra tracking keys (grouped_progress, etc.)
+        beyond 'progress' — the factory must merge them all, not just 'progress'."""
+        def _formula(completed, total, active_segment_progress, *, active_index):
+            return {"progress": 0.5, "grouped_progress": 0.55, "completed_render_groups": completed}
+
+        handler, _, _, update_job_calls, _ = self._build(progress_formula=_formula)
+        handler("[START_SEGMENT] seg-2")
+        call = update_job_calls[0]
+        assert call["progress"] == 0.5
+        assert call["grouped_progress"] == 0.55
+        assert call["completed_render_groups"] == 0
+
+    def test_completed_groups_counter_is_mutated_in_place(self):
+        """The caller's completed_groups list must be mutated (not replaced) so
+        the caller can read it after the closure runs, matching every
+        original's `completed_groups[0]` idiom."""
+        counter = [0]
+        handler, _, _, _, _ = self._build(completed_groups=counter)
+        handler("[SEGMENT_SAVED] /out/seg-1.wav")
+        assert counter == [1]
+
+
+# ---------------------------------------------------------------------------
+# §2d — StudioPluginContext.group_needs_render (PL-2: kills 3 _group_needs_render copies)
+# ---------------------------------------------------------------------------
+
+class TestGroupNeedsRender:
+    """PL-2: the single shared definition, validated-artifact-metadata based
+    (never raw file existence) per modular_architecture.md."""
+
+    def _ctx(self):
+        from app.studio_plugin_sdk.context import StudioPluginContext
+        return StudioPluginContext("xtts")
+
+    def _write_valid_wav(self, path, seconds: float = 1.0) -> None:
+        import wave
+        with wave.open(str(path), "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(22050)
+            wf.writeframes(b"\x00\x00" * int(22050 * seconds))
+
+    def test_missing_file_needs_render(self, tmp_path):
+        ctx = self._ctx()
+        group = {"segments": [{"id": "s1", "audio_status": "done", "audio_file_path": "s1.wav"}]}
+        assert ctx.group_needs_render(group, tmp_path) is True
+
+    def test_zero_byte_file_needs_render(self, tmp_path):
+        """R1: pre-fix (raw .exists() check, as xtts/voxtral originals used)
+        a zero-byte file reads as valid and this assertion fails."""
+        seg_dir = tmp_path / "segments"
+        seg_dir.mkdir()
+        (seg_dir / "s1.wav").write_bytes(b"")
+        group = {"segments": [{"id": "s1", "audio_status": "done", "audio_file_path": "s1.wav"}]}
+        ctx = self._ctx()
+        assert ctx.group_needs_render(group, tmp_path) is True
+
+    def test_valid_wav_with_matching_db_state_does_not_need_render(self, tmp_path):
+        seg_dir = tmp_path / "segments"
+        seg_dir.mkdir()
+        self._write_valid_wav(seg_dir / "s1.wav")
+        group = {"segments": [{"id": "s1", "audio_status": "done", "audio_file_path": "s1.wav"}]}
+        ctx = self._ctx()
+        assert ctx.group_needs_render(group, tmp_path) is False
+
+    def test_valid_wav_but_segment_not_marked_done_needs_render(self, tmp_path):
+        seg_dir = tmp_path / "segments"
+        seg_dir.mkdir()
+        self._write_valid_wav(seg_dir / "s1.wav")
+        group = {"segments": [{"id": "s1", "audio_status": "unprocessed", "audio_file_path": "s1.wav"}]}
+        ctx = self._ctx()
+        assert ctx.group_needs_render(group, tmp_path) is True
+
+    def test_valid_wav_but_filename_mismatch_needs_render(self, tmp_path):
+        seg_dir = tmp_path / "segments"
+        seg_dir.mkdir()
+        self._write_valid_wav(seg_dir / "s1.wav")
+        group = {"segments": [{"id": "s1", "audio_status": "done", "audio_file_path": "stale.wav"}]}
+        ctx = self._ctx()
+        assert ctx.group_needs_render(group, tmp_path) is True
+
+    def test_force_rerender_true_always_needs_render_even_when_valid(self, tmp_path):
+        seg_dir = tmp_path / "segments"
+        seg_dir.mkdir()
+        self._write_valid_wav(seg_dir / "s1.wav")
+        group = {"segments": [{"id": "s1", "audio_status": "done", "audio_file_path": "s1.wav"}]}
+        ctx = self._ctx()
+        assert ctx.group_needs_render(group, tmp_path, force_rerender=True) is True
+
+    def test_force_rerender_defaults_to_false(self, tmp_path):
+        """Callers that never pass force_rerender (mixed's original call site)
+        keep exact prior behavior — the parameter must default to False."""
+        seg_dir = tmp_path / "segments"
+        seg_dir.mkdir()
+        self._write_valid_wav(seg_dir / "s1.wav")
+        group = {"segments": [{"id": "s1", "audio_status": "done", "audio_file_path": "s1.wav"}]}
+        ctx = self._ctx()
+        assert ctx.group_needs_render(group, tmp_path) is False
+
+    def test_multi_segment_group_all_must_be_done(self, tmp_path):
+        seg_dir = tmp_path / "segments"
+        seg_dir.mkdir()
+        self._write_valid_wav(seg_dir / "s1.wav")  # leader's expected file
+        group = {
+            "segments": [
+                {"id": "s1", "audio_status": "done", "audio_file_path": "s1.wav"},
+                {"id": "s2", "audio_status": "unprocessed", "audio_file_path": None},
+            ]
+        }
+        ctx = self._ctx()
+        assert ctx.group_needs_render(group, tmp_path) is True
+
+
+# ---------------------------------------------------------------------------
 # §3 — StudioPluginContext service-group smoke tests (boundary mocks only)
 # ---------------------------------------------------------------------------
 

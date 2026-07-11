@@ -121,6 +121,31 @@ describe('demoApiShim — non-api passthrough', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 4b. warnedRoutes resets across install/uninstall cycles (not module-global)
+// ---------------------------------------------------------------------------
+describe('demoApiShim — warnedRoutes scoping', () => {
+  it('warns again for the same unknown route on a second install stacked over the first (no uninstall in between)', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // First cycle (installed in beforeEach) — warns once for the unknown route.
+    await window.fetch('/api/still-unknown');
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+
+    // Install again WITHOUT uninstalling the previous instance first (e.g. two
+    // overlapping mount cycles). A module-global warnedRoutes set would still
+    // consider this route "already warned" from the first instance and stay
+    // silent; a per-install set should warn again.
+    const secondUninstall = installDemoApiShim(fixtures);
+
+    await window.fetch('/api/still-unknown');
+    expect(warnSpy).toHaveBeenCalledTimes(2);
+
+    secondUninstall();
+    warnSpy.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 5. Uninstall restores original fetch
 // ---------------------------------------------------------------------------
 describe('demoApiShim — uninstall', () => {

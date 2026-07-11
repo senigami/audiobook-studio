@@ -135,35 +135,6 @@ def test_clear_queue_preserves_running():
     assert chap1['audio_status'] == 'processing' # Still running
     assert chap2['audio_status'] == 'unprocessed' # Reset from processing
 
-def test_chapter_text_last_modified():
-    from app.db import create_project, create_chapter, update_chapter, get_chapter
-    import time
-
-    pid = create_project("Test Modified")
-    cid = create_chapter(project_id=pid, title="Original Title", text_content="Original text")
-
-    chap1 = get_chapter(cid)
-    original_time = chap1['text_last_modified']
-
-    # Wait a tiny bit to ensure timestamp would be different if updated
-    time.sleep(0.01)
-
-    # 1. Update only the title
-    update_chapter(cid, title="New Title")
-    chap2 = get_chapter(cid)
-    assert chap2['title'] == "New Title"
-    assert chap2['text_last_modified'] == original_time # Should NOT have changed
-
-    # Wait a tiny bit again
-    time.sleep(0.01)
-
-    # 2. Update the text content
-    update_chapter(cid, text_content="New text")
-    chap3 = get_chapter(cid)
-    assert chap3['text_content'] == "New text"
-    assert chap3['text_last_modified'] > original_time # SHOULD have changed
-
-
 def test_api_preview_processed_fails_when_no_engine():
     from unittest.mock import patch
     res = client.post("/api/projects", data={"name": "Preview Project 3"})

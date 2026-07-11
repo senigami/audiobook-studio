@@ -20,11 +20,14 @@ import sys
 rc_to_emit = int(os.environ.get("FAKE_WORKER_RC", "0"))
 crash_after = os.environ.get("FAKE_WORKER_CRASH_AFTER", "")
 emit_segment = os.environ.get("FAKE_WORKER_EMIT_SEGMENT", "") == "1"
+emit_model_ready = os.environ.get("FAKE_WORKER_EMIT_MODEL_READY", "") == "1"
 
 jobs_done = 0
 
 # Signal readiness.
 print("FAKE_WORKER_READY", file=sys.stderr, flush=True)
+if emit_model_ready:
+    print("XTTS serve mode: model ready — waiting for jobs", file=sys.stderr, flush=True)
 
 for line in sys.stdin:
     line = line.strip()
