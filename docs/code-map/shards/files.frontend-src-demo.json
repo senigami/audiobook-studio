@@ -1,0 +1,559 @@
+{
+ "files": {
+  "frontend/src/demo/DemoApp.tsx": {
+   "purpose": "Hash-based router shell: stage index, individual stages, styleguide page, theme toggle, demo badge",
+   "exports": [
+    {
+     "name": "DemoApp",
+     "kind": "React.FC"
+    },
+    {
+     "name": "demoStages",
+     "kind": "const"
+    }
+   ],
+   "calls": [
+    "frontend/src/demo/DemoStage.tsx#DemoStage",
+    "frontend/src/demo/scenes/index.ts#demoTimeline",
+    "frontend/src/demo/styleguide/StyleguidePage.tsx#StyleguidePage",
+    "frontend/src/utils/theme.ts#loadThemePref,saveThemePref",
+    "frontend/src/demo/demoStages.ts"
+   ],
+   "called_by": [],
+   "notes": [
+    "pure window.location.hash routing, no React Router",
+    "?embed=1 hides shell chrome",
+    "2026-07-10: Removed the co-exported `demoStages` array (moved to demoStages.ts) and now imports stage descriptors from the new *Descriptor files instead of the stage component files directly, so DemoApp.tsx only exports the DemoApp component.",
+    "2026-07-10: demoStages array moved to demoStages.ts; now imports stage descriptors (*Descriptor.tsx) instead of stage component files directly (Phase 12 cleanup batch, react-refresh/only-export-components fix)."
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/demo/DemoStage.tsx": {
+   "purpose": "Harness wrapping real production component, replays scripted timeline with playback controls",
+   "exports": [
+    {
+     "name": "DemoStage",
+     "kind": "React.FC"
+    }
+   ],
+   "calls": [
+    "frontend/src/demo/scenes/types.ts",
+    "frontend/src/demo/useDemoTransport.ts#useDemoTransport"
+   ],
+   "called_by": [],
+   "notes": [
+    "all styling via CSS vars",
+    "control bar: play/pause/restart/speed/scene jumpers/progress strip"
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/demo/demoApiShim.ts": {
+   "purpose": "Global fetch wrapper intercepting /api/ routes returning fixture JSON",
+   "exports": [
+    {
+     "name": "installDemoApiShim",
+     "kind": "function"
+    },
+    {
+     "name": "DemoApiFixtures",
+     "kind": "type"
+    }
+   ],
+   "calls": [],
+   "called_by": [
+    "frontend/src/api/client.ts",
+    "frontend/src/demo/fixtures/restFixtures.ts"
+   ],
+   "notes": [
+    "blocks non-GET mutations with 403 'demo mode', fires demo-blocked-action event",
+    "no network calls, all fixture-based",
+    "2026-07-10: Moved `warnedRoutes` from module scope into installDemoApiShim()'s function scope so each install cycle gets its own Set instead of sharing one across overlapping install/uninstall cycles."
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/demo/demoStages.ts": {
+   "purpose": "Ordered list of demo stage descriptors (siteMockup, liveOutput, queue, progress, voiceLab), split out of DemoApp.tsx so that file only exports the DemoApp component (react-refresh/only-export-components fix).",
+   "exports": [
+    {
+     "name": "demoStages",
+     "kind": "const"
+    }
+   ],
+   "calls": [
+    "frontend/src/demo/stages/siteMockupStageDescriptor.tsx",
+    "frontend/src/demo/stages/queueStageDescriptor.tsx",
+    "frontend/src/demo/stages/progressStageDescriptor.tsx",
+    "frontend/src/demo/stages/voiceLabStageDescriptor.tsx"
+   ],
+   "called_by": [
+    "frontend/src/demo/DemoApp.tsx"
+   ],
+   "notes": [
+    "2026-07-10: Added — demoStages array relocated here from DemoApp.tsx (Phase 12 cleanup batch)."
+   ]
+  },
+  "frontend/src/demo/fixtures/restFixtures.ts": {
+   "purpose": "REST fixtures for demo API shim: /api/home, /api/projects, /api/processing_queue",
+   "exports": [
+    {
+     "name": "demoRestFixtures",
+     "kind": "const"
+    }
+   ],
+   "calls": [
+    "frontend/src/demo/demoApiShim.ts"
+   ],
+   "called_by": [],
+   "notes": [
+    "job/chapter IDs match renderArcScene constants"
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/demo/fixtures/voiceFixtures.ts": {
+   "purpose": "Voice Lab demo fixtures: 4 speakers+profiles covering key status states",
+   "exports": [
+    {
+     "name": "demoVoiceEngines, demoVoices, SILENT_WAV_DATA_URI",
+     "kind": "const"
+    },
+    {
+     "name": "DemoVoice",
+     "kind": "interface"
+    }
+   ],
+   "calls": [
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/demo/main.tsx": {
+   "purpose": "Demo app entry point: installs REST shim, loads fonts, renders DemoApp shell",
+   "exports": [
+    {
+     "name": "default render",
+     "kind": "function"
+    }
+   ],
+   "calls": [
+    "frontend/src/demo/DemoApp.tsx#DemoApp",
+    "frontend/src/demo/demoApiShim.ts#installDemoApiShim",
+    "frontend/src/demo/fixtures/restFixtures.ts#demoRestFixtures",
+    "frontend/src/theme/index.css"
+   ],
+   "called_by": [],
+   "notes": [
+    "mirrors main.tsx font imports so demo renders identically"
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/demo/scenes/frameBuilders.ts": {
+   "purpose": "Typed frame builders returning raw socket messages matching live studio_event contract",
+   "exports": [
+    {
+     "name": "queueItemStatus, jobLifecycle, chapterProgress, segmentProgress, segmentsLifecycle, ttsLog, jobsSnapshot",
+     "kind": "function"
+    }
+   ],
+   "calls": [],
+   "called_by": [],
+   "notes": [
+    "jobsSnapshot is control message not studio_event"
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/demo/scenes/index.ts": {
+   "purpose": "Scene barrel export; compiles demoTimeline",
+   "exports": [
+    {
+     "name": "demoScenes, demoTimeline",
+     "kind": "const"
+    }
+   ],
+   "calls": [
+    "frontend/src/demo/scenes/renderArcScene.ts#*",
+    "frontend/src/demo/scenes/types.ts#compileTimeline"
+   ],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/demo/scenes/renderArcScene.ts": {
+   "purpose": "Realistic ~60s chapter render scene with 4 render groups (XTTS/Voxtral mixed) + queue fill + history scenes",
+   "exports": [
+    {
+     "name": "renderArcScene, queueFillScene, historyScene",
+     "kind": "const"
+    }
+   ],
+   "calls": [
+    "frontend/src/demo/scenes/frameBuilders.ts#*",
+    "frontend/src/demo/scenes/types.ts"
+   ],
+   "called_by": [],
+   "notes": [
+    "scene durations fixed; timeline plays at variable speed"
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/demo/scenes/types.ts": {
+   "purpose": "Demo scene engine primitives: DemoFrame, DemoScene, DemoTimeline + compileTimeline validator",
+   "exports": [
+    {
+     "name": "DemoFrame, DemoScene, DemoTimeline",
+     "kind": "interface"
+    },
+    {
+     "name": "compileTimeline",
+     "kind": "function"
+    }
+   ],
+   "calls": [],
+   "called_by": [
+    "frontend/src/demo/DemoStage.tsx",
+    "frontend/src/demo/scenes/renderArcScene.ts",
+    "frontend/src/demo/useDemoTransport.ts"
+   ],
+   "notes": [
+    "validates frame ordering + atMs<=durationMs"
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/demo/stages/liveOutputStage.tsx": {
+   "purpose": "Mounts real LiveOutputTable, zero props, bus-driven",
+   "exports": [
+    {
+     "name": "liveOutputStage",
+     "kind": "const"
+    }
+   ],
+   "calls": [
+    "frontend/src/components/LiveOutputTable.tsx#LiveOutputTable"
+   ],
+   "called_by": [
+    "frontend/src/demo/DemoApp.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/demo/stages/progressStage.tsx": {
+   "purpose": "Mounts real PredictiveProgressBar driven by chapters.progress bus frames",
+   "exports": [
+    {
+     "name": "progressStage",
+     "kind": "const"
+    }
+   ],
+   "calls": [
+    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx#PredictiveProgressBar",
+    "frontend/src/store/studioSocketBus.ts#subscribeStudioSocketMessages"
+   ],
+   "called_by": [
+    "frontend/src/demo/stages/progressStageDescriptor.tsx"
+   ],
+   "notes": [
+    "real animation engine, no mocking",
+    "2026-07-10: Exported ProgressStageInner (was file-local) and removed the co-exported `progressStage` descriptor object so the file only exports a component (react-refresh/only-export-components fix)."
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/demo/stages/progressStageDescriptor.tsx": {
+   "purpose": "Stage-descriptor object for the demo's 'Chapter Progress' stage (id/title/description/element), split out of progressStage.tsx so that file only exports a component (react-refresh/only-export-components fix).",
+   "exports": [
+    {
+     "name": "progressStage",
+     "kind": "object"
+    }
+   ],
+   "calls": [
+    "frontend/src/demo/stages/progressStage.tsx"
+   ],
+   "called_by": [
+    "frontend/src/demo/demoStages.ts"
+   ],
+   "notes": [
+    "2026-07-10: Added — descriptor split out of progressStage.tsx (Phase 12 cleanup batch)."
+   ]
+  },
+  "frontend/src/demo/stages/queueStage.tsx": {
+   "purpose": "Mounts real GlobalQueue component driven by live bus frames",
+   "exports": [
+    {
+     "name": "queueStage",
+     "kind": "const"
+    }
+   ],
+   "calls": [
+    "frontend/src/components/queue/GlobalQueue.tsx#GlobalQueue",
+    "frontend/src/hooks/useQueueSync.ts#useQueueSync"
+   ],
+   "called_by": [
+    "frontend/src/demo/stages/queueStageDescriptor.tsx"
+   ],
+   "notes": [
+    "no mocking of queue logic",
+    "2026-07-10: Exported QueueStageElement (was file-local) and removed the co-exported `queueStage` descriptor object."
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/demo/stages/queueStageDescriptor.tsx": {
+   "purpose": "Stage-descriptor object for the demo's queue stage, split out of queueStage.tsx so that file only exports a component (react-refresh/only-export-components fix).",
+   "exports": [
+    {
+     "name": "queueStage",
+     "kind": "object"
+    }
+   ],
+   "calls": [
+    "frontend/src/demo/stages/queueStage.tsx"
+   ],
+   "called_by": [
+    "frontend/src/demo/demoStages.ts"
+   ],
+   "notes": [
+    "2026-07-10: Added — descriptor split out of queueStage.tsx (Phase 12 cleanup batch)."
+   ]
+  },
+  "frontend/src/demo/stages/siteMockup/MockTapeControls.tsx": {
+   "purpose": "Player tape controls: MockWaveTape, InlineWave, TapeMinimapStrip, zoom preset selector",
+   "exports": [
+    {
+     "name": "MockWaveTape, InlineWave, TapeMinimapStrip, ZoomPresetControl",
+     "kind": "React.FC"
+    }
+   ],
+   "calls": [
+    "frontend/src/demo/stages/siteMockup/shared.tsx"
+   ],
+   "called_by": [
+    "frontend/src/demo/stages/siteMockupStage.tsx"
+   ],
+   "notes": [
+    "waveform data procedural"
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/demo/stages/siteMockup/panes/directorsConsole.tsx": {
+   "purpose": "Renamed exported component DirectorsConsole to DirectorsConsolePane to resolve a naming collision with the real ChapterEditor DirectorsConsole (no behavior change).",
+   "exports": [],
+   "calls": [],
+   "called_by": [
+    "frontend/src/demo/stages/siteMockupStage.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/demo/stages/siteMockup/rail.tsx": {
+   "purpose": "Left navigation rail: destinations, book tree, theme toggle, collapse",
+   "exports": [
+    {
+     "name": "Rail",
+     "kind": "React.FC"
+    }
+   ],
+   "calls": [
+    "frontend/src/demo/stages/siteMockup/shared.tsx",
+    "frontend/src/utils/theme.ts#saveThemePref"
+   ],
+   "called_by": [
+    "frontend/src/demo/stages/siteMockupStage.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/demo/stages/siteMockup/shared.tsx": {
+   "purpose": "Shared UI primitives for North-star site mockup: layout, chips, StatusOrb, buttons",
+   "exports": [
+    {
+     "name": "Row, Col, Label, PaneHeader, Card, Panel, Chip, SemanticChip, VoiceAttrPill, StatusPill, StatusOrb, Btn",
+     "kind": "React.FC"
+    },
+    {
+     "name": "IN_FLIGHT_JOBS, QUEUED_JOBS, CHAPTERS, BOOK_TABS",
+     "kind": "const"
+    }
+   ],
+   "calls": [],
+   "called_by": [
+    "frontend/src/demo/stages/siteMockup/MockTapeControls.tsx",
+    "frontend/src/demo/stages/siteMockup/rail.tsx",
+    "frontend/src/demo/stages/siteMockupStage.tsx"
+   ],
+   "notes": [
+    "all colors CSS-var driven",
+    "BOOK_TABS now ['Book', 'Contents', 'Cast', 'Publish', 'Backups'] (2026-07-09, demo_north_star_book_pane Task 002) -- 'Book' added as the new first/default tab, mirroring the real app's DC-001 front-door fix; BOOK_STAGE_LINKS (separate array, used by rail.tsx) left unchanged."
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/demo/stages/siteMockupStage.tsx": {
+   "purpose": "North-star full-site mockup (v3.7): multi-pane shell demonstrating full IA",
+   "exports": [
+    {
+     "name": "siteMockupStage",
+     "kind": "const"
+    }
+   ],
+   "calls": [
+    "frontend/src/components/layout/BrandLogo.tsx",
+    "frontend/src/demo/stages/siteMockup/MockTapeControls.tsx",
+    "frontend/src/demo/stages/siteMockup/mockup.css",
+    "frontend/src/demo/stages/siteMockup/panes/activity.tsx",
+    "frontend/src/demo/stages/siteMockup/panes/book.tsx",
+    "frontend/src/demo/stages/siteMockup/panes/directorsConsole.tsx",
+    "frontend/src/demo/stages/siteMockup/panes/library.tsx",
+    "frontend/src/demo/stages/siteMockup/panes/platform.tsx",
+    "frontend/src/demo/stages/siteMockup/panes/publish.tsx",
+    "frontend/src/demo/stages/siteMockup/panes/settings.tsx",
+    "frontend/src/demo/stages/siteMockup/panes/splash.tsx",
+    "frontend/src/demo/stages/siteMockup/panes/studio.tsx",
+    "frontend/src/demo/stages/siteMockup/panes/voices.tsx",
+    "frontend/src/demo/stages/siteMockup/rail.tsx",
+    "frontend/src/demo/stages/siteMockup/shared.tsx"
+   ],
+   "called_by": [
+    "frontend/src/demo/stages/siteMockupStageDescriptor.tsx"
+   ],
+   "notes": [
+    "demonstrates v3.7 IA: Library->Book->5 tabs->Chapter Workspace",
+    "many sub-pane files (panes/*) with minimal individual exports: settings, voiceEditor, book, platform, studio, castPanel, library, voicePortrait, activity, lexiconPanel, splash, publish, voices, directorsConsole",
+    "demo_north_star_book_pane (2026-07-09, Tasks 001-003): panes/book.tsx gained a new exported `BookPane` front-door hero component (cover, identity, description, Continue Listening CTA) alongside its existing ContentsPane/ManuscriptPane/CastingPane/BackupsPane; wired in here as the new first/default tab (activeBookTab initial state 'Contents' -> 'Book'). This file's own pre-existing internal book-workspace-shell component was renamed BookPane -> BookWorkspacePane (all references incl. JSX usage ~line 1419) to resolve the name collision with the newly-imported panes/book.tsx BookPane, so the import stays a plain `BookPane` matching the ContentsPane/CastingPane/BackupsPane sibling convention. docs/demo/ static bundle rebuilt (Task 003) to ship this.",
+    "2026-07-10: panes/directorsConsole.tsx's exported component renamed DirectorsConsole -> DirectorsConsolePane (directors_console_activation task 001) to resolve a naming collision with the real frontend/src/pages/ChapterEditor/components/DirectorsConsole/ — file path unchanged, this file's import/JSX usage updated to match.",
+    "2026-07-10: North-star full-site mockup (v3.7): multi-pane shell demonstrating full IA",
+    "2026-07-10: Exported SiteMockupElement (was file-local) and removed the co-exported `siteMockupStage` descriptor object; this was the sole non-type export causing all 7 local-component warnings in this file (the `TrackState` type export is exempt from the rule)."
+   ],
+   "calls_inferred": [
+    "frontend/src/demo/stages/siteMockup/*"
+   ]
+  },
+  "frontend/src/demo/stages/siteMockupStageDescriptor.tsx": {
+   "purpose": "Stage-descriptor object for the demo's site-mockup (north-star) stage, split out of siteMockupStage.tsx so that file only exports a component (react-refresh/only-export-components fix).",
+   "exports": [
+    {
+     "name": "siteMockupStage",
+     "kind": "object"
+    }
+   ],
+   "calls": [
+    "frontend/src/demo/stages/siteMockupStage.tsx"
+   ],
+   "called_by": [
+    "frontend/src/demo/demoStages.ts"
+   ],
+   "notes": [
+    "2026-07-10: Added — descriptor split out of siteMockupStage.tsx (Phase 12 cleanup batch)."
+   ]
+  },
+  "frontend/src/demo/stages/voiceLabStage.tsx": {
+   "purpose": "Renders real NarratorCard components for 4 demo voices covering key status states",
+   "exports": [
+    {
+     "name": "voiceLabStage",
+     "kind": "const"
+    }
+   ],
+   "calls": [
+    "frontend/src/demo/fixtures/voiceFixtures.ts#demoVoices,demoVoiceEngines",
+    "frontend/src/pages/Voices/components/NarratorCard.tsx#NarratorCard"
+   ],
+   "called_by": [
+    "frontend/src/demo/stages/voiceLabStageDescriptor.tsx"
+   ],
+   "notes": [
+    "all callbacks no-op, previews use silent WAV data-URI",
+    "2026-07-10: Exported VoiceLabStageInner (was file-local) and removed the co-exported `voiceLabStage` descriptor object."
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/demo/stages/voiceLabStageDescriptor.tsx": {
+   "purpose": "Stage-descriptor object for the demo's VoiceLab stage, split out of voiceLabStage.tsx so that file only exports a component (react-refresh/only-export-components fix).",
+   "exports": [
+    {
+     "name": "voiceLabStage",
+     "kind": "object"
+    }
+   ],
+   "calls": [
+    "frontend/src/demo/stages/voiceLabStage.tsx"
+   ],
+   "called_by": [
+    "frontend/src/demo/demoStages.ts"
+   ],
+   "notes": [
+    "2026-07-10: Added — descriptor split out of voiceLabStage.tsx (Phase 12 cleanup batch)."
+   ]
+  },
+  "frontend/src/demo/styleguide/StyleguidePage.tsx": {
+   "purpose": "Canonical design system reference: auto-generated token tables, live component specimens, a11y rules",
+   "exports": [
+    {
+     "name": "StyleguidePage",
+     "kind": "React.FC"
+    }
+   ],
+   "calls": [
+    "frontend/src/components/forms/GlassInput.tsx#GlassInput",
+    "frontend/src/components/forms/SearchableSelect.tsx",
+    "frontend/src/components/forms/VoiceDropzone.tsx",
+    "frontend/src/components/layout/BrandLogo.tsx",
+    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx#*",
+    "frontend/src/components/ui/ActionMenu.tsx",
+    "frontend/src/components/ui/StatusOrb.tsx",
+    "frontend/src/components/ui/Switch.tsx",
+    "frontend/src/demo/styleguide/parseTokens.ts#*",
+    "frontend/src/pages/Voices/components/VoicePills.tsx",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [],
+   "notes": [
+    "auto-parses tokens.css at build time, no drift from source"
+   ],
+   "calls_inferred": [
+    "frontend/src/components/ui/*",
+    "frontend/src/theme/tokens.css"
+   ]
+  },
+  "frontend/src/demo/styleguide/parseTokens.ts": {
+   "purpose": "Parses tokens.css into structured TokenEntry array; groups by semantic prefix",
+   "exports": [
+    {
+     "name": "TokenEntry",
+     "kind": "interface"
+    },
+    {
+     "name": "parseTokens, groupTokens",
+     "kind": "function"
+    }
+   ],
+   "calls": [],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/demo/useDemoTransport.ts": {
+   "purpose": "Hook replaying DemoTimeline via ~100ms ticks, publishes frames to studio socket bus",
+   "exports": [
+    {
+     "name": "useDemoTransport",
+     "kind": "function"
+    },
+    {
+     "name": "DemoTransportState, DemoTransportControls",
+     "kind": "type"
+    }
+   ],
+   "calls": [
+    "frontend/src/demo/scenes/frameBuilders.ts#jobsSnapshot",
+    "frontend/src/demo/scenes/types.ts",
+    "frontend/src/store/studioSocketBus.ts#publishStudioSocketMessage,setStudioSocketConnected"
+   ],
+   "called_by": [],
+   "notes": [
+    "ref-based playhead avoids closure rebuild each tick",
+    "auto-loop + manual loop control",
+    "2026-07-10: Two behavior fixes: restart() now preserves the pre-restart playing state (resumes playback if it was playing, instead of always force-pausing); play() now detects 'finished, non-looping timeline' state (last scene, position >= duration, looping off) and restarts from scene 0 before resuming, instead of being a silent no-op."
+   ],
+   "calls_inferred": []
+  }
+ }
+}

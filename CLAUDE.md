@@ -129,9 +129,13 @@ React 19 + TypeScript + Vite, React Router, Framer Motion. Standard shape under 
 
 ## Code map (docs/code-map/)
 
-This repo has a persistent code map. Before any cross-cutting task, load
-`docs/code-map/map.json`'s `meta`+`flows`+`invariants`+`modules` (+`coupling`+`hotspots`),
-pulling `files`/`data` records on demand. When debugging or changing a function's
+This repo has a persistent code map in the **sharded layout**: `map.json` holds the core
+(`meta`+`flows`+`invariants`+`modules`+`coupling`+`hotspots`+`data`); per-file records live
+in `docs/code-map/shards/files.<slug>.json`, routed by longest-prefix match against
+`meta.shards` (or one command: `docs/code-map/tools/lookup.sh <path>`); `file_hashes` +
+`repo_checksum` live in `docs/code-map/hashes.json`. Load the core before any cross-cutting
+task, pulling shard records on demand — a task scoped to one module can load that module's
+whole shard as its briefing. When debugging or changing a function's
 signature, run the map's **symbol trace** on it (callers/callees with sites) instead of
 exploring by hand; for "what can be simplified", request the simplification report.
 **After any task that changes mapped code, append a changelog-queue entry to

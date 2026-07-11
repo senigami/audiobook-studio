@@ -1,0 +1,701 @@
+{
+ "files": {
+  "app/orchestration/__init__.py": {
+   "purpose": "Orchestration package marker",
+   "exports": [],
+   "calls": [],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "app/orchestration/progress/__init__.py": {
+   "purpose": "Progress services module marker",
+   "exports": [],
+   "calls": [],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "app/orchestration/progress/broadcaster.py": {
+   "purpose": "Progress broadcasting transport: sink configuration and emission",
+   "exports": [
+    {
+     "name": "configure_progress_broadcaster, broadcast_progress",
+     "kind": "function"
+    }
+   ],
+   "calls": [],
+   "called_by": [],
+   "notes": [
+    "broadcaster does not decide meaningfulness, policy in ProgressService"
+   ],
+   "calls_inferred": []
+  },
+  "app/orchestration/progress/emit_gate.py": {
+   "purpose": "Emit rate-limit gate for the progress service: atomic emit-decision + throttle-state reservation",
+   "exports": [
+    {
+     "name": "EmitGateMixin",
+     "kind": "class",
+     "contract": "mixed into ProgressService; depends on host attributes self._lock/self.monotonic_clock/self.min_progress_delta/self.max_silence_seconds/self._last_payload_by_job/self._last_emit_tick_by_job -- never used standalone"
+    }
+   ],
+   "calls": [],
+   "called_by": [],
+   "notes": [
+    "LF-6 partial (2026-07-05): extracted from ProgressService (service.py 1503->1283 lines); same self._lock instance shared via mixin inheritance, no new lock, no lock-ordering change (D7 leaf-lock: never calls get_jobs()/state_jobs while holding self._lock)",
+    "Fable review flag: 6 undeclared host-attribute dependencies (no Protocol/ABC) -- info-level, not a defect; only ever mixed into ProgressService"
+   ],
+   "calls_inferred": []
+  },
+  "app/orchestration/progress/eta.py": {
+   "purpose": "ETA helpers: confidence calc, crossfade, segment decay, sample ring",
+   "exports": [
+    {
+     "name": "K_VAR, P_LO, P_HI, STALL_MS, TAU_MS, BASE_FLOOR, N_MATURE, CEIL_SLACK",
+     "kind": "constant"
+    },
+    {
+     "name": "compute_eta_confidence, crossfade_eta, decay_segment_eta",
+     "kind": "function"
+    },
+    {
+     "name": "EtaSampleRing",
+     "kind": "class",
+     "contract": "fixed-size deque; cv(); mean_age_ms()"
+    },
+    {
+     "name": "BracketedEtaTracker, BracketedEtaResult",
+     "kind": "class",
+     "contract": "rolling-throughput/bottleneck-pool ETA model for N heterogeneous parallel workers; reduces to today's single-stream CPS at cap=1 (parity pinned by test)"
+    }
+   ],
+   "calls": [],
+   "called_by": [],
+   "notes": [
+    "formula: c_var=1-K_VAR*cv, c_done=smoothstep, c_fresh=exp decay, c_mature=min(n/N_MATURE,1)",
+    "crossfade ramps calculated->observed via smoothstep",
+    "W-PAR 007 (2026-07-04): BracketedEtaTracker added but NOT wired into ProgressService.enrich() or any live event this pass -- documented as a known gap (live-events.md 1.9.3 §7) rather than silently left undone or unsafely bolted on"
+   ],
+   "calls_inferred": []
+  },
+  "app/orchestration/progress/reconciliation.py": {
+   "purpose": "Artifact reconciliation: validates work scope against current revision-safe artifacts",
+   "exports": [
+    {
+     "name": "reconcile_work_item",
+     "kind": "function"
+    }
+   ],
+   "calls": [
+    "app/domain/artifacts/manifest.py#*",
+    "app/domain/artifacts/models.py#*"
+   ],
+   "called_by": [],
+   "notes": [
+    "ARTIFACT_STATES = valid/stale/missing/unknown"
+   ],
+   "calls_inferred": []
+  },
+  "app/orchestration/progress/service.py": {
+   "purpose": "Progress service boundary: weighted progress math (enrich() §4A kernel), ETA smoothing; emit rate-limit gate moved to emit_gate.py",
+   "exports": [
+    {
+     "name": "ProgressService",
+     "kind": "class",
+     "contract": "reconcile/estimate_eta/publish(ephemeral: bool = False)"
+    },
+    {
+     "name": "create_progress_service, get_progress_service",
+     "kind": "function"
+    }
+   ],
+   "calls": [
+    "app/api/contracts/events.py",
+    "app/api/routers/voices_helpers.py#_voice_job_title (lazy, function-local import)",
+    "app/db/performance.py",
+    "app/db/state.py#get_jobs",
+    "app/db/state_performance.py",
+    "app/engines/behavior.py#uses_segment_orchestration,supports_segment_rendering",
+    "app/orchestration/progress/broadcaster.py#broadcast_progress",
+    "app/orchestration/progress/emit_gate.py#EmitGateMixin (base class)",
+    "app/orchestration/progress/eta.py#*",
+    "app/orchestration/progress/reconciliation.py#reconcile_work_item"
+   ],
+   "called_by": [
+    "app/api/routers/queue.py",
+    "app/api/web.py",
+    "app/orchestration/tasks/segment_synthesis.py"
+   ],
+   "notes": [
+    "D7: _lock is leaf lock, must not hold while calling state_jobs",
+    "min_progress_delta=0.01, max_silence_seconds=10.0",
+    "publish(ephemeral=True) suppresses ONLY job-scoped emissions (jobs.lifecycle, queue.items, chapters.progress); segment-scoped progress frames (segments.progress ticks, SEGMENT_SAVED transitions) still flow",
+    "BE-2 (2026-07-04): pre-existing boundary drift documented, not fixed -- this module's former FORBIDDEN_DIRECT_IMPORTS claimed no app.api.routers/app.engines imports, but it already makes lazy function-local imports of both (voices_helpers._voice_job_title, behavior.DEFAULT_BASELINE_ENGINE_CPS); intentionally excluded from tests/orchestration/test_import_boundaries.py's enforcement",
+    "BE-1b (2026-07-04): removed a dead dual-mode isinstance(dict)/hasattr job-access ladder in the voice_test telemetry path (get_jobs() always returns Job dataclasses now) and the orphaned _should_emit() public shim (zero real callers -- emit-gate logic lives in _claim_emit_slot/_should_emit_unlocked)",
+    "LF-6 partial (2026-07-05): _claim_emit_slot/_should_emit_unlocked/_apply_progress_regression_guard moved to app/orchestration/progress/emit_gate.py's EmitGateMixin (ProgressService now inherits from it) -- same self._lock RLock instance, same attribute names, D7 discipline unchanged (AST-diff verified byte-identical against pre-image by an independent concurrency review). enrich() (~450 lines, dense with numbered historical bug fixes -- FIX 2/3/6, job-47213119, Task 006-A/006-B) deliberately NOT extracted this pass -- judged too risky for a solo mechanical move; left for a follow-up session with closer supervision. 1503->1283 lines."
+   ],
+   "calls_inferred": []
+  },
+  "app/orchestration/scheduler/__init__.py": {
+   "purpose": "Scheduler module marker",
+   "exports": [],
+   "calls": [],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "app/orchestration/scheduler/cap_settings.py": {
+   "purpose": "Resolve the effective per-engine concurrency cap: min(operator setting/env override, manifest max)",
+   "exports": [
+    {
+     "name": "resolve_effective_cap",
+     "kind": "function",
+     "contract": "(engine_id, manifest_max, settings=None) -> int; settings-then-env precedence, same pattern as policies.get_priority_mode"
+    }
+   ],
+   "calls": [
+    "app/db/state.py"
+   ],
+   "called_by": [],
+   "notes": [
+    "DEFAULT_GLOBAL_CAP raised 1 -> 2 (2026-07-05); INV-1's narrower cap=1-parity guarantee is unchanged (still tested), only the shipped default value moved; engine_id used only as a dict key, no behavioral branching (INV-5)"
+   ],
+   "calls_inferred": [
+    "app.db.state.get_settings"
+   ]
+  },
+  "app/orchestration/scheduler/eta.py": {
+   "purpose": "ETA/progress prediction utilities: calibrated model params, progress floor",
+   "exports": [
+    {
+     "name": "get_robust_eta_params, calculate_predicted_progress, calculate_segment_eta, format_seconds",
+     "kind": "function"
+    },
+    {
+     "name": "PROGRESS_PREPARE_LIMIT, PROGRESS_MAX_PREDICTED, PROGRESS_STITCH_LIMIT",
+     "kind": "constant"
+    }
+   ],
+   "calls": [],
+   "called_by": [
+    "app/engines/bridge.py",
+    "app/orchestration/scheduler/orchestrator_helpers.py"
+   ],
+   "notes": [
+    "15%-trimmed mean for robustness",
+    "no hardcoded defaults unless history empty"
+   ],
+   "calls_inferred": []
+  },
+  "app/orchestration/scheduler/orchestrator.py": {
+   "purpose": "Studio 2.0 task orchestrator: submit/recover/cancel lifecycle, reconciliation, progress publication",
+   "exports": [
+    {
+     "name": "TaskOrchestrator",
+     "kind": "class",
+     "contract": "submit(task)->task_id; recover(contexts)->list; cancel(task_id)"
+    }
+   ],
+   "calls": [
+    "app/core/config.py",
+    "app/db/__init__.py",
+    "app/db/chapters.py",
+    "app/db/segments.py",
+    "app/db/state.py",
+    "app/engines/behavior.py",
+    "app/engines/bridge.py#create_voice_bridge",
+    "app/orchestration/progress/service.py#*",
+    "app/orchestration/scheduler/orchestrator_helpers.py#OrchestratorHelpersMixin",
+    "app/orchestration/scheduler/policies.py#choose_next_task",
+    "app/orchestration/scheduler/recovery.py#load_recoverable_task_contexts",
+    "app/orchestration/scheduler/resources.py#reserve_task_resources,release_task_resources",
+    "app/orchestration/tasks/api_synthesis.py",
+    "app/orchestration/tasks/assembly.py",
+    "app/orchestration/tasks/base.py",
+    "app/orchestration/tasks/sample_build.py",
+    "app/orchestration/tasks/sample_test.py",
+    "app/orchestration/tasks/segment_synthesis.py",
+    "app/orchestration/tasks/synthesis.py",
+    "plugins/tts_mixed/handler.py"
+   ],
+   "called_by": [
+    "app/api/routers/chapters.py",
+    "app/api/routers/queue.py"
+   ],
+   "notes": [
+    "forbidden: app.jobs.worker, app.jobs.core, app.db.queue direct import -- now enforced by tests/orchestration/test_import_boundaries.py (BE-2, 2026-07-04; AST-based, fixed 2026-07-04 to also catch `from app.jobs import worker`-style submodule imports)",
+    "submit flow: validate->publish queued->reconcile->reserve->dispatch->publish result",
+    "_reconstruct_task branches on task_type=='synthesis' + uses_segment_orchestration -> _reconstruct_chapter_task_from_context (rebuilds chunk-group script from DB, wires needs_render_fn/resolve_existing_output_fn/stitch_fn for K-of-N recovery); falls back to SynthesisTask.from_task_context on any resolution failure"
+   ],
+   "calls_inferred": []
+  },
+  "app/orchestration/scheduler/orchestrator_eta.py": {
+   "purpose": "ETA/duration estimation helpers for orchestrator dispatch",
+   "exports": [
+    {
+     "name": "estimate_task_duration, duration_to_eta_seconds, observed_remaining_seconds, estimate_active_segment_eta_seconds",
+     "kind": "function"
+    },
+    {
+     "name": "OrchestratorEtaMixin",
+     "kind": "class"
+    }
+   ],
+   "calls": [
+    "app/orchestration/progress/eta.py#estimate_eta_seconds",
+    "app/orchestration/tasks/base.py"
+   ],
+   "called_by": [],
+   "notes": [
+    "no hardcoded ETA defaults - returns None if no calibration"
+   ],
+   "calls_inferred": []
+  },
+  "app/orchestration/scheduler/orchestrator_helpers.py": {
+   "purpose": "Internal orchestrator helpers: reconciliation, dispatch, ETA, progress publishing",
+   "exports": [
+    {
+     "name": "OrchestratorHelpersMixin",
+     "kind": "class"
+    },
+    {
+     "name": "_claim_to_dict",
+     "kind": "function"
+    },
+    {
+     "name": "_dispatch_segment",
+     "kind": "function",
+     "contract": "owns the full per-call isolated closure scope (timing/markers/model-load state); returns SegmentResult"
+    },
+    {
+     "name": "SegmentResult",
+     "kind": "class",
+     "contract": "dataclass: task_result, timing, marker_state, segment_load_observed, segment_starts, segment_announced"
+    }
+   ],
+   "calls": [
+    "app/api/ws.py",
+    "app/db/__init__.py",
+    "app/db/models.py#Job",
+    "app/db/performance.py",
+    "app/db/state.py",
+    "app/engines/behavior.py",
+    "app/engines/errors.py",
+    "app/engines/registry.py",
+    "app/engines/watchdog.py",
+    "app/jobs/registry.py#get_handler_registry",
+    "app/orchestration/progress/eta.py#estimate_eta_seconds",
+    "app/orchestration/scheduler/eta.py",
+    "app/orchestration/scheduler/orchestrator_eta.py#OrchestratorEtaMixin",
+    "app/orchestration/scheduler/orchestrator_publish.py#OrchestratorPublishMixin",
+    "app/orchestration/tasks/base.py",
+    "app/tts_server/performance_settings.py",
+    "app/utils/render_timing.py#get_timing_val,derive_segment_timing_fields",
+    "app/utils/render_trace.py#trace",
+    "app/utils/subprocess_utils.py",
+    "app/orchestration/scheduler/eta.py#calculate_chapter_startup_eta"
+   ],
+   "called_by": [],
+   "notes": [
+    "_dispatch is now a 2-line thin fan-out driver delegating to _dispatch_segment (keystone INV-6, per-segment isolation for concurrency)",
+    "one-line is_chapter_fanout branch: if getattr(task, 'is_chapter_fanout', False): return task.run() — bypasses _dispatch_segment entirely for chapter-fan-out parents",
+    "_EMIT_ACTIVE_SEGMENTS_MAP module flag gates active_segments_map emission; flipped True once genuine multi-entry aggregation exists (W-PAR 008) — previously caused a cold-start regression (stale preparing-phase entries leaking into the frontend overlay at cap=1) before being gated off, then re-enabled once true multi-entry semantics existed",
+    "BE-4 (2026-07-04): _record_render_stats_inner now prefers the server's precomputed synthesis_duration_seconds/sum_segment_render_seconds/inter_group_overhead_seconds from the timing payload when present (mathematically identical, pure redundant-work elimination), falling back to app/utils/render_timing.py's derive_segment_timing_fields only when absent; model_load_seconds keeps its own local 0.0-default derivation, deliberately not unified with server.py's None-default",
+    "_dispatch_segment's step-1 registry lookup is now skipped when task.skip_registry_dispatch is True (e.g. _SyntheticSegmentTask, W-PAR fan-out children) — fixed an escaped defect (2026-07-05) where every fan-out child fell through to a legacy whole-chapter handler and silently re-rendered a sibling's remaining work",
+    "_dispatch's is_chapter_fanout branch now calls new _publish_chapter_dispatch_eta(task, context) before task.run() (2026-07-06 fix) -- publishes a durable status=\"preparing\" reason_code=\"pre_load_eta\" frame on the PARENT context (chapter fan-out bypasses _dispatch_segment, which was the only prior emitter of this ETA frame, so the parent job's eta_seconds stayed null through the whole preparing window and the queue bar's determinate fill never engaged). Cold-load term added only when the server reports the engine cold AND expected_model_load_seconds history exists; warm -> synthesis-only ETA. No calibration history -> no frame (no-fabrication). _resolve_engine_calibration(engine_id) and _expected_cold_load_seconds(engine_id, tts_model) extracted from _dispatch_segment's inline blocks as shared helpers used by both paths.",
+    "2026-07-07 fix: _publish_chapter_dispatch_eta now additionally stashes the computed dispatch_eta_seconds onto task._dispatch_eta_seconds (duck-typed via hasattr, no import back into segment_synthesis.py) right before its existing self._publish(...) call, so segment_synthesis.py's _publish_progress has the calibrated baseline to decay across the render."
+   ],
+   "calls_inferred": [
+    "app/orchestration/tasks/segment_synthesis.py#ChapterSynthesisTask.is_chapter_fanout (dispatch branch)"
+   ]
+  },
+  "app/orchestration/scheduler/orchestrator_publish.py": {
+   "purpose": "Publish/context-to-job/output-relay helpers",
+   "exports": [
+    {
+     "name": "OrchestratorPublishMixin",
+     "kind": "class",
+     "contract": "_publish/_context_to_job/_relay_output"
+    }
+   ],
+   "calls": [
+    "app/db/models.py#Job",
+    "app/db/state.py#get_jobs,put_job,update_job",
+    "app/engines/behavior.py#uses_segment_orchestration,supports_segment_rendering",
+    "app/engines/watchdog.py",
+    "app/orchestration/tasks/base.py",
+    "app/utils/render_trace.py"
+   ],
+   "called_by": [],
+   "notes": [
+    "progress regression guard clamps decreasing progress at same status",
+    "0% not special-cased as 'not started'",
+    "active_segments_map (optional _publish kwarg) only written when non-None; stalled_segments has NO corresponding _publish kwarg yet (deferred, unlike active_segments_map which is fully wired end-to-end)",
+    "_publish routes ephemeral contexts through ProgressService.publish(ephemeral=True) and skips put_job/update_job only, so synthetic {parent}-seg-N children create no durable Job row or queue.items broadcast (segment-scoped frames still flow)",
+    "_publish()'s ephemeral branch now invokes an optional on_segment_tick(segment_id, status, progress, eta_seconds) callback stashed in the TaskContext payload before returning (2026-07-05) — the event-driven delivery mechanism for ChapterSynthesisTask._on_child_segment_tick, piggybacking the existing ≥1%-gated per-child publish call rather than adding a new timer/thread",
+    "_publish()'s ephemeral branch now forwards reason_code=reason_code into the on_segment_tick(...) callback alongside segment_id/status/progress/eta_seconds (2026-07-06) -- required so ChapterSynthesisTask._on_child_segment_tick can distinguish the SEGMENT_PENDING sub-phase (status=\"running\" literally, reason_code=\"SEGMENT_PENDING\") from genuine rendering."
+   ],
+   "calls_inferred": []
+  },
+  "app/orchestration/scheduler/policies.py": {
+   "purpose": "Queue ordering and fairness policy: priority mode selection",
+   "exports": [
+    {
+     "name": "STUDIO_FIRST, EQUAL, API_FIRST",
+     "kind": "constant"
+    },
+    {
+     "name": "get_priority_mode, choose_next_task",
+     "kind": "function"
+    }
+   ],
+   "calls": [
+    "app/db/state.py#get_settings",
+    "app/orchestration/tasks/base.py#TaskContext"
+   ],
+   "called_by": [],
+   "notes": [
+    "priority order: Settings -> env TTS_API_PRIORITY -> default STUDIO_FIRST"
+   ],
+   "calls_inferred": []
+  },
+  "app/orchestration/scheduler/recovery.py": {
+   "purpose": "Load incomplete tasks from DB on startup for orchestrator recovery",
+   "exports": [
+    {
+     "name": "load_recoverable_task_contexts",
+     "kind": "function"
+    }
+   ],
+   "calls": [
+    "app/db/queue.py#list_jobs_by_status",
+    "app/orchestration/tasks/base.py#TaskContext"
+   ],
+   "called_by": [],
+   "notes": [
+    "scans running/queued/waiting; one recovery per chapter"
+   ],
+   "calls_inferred": []
+  },
+  "app/orchestration/scheduler/resources.py": {
+   "purpose": "Resource claim normalization and admission control",
+   "exports": [
+    {
+     "name": "ResourceClaim",
+     "kind": "class",
+     "contract": "frozen; gpu,vram_mb,cpu_heavy,exclusive,engine_class,cap"
+    },
+    {
+     "name": "EngineClassSemaphore",
+     "kind": "class",
+     "contract": "cap is grow-only via ensure_min_cap() (2026-07-03 fix) -- never shrinks, no longer frozen at first caller's value"
+    },
+    {
+     "name": "get_engine_semaphore, reserve_task_resources, release_task_resources, is_paused, set_paused",
+     "kind": "function"
+    },
+    {
+     "name": "GpuAdmissionGate, ExclusiveAdmissionGate",
+     "kind": "class",
+     "contract": "deprecated wrappers; each now owns a PRIVATE EngineClassSemaphore(cap=1) (2026-07-03 fix) -- no longer registers into the shared get_engine_semaphore registry, so they cannot collide with a manifest-derived engine_class claim"
+    }
+   ],
+   "calls": [
+    "app/db/state.py#update_settings"
+   ],
+   "called_by": [
+    "app/api/routers/generation.py",
+    "app/api/web.py",
+    "app/orchestration/tasks/segment_synthesis.py"
+   ],
+   "notes": [
+    "ENGINE_CLASS_ADMISSION defaults ON as of 2026-07-06 (previously shipped dark/off); explicit '0'/'false'/'no'/'off' restores the single shared exclusive gate. This gate decides WHETHER concurrent admission happens at all; tts_parallel_cap (default 2 since 2026-07-05) decides HOW MANY. Confusing the two cost a multi-hour investigation on 2026-07-06.",
+    "global cap MAX_GLOBAL_CONCURRENT_SYNTHESIS default 8",
+    "2026-07-03 fix (commit 7dd218aa): GpuAdmissionGate/ExclusiveAdmissionGate used to call get_engine_semaphore(\"gpu\"/\"exclusive\", 1) in __init__, which shares the SAME registry keyed by engine_class that manifest-derived claims use (e.g. xtts -> \"gpu\"); since they construct at import time and the registry cached cap at first creation, every GPU-class engine was silently capped at 1 regardless of manifest max_concurrent_workers. Fixed by giving the legacy gates private semaphores and making get_engine_semaphore/EngineClassSemaphore grow-only (ensure_min_cap).",
+    "W-PAR 007 Fable-gate fix (2026-07-04): ResourceClaim gained engine_id; new independent get_engine_id_semaphore(engine_id, cap) registry checked ALONGSIDE (never instead of) the per-engine_class semaphore -- prevents one engine's cap from being inflated by a same-class sibling's larger request growing the shared class semaphore (opt-in via engine_id, backward compatible)",
+    "EngineClassSemaphore now hard-rejects constructing/growing the 'exclusive' class above cap=1 (ValueError) -- was previously safe by accident, now enforced"
+   ],
+   "calls_inferred": []
+  },
+  "app/orchestration/tasks/__init__.py": {
+   "purpose": "Task hierarchy marker",
+   "exports": [],
+   "calls": [],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "app/orchestration/tasks/api_synthesis.py": {
+   "purpose": "External TTS API synthesis task with source badge and priority routing",
+   "exports": [
+    {
+     "name": "ApiSynthesisTask",
+     "kind": "class",
+     "contract": "implements StudioTask; source='api'"
+    }
+   ],
+   "calls": [
+    "app/core/config.py#VOICES_DIR,TRANSIENT_DIR",
+    "app/db/state.py#update_job",
+    "app/engines/bridge.py#create_voice_bridge",
+    "app/engines/bridge_remote.py",
+    "app/orchestration/scheduler/resources.py#ResourceClaim",
+    "app/orchestration/tasks/base.py"
+   ],
+   "called_by": [
+    "app/orchestration/scheduler/orchestrator.py"
+   ],
+   "notes": [
+    "_assert_voice_ref_containment defense-in-depth path check",
+    "resource_claim defaults exclusive_claim()"
+   ],
+   "calls_inferred": []
+  },
+  "app/orchestration/tasks/assembly.py": {
+   "purpose": "Merges audio segments/chapters into single files or audiobooks",
+   "exports": [
+    {
+     "name": "AssemblyTask",
+     "kind": "class",
+     "contract": "implements StudioTask; prefers_local_execution=True"
+    }
+   ],
+   "calls": [
+    "app/engines/audio_ops.py#stitch_segments",
+    "app/engines/audiobook_utils.py#assemble_audiobook",
+    "app/orchestration/tasks/base.py"
+   ],
+   "called_by": [
+    "app/orchestration/scheduler/orchestrator.py"
+   ],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "app/orchestration/tasks/bake.py": {
+   "purpose": "Finalizes chapter audio: MP3 conversion or normalization",
+   "exports": [
+    {
+     "name": "BakeTask",
+     "kind": "class",
+     "contract": "implements StudioTask; prefers_local_execution=True"
+    }
+   ],
+   "calls": [
+    "app/engines/audio_ops.py#wav_to_mp3",
+    "app/orchestration/tasks/base.py"
+   ],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "app/orchestration/tasks/base.py": {
+   "purpose": "StudioTask base contract and context/result models",
+   "exports": [
+    {
+     "name": "TaskContext",
+     "kind": "class",
+     "contract": "task_id,task_type,project_id,chapter_id,requested_by,payload,source,submitted_at,ephemeral"
+    },
+    {
+     "name": "TaskResult",
+     "kind": "class",
+     "contract": "status,message,retriable,timing; frozen"
+    },
+    {
+     "name": "StudioTask",
+     "kind": "class",
+     "contract": "set_progress_reporter/report_progress/progress_heartbeat/validate/describe/run/on_cancel/is_marker_driven/prefers_local_execution/get_expected_duration"
+    }
+   ],
+   "calls": [
+    "app/db/state.py#get_performance_metrics",
+    "app/domain/chunk_groups.py#build_chunk_groups",
+    "app/orchestration/scheduler/eta.py#get_calibrated_model_params",
+    "app/tts_server/performance_settings.py#*"
+   ],
+   "called_by": [
+    "app/orchestration/scheduler/orchestrator.py",
+    "app/orchestration/scheduler/orchestrator_eta.py",
+    "app/orchestration/scheduler/orchestrator_helpers.py",
+    "app/orchestration/scheduler/orchestrator_publish.py",
+    "app/orchestration/tasks/api_synthesis.py",
+    "app/orchestration/tasks/assembly.py",
+    "app/orchestration/tasks/bake.py",
+    "app/orchestration/tasks/export.py",
+    "app/orchestration/tasks/sample_build.py",
+    "app/orchestration/tasks/sample_test.py",
+    "app/orchestration/tasks/synthesis.py"
+   ],
+   "notes": [
+    "get_expected_duration returns None (no hardcoded default) with no history",
+    "TaskResult gained an additive output_path: str | None = None field so a concurrent child can report its validated artifact path to the parent's stitch barrier",
+    "ephemeral: bool = False marks a synthetic fan-out child TaskContext; suppresses durable job-row writes and job-scoped event emissions (routed through ProgressService.publish(ephemeral=True))"
+   ],
+   "calls_inferred": []
+  },
+  "app/orchestration/tasks/export.py": {
+   "purpose": "Assembles full project into final M4B audiobook file",
+   "exports": [
+    {
+     "name": "ExportTask",
+     "kind": "class",
+     "contract": "implements StudioTask; prefers_local_execution=True"
+    }
+   ],
+   "calls": [
+    "app/engines/audiobook_utils.py#assemble_audiobook",
+    "app/orchestration/tasks/base.py"
+   ],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "app/orchestration/tasks/sample_build.py": {
+   "purpose": "Generates reusable voice sample artifact and updates speaker profile",
+   "exports": [
+    {
+     "name": "SampleBuildTask",
+     "kind": "class",
+     "contract": "implements StudioTask; prefers_local_execution=True"
+    }
+   ],
+   "calls": [
+    "app/db/speakers.py#update_speaker_settings,get_profile_dir",
+    "app/engines/audio_ops.py#finalize_sample_artifact",
+    "app/engines/bridge.py#create_voice_bridge",
+    "app/orchestration/scheduler/resources.py#ResourceClaim",
+    "app/orchestration/tasks/base.py"
+   ],
+   "called_by": [
+    "app/orchestration/scheduler/orchestrator.py"
+   ],
+   "notes": [
+    "voice samples always MP3"
+   ],
+   "calls_inferred": []
+  },
+  "app/orchestration/tasks/sample_test.py": {
+   "purpose": "One-off voice preview/test task",
+   "exports": [
+    {
+     "name": "SampleTestTask",
+     "kind": "class",
+     "contract": "implements StudioTask; prefers_local_execution=True"
+    }
+   ],
+   "calls": [
+    "app/db/speakers.py",
+    "app/engines/audio_ops.py#finalize_sample_artifact",
+    "app/engines/bridge.py#create_voice_bridge",
+    "app/orchestration/scheduler/resources.py#ResourceClaim",
+    "app/orchestration/tasks/base.py"
+   ],
+   "called_by": [
+    "app/orchestration/scheduler/orchestrator.py"
+   ],
+   "notes": [
+    "updates preview metadata only, not reusable artifact"
+   ],
+   "calls_inferred": []
+  },
+  "app/orchestration/tasks/segment_synthesis.py": {
+   "purpose": "Parent/child concurrent chapter-segment fan-out: ChapterSynthesisTask (durable parent) fans SegmentSynthesisTask children across a bounded ThreadPoolExecutor",
+   "exports": [
+    {
+     "name": "ChapterSynthesisTask",
+     "kind": "class",
+     "contract": "is_chapter_fanout=True; run() fans chunk groups into children, joins via futures.wait(ALL_COMPLETED), stitches by segment_order"
+    },
+    {
+     "name": "SegmentSynthesisTask",
+     "kind": "class",
+     "contract": "ephemeral child: segment_order, attempt, last_heartbeat/stalled"
+    },
+    {
+     "name": "_SyntheticSegmentTask",
+     "kind": "class",
+     "contract": "one-group synthetic task reused ONLY to route a child through _dispatch_segment's isolation"
+    },
+    {
+     "name": "make_dispatch_segment_bridge_call",
+     "kind": "function",
+     "contract": "factory: builds synthetic task+context per child, calls orchestrator._dispatch_segment once"
+    }
+   ],
+   "calls": [
+    "app/core/config.py",
+    "app/db/lexicon.py",
+    "app/db/state.py",
+    "app/domain/chunk_groups.py#build_chunk_groups,build_script_entry_for_group",
+    "app/engines/bridge.py",
+    "app/engines/watchdog.py",
+    "app/orchestration/progress/service.py",
+    "app/orchestration/scheduler/orchestrator_helpers.py#_dispatch_segment (via bridge_call reuse)",
+    "app/orchestration/scheduler/resources.py",
+    "app/orchestration/tasks/base.py#StudioTask,TaskResult",
+    "app/orchestration/tasks/synthesis.py",
+    "plugins/tts_mixed/handler.py#render_one_group"
+   ],
+   "called_by": [
+    "app/orchestration/scheduler/orchestrator.py"
+   ],
+   "notes": [
+    "is_chapter_fanout=True signals orchestrator_helpers._dispatch to bypass _dispatch_segment for the parent and call task.run() directly",
+    "children reuse _dispatch_segment's isolation via a synthetic one-group task; NEVER call handle_mixed_job directly (would re-trigger chapter-terminal writes once per child instead of once per chapter)",
+    "INV-2 stitch barrier sorts (segment_order, output_path) after concurrent.futures.wait(ALL_COMPLETED), never completion order",
+    "retry-once policy: one fresh replacement child on failure; second failure recorded in permanently_failed_segment_ids without blocking siblings; chapter still resolves once every other child finishes",
+    "stuck-segment heartbeat: 1s-poll daemon flags child.stalled past SEGMENT_STALL_TIMEOUT_SECONDS (60s default); stalled_segments property exists but has no _publish kwarg yet (unlike active_segments_map)",
+    "cap=1 (today's manifest default for most engines) is byte-identical to the pre-fanout sequential path (INV-1, pinned by test_cap1_old_vs_new_path_equivalence.py)",
+    "self._children accessed under self._children_lock (retry swap, heartbeat monitor, active_segments_map aggregation all touch the same list concurrently)",
+    "_SyntheticSegmentTask.describe() sets ephemeral=True; ChapterSynthesisTask._publish_progress emits size-weighted, order-independent grouped_progress computed from in-memory child text sizes (count-based progress retained separately)",
+    "ChapterSynthesisTask gained an event-driven self._live_segments_map (2026-07-05 escaped-defect fix): _on_child_segment_tick updates it incrementally from each child's own per-tick publish (via the on_segment_tick callback in orchestrator_publish.py), replacing the old completion-boundary sampling that was structurally always empty; _clear_active_segments_map() force-writes an explicit {} at any terminal outcome so a stale mid-render snapshot never rides a terminal frame",
+    "ChapterSynthesisTask.run() now calls self._publish_progress(status=\"running\", completed=0, ...) immediately after submitting the ThreadPoolExecutor futures, before the as_completed loop (2026-07-06 fix) -- previously the parent job's own `status` field stayed \"preparing\" for the ENTIRE first chunk group's render (status only flipped inside as_completed, i.e. only once a whole group COMPLETED).",
+    "_on_child_segment_tick(reason_code=None) now derives active_segments_map phase as \"preparing\" if status==\"preparing\" OR reason_code in {SEGMENT_PENDING, LOADING_MODEL} else \"rendering\" (2026-07-06 fix) -- previously hardcoded to \"rendering\" for every non-terminal tick, so a child's SEGMENT_PENDING/LOADING_MODEL sub-phase (conveyed via reason_code, not status) never surfaced in the map.",
+    "2026-07-07 ETA-decay fix: new self._dispatch_eta_seconds instance attr (stashed by orchestrator_helpers.py's _publish_chapter_dispatch_eta before task.run()); new _live_chapter_eta_seconds(status, decay_fraction) decays that dispatch-time estimate by grouped_progress (or plain progress) so the chapter's eta_seconds tracks REMAINING work instead of staying frozen at the t=0 dispatch snapshot; _publish_progress now durably persists status/progress/eta_seconds+active_segments_map via a new update_job(..., skip_job_updated=True) call on every 'running' frame (previously only broadcast via the pure ProgressService.publish(), so the DB row itself went stale between the far-more-frequent map-only update_job writes from _on_child_segment_tick).",
+    "2026-07-07 fable-review fixes: (1) eta_seconds is now simply omitted from the update_job(...) call when no dispatch calibration exists, instead of passing explicit None -- an explicit None clears eta_seconds/eta_basis/estimated_end_at at the state layer and would have wiped the ticks' own legitimately-maintained projection-derived ETA at every group boundary; (2) a successful (done/completed) terminal child tick now leaves a transient {phase:'done', progress:1.0, eta_seconds:0} marker in active_segments_map instead of popping the segment -- this is the only live signal keeping a just-finished segment's text lit ahead of the next DB refetch; failed/cancelled terminals still pop unchanged. run()'s as_completed loop now passes status=result.status into _on_child_segment_tick instead of a hardcoded 'done' -- the hardcoded call was a real bug: under the new done-marker semantics it would have permanently mislabeled a failed/cancelled child as successfully rendered. _clear_active_segments_map (unchanged) still force-wipes the whole map at the chapter's own terminal outcome."
+   ],
+   "calls_inferred": []
+  },
+  "app/orchestration/tasks/synthesis.py": {
+   "purpose": "Studio-originated synthesis task for single render batch/chapter",
+   "exports": [
+    {
+     "name": "SynthesisTask",
+     "kind": "class",
+     "contract": "implements StudioTask; is_marker_driven=True"
+    },
+    {
+     "name": "_manifest_resource_claim",
+     "kind": "function"
+    }
+   ],
+   "calls": [
+    "app/db/chapters.py#get_chapter",
+    "app/db/lexicon.py#get_lexicon",
+    "app/db/models.py",
+    "app/engines/bridge.py#create_voice_bridge",
+    "app/engines/watchdog.py",
+    "app/orchestration/scheduler/cap_settings.py#resolve_effective_cap",
+    "app/orchestration/scheduler/resources.py#ResourceClaim",
+    "app/orchestration/tasks/base.py",
+    "app/studio_plugin_sdk/__init__.py",
+    "app/tts_server/plugin_loader.py#*",
+    "app/utils/text/lexicon.py#apply_lexicon",
+    "plugins/tts_mixed/handler.py#handle_mixed_job"
+   ],
+   "called_by": [
+    "app/orchestration/scheduler/orchestrator.py",
+    "app/orchestration/tasks/segment_synthesis.py"
+   ],
+   "notes": [
+    "is_marker_driven=True suppresses generic running event",
+    "prefers_local_execution=True only for mixed engine",
+    "segment-orchestrated engines now route through segment_synthesis.py#ChapterSynthesisTask instead (see generation.py#_build_chapter_synthesis_task); this class remains the path for non-segment-orchestrated engines and the segment-scoped 'render these specific segment_ids' endpoint (unchanged, out of scope for W-PAR)",
+    "_manifest_resource_claim now resolves effective cap via cap_settings.resolve_effective_cap(engine_id, manifest_max) instead of using the raw manifest max directly -- default-unchanged unless an operator raises tts_parallel_cap/tts_engine_caps",
+    "_manifest_resource_claim's cap is min(resolve_effective_cap(...), manifest_max); effective default is now 2 (2026-07-05) — Voxtral/Mixed stay sequential via their own manifest max_concurrent_workers=1 ceiling regardless"
+   ],
+   "calls_inferred": []
+  }
+ }
+}

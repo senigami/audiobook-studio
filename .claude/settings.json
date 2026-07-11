@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f docs/code-map/map.json ]; then CTX=$(jq -c '{meta: (.meta | {synced_commit, edge_tool, repo_checksum, unmapped, shards}), flows, invariants, modules, coupling, hotspots}' docs/code-map/map.json); jq -n --arg ctx \"$CTX\" '{hookSpecificOutput: {hookEventName: \"SessionStart\", additionalContext: (\"Code map (docs/code-map/map.json) — meta/flows/invariants/modules/coupling/hotspots. Pull files/data records on demand (jq) for anything a task touches. See the map-code skill.\\n\" + $ctx)}}'; fi",
+            "command": "if [ -f docs/code-map/map.json ]; then RC=$(jq -r '.meta.repo_checksum // empty' docs/code-map/map.json); if [ -z \"$RC\" ] && [ -f docs/code-map/hashes.json ]; then RC=$(jq -r '.repo_checksum // empty' docs/code-map/hashes.json); fi; CTX=$(jq -c --arg rc \"$RC\" '{meta: ((.meta | {synced_commit, edge_tool, unmapped, shards}) + {repo_checksum: $rc}), flows, invariants, modules, coupling, hotspots}' docs/code-map/map.json); jq -n --arg ctx \"$CTX\" '{hookSpecificOutput: {hookEventName: \"SessionStart\", additionalContext: (\"Code map (docs/code-map/map.json) — meta/flows/invariants/modules/coupling/hotspots. Sharded layout: file records live in docs/code-map/shards/files.<slug>.json — route by longest prefix via meta.shards, or use docs/code-map/tools/lookup.sh <path>. See the map-code skill.\\n\" + $ctx)}}'; fi",
             "timeout": 10
           }
         ]

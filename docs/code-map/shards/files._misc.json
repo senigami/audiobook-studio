@@ -1,0 +1,366 @@
+{
+ "files": {
+  "app/__init__.py": {
+   "purpose": "App package root",
+   "exports": [],
+   "calls": [],
+   "called_by": [
+    "app/api/routers/voices_characters.py",
+    "app/api/routers/voices_management.py",
+    "app/api/routers/voices_narrators.py"
+   ],
+   "notes": [
+    "empty"
+   ],
+   "calls_inferred": []
+  },
+  "app/infra/__init__.py": {
+   "purpose": "Infrastructure package boundary declaration",
+   "exports": [],
+   "calls": [],
+   "called_by": [],
+   "notes": [
+    "holds non-domain adapters for persistence/events/subprocess/cache"
+   ],
+   "calls_inferred": []
+  },
+  "app/infra/cache/__init__.py": {
+   "purpose": "Shared cache primitives (Phase 1 scaffold)",
+   "exports": [
+    {
+     "name": "build_cache_key",
+     "kind": "function",
+     "contract": "raises NotImplementedError"
+    }
+   ],
+   "calls": [],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "app/infra/db/__init__.py": {
+   "purpose": "Infrastructure DB boundary for persistence plumbing (Phase 1 scaffold)",
+   "exports": [
+    {
+     "name": "get_db_session",
+     "kind": "function",
+     "contract": "raises NotImplementedError"
+    }
+   ],
+   "calls": [],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "app/infra/events/__init__.py": {
+   "purpose": "Internal event bus boundaries for backend-only events (Phase 1 scaffold)",
+   "exports": [
+    {
+     "name": "publish_internal_event",
+     "kind": "function",
+     "contract": "raises NotImplementedError"
+    }
+   ],
+   "calls": [],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "app/infra/subprocess/__init__.py": {
+   "purpose": "Infrastructure subprocess boundary with plugin-safe isolation rules (Phase 1 scaffold)",
+   "exports": [
+    {
+     "name": "run_managed_subprocess, run_managed_subprocess_async",
+     "kind": "function",
+     "contract": "raises NotImplementedError"
+    }
+   ],
+   "calls": [],
+   "called_by": [
+    "plugins/tts_xtts/plugin/studio/app_adapter.py"
+   ],
+   "notes": [
+    "allowlist authorizes plugins to manage subprocess lifecycles"
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/config/liveEventConsumers.ts": {
+   "purpose": "Live event consumer registry and topic subscription mapping",
+   "exports": [
+    {
+     "name": "LiveEventConsumer",
+     "kind": "interface"
+    },
+    {
+     "name": "LIVE_EVENT_CONSUMER_TOPIC_IDS, LIVE_EVENT_CONSUMERS",
+     "kind": "const"
+    },
+    {
+     "name": "getLiveEventConsumer",
+     "kind": "function"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/contracts/liveEvents.ts",
+    "frontend/src/config/liveEventTopics.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/LiveOutput/LiveOutputPage.tsx"
+   ],
+   "notes": [
+    "plugin consumers created on-demand as 'plugin:pluginId:area'"
+   ],
+   "calls_inferred": [
+    "config/liveEventTopics#TopicFilterId"
+   ]
+  },
+  "frontend/src/config/liveEventTopics.ts": {
+   "purpose": "Live event topic filter registry and matching logic",
+   "exports": [
+    {
+     "name": "TopicFilterId, TopicFilter",
+     "kind": "type/interface"
+    },
+    {
+     "name": "TOPIC_FILTERS, ALL_TOPIC_FILTER_IDS",
+     "kind": "const"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/contracts/liveEvents.ts"
+   ],
+   "called_by": [
+    "frontend/src/components/LiveOutputTable.tsx",
+    "frontend/src/config/liveEventConsumers.ts",
+    "frontend/src/pages/LiveOutput/LiveOutputPage.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": [
+    "api/contracts/liveEvents#LiveEvent"
+   ]
+  },
+  "frontend/src/constants/api.ts": {
+   "purpose": "API protocol sentinel value for default voice selection",
+   "exports": [
+    {
+     "name": "DEFAULT_VOICE_SENTINEL",
+     "kind": "const",
+     "contract": "'__USE_DEFAULT__'"
+    }
+   ],
+   "calls": [],
+   "called_by": [
+    "frontend/src/api/index.ts"
+   ],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/constants/audio.ts": {
+   "purpose": "Audio processing parameter constant",
+   "exports": [
+    {
+     "name": "CHUNK_CHAR_LIMIT",
+     "kind": "const",
+     "contract": "500"
+    }
+   ],
+   "calls": [],
+   "called_by": [
+    "frontend/src/api/contracts/liveEvents.ts",
+    "frontend/src/utils/chunkGroups.ts"
+   ],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/fontsource.d.ts": {
+   "purpose": "TypeScript declarations for self-hosted fontsource font packages",
+   "exports": [],
+   "calls": [],
+   "called_by": [],
+   "notes": [
+    "covers Inter, Geist, Geist Mono, Source Serif 4, Lexend, Atkinson Hyperlegible, Space Grotesk"
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/i18n/index.ts": {
+   "purpose": "i18n foundation scaffold: lazy i18next instance, zero side effects on import. Not called from app root yet",
+   "exports": [
+    {
+     "name": "initI18n",
+     "kind": "function",
+     "contract": "explicit opt-in; creates+configures the i18next instance; idempotent (returns existing instance on repeat calls)"
+    },
+    {
+     "name": "getI18n",
+     "kind": "function",
+     "contract": "returns the instance or null if initI18n() has not been called"
+    },
+    {
+     "name": "resetI18nForTests, SOURCE_LOCALE, NAMESPACES",
+     "kind": "function/const"
+    }
+   ],
+   "calls": [
+    "frontend/src/i18n/locales/en-US/welcome.json"
+   ],
+   "called_by": [],
+   "notes": [
+    "importing this module never creates an instance or loads a catalog (modular_architecture.md no-import-side-effects)",
+    "useTranslation.ts (sibling file) wraps getI18n() with a pure passthrough (raw key or explicit default) when uninitialized — never throws",
+    "one sample catalog only (locales/en-US/welcome.json, WelcomePage strings) — full string-extraction is future work"
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/main.tsx": {
+   "purpose": "React app entry: font loading, theme init, root render, system preference listener",
+   "exports": [],
+   "calls": [
+    "frontend/src/app/App.tsx",
+    "frontend/src/theme/index.css",
+    "frontend/src/utils/theme.ts"
+   ],
+   "called_by": [],
+   "notes": [
+    "applies theme before first render to avoid flash"
+   ],
+   "calls_inferred": [
+    "app/App#App",
+    "utils/theme#applyTheme,loadThemePref"
+   ]
+  },
+  "frontend/src/types/index.ts": {
+   "purpose": "Central type definitions for Studio domain entities, UI state, API contracts",
+   "exports": [
+    {
+     "name": "Engine, VoiceEngine, JobClassification, TtsEngine, Status, Project, Character, ChapterSegment, ScriptSpan, ScriptParagraph, ScriptRenderBatch, AudioGroup, ScriptViewResponse, ScriptAssignment, ScriptRangeAssignment, ScriptAssignmentsUpdate, Chapter, ProcessingQueueItem, SpeakerProfile, Speaker, VoiceAttributes, VoiceMetadata, Job, SegmentProgress, Settings, Audiobook, StoredBackup, AssemblyChapter, AssemblyPrep, GlobalState, RenderStats, RuntimeService, LexiconEntry",
+     "kind": "interface/type"
+    }
+   ],
+   "calls": [],
+   "called_by": [
+    "frontend/src/api/hydration/index.ts",
+    "frontend/src/api/index.ts",
+    "frontend/src/app/App.tsx",
+    "frontend/src/app/layout/RailBookBlock.tsx",
+    "frontend/src/app/layout/bookIdentityStore.ts",
+    "frontend/src/components/CastingSuggestionsModal.tsx",
+    "frontend/src/components/CharactersTab.tsx",
+    "frontend/src/components/ProjectBackupsPanel.tsx",
+    "frontend/src/components/VoicesModals.tsx",
+    "frontend/src/components/queue/GlobalQueue.tsx",
+    "frontend/src/components/queue/QueueItem.tsx",
+    "frontend/src/components/queue/QueueStats.tsx",
+    "frontend/src/components/queue/ReorderableQueueItem.tsx",
+    "frontend/src/components/ui/StatusOrb.tsx",
+    "frontend/src/demo/fixtures/voiceFixtures.ts",
+    "frontend/src/demo/styleguide/StyleguidePage.tsx",
+    "frontend/src/hooks/chapter/useChapterAssignments.ts",
+    "frontend/src/hooks/chapter/useChapterEditorState.ts",
+    "frontend/src/hooks/chapter/useChapterLoader.ts",
+    "frontend/src/hooks/chapter/useChapterQueue.ts",
+    "frontend/src/hooks/useChapterEditor.ts",
+    "frontend/src/hooks/useChapterPlayback.ts",
+    "frontend/src/hooks/useChapterRedirect.ts",
+    "frontend/src/hooks/useGlobalQueue.ts",
+    "frontend/src/hooks/useInitialData.ts",
+    "frontend/src/hooks/useJobs.ts",
+    "frontend/src/hooks/useProjectActions.ts",
+    "frontend/src/hooks/useProjectLibrary.ts",
+    "frontend/src/hooks/useQueueSync.ts",
+    "frontend/src/hooks/useVariantActions.ts",
+    "frontend/src/hooks/useVoiceManagement.ts",
+    "frontend/src/hooks/useVoicesData.ts",
+    "frontend/src/hooks/useVoicesTabActions.ts",
+    "frontend/src/hooks/useVoicesTabState.ts",
+    "frontend/src/pages/Activity/ActivityPage.tsx",
+    "frontend/src/pages/Activity/components/EngineCalibrationCard.tsx",
+    "frontend/src/pages/Activity/components/ProductionTallyCard.tsx",
+    "frontend/src/pages/Book/BookDataContext.tsx",
+    "frontend/src/pages/Book/BookLayout.tsx",
+    "frontend/src/pages/Book/components/AssemblyChapterPicker.tsx",
+    "frontend/src/pages/Book/components/BookIdentityStrip.tsx",
+    "frontend/src/pages/Book/components/BookInfoCard.tsx",
+    "frontend/src/pages/Book/components/ChapterTable.tsx",
+    "frontend/src/pages/Book/components/ChapterTextPanel.tsx",
+    "frontend/src/pages/Book/components/ChapterWorkspaceHeader.tsx",
+    "frontend/src/pages/Book/components/LexiconPanel.tsx",
+    "frontend/src/pages/Book/lib/chapterJobs.ts",
+    "frontend/src/pages/Book/lib/chapterLifecycle.ts",
+    "frontend/src/pages/Book/lib/useChapterText.ts",
+    "frontend/src/pages/Book/stages/ContentsStage.tsx",
+    "frontend/src/pages/Book/stages/ManuscriptStage.tsx",
+    "frontend/src/pages/Book/studio/AnalysisStrip.tsx",
+    "frontend/src/pages/Book/studio/CastPalette.tsx",
+    "frontend/src/pages/Book/studio/useStudioChapter.ts",
+    "frontend/src/pages/Book/useBookData.ts",
+    "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx",
+    "frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx",
+    "frontend/src/pages/ChapterEditor/components/CharacterSidebar.tsx",
+    "frontend/src/pages/ChapterEditor/components/EditTab.tsx",
+    "frontend/src/pages/ChapterEditor/components/ScriptView.tsx",
+    "frontend/src/pages/ChapterEditor/scriptViewProgress.ts",
+    "frontend/src/pages/Engines/EnginesPage.tsx",
+    "frontend/src/pages/Engines/components/EngineCalibrationSection.tsx",
+    "frontend/src/pages/Engines/components/EngineCard.tsx",
+    "frontend/src/pages/Engines/components/EngineDevPanel.tsx",
+    "frontend/src/pages/Engines/components/EngineMetadataPanel.tsx",
+    "frontend/src/pages/Engines/components/EngineSettingsForm.tsx",
+    "frontend/src/pages/Engines/components/EngineTestSample.tsx",
+    "frontend/src/pages/Engines/components/EnginesPanel.tsx",
+    "frontend/src/pages/Engines/components/ServerDiagnostics.tsx",
+    "frontend/src/pages/Engines/components/VoiceModulesPanel.tsx",
+    "frontend/src/pages/Engines/components/engineScenarioMerge.ts",
+    "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx",
+    "frontend/src/pages/ProjectDetail/components/AssemblyPanel.tsx",
+    "frontend/src/pages/ProjectDetail/components/AssemblyProgress.tsx",
+    "frontend/src/pages/ProjectDetail/components/ChapterList.tsx",
+    "frontend/src/pages/ProjectDetail/components/ProjectBreadcrumbs.tsx",
+    "frontend/src/pages/ProjectDetail/components/ProjectCard.tsx",
+    "frontend/src/pages/ProjectDetail/components/ProjectHeader.tsx",
+    "frontend/src/pages/ProjectDetail/components/ProjectModals.tsx",
+    "frontend/src/pages/ProjectLibrary/components/ProjectListView.tsx",
+    "frontend/src/pages/Settings/SettingsRoute.tsx",
+    "frontend/src/pages/Settings/components/AboutSettingsPanel.tsx",
+    "frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx",
+    "frontend/src/pages/Settings/components/SettingsComponents.tsx",
+    "frontend/src/pages/VoiceLab/VoiceLabPage.tsx",
+    "frontend/src/pages/VoiceLab/components/SamplesSection.tsx",
+    "frontend/src/pages/VoiceLab/components/TestSection.tsx",
+    "frontend/src/pages/VoiceLab/components/VariantsSection.tsx",
+    "frontend/src/pages/VoiceLab/components/VoiceIconControls.tsx",
+    "frontend/src/pages/VoiceLab/iconPrompt.ts",
+    "frontend/src/pages/Voices/VoicesPage.tsx",
+    "frontend/src/pages/Voices/components/MetadataEditorModal.tsx",
+    "frontend/src/pages/Voices/components/NarratorCard.tsx",
+    "frontend/src/pages/Voices/components/SampleManager.tsx",
+    "frontend/src/pages/Voices/components/ScriptEditor.tsx",
+    "frontend/src/pages/Voices/components/VariantEditor.tsx",
+    "frontend/src/pages/Voices/components/VoiceCatalogCard.tsx",
+    "frontend/src/pages/Voices/components/VoiceModals.tsx",
+    "frontend/src/pages/Voices/components/VoicePills.tsx",
+    "frontend/src/pages/Voices/components/VoicesTabContent.tsx",
+    "frontend/src/pages/Voices/components/VoicesTabHeader.tsx",
+    "frontend/src/pages/Voices/voicePhase.ts",
+    "frontend/src/utils/chapterEditorHelpers.ts",
+    "frontend/src/utils/chapterRenderProgress.ts",
+    "frontend/src/utils/chunkGroups.ts",
+    "frontend/src/utils/jobSelection.ts",
+    "frontend/src/utils/jobUpdateReducer.ts",
+    "frontend/src/utils/queueItemDebugPayload.ts",
+    "frontend/src/utils/queueItemEtaSelection.ts",
+    "frontend/src/utils/queueLabels.ts",
+    "frontend/src/utils/segmentProgressSelection.ts",
+    "frontend/src/utils/voiceCasting.ts",
+    "frontend/src/utils/voiceProfiles.ts"
+   ],
+   "notes": [
+    "no internal deps, pure type definitions",
+    "voice taxonomy per design-docs/specs/voice-taxonomy.json v1.0",
+    "Settings gained optional tts_parallel_cap?: number and tts_engine_caps?: Record<string, number> (2026-07-06)",
+    "Project gained series_position: number | null (2026-07-08) -- round-trips through library create/edit and the book overview header.",
+    "Project gained description: string | null (2026-07-09, book_tab_front_door Task 004), matching the backend's nullable TEXT column (Task 002)."
+   ],
+   "calls_inferred": []
+  }
+ }
+}

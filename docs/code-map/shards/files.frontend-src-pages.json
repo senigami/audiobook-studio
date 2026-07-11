@@ -1,0 +1,1346 @@
+{
+ "files": {
+  "frontend/src/pages/Activity/ActivityPage.tsx": {
+   "purpose": "Root page displaying live job queue and production stats",
+   "exports": [
+    {
+     "name": "ActivityPage, ActivityPageProps",
+     "kind": "component/interface"
+    }
+   ],
+   "calls": [
+    "frontend/src/components/progress/SegmentRenderMonitor/SegmentRenderMonitor.tsx",
+    "frontend/src/components/queue/GlobalQueue.tsx",
+    "frontend/src/components/queue/QueueStats.tsx",
+    "frontend/src/pages/Activity/components/EngineCalibrationCard.tsx",
+    "frontend/src/pages/Activity/components/ProductionTallyCard.tsx",
+    "frontend/src/pages/Activity/devSegmentRenderMonitorFixture.ts",
+    "frontend/src/types/index.ts",
+    "frontend/src/utils/devMode.ts"
+   ],
+   "called_by": [
+    "frontend/src/app/App.tsx",
+    "frontend/src/pages/Activity/index.ts"
+   ],
+   "notes": [
+    "history filter state All/Renders/Samples/API"
+   ],
+   "calls_inferred": [
+    "frontend/src/components/queue/GlobalQueue",
+    "frontend/src/components/queue/QueueStats",
+    "frontend/src/pages/Activity/components/EngineCalibrationCard",
+    "frontend/src/pages/Activity/components/ProductionTallyCard"
+   ]
+  },
+  "frontend/src/pages/Activity/components/EngineCalibrationCard.tsx": {
+   "purpose": "Card displaying engine calibration speed and confidence metrics",
+   "exports": [
+    {
+     "name": "EngineCalibrationCard, EngineCalibrationCardProps",
+     "kind": "component/interface"
+    }
+   ],
+   "calls": [
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/Activity/ActivityPage.tsx"
+   ],
+   "notes": [
+    "confidence color: success>=70%, warning>=30%, muted<30%"
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Activity/components/ProductionTallyCard.tsx": {
+   "purpose": "Card showing cumulative production stats (audio duration, word/char count)",
+   "exports": [
+    {
+     "name": "ProductionTallyCard",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/index.ts",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/Activity/ActivityPage.tsx"
+   ],
+   "notes": [
+    "formats duration: d h > h m > m"
+   ],
+   "calls_inferred": [
+    "frontend/src/api#fetchHome"
+   ]
+  },
+  "frontend/src/pages/Activity/index.ts": {
+   "purpose": "Barrel export for ActivityPage",
+   "exports": [
+    {
+     "name": "default, ActivityPageProps",
+     "kind": "component/interface"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Activity/ActivityPage.tsx"
+   ],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/DevProgressBar/DevProgressBarPage.tsx": {
+   "purpose": "Test harness page for PredictiveProgressBar with launch/update/debug panels",
+   "exports": [
+    {
+     "name": "ProgressBarTestPage",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx",
+    "frontend/src/hooks/useProgressBarTest.ts",
+    "frontend/src/pages/DevProgressBar/components/ProgressBarDebugPanel.tsx",
+    "frontend/src/pages/DevProgressBar/components/ProgressBarLaunchPanel.tsx",
+    "frontend/src/pages/DevProgressBar/components/ProgressBarUpdatePanel.tsx",
+    "frontend/src/pages/DevProgressBar/components/SegmentContractDebugPanel.tsx"
+   ],
+   "called_by": [
+    "frontend/src/app/App.tsx"
+   ],
+   "notes": [
+    "renderToken forces remount on reset"
+   ],
+   "calls_inferred": [
+    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar",
+    "frontend/src/hooks/useProgressBarTest",
+    "frontend/src/pages/DevProgressBar/components/*"
+   ]
+  },
+  "frontend/src/pages/DevProgressBar/components/ProgressBarDebugPanel.tsx": {
+   "purpose": "Debug panel showing progress bar internals, lane migration, ETA confidence, socket events",
+   "exports": [
+    {
+     "name": "ProgressBarDebugPanel",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/../tests/helpers/ProgressBarTestHelpers.tsx",
+    "frontend/src/../tests/helpers/ProgressBarTestTypes.ts",
+    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx",
+    "frontend/src/store/studioSocketBus.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/DevProgressBar/DevProgressBarPage.tsx"
+   ],
+   "notes": [
+    "shows lane migration debug: confidenceW/Base/Cv, etaEndSmoothed, slopeCappedVsRaw"
+   ],
+   "calls_inferred": [
+    "@/components/progress/PredictiveProgressBar/PredictiveProgressBar#PredictiveProgressDebugSnapshot",
+    "@/store/studioSocketBus#StudioSocketEnvelope"
+   ]
+  },
+  "frontend/src/pages/DevProgressBar/components/ProgressBarLaunchPanel.tsx": {
+   "purpose": "Control panel for configuring initial progress bar state before launch",
+   "exports": [
+    {
+     "name": "ProgressBarLaunchPanel",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/../tests/helpers/ProgressBarTestHelpers.tsx",
+    "frontend/src/../tests/helpers/ProgressBarTestTypes.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/DevProgressBar/DevProgressBarPage.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": [
+    "@tests/helpers/ProgressBarTestHelpers#*",
+    "@tests/helpers/ProgressBarTestTypes#*"
+   ]
+  },
+  "frontend/src/pages/DevProgressBar/components/ProgressBarUpdatePanel.tsx": {
+   "purpose": "Panel for applying live-like websocket updates to an active progress bar",
+   "exports": [
+    {
+     "name": "ProgressBarUpdatePanel",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/../tests/helpers/ProgressBarTestHelpers.tsx",
+    "frontend/src/../tests/helpers/ProgressBarTestTypes.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/DevProgressBar/DevProgressBarPage.tsx"
+   ],
+   "notes": [
+    "quick nudge buttons +1%/+5%/+10%/-10%/Finish"
+   ],
+   "calls_inferred": [
+    "@tests/helpers/ProgressBarTestTypes#*"
+   ]
+  },
+  "frontend/src/pages/DevProgressBar/components/SegmentContractDebugPanel.tsx": {
+   "purpose": "Test harness for segment-level progress bar contract",
+   "exports": [
+    {
+     "name": "SegmentContractDebugPanel",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/../tests/helpers/ProgressBarTestHelpers.tsx",
+    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx",
+    "frontend/src/components/progress/progressBarContracts.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/DevProgressBar/DevProgressBarPage.tsx"
+   ],
+   "notes": [
+    "simulates segment lifecycle Start->update->Stop->Reset"
+   ],
+   "calls_inferred": [
+    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar#*",
+    "frontend/src/components/progress/progressBarContracts#buildSegmentProgressBarProps"
+   ]
+  },
+  "frontend/src/pages/Engines/EnginesPage.tsx": {
+   "purpose": "Tab-based page for TTS engine discovery, configuration, module settings",
+   "exports": [
+    {
+     "name": "EnginesPage",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/index.ts",
+    "frontend/src/pages/Engines/components/EnginesPanel.tsx#*",
+    "frontend/src/pages/Engines/components/ServerDiagnostics.tsx#*",
+    "frontend/src/pages/Engines/components/VoiceModulesPanel.tsx#*",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Engines/components/EngineCalibrationSection.tsx": {
+   "purpose": "Collapsed-header calibration chip and expanded 'Voice generation speed' summary block, split out of EngineCard",
+   "exports": [
+    {
+     "name": "EngineCalibrationChip",
+     "kind": "component"
+    },
+    {
+     "name": "EngineCalibrationSection",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [],
+   "notes": [
+    "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Engines/components/EngineCard.css": {
+   "purpose": "Co-located stylesheet for the Engines-domain card components (EngineCard + EngineCalibrationSection/EngineSettingsForm/EngineTestSample); shared/file-local classes extracted from inline styles (2026-07-10 ST-3). No dedicated theme/components Engines-domain file exists.",
+   "exports": [],
+   "calls": [],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Engines/components/EngineCard.tsx": {
+   "purpose": "Expandable card for a single engine: status, settings form, test, verify, uninstall, dev panel",
+   "exports": [
+    {
+     "name": "EngineCard",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/index.ts",
+    "frontend/src/components/overlays/ConfirmModal.tsx",
+    "frontend/src/components/overlays/PluginTrustModal.tsx",
+    "frontend/src/pages/Engines/components/EngineCalibrationSection.tsx#*",
+    "frontend/src/pages/Engines/components/EngineDevPanel.tsx#*",
+    "frontend/src/pages/Engines/components/EngineSettingsForm.tsx#*",
+    "frontend/src/pages/Engines/components/EngineTestSample.tsx#*",
+    "frontend/src/pages/Engines/components/engineScenarioMerge.ts",
+    "frontend/src/pages/Settings/components/SettingsComponents.tsx#ToggleButton",
+    "frontend/src/pages/Settings/settingsRouteHelpers.ts",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [],
+   "notes": [
+    "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+   ],
+   "calls_inferred": [
+    "frontend/src/pages/Engines/components/EngineMetadataPanel.tsx#*",
+    "frontend/src/pages/Engines/components/JsonSchemaForm.tsx#*",
+    "frontend/src/store/playerBus#*"
+   ]
+  },
+  "frontend/src/pages/Engines/components/EngineDevPanel.tsx": {
+   "purpose": "Developer-only scenario testing panel within expanded engine cards",
+   "exports": [
+    {
+     "name": "EngineDevPanel",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/index.ts",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": [
+    "frontend/src/api#api.fetchEngineScenarios"
+   ]
+  },
+  "frontend/src/pages/Engines/components/EngineMetadataPanel.tsx": {
+   "purpose": "Renders engine settings metadata: summary, help URL, privacy notice, verification badge",
+   "exports": [
+    {
+     "name": "EngineMetadataPanel",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Settings/settingsRouteHelpers.ts#getEngineUi",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Engines/components/EngineSettingsForm.tsx": {
+   "purpose": "Wraps EngineMetadataPanel + JsonSchemaForm with visibility gating (hide_settings_when_not_ready / hide_settings_when_unverified / hidden), split out of EngineCard",
+   "exports": [
+    {
+     "name": "EngineSettingsForm",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Engines/components/EngineMetadataPanel.tsx#*",
+    "frontend/src/pages/Settings/components/JsonSchemaForm.tsx",
+    "frontend/src/pages/Settings/settingsRouteHelpers.ts",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [],
+   "notes": [
+    "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+   ],
+   "calls_inferred": [
+    "frontend/src/pages/Engines/components/JsonSchemaForm.tsx#*"
+   ]
+  },
+  "frontend/src/pages/Engines/components/EngineTestSample.tsx": {
+   "purpose": "'Latest Test Sample' playback block for an engine card, split out of EngineCard",
+   "exports": [
+    {
+     "name": "EngineTestSample",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Engines/components/engineFormatters.ts",
+    "frontend/src/store/playerBus.ts",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [],
+   "notes": [
+    "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+   ],
+   "calls_inferred": [
+    "frontend/src/store/playerBus#*"
+   ]
+  },
+  "frontend/src/pages/Engines/components/EnginesPanel.tsx": {
+   "purpose": "Main engine discovery, import, live-diagnostics panel",
+   "exports": [
+    {
+     "name": "EnginesPanel",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/index.ts",
+    "frontend/src/components/overlays/ConfirmModal.tsx",
+    "frontend/src/components/overlays/PluginTrustModal.tsx",
+    "frontend/src/hooks/useLiveTtsLogLines.ts",
+    "frontend/src/pages/Engines/components/EngineCard.tsx#EngineCard",
+    "frontend/src/pages/Engines/components/OfficialRegistryPanel.tsx#*",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [],
+   "notes": [
+    "two import flows: zip upload + GitHub URL"
+   ],
+   "calls_inferred": [
+    "frontend/src/hooks/useLiveTtsLogLines#*"
+   ]
+  },
+  "frontend/src/pages/Engines/components/OfficialRegistryPanel.tsx": {
+   "purpose": "Displays official plugin registry and GitHub URL install form",
+   "exports": [
+    {
+     "name": "OfficialRegistryPanel",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/index.ts"
+   ],
+   "called_by": [],
+   "notes": [
+    "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+   ],
+   "calls_inferred": [
+    "frontend/src/api#api.fetchOfficialPluginRegistry"
+   ]
+  },
+  "frontend/src/pages/Engines/components/ServerDiagnostics.tsx": {
+   "purpose": "TTS Server status box: health, port, uptime, restart button",
+   "exports": [
+    {
+     "name": "ServerDiagnostics",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/index.ts",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": [
+    "frontend/src/api#api.fetchHome,api.restartTtsServer"
+   ]
+  },
+  "frontend/src/pages/Engines/components/VoiceModulesPanel.tsx": {
+   "purpose": "Standalone panel showing all configurable engines with schema-driven settings forms",
+   "exports": [
+    {
+     "name": "VoiceModulesPanel",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/index.ts",
+    "frontend/src/pages/Settings/components/JsonSchemaForm.tsx#JsonSchemaForm",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/VoiceModules/VoiceModulesRoute.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Engines/components/engineFormatters.ts": {
+   "purpose": "Format engine test result timestamps",
+   "exports": [
+    {
+     "name": "formatEngineTestGeneratedAt",
+     "kind": "fn"
+    }
+   ],
+   "calls": [],
+   "called_by": [
+    "frontend/src/pages/Engines/components/EngineTestSample.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Engines/components/engineScenarioMerge.ts": {
+   "purpose": "Deep-merge engine scenario overrides for dev-mode simulation",
+   "exports": [
+    {
+     "name": "mergeScenarioEngine",
+     "kind": "fn"
+    }
+   ],
+   "calls": [
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/Engines/components/EngineCard.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Engines/index.ts": {
+   "purpose": "Barrel export for EnginesPage",
+   "exports": [
+    {
+     "name": "EnginesPage",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Engines/EnginesPage.tsx#EnginesPage"
+   ],
+   "called_by": [
+    "frontend/src/app/App.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Integrations/IntegrationsPage.tsx": {
+   "purpose": "Integrations page wrapper containing API guide",
+   "exports": [
+    {
+     "name": "IntegrationsPage",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Integrations/components/ApiGuidePanel.tsx#*"
+   ],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Integrations/components/ApiGuidePanel.tsx": {
+   "purpose": "Developer guide for Studio API: orchestration, direct TTS, resource discovery",
+   "exports": [
+    {
+     "name": "ApiGuidePanel",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Settings/settingsRouteHelpers.ts#apiExampleStyle"
+   ],
+   "called_by": [],
+   "notes": [
+    "security warning about no internal API keys",
+    "2026-07-09: Rewrote static documentation content to match app/api/tts_api.py + app/core/security.py: replaced the false 'no API secret keys' claim with the real Bearer tts_api_key + tts_api_enabled gate, added the real 30 req/min sliding-window rate limiter, and replaced fictitious/internal-only routes (/api/engines, /api/speaker-profiles, /api/processing_queue, direct localhost:8001/synthesize) with the real external contract (GET /api/v1/tts/engines[/{id}], POST /api/v1/tts/synthesize, POST /api/v1/tts/preview, GET /api/v1/tts/jobs/{id}[/audio]). No component structure/props changed — text/example content only."
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Integrations/index.ts": {
+   "purpose": "Barrel export for IntegrationsPage",
+   "exports": [
+    {
+     "name": "IntegrationsPage",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Integrations/IntegrationsPage.tsx#*"
+   ],
+   "called_by": [
+    "frontend/src/app/App.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/LiveOutput/LiveOutputPage.css": {
+   "purpose": "Co-located stylesheet for LiveOutputPage, extracted from inline styles into token-based classes (2026-07-10 ST-3).",
+   "exports": [],
+   "calls": [],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/LiveOutput/LiveOutputPage.tsx": {
+   "purpose": "Debug/admin page: live websocket event audit log with topic filtering",
+   "exports": [
+    {
+     "name": "LiveOutputPage",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/components/LiveOutputTable.tsx",
+    "frontend/src/config/liveEventConsumers.ts",
+    "frontend/src/config/liveEventTopics.ts",
+    "frontend/src/hooks/useStudioSocketConnection.ts",
+    "frontend/src/store/liveEventAuditStore.ts",
+    "frontend/src/utils/runtimeDebug.ts"
+   ],
+   "called_by": [
+    "frontend/src/app/App.tsx"
+   ],
+   "notes": [
+    "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+   ],
+   "calls_inferred": [
+    "frontend/src/components/LiveOutputTable#LiveOutputTable",
+    "frontend/src/config/liveEventConsumers#*",
+    "frontend/src/hooks/useStudioSocketConnection#*"
+   ]
+  },
+  "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx": {
+   "purpose": "Main project detail view: chapters, character tabs, assemblies, backups, inline chapter editor",
+   "exports": [
+    {
+     "name": "ProjectView",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/index.ts",
+    "frontend/src/app/navigation/model.ts",
+    "frontend/src/components/CharactersTab.tsx",
+    "frontend/src/components/ProjectBackupsPanel.tsx",
+    "frontend/src/components/overlays/ConfirmModal.tsx",
+    "frontend/src/hooks/useProjectActions.ts",
+    "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx",
+    "frontend/src/pages/ChapterEditor/components/VoiceProfileSelect.tsx",
+    "frontend/src/pages/ProjectDetail/components/AssemblyPanel.tsx",
+    "frontend/src/pages/ProjectDetail/components/AssemblyProgress.tsx",
+    "frontend/src/pages/ProjectDetail/components/ChapterList.tsx",
+    "frontend/src/pages/ProjectDetail/components/ProjectBreadcrumbs.tsx",
+    "frontend/src/pages/ProjectDetail/components/ProjectHeader.tsx",
+    "frontend/src/pages/ProjectDetail/components/ProjectModals.tsx",
+    "frontend/src/pages/ProjectDetail/components/ProjectSubnav.tsx",
+    "frontend/src/types/index.ts",
+    "frontend/src/utils/chapterEditorHelpers.ts",
+    "frontend/src/utils/format.ts",
+    "frontend/src/utils/jobSelection.ts",
+    "frontend/src/utils/voiceProfiles.ts"
+   ],
+   "called_by": [],
+   "notes": [
+    "RECENT_DONE_WINDOW_SECONDS=60",
+    "2026-07-08: now reachable via App.tsx's /project/:projectId/details route (ProjectViewPage lazy import of this file's ProjectView export) -- resolves the prior 'zero runtime importers' flag."
+   ],
+   "calls_inferred": [
+    "frontend/src/components/CharactersTab#CharactersTab",
+    "frontend/src/hooks/useProjectActions#*",
+    "frontend/src/pages/ChapterEditor/ChapterEditorPage#ChapterEditor",
+    "frontend/src/pages/ProjectDetail/components/*"
+   ]
+  },
+  "frontend/src/pages/ProjectDetail/ProjectViewRoute.tsx": {
+   "purpose": "Route container establishing project view shell state and hydration boundaries",
+   "exports": [
+    {
+     "name": "ProjectViewRoute, createProjectViewRoute",
+     "kind": "component/function"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/hydration/index.ts#createHydrationCoordinator",
+    "frontend/src/api/queries/index.ts#createStudioQueries",
+    "frontend/src/app/layout/StudioShell.tsx",
+    "frontend/src/app/navigation/model.ts",
+    "frontend/src/store/live-jobs.ts#createLiveJobsStore"
+   ],
+   "called_by": [
+    "frontend/src/app/App.tsx"
+   ],
+   "notes": [
+    "DC-2 (2026-07-04): the dead createProjectViewRoute() null-stub was removed from here originally, but ProjectDetail/index.ts's only export WAS that stub -- retargeted index.ts's re-export to this component instead of deleting the barrel, to avoid a dangling reference",
+    "2026-07-08: App.tsx now wires this up at /project/:projectId/details -- the prior 'zero runtime importers, pending wiring or dead' flag (2026-07-04) is resolved; this component has a real caller again."
+   ],
+   "calls_inferred": [
+    "frontend/src/app/layout/StudioShell#createStudioShellState"
+   ]
+  },
+  "frontend/src/pages/ProjectDetail/components/AssemblyPanel.tsx": {
+   "purpose": "Assemblies tab: table of audiobooks with download/delete/metadata-edit",
+   "exports": [
+    {
+     "name": "AssemblyPanel",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/components/forms/InlineEdit.tsx",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/Book/stages/PublishStage.tsx",
+    "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": [
+    "frontend/src/components/forms/InlineEdit"
+   ]
+  },
+  "frontend/src/pages/ProjectDetail/components/AssemblyProgress.tsx": {
+   "purpose": "Inline assembly job progress banner or completion message",
+   "exports": [
+    {
+     "name": "AssemblyProgress",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/Book/stages/PublishStage.tsx",
+    "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/ProjectDetail/components/ChapterList.tsx": {
+   "purpose": "Reorderable chapter list with playback, progress bars, action menus",
+   "exports": [
+    {
+     "name": "ChapterList",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/components/forms/InlineEdit.tsx",
+    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx",
+    "frontend/src/components/ui/ActionMenu.tsx",
+    "frontend/src/components/ui/StatusOrb.tsx",
+    "frontend/src/store/playerBus.ts",
+    "frontend/src/types/index.ts",
+    "frontend/src/utils/jobSelection.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
+   ],
+   "notes": [
+    "RECENT_COMPLETION_WINDOW_SECONDS=60"
+   ],
+   "calls_inferred": [
+    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar",
+    "frontend/src/components/ui/ActionMenu",
+    "frontend/src/components/ui/StatusOrb",
+    "frontend/src/store/playerBus#*"
+   ]
+  },
+  "frontend/src/pages/ProjectDetail/components/ProjectBreadcrumbs.tsx": {
+   "purpose": "Sticky breadcrumb navigation with chapter picker dropdown",
+   "exports": [
+    {
+     "name": "ProjectBreadcrumbs",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/app/layout/layering.ts",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": [
+    "frontend/src/app/layout/layering#LAYERS"
+   ]
+  },
+  "frontend/src/pages/ProjectDetail/components/ProjectCard.tsx": {
+   "purpose": "Grid card for project library: cover with glass effects, metadata, hover menu",
+   "exports": [
+    {
+     "name": "ProjectCard",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/components/ui/ActionMenu.tsx",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx"
+   ],
+   "notes": [
+    "2026-07-08: new onOpenDetails(id) prop renders a 'Details' button (stopPropagation'd) that routes to the project details view, alongside the existing whole-card click-to-open behavior."
+   ],
+   "calls_inferred": [
+    "frontend/src/components/ui/ActionMenu"
+   ]
+  },
+  "frontend/src/pages/ProjectDetail/components/ProjectHeader.tsx": {
+   "purpose": "Project metadata header: cover, title, author, runtime stats, edit button",
+   "exports": [
+    {
+     "name": "ProjectHeader",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
+   ],
+   "notes": [
+    "compact/full modes"
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/ProjectDetail/components/ProjectModals.tsx": {
+   "purpose": "Edit project modal and full-screen cover image viewer",
+   "exports": [
+    {
+     "name": "EditProjectModal, CoverImageModal, AddChapterModal",
+     "kind": "component",
+     "contract": "EditProjectModal.onSubmit now receives series_position: number | null alongside name/series/author/cover"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Book/components/AddChapterModal.tsx",
+    "frontend/src/types/index.ts",
+    "frontend/src/utils/toast.ts#emitToast",
+    "frontend/src/utils/seriesPosition.ts#parseSeriesPositionInput"
+   ],
+   "called_by": [
+    "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
+   ],
+   "notes": [
+    "2026-07-08: EditProjectModal's local state now seeds series_position from project.series_position; handleSubmit parses it via parseSeriesPositionInput (emitToast + abort on error) before calling onSubmit; new adjustSeriesPosition(-1|1) stepper handler backs new +/- buttons around the series-position input, clamped to > 0 (else clears to '')."
+   ],
+   "calls_inferred": [
+    "frontend/src/pages/Book/components/AddChapterModal#AddChapterModal"
+   ]
+  },
+  "frontend/src/pages/ProjectDetail/components/ProjectSubnav.tsx": {
+   "purpose": "Tab-style navigation bar for project subnav items",
+   "exports": [
+    {
+     "name": "ProjectSubnav",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/app/navigation/project-subnav.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": [
+    "frontend/src/app/navigation/project-subnav#ProjectSubnavItem"
+   ]
+  },
+  "frontend/src/pages/ProjectDetail/index.ts": {
+   "purpose": "Route export barrel (retargeted from a dead stub to the live ProjectViewRoute component, 2026-07-04)",
+   "exports": [
+    {
+     "name": "ProjectViewRoute",
+     "kind": "export"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/ProjectDetail/ProjectViewRoute.tsx#*"
+   ],
+   "called_by": [],
+   "notes": [
+    "DC-2 (2026-07-04): previously re-exported only the dead createProjectViewRoute() stub; retargeted to re-export the live ProjectViewRoute component instead of deleting the file, since deleting would have left a dangling reference for anything importing this barrel"
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.css": {
+   "purpose": "Co-located stylesheet for ProjectLibraryPage, extracted from inline styles into token-based classes (2026-07-10 ST-3).",
+   "exports": [],
+   "calls": [],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx": {
+   "purpose": "Project library page: grid/list view, sorting, create/delete modals",
+   "exports": [
+    {
+     "name": "ProjectLibrary",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/components/overlays/ConfirmModal.tsx",
+    "frontend/src/hooks/useProjectLibrary.ts",
+    "frontend/src/pages/ProjectDetail/components/ProjectCard.tsx",
+    "frontend/src/pages/ProjectLibrary/components/LibraryControls.tsx",
+    "frontend/src/pages/ProjectLibrary/components/ProjectListView.tsx"
+   ],
+   "called_by": [
+    "frontend/src/app/App.tsx"
+   ],
+   "notes": [
+    "2026-07-08: create-project form gained a series <datalist> (id=project-series-suggestions, populated from the hook's existingSeries) attached to both the grid-view and list-view series inputs, plus a 'Series position' input seeded with the hook's suggestion placeholder. ProjectCard/ProjectListView now receive onOpenDetails={handleOpenProjectDetails}, routing to /project/:id/details.",
+    "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+   ],
+   "calls_inferred": [
+    "frontend/src/hooks/useProjectLibrary#useProjectLibrary",
+    "frontend/src/pages/ProjectDetail/components/ProjectCard#ProjectCard"
+   ]
+  },
+  "frontend/src/pages/ProjectLibrary/components/LibraryControls.tsx": {
+   "purpose": "View mode toggle and sort dropdown",
+   "exports": [
+    {
+     "name": "LibraryControls",
+     "kind": "component"
+    }
+   ],
+   "calls": [],
+   "called_by": [
+    "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx"
+   ],
+   "notes": [
+    "2026-07-08: sortOption/onSortOptionChange types and the sort <select> gained a 'series-asc' ('Series A-Z') option alongside updated-desc/created-desc/title-asc/title-desc."
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/ProjectLibrary/components/ProjectListView.tsx": {
+   "purpose": "Table view of projects",
+   "exports": [
+    {
+     "name": "ProjectListView",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/components/ui/ActionMenu.tsx",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx"
+   ],
+   "notes": [
+    "2026-07-08: new onOpenDetails(projectId) prop adds a 'Project Details' entry to each row's ActionMenu, ahead of 'Open Project'/'Delete Project'."
+   ],
+   "calls_inferred": [
+    "frontend/src/components/ui/ActionMenu"
+   ]
+  },
+  "frontend/src/pages/Queue/QueueRoute.tsx": {
+   "purpose": "Route container for queue page",
+   "exports": [
+    {
+     "name": "QueueRoute, createQueueRoute",
+     "kind": "component/function"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/hydration/index.ts#createHydrationCoordinator",
+    "frontend/src/app/layout/StudioShell.tsx",
+    "frontend/src/app/navigation/model.ts",
+    "frontend/src/store/live-jobs.ts#createLiveJobsStore"
+   ],
+   "called_by": [
+    "frontend/src/app/App.tsx"
+   ],
+   "notes": [
+    "DC-2 (2026-07-04): removed the dead createQueueRoute() null-stub export; the live QueueRoute component (used by App.tsx) is unaffected"
+   ],
+   "calls_inferred": [
+    "frontend/src/app/layout/StudioShell#createStudioShellState"
+   ]
+  },
+  "frontend/src/pages/Settings/SettingsRoute.tsx": {
+   "purpose": "Settings page router: tabbed layout (General/About/Developer)",
+   "exports": [
+    {
+     "name": "SettingsRoute, createSettingsRoute",
+     "kind": "component/function"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Settings/components/AboutSettingsPanel.tsx",
+    "frontend/src/pages/Settings/components/DeveloperSettingsPanel.tsx",
+    "frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx",
+    "frontend/src/pages/Settings/components/SettingsComponents.tsx",
+    "frontend/src/pages/Settings/settingsRouteConfig.ts#*",
+    "frontend/src/types/index.ts",
+    "frontend/src/utils/devMode.ts"
+   ],
+   "called_by": [],
+   "notes": [
+    "redirects old /settings/engines and /settings/api"
+   ],
+   "calls_inferred": [
+    "frontend/src/pages/Settings/components/*"
+   ]
+  },
+  "frontend/src/pages/Settings/components/AboutSettingsPanel.tsx": {
+   "purpose": "System diagnostics and production tally",
+   "exports": [
+    {
+     "name": "AboutSettingsPanel",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/index.ts",
+    "frontend/src/pages/Settings/components/SettingsComponents.tsx#*",
+    "frontend/src/pages/Settings/settingsRouteHelpers.ts",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/Settings/SettingsRoute.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": [
+    "frontend/src/api#api.fetchHome,api.resetRenderStats"
+   ]
+  },
+  "frontend/src/pages/Settings/components/DeveloperSettingsPanel.tsx": {
+   "purpose": "Developer tools navigation",
+   "exports": [
+    {
+     "name": "DeveloperSettingsPanel",
+     "kind": "component"
+    }
+   ],
+   "calls": [],
+   "called_by": [
+    "frontend/src/pages/Settings/SettingsRoute.tsx"
+   ],
+   "notes": [
+    "4 dev-only links: progress-test, event-stream, design spec, Swagger docs"
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx": {
+   "purpose": "Core synthesis defaults: theme, dev mode, stability, default engine/voice, parallel-cap toggle",
+   "exports": [
+    {
+     "name": "GeneralSettingsPanel",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Settings/components/SettingsComponents.tsx",
+    "frontend/src/types/index.ts",
+    "frontend/src/utils/devMode.ts",
+    "frontend/src/utils/theme.ts",
+    "frontend/src/utils/voiceProfiles.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/Settings/SettingsRoute.tsx"
+   ],
+   "notes": [
+    "gained a 'Parallel Segment Rendering' toggle (2026-07-06) posting {tts_parallel_cap: 1|2} as JSON to /api/settings via a dedicated updateParallelCap() helper — the form-encoded updateBooleanSetting/updateStringSetting helpers can't carry this field, since app/api/routers/system.py only parses tts_parallel_cap from the JSON body branch, not the form branch"
+   ],
+   "calls_inferred": [
+    "frontend/src/utils/devMode#*",
+    "frontend/src/utils/theme#*",
+    "frontend/src/utils/voiceProfiles#buildVoiceOptions"
+   ]
+  },
+  "frontend/src/pages/Settings/components/JsonSchemaForm.tsx": {
+   "purpose": "Generic JSON Schema form renderer for engine settings",
+   "exports": [
+    {
+     "name": "JsonSchemaForm",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Settings/components/SettingsComponents.tsx#ToggleButton"
+   ],
+   "called_by": [
+    "frontend/src/pages/Engines/components/EngineSettingsForm.tsx",
+    "frontend/src/pages/Voices/components/ScriptEditor.tsx"
+   ],
+   "notes": [
+    "handles nested object properties as grouped toggles"
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Settings/components/SettingsComponents.tsx": {
+   "purpose": "Shared UI components for Settings pages",
+   "exports": [
+    {
+     "name": "SettingsTabLink, TabHeading, SettingCard, ToggleButton, StatusCard, DiagnosticRow, RuntimeServiceRow",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/index.ts",
+    "frontend/src/pages/Settings/settingsRouteConfig.ts",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/Settings/SettingsRoute.tsx",
+    "frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": [
+    "frontend/src/api#api.restartTtsServer"
+   ]
+  },
+  "frontend/src/pages/Settings/index.ts": {
+   "purpose": "Barrel export for SettingsRoute",
+   "exports": [
+    {
+     "name": "SettingsRoute, createSettingsRoute",
+     "kind": "component/function"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Settings/SettingsRoute.tsx#*"
+   ],
+   "called_by": [
+    "frontend/src/app/App.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Settings/settingsRouteConfig.ts": {
+   "purpose": "Configuration for Settings tabs, routing, path validation",
+   "exports": [
+    {
+     "name": "SettingsTab, SettingsTabId, SETTINGS_TABS, SETTINGS_REDIRECTS, VALID_SETTINGS_PATHS, getActiveSettingsTab, normalizeSettingsPath",
+     "kind": "type/const/function"
+    }
+   ],
+   "calls": [],
+   "called_by": [
+    "frontend/src/pages/Settings/components/SettingsComponents.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Settings/settingsRouteHelpers.ts": {
+   "purpose": "Helper functions for engine UI metadata, status labels, badge styling",
+   "exports": [
+    {
+     "name": "getBadgeStyles, getEngineStatusLabel, getEngineUi, apiExampleStyle",
+     "kind": "function/const"
+    }
+   ],
+   "calls": [],
+   "called_by": [
+    "frontend/src/pages/Engines/components/EngineCard.tsx",
+    "frontend/src/pages/Engines/components/EngineSettingsForm.tsx",
+    "frontend/src/pages/Settings/components/AboutSettingsPanel.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/VoiceLab/VoiceLabPage.tsx": {
+   "purpose": "Full-page voice workspace at /voices/:id",
+   "exports": [
+    {
+     "name": "VoiceLabPage",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/index.ts",
+    "frontend/src/pages/VoiceLab/components/PhaseStepper.tsx",
+    "frontend/src/pages/VoiceLab/components/SamplesSection.tsx",
+    "frontend/src/pages/VoiceLab/components/TestSection.tsx",
+    "frontend/src/pages/VoiceLab/components/VariantsSection.tsx",
+    "frontend/src/pages/VoiceLab/components/VoiceIconControls.tsx",
+    "frontend/src/pages/Voices/components/MetadataEditorModal.tsx",
+    "frontend/src/pages/Voices/components/VoicePills.tsx",
+    "frontend/src/pages/Voices/voicePhase.ts",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/app/App.tsx"
+   ],
+   "notes": [
+    "sections lazy-loaded with Suspense"
+   ],
+   "calls_inferred": [
+    "pages/VoiceLab/components/*",
+    "pages/Voices/components/MetadataEditorModal",
+    "pages/Voices/components/VoicePills#*",
+    "pages/Voices/voicePhase#getVoicePhase"
+   ]
+  },
+  "frontend/src/pages/VoiceLab/components/PhaseStepper.tsx": {
+   "purpose": "4-step progress indicator: Samples->Build->Test->Ready",
+   "exports": [
+    {
+     "name": "PhaseStepper",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Voices/voicePhase.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/VoiceLab/VoiceLabPage.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": [
+    "pages/Voices/voicePhase"
+   ]
+  },
+  "frontend/src/pages/VoiceLab/components/SamplesSection.tsx": {
+   "purpose": "Samples section wrapping SampleManager for default/first profile",
+   "exports": [
+    {
+     "name": "SamplesSection",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/hooks/useVariantActions.ts",
+    "frontend/src/pages/Voices/components/SampleManager.tsx",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/VoiceLab/VoiceLabPage.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": [
+    "pages/Voices/components/SampleManager"
+   ]
+  },
+  "frontend/src/pages/VoiceLab/components/TestSection.tsx": {
+   "purpose": "Test section: variant/ref-sample selectors, script input, generate, progress, playback",
+   "exports": [
+    {
+     "name": "TestSection",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/store/playerBus.ts",
+    "frontend/src/types/index.ts",
+    "frontend/src/utils/voiceProfiles.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/VoiceLab/VoiceLabPage.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": [
+    "store/playerBus#*",
+    "utils/voiceProfiles#*"
+   ]
+  },
+  "frontend/src/pages/VoiceLab/components/VariantsSection.tsx": {
+   "purpose": "Variants section under Voice Lab: one VariantEditor per profile + add-variant button",
+   "exports": [
+    {
+     "name": "VariantsSection",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Voices/components/VariantEditor.tsx",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/VoiceLab/VoiceLabPage.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": [
+    "pages/Voices/components/VariantEditor"
+   ]
+  },
+  "frontend/src/pages/VoiceLab/components/VoiceIconControls.tsx": {
+   "purpose": "Header controls for voice icon: upload + copy icon prompt",
+   "exports": [
+    {
+     "name": "VoiceIconControls",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/index.ts",
+    "frontend/src/pages/VoiceLab/iconPrompt.ts",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/VoiceLab/VoiceLabPage.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": [
+    "api#uploadVoiceIcon",
+    "pages/VoiceLab/iconPrompt#buildIconPrompt"
+   ]
+  },
+  "frontend/src/pages/VoiceLab/iconPrompt.ts": {
+   "purpose": "Pure deterministic icon prompt builder from VoiceMetadata (clipboard only)",
+   "exports": [
+    {
+     "name": "buildIconPrompt",
+     "kind": "function"
+    }
+   ],
+   "calls": [
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/VoiceLab/components/VoiceIconControls.tsx"
+   ],
+   "notes": [
+    "no API calls"
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/VoiceModules/VoiceModulesRoute.tsx": {
+   "purpose": "Route boundary + contract marker consumer for voice modules settings",
+   "exports": [
+    {
+     "name": "createVoiceModulesRoute",
+     "kind": "function"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Engines/components/VoiceModulesPanel.tsx"
+   ],
+   "called_by": [
+    "frontend/src/pages/VoiceModules/index.ts"
+   ],
+   "notes": [
+    "DC-2 (2026-07-04): removed the dead createVoiceModulesRoute() stub + its unused imports (createStudioQueries, createNotificationsStore, consumeContractMarkers); kept the live VoiceModulesPanel re-export intact -- this file was originally slated for wholesale deletion but VoiceModulesPanel turned out to be live (imported by EnginesPage.tsx)"
+   ],
+   "calls_inferred": [
+    "api/queries#createStudioQueries",
+    "pages/Engines/components/VoiceModulesPanel",
+    "store/notifications#createNotificationsStore"
+   ]
+  },
+  "frontend/src/pages/VoiceModules/index.ts": {
+   "purpose": "Barrel export for VoiceModules -- VoiceModulesPanel only (dead createVoiceModulesRoute stub removed 2026-07-04)",
+   "exports": [
+    {
+     "name": "VoiceModulesPanel",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/VoiceModules/VoiceModulesRoute.tsx"
+   ],
+   "called_by": [],
+   "notes": [
+    "DC-2 (2026-07-04): removed the createVoiceModulesRoute re-export (dead stub); VoiceModulesPanel is live, imported by pages/Engines/EnginesPage.tsx"
+   ],
+   "calls_inferred": [
+    "pages/Engines/components/VoiceModulesPanel"
+   ]
+  },
+  "frontend/src/pages/Welcome/WelcomePage.css": {
+   "purpose": "Co-located stylesheet for WelcomePage (e.g. .welcome-status-chip), extracted from inline styles into token-based classes (2026-07-10 ST-3).",
+   "exports": [],
+   "calls": [],
+   "called_by": [],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Welcome/WelcomePage.tsx": {
+   "purpose": "Welcome/landing page: branding, getting-started steps, docs cards, CTAs",
+   "exports": [
+    {
+     "name": "WelcomePage",
+     "kind": "component"
+    }
+   ],
+   "calls": [],
+   "called_by": [
+    "frontend/src/app/App.tsx"
+   ],
+   "notes": [
+    "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+   ],
+   "calls_inferred": []
+  }
+ }
+}

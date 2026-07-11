@@ -1,0 +1,814 @@
+{
+ "files": {
+  "frontend/src/pages/Book/BookDataContext.tsx": {
+   "purpose": "React context providing book data and actions to children",
+   "exports": [
+    {
+     "name": "BookDataProvider, useBookDataContext",
+     "kind": "component/hook"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Book/useBookData.ts",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/Book/BookLayout.tsx",
+    "frontend/src/pages/Book/index.ts",
+    "frontend/src/pages/Book/stages/CastingStage.tsx",
+    "frontend/src/pages/Book/stages/ContentsStage.tsx",
+    "frontend/src/pages/Book/stages/LexiconStage.tsx",
+    "frontend/src/pages/Book/stages/ManuscriptStage.tsx",
+    "frontend/src/pages/Book/stages/PublishStage.tsx",
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/index.tsx",
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx",
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/ReviseTool/index.tsx",
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/WriteTool/index.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": [
+    "@/pages/Book/useBookData#*"
+   ]
+  },
+  "frontend/src/pages/Book/BookLayout.tsx": {
+   "purpose": "Root layout for Book page; wraps stages with BookDataProvider, manages stage nav and chapter workspace routing",
+   "exports": [
+    {
+     "name": "BookLayout, BookIndexRedirect",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/app/layout/bookIdentityStore.ts",
+    "frontend/src/pages/Book/BookDataContext.tsx",
+    "frontend/src/pages/Book/components/ChapterWorkspaceHeader.tsx",
+    "frontend/src/pages/Book/components/LexiconPanel.tsx",
+    "frontend/src/pages/Book/lib/stages.ts",
+    "frontend/src/pages/Book/stages/BackupsStage.tsx",
+    "frontend/src/pages/Book/stages/BookStage.tsx",
+    "frontend/src/pages/Book/stages/CastingStage.tsx",
+    "frontend/src/pages/Book/stages/ContentsStage.tsx",
+    "frontend/src/pages/Book/stages/LexiconStage.tsx",
+    "frontend/src/pages/Book/stages/PublishStage.tsx",
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole",
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/index.tsx",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/Book/index.ts"
+   ],
+   "notes": [
+    "2026-07-09: new 'book' entry added to BOOK_STAGES ahead of 'contents'; StageContent renders <BookStage/> (imported as BookInfoStage) for stage==='book'. The book-level tab bar (BOOK_STAGES.map) now shows a leading 'Book' tab.",
+    "2026-07-10: ChapterWorkspace's studio|review toggle replaced by <DirectorsConsole/> (directors_console_activation task 002); StudioStage.tsx/ReviewStage.tsx deleted.",
+    "2026-07-10: Root layout for Book page; wraps stages with BookDataProvider, manages stage nav and chapter workspace routing"
+   ],
+   "calls_inferred": [
+    "@/pages/Book/BookDataContext#*",
+    "@/pages/Book/lib/stages#*",
+    "@/pages/Book/stages/*"
+   ]
+  },
+  "frontend/src/pages/Book/components/AddChapterModal.tsx": {
+   "purpose": "Modal for creating new chapter: title, optional file upload or paste text",
+   "exports": [
+    {
+     "name": "AddChapterModal",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/utils/toast.ts#emitToast",
+    "frontend/src/pages/Book/lib/chapterImport.ts#getChapterImportError,isSupportedChapterImportFile"
+   ],
+   "called_by": [
+    "frontend/src/pages/Book/stages/ContentsStage.tsx",
+    "frontend/src/pages/Book/stages/ManuscriptStage.tsx",
+    "frontend/src/pages/ProjectDetail/components/ProjectModals.tsx"
+   ],
+   "notes": [
+    "2026-07-08: file input now only accepts .txt (was .txt/.docx/.epub); handleFileChange rejects an unsupported selection via isSupportedChapterImportFile, toasts getChapterImportError(file), clears the input, and leaves file unset instead of silently accepting it.",
+    "2026-07-10: added a trimmedTitle derivation — the submit handler now no-ops on a whitespace-only title, the Add Chapter button'\\''s disabled state uses the trimmed value, and onSubmit is called with the trimmed title (not the raw untrimmed input), so a chapter can no longer be created with a blank-looking name."
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Book/components/AssemblyChapterPicker.tsx": {
+   "purpose": "Modal chapter multi-select for assembly, rendered chapters only",
+   "exports": [
+    {
+     "name": "AssemblyChapterPicker",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Book/lib/chapterLifecycle.ts",
+    "frontend/src/types/index.ts",
+    "frontend/src/utils/format.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/Book/stages/PublishStage.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": [
+    "@/pages/Book/lib/chapterLifecycle#deriveChapterLifecycle"
+   ]
+  },
+  "frontend/src/pages/Book/components/BookIdentityStrip.tsx": {
+   "purpose": "Read-only compact identity display (cover thumbnail + title + author) for surfaces that reference the book but must not duplicate BookInfoCard's edit affordances -- currently Publish's sidebar.",
+   "exports": [
+    {
+     "name": "BookIdentityStrip",
+     "kind": "component",
+     "contract": "props: project: Project. No InlineEdit, no cover-change control, no series stepper -- purely presentational."
+    }
+   ],
+   "calls": [
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [],
+   "notes": [
+    "added 2026-07-09T21:03Z (Task 005, DC-006). Outer element is a <section aria-label=\"Book identity\"> landmark region, mirroring BookInfoCard's own aria-label convention. Styled via .book-identity-strip* rules in theme/components.css: compact flex row, 3rem-wide thumbnail cover (vs. Book tab's 10-12rem hero cover), text on --text-primary/--text-secondary (not --text-subtle, per INV-4)."
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Book/components/BookInfoCard.tsx": {
+   "purpose": "Book tab hero: single bordered region combining cover+identity, inline-editable title/author/series header with series-position stepper, an inline-editable description, the Continue Listening card, and demoted (footer-style) metadata pills -- the Book-tab front door (2026-07-09 restructure).",
+   "exports": [
+    {
+     "name": "BookInfoCard",
+     "kind": "component",
+     "contract": "props: project, totalRuntime, totalPredicted (number|null), hasRendered, hasUnrendered, audiobooks?: Audiobook[] (default []), onUpdateProject(data) => Promise<boolean> where data now includes an optional description field alongside name/series/author/series_position/cover."
+    }
+   ],
+   "calls": [
+    "frontend/src/components/forms/InlineEdit.tsx",
+    "frontend/src/hooks/useDragDropHighlight.ts#useDragDropHighlight",
+    "frontend/src/pages/Book/components/ContinueListeningCard.tsx#ContinueListeningCard",
+    "frontend/src/pages/ProjectDetail/components/ProjectModals.tsx#CoverImageModal",
+    "frontend/src/types/index.ts",
+    "frontend/src/utils/format.ts#formatLength"
+   ],
+   "called_by": [],
+   "notes": [
+    "2026-07-09 rewrite: title, author, and series are all edited via InlineEdit's native click-to-edit (no separate boxed 'edit mode') rather than the earlier custom text-field toggles; empty author/series placeholders ('Add author'/'Add series') use var(--text-muted) with no opacity override (fixed 2026-07-09T14:55Z: the prior var(--text-subtle)+opacity:0.8 combo was a WCAG SC 1.4.3 contrast failure and violated design-system.md's rule that --text-subtle must not carry body text) so unset optional fields still recede without competing with populated metadata.",
+    "Series-position stepper block (an explicit -/input/+ control reading 'Book N') only renders once hasSeriesPosition is true or the user starts editing (isSeriesNumberEditing); otherwise a quiet 'Add book number' ghost button is shown. Stepper buttons grew to 1.5rem (24px) to meet WCAG SC 2.5.8 target size (fixed 2026-07-09T14:55Z, was 1.12rem/17.9px).",
+    "2026-07-09T22:30Z (Task 008, hero-layout-restructure): folded the description InlineEdit (multiline, bound to project.description, saved via new updateDescription handler using the same 'spread current fields, override one' convention as updateField) and <ContinueListeningCard audiobooks coverImagePath> into this component's own .book-info-card__content column, replacing what used to be two separate bordered sibling boxes rendered by BookStage.tsx below this card. .book-info-card__content children now order as title-block -> description -> ContinueListeningCard -> metadata chips.",
+    "metadataPills computed from hasRendered/hasUnrendered/totalPredicted: 'Runtime <formatLength>' (success) when hasRendered, 'Predicted <formatLength>' (info) when hasUnrendered and totalPredicted is known, 'No segments yet' (muted) when nothing rendered yet and more remains, 'Rendered' (success) when everything is rendered, plus an always-present 'Created <date>' (muted) pill. As of the 2026-07-09T22:30Z restructure these are visually demoted: colored pill backgrounds/borders removed (all tones repaint to var(--text-muted)), rendered as a quiet '.'-separated footer line instead of colorful badges, so they no longer compete with the description/Continue-Listening CTA above them; the tone classes are kept for potential future use even though they're currently visually uniform.",
+    "Cover upload drag-and-drop goes through the shared useDragDropHighlight hook (drop calls handleCoverChange(files[0])); cover renders a blurred full-bleed background image plus a sharp foreground image (restores the library page's bleed treatment).",
+    "2026-07-09T23:00Z green-gate fix: metadataPills' filter(Boolean) result cast narrowed from a stale `Array<string | {label, tone}>` union (a tsc -b build failure -- .label/.tone access assumed the object shape only) to the correct `Array<{label, tone}>`.",
+    "Publish tab's sidebar no longer renders this component (see PublishStage.tsx / BookIdentityStrip.tsx, 2026-07-09T21:03Z) -- BookInfoCard on the Book tab is now the only edit surface for project identity fields and description."
+   ],
+   "calls_inferred": [
+    "@/components/forms/InlineEdit"
+   ]
+  },
+  "frontend/src/pages/Book/components/ChapterImportBar.tsx": {
+   "purpose": "Reusable manuscript-import control (compact pill or full drop-zone card) wrapping useDragDropHighlight + a hidden file input",
+   "exports": [
+    {
+     "name": "ChapterImportBar",
+     "kind": "component",
+     "contract": "props: onImportFiles(files), submitting, compact?"
+    }
+   ],
+   "calls": [
+    "frontend/src/hooks/useDragDropHighlight.ts#useDragDropHighlight"
+   ],
+   "called_by": [
+    "frontend/src/pages/Book/stages/ContentsStage.tsx",
+    "frontend/src/pages/Book/stages/ManuscriptStage.tsx"
+   ],
+   "notes": [
+    "added 2026-07-08. compact renders a small dashed-border pill (ContentsStage's action row); default renders the larger drop-zone card (ManuscriptStage); input accepts multiple .txt files; clears the file input value after each import so the same file can be re-selected.",
+    "2026-07-09T23:00Z green-gate fix: removed a duplicate `width: '100%'` object-literal key (TS1117) in the import button's inline style object -- a real tsc -b build failure that a plain tsc -p --noEmit run had been missing; trivial, no behavior change."
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Book/components/ChapterTable.tsx": {
+   "purpose": "Interactive chapter list: reorderable, selection, queue/reset/delete/export, progress, play/pause",
+   "exports": [
+    {
+     "name": "ChapterTable",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/components/forms/InlineEdit.tsx",
+    "frontend/src/components/overlays/ConfirmModal.tsx",
+    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx",
+    "frontend/src/components/ui/ActionMenu.tsx",
+    "frontend/src/components/ui/StatusOrb.tsx",
+    "frontend/src/pages/Book/lib/chapterLifecycle.ts",
+    "frontend/src/store/playerBus.ts",
+    "frontend/src/types/index.ts",
+    "frontend/src/utils/jobSelection.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/Book/stages/ContentsStage.tsx",
+    "frontend/src/pages/Book/stages/ManuscriptStage.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": [
+    "@/components/progress/PredictiveProgressBar",
+    "@/pages/Book/lib/chapterLifecycle#deriveChapterLifecycle",
+    "framer-motion#Reorder"
+   ]
+  },
+  "frontend/src/pages/Book/components/ChapterTextPanel.tsx": {
+   "purpose": "Chapter manuscript viewer/editor: read-only preview or full edit with autosave",
+   "exports": [
+    {
+     "name": "ChapterTextPanel",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Book/lib/useChapterText.ts",
+    "frontend/src/pages/ChapterEditor/components/ResyncPreviewModal.tsx",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/Book/stages/ContentsStage.tsx",
+    "frontend/src/pages/Book/stages/ManuscriptStage.tsx",
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/WriteTool/index.tsx"
+   ],
+   "notes": [
+    "autosave 1500ms debounce",
+    "2026-07-09: Added a `variant?: 'gated' | 'immediate'` prop (default `'gated'`, preserving Contents/Manuscript-stage behavior unchanged). `'immediate'` (used only by WriteTool) makes the textarea editable the instant a produced chapter mounts — no 'Edit Text'/'Edit Anyway' click-through — and swaps the produced-chapter strip for a new calm `chapter-text-panel__info-banner` ('Editing the full source. Committing re-syncs voice assignments — you'll preview what's kept before anything changes.') instead of the alarming warning-tint strip. Added a Discard button beside Commit Changes in the footer (`handleDiscard` resets text to `chapterText.chapter.text_content` and, for the gated variant, re-locks back to read-only); both buttons disabled when there are no uncommitted changes or a resync/commit is in flight. Added `eyebrowLabel()` mapping the raw `ChapterLifecycle` enum to consequence-aware wording for this surface only (Rendered->'Audio rendered', Cast->'Audio in progress' [Cast is actually the in-progress/partial state per deriveChapterLifecycle], Stale->'Needs re-render', Error->'Render error', Draft/Ready unchanged) — ChapterTable's status pill keeps the raw enum, untouched. Copy sweep (voice-tone.md): 'Edit text'/'Edit anyway'/'Commit changes' -> Title Case; 'saving...'/'Start typing...' -> '…'; 'editing - autosaved' -> em dash; 'autosave failed' -> sentence case; spaced-hyphen in the warning copy -> em dash; renamed the misleading 'Assignment-safe edit mode' strip to 'Changes aren't saved until you commit them.' (kept for the gated variant only).",
+    "2026-07-10: Added optional `onDirtyChange?: (dirty: boolean) => void` prop. A new effect calls it whenever `chapterText.isProduced && chapterText.hasTextChanges` changes — the existing `useChapterText` signal for \"produced chapter has an uncommitted edit not yet pushed through the resync/commit flow\" (non-produced chapters autosave, so they never report dirty here). No new state was added; this just surfaces an existing derived value."
+   ],
+   "calls_inferred": [
+    "@/pages/Book/lib/useChapterText",
+    "@/pages/ChapterEditor/components/ResyncPreviewModal"
+   ]
+  },
+  "frontend/src/pages/Book/components/ChapterWorkspaceHeader.tsx": {
+   "purpose": "Header for chapter workspace: back button, title, Contents dropdown, nav, bookmarks",
+   "exports": [
+    {
+     "name": "ChapterWorkspaceHeader",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Book/lib/stages.ts",
+    "frontend/src/store/bookmarks.ts",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/Book/BookLayout.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": [
+    "@/store/bookmarks#*"
+   ]
+  },
+  "frontend/src/pages/Book/components/ContinueListeningCard.tsx": {
+   "purpose": "Continue Listening card: surfaces the most-recently-rendered assembled audiobook with Play (loads into the global player bar) and Download actions, or an honest empty state when nothing has been rendered yet.",
+   "exports": [
+    {
+     "name": "ContinueListeningCard",
+     "kind": "component",
+     "contract": "props: audiobooks: Audiobook[] (caller-supplied, already backend-sorted most-recent-first), coverImagePath: string | null. Renders latest = audiobooks[0]."
+    }
+   ],
+   "calls": [
+    "frontend/src/store/playerBus.ts#loadAndPlay",
+    "frontend/src/utils/format.ts#formatLength,formatFileSize,formatRelativeTime"
+   ],
+   "called_by": [],
+   "notes": [
+    "added 2026-07-09T22:05Z (Task 006, DC-003); folded into BookInfoCard.tsx's own content column by Task 008 (2026-07-09T22:30Z hero-layout-restructure) -- no longer a BookStage.tsx sibling.",
+    "Cover thumbnail comes from the caller-supplied coverImagePath prop, not Audiobook.cover_url (this endpoint always returns that field null).",
+    "Play button calls playerBus.loadAndPlay({scope: 'book', title, subtitle: 'Full audiobook', audioUrl}) -- the 'book' PlayerScope added in Task 001 (playerBus.ts, 2026-07-09T21:03Z) exists specifically for this caller.",
+    "Download button uses the existing document.createElement('a')/link.download/link.click() pattern copied from AssemblyPanel.tsx.",
+    "Both Play and Download are disabled (not hidden) when audiobook.url is absent. Empty state ('Nothing rendered yet -- head to Contents to start casting and rendering.') renders when audiobooks is empty.",
+    "In BookInfoCard.tsx's composed layout, an override in components.css strips this card's own border/box-shadow/padding and hides its cover thumbnail, so it renders as part of the single .book-info-card bordered region rather than a second nested card."
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Book/components/LexiconPanel.tsx": {
+   "purpose": "Reusable per-book pronunciation lexicon UI",
+   "exports": [
+    {
+     "name": "LexiconPanel, LexiconPanelProps",
+     "kind": "component/type"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/index.ts",
+    "frontend/src/components/overlays/ConfirmModal.tsx",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/Book/BookLayout.tsx",
+    "frontend/src/pages/Book/stages/LexiconStage.tsx"
+   ],
+   "notes": [
+    "2026-07-09: EntryRow.handleSave and AddEntryForm.handleSubmit now emitToast('\\''Enter a word and a respelling.'\\'') and return early (instead of silently no-op'\\''ing) on an empty trimmed word/replacement. Both handlers wrap their onEdit/onAdd call in try/catch and emitToast the caught error'\\''s message (falling back to a generic message) — this is what surfaces the backend'\\''s new 400 duplicate-word response as a toast, and keeps the row in edit mode / the add form open so the user can correct the field."
+   ],
+   "calls_inferred": [
+    "@/api",
+    "@/components/overlays/ConfirmModal"
+   ]
+  },
+  "frontend/src/pages/Book/index.ts": {
+   "purpose": "Module exports barrel for Book page",
+   "exports": [
+    {
+     "name": "BookIndexRedirect, BookLayout, BookDataProvider, useBookDataContext, useBookData, BookStage, BOOK_STAGE_LABELS, BOOK_STAGES",
+     "kind": "component/hook/type/const"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Book/BookDataContext.tsx",
+    "frontend/src/pages/Book/BookLayout.tsx",
+    "frontend/src/pages/Book/lib/stages.ts",
+    "frontend/src/pages/Book/useBookData.ts"
+   ],
+   "called_by": [
+    "frontend/src/app/App.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Book/lib/chapterImport.ts": {
+   "purpose": "Shared chapter-import file validation/naming helpers used by the manuscript import UI",
+   "exports": [
+    {
+     "name": "getChapterImportFileExtension",
+     "kind": "function",
+     "contract": "File → string; lowercased extension without the dot, '' if none"
+    },
+    {
+     "name": "isSupportedChapterImportFile",
+     "kind": "function",
+     "contract": "File → boolean; true only for .txt"
+    },
+    {
+     "name": "getChapterImportFileTitle",
+     "kind": "function",
+     "contract": "File → string; filename minus extension, 'Imported chapter' fallback"
+    },
+    {
+     "name": "getChapterImportError",
+     "kind": "function",
+     "contract": "File → string; toast-ready 'unsupported file' message"
+    }
+   ],
+   "calls": [],
+   "called_by": [
+    "frontend/src/pages/Book/stages/ContentsStage.tsx",
+    "frontend/src/pages/Book/stages/ManuscriptStage.tsx"
+   ],
+   "notes": [
+    "SUPPORTED_IMPORT_EXTENSIONS = ['txt'] only, added 2026-07-08 to replace the previous .txt/.docx/.epub claim (docx/epub were never actually parsed)."
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Book/lib/chapterJobs.ts": {
+   "purpose": "Job selection for chapter editor: filters chapter-scoped jobs, includes recently-done",
+   "exports": [
+    {
+     "name": "selectChapterEditorJobs, ChapterEditorJobState",
+     "kind": "fn/type"
+    }
+   ],
+   "calls": [
+    "frontend/src/types/index.ts",
+    "frontend/src/utils/jobSelection.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": [
+    "@/utils/jobSelection#isChapterScopedJob,pickRelevantJob"
+   ]
+  },
+  "frontend/src/pages/Book/lib/chapterLifecycle.ts": {
+   "purpose": "Chapter lifecycle state machine: Draft/Ready/Cast/Rendered/Stale/Error classification",
+   "exports": [
+    {
+     "name": "deriveChapterLifecycle, ChapterLifecycle",
+     "kind": "fn/type",
+     "contract": "Chapter -> ChapterLifecycle. ChapterLifecycle union gained 'Stale' and 'Error'. deriveChapterLifecycle checks audio_status===\"error\"/\"failed\" first (-> Error), then text_last_modified > audio_generated_at (-> Stale), before falling into the Rendered/Cast/Ready/Draft chain — mirrors StatusOrb's isError/isStale priority so the lifecycle pill and the status orb never contradict each other for the same chapter."
+    }
+   ],
+   "calls": [
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/Book/components/AssemblyChapterPicker.tsx",
+    "frontend/src/pages/Book/components/ChapterTable.tsx",
+    "frontend/src/pages/Book/lib/useChapterText.ts",
+    "frontend/src/pages/Book/stages/PublishStage.tsx"
+   ],
+   "notes": [
+    "2026-07-10: fixes a bug where a chapter row could show a Cast/Rendered text pill while its StatusOrb showed red-error or amber-stale for the same chapter. Every consumer (AssemblyChapterPicker, ChapterTable, useChapterText, PublishStage, useBookData) was updated for the two new states."
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Book/lib/stages.ts": {
+   "purpose": "Book stage routing and navigation state persistence",
+   "exports": [
+    {
+     "name": "BOOK_STAGES, BookStage, BOOK_STAGE_LABELS, isBookStage, getLastStage, setLastStage, getLastChapter, setLastChapter, getBookStageStorageKey, getLastChapterStorageKey",
+     "kind": "const/type/fn"
+    }
+   ],
+   "calls": [],
+   "called_by": [
+    "frontend/src/app/layout/RailBookBlock.tsx",
+    "frontend/src/pages/Book/BookLayout.tsx",
+    "frontend/src/pages/Book/components/ChapterWorkspaceHeader.tsx",
+    "frontend/src/pages/Book/index.ts",
+    "frontend/src/pages/Book/stages/ContentsStage.tsx"
+   ],
+   "notes": [
+    "storage per-book, no cross-book state",
+    "2026-07-09: BOOK_STAGES gained a leading 'book' entry ('Book' label) before 'contents'. getLastStage()'s no-stored-value/SSR/error fallback changed from 'contents' to 'book' (DC-001 fix, 2026-07-09T14:55Z queue entry) -- every book opened via /book/:bookId now lands on the Book tab by default; the earlier note claiming the fallback stayed 'contents' is superseded."
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Book/lib/useChapterText.ts": {
+   "purpose": "Chapter text editor state: load, autosave, lifecycle, resync preview",
+   "exports": [
+    {
+     "name": "useChapterText",
+     "kind": "hook"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/index.ts",
+    "frontend/src/pages/Book/lib/chapterLifecycle.ts",
+    "frontend/src/pages/ChapterEditor/components/ResyncPreviewModal.tsx",
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/Book/components/ChapterTextPanel.tsx"
+   ],
+   "notes": [
+    "2026-07-10 (Stale/Error lifecycle fix): isProduced (gates silent autosave vs. the explicit resync-preview flow) is now also true for '\\''Stale'\\'' and '\\''Error'\\'' lifecycles, not just '\\''Cast'\\''/'\\''Rendered'\\'' — a chapter that already has or attempted a production run must go through resync, matching the pre-existing intent.",
+    "2026-07-10: Passes chapter.project_id to api.fetchChapter."
+   ],
+   "calls_inferred": [
+    "@/api",
+    "@/pages/Book/lib/chapterLifecycle#*"
+   ]
+  },
+  "frontend/src/pages/Book/stages/BackupsStage.tsx": {
+   "purpose": "Stub phase-1 placeholder for Backups tab",
+   "exports": [
+    {
+     "name": "BackupsStage",
+     "kind": "component"
+    }
+   ],
+   "calls": [],
+   "called_by": [
+    "frontend/src/pages/Book/BookLayout.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Book/stages/BookStage.tsx": {
+   "purpose": "Book tab entry point / front door: thin data-to-props adapter rendering a single <BookInfoCard>, no owned markup of its own beyond the <section> wrapper and a loading placeholder.",
+   "exports": [
+    {
+     "name": "BookStage",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Book/components/BookInfoCard.tsx#BookInfoCard",
+    "frontend/src/pages/Book/BookDataContext.tsx#useBookDataContext"
+   ],
+   "called_by": [
+    "frontend/src/pages/Book/BookLayout.tsx"
+   ],
+   "notes": [
+    "added 2026-07-09 (first tab in the book stage order per lib/stages.ts's new leading 'book' entry; getLastStage() now defaults here).",
+    "History within this session: started as BookInfoCard + a static placeholder 'Overview notes' aside (renamed 'Description' 2026-07-09T14:55Z, honest reader-facing empty-state copy) -> Task 006 (22:05Z) added a sibling <ContinueListeningCard> beneath it -> Task 007 (22:15Z) replaced the static placeholder with a real InlineEdit bound to project.description -> Task 008 (22:30Z, hero-layout-restructure) removed the <aside> wrapper entirely, folding both the description edit and ContinueListeningCard into BookInfoCard.tsx's own content column. Net result: this file now only forwards project/totalRuntime/totalPredicted/hasRendered/hasUnrendered/availableAudiobooks (as the `audiobooks` prop) and actions.handleUpdateProject from useBookDataContext() into a single BookInfoCard."
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Book/stages/CastingStage.tsx": {
+   "purpose": "Book-level cast management: narrators with project-wide character listing",
+   "exports": [
+    {
+     "name": "CastingStage",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/components/CharactersTab.tsx",
+    "frontend/src/pages/Book/BookDataContext.tsx",
+    "frontend/src/pages/ChapterEditor/components/VoiceProfileSelect.tsx"
+   ],
+   "called_by": [
+    "frontend/src/pages/Book/BookLayout.tsx"
+   ],
+   "notes": [
+    "narrator pinned row for project default voice"
+   ],
+   "calls_inferred": [
+    "@/components/CharactersTab",
+    "@/pages/ChapterEditor/components/VoiceProfileSelect"
+   ]
+  },
+  "frontend/src/pages/Book/stages/ContentsStage.tsx": {
+   "purpose": "Contents hub: chapter list, text preview, focus mode, CRUD, import, publish CTA",
+   "exports": [
+    {
+     "name": "ContentsStage",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/index.ts",
+    "frontend/src/pages/Book/BookDataContext.tsx",
+    "frontend/src/pages/Book/components/AddChapterModal.tsx",
+    "frontend/src/pages/Book/components/ChapterImportBar.tsx",
+    "frontend/src/pages/Book/components/ChapterTable.tsx",
+    "frontend/src/pages/Book/components/ChapterTextPanel.tsx",
+    "frontend/src/pages/Book/lib/chapterImport.ts",
+    "frontend/src/pages/Book/lib/stages.ts",
+    "frontend/src/types/index.ts",
+    "frontend/src/utils/toast.ts#emitToast",
+    "frontend/src/utils/railState.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/Book/BookLayout.tsx"
+   ],
+   "notes": [
+    "publish CTA when all chapters rendered",
+    "2026-07-08: the inline file-input/import-row markup was replaced by <ChapterImportBar onImportFiles={handleImportFiles} submitting={actions.submitting} compact />, rendered in the stage's action row. handleImportFiles now accepts multiple files (FileList | File[]), filters through isSupportedChapterImportFile, emits a toast per rejected file, and creates chapters sequentially at chapters.length + index so a multi-file drop preserves sort order.",
+    "2026-07-09 (toast fixes): handleImportFiles now emits a per-file toast (`Couldn't import \"${file.name}\". Please try again.`) when a queued import create fails. handleExportSample is now wrapped in try/catch, emitting a toast both on a thrown error and on a success response with an empty/missing url (previously threw/failed silently with no user feedback). The modal-submit handleCreateChapter no longer emits its own toast on failure — a same-session follow-up removed that call as redundant once useProjectActions.handleCreateChapter itself started toasting on failure."
+   ],
+   "calls_inferred": [
+    "@/pages/Book/components/*"
+   ]
+  },
+  "frontend/src/pages/Book/stages/LexiconStage.tsx": {
+   "purpose": "Book-level pronunciation lexicon tab wrapper",
+   "exports": [
+    {
+     "name": "LexiconStage",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/Book/BookDataContext.tsx",
+    "frontend/src/pages/Book/components/LexiconPanel.tsx"
+   ],
+   "called_by": [
+    "frontend/src/pages/Book/BookLayout.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": [
+    "@/pages/Book/components/LexiconPanel"
+   ]
+  },
+  "frontend/src/pages/Book/stages/ManuscriptStage.tsx": {
+   "purpose": "Manuscript editing stage: chapter table, text panel, focus mode, CRUD, import",
+   "exports": [
+    {
+     "name": "ManuscriptStage",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/index.ts",
+    "frontend/src/pages/Book/BookDataContext.tsx",
+    "frontend/src/pages/Book/components/AddChapterModal.tsx",
+    "frontend/src/pages/Book/components/ChapterImportBar.tsx",
+    "frontend/src/pages/Book/components/ChapterTable.tsx",
+    "frontend/src/pages/Book/components/ChapterTextPanel.tsx",
+    "frontend/src/pages/Book/lib/chapterImport.ts",
+    "frontend/src/types/index.ts",
+    "frontend/src/utils/toast.ts#emitToast",
+    "frontend/src/utils/railState.ts"
+   ],
+   "called_by": [],
+   "notes": [
+    "2026-07-08: same ChapterImportBar/multi-file-drop/sequential-sort-order/unsupported-file-toast change as ContentsStage.tsx."
+   ],
+   "calls_inferred": [
+    "@/pages/Book/components/*",
+    "@/utils/railState#requestRailAutoCollapse"
+   ]
+  },
+  "frontend/src/pages/Book/stages/PublishStage.tsx": {
+   "purpose": "Publish/assembly stage: progress, chapter picker, assembly panel, backups, book info card",
+   "exports": [
+    {
+     "name": "PublishStage",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/components/ProjectBackupsPanel.tsx",
+    "frontend/src/pages/Book/BookDataContext.tsx",
+    "frontend/src/pages/Book/components/AssemblyChapterPicker.tsx",
+    "frontend/src/pages/Book/components/BookIdentityStrip.tsx#BookIdentityStrip",
+    "frontend/src/pages/Book/lib/chapterLifecycle.ts",
+    "frontend/src/pages/ProjectDetail/components/AssemblyPanel.tsx",
+    "frontend/src/pages/ProjectDetail/components/AssemblyProgress.tsx",
+    "frontend/src/utils/format.ts",
+    "frontend/src/utils/jobSelection.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/Book/BookLayout.tsx"
+   ],
+   "notes": [
+    "2026-07-09T21:03Z (Task 005, DC-006): sidebar swapped from the full editable <BookInfoCard> to the new read-only <BookIdentityStrip project> (cover thumbnail + title + author only, no InlineEdit, no cover-change control, no series stepper). Removed the now-unused BookInfoCard import and the totalRuntime/totalPredicted/hasRendered/hasUnrendered destructuring from useBookDataContext() (confirmed unused elsewhere in this file). Publish's sidebar is no longer an edit surface for project identity fields -- the Book tab (BookInfoCard) is now the only place to edit title/author/series/series-position/description."
+   ],
+   "calls_inferred": [
+    "@/components/ProjectBackupsPanel",
+    "@/pages/Book/components/*",
+    "@/pages/ProjectDetail/components/AssemblyPanel,AssemblyProgress"
+   ]
+  },
+  "frontend/src/pages/Book/studio/AnalysisStrip.tsx": {
+   "purpose": "Chapter-level analysis display: chars/words/sentences/segments/gen-time + long-sentence warnings",
+   "exports": [
+    {
+     "name": "AnalysisStrip, StudioAnalysis",
+     "kind": "component/type"
+    }
+   ],
+   "calls": [
+    "frontend/src/types/index.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx"
+   ],
+   "notes": [
+    "2026-07-10: WARNING #7: the four labeled stat blocks (Chars/Words/Sentences/Segments, each with a bold `--text-primary` value + separate label) plus the 'Analysis' eyebrow were collapsed into a single quiet caption string ('956 chars · 174 words · 9 sentences · 9 segments · ~57s') at `var(--type-caption)` / `var(--text-muted)`, with the analyzing spinner/Info icon inline. The 'ACTION REQUIRED: N unresolvable' badge and the auto-fixed success badge are unchanged (still prominent warning/success colors) — only the reference-only stats were demoted."
+   ],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Book/studio/CastPalette.tsx": {
+   "purpose": "3-tier character cast picker for segment voice assignment",
+   "exports": [
+    {
+     "name": "CastPalette",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/components/forms/ColorSwatchPicker.tsx",
+    "frontend/src/components/ui/ActionMenu.tsx",
+    "frontend/src/pages/ChapterEditor/components/VoiceProfileSelect.tsx",
+    "frontend/src/types/index.ts",
+    "frontend/src/utils/voiceProfiles.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx"
+   ],
+   "notes": [
+    "tier1 in-chapter, tier2 chapter-scoped temp, tier3 other book chars",
+    "2026-07-10: CRITICAL FIXES: (1) CharacterRow's outer <button> no longer wraps ColorSwatchPicker — the row is now a plain card <div> containing ColorSwatchPicker (its own button) as a SIBLING of a new `<div role=\"button\" tabIndex={0}>` label region (avatar+name+voice+count+chevron) that handles select/disarm via onClick + onKeyDown (Enter/Space); no button is ever nested inside another button. (2) TierHeader now has `tabIndex={0}` and an onKeyDown handler firing its onToggle on Enter/Space (still skipped when `alwaysOpen`). (3) The Promote/Delete kebab (ActionMenu) for tier-2 temp characters is now ALWAYS rendered (never conditionally unmounted) — opacity 0.4 at rest, 1 on hover/menu-open/keyboard-focus (new onFocus/onBlur-driven `labelFocused` state), so Tab reaches it. (4) Added a single empty-cast-state card (replacing the three stacked tier headers) shown whenever tier1+tier2+tier3 total to zero characters, per design-docs/workflows/chapter-editor-modes.md §13 decision #2 — 'No cast yet — this chapter reads in the narrator's voice', an 'Add character' button (wired to the existing onCreateTempCharacter flow — see flow_impact for why this isn't Casting Call), and a plain-text pointer to the Casting Call tool. (5) Replaced the 🚫 emoji appended to unavailable voice variants with a lucide `Ban` icon. WARNING FIXES: rail width raised 180px -> 230px (stops truncating 'Use Project Default (Dark F...'); every literal font-size below the --type-micro floor (0.55/0.58/0.62/0.65/0.66rem) raised to `var(--type-micro)`; footer copy 'paint a voice...'/'choose a cast member to start painting' replaced with plain instructional language ('select a character, then click sentences to assign').",
+    "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+   ],
+   "calls_inferred": [
+    "@/components/forms/ColorSwatchPicker",
+    "@/pages/ChapterEditor/components/VoiceProfileSelect",
+    "@/utils/voiceProfiles#*"
+   ]
+  },
+  "frontend/src/pages/Book/studio/RenderControlsStrip.tsx": {
+   "purpose": "Re-export alias for ChapterScriptToolbar",
+   "exports": [
+    {
+     "name": "RenderControlsStrip",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx"
+   ],
+   "called_by": [
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": [
+    "@/pages/ChapterEditor/components/ChapterHeader#ChapterScriptToolbar"
+   ]
+  },
+  "frontend/src/pages/Book/studio/StudioHeaderActions.tsx": {
+   "purpose": "Toolbar: unsaved indicator, Commit, prev/next nav, export menu, debug button",
+   "exports": [
+    {
+     "name": "StudioHeaderActions",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/components/ui/ActionMenu.tsx",
+    "frontend/src/utils/devMode.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": [
+    "@/components/ui/ActionMenu",
+    "@/utils/devMode#useDevMode"
+   ]
+  },
+  "frontend/src/pages/Book/studio/TempCharacterModal.tsx": {
+   "purpose": "Modal for creating chapter-scoped temp character with name+voice",
+   "exports": [
+    {
+     "name": "TempCharacterModal",
+     "kind": "component"
+    }
+   ],
+   "calls": [
+    "frontend/src/components/forms/GlassInput.tsx",
+    "frontend/src/pages/ChapterEditor/components/VoiceProfileSelect.tsx",
+    "frontend/src/utils/voiceProfiles.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx"
+   ],
+   "notes": [],
+   "calls_inferred": []
+  },
+  "frontend/src/pages/Book/studio/useStudioChapter.ts": {
+   "purpose": "Comprehensive chapter editor state hook: data, editor state, playback, render state, temp character CRUD, handoff tracking",
+   "exports": [
+    {
+     "name": "useStudioChapter, UseStudioChapterProps, StudioConfirmConfig, StudioChapterState",
+     "kind": "hook/type"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/index.ts",
+    "frontend/src/hooks/useChapterEditor.ts",
+    "frontend/src/hooks/useChapterPlayback.ts",
+    "frontend/src/hooks/useDeferredWhileHeld.ts",
+    "frontend/src/hooks/useRenderGroups.ts",
+    "frontend/src/hooks/useSegmentHandoffQueue.ts",
+    "frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx",
+    "frontend/src/pages/ChapterEditor/components/EditorTabs.tsx",
+    "frontend/src/pages/ChapterEditor/components/ResyncPreviewModal.tsx",
+    "frontend/src/types/index.ts",
+    "frontend/src/utils/chapterEditorHelpers.ts",
+    "frontend/src/utils/chapterRenderProgress.ts",
+    "frontend/src/utils/chunkGroups.ts",
+    "frontend/src/utils/voiceProfiles.ts",
+    "frontend/src/hooks/useAnimatedSegmentProgress.ts#useAnimatedSegmentProgress"
+   ],
+   "called_by": [
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx"
+   ],
+   "notes": [
+    "handoff pattern defers refetches while animation in flight",
+    "generalized the single chapterRenderActiveSegmentId (scalar) into chapterRenderActiveSegmentsMap/RenderingSegmentIds/PreparingSegmentIds/RenderingBatchProgressById (Set/map-based, W-PAR 006); falls back byte-identically to the scalar path when the map is absent (INV-1); map branches expand each entry to render-batch siblings (expandToBatchSpanIds) and exclude done-phase entries from the rendering set",
+    "gained a segmentProgress prop + fallbackActiveSegmentsMap (2026-07-05 escaped-defect fix): when the backend hasn't supplied its own active_segments_map at ALL (undefined, not an explicit {}), derives one from the already-flowing per-segment segmentProgress stream so the map-branch highlighting works even before the backend delivery leg existed; an explicit backend {} ('nothing rendering') still always wins",
+    "chapterRenderRenderingBatchProgressById's map branch now feeds ScriptView animatedSegmentProgress[segId] ?? entry.progress (from useAnimatedSegmentProgress, new 2026-07-06) instead of raw entry.progress -- fixes the concurrent map path feeding un-interpolated stepped values straight to the text highlight. Legacy single-active-segment path (liveBarSegmentProgress feedback) unchanged.",
+    "2026-07-07: new chapterRenderDoneSegmentIds memo scans chapterRenderActiveSegmentsMap for phase==='done' entries and expands to batch-span ids via expandToBatchSpanIds (moved earlier in the function body so this memo can reference it); chapterRenderPendingSegmentIds now excludes anything in chapterRenderDoneSegmentIds from both its effectivePendingSegmentIds-seeded branch and its DB-fallback loop; chapterRenderDoneSegmentIds is returned from the hook for ScriptView's liveDoneSpanIds prop.",
+    "2026-07-10: Threads chapterNotFound through from useChapterEditor's destructure/return."
+   ],
+   "calls_inferred": [
+    "@/api",
+    "@/hooks/useChapterEditor",
+    "@/hooks/useChapterPlayback",
+    "@/hooks/useSegmentHandoffQueue#*"
+   ]
+  },
+  "frontend/src/pages/Book/useBookData.ts": {
+   "purpose": "Loads and manages all book-level data and actions, publishes via context",
+   "exports": [
+    {
+     "name": "useBookData, UseBookDataOptions, BookDataContextValue",
+     "kind": "hook/type"
+    }
+   ],
+   "calls": [
+    "frontend/src/api/index.ts",
+    "frontend/src/hooks/useProjectActions.ts",
+    "frontend/src/pages/Book/lib/chapterLifecycle.ts#deriveChapterLifecycle",
+    "frontend/src/types/index.ts",
+    "frontend/src/utils/chapterEditorHelpers.ts",
+    "frontend/src/utils/voiceProfiles.ts"
+   ],
+   "called_by": [
+    "frontend/src/pages/Book/BookDataContext.tsx",
+    "frontend/src/pages/Book/index.ts"
+   ],
+   "notes": [
+    "2026-07-09: context value gained hasRendered/hasUnrendered booleans; totalPredicted may now be null when no calibrated_cps is available (was previously always a number). totalRuntime/totalPredicted/hasRendered/hasUnrendered are all derived from a memoized chapterLifecycleMap (chapter.id -> deriveChapterLifecycle(chapter)) rather than ad hoc status checks -- totalRuntime sums Rendered/Cast chapters' audio_length_seconds; totalPredicted sums Rendered audio plus a char_count/calibratedCps estimate for Cast/Ready/Draft chapters.",
+    "2026-07-10 (Stale/Error lifecycle fix): totalRuntime/totalPredicted/hasRendered no longer key off a fixed list of lifecycle values (which would silently drop Stale/Error chapters to zero). Added hasRenderedAudioAsset(chapter) (audio_status==='\\''done'\\'' || has_wav || has_mp3 || has_m4a) used alongside the '\\''Cast'\\'' lifecycle check, so a chapter with a real audio asset still contributes its actual duration to the totals even when its lifecycle now reads Stale or Error; chapters with no audio asset fall back to the char-count estimate."
+   ],
+   "calls_inferred": [
+    "@/api",
+    "@/hooks/useProjectActions",
+    "@/utils/chapterEditorHelpers#resolveVoiceEngineStatus",
+    "@/utils/voiceProfiles#*"
+   ]
+  }
+ }
+}
