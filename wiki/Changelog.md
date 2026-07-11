@@ -4,11 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Changed] - 2026-07-11
 
-### Contents tab simplified to a pure chapter board
+### North Star Screen Parity (13 tasks)
 
-- Removed the inline `ChapterTextPanel` full-text editor from the book Contents tab (`ContentsStage.tsx`), matching the north-star demo's slimmer chapter-board design (North Star Screen Parity task 010, decision recorded 2026-07-10). The per-chapter Write mode in the Chapter Workspace (Director's Console) already provides identical full-text editing via the same `ChapterTextPanel` component (`variant="immediate"`) — no editing capability was lost.
-- Removed the Contents tab's "Focus" toggle (it only mattered for hiding the table beside the now-removed editor).
-- The book-wide bookmark panel sub-decision was investigated but **not implemented** this pass — see task 010's report for the escalation (the demo's `GlobalBookmarkPanel` was confirmed, on direct code inspection, to be genuinely cross-book, not book-scoped as the plan's own re-analysis assumed).
+- **Welcome page:** CTA row moved up next to the hero, matching the north-star demo instead of sitting below two unrelated sections.
+- **Library:** new "All Books" section header with Recent/A–Z/In Progress quick-filter chips and a grid cover-size slider; grid cards regained an "Open" action plus a hover-reveal play button (plays the assembled audiobook directly when one exists, never a bait-and-switch redirect to Publish); a per-project status pill (Drafting/Casting/Rendered) computed via one new no-schema-change aggregate query; a new "Continue" section surfacing up to 2 most-recently-active in-progress projects with a real (non-fabricated) rendered-fraction progress bar — no ETA, since none exists at book grain without an active render job; a new library-wide bookmarks panel (every bookmark across every book); removed a genuinely unreachable duplicate empty-state code path.
+- **Chapter Workspace:** the chapter-switcher dropdown now shows each chapter's status orb.
+- **Backups tab:** now fully functional — the working `ProjectBackupsPanel` wiring was relocated here from the Publish tab (which is now assembly-only); project scoping verified identical before/after.
+- **Contents tab simplified to a pure chapter board:** removed the inline `ChapterTextPanel` full-text editor (`ContentsStage.tsx`), matching the north-star demo's slimmer chapter-board design (North Star Screen Parity task 010). The per-chapter Write mode in the Chapter Workspace (Director's Console) already provides identical full-text editing via the same `ChapterTextPanel` component (`variant="immediate"`) — no editing capability was lost. Also removed the Contents tab's "Focus" toggle (it only mattered for hiding the table beside the now-removed editor), and added a book-scoped bookmarks panel (every bookmark across every chapter in this book) — the demo's own `GlobalBookmarkPanel` turned out to be genuinely cross-book on direct code inspection, so both a book-scoped panel (here) and the separate library-wide panel (above) were built to cover both scopes.
+- **Known follow-up, not fixed in this pass:** the Chapter Workspace header's own inline bookmarks dropdown has no theme CSS and renders unstyled/broken in dark mode — flagged as a separate task rather than fixed here.
 
 ## [Fixed] - 2026-07-11
 
