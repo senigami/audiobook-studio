@@ -38,8 +38,41 @@ G0 (prereq, owner)
 
 - **M-PAR-1 — "ships dark":** 001 (+004) merged. Per-engine caps + server concurrency exist; default 1 ⇒ no behavior change; W5 subsumed. Safe to land pre-release.
 - **M-PAR-2 — "parallel backend":** 002, 003, 005. A chapter actually renders segments concurrently with the caps raised; stitch/cancel/recovery correct under load. Still off-by-default.
-- **M-PAR-3 — "visible parallelism":** 006, 007. Existing per-segment bars light up in parallel; bracketed ETA; toggle + specs; full invariant suite green. Phase 1 complete.
-- **Phase 2 (fast-follow):** the dedicated render monitor — [10-phase2-render-monitor.md](10-phase2-render-monitor.md).
+- **M-PAR-3 — "visible parallelism":** 006, 007. **CONFIRMED 2026-07-10 (owner-verified live):** segments render in parallel, chapters render in parallel. Phase 1 COMPLETE.
+- **Phase 2 — render monitor (this roadmap, below):** the dedicated BitTorrent-style visualizer, now unblocked.
+
+## Workloads (Phase 2 — render monitor, added 2026-07-10)
+
+Gate cleared (M-PAR-3 confirmed). See [01-map.md](01-map.md)'s "Phase 2" section for parts J-O, connections, invariants M4-M6, and risks R-G/R-H. **008 (segment inventory hydration) is the prerequisite for 010/011** — do not build the peek strip or popover against the fixture.
+
+| Task | Title | Part(s) | Depends on | Gist |
+|---|---|---|---|---|
+| [008](tasks/008-segment-inventory-hydration.md) | Real segment inventory + char count + failed-phase hydration | J | M-PAR-3 (done) | Replace the fixture: real `SegmentRenderMonitorSegment[]` for the Activity page, joining `active_segments_map` (already app-wide reachable) with a per-chapter segment inventory for char counts; add `'failed'` phase end-to-end. |
+| [009](tasks/009-monitor-milestone-a11y.md) | Milestone `aria-live` region | K | none | Add the spec-required (§7A) milestone-only announcement region — a real, standalone defect fix, independent of the data pipeline. |
+| [010](tasks/010-monitor-interaction-popover.md) | Per-segment popover + keyboard-reachable detail | L | 008 | Click/tap a block → popover (engine, attempts, elapsed, reason, retry); keyboard equivalent via the accessible table. |
+| [011](tasks/011-monitor-peek-strip.md) | Peek-strip progressive disclosure | M | 008 | Build the missing Level-2 "opt-in peek strip" → Level-3 expand transition; auto-appear at N≥2 active, dismissible. |
+| [012](tasks/012-cap-configuration-ui.md) | Cap configuration UI (global stepper + per-engine override) | N | none | Upgrade `GeneralSettingsPanel`'s binary 1/2 toggle to a numeric stepper; add a per-engine `tts_engine_caps` override on `EngineCard`, clamped to `engine.behavior.max_concurrent_workers`. Independent of 008-011. |
+| [013](tasks/013-bracketed-eta-wiring.md) | Wire `BracketedEtaTracker` into a live event | O | 008 (for monitor use; independently valuable to Phase 1's chapter ETA too) | Connect the already-built, unit-tested `BracketedEtaTracker` to an actual live frame — currently produces nothing any consumer reads. |
+
+### Phase 2 dependency graph
+
+```
+M-PAR-3 (done)
+ └─► 008 ─┬─► 010
+          └─► 011
+      013 (008 for monitor context, but independently valuable standalone)
+
+009 ─────────────────────► (fully independent)
+012 ─────────────────────► (fully independent)
+```
+
+### Phase 2 milestones
+
+- **M-PAR2-1 — "real data":** 008 done. The monitor (once surfaced) shows genuine render state, no fixture.
+- **M-PAR2-2 — "interactive + accessible":** 009, 010, 011 done. Milestone announcements, popover detail, and progressive disclosure all real.
+- **M-PAR2-3 — "configurable":** 012 done. The cap-confusion this session diagnosed is closed with a real UI.
+- **M-PAR2-4 — "honest ETA":** 013 done. Bracketed ETA reaches a live frame.
+- **Phase 2 complete** when all of 008-013 are done AND the monitor is un-gated from `useDevMode()` for real users (a final task-013-adjacent step: remove the dev gate once 008 lands and is verified live).
 
 ## Cross-references
 
