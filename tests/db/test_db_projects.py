@@ -161,6 +161,33 @@ def test_list_projects_status_casting_when_one_of_two_chapters_rendered(db_conn)
     assert projects[0]["status"] == "casting"
 
 
+# ---------------------------------------------------------------------------
+# Task 006 (north_star_screen_parity) — Library "Continue" section.
+#
+# list_projects() already computes chapter_count/chapters_rendered_count in
+# its aggregate SQL to derive `status`, but previously discarded (popped) them
+# before returning. The Continue section needs a static book-level rendered
+# fraction (rendered chapters / total chapters) — a genuine, non-fabricated
+# number — so these counts must be exposed on each project dict instead of
+# being thrown away.
+
+def test_list_projects_exposes_chapter_counts_for_progress_fraction(db_conn):
+    pid = create_project("Half Done Book")
+    cid1 = create_chapter(pid, "Chapter 1", text_content="Hello world. Another sentence.")
+    create_chapter(pid, "Chapter 2", text_content="More text here. Yet more.")
+    update_chapter(cid1, audio_status="done")
+    projects = list_projects()
+    assert projects[0]["chapter_count"] == 2
+    assert projects[0]["chapters_rendered_count"] == 1
+
+
+def test_list_projects_chapter_counts_zero_for_empty_project(db_conn):
+    create_project("Empty Book")
+    projects = list_projects()
+    assert projects[0]["chapter_count"] == 0
+    assert projects[0]["chapters_rendered_count"] == 0
+
+
 def test_list_projects_status_uses_a_single_query_no_n_plus_1(db_conn):
     # Three projects, several chapters each — list_projects() must derive
     # status via one aggregate query, not one query per project/chapter.

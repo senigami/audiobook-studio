@@ -82,6 +82,10 @@ export interface Project {
   updated_at: number;
   chapter_map?: Record<string, any>;
   status?: ProjectStatus;
+  /** Total chapter count, for deriving a static rendered-fraction progress (task 006). */
+  chapter_count?: number;
+  /** Chapters whose audio_status is 'done', for the same rendered-fraction calc. */
+  chapters_rendered_count?: number;
 }
 
 export interface Character {

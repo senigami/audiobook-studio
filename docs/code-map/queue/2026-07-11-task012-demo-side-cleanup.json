@@ -1,0 +1,20 @@
+{
+  "date": "2026-07-11",
+  "task": "north_star_screen_parity/tasks/012-demo-side-cleanup.md (Parts A, B, C)",
+  "summary": "Demo-only cleanup (frontend/src/demo/): added a matching Engines/Module Settings tablist to the demo's EnginesPane (Part A, mirroring live's EnginesPage.tsx commit 2ec47472), deleted the orphaned ManuscriptPane export and its ManuscriptPane-only AddChapterModal helper from panes/book.tsx now that task 010 confirmed live's Contents tab was simplified to match the demo's slim board (Part B), and added a top-of-file superseded-status comment to panes/studio.tsx pointing to directorsConsole.tsx plus the live ports of its bookmark/lexicon/contents-dropdown designs (Part C).",
+  "files_changed": [
+    {
+      "path": "frontend/src/demo/stages/siteMockup/panes/platform.tsx",
+      "change": "EnginesPane gained activeTab state ('engines' | 'module-settings') and a role=tablist header matching live's EnginesPage.tsx labels/structure. Existing hero cards/diagnostics/installed-engines/registry content now gated under the 'engines' tab; new lighter-weight 'module-settings' tab shows the sanitize-toggle overrides plus a pointer to each engine's inline settings (documented in a new top-of-component comment as an intentional simplification vs. live's full JsonSchemaForm-per-engine view)."
+    },
+    {
+      "path": "frontend/src/demo/stages/siteMockup/panes/book.tsx",
+      "change": "Deleted the orphaned, never-imported ManuscriptPane export (was book.tsx:610-1196) and its only consumer-free helper AddChapterModal, plus the ManuscriptPane-only lifecycle types/constants (ChapterLifecycle, MANUSCRIPT_CHAPTERS, LIFECYCLE_VARIANT, LIFECYCLE_ORB, LifecyclePill) that had no other callers. Removed now-unused lucide imports (Upload, Lock, MoreHorizontal). Left an explanatory comment in place of the deleted block pointing to task 010's decision record. Top-of-file header comment updated to drop the ManuscriptPane mention."
+    },
+    {
+      "path": "frontend/src/demo/stages/siteMockup/panes/studio.tsx",
+      "change": "Added a top-of-file comment noting this pane is superseded for mode structure by directorsConsole.tsx (confirmed not mounted in siteMockupStage.tsx — only its STUDIO_FOLLOW_DURATION_SEC constant is re-exported/used), while its bookmark/lexicon/contents-dropdown designs were separately ported to the live app via ChapterWorkspaceHeader.tsx/BookLayout.tsx. No behavior change."
+    }
+  ],
+  "notes": "Demo-only, zero live-app risk. npm -C frontend run build clean; lint clean for touched files (0 new errors/warnings). build:demo intentionally NOT run per repo convention (demo builds decoupled from regular work)."
+}

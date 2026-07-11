@@ -7,6 +7,7 @@ import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { LibraryControls } from './components/LibraryControls';
 import { ProjectListView } from './components/ProjectListView';
 import { LibraryBookmarksPanel } from './components/LibraryBookmarksPanel';
+import { LibraryContinueSection } from './components/LibraryContinueSection';
 import { COVER_SIZES, getStoredCoverSizeIdx, setStoredCoverSizeIdx } from './lib/coverSize';
 import './ProjectLibraryPage.css';
 
@@ -228,6 +229,11 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
             </header>
 
             <LibraryBookmarksPanel projects={projects} />
+
+            <LibraryContinueSection
+                projects={projects}
+                onOpenProject={(id) => onSelectProject?.(id)}
+            />
 
             <LibraryControls
                 viewMode={viewMode}

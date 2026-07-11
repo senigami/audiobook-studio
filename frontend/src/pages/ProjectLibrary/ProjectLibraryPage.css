@@ -268,3 +268,114 @@
   display: flex;
   justify-content: center;
 }
+
+/* "Continue" section (task 006, north_star_screen_parity) — up to 2 cards
+   for in-progress ('casting' status) projects, above the All Books grid. */
+.library-continue-section {
+  margin-bottom: var(--space-5);
+}
+
+.library-continue-section__heading {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: var(--space-2);
+}
+
+.library-continue-section__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-3);
+}
+
+.library-continue-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card, 10px);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.library-continue-card:hover {
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
+}
+
+.library-continue-card__cover {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+}
+
+.library-continue-card__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.library-continue-card__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.library-continue-card__title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 0;
+}
+
+.library-continue-card__author {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.library-continue-card__series {
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-style: italic;
+  margin: 0;
+}
+
+.library-continue-card__status-line {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 2px 0 0;
+}
+
+.library-continue-card__progress-track {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.library-continue-card__progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+}

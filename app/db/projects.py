@@ -113,9 +113,16 @@ def list_projects() -> List[Dict[str, Any]]:
             rows = [dict(row) for row in cursor.fetchall()]
 
     for row in rows:
-        chapter_count = row.pop("chapter_count", 0) or 0
+        chapter_count = row.get("chapter_count", 0) or 0
         chapters_with_segments_count = row.pop("chapters_with_segments_count", 0) or 0
-        chapters_rendered_count = row.pop("chapters_rendered_count", 0) or 0
+        chapters_rendered_count = row.get("chapters_rendered_count", 0) or 0
+        # Task 006 (north_star_screen_parity) — expose the raw counts (rather
+        # than popping them like chapters_with_segments_count, which has no
+        # frontend use yet) so the Library "Continue" section can derive a
+        # real, non-fabricated rendered-fraction percentage
+        # (chapters_rendered_count / chapter_count) without a new query.
+        row["chapter_count"] = chapter_count
+        row["chapters_rendered_count"] = chapters_rendered_count
         row["status"] = _derive_project_status(chapter_count, chapters_with_segments_count, chapters_rendered_count)
 
     return rows

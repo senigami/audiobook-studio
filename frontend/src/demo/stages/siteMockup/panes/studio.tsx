@@ -1,5 +1,15 @@
 /**
  * siteMockup/panes/studio.tsx — Studio pane
+ *
+ * SUPERSEDED for mode structure (task 012, Part C): `directorsConsole.tsx` is what's actually
+ * mounted in `siteMockupStage.tsx` as the demo's Chapter Workspace equivalent — this file is not
+ * wired in and is historically informative rather than current (per
+ * `design-docs/plans/active/north_star_screen_parity/01-map.md`'s source-of-truth resolution).
+ * However, several designs prototyped here were NOT dead ends — they were separately ported into
+ * the live app: the bookmark affordance/panel, the lexicon panel, and the Contents-tab-style
+ * chapter dropdown live on via `ChapterWorkspaceHeader.tsx` and `BookLayout.tsx`. Read this file
+ * for that prototyping history, not as a description of what the demo currently shows.
+ *
  * Feature D:
  *  - Chapter-nav cluster (top-right of prose column): ← Save & prev · Save & next → + Export ▾ (WAV/MP3)
  *  - "Commit changes" green button with "2 unsaved text edits" chip → Resync Preview modal

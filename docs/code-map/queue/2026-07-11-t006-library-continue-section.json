@@ -1,0 +1,41 @@
+{
+  "at": "2026-07-11T21:00:00Z",
+  "task": "North Star screen-parity plan, task 006 (design-docs/plans/active/north_star_screen_parity/tasks/006-library-continue-section.md): Library 'Continue' section, scoped-down per Step 1.3 — status line + STATIC rendered-fraction progress bar (chapters_rendered_count / chapter_count), NO ETA. Research: (1) most-recently-active is cheaply available — Project.updated_at already exists and list_projects() already ORDER BY p.updated_at DESC; (2) a real book-level progress percentage is available by exposing chapter_count/chapters_rendered_count (already computed by task 005's aggregate query but previously discarded via row.pop before being derived into `status`) instead of popping them; (3) a genuine book-level ETA is NOT available — app/orchestration/progress/eta.py and service.py (ProgressService.estimate_eta, keyed by parent_job_id) only ever compute ETA for a single currently-active job, never aggregated across a whole book nor for books with no active job, so per progress-no-fabrication-principle the ETA field is omitted entirely rather than approximated. PredictiveProgressBar was evaluated and rejected as a reuse target — it assumes a live, animated, job-scoped progress stream (predictive ticks, ETA basis, handoff state) with no static-percentage mode; a small dedicated static bar was built instead. Selection: up to 2 most-recently-updated projects with status 'casting' (chapter_count > 0, some but not all chapters rendered) — 'drafting' excluded (chapter_count is 0, no fraction to show) and 'rendered' excluded (already done). Section renders null (no heading, no empty shell) when zero projects qualify.",
+  "files": {
+    "app/db/projects.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "list_projects() no longer discards chapter_count/chapters_rendered_count after deriving `status` — both are now kept on each returned project dict (chapters_with_segments_count remains internal-only, still popped) so GET /api/projects exposes a genuine rendered-fraction figure without a new query or per-card round-trip."
+    },
+    "tests/db/test_db_projects.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added 2 tests asserting chapter_count/chapters_rendered_count are present and correct on list_projects() output (partial-progress and empty-project cases). R1 revert-checked against pre-fix app/db/projects.py (KeyError before the fix)."
+    },
+    "frontend/src/types/index.ts": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Project gained optional `chapter_count?: number` and `chapters_rendered_count?: number`, server-populated fields for the static rendered-fraction calc."
+    },
+    "frontend/src/pages/ProjectLibrary/components/LibraryContinueSection.tsx": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "New page-owned component: selects <=2 most-recently-updated 'casting'-status projects, renders cover/title/author/series/status-line + a static (non-animated) rendered-fraction progress bar; no ETA; renders null when no project qualifies."
+    },
+    "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Renders <LibraryContinueSection projects={projects} onOpenProject={...} /> between LibraryBookmarksPanel and LibraryControls (above the All Books grid)."
+    },
+    "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added .library-continue-section / .library-continue-card* rules (plain card grid, static progress track/fill, no animation)."
+    },
+    "frontend/tests/unit/pages/ProjectLibrary/LibraryContinueSection.test.tsx": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "New test file: empty-state (no projects, all-rendered, all-drafting all render null), correct selection/ordering by updated_at with a 2-card cap, correct 'N of M chapters rendered' text, and no ETA text present."
+    }
+  }
+}
