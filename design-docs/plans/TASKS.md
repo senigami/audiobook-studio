@@ -81,7 +81,7 @@ This plan folder was never built — before it was dispatched, the "Director's C
 - [x] **L-WORKSPACE 003** — Edit Text mode via ChapterTextPanel — superseded by Director's Console activation, DONE 2026-07-10 (shipped as the "Write" tool)
 - [x] **L-WORKSPACE 004** — Cleanup + full green gate — superseded by Director's Console activation, DONE 2026-07-10
 
-### North Star screen parity — Workloads 0-2 and 4 DONE 2026-07-11, only Workload 3 (011) remains
+### North Star screen parity — ALL 13 TASKS DONE 2026-07-11
 
 Reconciles the live app's layout against the North Star reference demo (`frontend/src/demo/stages/siteMockup/`), starting from owner-reported drift on the Home/Welcome screen, the Library page, and the Book view's chapter list. See [plan](active/north_star_screen_parity/README.md). Executed via `/mastermind` 2026-07-11: tasks 001-010, 012-013 done (full green gate — 227 frontend files/1884 tests, 0 lint errors, clean build, backend `tests/db/` 224 passed); only 011 (live-browser visual verification) remains. One real regression was caught during consolidation, not by any agent's self-report: task 005's parallel work copied a stale snapshot of `ProjectLibraryPage.tsx` back over the checkout, silently dropping task 010's `LibraryBookmarksPanel` wiring — found by cross-checking file contents against every task's acceptance criteria before trusting completion, fixed, full suite re-verified green after. Also found and merged two more worktree-isolated agents (002, 008) whose changes had never been copied out of their isolated worktrees into the shared checkout, before this was caught the same way.
 
@@ -95,7 +95,7 @@ Reconciles the live app's layout against the North Star reference demo (`fronten
 - [x] **L-NS 008** — Chapter Workspace: status orb in the chapter-switcher dropdown — DONE — [plan](active/north_star_screen_parity/tasks/008-chapter-dropdown-status-orb.md)
 - [x] **L-NS 009** — Backups tab: relocate real functionality from Publish — DONE, cross-project scoping verified safe — [plan](active/north_star_screen_parity/tasks/009-decision-backups-tab-fate.md)
 - [x] **L-NS 010** — Contents tab: simplify to match demo's board — DONE, both gates resolved: Write mode confirmed to cover the removed inline editor; bookmark-panel scope ambiguity resolved by the owner as BOTH a book-scoped panel (Contents tab) and a new library-wide panel (Library page, scope addition beyond the original task) — [plan](active/north_star_screen_parity/tasks/010-decision-contents-tab-fate.md)
-- [ ] **L-NS 011** — Designer agent: screenshot-verify bookmark discoverability + Library header copy — [plan](active/north_star_screen_parity/tasks/011-designer-visual-verification.md)
+- [x] **L-NS 011** — Designer agent: screenshot-verify bookmark discoverability + Library header copy — DONE, both verdicts recorded with citations (ship as-is); found a real, unrelated defect while checking — `ChapterWorkspaceHeader.tsx`'s inline bookmarks dropdown has zero theme CSS (broken in dark mode) — flagged as a separate follow-up, not fixed here — [plan](active/north_star_screen_parity/tasks/011-designer-visual-verification.md)
 - [x] **L-NS 012** — Demo-side cleanup: Engines Module-Settings tab, orphaned `ManuscriptPane`, `studio.tsx` note — DONE, all 3 parts — [plan](active/north_star_screen_parity/tasks/012-demo-side-cleanup.md)
 - [x] **L-NS 013** — Refresh terminology in the R1-18 owner-validation checklist — DONE, no structural-change flags found — [plan](active/north_star_screen_parity/tasks/013-refresh-validation-checklist-terminology.md)
 
