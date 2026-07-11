@@ -44,15 +44,17 @@ Workload 6 (Frontend review-state UI)
               └──► 005 ──► 006 ──► 007 ──► 008 ──► 009 ──► 012
 ```
 
-## Gate before Workload 4 (the AI pipeline)
+## Gate before Workload 4 (the AI pipeline) — DECIDED 2026-07-10
 
-**Do not start task 005 until the owner has reviewed
-`research_character_brief_extraction_and_persona_casting.md`'s conclusions and explicitly greenlit
-the AI-extraction approach** (R-B in `01-map.md`). Workloads 1-3 (schema, canonical format, plugin
-contract) are safe and valuable regardless of this decision — they can proceed independently. If the
-owner declines the AI pipeline, Workload 6 (review UI) still has value for **manually-entered**
-performance data (via the sibling plan's Cue Editor) and should be re-scoped to that, not dropped
-entirely.
+**Owner decision: safe parts only for now.** Workloads 1-3 (schema, canonical format, plugin
+contract — tasks 000-004) are cleared to execute now. **Workload 4 (the AI pipeline, tasks 005-009)
+and Workload 5 (export layer, tasks 010-011) are ON HOLD** — do not start task 005 until a fresh
+owner check-in validates the AI-extraction approach against
+`research_character_brief_extraction_and_persona_casting.md`'s conclusions (R-B in `01-map.md`).
+Workload 6 (review-state UI, task 012) is also on hold — it depends on task 009's output and has
+nothing to review without the pipeline; if the owner wants manually-entered performance data
+(via the sibling plan's Cue Editor) reviewable in the meantime, that's a smaller, separately-scoped
+task, not this plan's task 012 as written.
 
 ## Milestones
 

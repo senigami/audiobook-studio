@@ -138,12 +138,13 @@ about **speaker/character attribution**, not about the performance-directive JSO
 own separate set of columns regardless of this decision (no overlap with the sibling plan, which
 doesn't touch speaker attribution at all).
 
-**This recommendation is not self-executing.** It is written by this session's research, not ratified
-by the owner or by whichever executor actually picks up task 001 or task 005 first. Before starting
-either schema task, the executor must either (a) confirm this recommendation still holds by re-reading
-both proposals (they may have changed since this was written), or (b) get an explicit owner call if
-they want to deviate — do not silently implement a different shape than what's written here without
-updating this section first.
+**RATIFIED by the owner, 2026-07-10.** One shared `performance_data` column, provenance via
+`ai_suggested`/`locked`/`needs_review` row-level flags (not a JSON-internal discriminator), exactly
+as recommended above. This is no longer a proposal awaiting sign-off — task 001 (this plan) should
+implement this shape directly, and whoever picks up the sibling plan's task 005 should be pointed at
+this decision rather than re-deriving or re-litigating it. If the sibling plan's task 005 executes
+before this plan's task 001, it should add `performance_data` (not `engine_directives`) per this
+ratified shape.
 
 ## Acceptance criteria
 

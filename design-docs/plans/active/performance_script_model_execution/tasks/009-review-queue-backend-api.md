@@ -68,11 +68,9 @@ must be no code path, background job, or default behavior that flips `ai_suggest
    request's own scope (route param or auth context — match whatever pattern
    `app/api/routers/chapters.py`/`projects.py` already use for this), and reject
    (404, not a silent no-op) a mismatched id rather than trusting the id alone.
-4. **Reject/dismiss endpoint(s)** — this is a genuine open design fork, not just an
-   implementation detail; resolve it explicitly before writing code, the same way this
-   plan's task 000 resolves the schema-overlap fork, rather than inventing an answer
-   mid-implementation:
-   - **Option A (recommended default): mark permanently dismissed**, not deleted. Add a
+4. **Reject/dismiss endpoint(s) — RATIFIED by the owner, 2026-07-10: Option A (mark permanently
+   dismissed).** No longer an open fork; implement directly per Option A below.
+   - **Option A (decided): mark permanently dismissed**, not deleted. Add a
      `dismissed` state (e.g. reuse `needs_review = 0` + a new lightweight flag, or a
      `review_reasons` sentinel value — decide the exact storage shape when implementing,
      but the semantic must be "this exact AI suggestion won't resurface as needing review
@@ -134,10 +132,9 @@ must be no code path, background job, or default behavior that flips `ai_suggest
 - [ ] A suggestion left unconfirmed never transitions to confirmed on its own — verified by
       a test that runs other existing write paths against a suggestion row and confirms it
       is unchanged.
-- [ ] Reject/dismiss semantics are explicitly decided (Option A or B above, or a documented
-      deviation) in this task file's own status update *before* implementation starts, then
-      documented in the matching spec (per this repo's binding "behavior change updates
-      the spec in the same commit" rule), and tested.
+- [ ] Reject/dismiss implements Option A (ratified) exactly, documented in the matching spec
+      (per this repo's binding "behavior change updates the spec in the same commit" rule),
+      and tested.
 - [ ] **Confirm and reject/dismiss endpoints both validate project/chapter scoping**,
       verified by a test that a request for an id belonging to a different project is
       rejected (404), not silently applied — this is a blocking criterion, not optional.

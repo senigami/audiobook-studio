@@ -44,6 +44,15 @@ the owner alongside the reliability/cost unknowns the research doc already flagg
 proposal's own companion research doc as needing validation)? This plan is written so it's ready to
 execute the moment that answer is yes — but this overview does not answer it for the owner.
 
+**DECIDED (owner, 2026-07-10): safe parts only for now, AI pipeline deferred.** Schedule Workloads
+1-3 (DB schema, canonical JSON format, plugin-contract SSML flag — `02-roadmap.md` tasks 000-004)
+immediately: all additive, safe, and independently useful regardless of what happens with the AI
+pipeline. **Hold Workload 4 (the AI extraction pipeline, tasks 005-009) and Workload 5 (the export
+layer, tasks 010-011) until the pipeline's reliability/cost is separately validated** — do not start
+task 005 without a fresh owner check-in at that point. Workload 6 (review-state UI, task 012) is
+correspondingly on hold too, since it has nothing to review without the pipeline. See
+`02-roadmap.md`'s updated gate note for the mechanical consequence of this decision.
+
 ## Scope and realistic size
 
 This is **large, multi-milestone work**, not a quick addition — confirmed by reading all 5 proposal
