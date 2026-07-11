@@ -1,15 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
 import { api } from '@/api';
 import { ChapterImportBar } from '@/pages/Book/components/ChapterImportBar';
 import { AddChapterModal } from '@/pages/Book/components/AddChapterModal';
 import { ChapterTable } from '@/pages/Book/components/ChapterTable';
-import { ChapterTextPanel } from '@/pages/Book/components/ChapterTextPanel';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
 import { setLastChapter } from '@/pages/Book/lib/stages';
 import { emitToast } from '@/utils/toast';
-import { requestRailAutoCollapse } from '@/utils/railState';
 import { getChapterImportError, getChapterImportFileTitle, isSupportedChapterImportFile } from '@/pages/Book/lib/chapterImport';
 import type { Chapter } from '@/types';
 
@@ -36,12 +34,6 @@ export function ContentsStage() {
   const { total, rendered, allReady } = usePublishReadiness(chapters);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(chapters[0]?.id ?? null);
   const [showAddChapterModal, setShowAddChapterModal] = useState(false);
-  const [focusMode, setFocusMode] = useState(false);
-
-  useEffect(() => {
-    if (!focusMode) return;
-    return requestRailAutoCollapse();
-  }, [focusMode]);
 
   const effectiveSelectedChapterId = useMemo(() => {
     if (selectedChapterId && chapters.some((chapter) => chapter.id === selectedChapterId)) {
@@ -98,8 +90,6 @@ export function ContentsStage() {
     navigate(`/book/${bookId}/chapter/${chapterId}`);
   };
 
-  const selectedChapter = chapters.find((chapter) => chapter.id === effectiveSelectedChapterId) ?? chapters[0] ?? null;
-
   return (
     <section className="manuscript-stage" aria-label="Contents">
       {!projectVoiceStatus.enabled && projectVoiceStatus.message && (
@@ -114,13 +104,6 @@ export function ContentsStage() {
 
       <div className="manuscript-stage__actions">
         <ChapterImportBar onImportFiles={handleImportFiles} submitting={actions.submitting} compact />
-        <button
-          type="button"
-          className={focusMode ? 'btn-primary' : 'btn-ghost'}
-          onClick={() => setFocusMode((current) => !current)}
-        >
-          {focusMode ? 'Exit focus' : 'Focus'}
-        </button>
         <button
           type="button"
           className="btn-ghost"
@@ -155,27 +138,21 @@ export function ContentsStage() {
         </p>
       )}
 
-      <div className={focusMode ? 'manuscript-stage__workspace manuscript-stage__workspace--focus' : 'manuscript-stage__workspace'}>
-        {!focusMode && (
-        <div className="manuscript-stage__table-column">
-          <ChapterTable
-            chapters={chapters}
-            jobs={jobs}
-            selectedChapterId={effectiveSelectedChapterId}
-            onSelectChapter={setSelectedChapterId}
-            onReorder={actions.handleReorderChapters}
-            onRenameChapter={handleRenameChapter}
-            onQueueChapter={(chapter) => void actions.handleQueueChapter(chapter.id)}
-            onResetAudio={(chapterId) => void actions.handleResetChapterAudio(chapterId)}
-            onDeleteChapter={(chapterId) => void actions.handleDeleteChapter(chapterId)}
-            onExportSample={handleExportSample}
-            anyEnginesEnabled={projectVoiceStatus.enabled}
-            onOpenChapter={handleOpenChapter}
-          />
-        </div>
-        )}
-
-        <ChapterTextPanel chapter={selectedChapter} onSaved={reload} />
+      <div className="manuscript-stage__table-column">
+        <ChapterTable
+          chapters={chapters}
+          jobs={jobs}
+          selectedChapterId={effectiveSelectedChapterId}
+          onSelectChapter={setSelectedChapterId}
+          onReorder={actions.handleReorderChapters}
+          onRenameChapter={handleRenameChapter}
+          onQueueChapter={(chapter) => void actions.handleQueueChapter(chapter.id)}
+          onResetAudio={(chapterId) => void actions.handleResetChapterAudio(chapterId)}
+          onDeleteChapter={(chapterId) => void actions.handleDeleteChapter(chapterId)}
+          onExportSample={handleExportSample}
+          anyEnginesEnabled={projectVoiceStatus.enabled}
+          onOpenChapter={handleOpenChapter}
+        />
       </div>
 
       <AddChapterModal

@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Changed] - 2026-07-11
+
+### Contents tab simplified to a pure chapter board
+
+- Removed the inline `ChapterTextPanel` full-text editor from the book Contents tab (`ContentsStage.tsx`), matching the north-star demo's slimmer chapter-board design (North Star Screen Parity task 010, decision recorded 2026-07-10). The per-chapter Write mode in the Chapter Workspace (Director's Console) already provides identical full-text editing via the same `ChapterTextPanel` component (`variant="immediate"`) — no editing capability was lost.
+- Removed the Contents tab's "Focus" toggle (it only mattered for hiding the table beside the now-removed editor).
+- The book-wide bookmark panel sub-decision was investigated but **not implemented** this pass — see task 010's report for the escalation (the demo's `GlobalBookmarkPanel` was confirmed, on direct code inspection, to be genuinely cross-book, not book-scoped as the plan's own re-analysis assumed).
+
 ## [Fixed] - 2026-07-11
 
 ### Waveform tape visual & UX polish

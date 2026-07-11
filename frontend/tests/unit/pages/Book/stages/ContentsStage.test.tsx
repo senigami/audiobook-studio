@@ -28,10 +28,6 @@ vi.mock('@/pages/Book/components/ChapterTable', () => ({
   ),
 }));
 
-vi.mock('@/pages/Book/components/ChapterTextPanel', () => ({
-  ChapterTextPanel: () => <section aria-label="Chapter text panel" />,
-}));
-
 vi.mock('@/pages/Book/components/AddChapterModal', () => ({
   AddChapterModal: (props: any) =>
     props.isOpen ? (
@@ -123,11 +119,23 @@ describe('ContentsStage publish-readiness control', () => {
     renderInRouter(<ContentsStage />);
 
     const importBar = screen.getByRole('button', { name: 'Import manuscript, browse or drop files' });
-    const focusButton = screen.getByRole('button', { name: 'Focus' });
     const cta = screen.getByRole('button', { name: /Book ready.*Publish/i });
 
-    expect(importBar.compareDocumentPosition(focusButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(importBar.compareDocumentPosition(cta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('renders a pure chapter board with no inline text editor and no Focus toggle', () => {
+    vi.mocked(useBookDataContext).mockReturnValue({
+      ...vi.mocked(useBookDataContext)(),
+      chapters: [makeChapter('ch-1', 'done')],
+    } as any);
+
+    renderInRouter(<ContentsStage />);
+
+    expect(screen.queryByLabelText('Chapter preview')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Focus' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Exit focus' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Chapter table')).toBeInTheDocument();
   });
 
   it('Publish CTA navigates to the book publish route', () => {
