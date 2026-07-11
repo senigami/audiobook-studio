@@ -1,16 +1,12 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bookmark, BookMarked, ChevronDown, ChevronLeft, ChevronRight, SkipForward, X } from 'lucide-react';
+import { ArrowLeft, Bookmark, BookMarked, ChevronDown, ChevronLeft, ChevronRight, SkipForward } from 'lucide-react';
 import type { Chapter, Job } from '@/types';
 import { setLastChapter } from '@/pages/Book/lib/stages';
 import { StatusOrb } from '@/components/ui/StatusOrb';
+import { BookmarkList } from '@/components/BookmarkList';
 import { pickRelevantJob } from '@/utils/jobSelection';
-import {
-  useBookmarks,
-  addBookmark,
-  removeBookmark,
-  type Bookmark as BookmarkEntry,
-} from '@/store/bookmarks';
+import { useBookmarks, addBookmark, removeBookmark } from '@/store/bookmarks';
 
 interface ChapterWorkspaceHeaderProps {
   bookId: string;
@@ -64,61 +60,6 @@ function findNextUnrenderedChapterId(
     }
   }
   return null;
-}
-
-// ---------------------------------------------------------------------------
-// BookmarksPanel — dropdown list of all bookmarks across books
-
-function BookmarksPanel({
-  bookmarks,
-  onNavigate,
-  onRemove,
-  onClose,
-}: {
-  bookmarks: BookmarkEntry[];
-  onNavigate: (bookId: string, chapterId: string) => void;
-  onRemove: (id: string) => void;
-  onClose: () => void;
-}) {
-  return (
-    <div
-      className="workspace-bookmarks-panel"
-      role="menu"
-      aria-label="Bookmarks"
-    >
-      {bookmarks.length === 0 ? (
-        <div className="workspace-bookmarks-panel__empty">No bookmarks yet</div>
-      ) : (
-        bookmarks.map((bm) => (
-          <div key={bm.id} className="workspace-bookmarks-panel__item">
-            <button
-              type="button"
-              role="menuitem"
-              className="workspace-bookmarks-panel__nav-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                onNavigate(bm.bookId, bm.chapterId);
-                onClose();
-              }}
-            >
-              <span className="workspace-bookmarks-panel__label">{bm.label}</span>
-            </button>
-            <button
-              type="button"
-              className="workspace-bookmarks-panel__remove"
-              aria-label={`Remove bookmark: ${bm.label}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemove(bm.id);
-              }}
-            >
-              <X size={11} strokeWidth={2.5} aria-hidden="true" />
-            </button>
-          </div>
-        ))
-      )}
-    </div>
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -405,12 +346,18 @@ export function ChapterWorkspaceHeader({
         </button>
 
         {bookmarksOpen && (
-          <BookmarksPanel
-            bookmarks={allBookmarks}
-            onNavigate={handleBookmarkNavigate}
-            onRemove={removeBookmark}
-            onClose={() => setBookmarksOpen(false)}
-          />
+          <div role="menu" aria-label="Bookmarks">
+            <BookmarkList
+              entries={allBookmarks.map((bm) => ({ id: bm.id, label: bm.label }))}
+              onNavigate={(id) => {
+                const bm = allBookmarks.find((b) => b.id === id);
+                if (!bm) return;
+                handleBookmarkNavigate(bm.bookId, bm.chapterId);
+                setBookmarksOpen(false);
+              }}
+              onRemove={removeBookmark}
+            />
+          </div>
         )}
       </div>
     </div>

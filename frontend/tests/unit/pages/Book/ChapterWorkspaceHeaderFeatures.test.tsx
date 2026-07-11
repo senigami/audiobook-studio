@@ -5,7 +5,7 @@
  *
  * Rendered via full BookLayout (MemoryRouter) so navigation is exercised end-to-end.
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/api';
@@ -261,8 +261,9 @@ describe('Bookmarks', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show bookmarks' }));
 
     await waitFor(() => {
-      // The bookmark label appears inside the panel's menuitem
-      expect(screen.getByRole('menuitem', { name: 'Done Chapter' })).toBeInTheDocument();
+      // The bookmark label appears inside the panel's nav button (rendered
+      // by the shared, themed BookmarkList component).
+      expect(screen.getByRole('button', { name: 'Done Chapter' })).toBeInTheDocument();
     });
   });
 
@@ -304,7 +305,8 @@ describe('Bookmarks', () => {
       expect(screen.getByRole('menu', { name: 'Bookmarks' })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Done Chapter' }));
+    const menu = screen.getByRole('menu', { name: 'Bookmarks' });
+    fireEvent.click(within(menu).getByRole('button', { name: 'Done Chapter' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('pathname')).toHaveTextContent('/book/book-1/chapter/ch-done');
@@ -323,13 +325,15 @@ describe('Bookmarks', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show bookmarks' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('menuitem', { name: 'Done Chapter' })).toBeInTheDocument();
+      const menu = screen.getByRole('menu', { name: 'Bookmarks' });
+      expect(within(menu).getByRole('button', { name: 'Done Chapter' })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove bookmark: Done Chapter' }));
 
     await waitFor(() => {
-      expect(screen.queryByRole('menuitem', { name: 'Done Chapter' })).not.toBeInTheDocument();
+      const menu = screen.getByRole('menu', { name: 'Bookmarks' });
+      expect(within(menu).queryByRole('button', { name: 'Done Chapter' })).not.toBeInTheDocument();
     });
   });
 
