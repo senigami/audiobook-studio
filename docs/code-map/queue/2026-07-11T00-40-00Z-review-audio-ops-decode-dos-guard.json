@@ -1,0 +1,13 @@
+{
+  "at": "2026-07-11T00:40:00Z",
+  "commit": "uncommitted",
+  "task": "Adversarial review fix (Security Auditor): bound compute_peaks_sidecar's decode memory/CPU, found during the audio_player_completion_004 plan's adversarial review",
+  "files": {
+    "app/engines/audio_ops.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added PEAKS_MAX_DECODE_SAMPLES = 20_000_000. compute_peaks_sidecar now asks ffmpeg to downsample (-ar) when the probed duration_sec * sample_rate would exceed that many decoded samples, bounding the in-memory raw-bytes + array.array buffers and the per-sample Python max-abs loop regardless of source WAV length. Short/typical files decode at native rate, unaffected. Previously only the OUTPUT bucket count (PEAKS_MAX) was capped; the INPUT decode size was unbounded, a real memory/CPU DoS-caliber gap for a long WAV inside a synchronous request handler."
+    }
+  },
+  "flow_impact": "none — same public contract (compute_peaks_sidecar(wav_path) -> dict | None); only the internal decode strategy for very long inputs changed."
+}
