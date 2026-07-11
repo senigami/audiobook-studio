@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Added] - 2026-07-10
 
+### Audio player completion: waveform tape live, segment block navigation fixed, peaks sidecar
+
+- The global player bar now renders the expandable scrubbing "tape" (paged/moving motion, zoom presets, minimap, `m:ss` ruler) for chapters and segments under a 600s duration cap, via the far-right waveform toggle.
+- Fixed a real navigation bug: pressing the global player's Next button mid-way through a multi-segment audio block previously reloaded the same clip instead of advancing; Prev/Next now navigate correctly between distinct rendered blocks, with a "restart current block, then go back" convention on repeated Prev presses.
+- Long chapters (over the 600s cap) can now render the tape too, fed by a peaks sidecar computed lazily on the server the first time it's requested (and cached), instead of requiring a full in-browser audio decode.
+- `audio-player.md` (1.6.2) and `data-model.md` (1.10.0) updated to document the shipped tape/peaks-sidecar mechanism.
+- Plan: `design-docs/plans/active/audio_player_completion_004/`.
+
+## [Added] - 2026-07-10
+
 ### Passive "Block N of M" label in the global player bar during segment playback
 
 - Segment-scope playback (Cast tool, chapter editor) now surfaces a passive `"Block N of M"` subtitle in the global `PlayerBar` while a block plays, using the block-leader queue index/length the block-queue navigation fix already tracks. `PlayerBar.tsx` required zero changes — it already renders `subtitle` generically.

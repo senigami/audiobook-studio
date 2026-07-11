@@ -1,9 +1,9 @@
 # Data Model
 
 ```
-spec_version: 1.9.0
+spec_version: 1.10.0
 status: active
-updated: 2026-07-09
+updated: 2026-07-10
 sources:
   - app/db/state.py
   - app/db/state_jobs.py
@@ -25,6 +25,7 @@ sources:
 
 | Version | Date       | Change             |
 |---------|------------|--------------------|
+| 1.10.0  | 2026-07-10 | **Chapter peaks sidecar (derived artifact, not a DB/manifest field).** New § documenting the self-describing, versioned `<chapter>.peaks.json` sibling file that lets the global player's tape (`audio-player.md` §5.4) render long chapters without a full browser decode. Computed lazily on first request by the chapter-asset serving route (never at production time — the original orchestrator-chokepoint design was found to miss this app's default-engine render path entirely), staleness detected by comparing the sidecar's `source` stat stamp against the live WAV's current stat. No existing table/manifest changes. |
 | 1.9.0   | 2026-07-09 | **`lexicon`: reject case-insensitive duplicate words on add.** `add_lexicon_entry()` now raises `ValueError` (surfaced by `POST /api/projects/{project_id}/lexicon` as a 400 `{"status": "error", "message": ...}`) when the project already has an entry whose `word` matches case-insensitively. Prevents two entries for the same word from silently chaining through `apply_lexicon`'s sequential-substitution pass (e.g. `read`→`red` then `red`→`reed` turning `read` into `reed`). Editing an existing entry's word (`update_lexicon_entry`) is unchanged — this only guards entry creation. |
 | 1.8.0   | 2026-07-09 | **Book tab front door: `projects.description`.** Add the optional `description` column to the durable `projects` table (additive migration, same idiom as `series_position`) and document it as part of the canonical schema. `update_project()` round-trips the field with no special-casing (plain string, unlike `series_position`'s null-vs-empty handling); no manifest or legacy v1→v2 migration change is needed (write-once manifest, no legacy source data for a field that didn't exist in v1). |
 | 1.7.0   | 2026-07-08 | **Library project usability: `projects.series_position`.** Add the optional `series_position` column to the durable `projects` table and document it as part of the canonical schema. Project create/update flows now round-trip the field, and update requests reject invalid `series_position` values with a structured 400 instead of crashing the handler. |
@@ -289,6 +290,36 @@ Stores per-render timing samples used for ETA prediction. (Lives in the separate
 | `sample_type` | TEXT | `chapter` \| `segment` \| `test` |
 
 Index: `idx_render_performance_completed_at` on `completed_at`.
+
+---
+
+## Chapter peaks sidecar (derived, lazily-computed artifact)
+
+Lets the global player's waveform tape (`audio-player.md` §5.4) render a scrub waveform for chapters whose WAV is over the browser-decode duration cap, without downloading/decoding the full file client-side.
+
+**Not a database or manifest field.** The existing artifact-manifest layer (`app/domain/artifacts/`) is scaffold-only in production — no concrete repository implementation, no production caller ever supplies a manifest — so a field there would be dead weight. The sidecar is instead a **self-describing file**, a deterministic sibling of the chapter WAV (`<chapter>.peaks.json` next to `<chapter>.wav`), that carries its own version and validity stamp:
+
+```json
+{
+  "version": 1,
+  "peaks": [0.0, 0.41, "... one float per bucket, [0, 1] max-abs magnitude"],
+  "duration_sec": 3723.4,
+  "sample_rate": 24000,
+  "channels": 1,
+  "peaks_per_sec": 8,
+  "source": { "filename": "chapter.wav", "size_bytes": 123456789, "mtime_ns": 1718000000000000000 }
+}
+```
+
+- **`version`** — validated at load time (owner directive: every contract declares an explicit version). A mismatch is treated identically to a missing sidecar.
+- **`source`** — the WAV's own `stat()` (size + mtime) at the moment the sidecar was computed. Since a chapter WAV is **overwritten in place** on re-render, a path-only reference can silently go stale; the serving route re-stats the live WAV on every request and treats any mismatch as "absent," never serving a stale sidecar.
+- **`peaks`** are `[0, 1]` max-abs-per-bucket magnitudes (not `[-1, 1]`), matching the frontend's existing browser-decode peak provider's convention.
+
+**Compute-on-request, not produced eagerly.** No render-pipeline task writes this file. It is computed **lazily by the serving route** (`GET /api/projects/{project_id}/chapters/{chapter_id}/assets/peaks?filename=<wav>`, `app/api/routers/chapters_assets.py`) the first time it's requested for a WAV that has no sidecar yet, or whose sidecar's `source` stamp no longer matches — then cached (atomic write) as that sibling file for subsequent requests. This was a deliberate design correction: an earlier draft computed peaks at an orchestrator completion chokepoint, but that chokepoint does not fire for this app's default engines (their chapter-fanout render path bypasses it entirely) — compute-on-request covers every producer, every engine, and the entire back-catalog of already-rendered chapters by construction, with no orchestrator coupling.
+
+**Missing is never a hard requirement.** No sidecar (not yet requested, computation failed, or the chapter predates this feature) means the route returns 404 and the frontend falls back to browser-decode (under the duration cap) or a plain, non-scrubbable bar (over it) — exactly today's pre-sidecar behavior. Nothing retroactively mutates old artifacts.
+
+Cross-reference: `audio-player.md` §5.4.
 
 ---
 
