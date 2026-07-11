@@ -11,7 +11,7 @@
  * `playerBus` (`seek`) instead of local mock state.
  *
  * Fixed-grid sampling (spec §5.3, binding): bars are sampled on an absolute
- * time grid (`gridSec = windowSec / BAR_COUNT`) and the row is translated by
+ * time grid (`gridSec = windowSec / barCount`) and the row is translated by
  * the sub-bar remainder — bars are NEVER resampled relative to the moving
  * window, which would make the waveform crawl/shimmer.
  *
@@ -24,7 +24,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { seek } from '@/store/playerBus';
 import { WaveformTapeZoom, snapZoom } from './WaveformTapeZoom';
 import { WaveformTapeMinimap } from './WaveformTapeMinimap';
-import { TAPE_ZOOM_PRESETS_SEC } from './waveformTapeZoomPresets';
+import { TAPE_ZOOM_PRESETS_SEC, computeTapeBarCount } from './waveformTapeZoomPresets';
 import type { TapeZoomPreset } from './waveformTapeZoomPresets';
 
 // ---------------------------------------------------------------------------
@@ -172,10 +172,42 @@ function fmtClock(s: number): string {
 const BAR_W = 5;
 const GAP = 2;
 const SLOT = BAR_W + GAP;
-const BAR_COUNT = 180;
-const SVG_W = BAR_COUNT * SLOT;
 const RULER_H = 18;
 const NICE_INTERVALS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
+
+// ---------------------------------------------------------------------------
+// Visual resolution — bar count scales with the zoom window (spec §5.3/§5.4)
+//
+// Bug this fixes: BAR_COUNT used to be the fixed constant `TAPE_BAR_COUNT`
+// (180) at every zoom level. At the tightest 3s preset, 60 real peaks/sec *
+// 3s = 180 real samples map 1:1 onto 180 bars — full detail. But widening
+// the window to, say, 120s makes 60 * 120 = 7200 real peaks available, and
+// the fixed 180-bar render max-bucketed all of them down to 180 bars
+// regardless — so the WIDER the zoom (the MORE real detail on offer), the
+// MORE that detail got thrown away, and every zoom level past the tightest
+// rendered the same thick, blocky bar count. `computeTapeBarCount` instead
+// grows the rendered bar count toward "one real peak per bar" as the window
+// widens, capped by how many pixels the tape canvas actually has (so bars
+// never shrink below `MIN_SLOT_PX` — invisible, aliased slivers) and by a
+// hard ceiling (`MAX_BAR_COUNT`) for render-cost sanity. This changes ONLY
+// how many bars are drawn and how finely `visiblePeaks` buckets the same
+// real peak array — the aggregation stays max-abs-per-bucket and every bar
+// still nearest-neighbor-samples a REAL peak value (never an interpolated
+// one), so the "never fabricate detail" invariant (audio-player.md §5.2)
+// is unaffected: more bars just means less lossy compression of real data,
+// not invented data.
+//
+// Falls back to `TAPE_BAR_COUNT` (180, the old fixed value) whenever the
+// container's pixel width isn't known yet (`containerWidthPx === 0` — true
+// for exactly one render right after mount, before the ResizeObserver
+// effect below measures the real `<svg>`, and for the lifetime of jsdom
+// tests, which never lay out real pixel widths) so first paint and every
+// existing test keep their prior, well-understood geometry.
+// computeTapeBarCount itself now lives in ./waveformTapeZoomPresets (shared
+// with WaveformTapeMinimap, which needs it too — see that module's comment
+// for why the cycle forces it out of this file). Re-exported here so
+// existing call sites/tests importing it from './WaveformTape' keep working.
+export { computeTapeBarCount };
 
 function useReducedMotion(): boolean {
   const [reduced] = useState(
@@ -227,6 +259,12 @@ export interface WaveformTapeProps {
    * `usePeaks(audioUrl, audioEl, peaks)` above) for both.
    */
   peaks?: number[] | null;
+  /**
+   * Extra control rendered in the same row as the zoom in/out buttons,
+   * to their right (e.g. PlayerBar's paged/moving motion toggle). Owner
+   * request: keep this off its own line — it shares the zoom row instead.
+   */
+  zoomRowTrailing?: React.ReactNode;
 }
 
 export const WaveformTape: React.FC<WaveformTapeProps> = ({
@@ -239,6 +277,7 @@ export const WaveformTape: React.FC<WaveformTapeProps> = ({
   height = 96,
   onZoomChange,
   peaks,
+  zoomRowTrailing,
 }) => {
   const peakArray = usePeaks(audioUrl, audioEl, peaks);
   // usePeaks already resolves the effective source: it returns `peaks` when a
@@ -256,27 +295,44 @@ export const WaveformTape: React.FC<WaveformTapeProps> = ({
   const rootRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
 
-  // Position tracked locally, driven by timeupdate-rate reportTime via a
-  // rAF loop reading audioEl.currentTime directly for smooth moving-mode
-  // scrolling (timeupdate is ~4Hz; rAF reads the element at 60Hz).
+  // Container width drives BOTH the zoom-in cap (WaveformTapeZoom) and the
+  // dynamic bar count below — measured once via getBoundingClientRect and
+  // kept current via ResizeObserver. Declared here (rather than where it's
+  // consumed further down) so `barCount`/`gridSec`/`SVG_W` can read it.
+  const [containerWidthPx, setContainerWidthPx] = useState(0);
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    setContainerWidthPx(el.getBoundingClientRect().width || el.clientWidth || 0);
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (w) setContainerWidthPx(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Position tracked locally via a rAF loop reading audioEl.currentTime
+  // directly, at 60Hz, in BOTH modes.
+  //
+  // Bug this fixes: paged mode used to update `position` only from the
+  // `timeupdate` event (~4Hz per the HTML spec — browsers fire it roughly
+  // every 250ms), while moving mode already polled every animation frame.
+  // In moving mode the playhead is fixed at center and the WAVEFORM slides
+  // under it, so 4Hz repaints of the sliding row still looked acceptably
+  // smooth; in paged mode the waveform is static and the PLAYHEAD LINE
+  // itself moves across it — 4Hz updates of a moving line read as a visible
+  // stepwise jump rather than a continuous glide. Both modes derive the
+  // playhead x from the same `position` state, so running the same rAF
+  // loop unconditionally makes paged-mode's playhead animate at the same
+  // continuous, per-frame rate as moving-mode's scroll. `viewStart` in paged
+  // mode still only changes at page (windowSec) boundaries, so this does
+  // not add per-frame re-bucketing cost beyond the already-cheap re-render.
   const [position, setPosition] = useState(() => audioEl.currentTime || 0);
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
-    // In moving mode we need smooth scrolling between timeupdate ticks, so we
-    // poll audioEl.currentTime every animation frame. In paged mode the
-    // window is static within a page, so a per-frame poll isn't needed —
-    // but we still track position from the element for the playhead x.
-    if (effectiveMode !== 'moving') {
-      // Keep position in sync at timeupdate rate via a lightweight listener.
-      const onTimeUpdate = () => setPosition(audioEl.currentTime || 0);
-      audioEl.addEventListener('timeupdate', onTimeUpdate);
-      setPosition(audioEl.currentTime || 0);
-      return () => {
-        audioEl.removeEventListener('timeupdate', onTimeUpdate);
-      };
-    }
-
     const loop = () => {
       setPosition(audioEl.currentTime || 0);
       rafRef.current = requestAnimationFrame(loop);
@@ -288,7 +344,7 @@ export const WaveformTape: React.FC<WaveformTapeProps> = ({
         rafRef.current = null;
       }
     };
-  }, [audioEl, effectiveMode]);
+  }, [audioEl]);
 
   // --- Window math (the visible [viewStart, viewEnd] span) -----------------
   const viewStart =
@@ -299,17 +355,22 @@ export const WaveformTape: React.FC<WaveformTapeProps> = ({
 
   const svgH = Math.max(24, height - RULER_H);
 
+  // --- Visual resolution (bar count) — see computeTapeBarCount above -------
+  const availablePeaks = peakArray && peakArray.length > 0 ? peakArray.length : null;
+  const barCount = computeTapeBarCount(availablePeaks, duration, windowSec, containerWidthPx);
+  const svgW = barCount * SLOT;
+
   // --- Fixed-grid sampling (binding — spec §5.3) ---------------------------
   // Sample on a FIXED absolute-time grid (gridSec), NOT relative to the
   // moving window — otherwise every bar re-samples a shifting point each
   // tick and the shape "crawls". Grid-aligned samples are stable per time
   // bucket; the row is then translated by a sub-bar offset so moving mode
   // glides seamlessly.
-  const gridSec = windowSec / BAR_COUNT; // seconds per bar (zoom-only dependency)
+  const gridSec = windowSec / barCount; // seconds per bar (zoom + resolution dependency)
   const alignedStart = Math.floor(viewStart / gridSec) * gridSec; // snap to grid
-  const scrollOffset = ((alignedStart - viewStart) / windowSec) * SVG_W; // (-slot, 0]
+  const scrollOffset = ((alignedStart - viewStart) / windowSec) * svgW; // (-slot, 0]
 
-  const visiblePeaks = Array.from({ length: BAR_COUNT + 1 }, (_, i) => {
+  const visiblePeaks = Array.from({ length: barCount + 1 }, (_, i) => {
     const t = alignedStart + (i + 0.5) * gridSec; // FIXED grid time → stable value
     if (t < 0 || t > duration) return 0;
     if (!peakArray || peakArray.length === 0) return 0;
@@ -320,7 +381,7 @@ export const WaveformTape: React.FC<WaveformTapeProps> = ({
   // Playhead X in SVG coords (fixed at center in moving mode)
   const playheadFrac =
     effectiveMode === 'moving' ? 0.5 : windowSec > 0 ? (position - viewStart) / windowSec : 0;
-  const playheadX = Math.max(0, Math.min(SVG_W, playheadFrac * SVG_W));
+  const playheadX = Math.max(0, Math.min(svgW, playheadFrac * svgW));
 
   // Smart time ruler: pick a "nice" interval so ~3 ticks fall in the
   // viewport, labelled with the m:ss of where the user is currently viewing.
@@ -388,21 +449,6 @@ export const WaveformTape: React.FC<WaveformTapeProps> = ({
     [onZoomChange, windowSec],
   );
 
-  // Container width for the zoom-in cap calc (peaks-per-pixel resolution).
-  const [containerWidthPx, setContainerWidthPx] = useState(0);
-  useEffect(() => {
-    const el = svgRef.current;
-    if (!el) return;
-    setContainerWidthPx(el.getBoundingClientRect().width || el.clientWidth || 0);
-    if (typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width;
-      if (w) setContainerWidthPx(w);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
   // --- Pinch/wheel zoom snap (spec §5.2): one detent = one preset step.
   // Wheel-down (deltaY > 0) = zoom out (more seconds visible).
   //
@@ -450,20 +496,23 @@ export const WaveformTape: React.FC<WaveformTapeProps> = ({
       onKeyDown={handleKeyDown}
     >
       {onZoomChange && (
-        <WaveformTapeZoom
-          windowSec={(TAPE_ZOOM_PRESETS_SEC as readonly number[]).includes(windowSec) ? (windowSec as TapeZoomPreset) : 30}
-          onZoomChange={onZoomChange}
-          duration={duration}
-          availablePeaks={peakArray && peakArray.length > 0 ? peakArray.length : null}
-          containerWidthPx={containerWidthPx}
-        />
+        <div className="tape-zoom-row">
+          <WaveformTapeZoom
+            windowSec={(TAPE_ZOOM_PRESETS_SEC as readonly number[]).includes(windowSec) ? (windowSec as TapeZoomPreset) : 30}
+            onZoomChange={onZoomChange}
+            duration={duration}
+            availablePeaks={peakArray && peakArray.length > 0 ? peakArray.length : null}
+            containerWidthPx={containerWidthPx}
+          />
+          {zoomRowTrailing}
+        </div>
       )}
       <svg
         ref={svgRef}
         className="tape-canvas"
         width="100%"
         height={svgH}
-        viewBox={`0 0 ${SVG_W} ${svgH}`}
+        viewBox={`0 0 ${svgW} ${svgH}`}
         preserveAspectRatio="none"
         onMouseDown={handleMouseDown}
         role="slider"

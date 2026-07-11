@@ -146,9 +146,22 @@ def _ffmpeg_concat_entry(path: Path) -> str:
     return f"file '{normalized}'\n"
 
 
-PEAKS_PER_SEC = 8
-PEAKS_MAX = 100_000
-SIDECAR_VERSION = 1
+
+# 60 peaks/sec (up from 8) so the tightest tape zoom (3s window, see
+# TAPE_ZOOM_PRESETS_SEC in frontend/src/app/layout/waveformTapeZoomPresets.ts)
+# yields 180 real peaks across the 180-bar render budget (TAPE_BAR_COUNT) —
+# one real sample per bar instead of ~24 samples nearest-neighbor-stretched
+# across 180 bars (the "low resolution at full zoom" bug). A 15-min chapter
+# sidecar grows from ~8k floats (~43KB JSON) to ~54k floats (~325KB JSON),
+# still a single small cached artifact fetched once per chapter open.
+PEAKS_PER_SEC = 60
+PEAKS_MAX = 200_000
+# Bumped 1 -> 2 for the PEAKS_PER_SEC 8->60 density increase above. The
+# loader (_load_or_compute_peaks_sidecar in app/api/routers/chapters_assets.py)
+# treats any version mismatch against the current SIDECAR_VERSION as stale and
+# recomputes, so previously-cached low-density .peaks.json sidecars are
+# transparently replaced on next fetch rather than served stale forever.
+SIDECAR_VERSION = 2
 
 # DoS guard: the mono-f32le decode below is buffered whole in memory (raw bytes
 # plus an array copy) and the peak loop iterates every sample in pure Python —

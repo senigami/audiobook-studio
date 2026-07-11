@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Fixed] - 2026-07-11
+
+### Waveform tape visual & UX polish
+
+- **Zoom controls:** the +/- buttons now show proper magnifying-glass icons (were blank gray boxes); all zoom presets `[3,5,8,15,30,60,120]s` are reachable (the resolution cap previously stranded most of the slider), and the buttons zoom in the correct direction reliably.
+- **Waveform resolution:** peaks sidecar density raised 8→60 samples/sec, and the detail canvas + minimap now scale their rendered bar count to the zoom window's pixel width instead of a fixed 180 — so wide zoom levels look detailed instead of blocky. No fabricated detail (still max-abs-per-bucket, nearest real sample per bar). Cached low-density sidecars auto-regenerate (sidecar version 1→2).
+- **Minimap playhead** recolored to a muted gray so it's distinct from the two blue zoom-window selection edges.
+- **Smooth playhead:** paged/stationary mode now animates the playhead at 60fps like moving mode (was stepping at the browser's ~4Hz `timeupdate` cadence).
+- **Session-persistent view:** zoom level, motion mode, and tape open/closed state now carry over when you play a different track within a session.
+- **Play no longer flickers the tape:** fixed an effect that reloaded the `<audio>` element on every Play/Pause click.
+- **Docked player bar:** the player bar now occupies its own space at the bottom and pushes page content up instead of overlaying and covering it.
+- Specs `audio-player.md` (→1.6.7) and `data-model.md` (→1.10.1) updated.
+
 ## [Added] - 2026-07-10
 
 ### Audio player completion: waveform tape live, segment block navigation fixed, peaks sidecar

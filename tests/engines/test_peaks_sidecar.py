@@ -67,27 +67,27 @@ def test_compute_peaks_sidecar_bucket_math_and_schema(tmp_path, monkeypatch):
     wav = tmp_path / "chapter.wav"
     wav.write_bytes(b"fake wav bytes")
 
-    # duration=2.0s, PEAKS_PER_SEC=8 -> num_peaks=16; 48 samples -> bucket_size=3.
-    samples = [0.1, -0.9, 0.05, -0.99, 0.01, 0.02] + [0.0] * 42
-    assert len(samples) == 48
+    # duration=1.0s, PEAKS_PER_SEC=60 -> num_peaks=60; 180 samples -> bucket_size=3.
+    samples = [0.1, -0.9, 0.05, -0.99, 0.01, 0.02] + [0.0] * 174
+    assert len(samples) == 180
 
     monkeypatch.setattr(
         "subprocess.run",
-        _fake_run_factory(ffmpeg_stdout=_floats_to_bytes(samples)),
+        _fake_run_factory(duration_stdout="1.0\n", ffmpeg_stdout=_floats_to_bytes(samples)),
     )
 
     result = compute_peaks_sidecar(wav)
 
     assert result is not None
-    assert result["version"] == 1
-    assert result["duration_sec"] == 2.0
+    assert result["version"] == 2
+    assert result["duration_sec"] == 1.0
     assert result["sample_rate"] == 44100
     assert result["channels"] == 1
-    assert result["peaks_per_sec"] == 8
-    assert len(result["peaks"]) == 16
+    assert result["peaks_per_sec"] == 60
+    assert len(result["peaks"]) == 60
     assert result["peaks"][0] == 0.9
     assert result["peaks"][1] == 0.99
-    assert result["peaks"][2:] == [0.0] * 14
+    assert result["peaks"][2:] == [0.0] * 58
 
     stat = wav.stat()
     assert result["source"] == {

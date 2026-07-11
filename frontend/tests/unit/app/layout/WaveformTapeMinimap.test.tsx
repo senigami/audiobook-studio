@@ -139,7 +139,7 @@ describe('WaveformTapeMinimap', () => {
     expect(Number(line.getAttribute('x1'))).toBeCloseTo((25 / 100) * viewW, 0);
   });
 
-  it('window rect and playhead use solid var(--accent), not glass tint', () => {
+  it('window rect uses solid var(--accent), not glass tint', () => {
     const { container } = render(
       <WaveformTapeMinimap
         duration={100}
@@ -151,13 +151,28 @@ describe('WaveformTapeMinimap', () => {
       />,
     );
     const rect = container.querySelector('rect.tape-minimap-window') as SVGRectElement;
-    const line = container.querySelector('line.tape-minimap-playhead') as SVGLineElement;
     // Window rect border: plain solid accent (spec §5.2/acceptance criteria).
     expect(rect.getAttribute('stroke')).toBe('var(--accent)');
-    // Playhead: var(--color-wave-cursor, var(--accent)) per the task's target
-    // shape — a dedicated cursor token that falls back to solid accent, never
-    // a glass/opacity tint. Assert it resolves through the accent fallback.
-    expect(line.getAttribute('stroke')).toBe('var(--color-wave-cursor, var(--accent))');
+  });
+
+  it('playhead line is visually distinct from the accent-colored window rect edges', () => {
+    const { container } = render(
+      <WaveformTapeMinimap
+        duration={100}
+        currentTimeSec={25}
+        windowStartSec={0}
+        windowSec={30}
+        onSeek={vi.fn()}
+        peaks={null}
+      />,
+    );
+    const line = container.querySelector('line.tape-minimap-playhead') as SVGLineElement;
+    // The window rect's two vertical edges are already solid --accent (blue).
+    // The playhead sits between them, so it must use a different, neutral
+    // token — --text-muted — rather than --accent/--color-wave-cursor, or
+    // the strip reads as three indistinguishable blue lines.
+    expect(line.getAttribute('stroke')).toBe('var(--text-muted)');
+    expect(line.getAttribute('stroke')).not.toBe('var(--accent)');
   });
 
   it('dragging the window rectangle calls onSeek with the clamped new windowStartSec', () => {

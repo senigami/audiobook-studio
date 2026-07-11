@@ -15,12 +15,24 @@
  * `onSeek` prop so the parent (PlayerBar, task 008) stays the sole owner of
  * playback.
  */
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
+import { computeTapeBarCount } from './waveformTapeZoomPresets';
 
-const MINIMAP_BARS = 200;
+// Bug this fixes: MINIMAP_BARS used to be a fixed constant (200) regardless
+// of how many real peaks were available or how many pixels the strip
+// actually had — same class of bug as the main tape canvas (see
+// `computeTapeBarCount` in WaveformTape.tsx), just applied to the WHOLE clip
+// instead of the zoom window. The minimap represents the full chapter
+// duration, so its natural peaks-per-bar ratio is far sparser than the
+// zoomed tape's for any chapter longer than a few minutes — but it should
+// still use as much of its available container pixel width as real peak
+// data allows, same "never fabricate" invariant (max-abs-per-bucket,
+// nearest-real-sample). Reuses `computeTapeBarCount` with `windowSec =
+// duration` (the minimap's "window" is the entire clip) so both bar-count
+// policies stay in lockstep instead of drifting.
+const MINIMAP_MIN_BARS = 200; // floor — matches the old fixed value
 const BAR_W = 2;
 const BAR_GAP = 1;
-const VIEW_W = MINIMAP_BARS * (BAR_W + BAR_GAP);
 const MIN_RECT_WIDTH = 4;
 const FALLBACK_AMP = 0.4;
 
@@ -54,6 +66,29 @@ export const WaveformTapeMinimap: React.FC<WaveformTapeMinimapProps> = ({
   const svgRef = useRef<SVGSVGElement>(null);
   const isDragging = useRef(false);
 
+  // Container width drives the dynamic bar count below, same measurement
+  // pattern as WaveformTape's `containerWidthPx`.
+  const [containerWidthPx, setContainerWidthPx] = useState(0);
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    setContainerWidthPx(el.getBoundingClientRect().width || el.clientWidth || 0);
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (w) setContainerWidthPx(w);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const availablePeaks = peaks && peaks.length > 0 ? peaks.length : null;
+  const minimapBarCount = Math.max(
+    MINIMAP_MIN_BARS,
+    computeTapeBarCount(availablePeaks, duration, duration, containerWidthPx),
+  );
+  const viewW = minimapBarCount * (BAR_W + BAR_GAP);
+
   const clampStart = useCallback(
     (start: number): number => {
       const maxStart = Math.max(0, duration - windowSec);
@@ -62,15 +97,15 @@ export const WaveformTapeMinimap: React.FC<WaveformTapeMinimapProps> = ({
     [duration, windowSec],
   );
 
-  const minimapPeaks = Array.from({ length: MINIMAP_BARS }, (_, i) => {
+  const minimapPeaks = Array.from({ length: minimapBarCount }, (_, i) => {
     if (!peaks || peaks.length === 0) return FALLBACK_AMP;
-    const idx = Math.floor(((i + 0.5) / MINIMAP_BARS) * (peaks.length - 1));
+    const idx = Math.floor(((i + 0.5) / minimapBarCount) * (peaks.length - 1));
     return peaks[idx] ?? 0;
   });
 
-  const rectLeft = duration > 0 ? (windowStartSec / duration) * VIEW_W : 0;
-  const rectWidth = duration > 0 ? (windowSec / duration) * VIEW_W : VIEW_W;
-  const playheadX = duration > 0 ? (currentTimeSec / duration) * VIEW_W : 0;
+  const rectLeft = duration > 0 ? (windowStartSec / duration) * viewW : 0;
+  const rectWidth = duration > 0 ? (windowSec / duration) * viewW : viewW;
+  const playheadX = duration > 0 ? (currentTimeSec / duration) * viewW : 0;
 
   // Converts a pointer position to a new window start. A single rule covers
   // both gestures the task describes (§Drag to navigate / §Click outside
@@ -137,7 +172,7 @@ export const WaveformTapeMinimap: React.FC<WaveformTapeMinimapProps> = ({
         ref={svgRef}
         width="100%"
         height={height}
-        viewBox={`0 0 ${VIEW_W} ${height}`}
+        viewBox={`0 0 ${viewW} ${height}`}
         preserveAspectRatio="none"
         onMouseDown={handleMouseDown}
         style={{ cursor: 'ew-resize', touchAction: 'none', display: 'block' }}
@@ -172,13 +207,21 @@ export const WaveformTapeMinimap: React.FC<WaveformTapeMinimapProps> = ({
           strokeWidth={1}
           rx={1}
         />
+        {/*
+          Deliberately NOT --color-wave-cursor/--accent: the window rect
+          above already uses --accent for both of its vertical edges, and
+          this playhead line sits between them. Three same-colored blue
+          lines in a 200px-wide strip read as one confusing cluster —
+          --text-muted (existing neutral token, themed for both light/dark)
+          keeps the playhead visually distinct from the window bounds.
+        */}
         <line
           className="tape-minimap-playhead"
           x1={playheadX}
           y1={0}
           x2={playheadX}
           y2={height}
-          stroke="var(--color-wave-cursor, var(--accent))"
+          stroke="var(--text-muted)"
           strokeWidth={1}
           opacity={0.9}
         />

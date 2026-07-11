@@ -1,11 +1,20 @@
 /* ==========================================================================
    PlayerBar Component
    ========================================================================== */
+/* Docked layout (not an overlay): PlayerBar is a real flex sibling of the
+   shell's main content row (see AppShell.tsx), so it occupies its own space
+   at the bottom of the viewport and the content area above shrinks to fit —
+   nothing under it is ever covered or made unclickable. It used to be
+   `position: fixed` with the main content area given a hardcoded
+   `padding-bottom` guess at the bar's collapsed height; that guess never
+   accounted for the tape view (which is far taller), so opening the tape
+   covered whatever content was under it. flex-shrink: 0 keeps it at its
+   natural (content) height while the sibling content column (`min-height: 0`
+   + `overflow-y: auto`) absorbs the remaining space and scrolls internally. */
 .player-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  position: relative;
+  flex-shrink: 0;
+  width: 100%;
   background: var(--surface);
   border-top: 1px solid var(--border);
   box-shadow: var(--shadow-lg);
@@ -236,9 +245,9 @@
    pushing the bar down. */
 .player-tape-region {
   width: 100%;
-  height: 120px;
-  min-height: 96px;
-  max-height: 180px;
+  height: 220px;
+  min-height: 180px;
+  max-height: 260px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -253,7 +262,7 @@
     opacity: 0;
   }
   to {
-    max-height: 180px;
+    max-height: 260px;
     opacity: 1;
   }
 }
@@ -278,6 +287,20 @@
 .tape-motion-toggle {
   min-width: 44px;
   min-height: 44px;
+  margin-left: 0.5rem;
+}
+
+/* Row inside WaveformTape.tsx holding the zoom control (WaveformTapeZoom)
+   and the paged/moving motion toggle (PlayerBar's zoomRowTrailing) side by
+   side — owner request: keep the motion toggle off its own line. Wraps
+   rather than overflows at narrow player-bar widths (mobile). */
+.tape-zoom-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem 0;
+  flex-shrink: 0;
 }
 
 /* WaveformTape.tsx root */
@@ -297,7 +320,7 @@
   display: block;
   width: 100%;
   flex: 1;
-  min-height: 0;
+  min-height: 56px;
   cursor: pointer;
   background: var(--surface-alt);
 }
@@ -348,11 +371,13 @@
 }
 
 .ns-size-glyph {
-  border-radius: 2px;
-  background: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   cursor: pointer;
   border: none;
+  background: transparent;
   padding: 0;
   opacity: 0.7;
   transition: opacity var(--dur-fast) var(--ease-standard);
@@ -360,6 +385,19 @@
 
 .ns-size-glyph:hover {
   opacity: 1;
+}
+
+/* Zoom in/out glyph: lucide-react ZoomOut/ZoomIn icon (WaveformTapeZoom.tsx),
+   themed to match the app's icon coloring and adapt across light/dark theme.
+   Sized independently of `.ns-size-glyph`'s 44px hit-area via the icon's own
+   `size` prop, not CSS width/height. */
+.tape-zoom-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.ns-size-glyph:hover .tape-zoom-icon {
+  color: var(--text-primary);
 }
 
 .ns-size-slider-wrap {

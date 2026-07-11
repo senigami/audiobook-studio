@@ -73,11 +73,30 @@ export const PlayerBar: React.FC = () => {
       : false
   );
 
+  // Only forceWave resets per-track: it is a scope-blind representation
+  // override tied to fitting the CURRENT clip's duration (fitsLegibly), so a
+  // new source needs to re-derive its own default rather than inherit the
+  // previous clip's override.
+  //
+  // tapeOpen/windowSec/tapeMode are deliberately NOT reset here — they are
+  // session-scoped tape-view preferences (owner request: "if I open the
+  // waveform and then play a different audio I want it to stay in the same
+  // view that I had selected" — the tape's open/closed state, its zoom
+  // level, and its paged/moving mode must all survive switching to a
+  // different track within the same browser session). They intentionally
+  // carry over from whatever the user last set, across every track change,
+  // for the lifetime of this PlayerBar instance (i.e. the browser session —
+  // PlayerBar is mounted once for the app's lifetime and returning null
+  // above does not unmount/reset component state). They are NOT persisted to
+  // localStorage/sessionStorage — no full-reload persistence is implied or
+  // required by the request, and this repo has no existing sessionStorage
+  // convention to match (only localStorage, used for permanent
+  // cross-restart settings like theme/rail state, a different scope than
+  // this request). If the new track is over the duration cap (tapeAvailable
+  // false) or fits the inline waveform (showWave true), the tape region
+  // simply doesn't render regardless of tapeOpen — no dangling UI.
   useEffect(() => {
     setForceWave(null);
-    setTapeOpen(false);
-    setWindowSec(30);
-    setTapeMode('paged');
   }, [requestId]);
 
   // Server-computed peaks sidecar (task 008) — lets long chapters (over
@@ -115,22 +134,42 @@ export const PlayerBar: React.FC = () => {
     return () => ro.disconnect();
   }, []); // empty deps — ref node is stable after mount
 
+  // Loads a new source only when the track actually changes (audioUrl or a
+  // fresh requestId — e.g. replaying the same track from loadAndPlay).
+  //
+  // Bug this fixes: this used to live in one combined effect keyed on
+  // [audioUrl, playing, requestId] that compared `audio.src !== audioUrl`
+  // before reassigning. `audio.src` is a DOM getter that always returns a
+  // browser-RESOLVED absolute URL (e.g.
+  // `http://host/out/voices/Dark%20Fantasy/...`), while `audioUrl` from the
+  // bus is the original relative, unencoded path
+  // (`/out/voices/Dark Fantasy/...`) — those two strings are NEVER equal, so
+  // the guard always failed open and `audio.src` got reassigned on every
+  // effect run, including runs triggered by `playing` alone (i.e. every
+  // Play/Pause click). Reassigning `.src` aborts and reloads the media
+  // element, momentarily resetting `currentTime`/`duration` to 0/NaN, which
+  // flipped `tapeAvailable`/`showWave` false then true again — unmounting and
+  // remounting `.player-tape-region` and replaying its `player-tape-open`
+  // mount animation. That's the visible "jump like it's quickly closing and
+  // reopening" on Play. Splitting the source load into its own effect keyed
+  // only on the track identity (not `playing`) means clicking Play/Pause
+  // never touches `audio.src` at all.
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
+    audio.src = audioUrl || '';
+  }, [audioUrl, requestId]);
 
-    if (audio.src !== (audioUrl || '')) {
-      audio.src = audioUrl || '';
-    }
-
-    if (audioUrl) {
-      if (playing) {
-        audio.play().catch((err) => {
-          console.warn('Audio play failed:', err);
-        });
-      } else {
-        audio.pause();
-      }
+  // Drives play/pause on the already-loaded element — never touches `.src`.
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !audioUrl) return;
+    if (playing) {
+      audio.play().catch((err) => {
+        console.warn('Audio play failed:', err);
+      });
+    } else {
+      audio.pause();
     }
   }, [audioUrl, playing, requestId]);
 
@@ -220,18 +259,20 @@ export const PlayerBar: React.FC = () => {
             mode={tapeMode}
             onZoomChange={setWindowSec}
             peaks={sidecarPeaks}
+            zoomRowTrailing={
+              <button
+                type="button"
+                className="player-btn tape-motion-toggle"
+                onClick={() => setTapeMode(m => (m === 'paged' ? 'moving' : 'paged'))}
+                aria-label={tapeMode === 'moving' ? 'Switch to paged motion' : 'Switch to moving motion'}
+                aria-pressed={tapeMode === 'moving'}
+                disabled={prefersReducedMotion}
+                title={prefersReducedMotion ? 'Moving motion disabled (reduced motion)' : undefined}
+              >
+                {tapeMode === 'moving' ? <GalleryHorizontalEnd size={14} /> : <Waves size={14} />}
+              </button>
+            }
           />
-          <button
-            type="button"
-            className="player-btn tape-motion-toggle"
-            onClick={() => setTapeMode(m => (m === 'paged' ? 'moving' : 'paged'))}
-            aria-label={tapeMode === 'moving' ? 'Switch to paged motion' : 'Switch to moving motion'}
-            aria-pressed={tapeMode === 'moving'}
-            disabled={prefersReducedMotion}
-            title={prefersReducedMotion ? 'Moving motion disabled (reduced motion)' : undefined}
-          >
-            {tapeMode === 'moving' ? <GalleryHorizontalEnd size={14} /> : <Waves size={14} />}
-          </button>
         </div>
       )}
 

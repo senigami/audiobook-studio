@@ -1,7 +1,7 @@
 # Data Model
 
 ```
-spec_version: 1.10.0
+spec_version: 1.10.1
 status: active
 updated: 2026-07-10
 sources:
@@ -25,6 +25,7 @@ sources:
 
 | Version | Date       | Change             |
 |---------|------------|--------------------|
+| 1.10.1  | 2026-07-10 | **Chapter peaks sidecar density raised 8→60 peaks/sec, `version` 1→2.** Example JSON and version-bump note updated to match `PEAKS_PER_SEC`/`SIDECAR_VERSION` in `app/engines/audio_ops.py`. Fixes visibly "low resolution" waveform at the tape's tightest zoom (3 s window vs. the tape's 180-bar render budget). Existing version-1 sidecars are transparently recomputed on next request via the loader's already-documented staleness check — no migration needed. |
 | 1.10.0  | 2026-07-10 | **Chapter peaks sidecar (derived artifact, not a DB/manifest field).** New § documenting the self-describing, versioned `<chapter>.peaks.json` sibling file that lets the global player's tape (`audio-player.md` §5.4) render long chapters without a full browser decode. Computed lazily on first request by the chapter-asset serving route (never at production time — the original orchestrator-chokepoint design was found to miss this app's default-engine render path entirely), staleness detected by comparing the sidecar's `source` stat stamp against the live WAV's current stat. No existing table/manifest changes. |
 | 1.9.0   | 2026-07-09 | **`lexicon`: reject case-insensitive duplicate words on add.** `add_lexicon_entry()` now raises `ValueError` (surfaced by `POST /api/projects/{project_id}/lexicon` as a 400 `{"status": "error", "message": ...}`) when the project already has an entry whose `word` matches case-insensitively. Prevents two entries for the same word from silently chaining through `apply_lexicon`'s sequential-substitution pass (e.g. `read`→`red` then `red`→`reed` turning `read` into `reed`). Editing an existing entry's word (`update_lexicon_entry`) is unchanged — this only guards entry creation. |
 | 1.8.0   | 2026-07-09 | **Book tab front door: `projects.description`.** Add the optional `description` column to the durable `projects` table (additive migration, same idiom as `series_position`) and document it as part of the canonical schema. `update_project()` round-trips the field with no special-casing (plain string, unlike `series_position`'s null-vs-empty handling); no manifest or legacy v1→v2 migration change is needed (write-once manifest, no legacy source data for a field that didn't exist in v1). |
@@ -301,17 +302,17 @@ Lets the global player's waveform tape (`audio-player.md` §5.4) render a scrub 
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "peaks": [0.0, 0.41, "... one float per bucket, [0, 1] max-abs magnitude"],
   "duration_sec": 3723.4,
   "sample_rate": 24000,
   "channels": 1,
-  "peaks_per_sec": 8,
+  "peaks_per_sec": 60,
   "source": { "filename": "chapter.wav", "size_bytes": 123456789, "mtime_ns": 1718000000000000000 }
 }
 ```
 
-- **`version`** — validated at load time (owner directive: every contract declares an explicit version). A mismatch is treated identically to a missing sidecar.
+- **`version`** — validated at load time (owner directive: every contract declares an explicit version). A mismatch is treated identically to a missing sidecar, so the route recomputes rather than serving stale data. Bumped 1→2 on 2026-07-10 alongside `peaks_per_sec` 8→60 (density raise; see `audio-player.md` §5.4 changelog 1.6.3) — every sidecar produced under version 1 is transparently recomputed at the new density on next request.
 - **`source`** — the WAV's own `stat()` (size + mtime) at the moment the sidecar was computed. Since a chapter WAV is **overwritten in place** on re-render, a path-only reference can silently go stale; the serving route re-stats the live WAV on every request and treats any mismatch as "absent," never serving a stale sidecar.
 - **`peaks`** are `[0, 1]` max-abs-per-bucket magnitudes (not `[-1, 1]`), matching the frontend's existing browser-decode peak provider's convention.
 
