@@ -38,7 +38,16 @@ def _load_or_compute_peaks_sidecar(wav_path: Path, sidecar_path: Path) -> Option
     WAV's current stat — any mismatch (stale re-render or version bump)
     triggers recomputation rather than serving stale data.
     """
-    stat = wav_path.stat()
+    # The WAV can be deleted/replaced between the route's exists() check and
+    # this stat by a concurrent re-render; a missing file must degrade to a
+    # 404 (None), never surface as an unguarded 500. (Plan risk: "any
+    # exception degrades to 404, never a 500 that breaks the frontend
+    # fallback path.")
+    try:
+        stat = wav_path.stat()
+    except OSError:
+        return None
+
     if sidecar_path.exists():
         try:
             existing = json.loads(sidecar_path.read_text())
@@ -72,9 +81,15 @@ def _load_or_compute_peaks_sidecar(wav_path: Path, sidecar_path: Path) -> Option
         if sidecar is None:
             return None
 
-        tmp_path = sidecar_path.with_suffix(".json.tmp")
-        tmp_path.write_text(json.dumps(sidecar))
-        os.replace(tmp_path, sidecar_path)
+        # Caching is best-effort: if the atomic write fails (disk full,
+        # permission, races on the temp path), still serve the freshly
+        # computed peaks rather than 500 or discard a valid result.
+        try:
+            tmp_path = sidecar_path.with_suffix(".json.tmp")
+            tmp_path.write_text(json.dumps(sidecar))
+            os.replace(tmp_path, sidecar_path)
+        except OSError:
+            logger.warning("Failed to cache peaks sidecar at %s", sidecar_path, exc_info=True)
         return sidecar
 
 

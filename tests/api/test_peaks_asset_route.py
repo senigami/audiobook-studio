@@ -204,6 +204,49 @@ def test_peaks_route_compute_failure_returns_404_not_500(clean_db, client, monke
     assert not wav_path.with_suffix(".peaks.json").exists()
 
 
+def test_load_or_compute_returns_none_when_wav_stat_fails(clean_db, tmp_path):
+    """Race: a concurrent re-render deletes the WAV between the route's
+    exists() check and the helper's top stat(). The helper must degrade to
+    None (→ route 404), never let the unguarded stat() FileNotFoundError
+    surface as a 500 that breaks the frontend's browser-decode fallback."""
+    missing_wav = tmp_path / "gone.wav"  # never created
+    sidecar_path = missing_wav.with_suffix(".peaks.json")
+
+    result = chapters_assets_module._load_or_compute_peaks_sidecar(missing_wav, sidecar_path)
+
+    assert result is None
+    assert not sidecar_path.exists()
+
+
+def test_peaks_route_serves_peaks_even_when_cache_write_fails(clean_db, client, monkeypatch):
+    """Caching is best-effort: if the atomic sidecar write fails (disk full,
+    permission), the freshly computed peaks must still be served (200), not
+    discarded or 500'd."""
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "T1")
+    wav_path = _make_chapter_wav(pid, cid)
+    sidecar_path = wav_path.with_suffix(".peaks.json")
+
+    def fake_compute(path):
+        return _sidecar_for(path)
+
+    monkeypatch.setattr(chapters_assets_module, "compute_peaks_sidecar", fake_compute)
+
+    def boom(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(chapters_assets_module.os, "replace", boom)
+
+    response = client.get(
+        f"/api/projects/{pid}/chapters/{cid}/assets/peaks",
+        params={"filename": "chapter.wav"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["source"]["filename"] == wav_path.name
+    assert not sidecar_path.exists()  # write failed → not cached, but still served
+
+
 def test_peaks_route_rejects_path_traversal(clean_db, client):
     pid = create_project("P1")
     cid = create_chapter(pid, "C1", "T1")
