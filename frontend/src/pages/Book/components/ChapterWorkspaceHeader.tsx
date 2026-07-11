@@ -348,7 +348,17 @@ export function ChapterWorkspaceHeader({
         {bookmarksOpen && (
           <div role="menu" aria-label="Bookmarks">
             <BookmarkList
-              entries={allBookmarks.map((bm) => ({ id: bm.id, label: bm.label }))}
+              entries={allBookmarks.map((bm) => ({
+                id: bm.id,
+                label: bm.label,
+                // Distinguish bookmarks from other books — this header only
+                // has the current book's id/chapters in scope, not a title
+                // lookup for arbitrary books, so a generic marker (rather
+                // than a fetched book title) is the honest, scoped fix for
+                // "two identical chapter-title rows from different books
+                // are indistinguishable."
+                secondary: bm.bookId === bookId ? undefined : 'Other book',
+              }))}
               onNavigate={(id) => {
                 const bm = allBookmarks.find((b) => b.id === id);
                 if (!bm) return;

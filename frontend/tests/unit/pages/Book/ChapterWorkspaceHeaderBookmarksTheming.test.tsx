@@ -136,4 +136,24 @@ describe('Chapter Workspace bookmarks dropdown theming', () => {
 
     expect(within(menu).queryByText('Chapter One')).toBeNull();
   });
+
+  it('distinguishes bookmarks from other books so two identical chapter titles are not ambiguous', async () => {
+    // Both bookmarks share the same label — before this fix, the dropdown had
+    // no way to tell them apart (an adversarial-review finding: `allBookmarks`
+    // is explicitly cross-book, but the row data dropped book context).
+    addBookmark({ bookId: 'book-1', chapterId: 'ch-1', label: 'The Beginning' });
+    addBookmark({ bookId: 'book-2', chapterId: 'ch-9', label: 'The Beginning' });
+    renderWorkspaceRoute('/book/book-1/chapter/ch-1');
+
+    const trigger = await screen.findByRole('button', { name: 'Show bookmarks' });
+    fireEvent.click(trigger);
+
+    const menu = await screen.findByRole('menu', { name: 'Bookmarks' });
+    const items = within(menu).getAllByText('The Beginning');
+    expect(items).toHaveLength(2);
+
+    // Exactly one row (the other book's) carries the "Other book" marker;
+    // the current book's own bookmark does not.
+    expect(within(menu).getAllByText('Other book')).toHaveLength(1);
+  });
 });

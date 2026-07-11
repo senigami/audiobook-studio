@@ -58,6 +58,25 @@ def _get_ctx():
     return get_plugin_ctx("xtts")
 
 
+def _resolve_voice_inputs(voice_profile_id: str) -> tuple[str | None, Path | None]:
+    """Resolve (speaker_wav, voice_profile_dir) for a profile via the SDK context.
+
+    Wraps ctx.resolve_voice_preview_inputs's dict return shape
+    ({"voice_ref": str|None, "voice_profile_dir": str|None}) back into the
+    (str|None, Path|None) tuple this adapter's callers expect, and classifies
+    any failure as EngineExecutionError so it doesn't escape this file's
+    error contract unclassified.
+    """
+    try:
+        preview_inputs = _get_ctx().resolve_voice_preview_inputs(voice_profile_id)
+    except Exception as exc:
+        raise EngineExecutionError(f"Failed to resolve voice profile inputs: {exc}") from exc
+    speaker_wav = preview_inputs["voice_ref"]
+    voice_profile_dir_str = preview_inputs["voice_profile_dir"]
+    voice_profile_dir = Path(voice_profile_dir_str) if voice_profile_dir_str else None
+    return speaker_wav, voice_profile_dir
+
+
 def xtts_generate(
     *,
     text: str,
@@ -232,10 +251,7 @@ class XttsVoiceEngine(BaseVoiceEngine):
             speaker_wav = reference_audio_path
         # Priority 3: Resolve from profile
         else:
-            preview_inputs = _get_ctx().resolve_voice_preview_inputs(voice_profile_id)
-            speaker_wav = preview_inputs["voice_ref"]
-            voice_profile_dir_str = preview_inputs["voice_profile_dir"]
-            voice_profile_dir = Path(voice_profile_dir_str) if voice_profile_dir_str else None
+            speaker_wav, voice_profile_dir = _resolve_voice_inputs(voice_profile_id)
             if voice_profile_dir is None:
                 raise EngineRequestError(
                     "XTTS synthesis requires an existing voice profile directory or reference_audio_path."
@@ -351,10 +367,7 @@ class XttsVoiceEngine(BaseVoiceEngine):
         if reference_audio_path:
             speaker_wav = reference_audio_path
         else:
-            preview_inputs = _get_ctx().resolve_voice_preview_inputs(voice_profile_id)
-            speaker_wav = preview_inputs["voice_ref"]
-            voice_profile_dir_str = preview_inputs["voice_profile_dir"]
-            voice_profile_dir = Path(voice_profile_dir_str) if voice_profile_dir_str else None
+            speaker_wav, voice_profile_dir = _resolve_voice_inputs(voice_profile_id)
             if voice_profile_dir is None:
                 raise EngineRequestError(
                     "XTTS preview requires an existing voice profile directory or reference_audio_path."
