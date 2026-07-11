@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Added] - 2026-07-10
+
+### Passive "Block N of M" label in the global player bar during segment playback
+
+- Segment-scope playback (Cast tool, chapter editor) now surfaces a passive `"Block N of M"` subtitle in the global `PlayerBar` while a block plays, using the block-leader queue index/length the block-queue navigation fix already tracks. `PlayerBar.tsx` required zero changes — it already renders `subtitle` generically.
+- `audio-player.md` bumped to `spec_version: 1.6.1` to document the closed gap.
+
 ## [Fix] - 2026-07-08
 
 ### Library project usability: series position storage and invalid-update handling

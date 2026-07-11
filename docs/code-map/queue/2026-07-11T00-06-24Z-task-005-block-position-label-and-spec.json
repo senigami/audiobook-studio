@@ -1,0 +1,13 @@
+{
+  "at": "2026-07-11T00:06:24Z",
+  "commit": "uncommitted",
+  "task": "Wired plain block-position subtitle into useChapterPlayback's loadAndPlay calls (design-docs/plans/active/audio_player_completion_004/tasks/005-block-position-label-and-spec.md)",
+  "files": {
+    "frontend/src/hooks/useChapterPlayback.ts": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added subtitle: `Block ${idx + 1} of ${queue.length}` to the loadAndPlay call in playWithFallback, using the block-leader queue task 004 introduced. No exported signature changes."
+    }
+  },
+  "flow_impact": "The global PlayerBar now shows a passive 'Block N of M' label (via its already-generic subtitle rendering) while segment playback is active."
+}

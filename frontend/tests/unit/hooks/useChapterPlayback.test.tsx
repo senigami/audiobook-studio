@@ -526,7 +526,7 @@ describe('useChapterPlayback', () => {
       expect(lastCall?.[0]?.hasNext).toBe(true);
     });
 
-    it('no subtitle is ever set for segment-scope playback (loadAndPlay is always called with subtitle absent)', async () => {
+    it('sets a plain "Block N of M" subtitle for segment-scope playback (task 005)', async () => {
       const { result } = renderHook(() =>
         useChapterPlayback('proj1', 'chap1', segments, chunkGroups, generatingSegmentIds, onGenerate)
       );
@@ -536,14 +536,14 @@ describe('useChapterPlayback', () => {
       });
 
       const firstCall = vi.mocked(playerBus.loadAndPlay).mock.calls.at(-1);
-      expect(firstCall?.[0]?.subtitle).toBeUndefined();
+      expect(firstCall?.[0]?.subtitle).toBe('Block 1 of 2');
 
-      // Auto-advance to s2 and confirm subtitle is still never populated.
+      // Auto-advance to s2 and confirm the label advances with the block index.
       await act(async () => {
         firstCall?.[0]?.onEnded?.();
       });
       const secondCall = vi.mocked(playerBus.loadAndPlay).mock.calls.at(-1);
-      expect(secondCall?.[0]?.subtitle).toBeUndefined();
+      expect(secondCall?.[0]?.subtitle).toBe('Block 2 of 2');
     });
   });
 });
