@@ -1,6 +1,6 @@
 {
   "meta": {
-    "synced_commit": "37f23438bfad9f430fe372080910ab330a5b3dad",
+    "synced_commit": "f29e146aa85d9f3f576f65a171e5fa75b51b8339",
     "file_hashes": {
       "app/studio_plugin_sdk/__init__.py": "3e07e2be764f3beb613bee9cab52adf203aa3dec60870bf0e792df5ae583d460",
       "app/studio_plugin_sdk/_import_utils.py": "e242aac00e0fd0637a3f51d8913531bb4cd782dea9f3ebef09ebc518db699352",
@@ -86,7 +86,7 @@
       "app/engines/tts_client.py": "c46f7cf605e93745aa5c7952c3a4392df8b049384deefb4f82374c3ac6268f7c",
       "app/engines/errors.py": "16313178f0a3a82e205a27d3a37503134baa41cb6c8885ab892fd63918027c88",
       "app/engines/bridge_remote.py": "7ea3b1a8407a2c8223067cd4f99fe456fc75e1a43d7372da17ced18ea1a8d67b",
-      "app/engines/audio_ops.py": "2a8e2bdb29c3c56a65fc4ef59f90802178ea1e768d8ec9e26c79d22de361cf91",
+      "app/engines/audio_ops.py": "ef8309a227a73ed721283f0245c68d82970f1b9a2d74221146473d0f4c593358",
       "app/engines/voice/sdk.py": "af182a9ea4a76d45febb746b35c9775345b46fde502a8ab719bec9cd4301de1f",
       "app/engines/voice/__init__.py": "f3666d366233ed12117c5bf39240d382ebe7a986551c1635ee9833e255cc5dbf",
       "app/engines/voice/base.py": "bc922529fa25c6104fe38a4bb95689bbce00c23d7f143d6c5f77280a662c675e",
@@ -390,12 +390,12 @@
       "frontend/src/pages/ChapterEditor/components/EditorTabs.tsx": "3ac3dac6c113452828a82db6947ad58b656239f9a134a34cec16b3be3d1a044c",
       "frontend/src/pages/ChapterEditor/components/PlaybackControls.tsx": "fbf523f039837f0024c33a7926ea868ee8239f81040e9a4c66e5feeddadef215",
       "frontend/src/app/App.tsx": "fd7263d7c82bf9178f510cbe75978e8e6c493e1bec67e9df64386aa63ed7bb6b",
-      "frontend/src/app/layout/PlayerBar.tsx": "70c78db29d9a1513d57f7423037b9b5c07bda884522967666a6e8ff5b7250ee9",
+      "frontend/src/app/layout/PlayerBar.tsx": "8800875c403d22cbcc57115a517a7129ae6a617bf3ac0664b62d78e06503d677",
       "frontend/src/app/layout/TopBar.tsx": "b61383c70f70c1b298862dc0894ad5a762488b46e88a0a319270559780c4f892",
       "frontend/src/app/layout/bookIdentityStore.ts": "cd64ce83fcf8deacfdc767aa43bcde2c7cf66fb3f4025b967739fe7bd1edd418",
       "frontend/src/app/layout/BookIdentityLine.tsx": "54cf8ba21a9672aa6110467f62a5d14f678c4220f5fd6bf725d5ad3c9106ead6",
       "frontend/src/app/layout/StudioShell.tsx": "fd3d2a7bf54f96ca09481c4dd91b68361db028ff81f73b39b5525999f08649d6",
-      "frontend/src/app/layout/AppShell.tsx": "8369a612fd8823bf4bdc7931b498c4c996b69ee5cb3943b1b2de0b511e85d262",
+      "frontend/src/app/layout/AppShell.tsx": "fbc9b33466856a2454e38bd53e7dd48aa501048e48a9b5b5fc359238393233f7",
       "frontend/src/app/layout/MobileNavDrawer.tsx": "c5f88e85a425265c32b46202bf1342f545019c75994341498e9a74f0a53c9809",
       "frontend/src/app/layout/NavRail.tsx": "c4e0a715d2c1bd2e01682a73b19e2d3e109b721f435168862442c9abc90431af",
       "frontend/src/app/layout/WaveformStrip.tsx": "6026ca656916c6732b75b84d9df0dcdbb56a21ca506744ab35a621c693fb57a7",
@@ -496,7 +496,7 @@
       "frontend/src/i18n/index.ts": "4036184f4e4c19356ce063189077d197d194e66e28e39060618b428f62ec4930",
       "frontend/src/components/progress/SegmentRenderMonitor/SegmentRenderMonitor.tsx": "c38c254e94b0f8491d859b1c6020da2682f65f8e843aed4fbb657f75e8e2cd4a",
       "frontend/src/app/layout/playerRepresentation.ts": "c3e76ee354ea6b2fe0baed377bfed43b607c6f583f2f466697de7a60241d97e2",
-      "frontend/src/app/layout/WaveformTape.tsx": "1bca5b51e8f8be016470f7b1cf0f903335307d711dc879d066369e0ecbc1fce6",
+      "frontend/src/app/layout/WaveformTape.tsx": "750d36e2321f7e2cfa2457ed448ab24aa0d6c470de031ac928818d49f96aaee3",
       "frontend/src/components/CastingSuggestionsModal.tsx": "88fb54b1e4743fb3c94c2d11763924a2b5dbe7866d3904c6d7e70e54841e9615",
       "frontend/src/utils/voiceCasting.ts": "a51b560bee64bd6555886404f36bfe69a7abe4cdffb465dcb1a8f34126a79d22",
       "app/orchestration/scheduler/cap_settings.py": "166daf7087a124fdbd8fa1937a122f7d997ebca8ea388a96a7722b7236c83245",
@@ -513,9 +513,9 @@
       "frontend/src/pages/Voices/components/metadata/TagsInput.tsx": "0fa3ee1c32aa76bc59f82a23ebcdc2fbd0aded9cced7810fb6ae7d74d7c2e3b6",
       "frontend/src/pages/Voices/components/metadata/IconUpload.tsx": "862b92b5f218daaecd26f47e5b538b96aafb132822fcef9a4f8546181834d0bd",
       "app/studio_plugin_sdk/plugin_utils.py": "c1c9fc1325f5755996384368a844d764494c3bf95465de7ddf37f71c70cb03a1",
-      "frontend/src/app/layout/waveformTapeZoomPresets.ts": "efdc430b0184c90ef417080afa373b513b4beffa9030a67ee7d321f390eee3b8",
-      "frontend/src/app/layout/WaveformTapeZoom.tsx": "1759b85c3ce6aa460a5dc172fc2802d7ddccef0c707bb680a89067095492b4b4",
-      "frontend/src/app/layout/WaveformTapeMinimap.tsx": "9624c3f51ff50b9ef80bce1ad23caf065376ed8c7701a218853971d6c87f1082",
+      "frontend/src/app/layout/waveformTapeZoomPresets.ts": "d431b9f948816f3855e8a118ac1a90bb8d69298cbcad8326791302cc016e5d35",
+      "frontend/src/app/layout/WaveformTapeZoom.tsx": "5257cb5f804836090df49cbb22178633a5669275ab0ddcd3d1f32d45dec70c62",
+      "frontend/src/app/layout/WaveformTapeMinimap.tsx": "31ba92c7c0142e7955e627b25b3649d62bd768dc88fbc5f8fd4e296e49b63bf2",
       "app/tts_server/plugin_staging.py": "32cb8020e01d0d0b18f6293045466b3bd4f5ea969e968a93e18aa3f5cf64bc16",
       "app/utils/render_timing.py": "a6479452b2c8e2a0e03cb726129b21570b78dde38f5c2a3253d5338f3dde44a1",
       "frontend/src/hooks/useToast.ts": "3456c7d0c6d9ee64c5435fe77d2a4b3589aa8c04ededbf88312df7ccc773d337",
@@ -559,14 +559,19 @@
       "frontend/src/theme/components/core.css": "67f2df265e58b45009fd90518c5ab70614696e8dc4b591babe3ac90df4e293dc",
       "frontend/src/theme/components/misc.css": "b88f17cccf3a39d27d5e9606802c0ab9366e8f9294a4a9cc951682e29550fecf",
       "frontend/src/theme/components/nav.css": "8885167fc3a625117f5955444919f4e286314022cb238a6d133200c7a4c29b87",
-      "frontend/src/theme/components/player.css": "dd76ba7a2cf8be127009b73b670de126e6f15699217fb9f68482c63729d45a9f",
+      "frontend/src/theme/components/player.css": "2335d4d5c84386cad9ca2291758db29088096bb35845bef5a5222743780365d3",
       "frontend/src/theme/components/publish.css": "034b09d5835147743f10a9e09999a0ac810bc569b493f92d7a352fd6114daf36",
       "frontend/src/theme/components/review-tools.css": "bd6abe46246f0c3e13af8ab862e067c76d1be41e52a3fd5625ca2a546e457f11",
       "frontend/src/theme/components/shared.css": "d10368101ab39fa490f3de09191d88f0c98f6d623be719e9e138beb9786e538f",
       "frontend/src/theme/components/voice-lab.css": "4c4abb31d0556f1571d2e0e9887f74fafa83050c68562a6625b8b86577a455cc",
       "frontend/src/theme/index.css": "05177e7eb6ecca2e2584242b39c7d915526eef7556bf1c4a1a75697d5d7c83f3",
       "frontend/src/api/contracts/peaksSidecar.ts": "7ec7c1c93f488ad93e681eb2c136f16e0d7c6db952cd9920184b50c262d7b315",
-      "frontend/src/api/fetchPeaksSidecar.ts": "a3797fef270e76f996c92159cfe529bf44c712b34331a3944298425b3eda99f4"
+      "frontend/src/api/fetchPeaksSidecar.ts": "a3797fef270e76f996c92159cfe529bf44c712b34331a3944298425b3eda99f4",
+      "frontend/src/pages/Engines/components/EngineCard.css": "bde95bfe203288abd09e4a6ffd53b73f2642ca4dce39d174e714a97fa882f9b8",
+      "frontend/src/components/queue/GlobalQueue.css": "8f6fd2dd5f6e98271ef807a9a7ba28c43ebadba764f2cc861cbee26c03a1836d",
+      "frontend/src/pages/LiveOutput/LiveOutputPage.css": "bea1e8b7de2f431e0d1cb592861ad7b11a38120ca5ce0c990936740126063c69",
+      "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.css": "da837ee16215abc125184410c7546e9fad4d58568a443abbcc73c7914e16b7ad",
+      "frontend/src/pages/Welcome/WelcomePage.css": "df30260a90d429f177e6db75b8cc8480a54dec947867e7a8c3597d4ca588e85c"
     },
     "shards": [],
     "unmapped": [
@@ -590,7 +595,7 @@
       "frontend/src/demo/stages/siteMockup/bookmarkStore.ts",
       "frontend/src/demo/stages/siteMockup/panes/*.tsx (14 files, condensed in siteMockupStage.tsx notes)"
     ],
-    "repo_checksum": "9e4794ea73b2c7ec54931f8f388abc0fd4767f68cc8d3403d549c40d79c48a4f",
+    "repo_checksum": "252dd2a7f16c28711a0e766827a1a8268c39b65c9c27041dae1871f17091fb62",
     "edge_tool": "hybrid: madge --json --extensions ts,tsx src/ (v8.0.0, run from frontend/) for frontend import edges; a custom stdlib-ast import-graph script (docs/code-map/tools/py_import_graph.py) for backend/plugin import edges. `calls` entries confirmed by one of these tools are kept/added as tool-derived; prior model-written entries the tool could not confirm (dynamic dispatch, cross-language, or a dotted-module reference the tool didn't resolve) moved to `calls_inferred`. `called_by` is the mechanical inverse of `calls` across the whole map, recomputed from scratch by this merge (2026-07-06).",
     "synced_commit_note": "Map reflects HEAD (ce2efd9f) plus substantial uncommitted working-tree changes (directors_console_activation + dynamic_recording_guide plans, both archived 2026-07-10) \u2014 file_hashes/repo_checksum are computed from actual on-disk bytes, so they are accurate regardless of commit status; synced_commit itself will only be fully accurate once this work is committed."
   },
@@ -775,7 +780,7 @@
         "app/engines/audio_ops.py#compute_peaks_sidecar",
         "frontend/src/app/layout/WaveformTape.tsx#usePeaks (suppliedPeaks short-circuits browser decode)"
       ],
-      "carries": "a peaks sidecar JSON (or null on any failure), the WAV's own stat stamp for staleness detection",
+      "carries": "a peaks sidecar JSON (or null on any failure), the WAV's own stat stamp for staleness detection; the sidecar is 60 peaks/sec at SIDECAR_VERSION 2 (2026-07-11 bump from 8/sec v1; a version bump auto-invalidates cached v1 sidecars)",
       "invariant": "no eager/production-time computation -- lazy, cached, versioned; missing/stale/failed sidecar always degrades to browser-decode-or-plain-bar, never a hard failure",
       "failure_modes": [
         "WAV deleted/replaced mid-request -> stat() OSError -> route returns 404, frontend falls back (2026-07-10 review fix, previously an unguarded 500)",
@@ -904,6 +909,16 @@
         "plugins/*/plugin/core/diagnostics.py"
       ],
       "check": "grep -rnE 'print\\(.*file=sys\\.std(err|out)|sys\\.std(err|out)\\.write\\(' plugins/*/plugin/server plugins/*/plugin/core/diagnostics.py | grep -v 'emit_stderr_atomic' | grep -v 'canonical-locked-write' # any output = a bare unsynchronized stream write outside the locked emitter. Scoped to server-context code only (files that run on the TTS Server's per-request threadpool) -- deliberately EXCLUDES plugin/core/xtts_inference.py and other warm-worker-SUBPROCESS-side code, which is single-threaded per-process by design and not part of this hazard class; also excludes proc_utils.py's one-shot-fallback stdout debug write (different stream, rarely-exercised fallback path, not yet audited). NOTE: as of 2026-07-06 this also false-positives on diagnostics.py:9,25-26's docstring/comment prose describing the pattern in prose -- read any hit before treating it as a real violation."
+    },
+    {
+      "id": "player-bar-docked-not-overlay",
+      "rule": "PlayerBar is a docked flex sibling of the shell grid (position: relative / flex-shrink:0), never a fixed overlay, and AppShell lets the content column shrink/scroll as the bar grows; its <audio> source-load effect (sets .src) must stay separate from its play/pause effect (never touches .src) to avoid reload-on-toggle flicker (audio-player.md 5.6)",
+      "applies_to": [
+        "frontend/src/app/layout/PlayerBar.tsx",
+        "frontend/src/app/layout/AppShell.tsx",
+        "frontend/src/theme/components/player.css"
+      ],
+      "check": "grep -nE '^\\s*position:\\s*fixed' frontend/src/theme/components/player.css # non-empty = .player-bar regressed to fixed-overlay"
     }
   ],
   "modules": {
@@ -4303,7 +4318,7 @@
         {
           "name": "compute_peaks_sidecar",
           "kind": "function",
-          "contract": "(wav_path: Path) -> dict|None. Versioned (SIDECAR_VERSION=1) downsampled peaks sidecar: {version, peaks([0,1] max-abs/bucket), duration_sec, sample_rate, channels, peaks_per_sec, source:{filename,size_bytes,mtime_ns}}. Stats the WAV before+after computing; a mismatch (concurrent re-render) returns None rather than caching a torn read. 2026-07-10 review hardening: PEAKS_MAX_DECODE_SAMPLES=20_000_000 caps decoded INPUT sample count (ffmpeg -ar downsample when duration_sec*sample_rate would exceed it) -- previously only the OUTPUT bucket count (PEAKS_MAX) was capped, a real memory/CPU DoS-caliber gap for long WAVs inside a sync request handler."
+          "contract": "(wav_path: Path) -> dict|None. Versioned (SIDECAR_VERSION=2; PEAKS_PER_SEC=60, PEAKS_MAX=200_000 -- bumped from v1's 8/100k, loader treats a version mismatch as stale and recomputes) downsampled peaks sidecar: {version, peaks([0,1] max-abs/bucket), duration_sec, sample_rate, channels, peaks_per_sec, source:{filename,size_bytes,mtime_ns}}. Stats the WAV before+after computing; a mismatch (concurrent re-render) returns None rather than caching a torn read. 2026-07-10 review hardening: PEAKS_MAX_DECODE_SAMPLES=20_000_000 caps decoded INPUT sample count (ffmpeg -ar downsample when duration_sec*sample_rate would exceed it) -- previously only the OUTPUT bucket count (PEAKS_MAX) was capped, a real memory/CPU DoS-caliber gap for long WAVs inside a sync request handler."
         }
       ],
       "calls": [
@@ -4321,7 +4336,8 @@
         "plugins/tts_xtts/plugin/studio/app_adapter.py"
       ],
       "notes": [
-        "finalize_sample_artifact keeps WAV if MP3 conversion fails"
+        "finalize_sample_artifact keeps WAV if MP3 conversion fails",
+        "2026-07-11 waveform fixes: compute_peaks_sidecar density PEAKS_PER_SEC 8->60, PEAKS_MAX 100k->200k, SIDECAR_VERSION 1->2 (mismatch = stale, recompute). Max-abs-per-bucket aggregation unchanged."
       ],
       "calls_inferred": []
     },
@@ -7230,7 +7246,9 @@
         "frontend/src/app/App.tsx",
         "frontend/src/pages/Activity/ActivityPage.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+      ],
       "calls_inferred": [
         "frontend/src/components/queue/QueueItem#*",
         "frontend/src/components/queue/ReorderableQueueItem#*",
@@ -8209,7 +8227,8 @@
       ],
       "notes": [
         "tier1 in-chapter, tier2 chapter-scoped temp, tier3 other book chars",
-        "2026-07-10: CRITICAL FIXES: (1) CharacterRow's outer <button> no longer wraps ColorSwatchPicker \u2014 the row is now a plain card <div> containing ColorSwatchPicker (its own button) as a SIBLING of a new `<div role=\"button\" tabIndex={0}>` label region (avatar+name+voice+count+chevron) that handles select/disarm via onClick + onKeyDown (Enter/Space); no button is ever nested inside another button. (2) TierHeader now has `tabIndex={0}` and an onKeyDown handler firing its onToggle on Enter/Space (still skipped when `alwaysOpen`). (3) The Promote/Delete kebab (ActionMenu) for tier-2 temp characters is now ALWAYS rendered (never conditionally unmounted) \u2014 opacity 0.4 at rest, 1 on hover/menu-open/keyboard-focus (new onFocus/onBlur-driven `labelFocused` state), so Tab reaches it. (4) Added a single empty-cast-state card (replacing the three stacked tier headers) shown whenever tier1+tier2+tier3 total to zero characters, per design-docs/workflows/chapter-editor-modes.md \u00a713 decision #2 \u2014 'No cast yet \u2014 this chapter reads in the narrator's voice', an 'Add character' button (wired to the existing onCreateTempCharacter flow \u2014 see flow_impact for why this isn't Casting Call), and a plain-text pointer to the Casting Call tool. (5) Replaced the \ud83d\udeab emoji appended to unavailable voice variants with a lucide `Ban` icon. WARNING FIXES: rail width raised 180px -> 230px (stops truncating 'Use Project Default (Dark F...'); every literal font-size below the --type-micro floor (0.55/0.58/0.62/0.65/0.66rem) raised to `var(--type-micro)`; footer copy 'paint a voice...'/'choose a cast member to start painting' replaced with plain instructional language ('select a character, then click sentences to assign')."
+        "2026-07-10: CRITICAL FIXES: (1) CharacterRow's outer <button> no longer wraps ColorSwatchPicker \u2014 the row is now a plain card <div> containing ColorSwatchPicker (its own button) as a SIBLING of a new `<div role=\"button\" tabIndex={0}>` label region (avatar+name+voice+count+chevron) that handles select/disarm via onClick + onKeyDown (Enter/Space); no button is ever nested inside another button. (2) TierHeader now has `tabIndex={0}` and an onKeyDown handler firing its onToggle on Enter/Space (still skipped when `alwaysOpen`). (3) The Promote/Delete kebab (ActionMenu) for tier-2 temp characters is now ALWAYS rendered (never conditionally unmounted) \u2014 opacity 0.4 at rest, 1 on hover/menu-open/keyboard-focus (new onFocus/onBlur-driven `labelFocused` state), so Tab reaches it. (4) Added a single empty-cast-state card (replacing the three stacked tier headers) shown whenever tier1+tier2+tier3 total to zero characters, per design-docs/workflows/chapter-editor-modes.md \u00a713 decision #2 \u2014 'No cast yet \u2014 this chapter reads in the narrator's voice', an 'Add character' button (wired to the existing onCreateTempCharacter flow \u2014 see flow_impact for why this isn't Casting Call), and a plain-text pointer to the Casting Call tool. (5) Replaced the \ud83d\udeab emoji appended to unavailable voice variants with a lucide `Ban` icon. WARNING FIXES: rail width raised 180px -> 230px (stops truncating 'Use Project Default (Dark F...'); every literal font-size below the --type-micro floor (0.55/0.58/0.62/0.65/0.66rem) raised to `var(--type-micro)`; footer copy 'paint a voice...'/'choose a cast member to start painting' replaced with plain instructional language ('select a character, then click sentences to assign').",
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
       ],
       "calls_inferred": [
         "@/components/forms/ColorSwatchPicker",
@@ -10482,7 +10501,8 @@
         "frontend/src/pages/Voices/VoicesPage.tsx"
       ],
       "notes": [
-        "taxonomy from voice-taxonomy.json v1.0 bundled at build time"
+        "taxonomy from voice-taxonomy.json v1.0 bundled at build time",
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
       ],
       "calls_inferred": [
         "api#patchVoiceMetadata,uploadVoiceIcon",
@@ -10512,7 +10532,8 @@
         "frontend/src/pages/Voices/components/VariantEditor.tsx"
       ],
       "notes": [
-        "2026-07-08: drag-drop highlight state/handlers now delegate to the shared useDragDropHighlight(uploadFiles) hook instead of local isDragging/onDragOver/onDragLeave/onDrop handlers (pure refactor, same upload behavior)."
+        "2026-07-08: drag-drop highlight state/handlers now delegate to the shared useDragDropHighlight(uploadFiles) hook instead of local isDragging/onDragOver/onDragLeave/onDrop handlers (pure refactor, same upload behavior).",
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
       ],
       "calls_inferred": []
     },
@@ -10533,7 +10554,9 @@
       "called_by": [
         "frontend/src/pages/Voices/components/index.ts"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+      ],
       "calls_inferred": [
         "components/forms/GlassInput,VoiceDropzone,SearchableSelect"
       ]
@@ -10613,7 +10636,9 @@
         "frontend/src/pages/Voices/components/NarratorCard.tsx",
         "frontend/src/pages/Voices/components/index.ts"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-10 ST-3 styling-separation: 31 inline style={{}} occurrences converted to new .variant-editor__* (BEM) classes in theme/components/voice-lab.css; 6 genuinely-dynamic style objects kept inline, trimmed to only their dynamic properties. No behavior/markup change."
+      ],
       "calls_inferred": [
         "hooks/useVariantActions",
         "pages/Voices/components/SampleManager",
@@ -10641,7 +10666,8 @@
       "notes": [
         "2026-07-10: gained an optional `attributes?: VoiceAttributes` prop and a 'Suggest from voice qualities' button beside Reset to Default, calling suggestRecordingPrompt(attributes) and filling testText via the existing onTestTextChange (does not auto-save). Disabled when attributes absent/untagged.",
         "2026-07-09: Removed the 'PLUGIN SETTINGS' JsonSchemaForm block (and the now-unused `settings`/`onSettingsChange` props + JsonSchemaForm import + top-level activeEngine/synthesisSettings locals). ScriptEditor now covers only variant name, engine assignment, reference sample/voice asset id, help/privacy text, and the test-text script itself \u2014 no longer plugin settings.",
-        "2026-07-10: Section for editing variant label, engine, plugin settings, reference sample, test text"
+        "2026-07-10: Section for editing variant label, engine, plugin settings, reference sample, test text",
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
       ],
       "calls_inferred": [
         "pages/Settings/components/JsonSchemaForm"
@@ -10663,7 +10689,9 @@
       "called_by": [
         "frontend/src/pages/Voices/VoicesPage.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+      ],
       "calls_inferred": [
         "components/forms/GlassInput",
         "components/ui/GhostButton"
@@ -11097,7 +11125,8 @@
         "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx"
       ],
       "notes": [
-        "warns of destructive changes (lost assignments)"
+        "warns of destructive changes (lost assignments)",
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
       ],
       "calls_inferred": []
     },
@@ -11215,7 +11244,7 @@
       ]
     },
     "frontend/src/app/layout/PlayerBar.tsx": {
-      "purpose": "Fixed audio player control bar: transport, duration-driven scrub track (waveform/plain bar via fitsLegibly), and (2026-07-10) the expandable waveform tape for chapters under a duration cap, fed by browser decode or a server-computed peaks sidecar.",
+      "purpose": "Docked audio player control bar (flex sibling of the shell grid, not a fixed overlay): transport, duration-driven scrub track (waveform/plain bar via fitsLegibly), and (2026-07-10) the expandable waveform tape for chapters under a duration cap, fed by browser decode or a server-computed peaks sidecar.",
       "exports": [
         {
           "name": "PlayerBar",
@@ -11236,7 +11265,8 @@
       "notes": [
         "audioCallbackRef pattern for React 19 render-time ref reads",
         "W1 (2026-07-03): showWave predicate is now duration-driven (fitsLegibly + ResizeObserver-measured scrub width), not scope-driven; scope-toggle JSX/CSS removed",
-        "2026-07-10 (audio_player_completion_004 tasks 001/008): exports TAPE_DURATION_CAP_SEC=600; tapeOpen/windowSec/tapeMode state (reset on requestId); AudioLines toggle opens/closes the tape (inline-null-check JSX pattern, no separate tapeRendered boolean -- required for TS narrowing on audioEl/audioUrl). sidecarPeaks state + effect fetches the server peaks sidecar only when duration > TAPE_DURATION_CAP_SEC; tapeAvailable = under-cap OR sidecarPeaks!==null."
+        "2026-07-10 (audio_player_completion_004 tasks 001/008): exports TAPE_DURATION_CAP_SEC=600; tapeOpen/windowSec/tapeMode state (reset on requestId); AudioLines toggle opens/closes the tape (inline-null-check JSX pattern, no separate tapeRendered boolean -- required for TS narrowing on audioEl/audioUrl). sidecarPeaks state + effect fetches the server peaks sidecar only when duration > TAPE_DURATION_CAP_SEC; tapeAvailable = under-cap OR sidecarPeaks!==null.",
+        "2026-07-11 waveform fixes (audio-player.md 5.6, binding MUST-NOT-regress): audio lifecycle split into a source-load effect (keyed [audioUrl,requestId], sets .src) and a play/pause effect (keyed [audioUrl,playing,requestId], never touches .src) -- fixes Play/Pause flicker (the old audio.src!==audioUrl guard always failed open and reloaded the media element). tapeOpen/windowSec/tapeMode are now session-persistent (NOT reset on track change). Motion toggle passed as WaveformTape zoomRowTrailing. Docked-flex, not fixed-overlay."
       ],
       "calls_inferred": [
         "frontend/src/app/layout/WaveformStrip#WaveformStrip",
@@ -11351,7 +11381,9 @@
         "frontend/src/app/App.tsx",
         "frontend/src/components/layout/Layout.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-11 waveform fixes: PlayerBar moved to a normal flex-column sibling of .shell-grid (docked), removing the hardcoded content padding-bottom that only accounted for the collapsed bar -- the content column now shrinks/scrolls when the bar grows instead of being covered."
+      ],
       "calls_inferred": [
         "frontend/src/app/layout/NavRail#*",
         "frontend/src/app/layout/PlayerBar#*",
@@ -11835,7 +11867,8 @@
         "frontend/src/app/App.tsx"
       ],
       "notes": [
-        "2026-07-08: create-project form gained a series <datalist> (id=project-series-suggestions, populated from the hook's existingSeries) attached to both the grid-view and list-view series inputs, plus a 'Series position' input seeded with the hook's suggestion placeholder. ProjectCard/ProjectListView now receive onOpenDetails={handleOpenProjectDetails}, routing to /project/:id/details."
+        "2026-07-08: create-project form gained a series <datalist> (id=project-series-suggestions, populated from the hook's existingSeries) attached to both the grid-view and list-view series inputs, plus a 'Series position' input seeded with the hook's suggestion placeholder. ProjectCard/ProjectListView now receive onOpenDetails={handleOpenProjectDetails}, routing to /project/:id/details.",
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
       ],
       "calls_inferred": [
         "frontend/src/hooks/useProjectLibrary#useProjectLibrary",
@@ -11893,7 +11926,9 @@
       "called_by": [
         "frontend/src/app/App.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+      ],
       "calls_inferred": []
     },
     "frontend/src/pages/Queue/QueueRoute.tsx": {
@@ -11939,7 +11974,9 @@
       "called_by": [
         "frontend/src/app/App.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+      ],
       "calls_inferred": [
         "frontend/src/components/LiveOutputTable#LiveOutputTable",
         "frontend/src/config/liveEventConsumers#*",
@@ -12097,7 +12134,9 @@
         "frontend/src/types/index.ts"
       ],
       "called_by": [],
-      "notes": [],
+      "notes": [
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+      ],
       "calls_inferred": [
         "frontend/src/pages/Engines/components/EngineMetadataPanel.tsx#*",
         "frontend/src/pages/Engines/components/JsonSchemaForm.tsx#*",
@@ -12151,7 +12190,9 @@
         "frontend/src/api/index.ts"
       ],
       "called_by": [],
-      "notes": [],
+      "notes": [
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+      ],
       "calls_inferred": [
         "frontend/src/api#api.fetchOfficialPluginRegistry"
       ]
@@ -13483,7 +13524,7 @@
         {
           "name": "TAPE_ZOOM_PRESETS_SEC",
           "kind": "const",
-          "contract": "[8,15,30,60,120]"
+          "contract": "[3,5,8,15,30,60,120] (re-exported from waveformTapeZoomPresets.ts)"
         },
         {
           "name": "PEAKS_COUNT",
@@ -13494,12 +13535,17 @@
           "name": "snapZoom",
           "kind": "function",
           "contract": "re-exported from WaveformTapeZoom.tsx"
+        },
+        {
+          "name": "computeTapeBarCount",
+          "kind": "function",
+          "contract": "re-exported from waveformTapeZoomPresets.ts (moved there 2026-07-11 to break the minimap import cycle)"
         }
       ],
       "calls": [
         "frontend/src/app/layout/WaveformTapeMinimap.tsx#WaveformTapeMinimap",
         "frontend/src/app/layout/WaveformTapeZoom.tsx#WaveformTapeZoom,snapZoom",
-        "frontend/src/app/layout/waveformTapeZoomPresets.ts#TAPE_ZOOM_PRESETS_SEC,TapeZoomPreset",
+        "frontend/src/app/layout/waveformTapeZoomPresets.ts#TAPE_ZOOM_PRESETS_SEC,TapeZoomPreset,computeTapeBarCount",
         "frontend/src/store/playerBus.ts#seek"
       ],
       "called_by": [
@@ -13510,7 +13556,8 @@
         "fixed-grid sampling (audio-player.md 1.6.0 \u00a75.3): gridSec = windowSec/BAR_COUNT, alignedStart snapped -- prevents waveform crawl",
         "task 007 landed 2026-07-04: accepts optional onZoomChange/peaks props, renders WaveformTapeZoom above and WaveformTapeMinimap below the canvas when onZoomChange is provided; still not yet mounted into PlayerBar.tsx -- that's task 008's job",
         "review-ratchet fix (2026-07-04): wheel-zoom listener is attached via a native, non-passive addEventListener('wheel', ..., {passive:false}) in a useEffect, not React's onWheel JSX prop -- React registers wheel as passive at the root (17+), so e.preventDefault() inside onWheel was a silent no-op in real browsers (page scrolled while zoom also snapped); jsdom couldn't reproduce the bug, so the regression test is structural (asserts the addEventListener call's options)",
-        "2026-07-10 adversarial-review fix (CRITICAL): minimapPeaks previously read the raw `peaks` prop (`peaks !== undefined ? peaks : peakArray`), which is null for every under-cap clip (PlayerBar passes peaks={sidecarPeaks}, only non-null over the duration cap) -- the minimap rendered flat placeholder bars while the canvas correctly showed the decoded waveform. Fixed: minimapPeaks = peakArray (usePeaks' already-resolved effective source), used by both canvas and minimap."
+        "2026-07-10 adversarial-review fix (CRITICAL): minimapPeaks previously read the raw `peaks` prop (`peaks !== undefined ? peaks : peakArray`), which is null for every under-cap clip (PlayerBar passes peaks={sidecarPeaks}, only non-null over the duration cap) -- the minimap rendered flat placeholder bars while the canvas correctly showed the decoded waveform. Fixed: minimapPeaks = peakArray (usePeaks' already-resolved effective source), used by both canvas and minimap.",
+        "2026-07-11 waveform fixes: detail-canvas bar count now computeTapeBarCount(availablePeaks,duration,windowSec,containerWidthPx) instead of a fixed 180 (scales resolution with zoom width); playhead position driven by a 60Hz requestAnimationFrame loop in BOTH paged and moving modes (was ~4Hz timeupdate in paged, which stepped). computeTapeBarCount moved out to waveformTapeZoomPresets.ts and re-exported here."
       ],
       "calls_inferred": []
     },
@@ -13627,7 +13674,9 @@
         "frontend/src/types/index.ts"
       ],
       "called_by": [],
-      "notes": [],
+      "notes": [
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+      ],
       "calls_inferred": []
     },
     "frontend/src/pages/Engines/components/EngineSettingsForm.tsx": {
@@ -13645,7 +13694,9 @@
         "frontend/src/types/index.ts"
       ],
       "called_by": [],
-      "notes": [],
+      "notes": [
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+      ],
       "calls_inferred": [
         "frontend/src/pages/Engines/components/JsonSchemaForm.tsx#*"
       ]
@@ -13664,7 +13715,9 @@
         "frontend/src/types/index.ts"
       ],
       "called_by": [],
-      "notes": [],
+      "notes": [
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+      ],
       "calls_inferred": [
         "frontend/src/store/playerBus#*"
       ]
@@ -13848,22 +13901,37 @@
       "calls_inferred": []
     },
     "frontend/src/app/layout/waveformTapeZoomPresets.ts": {
-      "purpose": "Shared zoom-preset constants, extracted to break an ES module import cycle",
+      "purpose": "Shared zoom-preset constants and the detail/minimap bar-count helper, extracted to break an ES module import cycle",
       "exports": [
         {
           "name": "TAPE_ZOOM_PRESETS_SEC",
           "kind": "const",
-          "contract": "[8,15,30,60,120] ascending: index 0 = most zoomed in, index 4 = most zoomed out"
+          "contract": "[3,5,8,15,30,60,120] ascending: index 0 = most zoomed in (3s), index 6 = most zoomed out (120s)"
         },
         {
           "name": "TapeZoomPreset",
           "kind": "type"
+        },
+        {
+          "name": "TAPE_BAR_COUNT",
+          "kind": "const",
+          "contract": "180 -- floor/default detail-canvas bar count"
+        },
+        {
+          "name": "computeTapeBarCount",
+          "kind": "function",
+          "contract": "(availablePeaks, duration, windowSec, containerWidthPx) -> bar count; scales visual resolution with zoom window, capped by real available peaks and measured pixel width, floored at TAPE_BAR_COUNT(180). Moved here from WaveformTape.tsx to break a WaveformTapeMinimap->WaveformTape import cycle."
         }
       ],
       "calls": [],
-      "called_by": [],
+      "called_by": [
+        "frontend/src/app/layout/WaveformTape.tsx",
+        "frontend/src/app/layout/WaveformTapeZoom.tsx",
+        "frontend/src/app/layout/WaveformTapeMinimap.tsx"
+      ],
       "notes": [
-        "task 007 (2026-07-04): split out of WaveformTape.tsx because WaveformTape renders WaveformTapeZoom, which needs these constants at module-eval time -- WaveformTape.tsx re-exports both so the task-006 import contract (import from './WaveformTape') is unchanged for existing callers"
+        "task 007 (2026-07-04): split out of WaveformTape.tsx because WaveformTape renders WaveformTapeZoom, which needs these constants at module-eval time -- WaveformTape.tsx re-exports both so the task-006 import contract (import from './WaveformTape') is unchanged for existing callers",
+        "2026-07-11 waveform fixes: presets extended 5->7 ([3,5,8,15,30,60,120]); computeTapeBarCount + TAPE_BAR_COUNT moved in from WaveformTape.tsx (which re-exports computeTapeBarCount) to break the WaveformTapeMinimap->WaveformTape import cycle."
       ],
       "calls_inferred": []
     },
@@ -13873,7 +13941,7 @@
         {
           "name": "WaveformTapeZoom",
           "kind": "component",
-          "contract": "props: windowSec, onZoomChange, duration, availablePeaks, containerWidthPx; 5 tick-dot slider + +/- step buttons; zoom-in capped by available peak resolution, zoom-out hard-capped at 120s"
+          "contract": "props: windowSec, onZoomChange, duration, availablePeaks, containerWidthPx; 7-preset dot/native-slider + lucide ZoomOut/ZoomIn step buttons; zoom-in cap relaxed to MIN_SAMPLES_IN_VIEW=4 (all 7 presets reachable); zoom-out hard-capped at 120s"
         },
         {
           "name": "snapZoom",
@@ -13889,7 +13957,8 @@
         "ported from frontend/src/demo/stages/siteMockup/MockTapeControls.tsx (ZoomPresetControl/snapZoom)",
         "renders ns-size-* classes (ns-size-control/glyph/slider-wrap/track/tick/slider) -- these are NOT yet live app CSS, they only exist in the demo mock's mockup.css; task 009 must port them in (corrected 2026-07-04, review-ratchet -- the task docs originally, incorrectly, claimed free reuse)",
         "touch-target sizing (44x44 HIG) deliberately deferred to task 009 via hook classes tape-zoom-glyph-hit/tape-zoom-slider-hit, no inline pixel dimensions yet",
-        "review-ratchet fix (2026-07-04): +/- buttons originally jumped to the extreme preset (ported verbatim from the mock) instead of stepping by one as task 007's acceptance criteria requires -- fixed to step, clamped to [zoomInCapIdx, LAST_IDX]"
+        "review-ratchet fix (2026-07-04): +/- buttons originally jumped to the extreme preset (ported verbatim from the mock) instead of stepping by one as task 007's acceptance criteria requires -- fixed to step, clamped to [zoomInCapIdx, LAST_IDX]",
+        "2026-07-11 waveform fixes: +/- glyphs replaced with lucide ZoomOut/ZoomIn icons (were blank ~44px hit-boxes -- the min-width/height floor overrode the sized glyph); zoom-in resolution cap relaxed from bar-for-bar peak parity to MIN_SAMPLES_IN_VIEW=4; dot/native-slider layout uses visPos()=LAST_IDX-i (widest left, tightest right), button logic unchanged."
       ],
       "calls_inferred": []
     },
@@ -13899,15 +13968,18 @@
         {
           "name": "WaveformTapeMinimap",
           "kind": "component",
-          "contract": "props: duration, currentTimeSec, windowStartSec, windowSec, onSeek, peaks, height?; samples MINIMAP_BARS=200 points from the real peak array; drag/click-outside-rect resolve through one pointerToPageStart formula, clamped to [0, duration-windowSec]; delegates all navigation via onSeek, never calls playerBus.seek directly"
+          "contract": "props: duration, currentTimeSec, windowStartSec, windowSec, onSeek, peaks, height?; bar count now from computeTapeBarCount(availablePeaks, duration, windowSec=duration, measuredWidth) with a ResizeObserver-measured width (was fixed MINIMAP_BARS=200); drag/click-outside-rect resolve through one pointerToPageStart formula, clamped to [0, duration-windowSec]; delegates all navigation via onSeek, never calls playerBus.seek directly"
         }
       ],
-      "calls": [],
+      "calls": [
+        "frontend/src/app/layout/waveformTapeZoomPresets.ts#computeTapeBarCount"
+      ],
       "called_by": [],
       "notes": [
         "ported from frontend/src/demo/stages/siteMockup/MockTapeControls.tsx (TapeMinimapStrip)",
         "flat 0.4 fallback bar while peaks is null (still decoding)",
-        "review-adversarial catch during task 007: an early draft had two dead-code branches computing the identical pointer-to-time expression, fixed to the single correct formula before landing"
+        "review-adversarial catch during task 007: an early draft had two dead-code branches computing the identical pointer-to-time expression, fixed to the single correct formula before landing",
+        "2026-07-11 waveform fixes: bar count now computeTapeBarCount(windowSec=duration) + ResizeObserver measured width (was fixed MINIMAP_BARS=200); playhead line stroke changed to var(--text-muted) so it is visually distinct from the two blue window-rect edges."
       ],
       "calls_inferred": []
     },
@@ -14695,7 +14767,8 @@
       "calls": [],
       "called_by": [],
       "notes": [
-        "2026-07-10: 5 dead selectors deleted (.btn-home, .btn-menu-destructive, .action-menu-item, .select-glass, .engine-chunk) before the domain split, per task 001."
+        "2026-07-10: 5 dead selectors deleted (.btn-home, .btn-menu-destructive, .action-menu-item, .select-glass, .engine-chunk) before the domain split, per task 001.",
+        "2026-07-10 ST-2/ST-3 styling-separation: added 6 shared label classes (.label-micro-muted[-strong/-italic], .label-caption-strong, .label-uppercase-sm/-md) plus .registry-card/.registry-chip (OfficialRegistryPanel) for reuse across the inline-style-to-class conversions."
       ],
       "calls_inferred": []
     },
@@ -14716,7 +14789,8 @@
         "2026-07-10 (chapter-lifecycle Stale/Error + pill contrast fix): added .chapter-table__pill--stale (background var(--warning-tint-bg), color var(--warning-text)) and .chapter-table__pill--error (background var(--error-tint-bg), color var(--error-text)) for ChapterTable'\\''s two new lifecycle pill states. In the same change, .chapter-table__pill--rendered'\\''s text color switched from the bare var(--success) to var(--success-text), matching the -text token pattern the new stale/error pills use (contrast fix \u2014 bare --success/--error are not guaranteed readable on the tint backgrounds).",
         "2026-07-09: Added `.chapter-text-panel__info-banner` (calm accent-tint banner for Write mode's persistent entry notice, distinct from the warning-tint `.chapter-text-panel__unlock-strip`). Changed `.chapter-text-panel__footer` from `justify-content: space-between` to `flex-end` with a tighter gap now that Discard+Commit Changes form one paired action group. Added `.write-tool`/`.write-tool__hint` (mirrors the existing `.revise-tool`/`.revise-tool__hint` pattern) so the new WriteTool subtitle wrapper lays out and sizes correctly.",
         "2026-07-10: Added '.chapter-workspace-header__nav-btn svg { flex-shrink: 0; }' mirroring the existing documented fix for .player-btn svg, pinning lucide icons to their intrinsic size instead of letting the inline-flex main-axis algorithm collapse them to 0 width.",
-        "2026-07-10: `.studio-analysis-strip` demoted from a bordered/shadowed card to a plain low-chrome container; added `.studio-analysis-strip__caption` (var(--type-caption), var(--text-muted)); removed the now-unused `__eyebrow`/`__stats`/`__stat`/`__value`/`__value--accent`/`__label`/`__divider` rules that backed the old per-stat card blocks."
+        "2026-07-10: `.studio-analysis-strip` demoted from a bordered/shadowed card to a plain low-chrome container; added `.studio-analysis-strip__caption` (var(--type-caption), var(--text-muted)); removed the now-unused `__eyebrow`/`__stats`/`__stat`/`__value`/`__value--accent`/`__label`/`__divider` rules that backed the old per-stat card blocks.",
+        "2026-07-10 ST-3 styling-separation: shared classes added for the Book/CastPalette inline-style conversion."
       ],
       "calls_inferred": []
     },
@@ -14761,7 +14835,8 @@
       "calls": [],
       "called_by": [],
       "notes": [
-        "2026-07-10 (audio_player_completion_004 task 002): added the expandable tape-view CSS -- .player-tape-region (grow-upward, reduced-motion-safe), .tape/.tape-canvas/.tape-ruler/.tape-tick (WaveformTape.tsx), .nsp-minimap/.tape-minimap-* (WaveformTapeMinimap.tsx), .ns-size-*/.tape-zoom-* (WaveformTapeZoom.tsx, cover-slider chrome ported from the siteMockup demo). All new rules are token-based (INV-7)."
+        "2026-07-10 (audio_player_completion_004 task 002): added the expandable tape-view CSS -- .player-tape-region (grow-upward, reduced-motion-safe), .tape/.tape-canvas/.tape-ruler/.tape-tick (WaveformTape.tsx), .nsp-minimap/.tape-minimap-* (WaveformTapeMinimap.tsx), .ns-size-*/.tape-zoom-* (WaveformTapeZoom.tsx, cover-slider chrome ported from the siteMockup demo). All new rules are token-based (INV-7).",
+        "2026-07-11 waveform fixes: .player-bar position:fixed -> position:relative + flex-shrink:0 (docked, not overlay). Added .tape-zoom-row / .tape-zoom-icon; tape-region height budget raised (120->220, max 260) with a .tape-canvas min-height floor; .tape-motion-toggle spacing."
       ],
       "calls_inferred": []
     },
@@ -14770,7 +14845,9 @@
       "exports": [],
       "calls": [],
       "called_by": [],
-      "notes": [],
+      "notes": [
+        "2026-07-10 ST-3 styling-separation: Voices-tab component classes added (VoiceModals/ScriptEditor/MetadataEditorModal/VoicesTabHeader/SampleManager) plus the .variant-editor__* BEM class family for VariantEditor."
+      ],
       "calls_inferred": []
     },
     "frontend/src/theme/components/review-tools.css": {
@@ -14810,7 +14887,9 @@
         "frontend/src/theme/components/misc.css"
       ],
       "called_by": [],
-      "notes": [],
+      "notes": [
+        "2026-07-10 ST-1 styling-separation: imports the 11 theme/components/*.css domain files (core, nav, book, book-tabs, publish, activity, shared, player, voice-lab, review-tools, misc) in cascade order, replacing the retired single components.css."
+      ],
       "calls_inferred": []
     },
     "frontend/src/api/contracts/peaksSidecar.ts": {
@@ -14860,6 +14939,46 @@
       "notes": [
         "Added 2026-07-10, audio_player_completion_004 task 008."
       ]
+    },
+    "frontend/src/pages/Engines/components/EngineCard.css": {
+      "purpose": "Co-located stylesheet for the Engines-domain card components (EngineCard + EngineCalibrationSection/EngineSettingsForm/EngineTestSample); shared/file-local classes extracted from inline styles (2026-07-10 ST-3). No dedicated theme/components Engines-domain file exists.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/components/queue/GlobalQueue.css": {
+      "purpose": "Co-located stylesheet for GlobalQueue, extracted from inline styles into token-based classes (2026-07-10 ST-3).",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/LiveOutput/LiveOutputPage.css": {
+      "purpose": "Co-located stylesheet for LiveOutputPage, extracted from inline styles into token-based classes (2026-07-10 ST-3).",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.css": {
+      "purpose": "Co-located stylesheet for ProjectLibraryPage, extracted from inline styles into token-based classes (2026-07-10 ST-3).",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Welcome/WelcomePage.css": {
+      "purpose": "Co-located stylesheet for WelcomePage (e.g. .welcome-status-chip), extracted from inline styles into token-based classes (2026-07-10 ST-3).",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
     }
   },
   "coupling": [

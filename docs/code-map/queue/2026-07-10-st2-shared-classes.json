@@ -1,8 +1,0 @@
-{
-  "at": "2026-07-10T13:15:00Z",
-  "commit": "bd0419a8",
-  "task": "Styling-separation lane (design-docs/plans/active/simplification/styling_separation_execution/, task 003-st2-shared-classes): added 6 new shared CSS classes (.label-micro-muted, .label-micro-muted-strong, .label-caption-strong, .label-micro-muted-italic, .label-uppercase-sm, .label-uppercase-md) to frontend/src/theme/components/core.css for confirmed-repeated static inline-style label patterns, ahead of the ST-3 per-file conversion batch that consumes them.",
-  "files": {
-    "frontend/src/theme/components/core.css": { "change": "modified", "contract_changed": false, "summary": "6 new shared label classes appended for reuse across ST-3 conversion tasks." }
-  }
-}
