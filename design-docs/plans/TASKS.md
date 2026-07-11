@@ -396,20 +396,20 @@ Plan: [final_release/stage3_sdk_migration_plan.md](active/final_release/stage3_s
   > - Disable an engine → verify the **engine-unavailable banner** appears (RST-7)
   > - Lexicon tab exists; adding a word applies it when rendering
 
-- [ ] **004** — Audio player + waveform scrubber — [task file](master_fix_plan/tasks/004-audio-player-completion.md) · [scrubber plan](active/audio_player_waveform_scrubber/README.md) · [scrubber tasks](active/audio_player_waveform_scrubber/tasks/)
-  - [x] W1: make player scope-agnostic — remove `altScope`/`switchScope`, implement `fitsLegibly()` *(spec rewrite `audio-player.md` 1.6.0 already done — task 004; task 005 landed: `PlayerBar.tsx` predicate is now duration-driven via `frontend/src/app/layout/playerRepresentation.ts` + a `ResizeObserver`-measured scrub width, scope toggle UI/CSS/bus fields removed entirely — see task file for details)*
-  - [ ] RST-8: teach player the segment model for block navigation (uses segment logic from `useStudioChapter`)
-  - [ ] W2 (tasks 006–009): port `WaveformTape` renderer, zoom/minimap/ruler, `PlayerBar` integration, CSS + tests *(task 006 landed: `frontend/src/app/layout/WaveformTape.tsx` — ported `MockWaveTape`'s fixed-grid sampling/paged+moving window math/click+drag scrub/ruler, plus a browser `usePeaks()` Web Audio peak provider and `TAPE_ZOOM_PRESETS_SEC`/`PEAKS_COUNT` exports; bound to `playerBus.seek()`, not yet mounted in `PlayerBar.tsx` — that's task 008. Task 007 landed 2026-07-04 (`da85960a`): `WaveformTapeZoom.tsx` + `WaveformTapeMinimap.tsx` ported from `MockTapeControls.tsx`, wired into `WaveformTape.tsx` via new `onZoomChange`/`peaks` props, wheel-snap + keyboard zoom stepping. Tasks 008–009 remain.)*
-  - [ ] W2 also: "Play book" whole-book sequenced playback (`onEnded` advance), paged↔moving motion toggle (forced-paged under reduced-motion), ~10–15 min duration cap (fall back to plain bar), single-`<audio>`-owner invariant grep check
-  - [ ] W3 (tasks 010–012): peaks source abstraction, backend sidecar emission, source-swap + virtualization
+- [~] **004** — Audio player + waveform scrubber — [task file](master_fix_plan/tasks/004-audio-player-completion.md) · [scrubber plan (W0-1 history)](active/audio_player_waveform_scrubber/README.md) · [completion plan (W2-3 + RST-8)](active/audio_player_completion_004/README.md)
+  - [x] W1: make player scope-agnostic — remove `altScope`/`switchScope`, implement `fitsLegibly()`.
+  - [x] RST-8: segment/block navigation *(2026-07-10, `audio_player_completion_004` tasks 003-005 — reshaped after research found the real gap was narrower than originally scoped: fixed a real bug where manual Prev/Next on the global bar restarted a multi-segment audio block instead of advancing/going back a block, by normalizing the playback queue to one entry per block; added a plain "Block N of M" passive subtitle. No new segment-model abstraction was needed — `useChapterPlayback.ts`'s existing queue mechanism already carried segment playback end-to-end, just with this one navigation bug.)*
+  - [x] W2 (PlayerBar tape wiring + CSS/tests): *(2026-07-10, `audio_player_completion_004` tasks 001-002 — wired the already-built `WaveformTape`/`WaveformTapeZoom`/`WaveformTapeMinimap` into the live `PlayerBar`: open/close via `AudioLines`, paged↔moving motion toggle, 600s duration cap with plain-bar fallback, tape CSS, tests.)*
+  - [x] W3 (peaks source abstraction, backend sidecar, source-swap): *(2026-07-10, `audio_player_completion_004` tasks 006-009 — reshaped from the original design after research found the planned orchestrator-completion chokepoint doesn't fire for this app's default engines. Shipped instead: a self-describing, versioned `<chapter>.peaks.json` sidecar computed lazily on first request by the chapter-asset serving route (not a manifest/DB field — that layer is scaffold-only in production), staleness detected by comparing a file-stat stamp; frontend `usePeaks`/`PlayerBar` source-swap seam. "Virtualization" was scoped out — verified false premise, the tape/minimap renderers are already O(visible-bars) regardless of array length.)*
+  - Dropped from scope (not part of 004): the drafted "Play book" whole-book affordance — found duplicative of the already-shipped `ContinueListeningCard` (`scope:'book'`); logged as a future backlog item if chapter-chaining from the Library page is still wanted. Full completion audit + adversarial review passed (3 real findings fixed: a route-side 500→404 hardening, a decode memory/CPU DoS guard, a minimap peak-source bug); see `audio_player_completion_004/status.json` for detail.
 
-  > 👁 **VISUAL CHECK — 004 complete**
+  > 👁 **VISUAL CHECK — 004 (owner sign-off pending, see `audio_player_completion_004/02-roadmap.md`)**
   > Open a chapter with rendered segments:
   > - Global player works without a scope toggle — plays book-level and chapter-level audio from the same bar
-  > - **Segment navigation:** prev/next segment buttons jump between individual segment clips
-  > - **Waveform tape** renders below the player bar — scrub by dragging; playhead follows
-  > - Zoom presets (fit / 1× / 2× / etc.) change the tape resolution; minimap shows position in long chapters
-  > - Reduced-motion: waveform renders statically, no animated transitions
+  > - **Segment navigation:** prev/next segment buttons correctly jump between distinct audio blocks (not mid-block restarts); a "Block N of M" label shows during segment playback
+  > - **Waveform tape** opens via the `AudioLines` toggle for chapters under 10 minutes — scrub by dragging; playhead follows; motion toggle (paged/moving); minimap; zoom presets
+  > - A chapter over 10 minutes still renders the tape, fed by a server-computed peaks sidecar (check the network tab for a `/assets/peaks` request) instead of a full browser decode
+  > - Reduced-motion: tape renders statically, no animated transitions, motion toggle disabled
 
 ---
 
