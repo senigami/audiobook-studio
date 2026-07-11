@@ -1,0 +1,22 @@
+{
+  "at": "2026-07-11T22:05:00Z",
+  "commit": "1684cb57",
+  "task": "Fixes from a 3-persona adversarial review (Saboteur/New Hire/Security Auditor) run over commits d41d4356 (bookmark dropdown theming fix) and 8aa3bc65 (Stage 3 app_adapter.py migration).",
+  "files": {
+    "plugins/tts_xtts/plugin/studio/app_adapter.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Extracted _resolve_voice_inputs() helper: wraps ctx.resolve_voice_preview_inputs() in a try/except that raises EngineExecutionError on failure (previously unguarded, could have escaped this adapter's error contract unclassified), and eliminates duplicated dict-to-Path unwrap logic that appeared at both call sites (synthesize, preview).",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "frontend/src/pages/Book/components/ChapterWorkspaceHeader.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Bookmarks dropdown entries now carry a 'secondary: Other book' marker for bookmarks whose bookId differs from the current book, so two identically-labeled bookmarks from different books are distinguishable (scoped fix using only bookId comparison, not a book-title fetch).",
+      "calls_added": [],
+      "calls_removed": []
+    }
+  },
+  "flow_impact": "none — both are hardening/clarity fixes on already-shipped behavior, no new flows"
+}
