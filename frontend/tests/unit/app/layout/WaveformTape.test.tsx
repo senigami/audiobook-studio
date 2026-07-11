@@ -768,6 +768,38 @@ describe('WaveformTape — zoom + minimap wiring (task 007)', () => {
     expect(playerBus.seek).toHaveBeenLastCalledWith(25);
   });
 
+  it('feeds the internally decoded peaks into the minimap when peaks={null} (under-cap case), not flat fallback bars', async () => {
+    // PlayerBar passes peaks={sidecarPeaks}, which is `null` for every
+    // under-cap clip (the common case). The minimap must render from the
+    // internally decoded peakArray (varied sawtooth from the describe-block's
+    // AudioContext mock), NOT the raw null prop — a null prop collapses the
+    // minimap to uniform FALLBACK_AMP bars even though the canvas shows a real
+    // decoded shape.
+    const audioEl = makeAudioEl();
+    const { container } = render(
+      <WaveformTape
+        audioEl={audioEl}
+        audioUrl="https://example.com/a.mp3"
+        duration={120}
+        windowSec={30}
+        peaks={null}
+        onZoomChange={vi.fn()}
+      />,
+    );
+    await waitFor(() =>
+      expect(container.querySelectorAll('rect.tape-minimap-bar').length).toBeGreaterThan(0),
+    );
+    // Wait for the decode to resolve and flow into the minimap.
+    await waitFor(() => {
+      const heights = Array.from(container.querySelectorAll('rect.tape-minimap-bar')).map((b) =>
+        b.getAttribute('height'),
+      );
+      // A varied decoded shape produces multiple distinct bar heights; flat
+      // fallback bars would all be identical.
+      expect(new Set(heights).size).toBeGreaterThan(1);
+    });
+  });
+
   it('passes the peaks prop through to the minimap so it reflects real audio shape', async () => {
     const audioEl = makeAudioEl();
     const peaks = Array.from({ length: 1000 }, (_, i) => i / 999);

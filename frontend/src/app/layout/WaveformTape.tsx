@@ -241,7 +241,14 @@ export const WaveformTape: React.FC<WaveformTapeProps> = ({
   peaks,
 }) => {
   const peakArray = usePeaks(audioUrl, audioEl, peaks);
-  const minimapPeaks = peaks !== undefined ? peaks : peakArray;
+  // usePeaks already resolves the effective source: it returns `peaks` when a
+  // non-empty array is supplied, otherwise the internally decoded array. The
+  // minimap must render from that same resolved source — reading the raw
+  // `peaks` prop here instead would feed the minimap a bare `null`/`[]` (the
+  // common under-cap case, where PlayerBar passes `sidecarPeaks === null`),
+  // collapsing it to flat fallback bars while the canvas shows the real
+  // decoded shape.
+  const minimapPeaks = peakArray;
   const reducedMotion = useReducedMotion();
   const effectiveMode: 'paged' | 'moving' = reducedMotion ? 'paged' : mode;
 
