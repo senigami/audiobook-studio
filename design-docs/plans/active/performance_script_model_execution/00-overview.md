@@ -31,7 +31,16 @@ shipped implementation:
 
 **What this means:** the scheduling decision is no longer blocked on migration-ordering. It's now a
 genuine, real-merits question: **is this large body of work (see Scope/Size below) worth doing now,
-and does the owner accept the AI-extraction pipeline's reliability/cost unknowns** (flagged by the
+does the owner accept the AI-extraction pipeline's reliability/cost unknowns, and — caught in
+adversarial review, a real addition to this decision, not just an implementation detail — is the
+owner comfortable with this pipeline sending full manuscript text to a third-party cloud LLM API
+(Anthropic)?** This project's own positioning elsewhere treats "local-first, no-cloud" as a real
+product stance, and this is the first pipeline in the codebase that would send raw manuscript
+content off-device. Task 005 requires an explicit consent gate (matching the existing HuggingFace
+voice-import consent pattern) before this runs on real content — but whether to build this workload
+*at all* is partly a question of whether that trade-off (a cloud call on manuscript text, even
+consent-gated) fits this product's direction, not purely an engineering cost question. Flag this to
+the owner alongside the reliability/cost unknowns the research doc already flagged (see
 proposal's own companion research doc as needing validation)? This plan is written so it's ready to
 execute the moment that answer is yes — but this overview does not answer it for the owner.
 

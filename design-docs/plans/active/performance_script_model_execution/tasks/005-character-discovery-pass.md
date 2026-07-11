@@ -48,6 +48,34 @@ this one starts. Flag this to the owner/executor before estimating this task's s
 it's a new category of external dependency (network call to a paid third-party API) that
 nothing else in the backend currently has.
 
+## Privacy/consent gate — caught in adversarial review, resolve before implementing
+
+This task is the **first place in the entire codebase that sends full manuscript text to a
+third-party cloud API** (Anthropic). This project's own history treats "local-first,
+no-cloud" as a real product/marketing position (see `design-docs/plans/reference/
+site_experience_north_star.md` Appendix B: "local-first/no-cloud positioning... a marketing
+surface"), and this codebase already has an established consent-gate pattern for exactly
+this class of concern: the HuggingFace voice-import flow requires an explicit
+consent-checkbox step before any of a user's data leaves the app (`design-docs/plans/
+TASKS.md`'s HF voice UI entry: "consent gate → download"). Sending a user's manuscript
+(potentially unpublished, copyrighted, or simply private creative work) to a cloud LLM with
+**no equivalent gate** would be a real, user-facing privacy regression relative to this
+project's own stated positioning — not a hypothetical concern.
+
+**Before this pass ever runs on real user content:**
+- An explicit, opt-in setting or per-run consent step must exist — the AI-extraction
+  pipeline must not run silently as a side effect of some other action (e.g. opening a
+  chapter) or be default-on for existing projects. Match the HF-import flow's consent
+  pattern (explicit checkbox/confirmation, not a buried settings toggle nobody notices) as
+  the precedent to imitate.
+- The settings/consent state should be recorded per-project or globally (decide which fits
+  better given this repo's existing settings scoping conventions) so a user who declines
+  never has chapter text silently sent regardless of what triggers this task's code path.
+- This is a product/scope decision for the owner as much as an implementation detail —
+  flag it explicitly in `00-overview.md`'s Schedule decision if it hasn't been raised there
+  already, since it affects whether/how the owner wants to greenlight this workload at all,
+  not just how task 005 is coded.
+
 ## What the research doc validated vs. left open (read before implementing)
 
 `design-docs/plans/proposals/research_character_brief_extraction_and_persona_casting.md`
@@ -163,6 +191,10 @@ identity may duplicate another character already in the registry. `locked: false
 
 ## Acceptance criteria
 
+- [ ] An explicit consent/opt-in gate exists before any real chapter text is sent to the
+      LLM API, matching the HF-import flow's consent pattern — this pass never runs
+      silently as a side effect of an unrelated action, and never runs by default on
+      existing projects without the user having explicitly opted in.
 - [ ] Validation spike run against at least 2-3 real chapters; a human reviewer has looked
       at the raw discovery output and confirmed it is not hallucinating characters/traits
       and is usefully accurate on the sample — **this is a precondition for the rest of

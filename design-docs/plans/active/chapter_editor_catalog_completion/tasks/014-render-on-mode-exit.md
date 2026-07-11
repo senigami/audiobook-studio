@@ -36,6 +36,21 @@ The map (`01-map.md` part J) and prior research state that `DirectorsTool` in `t
 2. **A context, not a registry callback, for anything stateful.** Add a mode-exit reporting channel analogous to `DirtyGuardContext` — either extend `DirtyGuardContextValue` with something like `registerModeExitHandler: (fn: (() => void | Promise<void>) | null) => void`, or add a small sibling context in the same file/pattern. `CastToolBody` registers (via a ref, updated in an effect so it always points at the latest closure) a handler that: (a) calls the changed-segment tracker's `flush()` to get the ids and clear it, (b) if the list is non-empty, calls `handleGenerateWithFallback(ids)`. `DirectorsConsole` calls the currently-registered handler in `handleToolClick` (before `setActiveToolId`) and in `handleConfirmSwitch` (before switching), but **only when the tool being left is Cast** (or, more generally, only when a handler is actually registered — other tools have nothing to flush).
 3. **`onModeEnter` is not load-bearing for this task.** The design doc's hard requirement is about exit, not entry (§5 #2). Since exit always flushes and clears the tracked set, re-entering Cast naturally starts from empty — no reset logic is needed on entry for this task's scope. Add the type field (§17 names it) but do not force a speculative implementation; a genuinely stateless tool may simply omit it.
 4. **Booth's "explicit tap bumps to top of queue"** (§13) is a distinct, simpler, user-initiated interaction on an already-queued/rendering segment — **not** part of this task's mode-exit side effect. Scope it as a small addendum only if a natural, low-risk hook point already exists in Booth's current render-status UI once this task's plumbing lands; otherwise flag it explicitly as its own small follow-up rather than folding it in and complicating this task's core scope.
+5. **The "silently" requirement has one real edge case to handle explicitly (caught in
+   adversarial review): `handleGenerateWithFallback` can itself show a blocking modal** when
+   the resolved voice for a changed segment is unavailable (per its existing, unmodified
+   behavior — see Current shape). If this fires during a mode-exit flush, a user clicking
+   the Booth tab would be unexpectedly met with a "voice unavailable" modal instead of
+   landing in Booth — the opposite of "silent." This task must decide and implement one of:
+   (a) let the mode-switch itself proceed immediately (don't block navigation on the flush's
+   result) and let the modal appear over whichever mode the user landed in, so the switch
+   itself is never blocked even if the render-queue call surfaces a modal a moment later; or
+   (b) suppress the voice-unavailable modal specifically for a mode-exit-triggered call
+   (log/toast instead) and let the user discover the issue when they next try to render
+   from Cast. Recommend (a) — it's a smaller change (don't await the flush before switching
+   modes) and doesn't suppress real information, it just decouples "switching modes" from
+   "waiting for the render call's own UI side effects." Do not ship this task without an
+   explicit decision on this point recorded in the status update.
 
 ## Steps
 
@@ -54,6 +69,7 @@ The map (`01-map.md` part J) and prior research state that `DirectorsTool` in `t
 - [ ] Switching away from Cast with **no** changed assignments since entry triggers no render call at all.
 - [ ] Switching between non-Cast tools (Booth → Revise, etc.) does not trigger any render call.
 - [ ] The dirty-guard confirm-switch path (`handleConfirmSwitch`) also fires the mode-exit flush — a user who confirms "switch anyway" over the unsaved-changes modal must not silently skip the render trigger.
+- [ ] A changed segment whose voice is unavailable at mode-exit time does not block or delay the mode switch itself — the switch completes immediately regardless of what `handleGenerateWithFallback`'s own modal does (see Target shape point 5).
 - [ ] No new field/callback is stuffed into the static `registry.ts` tools array for stateful behavior — stateful reporting goes through context, consistent with the existing `DirtyGuardContext` pattern (INV: don't add a second, incompatible state-reporting mechanism next to the one that already exists for the same tool-body-to-console direction).
 - [ ] `./venv/bin/python -m pytest -q` (no backend touched, should be a no-op run) and `npm -C frontend run test -- --run` both clean.
 - [ ] Relevant spec (`chapter-editor-modes.md` is a design doc, not a `design-docs/specs/` contract — check whether any `design-docs/specs/` file describes Cast's render-trigger behavior; if one exists, bump it per the binding CLAUDE.md rule, otherwise note none applies).

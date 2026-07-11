@@ -54,13 +54,38 @@ must be no code path, background job, or default behavior that flips `ai_suggest
    confirming, not just accept-as-is). On confirm: set `locked = 1`, clear
    `ai_suggested`/`needs_review`, clear `review_reasons`. This is the single mutation path
    that moves data out of "suggestion" state.
-3. **Reject/dismiss endpoint(s)**: for a suggestion a human determines is wrong (e.g. a
-   duplicate-character flag that should stay two separate characters, or a bad speaker
-   attribution) — decide and document what "reject" means precisely (delete the candidate
-   row? revert to a prior state? mark permanently dismissed?) since the spec doesn't
-   prescribe this exactly; whatever is chosen, it must be an explicit, auditable action,
-   not a silent fallback.
-4. **No implicit confirmation anywhere else in the codebase**: audit every other write path
+3. **Mandatory scoping on the MUTATION endpoints, not just the list endpoints (caught in
+   adversarial review — do not skip this).** The list endpoints above are specified with
+   project/chapter scoping; the confirm/reject endpoints must carry the **exact same
+   scoping requirement**, explicitly re-verified at the mutation layer, not assumed
+   inherited from the list call. This repo has already shipped the "endpoint accepts an id
+   with no project-scope check, silently allowing cross-project access" bug class at least
+   twice in this session alone (a chapters-endpoint fix, and a Backups-relocation
+   `projectId` check in a sibling plan) — a new write endpoint that doesn't carry this
+   requirement forward is repeating a known, already-diagnosed failure mode in this exact
+   codebase. Concretely: `POST .../characters/{id}/confirm` and its segment/reject
+   equivalents must validate that `{id}` belongs to the `project_id`/`chapter_id` in the
+   request's own scope (route param or auth context — match whatever pattern
+   `app/api/routers/chapters.py`/`projects.py` already use for this), and reject
+   (404, not a silent no-op) a mismatched id rather than trusting the id alone.
+4. **Reject/dismiss endpoint(s)** — this is a genuine open design fork, not just an
+   implementation detail; resolve it explicitly before writing code, the same way this
+   plan's task 000 resolves the schema-overlap fork, rather than inventing an answer
+   mid-implementation:
+   - **Option A (recommended default): mark permanently dismissed**, not deleted. Add a
+     `dismissed` state (e.g. reuse `needs_review = 0` + a new lightweight flag, or a
+     `review_reasons` sentinel value — decide the exact storage shape when implementing,
+     but the semantic must be "this exact AI suggestion won't resurface as needing review
+     again," not data deletion). Reasoning: deleting the candidate row destroys information
+     a later reconciliation pass or a different reviewer might want to see (why did the AI
+     think this, and why was it wrong) — dismissal preserves an audit trail; deletion
+     doesn't.
+   - **Option B: delete the candidate row entirely.** Simpler, but destroys the AI's
+     reasoning/evidence with no audit trail — only choose this if Option A's extra state
+     genuinely doesn't fit the schema task 001 ships.
+   - Whichever is chosen, it must be explicit, auditable, and — like confirm — must never
+     be reachable by any path other than a real human-initiated request.
+5. **No implicit confirmation anywhere else in the codebase**: audit every other write path
    that touches `characters`/`chapter_segments` (existing chapter/character CRUD routes,
    any batch/bulk operations, the reconciliation pass itself from 008) to confirm none of
    them can flip `locked`/`ai_suggested`/`needs_review` as a side effect of an unrelated
@@ -109,9 +134,13 @@ must be no code path, background job, or default behavior that flips `ai_suggest
 - [ ] A suggestion left unconfirmed never transitions to confirmed on its own — verified by
       a test that runs other existing write paths against a suggestion row and confirms it
       is unchanged.
-- [ ] Reject/dismiss semantics are explicitly decided, documented (in this task file's own
-      status update or the matching spec, per this repo's binding "behavior change updates
+- [ ] Reject/dismiss semantics are explicitly decided (Option A or B above, or a documented
+      deviation) in this task file's own status update *before* implementation starts, then
+      documented in the matching spec (per this repo's binding "behavior change updates
       the spec in the same commit" rule), and tested.
+- [ ] **Confirm and reject/dismiss endpoints both validate project/chapter scoping**,
+      verified by a test that a request for an id belonging to a different project is
+      rejected (404), not silently applied — this is a blocking criterion, not optional.
 - [ ] A human reviewer has walked through the actual confirm/reject flow against real or
       realistic seeded data and confirmed the endpoints behave as expected end-to-end —
       not just unit-tested in isolation, since this is the load-bearing INV-3 boundary for
