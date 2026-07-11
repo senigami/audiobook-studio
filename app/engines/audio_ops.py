@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import array
+import math
 import subprocess
 from pathlib import Path
 from typing import Any, Callable
 
 from app.core.config import MP3_QUALITY
-from app.utils.subprocess_utils import probe_audio_duration
+from app.utils.subprocess_utils import probe_audio_duration, probe_audio_stream_info
 
 
 def wav_to_mp3(
@@ -142,3 +144,92 @@ def _ffmpeg_concat_entry(path: Path) -> str:
     resolved = path.resolve()
     normalized = resolved.as_posix().replace("'", r"'\''")
     return f"file '{normalized}'\n"
+
+
+PEAKS_PER_SEC = 8
+PEAKS_MAX = 100_000
+SIDECAR_VERSION = 1
+
+# DoS guard: the mono-f32le decode below is buffered whole in memory (raw bytes
+# plus an array copy) and the peak loop iterates every sample in pure Python —
+# both scale with duration * sample_rate with no natural ceiling. Cap the number
+# of decoded samples we will materialize; longer inputs are downsampled by
+# ffmpeg to stay under it. 20M samples ~= 80 MB raw + 80 MB array, and the
+# per-sample Python loop stays bounded regardless of how long the source is.
+PEAKS_MAX_DECODE_SAMPLES = 20_000_000
+
+
+def compute_peaks_sidecar(wav_path: Path) -> dict | None:
+    """Computes a downsampled peaks sidecar for wav_path.
+
+    Returns None on any failure (probe failure, ffmpeg failure, empty audio) —
+    callers must treat None as "sidecar unavailable," never raise past this
+    function.
+
+    Race safety: stats wav_path before AND after the ffmpeg read; if the stat
+    changed (a concurrent re-render rewrote the file mid-read), returns None
+    rather than risk stamping a torn read as valid data.
+    """
+    try:
+        stat_before = wav_path.stat()
+        duration_sec = probe_audio_duration(wav_path)
+        sample_rate, channels = probe_audio_stream_info(wav_path)
+        if duration_sec <= 0 or sample_rate <= 0:
+            return None
+
+        num_peaks = min(math.ceil(duration_sec * PEAKS_PER_SEC), PEAKS_MAX)
+
+        # Bound peak memory/CPU: if the source would decode to more than
+        # PEAKS_MAX_DECODE_SAMPLES samples, ask ffmpeg to downsample. Short and
+        # typical inputs are unaffected (decode at native rate, byte-identical);
+        # long inputs still get a faithful 8-peaks/sec overview at a coarser
+        # rate instead of exhausting memory inside the request handler.
+        decode_rate = sample_rate
+        if duration_sec * sample_rate > PEAKS_MAX_DECODE_SAMPLES:
+            decode_rate = max(PEAKS_PER_SEC * 4, int(PEAKS_MAX_DECODE_SAMPLES / duration_sec))
+
+        cmd = ["ffmpeg", "-v", "error", "-i", str(wav_path), "-f", "f32le", "-ac", "1"]
+        if decode_rate != sample_rate:
+            cmd += ["-ar", str(decode_rate)]
+        cmd.append("-")
+        proc = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=30,
+        )
+        if proc.returncode != 0:
+            return None
+        raw = proc.stdout
+        samples = array.array("f")
+        samples.frombytes(raw[: len(raw) - (len(raw) % 4)])
+
+        bucket_size = max(1, len(samples) // num_peaks)
+        peaks = []
+        for i in range(0, len(samples), bucket_size):
+            chunk = samples[i : i + bucket_size]
+            if not chunk:
+                continue
+            peaks.append(round(min(1.0, max(abs(s) for s in chunk)), 3))
+            if len(peaks) >= num_peaks:
+                break
+
+        stat_after = wav_path.stat()
+        if stat_before.st_size != stat_after.st_size or stat_before.st_mtime_ns != stat_after.st_mtime_ns:
+            return None  # torn read — a concurrent re-render happened mid-compute
+
+        return {
+            "version": SIDECAR_VERSION,
+            "peaks": peaks,
+            "duration_sec": duration_sec,
+            "sample_rate": sample_rate,
+            "channels": channels,
+            "peaks_per_sec": PEAKS_PER_SEC,
+            "source": {
+                "filename": wav_path.name,
+                "size_bytes": stat_after.st_size,
+                "mtime_ns": stat_after.st_mtime_ns,
+            },
+        }
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None

@@ -162,6 +162,85 @@ describe('usePeaks', () => {
     await waitFor(() => expect(decodeAudioDataMock).toHaveBeenCalledTimes(2));
   });
 
+  // ---------------------------------------------------------------------------
+  // Task 008 — suppliedPeaks seam (backward-compatible third argument)
+  // ---------------------------------------------------------------------------
+
+  it('returns suppliedPeaks directly and skips fetch/AudioContext entirely when a non-empty array is supplied', async () => {
+    installAudioContextMock(makeMockAudioBuffer([0.1, 0.2, 0.3]));
+    const suppliedPeaks = [0.9, 0.5, 0.1];
+
+    const captured: { current: number[] | null } = { current: null };
+    const Harness: React.FC = () => {
+      const peaks = usePeaks('https://example.com/a.wav', makeAudioEl(), suppliedPeaks);
+      useEffect(() => {
+        captured.current = peaks;
+      }, [peaks]);
+      return null;
+    };
+    render(<Harness />);
+
+    await waitFor(() => expect(captured.current).toEqual(suppliedPeaks));
+    // No network request or Web Audio decode should have occurred — the
+    // supplied array is returned directly, not merely preferred afterward.
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(mockAudioContextCtor).not.toHaveBeenCalled();
+  });
+
+  it('falls back to fetch+decode when suppliedPeaks is undefined (existing callers unaffected)', async () => {
+    installAudioContextMock(makeMockAudioBuffer(new Array(100).fill(0.4)));
+
+    const captured: { current: number[] | null } = { current: null };
+    const Harness: React.FC = () => {
+      const peaks = usePeaks('https://example.com/a.wav', makeAudioEl());
+      useEffect(() => {
+        captured.current = peaks;
+      }, [peaks]);
+      return null;
+    };
+    render(<Harness />);
+
+    await waitFor(() => expect(captured.current).not.toBeNull());
+    expect(global.fetch).toHaveBeenCalledWith('https://example.com/a.wav');
+    expect(mockAudioContextCtor).toHaveBeenCalled();
+  });
+
+  it('falls back to fetch+decode when suppliedPeaks is an empty array', async () => {
+    installAudioContextMock(makeMockAudioBuffer(new Array(100).fill(0.4)));
+
+    const captured: { current: number[] | null } = { current: null };
+    const Harness: React.FC = () => {
+      const peaks = usePeaks('https://example.com/a.wav', makeAudioEl(), []);
+      useEffect(() => {
+        captured.current = peaks;
+      }, [peaks]);
+      return null;
+    };
+    render(<Harness />);
+
+    await waitFor(() => expect(captured.current).not.toBeNull());
+    expect(mockAudioContextCtor).toHaveBeenCalled();
+  });
+
+  it('WaveformTape threads its own peaks prop into usePeaks, suppressing internal decode', async () => {
+    installAudioContextMock(makeMockAudioBuffer([0.1, 0.2, 0.3]));
+    const suppliedPeaks = Array.from({ length: 50 }, (_, i) => i / 49);
+    const audioEl = makeAudioEl();
+
+    render(
+      <WaveformTape
+        audioEl={audioEl}
+        audioUrl="https://example.com/a.wav"
+        duration={120}
+        peaks={suppliedPeaks}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByRole('slider')).toBeInTheDocument());
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(mockAudioContextCtor).not.toHaveBeenCalled();
+  });
+
   it('short clip (fewer raw samples than PEAKS_COUNT): every raw sample is represented, no zero-padded tail', async () => {
     // Raw sample count well under PEAKS_COUNT (4000). Every sample is loud
     // (0.9) so a flatlined padded tail is trivially distinguishable from
@@ -687,6 +766,38 @@ describe('WaveformTape — zoom + minimap wiring (task 007)', () => {
     const root = screen.getByRole('region', { name: 'Audio tape' });
     fireEvent.keyDown(root, { key: 'ArrowRight' });
     expect(playerBus.seek).toHaveBeenLastCalledWith(25);
+  });
+
+  it('feeds the internally decoded peaks into the minimap when peaks={null} (under-cap case), not flat fallback bars', async () => {
+    // PlayerBar passes peaks={sidecarPeaks}, which is `null` for every
+    // under-cap clip (the common case). The minimap must render from the
+    // internally decoded peakArray (varied sawtooth from the describe-block's
+    // AudioContext mock), NOT the raw null prop — a null prop collapses the
+    // minimap to uniform FALLBACK_AMP bars even though the canvas shows a real
+    // decoded shape.
+    const audioEl = makeAudioEl();
+    const { container } = render(
+      <WaveformTape
+        audioEl={audioEl}
+        audioUrl="https://example.com/a.mp3"
+        duration={120}
+        windowSec={30}
+        peaks={null}
+        onZoomChange={vi.fn()}
+      />,
+    );
+    await waitFor(() =>
+      expect(container.querySelectorAll('rect.tape-minimap-bar').length).toBeGreaterThan(0),
+    );
+    // Wait for the decode to resolve and flow into the minimap.
+    await waitFor(() => {
+      const heights = Array.from(container.querySelectorAll('rect.tape-minimap-bar')).map((b) =>
+        b.getAttribute('height'),
+      );
+      // A varied decoded shape produces multiple distinct bar heights; flat
+      // fallback bars would all be identical.
+      expect(new Set(heights).size).toBeGreaterThan(1);
+    });
   });
 
   it('passes the peaks prop through to the minimap so it reflects real audio shape', async () => {

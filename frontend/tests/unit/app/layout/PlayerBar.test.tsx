@@ -1,6 +1,6 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PlayerBar } from '@/app/layout/PlayerBar';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PlayerBar, TAPE_DURATION_CAP_SEC } from '@/app/layout/PlayerBar';
 import * as playerBus from '@/store/playerBus';
 import { DURATION_BOOTSTRAP } from '@/app/layout/playerRepresentation';
 
@@ -41,16 +41,42 @@ function fireResize(width: number) {
   });
 }
 
+// jsdom does not implement window.matchMedia. PlayerBar reads it once at
+// mount (read-once-at-mount, mirroring WaveformTape.tsx's useReducedMotion())
+// to decide the tape motion-toggle's disabled/label state — this is an
+// external OS API (R2: outside the unit under test), not a playerBus/PlayerBar
+// internal, so stubbing it here (matching WaveformTape.test.tsx's own pattern)
+// is legitimate.
+const originalMatchMedia = window.matchMedia;
+
+function mockMatchMedia(reduced: boolean) {
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches: reduced,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }));
+}
+
 describe('PlayerBar', () => {
   beforeEach(() => {
     playerBus.resetPlayerBusForTests();
     lastResizeObserverCallback = null;
 
     vi.stubGlobal('ResizeObserver', MockResizeObserver);
+    mockMatchMedia(false);
 
     // Mock HTMLMediaElement prototype methods that JSDOM doesn't implement or stub fully
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve());
     vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia;
   });
 
   it('renders nothing when audioUrl is null', () => {
@@ -361,19 +387,35 @@ describe('PlayerBar', () => {
 
       expect(screen.queryByTestId('waveform-strip')).toBeNull();
       expect(screen.getByRole('slider')).toBeInTheDocument();
-      expect(screen.getByLabelText('Show waveform')).toBeInTheDocument();
+      // duration=10 is under TAPE_DURATION_CAP_SEC, so once flipped to the bar
+      // representation the toggle becomes the tape-open control (task 001),
+      // not a plain "Show waveform" re-flip — that label is reserved for
+      // clips over the cap (see the "never offers the tape above the
+      // duration cap" test below).
+      expect(screen.getByLabelText('Open tape view')).toBeInTheDocument();
     });
 
-    it('the AudioLines toggle still flips bar → waveform regardless of scope', () => {
+    it('the AudioLines toggle still flips bar → waveform regardless of scope', async () => {
       playerBus.loadAndPlay({
         scope: 'segment',
         title: 'Flip test 2',
         audioUrl: 'https://example.com/chapter.wav',
       });
-      playerBus.reportTime(0, 600);
+      // duration=700 (not 600): must stay above TAPE_DURATION_CAP_SEC so the
+      // toggle's label is the plain wave/bar flip this test targets, not the
+      // tape-availability label — 600 collides exactly with the cap boundary
+      // (tapeAvailable is duration<=TAPE_DURATION_CAP_SEC, inclusive).
+      playerBus.reportTime(0, 700);
 
       render(<PlayerBar />);
       fireResize(600);
+
+      // duration is over TAPE_DURATION_CAP_SEC, so mounting fires the task-008
+      // peaks-sidecar fetch effect; flush its (non-matching-URL, null-result)
+      // microtask under act() before interacting further.
+      await act(async () => {
+        await Promise.resolve();
+      });
 
       expect(screen.getByRole('slider')).toBeInTheDocument();
       const toggle = screen.getByLabelText('Show waveform');
@@ -411,6 +453,211 @@ describe('PlayerBar', () => {
       });
 
       expect(screen.getByTestId('waveform-strip')).toBeInTheDocument();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Tape view (audio-player.md 1.6.0 §5, task 002) — the AudioLines toggle
+  // opens/closes the expanded tape when the clip is under the duration cap
+  // and offers the plain representation-flip label above it.
+  // -------------------------------------------------------------------------
+
+  describe('Tape view', () => {
+    it('toggle opens the tape under the duration cap, and closes it again', () => {
+      playerBus.loadAndPlay({
+        scope: 'chapter',
+        title: 'Tape Test',
+        audioUrl: 'https://example.com/tape.mp3',
+      });
+      playerBus.reportTime(0, 300); // under TAPE_DURATION_CAP_SEC, bar representation by default (bootstrap)
+
+      render(<PlayerBar />);
+
+      expect(document.querySelector('.player-tape-region')).toBeNull();
+
+      act(() => {
+        fireEvent.click(screen.getByLabelText('Open tape view'));
+      });
+      expect(document.querySelector('.player-tape-region')).not.toBeNull();
+
+      act(() => {
+        fireEvent.click(screen.getByLabelText('Close tape view'));
+      });
+      expect(document.querySelector('.player-tape-region')).toBeNull();
+    });
+
+    it('never offers the tape above the duration cap — toggle keeps the representation-flip label', async () => {
+      playerBus.loadAndPlay({
+        scope: 'chapter',
+        title: 'Over Cap Test',
+        audioUrl: 'https://example.com/long.mp3',
+      });
+      playerBus.reportTime(0, TAPE_DURATION_CAP_SEC + 300);
+
+      render(<PlayerBar />);
+
+      // duration is over TAPE_DURATION_CAP_SEC, so mounting fires the task-008
+      // peaks-sidecar fetch effect; flush its (non-matching-URL, null-result)
+      // microtask under act() before interacting further.
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      const toggle = screen.getByLabelText('Show waveform');
+      act(() => {
+        fireEvent.click(toggle);
+      });
+
+      expect(document.querySelector('.player-tape-region')).toBeNull();
+      expect(screen.queryByLabelText('Open tape view')).toBeNull();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Peaks sidecar source-swap (task 008) — over-cap clips fetch a
+  // server-computed peaks sidecar (app/api/routers/chapters_assets.py) to
+  // make the tape available without a browser decode. `global.fetch` is the
+  // only mock (R2 — network boundary); PlayerBar/fetchPeaksSidecar
+  // themselves are the unit under test.
+  // -------------------------------------------------------------------------
+
+  describe('Peaks sidecar source-swap (task 008)', () => {
+    const CHAPTER_AUDIO_URL = (name: string) =>
+      `/api/projects/proj1/chapters/ch1/assets/audio?filename=${name}`;
+
+    function validSidecarResponse(filename: string) {
+      return {
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            version: 1,
+            peaks: [0, 0.5, 1],
+            duration_sec: 700,
+            sample_rate: 44100,
+            channels: 1,
+            peaks_per_sec: 10,
+            source: { filename, size_bytes: 1, mtime_ns: 1 },
+          }),
+      };
+    }
+
+    afterEach(() => {
+      (global.fetch as ReturnType<typeof vi.fn>).mockReset();
+    });
+
+    it('does not fetch the peaks sidecar for an under-cap clip', () => {
+      const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+      fetchMock.mockResolvedValue({ ok: false, json: () => Promise.resolve({}) });
+
+      playerBus.loadAndPlay({
+        scope: 'chapter',
+        title: 'Under cap',
+        audioUrl: CHAPTER_AUDIO_URL('short.wav'),
+      });
+      playerBus.reportTime(0, 300); // under TAPE_DURATION_CAP_SEC
+
+      render(<PlayerBar />);
+
+      const peaksCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes('/assets/peaks'));
+      expect(peaksCalls).toHaveLength(0);
+    });
+
+    it('fetches the peaks sidecar for an over-cap clip and offers the tape once it resolves', async () => {
+      const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+      fetchMock.mockImplementation((url: string) =>
+        String(url).includes('/assets/peaks')
+          ? Promise.resolve(validSidecarResponse('long.wav'))
+          : Promise.resolve({ ok: false, json: () => Promise.resolve({}) }),
+      );
+
+      playerBus.loadAndPlay({
+        scope: 'chapter',
+        title: 'Over cap',
+        audioUrl: CHAPTER_AUDIO_URL('long.wav'),
+      });
+      playerBus.reportTime(0, TAPE_DURATION_CAP_SEC + 300);
+
+      render(<PlayerBar />);
+
+      // Before the fetch resolves, the tape is not yet available.
+      expect(screen.getByLabelText('Show waveform')).toBeInTheDocument();
+
+      await waitFor(() => expect(screen.getByLabelText('Open tape view')).toBeInTheDocument());
+
+      const peaksCalls = fetchMock.mock.calls.filter(([url]) => String(url).includes('/assets/peaks'));
+      expect(peaksCalls.length).toBeGreaterThan(0);
+    });
+
+    it('leaves the tape unavailable when the peaks sidecar fetch 404s', async () => {
+      const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+      fetchMock.mockResolvedValue({ ok: false, json: () => Promise.resolve({}) });
+
+      playerBus.loadAndPlay({
+        scope: 'chapter',
+        title: 'Over cap 404',
+        audioUrl: CHAPTER_AUDIO_URL('long.wav'),
+      });
+      playerBus.reportTime(0, TAPE_DURATION_CAP_SEC + 300);
+
+      render(<PlayerBar />);
+
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(screen.getByLabelText('Show waveform')).toBeInTheDocument();
+      expect(screen.queryByLabelText('Open tape view')).toBeNull();
+    });
+
+    it('discards a stale in-flight peaks fetch result after requestId bumps to a new source', async () => {
+      const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+      let resolveFirst!: (value: unknown) => void;
+      const firstPending = new Promise((resolve) => {
+        resolveFirst = resolve;
+      });
+      const secondPending = new Promise(() => {}); // never resolves in this test
+
+      fetchMock.mockImplementation((url: string) => {
+        const s = String(url);
+        if (s.includes('filename=first.wav')) return firstPending;
+        if (s.includes('filename=second.wav')) return secondPending;
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+      });
+
+      playerBus.loadAndPlay({
+        scope: 'chapter',
+        title: 'First (stale)',
+        audioUrl: CHAPTER_AUDIO_URL('first.wav'),
+      });
+      playerBus.reportTime(0, TAPE_DURATION_CAP_SEC + 300);
+
+      render(<PlayerBar />);
+      expect(screen.getByLabelText('Show waveform')).toBeInTheDocument();
+
+      // Bump requestId with a new over-cap source before the first fetch resolves.
+      act(() => {
+        playerBus.loadAndPlay({
+          scope: 'chapter',
+          title: 'Second (fresh)',
+          audioUrl: CHAPTER_AUDIO_URL('second.wav'),
+        });
+        playerBus.reportTime(0, TAPE_DURATION_CAP_SEC + 300);
+      });
+      expect(screen.getByLabelText('Show waveform')).toBeInTheDocument();
+
+      // Resolve the stale first fetch's promise now — its result must be
+      // discarded (the effect's cleanup already set cancelled=true).
+      await act(async () => {
+        resolveFirst(validSidecarResponse('first.wav'));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      // Still unavailable: the stale first-source peaks were not applied,
+      // and the second source's own fetch is still pending.
+      expect(screen.getByLabelText('Show waveform')).toBeInTheDocument();
+      expect(screen.queryByLabelText('Open tape view')).toBeNull();
     });
   });
 });

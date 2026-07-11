@@ -1,10 +1,10 @@
 # Global Audio Player
 
 ```
-spec_version: 1.6.0
+spec_version: 1.6.2
 status: active
 created: 2026-06-13
-updated: 2026-06-16
+updated: 2026-07-10
 sources:
   - design-docs/plans/reference/site_experience_north_star.md
   - design-docs/plans/proposals/audio_player_scrubbing_waveform_proposal.md
@@ -27,6 +27,8 @@ sources:
 | 1.5.0   | 2026-06-16 | Transport + toggle icons standardized on `lucide-react`; mock PlayerBar migrated off glyphs. Canonical control→icon mapping owned by `design-system.md` §9. |
 | 1.5.1   | 2026-06-16 | Visibility/persistence contract clarified (§3): keys solely on `audioUrl !== null`, mounted once in the global `AppShell`, persists across **all** routes. Added §4.1 (content-owned play affordances). |
 | 1.6.0   | 2026-06-16 | **Scope-agnostic player + scrubbing-waveform tape (§3, §5).** Removed the segment/chapter scope toggle entirely (`altScope`/`switchScope` retired from the bus): representation is now **duration-driven**, not scope-driven, and time is the loaded clip's position/duration. The `AudioLines` toggle, in bar mode, opens an **expandable tape** — paged (default) or moving motion, click+drag scrub, bounded discrete zoom presets (cover-slider style: 8/15/30/60/120 s), a whole-clip minimap, and a smart `m:ss` ruler. Peaks are **browser-decoded below a duration cap, server-sidecar above it** (§5.4; a `data-model.md` change). Annotation is post-V2. Reference implementation: the North-Star mock; live port tracked by `design-docs/plans/active/audio_player_waveform_scrubber/`. |
+| 1.6.2   | 2026-07-10 | **Tape + scope-agnostic representation shipped live (§1, §5.4).** The live `PlayerBar` now renders the expandable tape (`WaveformTape`/`WaveformTapeZoom`/`WaveformTapeMinimap`) — plan `design-docs/plans/active/audio_player_completion_004/` closed out the remaining port work. §5.4 corrected: peaks above the duration cap are computed **lazily on first request** by the chapter-asset serving route (`GET .../assets/peaks`), not emitted eagerly at production time by synthesis/assembly — that chokepoint was found to miss this app's default-engine render path entirely. Removed the "long windows use virtualized rendering" line — verified false premise (the tape's fixed-grid sampler and the minimap sampler are already O(visible-bars) regardless of total peak-array length; no windowing is needed or implemented). |
+| 1.6.1   | 2026-07-10 | Segment-scope playback (`useChapterPlayback.ts`) now sets a plain passive `subtitle` — `"Block N of M"` — on every `loadAndPlay` call, using the block-leader queue index/length the block-queue navigation fix (task 004) already computes. Closes the gap where `PlayerBar`'s generic subtitle rendering (§3) had no data feeding it during segment playback. No PlayerBar changes; richer speaker-labeled text was considered and explicitly deferred (would require threading character/speaker data into the hook). |
 
 ---
 
@@ -34,7 +36,7 @@ sources:
 
 This spec is the **binding contract** for the global audio player: a single `playerBus` store, a single `<audio>` element inside a global `PlayerBar`, and the conversion of every ad-hoc player into a bus client.
 
-**Implementation status (drift is explicit and tracked).** The single-owner model, transport, collapse-when-empty, global persistence, Review delegation, and content-owned play affordances are **shipped live**. The **scope-agnostic representation + the expandable tape (§3, §5)** are **fully realized in the North-Star mock** (`frontend/src/demo/stages/siteMockup/`, the reference implementation) and are **mid-migration into the live `PlayerBar`** — the live bar still ships the older scope-driven waveform/bar. The migration is tracked task-by-task in `design-docs/plans/active/audio_player_waveform_scrubber/` (Workloads 1–3). Until it lands, this is a deliberate, recorded spec-ahead-of-code gap, not silent drift.
+**Implementation status.** The single-owner model, transport, collapse-when-empty, global persistence, Review delegation, content-owned play affordances, the scope-agnostic representation, and the expandable tape (§3, §5 — including the duration-cap-gated peaks sidecar, §5.4) are all **shipped live**, ported from the North-Star mock reference implementation (`frontend/src/demo/stages/siteMockup/`) by `design-docs/plans/active/audio_player_waveform_scrubber/` (Workloads 0–2) and `design-docs/plans/active/audio_player_completion_004/` (remaining W2 port + W3 peaks sidecar + the segment/block-navigation fix, §6 excepted). Segment-aware **intra-section** follow-along timing (§6) remains explicitly future backend work — see §6.
 
 Specs and code are jointly authoritative. If they disagree, resolve the drift explicitly by changing one or the other, and note it in the changelog.
 
@@ -160,9 +162,9 @@ The tape renders bars by sampling the peak data on a **fixed absolute-time grid*
 
 The tape renders from a **peak array**; where the array comes from is keyed on **duration**, not scope:
 
-- **At or below a duration cap (~10–15 min, tunable):** decode in the browser (Web Audio → downsample to peaks). Zero backend.
-- **Above the cap:** browser decode is infeasible (an hour WAV is ~150–300 MB on the wire and ~600 MB decoded PCM/channel — download + memory, not CPU). A **peaks sidecar** is emitted **at production time** by whichever task produces the over-threshold artifact — synthesis for a long segment, assembly for a chapter — as a validated artifact alongside the WAV (a `data-model.md` addition). The tape renders from the sidecar; the cap lifts toward the full clip; long windows use virtualized rendering.
-- The peak **source** is swappable behind one seam: *if a sidecar exists for the URL, render from it; else browser-decode.* The tape UI is identical either way — adding the sidecar is a source swap, not a rebuild.
+- **At or below `TAPE_DURATION_CAP_SEC` (600 s, tunable in `PlayerBar.tsx`):** decode in the browser (Web Audio → downsample to peaks). Zero backend.
+- **Above the cap:** browser decode is infeasible (an hour WAV is ~150–300 MB on the wire and ~600 MB decoded PCM/channel — download + memory, not CPU). A **peaks sidecar** — a self-describing, versioned JSON file, `data-model.md`'s "Chapter peaks sidecar" — is computed **lazily on first request** by the chapter-asset serving route (`GET /api/projects/{project_id}/chapters/{chapter_id}/assets/peaks?filename=<wav>`), cached as a sibling of the WAV, and re-validated (never served stale) against the WAV's live file stat on every request. No production-time/orchestrator hook computes it eagerly — that shape was tried and found to miss this app's default-engine render path entirely; compute-on-request covers every producer and the whole back-catalog by construction. Missing/stale/failed → 404, the frontend falls back to browser-decode-or-plain-bar exactly as if the cap were unlifted. No windowed/virtualized rendering is needed: the tape's fixed-grid sampler and the minimap sampler already do O(visible-bars) work per frame regardless of total peak-array length.
+- The peak **source** is swappable behind one seam: *if a sidecar exists for the URL, render from it; else browser-decode.* The tape UI is identical either way — adding the sidecar is a source swap, not a rebuild (`usePeaks`'s `suppliedPeaks` parameter, `WaveformTape.tsx`).
 - The sidecar's resolution sets the tape's **zoom-in cap** (§5.2).
 
 ### 5.5 Annotation — post-V2

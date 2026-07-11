@@ -59,11 +59,24 @@ export { snapZoom };
  * provider can key off the element if needed, but this implementation
  * decodes an independently-fetched buffer — it never touches audioEl itself,
  * preserving the single-owner invariant.
+ *
+ * suppliedPeaks (task 008): when passed a non-empty array (e.g. from the
+ * server-computed peaks sidecar), it is returned directly and the fetch+decode
+ * effect below is skipped entirely — no network request, no AudioContext.
+ * Existing callers passing nothing (or null/empty) keep decoding exactly as
+ * before.
  */
-export function usePeaks(audioUrl: string, _audioEl: HTMLAudioElement): number[] | null {
+export function usePeaks(
+  audioUrl: string,
+  _audioEl: HTMLAudioElement,
+  suppliedPeaks?: number[] | null,
+): number[] | null {
   const [peaks, setPeaks] = useState<number[] | null>(null);
+  const hasSuppliedPeaks = !!suppliedPeaks && suppliedPeaks.length > 0;
 
   useEffect(() => {
+    if (hasSuppliedPeaks) return;
+
     let cancelled = false;
     setPeaks(null);
 
@@ -98,9 +111,9 @@ export function usePeaks(audioUrl: string, _audioEl: HTMLAudioElement): number[]
     return () => {
       cancelled = true;
     };
-  }, [audioUrl]);
+  }, [audioUrl, hasSuppliedPeaks]);
 
-  return peaks;
+  return hasSuppliedPeaks ? (suppliedPeaks as number[]) : peaks;
 }
 
 /**
@@ -206,10 +219,12 @@ export interface WaveformTapeProps {
    */
   onZoomChange?: (preset: TapeZoomPreset) => void;
   /**
-   * Peak array from usePeaks, passed down from the parent so the minimap can
-   * render the whole-clip shape without decoding independently. When
-   * omitted, this component falls back to its own internally-decoded
-   * `peakArray` (from `usePeaks(audioUrl, audioEl)` above) for the minimap.
+   * Peak array supplied by the parent (e.g. PlayerBar's peaks-sidecar fetch,
+   * task 008), fed into `usePeaks` as `suppliedPeaks` so BOTH the tape canvas
+   * and the minimap render from it directly, skipping the internal
+   * fetch+decode entirely. When omitted (or an empty array), this component
+   * falls back to its own internally-decoded `peakArray` (from
+   * `usePeaks(audioUrl, audioEl, peaks)` above) for both.
    */
   peaks?: number[] | null;
 }
@@ -225,8 +240,15 @@ export const WaveformTape: React.FC<WaveformTapeProps> = ({
   onZoomChange,
   peaks,
 }) => {
-  const peakArray = usePeaks(audioUrl, audioEl);
-  const minimapPeaks = peaks !== undefined ? peaks : peakArray;
+  const peakArray = usePeaks(audioUrl, audioEl, peaks);
+  // usePeaks already resolves the effective source: it returns `peaks` when a
+  // non-empty array is supplied, otherwise the internally decoded array. The
+  // minimap must render from that same resolved source — reading the raw
+  // `peaks` prop here instead would feed the minimap a bare `null`/`[]` (the
+  // common under-cap case, where PlayerBar passes `sidecarPeaks === null`),
+  // collapsing it to flat fallback bars while the canvas shows the real
+  // decoded shape.
+  const minimapPeaks = peakArray;
   const reducedMotion = useReducedMotion();
   const effectiveMode: 'paged' | 'moving' = reducedMotion ? 'paged' : mode;
 
