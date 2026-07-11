@@ -15,7 +15,12 @@ Workload 3 (Stage Direction / Performance Cue — large, its own workload)
   ├─ 005 Data model + schema (segment render:false, engine_directives) [E-schema]
   ├─ 006 Render-pipeline skip + SSML consumption                     [E-pipeline] depends: 005
   ├─ 007 Shared gutter component (used by Cast AND Booth)             [F-component] depends: 005
-  └─ 008 Cue Editor popover UI                                        [F-ui] depends: 007
+  ├─ 008 Cue Editor popover UI                                        [F-ui] depends: 007
+  └─ 020 Creation UI: S/P shortcuts + CastPalette entries             [E-creation] depends: 005, 001, 007, 008
+        **Added after independent sign-off review found a real gap: without this task, 005-008
+        ship a complete data model/pipeline/display/edit-UI for Stage Direction/Performance Cue
+        with NO way for a user to actually create the first one.** This is not optional polish —
+        it's the missing creation entry point the other four tasks assume exists.
 
 Workload 4 (Booth additions)
   ├─ 009 Booth annotation glyphs (reuses 007's gutter)                [G-glyphs] depends: 007
@@ -65,7 +70,7 @@ Workload 8 (Cleanup — do last)
 
 - **M1 — Cast foundation:** 001 done. All subsequent Cast-mode assignment work has a stable batching interface to target.
 - **M2 — Cast palette complete:** 002-004 done. Brush size, Match Voice, variation all live.
-- **M3 — Stage Direction / Performance Cue complete:** 005-008 done. The largest single workload; gates nothing else, but do not start it expecting a small task — budget it as its own multi-week slice.
+- **M3 — Stage Direction / Performance Cue complete:** 005-008 AND 020 done (020 added post-review — without it, the feature is inert). The largest single workload; gates nothing else, but do not start it expecting a small task — budget it as its own multi-week slice.
 - **M4 — Booth complete:** 009-011 done. Booth's gutter reuses M3's shared component (009 blocks on 007, not all of M3).
 - **M5 — Revise split complete:** 012-013 done. The "running long" passive-only badge becomes a real two-way split.
 - **M6 — Console-shell complete:** 014-015 done. Render-on-mode-exit + Ambient On Air both live.
@@ -95,6 +100,7 @@ Workload 8 (Cleanup — do last)
 | 017 | multi-file | Applied to the shared `ScriptView.tsx` (also used by legacy `ChapterEditor`, see 019) |
 | 018 | multi-file, quality-sensitive | Replaces existing, shipped Booth/Revise keyboard behavior — real regression risk (R-B) |
 | 019 | quality-sensitive | Deleting a still-live route; reachability must be confirmed live, not just by code read (R-D) |
+| 020 | multi-file | Added post-review; closes the Stage Direction/Performance Cue creation-UI gap 005-008 left open |
 
 ## Coverage note
 

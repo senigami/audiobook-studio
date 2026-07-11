@@ -15,8 +15,8 @@ Today a Booth-mode user has no way to see, at a glance, which lines have notes �
 ## Exact files
 
 - `frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/index.tsx` — mount the shared gutter, build the glyph-entry array from existing annotations.
-- `frontend/src/store/annotations.ts` — read-only consumer via the existing `useAnnotations` hook; **do not modify this file** (INV-6: no new persistence).
-- Task 007's shared gutter component — exact path/export name TBD, confirm against `design-docs/plans/active/chapter_editor_catalog_completion/tasks/007-shared-gutter-component.md` (see "Dependencies" below — that file may not exist yet when this task starts).
+- `frontend/src/store/annotations.ts` — read-only consumer via the existing `useAnnotations` hook; **do not modify this file** (this plan's map defines only INV-1 through INV-5 — there is no "INV-6"; the intent is simply "no new persistence mechanism," in the spirit of INV-1's "no second data model," not a separately numbered invariant).
+- Task 007's shared gutter component — `design-docs/plans/active/chapter_editor_catalog_completion/tasks/007-shared-gutter-component.md` now exists (it was drafted in parallel with this task) — read its actual final prop contract (e.g. the exact `GutterGlyph[]` shape) before wiring this task's glyph-entry array; do not assume the prop names guessed here are final.
 - `frontend/tests/unit/pages/ChapterEditor/components/DirectorsConsole/BoothTool/BoothTool.test.tsx` — existing suite, must stay green; extend with gutter-entry coverage.
 - `frontend/tests/unit/pages/ChapterEditor/components/DirectorsConsole/BoothTool/AnnotationsPanel.test.tsx` — existing suite, must stay green (this task does not change `AnnotationsPanel.tsx`'s behavior).
 

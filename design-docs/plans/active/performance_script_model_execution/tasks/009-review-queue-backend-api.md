@@ -108,11 +108,11 @@ must be no code path, background job, or default behavior that flips `ai_suggest
 3. Implement the confirm endpoint's write path with an explicit test that a suggestion
    NOT confirmed remains `ai_suggested = 1`/`needs_review = 1` indefinitely (i.e., nothing
    else flips it), and that calling confirm is the only thing that sets `locked = 1`.
-4. Audit (per step 4 above) every other existing write path touching these two tables;
+4. Audit (per contract item 5 above) every other existing write path touching these two tables;
    write a regression test for at least one plausible "accidental confirmation" scenario
    (e.g. a bulk chapter re-import, or an unrelated field update) confirming it does NOT
    clear `needs_review`/`ai_suggested` or set `locked` as a side effect.
-5. Decide and document the reject/dismiss semantics (see contract step 3) and implement
+5. Decide and document the reject/dismiss semantics (see contract item 4) and implement
    whichever is chosen, with a test proving it doesn't accidentally confirm instead of
    reject.
 6. Small-scale live-verification pass: since this task's correctness is really about

@@ -25,12 +25,21 @@ This closes real, diagnosed user confusion (this session's conversation) and is 
 - `tts_engine_caps` (`Settings` type, `frontend/src/types/index.ts:442-443`) is fully wired server-side (`resolve_effective_cap`, `app/orchestration/scheduler/cap_settings.py:89-107,119-156`) but has **zero frontend consumer** anywhere.
 - `EngineCard.tsx` already has an established pattern for per-engine actions (Verify, Run Test, Install Deps, calibration) at lines ~294-409 to extend — but its existing `handleSaveSettings`/`api.updateEngineSettings` (line ~95-113) is a **different store** (the plugin's own manifest-declared `settings_schema`, routed via the voice-bridge) — do NOT reuse that call for this task; it must call the generic `POST /api/settings` with `{tts_engine_caps: {...}}`, same shape as `updateParallelCap`.
 - The manifest ceiling is already available client-side with no new backend field: `TtsEngine.behavior?.max_concurrent_workers` (`frontend/src/types/index.ts:58`, populated from `app/engines/models.py:136`).
+- **Corrected in independent sign-off review — `EngineCard` does NOT already receive `settings` as
+  a prop.** `EnginesPage.tsx` currently receives only `startupReady`/`onRefresh`/`onShowNotification`
+  (verified) — `App.tsx` threads a `settings={initialData?.settings}` prop into five other routes
+  but **not** into `EnginesPage`. There is no existing settings context either. **This means the
+  per-engine control (point 2 below) requires new prop-plumbing through three files —
+  `App.tsx` → `EnginesPage.tsx` → `EnginesPanel.tsx` → `EngineCard.tsx` — not just a read from an
+  already-threaded prop.** Do this plumbing as part of this task; it's a small, mechanical prop-drill,
+  but do not assume (as an earlier draft of this file incorrectly did) that `settings` is already
+  available at `EngineCard`.
 
 ## Target shape
 
-1. **Global**: replace the binary toggle in `GeneralSettingsPanel.tsx` with a numeric stepper/input (reasonable range, e.g. 1 to some sane ceiling like 8, matching `MAX_GLOBAL_CONCURRENT_SYNTHESIS` backstop already in `resources.py:44-46`), still calling `updateParallelCap`'s existing raw-JSON-fetch shape (just changing the input UI, not the write mechanism).
-2. **Per-engine**: add a small control to each `EngineCard` — a numeric input or stepper for that engine's `tts_engine_caps[engine_id]` override, displaying `engine.behavior.max_concurrent_workers` as the visible ceiling/label ("up to N — engine limit"), clamping input client-side to that ceiling (M5 in `01-map.md` — never let the UI accept a value the backend will silently reclamp).
-3. Both controls read current values from the existing `settings` prop already threaded through this app (no new fetch needed to read).
+1. **Global**: replace the binary toggle in `GeneralSettingsPanel.tsx` with a numeric stepper/input (reasonable range, e.g. 1 to some sane ceiling like 8, matching `MAX_GLOBAL_CONCURRENT_SYNTHESIS` backstop already in `resources.py:44-46`), still calling `updateParallelCap`'s existing raw-JSON-fetch shape (just changing the input UI, not the write mechanism). This half genuinely needs no new plumbing — `GeneralSettingsPanel` already receives `settings`.
+2. **Per-engine**: add a small control to each `EngineCard` — a numeric input or stepper for that engine's `tts_engine_caps[engine_id]` override, displaying `engine.behavior.max_concurrent_workers` as the visible ceiling/label ("up to N — engine limit"), clamping input client-side to that ceiling (M5 in `01-map.md` — never let the UI accept a value the backend will silently reclamp). This half needs the `App.tsx → EnginesPage → EnginesPanel → EngineCard` prop-plumbing described above.
+3. The global control reads its current value from the existing `settings` prop already threaded to `GeneralSettingsPanel`; the per-engine control reads it from the new prop this task adds per point 2.
 
 ## Steps
 
