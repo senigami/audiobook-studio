@@ -1,0 +1,18 @@
+{
+  "at": "2026-07-11T00:00:00Z",
+  "commit": "uncommitted",
+  "task": "Stage 3 SDK migration (design-docs/plans/active/final_release/stage3_sdk_migration_plan.md) closeout: plugins/tts_xtts/plugin/studio/app_adapter.py was a genuine S4 regression (11 module-level `from app.*` imports slipped past test_s4_import_cleanliness.py because that test's _TARGET_MODULES list never included app_adapter.py, unlike adapter.py which is deliberately audit-only). Extended app/studio_plugin_sdk/__init__.py (done in a prior step, verified here) to re-export BaseVoiceEngine, EngineHealthModel, EngineManifestModel, EngineExecutionError, EngineRequestError so app_adapter.py could consolidate onto the try/except studio_plugin_sdk-then-app.studio_plugin_sdk resolution pattern already used by bake.py/handler.py/segments.py/standard_handler.py/voice_adapter.py in this plugin. Also fixed a return-shape mismatch: the module-level resolve_voice_preview_inputs(profile_name) (raw app.engines.voice_engines function, returns a 2-tuple (speaker_wav, Path|None)) was replaced with ctx.resolve_voice_preview_inputs(profile_name) (app/studio_plugin_sdk/context.py, returns a dict {voice_ref, voice_profile_dir: str|None}) at both call sites (synthesize() and preview()), each now unpacking the dict and re-wrapping voice_profile_dir in Path(...) before passing it to xtts_generate(). Deleted a dead no-op `_ = run_managed_subprocess_async` line and its now-unused import.",
+  "files": {
+    "plugins/tts_xtts/plugin/studio/app_adapter.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Replaced 11 module-level `from app.*` imports with the plugin's standard try/except studio_plugin_sdk-first import resolution (BaseVoiceEngine, EngineExecutionError, EngineHealthModel, EngineManifestModel, EngineRequestError, SynthesisPlan, TTSRequest, TTSResult, VoiceProcessingHooks, load_settings_schema). Added a module-level _get_ctx() helper matching bake.py/handler.py/segments.py/standard_handler.py/voice_adapter.py. Removed the dead run_managed_subprocess_async import and its no-op reference. Replaced both resolve_voice_preview_inputs(...) call sites (synthesize, preview) with _get_ctx().resolve_voice_preview_inputs(...), unpacking the returned dict and converting voice_profile_dir back to a Path. No public behavior change — XttsVoiceEngine's synthesize()/preview() contracts and return shapes are unchanged."
+    },
+    "plugins/tts_xtts/tests/test_app_adapter.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Updated the existing synthesize()-duration test to patch app_adapter._get_ctx (returning a MagicMock whose resolve_voice_preview_inputs returns the {voice_ref, voice_profile_dir} dict) instead of monkeypatching the now-removed module-level resolve_voice_preview_inputs function. Assertions unchanged."
+    }
+  },
+  "flow_impact": "None — internal import-resolution and dependency-injection cleanup only, no change to synthesis/preview request or response contracts. test_s4_import_cleanliness.py's _TARGET_MODULES list still does not include app_adapter.py; that gap was flagged but intentionally left out of scope for this fix (task explicitly scoped to app_adapter.py's own import cleanliness, not to the test's coverage list)."
+}

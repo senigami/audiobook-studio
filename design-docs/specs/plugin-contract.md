@@ -1,13 +1,14 @@
 # Plugin Contract
 
 ```
-spec_version: 1.4.0
-updated: 2026-06-21
+spec_version: 1.5.0
+updated: 2026-07-11
 status: active
 sources:
   - app/engines/voice/sdk.py
   - app/tts_server/plugin_loader.py
   - app/engines/registry.py
+  - app/studio_plugin_sdk/__init__.py
   - app/studio_plugin_sdk/context.py
   - plugins/tts_xtts/manifest.json
   - plugins/tts_voxtral/manifest.json
@@ -20,6 +21,7 @@ sources:
 
 | Version | Date       | Change                 |
 |---------|------------|------------------------|
+| 1.5.0   | 2026-07-11 | Closes the last real Stage 3 residue: `plugins/tts_xtts/plugin/studio/app_adapter.py` and `plugins/tts_voxtral/plugin/studio/app_adapter.py` (11 module-level `from app.*` imports total, flagged as a factual regression by a 2026-07-01 audit — these files were never in the S4/S5 import-cleanliness tests' target list, so the original "zero module-level imports" sign-off never covered them). `studio_plugin_sdk` gains five new app-adapter-contract exports: `BaseVoiceEngine`, `EngineHealthModel`, `EngineManifestModel`, `EngineExecutionError`, `EngineRequestError` — the app-side engine-registry base class and its data/error types a plugin's `app_adapter.py` subclasses/raises to register with the app's `VoiceBridge`, distinct from `StudioTTSEngine` (the server-side, per-job contract already exported). Both `app_adapter.py` files migrated to the SDK exports plus existing `ctx.get_voices_dir()` / `ctx.resolve_voice_preview_inputs()` context methods (note: `ctx.resolve_voice_preview_inputs` returns a dict `{voice_ref, voice_profile_dir}`, not the raw function's tuple — callers must adapt). Both import-cleanliness test suites (`test_s4_import_cleanliness.py`, `test_s5_import_cleanliness.py`) now include `app_adapter` in their target-module list, closing the scope gap that let this regression through. A dead, never-called `run_managed_subprocess_async` import was deleted from tts_xtts's `app_adapter.py` rather than migrated. |
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
 | 1.1.0   | 2026-06-11 | Additive: optional `behavior.sanitize_categories` list; unknown names cause load error; absent means all categories applied (backward-compatible) |
 | 1.2.0   | 2026-06-11 | Additive: optional `check_output(req, result) -> tuple[bool, str]` method on `StudioTTSEngine`; default accept-all; TTS Server calls this after synthesize() and deletes artifact + returns `output_rejected` on (False, reason); crashing hook is failure-isolated (logs + accepts) |
@@ -199,6 +201,43 @@ class TimingEvent:
 `synthesize` SHOULD poll `req.cancel_check()` at each chunk boundary (at minimum).
 When it returns `True` the method MUST return a `TTSResult(ok=False, error="cancelled")`
 promptly and MUST NOT leave partial output at `req.output_path`.
+
+---
+
+## App-adapter contract (Studio-process registration)
+
+Distinct from `StudioTTSEngine` (the server-side, per-job contract above), a
+plugin's `plugin/studio/app_adapter.py` implements the **reverse-direction**
+adapter: a class the Studio process's own engine registry / `VoiceBridge`
+instantiates and calls into. As of spec 1.5.0, `studio_plugin_sdk` re-exports the types this file needs
+(additive to the existing `sdk_version: "1.0"` contract — no manifest change
+required), so it never has to import `app.*` directly:
+
+```python
+from studio_plugin_sdk import (
+    BaseVoiceEngine,        # base class the app_adapter subclasses
+    EngineHealthModel,      # return type of describe_health()
+    EngineManifestModel,    # constructor arg — parsed manifest.json
+    EngineExecutionError,   # raised on synthesis/preview failure
+    EngineRequestError,     # raised on invalid request shape
+)
+```
+
+`app_adapter.py` files also commonly need a `StudioPluginContext` instance
+(`get_plugin_ctx(engine_id)`) for two context methods that predate this
+version but are easy to get wrong when migrating an app_adapter off a direct
+`app.*` import:
+
+- `ctx.get_voices_dir() -> str` — returns a **string**, not a `Path`; wrap in
+  `Path(...)` if the call site needs path operations (`.mkdir()`,
+  `tempfile.mkdtemp(dir=...)`, etc.).
+- `ctx.resolve_voice_preview_inputs(profile_name) -> dict` — returns
+  `{"voice_ref": str | None, "voice_profile_dir": str | None}`. This is **not**
+  the same shape as the raw `app.engines.voice_engines.resolve_voice_preview_inputs`
+  function it wraps, which returns a 2-tuple `(speaker_wav, voice_profile_dir: Path)`.
+  A call site migrating from the raw function to `ctx.resolve_voice_preview_inputs`
+  must unpack the dict keys and re-wrap `voice_profile_dir` in `Path(...)` if it
+  needs to remain a `Path` downstream.
 
 ---
 

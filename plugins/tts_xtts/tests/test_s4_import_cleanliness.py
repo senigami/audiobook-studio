@@ -39,6 +39,7 @@ _TARGET_MODULES = [
     "segments",
     "standard_handler",
     "voice_adapter",
+    "app_adapter",
 ]
 
 # adapter.py is app-side glue — only audit it (document hits, do not fail)

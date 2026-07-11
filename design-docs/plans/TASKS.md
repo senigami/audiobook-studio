@@ -333,7 +333,7 @@ Plan: [proposals/performance_script_model/README.md](proposals/performance_scrip
 Plan: [final_release/stage3_sdk_migration_plan.md](active/final_release/stage3_sdk_migration_plan.md)
 
 - [x] S1–S10: versioned plugin SDK + communication contract migration complete; `synthesis_mixed` → `tts_mixed` rename done
-- [ ] C-1 residue: `grep "from app\." plugins/` → zero — module-level imports cleared; function-body imports in bake/segments/standard_handler still pending ([final_release/01](active/final_release/01_discrepancies_and_corrections.md)) *(audit 2026-07-01: 41 function-body imports in bake/segments/standard_handler = the documented deferred residue; ALSO `app_adapter.py` in both engines has 11 module-level `from app.*` imports — a factual regression vs the plan's "zero module-level" claim, needs the same S9 ctx-injection treatment)*
+- [x] C-1 residue: `app_adapter.py`'s 11 module-level `from app.*` imports (both engines) fixed 2026-07-11 — `studio_plugin_sdk` gained 5 new app-adapter-contract exports (`BaseVoiceEngine`, `EngineHealthModel`, `EngineManifestModel`, `EngineExecutionError`, `EngineRequestError`); both files migrated; `test_s4_import_cleanliness.py`/`test_s5_import_cleanliness.py` now include `app_adapter` in their target list (the actual gap that let this regression through originally); spec bumped to `plugin-contract.md` 1.5.0. Function-body imports in bake/segments/standard_handler remain — confirmed still the intentional, documented S9 residue (deferred, not a regression; see [final_release/01](active/final_release/01_discrepancies_and_corrections.md) and `stage3_sdk_migration_plan.md`), not touched in this pass.
 
 ---
 

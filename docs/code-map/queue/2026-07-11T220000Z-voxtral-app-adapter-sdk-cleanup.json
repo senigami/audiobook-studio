@@ -1,0 +1,18 @@
+{
+  "at": "2026-07-11T22:00:00Z",
+  "commit": "uncommitted",
+  "task": "Stage3 SDK migration residue: remove module-level app.* imports from tts_voxtral app_adapter.py",
+  "files": {
+    "plugins/tts_voxtral/plugin/studio/app_adapter.py": {
+      "change": "Replaced module-level `from app.core.config import VOICES_DIR`, `from app.engines.errors/voice.base/voice.sdk/models import ...`, and `from app.studio_plugin_sdk.plugin_utils import load_settings_schema` with a single try/except-ImportError consolidated `from studio_plugin_sdk import (...)` block (falls back to `app.studio_plugin_sdk` for direct/test import), matching the convention already used in bake.py and handler.py. Added a module-level `_get_ctx()` helper (`get_plugin_ctx(\"voxtral\")`) mirroring bake.py/handler.py. Replaced the raw `VOICES_DIR` Path constant usage in `_stage_reference_audio` with `Path(_get_ctx().get_voices_dir())` since the SDK context method returns a string, not a Path.",
+      "contract_changed": false,
+      "summary": "Closes an S5 import-cleanliness gap: this file was never added to the plugin's module-level app-import ban test, so it silently regressed during the Stage 3 SDK migration (11-import regression across xtts+voxtral noted in TASKS.md). No behavior change; VOICES_DIR resolution now goes through the SDK context boundary instead of importing app.core.config directly."
+    },
+    "plugins/tts_voxtral/tests/test_s5_import_cleanliness.py": {
+      "change": "Added \"app_adapter\" to _TARGET_MODULES alongside \"handler\", so the existing import-cleanliness/importability/_get_ctx acceptance tests now cover app_adapter.py too.",
+      "contract_changed": false,
+      "summary": "Closes the actual test-coverage gap that let app_adapter.py's app.* imports slip past S5 acceptance originally."
+    }
+  },
+  "flow_impact": "None — engine adapter behavior unchanged; only the import path and VOICES_DIR resolution mechanism changed (both resolve to the same underlying app.core.config.VOICES_DIR under the hood via the SDK context)."
+}

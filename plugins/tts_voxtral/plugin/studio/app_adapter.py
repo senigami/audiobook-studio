@@ -13,17 +13,46 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from app.core.config import VOICES_DIR
-from app.engines.errors import EngineExecutionError, EngineRequestError
-from app.engines.voice.base import BaseVoiceEngine
-from app.engines.voice.sdk import TTSRequest, TTSResult, VoiceProcessingHooks, SynthesisPlan
-from app.engines.models import EngineHealthModel, EngineManifestModel
-from app.studio_plugin_sdk.plugin_utils import load_settings_schema
+try:
+    from studio_plugin_sdk import (  # noqa: PLC0415  # alias registered by plugin_loader
+        BaseVoiceEngine,
+        EngineExecutionError,
+        EngineHealthModel,
+        EngineManifestModel,
+        EngineRequestError,
+        SynthesisPlan,
+        TTSRequest,
+        TTSResult,
+        VoiceProcessingHooks,
+        load_settings_schema,
+    )
+except ImportError:
+    from app.studio_plugin_sdk import (  # fallback for test/direct import
+        BaseVoiceEngine,
+        EngineExecutionError,
+        EngineHealthModel,
+        EngineManifestModel,
+        EngineRequestError,
+        SynthesisPlan,
+        TTSRequest,
+        TTSResult,
+        VoiceProcessingHooks,
+        load_settings_schema,
+    )
 
 logger = logging.getLogger(__name__)
 
 # Upstream: app.engines.registry. Downstream: BaseVoiceEngine, run_managed_subprocess. Must
 # not import app.orchestration / app.api.routers / app.jobs directly.
+
+
+def _get_ctx():
+    """Resolve the plugin context via the SDK alias (falls back for direct import)."""
+    try:
+        from studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
+    except ImportError:
+        from app.studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
+    return get_plugin_ctx("voxtral")
 
 
 def resolve_mistral_api_key() -> str | None:
@@ -372,8 +401,9 @@ class VoxtralVoiceEngine(BaseVoiceEngine):
         if not reference_audio_path.exists() or not reference_audio_path.is_file():
             raise EngineRequestError("Voxtral reference audio path does not exist.")
 
-        VOICES_DIR.mkdir(parents=True, exist_ok=True)
-        cleanup_root = Path(tempfile.mkdtemp(prefix="preview_", dir=VOICES_DIR))
+        voices_dir = Path(_get_ctx().get_voices_dir())
+        voices_dir.mkdir(parents=True, exist_ok=True)
+        cleanup_root = Path(tempfile.mkdtemp(prefix="preview_", dir=voices_dir))
         profile_name = cleanup_root.name
         staged_name = reference_audio_path.name
         shutil.copy2(reference_audio_path, cleanup_root / staged_name)

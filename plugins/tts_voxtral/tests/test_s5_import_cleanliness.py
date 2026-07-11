@@ -34,6 +34,7 @@ _STUDIO_DIR = Path(__file__).parent.parent / "plugin" / "studio"
 
 _TARGET_MODULES = [
     "handler",
+    "app_adapter",
 ]
 
 
