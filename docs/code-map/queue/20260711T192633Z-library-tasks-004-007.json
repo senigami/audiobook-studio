@@ -1,0 +1,29 @@
+{
+  "at": "2026-07-11T19:26:33Z",
+  "commit": "uncommitted",
+  "task": "North Star Screen Parity tasks 004+007: add 'All Books' header/quick-filter chips/cover-size slider to the Library page, and delete an unreachable duplicate empty-state branch. Dispatched together because both touch ProjectLibraryPage.tsx.",
+  "files": {
+    "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Deleted the unreachable second 'projects.length === 0' branch (dead 'No projects found' state, already handled by an earlier early return) — task 007. Added coverSizeIdx state (persisted via getStoredCoverSizeIdx/setStoredCoverSizeIdx) threaded into the grid's gridTemplateColumns — task 004.",
+      "calls_added": ["frontend/src/pages/ProjectLibrary/lib/coverSize.ts#getStoredCoverSizeIdx", "frontend/src/pages/ProjectLibrary/lib/coverSize.ts#setStoredCoverSizeIdx"],
+      "calls_removed": []
+    },
+    "frontend/src/pages/ProjectLibrary/components/LibraryControls.tsx": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Added an 'All Books' section-header row: Recent/A-Z quick-filter chips (call the existing onSortOptionChange, no duplicate sort logic — chips supplement rather than replace the sort dropdown, the lower-risk default given demo ambiguity), and a cover-size range input shown only in grid view. No 'In Progress' chip — hidden entirely since task 005 (per-project status) has not landed on this branch.",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "frontend/src/pages/ProjectLibrary/lib/coverSize.ts": {
+      "change": "added",
+      "contract_changed": true,
+      "summary": "New: COVER_SIZES step table (8 steps, trimmed from the demo's 12) plus getStoredCoverSizeIdx/setStoredCoverSizeIdx following the existing try/catch localStorage pattern from utils/devMode.ts and utils/railState.ts.",
+      "calls_added": [],
+      "calls_removed": []
+    }
+  },
+  "flow_impact": "none"
+}

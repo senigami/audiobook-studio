@@ -12,7 +12,8 @@ describe('ProjectLibrary Controls', () => {
             author: 'Author A',
             created_at: 1000,
             updated_at: 1000,
-            cover_image_path: null
+            cover_image_path: null,
+            status: 'rendered'
         },
         {
             id: 'project-z',
@@ -21,7 +22,8 @@ describe('ProjectLibrary Controls', () => {
             author: 'Author Z',
             created_at: 2000,
             updated_at: 2000,
-            cover_image_path: null
+            cover_image_path: null,
+            status: 'casting'
         }
     ];
 
@@ -38,6 +40,7 @@ describe('ProjectLibrary Controls', () => {
                 json: () => Promise.resolve({})
             })
         }) as any
+        localStorage.clear()
     })
 
     it('toggles between grid and list view', async () => {
@@ -128,6 +131,110 @@ describe('ProjectLibrary Controls', () => {
         const projectNames = screen.getAllByRole('heading', { level: 3 }).map(h => h.textContent)
         expect(projectNames[0]).toBe('Project Zulu') // 2000 > 1000
         expect(projectNames[1]).toBe('Project Alpha')
+    })
+
+    it('shows the "All Books" section header above the controls', async () => {
+        render(
+            <MemoryRouter>
+                <ProjectLibrary onSelectProject={vi.fn()} />
+            </MemoryRouter>
+        )
+
+        await waitFor(() => screen.getByText('Project Alpha'))
+
+        expect(screen.getByText('All Books')).toBeTruthy()
+    })
+
+    it('shows an "In Progress" quick-filter chip that filters to drafting/casting projects (task 005 landed)', async () => {
+        render(
+            <MemoryRouter>
+                <ProjectLibrary onSelectProject={vi.fn()} />
+            </MemoryRouter>
+        )
+
+        await waitFor(() => screen.getByText('Project Alpha'))
+
+        // Both projects visible before filtering.
+        expect(screen.getByText('Project Alpha')).toBeInTheDocument()
+        expect(screen.getByText('Project Zulu')).toBeInTheDocument()
+
+        const chip = screen.getByRole('button', { name: 'In Progress' })
+        expect(chip).toHaveAttribute('aria-pressed', 'false')
+
+        fireEvent.click(chip)
+
+        expect(chip).toHaveAttribute('aria-pressed', 'true')
+        // "Project Alpha" is rendered (status: rendered) — filtered out.
+        expect(screen.queryByText('Project Alpha')).toBeNull()
+        // "Project Zulu" is casting (in progress) — stays visible.
+        expect(screen.getByText('Project Zulu')).toBeInTheDocument()
+
+        // Toggling again restores both.
+        fireEvent.click(chip)
+        expect(chip).toHaveAttribute('aria-pressed', 'false')
+        expect(screen.getByText('Project Alpha')).toBeInTheDocument()
+        expect(screen.getByText('Project Zulu')).toBeInTheDocument()
+    })
+
+    it('Recent and A–Z quick-filter chips map onto the existing sort logic', async () => {
+        render(
+            <MemoryRouter>
+                <ProjectLibrary onSelectProject={vi.fn()} />
+            </MemoryRouter>
+        )
+
+        await waitFor(() => screen.getByText('Project Alpha'))
+
+        fireEvent.click(screen.getByRole('button', { name: 'A–Z' }))
+        let projectNames = screen.getAllByRole('heading', { level: 3 }).map(h => h.textContent)
+        expect(projectNames[0]).toBe('Project Alpha')
+        expect(projectNames[1]).toBe('Project Zulu')
+        expect(screen.getByRole('button', { name: 'A–Z' })).toHaveAttribute('aria-pressed', 'true')
+
+        fireEvent.click(screen.getByRole('button', { name: 'Recent' }))
+        projectNames = screen.getAllByRole('heading', { level: 3 }).map(h => h.textContent)
+        expect(projectNames[0]).toBe('Project Zulu')
+        expect(projectNames[1]).toBe('Project Alpha')
+        expect(screen.getByRole('button', { name: 'Recent' })).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    it('shows the cover-size slider in grid view only', async () => {
+        render(
+            <MemoryRouter>
+                <ProjectLibrary onSelectProject={vi.fn()} />
+            </MemoryRouter>
+        )
+
+        await waitFor(() => screen.getByText('Project Alpha'))
+
+        expect(screen.getByLabelText('Cover size')).toBeTruthy()
+
+        fireEvent.click(screen.getByLabelText(/List View/i))
+        expect(screen.queryByLabelText('Cover size')).toBeNull()
+    })
+
+    it('persists the chosen cover size across a remount', async () => {
+        const { unmount } = render(
+            <MemoryRouter>
+                <ProjectLibrary onSelectProject={vi.fn()} />
+            </MemoryRouter>
+        )
+
+        await waitFor(() => screen.getByText('Project Alpha'))
+
+        fireEvent.change(screen.getByLabelText('Cover size'), { target: { value: '5' } })
+        expect((screen.getByLabelText('Cover size') as HTMLInputElement).value).toBe('5')
+
+        unmount()
+
+        render(
+            <MemoryRouter>
+                <ProjectLibrary onSelectProject={vi.fn()} />
+            </MemoryRouter>
+        )
+
+        await waitFor(() => screen.getByText('Project Alpha'))
+        expect((screen.getByLabelText('Cover size') as HTMLInputElement).value).toBe('5')
     })
 
     it('sorts projects by created_at', async () => {

@@ -1,7 +1,8 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ProjectLibrary } from '@/pages/ProjectLibrary/ProjectLibraryPage'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { addBookmark, _resetCache } from '@/store/bookmarks'
 
 describe('ProjectLibrary', () => {
     beforeEach(() => {
@@ -99,5 +100,88 @@ describe('ProjectLibrary', () => {
 
         // Assert that the static model label is gone
         expect(screen.queryByText(/Model: XTTS-v2/i)).toBeNull()
+    })
+})
+
+describe('ProjectLibrary library-wide bookmarks panel', () => {
+    beforeEach(() => {
+        localStorage.clear()
+        _resetCache()
+        global.fetch = vi.fn((url) => {
+            if (url === '/api/projects') {
+                return Promise.resolve({
+                    ok: true,
+                    json: () => Promise.resolve([
+                        {
+                            id: 'book-1',
+                            name: 'The Whispering Vale',
+                            series: null,
+                            author: null,
+                            created_at: 1709985600,
+                            updated_at: 1713182400,
+                            cover_image_path: null,
+                        },
+                        {
+                            id: 'book-2',
+                            name: 'Ashes of Meridian',
+                            series: null,
+                            author: null,
+                            created_at: 1709985600,
+                            updated_at: 1713182400,
+                            cover_image_path: null,
+                        },
+                    ])
+                })
+            }
+            return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+        }) as any
+    })
+
+    it('shows bookmarks from every book, each labeled with its book title', async () => {
+        addBookmark({ bookId: 'book-1', chapterId: 'ch-1', label: 'The reveal' })
+        addBookmark({ bookId: 'book-2', chapterId: 'ch-9', label: 'The ambush' })
+
+        render(
+            <MemoryRouter>
+                <ProjectLibrary onSelectProject={vi.fn()} />
+            </MemoryRouter>
+        )
+
+        await screen.findByText('The reveal')
+
+        expect(screen.getByText('The reveal')).toBeInTheDocument()
+        expect(screen.getByText('The ambush')).toBeInTheDocument()
+        // Book title shown as secondary context on each row
+        expect(screen.getAllByText('The Whispering Vale').length).toBeGreaterThan(0)
+        expect(screen.getAllByText('Ashes of Meridian').length).toBeGreaterThan(0)
+    })
+
+    it('shows an empty-state message when there are no bookmarks anywhere', async () => {
+        render(
+            <MemoryRouter>
+                <ProjectLibrary onSelectProject={vi.fn()} />
+            </MemoryRouter>
+        )
+
+        await screen.findByText(/no bookmarks yet/i)
+        expect(screen.getByText(/no bookmarks yet/i)).toBeInTheDocument()
+    })
+
+    it('navigates to the bookmarked book/chapter when a row is clicked', async () => {
+        addBookmark({ bookId: 'book-1', chapterId: 'ch-1', label: 'The reveal' })
+
+        render(
+            <MemoryRouter initialEntries={['/']}>
+                <Routes>
+                    <Route path="/" element={<ProjectLibrary onSelectProject={vi.fn()} />} />
+                    <Route path="/book/:bookId/chapter/:chapterId" element={<div>Chapter workspace</div>} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        await screen.findByText('The reveal')
+        fireEvent.click(screen.getByRole('listitem').querySelector('.bookmark-list__nav-btn')!)
+
+        expect(await screen.findByText('Chapter workspace')).toBeInTheDocument()
     })
 })

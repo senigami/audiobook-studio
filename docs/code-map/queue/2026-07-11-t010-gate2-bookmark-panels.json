@@ -1,0 +1,57 @@
+{
+  "at": "2026-07-11T19:45:18Z",
+  "commit": "98c58146356d1379980b597a883bd10015b8e9e7",
+  "task": "North Star screen-parity plan, task 010 Gate 2 (design-docs/plans/active/north_star_screen_parity/tasks/010-decision-contents-tab-fate.md): added the book-wide bookmarks panel to the Contents tab and, per owner sign-off, a new library-wide bookmarks panel on the Project Library page. Extracted a shared presentational BookmarkList component so both surfaces (and, going forward, ChapterWorkspaceHeader's dropdown) can converge on one row rendering pattern; new component reuses store/bookmarks.ts (Bookmark, useBookmarks, useBookBookmarks (pre-existing but previously unused), addBookmark, removeBookmark) as the single data source -- no second bookmark data model.",
+  "files": {
+    "frontend/src/components/BookmarkList.tsx": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "New shared presentational component: renders a list of {id, label, secondary?} rows with a nav button (label + optional secondary context) and a remove (X) button; renders an empty-state message when entries=[]. No data-fetching of its own -- callers (ContentsStage, ProjectLibraryPage) supply entries derived from store/bookmarks.ts and their own onNavigate/onRemove callbacks."
+    },
+    "frontend/src/pages/Book/stages/ContentsStage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added ContentsBookmarksPanel (local, not exported): a collapsible 'Bookmarks' section using useBookBookmarks(bookId) from @/store/bookmarks, rendered via the new BookmarkList. Book-scoped only -- never shows other books' bookmarks. Clicking a row calls the existing handleOpenChapter(chapterId) (setLastChapter + navigate to /book/:bookId/chapter/:chapterId); remove calls store/bookmarks.ts's removeBookmark directly. Rendered after the ChapterTable, before AddChapterModal."
+    },
+    "frontend/src/pages/ProjectLibrary/components/LibraryBookmarksPanel.tsx": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "New page-owned subcomponent: library-wide (intentionally cross-book) bookmarks panel using useBookmarks() (all bookmarks, no bookId filter) from @/store/bookmarks and the shared BookmarkList, with each row's secondary text set to the owning book's Project.name (looked up from the `projects` prop passed in by ProjectLibraryPage). Row click calls setLastChapter(bookId, chapterId) + navigate(`/book/:bookId/chapter/:chapterId`) via react-router's useNavigate; remove calls removeBookmark directly."
+    },
+    "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Imports and renders <LibraryBookmarksPanel projects={projects} /> between the page header and LibraryControls, in the non-empty-library render path only (the early empty-state return is unaffected)."
+    },
+    "frontend/src/theme/components/shared.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added .bookmarks-panel*/.bookmark-list* class rules (toggle header, row list, empty state, nav/remove buttons) shared by ContentsStage's and ProjectLibraryPage's bookmark panels. No pre-existing CSS covered these class names (ChapterWorkspaceHeader's own .workspace-bookmarks-panel* classes from task 008 are unstyled and untouched by this change)."
+    },
+    "frontend/src/store/bookmarks.ts": {
+      "change": "unmodified-but-newly-used",
+      "contract_changed": false,
+      "summary": "No code change. The pre-existing useBookBookmarks(bookId) hook (previously dead/unused) is now consumed by ContentsStage; useBookmarks() (previously only used by ChapterWorkspaceHeader) is now also consumed by LibraryBookmarksPanel."
+    },
+    "frontend/tests/unit/components/BookmarkList.test.tsx": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "New test file (TDD-first, watched red before BookmarkList.tsx existed): empty-state message, row rendering with label+secondary, onNavigate(id) on row click, onRemove(id) on remove-button click without triggering navigate."
+    },
+    "frontend/tests/unit/store/bookmarks.test.ts": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added a describe('useBookBookmarks') block (renderHook): filters to one book's bookmarks only, newest first; returns [] for a book with none. Coverage-adding for a pre-existing hook, not a bug-fix test (passed immediately, no revert-check applicable)."
+    },
+    "frontend/tests/unit/pages/Book/stages/ContentsStage.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added a new describe block (4 tests, watched red before the ContentsBookmarksPanel implementation landed): book-scoping (other books' bookmarks never shown), empty state, row-click navigates to the chapter workspace route, remove control removes the row."
+    },
+    "frontend/tests/unit/pages/ProjectLibrary/ProjectLibraryPage.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added a new describe block (3 tests, watched red before LibraryBookmarksPanel landed) with its own /api/projects fetch mock (two projects): shows bookmarks from every book labeled with their book title, empty-state message, row-click navigates to /book/:bookId/chapter/:chapterId."
+    }
+  }
+}

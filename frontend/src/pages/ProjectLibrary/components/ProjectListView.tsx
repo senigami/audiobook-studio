@@ -2,6 +2,7 @@ import React from 'react';
 import { Trash2, ExternalLink, Calendar, User, BookOpen } from 'lucide-react';
 import type { Project } from '@/types';
 import { ActionMenu } from '@/components/ui/ActionMenu';
+import { ProjectStatusPill } from '@/components/ui/ProjectStatusPill';
 
 interface ProjectListViewProps {
     projects: Project[];
@@ -33,6 +34,7 @@ export const ProjectListView: React.FC<ProjectListViewProps> = ({
                 <thead>
                     <tr style={{ background: 'var(--bg-alt)', borderBottom: '1px solid var(--border)' }}>
                         <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Project</th>
+                        <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
                         <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Series</th>
                         <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Created</th>
                         <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Updated</th>
@@ -84,8 +86,11 @@ export const ProjectListView: React.FC<ProjectListViewProps> = ({
                                 </div>
                             </td>
                             <td style={{ padding: '1rem 1.5rem' }}>
-                                <span style={{ 
-                                    fontSize: '0.85rem', 
+                                {project.status && <ProjectStatusPill status={project.status} />}
+                            </td>
+                            <td style={{ padding: '1rem 1.5rem' }}>
+                                <span style={{
+                                    fontSize: '0.85rem',
                                     color: project.series ? 'var(--text-primary)' : 'var(--text-muted)',
                                     fontStyle: project.series ? 'normal' : 'italic'
                                 }}>

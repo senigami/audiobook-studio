@@ -53,6 +53,9 @@ function baseHookReturn(overrides = {}) {
     sortOption: 'recent' as const,
     setSortOption: vi.fn(),
     sortedProjects: [],
+    statusFilter: 'all' as const,
+    setStatusFilter: vi.fn(),
+    filteredProjects: [],
     ...overrides,
   }
 }
@@ -77,7 +80,7 @@ describe('ProjectLibrary empty-state branch (Q12)', () => {
 
   it('shows the greeting header when projects exist', () => {
     const project = { id: 'p1', title: 'Test', created_at: 0, updated_at: 0, chapters: [], characters: [] }
-    mockHook.mockReturnValue(baseHookReturn({ projects: [project], sortedProjects: [project] }))
+    mockHook.mockReturnValue(baseHookReturn({ projects: [project], sortedProjects: [project], filteredProjects: [project] }))
     wrap(<ProjectLibrary />)
     expect(screen.getByText(/Good (morning|afternoon|evening)/i)).toBeTruthy()
   })

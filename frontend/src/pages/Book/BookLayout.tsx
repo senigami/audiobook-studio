@@ -195,7 +195,7 @@ function WorkspacePanel({ title, onClose, children }: WorkspacePanelProps) {
 
 /** Chapter Workspace — renders when a chapter is opened from Contents. */
 function ChapterWorkspace({ bookId, chapterId }: { bookId: string; chapterId: string }) {
-  const { chapters } = useBookDataContext();
+  const { chapters, jobs } = useBookDataContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const [lexiconOpen, setLexiconOpen] = useState(false);
 
@@ -228,6 +228,7 @@ function ChapterWorkspace({ bookId, chapterId }: { bookId: string; chapterId: st
         bookId={bookId}
         chapters={chapters}
         activeChapterId={chapterId}
+        jobs={jobs}
       />
 
       {/* Toolbar row: workspace panel toggles */}

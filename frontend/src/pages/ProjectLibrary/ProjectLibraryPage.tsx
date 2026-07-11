@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Plus, Book, ImageIcon, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useProjectLibrary } from '@/hooks/useProjectLibrary';
@@ -6,6 +6,8 @@ import { ProjectCard } from '@/pages/ProjectDetail/components/ProjectCard';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { LibraryControls } from './components/LibraryControls';
 import { ProjectListView } from './components/ProjectListView';
+import { LibraryBookmarksPanel } from './components/LibraryBookmarksPanel';
+import { COVER_SIZES, getStoredCoverSizeIdx, setStoredCoverSizeIdx } from './lib/coverSize';
 import './ProjectLibraryPage.css';
 
 interface ProjectLibraryProps {
@@ -47,9 +49,18 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
         setViewMode,
         sortOption,
         setSortOption,
-        sortedProjects,
+        statusFilter,
+        setStatusFilter,
+        filteredProjects,
         existingSeries
     } = useProjectLibrary(onSelectProject);
+
+    const [coverSizeIdx, setCoverSizeIdxState] = useState(getStoredCoverSizeIdx);
+    const setCoverSizeIdx = (idx: number) => {
+        setCoverSizeIdxState(idx);
+        setStoredCoverSizeIdx(idx);
+    };
+    const coverColumnWidth = COVER_SIZES[coverSizeIdx]?.col ?? COVER_SIZES[0].col;
 
     const formatDate = (timestamp: number) => {
         return new Date(timestamp * 1000).toLocaleDateString(undefined, {
@@ -216,46 +227,45 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                 </button>
             </header>
 
-            {projects.length === 0 ? (
-                <div className="project-library-no-results">
-                    <Book size={48} className="project-library-no-results-icon" />
-                    <p className="project-library-no-results-title">No projects found</p>
-                    <p className="project-library-no-results-copy">Create a new project to get started translating text into audio.</p>
-                </div>
-            ) : (
-                <>
-                    <LibraryControls
-                        viewMode={viewMode}
-                        onViewModeChange={setViewMode}
-                        sortOption={sortOption}
-                        onSortOptionChange={setSortOption}
-                    />
+            <LibraryBookmarksPanel projects={projects} />
 
-                    {viewMode === 'grid' ? (
-                        <div className="project-library-grid">
-                            {sortedProjects.map(project => (
-                                <ProjectCard
-                                    key={project.id}
-                                    project={project}
-                                    isHovered={hoveredProjectId === project.id}
-                                    onHover={setHoveredProjectId}
-                                    onClick={(id) => onSelectProject?.(id)}
-                                    onOpenDetails={handleOpenProjectDetails}
-                                    onDelete={handleDeleteClick}
-                                    formatDate={formatDate}
-                                />
-                            ))}
-                        </div>
-                    ) : (
-                        <ProjectListView
-                            projects={sortedProjects}
-                            onSelect={(id) => onSelectProject?.(id)}
+            <LibraryControls
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                sortOption={sortOption}
+                onSortOptionChange={setSortOption}
+                statusFilter={statusFilter}
+                onStatusFilterChange={setStatusFilter}
+                coverSizeIdx={coverSizeIdx}
+                onCoverSizeIdxChange={setCoverSizeIdx}
+            />
+
+            {viewMode === 'grid' ? (
+                <div
+                    className="project-library-grid"
+                    style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverColumnWidth}px, 1fr))` }}
+                >
+                    {filteredProjects.map(project => (
+                        <ProjectCard
+                            key={project.id}
+                            project={project}
+                            isHovered={hoveredProjectId === project.id}
+                            onHover={setHoveredProjectId}
+                            onClick={(id) => onSelectProject?.(id)}
                             onOpenDetails={handleOpenProjectDetails}
                             onDelete={handleDeleteClick}
                             formatDate={formatDate}
                         />
-                    )}
-                </>
+                    ))}
+                </div>
+            ) : (
+                <ProjectListView
+                    projects={filteredProjects}
+                    onSelect={(id) => onSelectProject?.(id)}
+                    onOpenDetails={handleOpenProjectDetails}
+                    onDelete={handleDeleteClick}
+                    formatDate={formatDate}
+                />
             )}
 
             {/* Create Project Modal */}

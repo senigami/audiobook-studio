@@ -6,6 +6,7 @@ import { useBookDataContext } from '@/pages/Book/BookDataContext';
 import { api } from '@/api';
 import * as toast from '@/utils/toast';
 import type { Chapter } from '@/types';
+import { addBookmark, _resetCache } from '@/store/bookmarks';
 
 vi.mock('@/pages/Book/BookDataContext', () => ({
   useBookDataContext: vi.fn(),
@@ -73,6 +74,8 @@ function renderInRouter(ui: React.ReactElement, { bookId = 'book-1' } = {}) {
 describe('ContentsStage publish-readiness control', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
+    _resetCache();
     vi.mocked(useBookDataContext).mockReturnValue({
       actions: {
         submitting: false,
@@ -292,5 +295,73 @@ describe('ContentsStage publish-readiness control', () => {
     await waitFor(() => {
       expect(toastSpy).toHaveBeenCalledWith("Couldn't export sample. Please try again.");
     });
+  });
+});
+
+describe('ContentsStage book-scoped bookmarks panel', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    _resetCache();
+    vi.mocked(useBookDataContext).mockReturnValue({
+      actions: {
+        submitting: false,
+        handleCreateChapter: vi.fn(),
+        handleReorderChapters: vi.fn(),
+        handleQueueChapter: vi.fn(),
+        handleResetChapterAudio: vi.fn(),
+        handleDeleteChapter: vi.fn(),
+        handleQueueAllUnprocessed: vi.fn(),
+      },
+      chapters: [makeChapter('ch-1', 'done')],
+      jobs: {},
+      projectVoiceStatus: { enabled: true },
+      effectiveProjectVoice: 'Studio Voice',
+      reload: vi.fn(),
+    } as any);
+  });
+
+  it('shows only bookmarks belonging to the current book, not other books', () => {
+    addBookmark({ bookId: 'book-1', chapterId: 'ch-1', label: 'The reveal' });
+    addBookmark({ bookId: 'book-2', chapterId: 'ch-x', label: 'Other book bookmark' });
+
+    renderInRouter(<ContentsStage />, { bookId: 'book-1' });
+
+    expect(screen.getByText('The reveal')).toBeInTheDocument();
+    expect(screen.queryByText('Other book bookmark')).not.toBeInTheDocument();
+  });
+
+  it('shows an empty-state message when the book has no bookmarks', () => {
+    renderInRouter(<ContentsStage />, { bookId: 'book-1' });
+
+    expect(screen.getByText(/no bookmarks yet/i)).toBeInTheDocument();
+  });
+
+  it('navigates to the bookmarked chapter when a bookmark row is clicked', () => {
+    addBookmark({ bookId: 'book-1', chapterId: 'ch-1', label: 'The reveal' });
+
+    render(
+      <MemoryRouter initialEntries={['/book/book-1/contents']}>
+        <Routes>
+          <Route path="/book/:bookId/contents" element={<ContentsStage />} />
+          <Route path="/book/:bookId/chapter/:chapterId" element={<div>Chapter workspace</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('listitem').querySelector('.bookmark-list__nav-btn')!);
+
+    expect(screen.getByText('Chapter workspace')).toBeInTheDocument();
+  });
+
+  it('removes a bookmark when its remove control is clicked', () => {
+    addBookmark({ bookId: 'book-1', chapterId: 'ch-1', label: 'The reveal' });
+
+    renderInRouter(<ContentsStage />, { bookId: 'book-1' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove bookmark: The reveal' }));
+
+    expect(screen.queryByText('The reveal')).not.toBeInTheDocument();
+    expect(screen.getByText(/no bookmarks yet/i)).toBeInTheDocument();
   });
 });

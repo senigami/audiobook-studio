@@ -70,12 +70,55 @@ def get_project(project_id: str) -> Optional[Dict[str, Any]]:
                 )
             return dict(row) if row else None
 
+# Task 005 (north_star_screen_parity) — per-project workflow status, derived
+# from chapter-lifecycle aggregates already in the DB (no schema change, no
+# per-project round-trip, no filesystem scan). Owner-approved partial scope:
+# only 3 states are derivable this way — "drafting" (no chapter has been
+# chunked into segments yet), "casting" (some progress but not fully
+# rendered), "rendered" (every chapter's audio_status is 'done'). "Studio"
+# (actively rendering) and "Published" (assembled into an audiobook) are out
+# of scope for this pass — see design-docs/plans/active/
+# north_star_screen_parity/tasks/005-library-project-status.md.
+_PROJECT_STATUS_AGGREGATE_SQL = """
+    SELECT
+        p.*,
+        COUNT(DISTINCT c.id) AS chapter_count,
+        COUNT(DISTINCT CASE WHEN seg_counts.total_segments > 0 THEN c.id END) AS chapters_with_segments_count,
+        COUNT(DISTINCT CASE WHEN c.audio_status = 'done' THEN c.id END) AS chapters_rendered_count
+    FROM projects p
+    LEFT JOIN chapters c ON c.project_id = p.id
+    LEFT JOIN (
+        SELECT chapter_id, COUNT(*) AS total_segments
+        FROM chapter_segments
+        GROUP BY chapter_id
+    ) seg_counts ON seg_counts.chapter_id = c.id
+    GROUP BY p.id
+    ORDER BY p.updated_at DESC
+"""
+
+
+def _derive_project_status(chapter_count: int, chapters_with_segments_count: int, chapters_rendered_count: int) -> str:
+    if chapter_count == 0 or chapters_with_segments_count == 0:
+        return "drafting"
+    if chapters_rendered_count == chapter_count:
+        return "rendered"
+    return "casting"
+
+
 def list_projects() -> List[Dict[str, Any]]:
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM projects ORDER BY updated_at DESC")
-            return [dict(row) for row in cursor.fetchall()]
+            cursor.execute(_PROJECT_STATUS_AGGREGATE_SQL)
+            rows = [dict(row) for row in cursor.fetchall()]
+
+    for row in rows:
+        chapter_count = row.pop("chapter_count", 0) or 0
+        chapters_with_segments_count = row.pop("chapters_with_segments_count", 0) or 0
+        chapters_rendered_count = row.pop("chapters_rendered_count", 0) or 0
+        row["status"] = _derive_project_status(chapter_count, chapters_with_segments_count, chapters_rendered_count)
+
+    return rows
 
 def update_project(project_id: str, **updates) -> bool:
     if not updates: return False

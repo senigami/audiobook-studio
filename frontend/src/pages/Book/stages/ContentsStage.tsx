@@ -1,15 +1,63 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Bookmark, ChevronDown, ChevronUp } from 'lucide-react';
 import { api } from '@/api';
 import { ChapterImportBar } from '@/pages/Book/components/ChapterImportBar';
 import { AddChapterModal } from '@/pages/Book/components/AddChapterModal';
 import { ChapterTable } from '@/pages/Book/components/ChapterTable';
+import { BookmarkList } from '@/components/BookmarkList';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
 import { setLastChapter } from '@/pages/Book/lib/stages';
 import { emitToast } from '@/utils/toast';
 import { getChapterImportError, getChapterImportFileTitle, isSupportedChapterImportFile } from '@/pages/Book/lib/chapterImport';
+import { removeBookmark, useBookBookmarks } from '@/store/bookmarks';
 import type { Chapter } from '@/types';
+
+/**
+ * Book-scoped bookmarks panel — every bookmark across every chapter in THIS
+ * book (never other books; see design-docs/plans/active/north_star_screen_parity
+ * task 010, Gate 2). Reuses the shared BookmarkList presentational component
+ * and store/bookmarks.ts as the single data source.
+ */
+function ContentsBookmarksPanel({
+  bookId,
+  onOpenChapter,
+}: {
+  bookId: string;
+  onOpenChapter: (chapterId: string) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const bookmarks = useBookBookmarks(bookId);
+
+  return (
+    <div className="bookmarks-panel">
+      <button
+        type="button"
+        className="bookmarks-panel__toggle"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <Bookmark size={12} aria-hidden="true" />
+        <span className="bookmarks-panel__toggle-label">
+          Bookmarks <span className="bookmarks-panel__count">({bookmarks.length})</span>
+        </span>
+        {open ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}
+      </button>
+
+      {open && (
+        <BookmarkList
+          entries={bookmarks.map((bm) => ({ id: bm.id, label: bm.label }))}
+          onNavigate={(id) => {
+            const bm = bookmarks.find((b) => b.id === id);
+            if (bm) onOpenChapter(bm.chapterId);
+          }}
+          onRemove={removeBookmark}
+          emptyMessage="No bookmarks yet — use the Bookmark button in the chapter workspace to tag a scene."
+        />
+      )}
+    </div>
+  );
+}
 
 function usePublishReadiness(chapters: Chapter[]) {
   return useMemo(() => {
@@ -154,6 +202,8 @@ export function ContentsStage() {
           onOpenChapter={handleOpenChapter}
         />
       </div>
+
+      {bookId && <ContentsBookmarksPanel bookId={bookId} onOpenChapter={handleOpenChapter} />}
 
       <AddChapterModal
         isOpen={showAddChapterModal}

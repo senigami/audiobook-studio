@@ -1,10 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { renderHook } from '@testing-library/react';
 import {
   getBookmarks,
   addBookmark,
   removeBookmark,
   renameBookmark,
   subscribeBookmarks,
+  useBookBookmarks,
   _resetCache,
 } from '@/store/bookmarks';
 
@@ -101,5 +103,26 @@ describe('bookmarks store', () => {
     const all = getBookmarks();
     expect(all).toHaveLength(2);
     expect(all.map((b) => b.bookId).sort()).toEqual(['book-1', 'book-2'].sort());
+  });
+
+  describe('useBookBookmarks', () => {
+    it('returns only bookmarks belonging to the given book, newest first', () => {
+      addBookmark({ bookId: 'book-1', chapterId: 'ch-a', label: 'book one - a' });
+      addBookmark({ bookId: 'book-2', chapterId: 'ch-b', label: 'book two - b' });
+      addBookmark({ bookId: 'book-1', chapterId: 'ch-c', label: 'book one - c' });
+
+      const { result } = renderHook(() => useBookBookmarks('book-1'));
+
+      expect(result.current).toHaveLength(2);
+      expect(result.current.map((b) => b.label)).toEqual(['book one - c', 'book one - a']);
+    });
+
+    it('returns an empty array when the book has no bookmarks', () => {
+      addBookmark({ bookId: 'book-2', chapterId: 'ch-b', label: 'other book' });
+
+      const { result } = renderHook(() => useBookBookmarks('book-1'));
+
+      expect(result.current).toEqual([]);
+    });
   });
 });

@@ -62,6 +62,13 @@ export interface TtsEngine {
 
 export type Status = 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled' | 'error';
 
+// Task 005 (north_star_screen_parity) — partial 3-state workflow status,
+// derived server-side (app/db/projects.py::list_projects) from chapter
+// lifecycle aggregates. "Studio" (actively rendering) and "Published"
+// (assembled) are intentionally not represented — see design-docs/plans/
+// active/north_star_screen_parity/tasks/005-library-project-status.md.
+export type ProjectStatus = 'drafting' | 'casting' | 'rendered';
+
 export interface Project {
   id: string;
   name: string;
@@ -74,6 +81,7 @@ export interface Project {
   created_at: number;
   updated_at: number;
   chapter_map?: Record<string, any>;
+  status?: ProjectStatus;
 }
 
 export interface Character {

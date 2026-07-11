@@ -122,6 +122,17 @@ export const WelcomePage: React.FC = () => {
           </div>
         </div>
 
+        {/* ── CTAs ── */}
+        <div className="welcome-ctas">
+          <button onClick={() => navigate('/library')} className="welcome-cta-primary">
+            Enter Library
+            <span className="welcome-cta-primary__arrow">→</span>
+          </button>
+          <button type="button" className="welcome-cta-secondary">
+            View Documentation
+          </button>
+        </div>
+
         {/* ── Getting started ── */}
         <div className="welcome-section">
           <SectionLabel>Getting started</SectionLabel>
@@ -156,17 +167,6 @@ export const WelcomePage: React.FC = () => {
             <DocCard icon={<Puzzle size={14} strokeWidth={1.8} />} label="Plugins and engines" />
             <DocCard icon={<BookOpen size={14} strokeWidth={1.8} />} label="Read the docs" />
           </div>
-        </div>
-
-        {/* ── CTAs ── */}
-        <div className="welcome-ctas">
-          <button onClick={() => navigate('/library')} className="welcome-cta-primary">
-            Enter Library
-            <span className="welcome-cta-primary__arrow">→</span>
-          </button>
-          <a href="#" className="welcome-cta-secondary">
-            View Documentation
-          </a>
         </div>
       </div>
     </div>

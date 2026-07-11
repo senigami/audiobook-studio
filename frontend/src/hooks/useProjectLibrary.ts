@@ -27,6 +27,13 @@ export const useProjectLibrary = (onSelectProject?: (projectId: string) => void)
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [sortOption, setSortOption] = useState<'updated-desc' | 'created-desc' | 'series-asc' | 'title-asc' | 'title-desc'>('updated-desc');
 
+    // "In Progress" quick filter (task 005, north_star_screen_parity): a
+    // separate filter dimension from sort — narrows to projects whose
+    // derived status is 'drafting' or 'casting' (not yet fully rendered).
+    // Projects without a status field (e.g. stale caches) are treated as not
+    // in progress rather than always-visible or always-hidden.
+    const [statusFilter, setStatusFilter] = useState<'all' | 'in-progress'>('all');
+
     // Hover state for cards
     const [hoveredProjectId, setHoveredProjectId] = useState<string | null>(null);
 
@@ -109,6 +116,10 @@ export const useProjectLibrary = (onSelectProject?: (projectId: string) => void)
         }
         return 0;
     });
+
+    const filteredProjects = statusFilter === 'in-progress'
+        ? sortedProjects.filter((project) => project.status === 'drafting' || project.status === 'casting')
+        : sortedProjects;
 
     const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -242,6 +253,9 @@ export const useProjectLibrary = (onSelectProject?: (projectId: string) => void)
         sortOption,
         setSortOption,
         sortedProjects,
+        statusFilter,
+        setStatusFilter,
+        filteredProjects,
         existingSeries
     };
 };

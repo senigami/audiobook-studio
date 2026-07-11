@@ -236,3 +236,115 @@
   box-shadow: 0 0 0 4px var(--accent-glow);
 }
 
+/* ---------------------------------------------------------------------------
+ * Bookmarks panel — shared by the book-scoped Contents-tab panel
+ * (ContentsStage.tsx) and the library-wide panel (ProjectLibraryPage.tsx).
+ * Both reuse the BookmarkList presentational component for rows.
+ */
+
+.bookmarks-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.bookmarks-panel__toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font: inherit;
+}
+
+.bookmarks-panel__toggle-label {
+  flex: 1;
+  text-align: left;
+  font-size: var(--type-micro, 0.75rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide, 0.03em);
+}
+
+.bookmarks-panel__count {
+  font-weight: 400;
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.bookmark-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.bookmark-list__empty {
+  padding: 0.6rem 0.85rem;
+  font-size: var(--type-micro, 0.75rem);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.bookmark-list__item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.bookmark-list__item:last-child {
+  border-bottom: none;
+}
+
+.bookmark-list__nav-btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  font: inherit;
+  color: var(--text-primary);
+}
+
+.bookmark-list__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--type-callout, 0.85rem);
+}
+
+.bookmark-list__secondary {
+  flex-shrink: 0;
+  font-size: var(--type-micro, 0.75rem);
+  color: var(--text-muted);
+}
+
+.bookmark-list__remove {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.25rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.bookmark-list__remove:hover {
+  color: var(--error);
+}
+

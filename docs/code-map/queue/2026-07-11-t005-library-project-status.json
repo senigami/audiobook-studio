@@ -1,0 +1,72 @@
+{
+  "at": "2026-07-11T20:00:00Z",
+  "commit": "98c58146356d1379980b597a883bd10015b8e9e7",
+  "task": "North Star screen-parity plan, task 005 (design-docs/plans/active/north_star_screen_parity/tasks/005-library-project-status.md): partial 3-state per-project workflow status pill (Drafting/Casting/Rendered), owner-approved partial scope (Studio/actively-rendering and Published/assembled are explicitly out of scope — no DB-tracked signal without a live-job subscription or a bulk has-audiobook query). Backend: app/db/projects.py::list_projects() now runs one aggregate SQL query (projects LEFT JOIN chapters LEFT JOIN a per-chapter chapter_segments COUNT subquery, GROUP BY project) producing chapter_count/chapters_with_segments_count/chapters_rendered_count, from which a `status` string ('drafting'|'casting'|'rendered') is derived and attached to each project dict returned by GET /api/projects — no schema change, no per-card N+1 (verified via a sqlite3 trace-callback test). Frontend: Project type gained `status?: ProjectStatus`; new shared frontend/src/components/ui/ProjectStatusPill.tsx (reuses ChapterTable's pill visual language, new CSS in theme/components/misc.css .project-status-pill--*); wired into ProjectDetail/components/ProjectCard.tsx (grid) and ProjectLibrary/components/ProjectListView.tsx (new Status column, list view). Also wired up task 004's previously-hidden 'In Progress' quick-filter chip in ProjectLibrary/components/LibraryControls.tsx — now a real filter (not a sort shortcut) narrowing to drafting/casting projects via new statusFilter/filteredProjects state in hooks/useProjectLibrary.ts.",
+  "files": {
+    "app/db/projects.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "list_projects() now returns each project dict with an added `status` field ('drafting'|'casting'|'rendered'), computed via a new single aggregate SQL query (_PROJECT_STATUS_AGGREGATE_SQL) joining chapters and a per-chapter chapter_segments count subquery, GROUP BY project id. New helper _derive_project_status(chapter_count, chapters_with_segments_count, chapters_rendered_count) -> str. GET /api/projects (app/api/routers/projects.py::api_list_projects, unchanged) now surfaces `status` on every project in its JSON response as a result."
+    },
+    "tests/db/test_db_projects.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added 6 tests covering the drafting/casting/rendered derivation across chapter/segment/audio_status combinations, plus an N+1 regression test using a sqlite3 trace callback to assert exactly one SELECT executes for the whole list_projects() call regardless of project/chapter count. R1 revert-checked against pre-fix app/db/projects.py."
+    },
+    "frontend/src/types/index.ts": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Added `export type ProjectStatus = 'drafting' | 'casting' | 'rendered'` and `Project.status?: ProjectStatus` (optional — server-populated, absent for stale/mocked callers)."
+    },
+    "frontend/src/components/ui/ProjectStatusPill.tsx": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "New shared presentational component: <ProjectStatusPill status={ProjectStatus} /> renders a rounded pill labeled Drafting/Casting/Rendered, styled via project-status-pill / project-status-pill--{status} CSS classes. Reuses ChapterTable.tsx's chapter-table__pill visual pattern rather than inventing a new one."
+    },
+    "frontend/src/theme/components/misc.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added .project-status-pill / .project-status-pill--drafting|casting|rendered rules (rounded pill, tint/text-color pairing per state, same shape as book.css's .chapter-table__pill--*)."
+    },
+    "frontend/src/pages/ProjectDetail/components/ProjectCard.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Renders <ProjectStatusPill status={project.status} /> next to the project title (grid card) when project.status is present."
+    },
+    "frontend/src/pages/ProjectLibrary/components/ProjectListView.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added a Status column (header + per-row <ProjectStatusPill>) between Project and Series columns in the list view table."
+    },
+    "frontend/src/pages/ProjectLibrary/components/LibraryControls.tsx": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "LibraryControlsProps gained statusFilter/onStatusFilterChange (StatusFilter = 'all' | 'in-progress'). The previously-hidden 'In Progress' quick-filter chip is now rendered and wired: toggles statusFilter between 'all' and 'in-progress', aria-pressed reflects state."
+    },
+    "frontend/src/hooks/useProjectLibrary.ts": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Added statusFilter state ('all'|'in-progress', default 'all') and filteredProjects (sortedProjects filtered to status 'drafting'|'casting' when statusFilter is 'in-progress'). Both returned from the hook alongside the existing sortedProjects."
+    },
+    "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Consumes statusFilter/setStatusFilter/filteredProjects from useProjectLibrary; passes statusFilter/onStatusFilterChange to LibraryControls; renders filteredProjects (not sortedProjects) in both grid and list views."
+    },
+    "frontend/tests/unit/components/ui/ProjectStatusPill.test.tsx": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "New test file: asserts each ProjectStatus renders its label and the matching project-status-pill--{status} class."
+    },
+    "frontend/tests/unit/pages/ProjectLibrary/ProjectLibraryControls.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Replaced the 'does not show In Progress chip (task 005 not landed)' test with a wired-up test: chip toggles aria-pressed and filters the visible project list to drafting/casting statuses. Mock projects gained `status` fields."
+    },
+    "frontend/tests/unit/pages/ProjectLibrary/ProjectLibraryEmptyState.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "baseHookReturn() mock updated with statusFilter/setStatusFilter/filteredProjects fields to match useProjectLibrary's new return shape (this test mocks the hook directly)."
+    }
+  }
+}

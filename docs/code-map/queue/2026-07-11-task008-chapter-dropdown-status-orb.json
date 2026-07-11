@@ -1,0 +1,17 @@
+{
+  "at": "2026-07-11T19:25:31Z",
+  "commit": "7be1a07ba3a109e539e15b89f94c5dfd3a37d28a",
+  "task": "North Star Screen Parity task 008 (design-docs/plans/active/north_star_screen_parity/tasks/008-chapter-dropdown-status-orb.md): the Chapter Workspace's 'Contents ▾' chapter-switcher dropdown (ChapterDropdown in ChapterWorkspaceHeader.tsx) now shows each chapter's StatusOrb per row, reusing the existing component (also used by ChapterTable.tsx) rather than building a second status indicator (INV-3). Threaded `jobs: Record<string, Job>` from BookDataContext (already fetched, no new fetch) through BookLayout.tsx's ChapterWorkspace -> ChapterWorkspaceHeader -> ChapterDropdown, and added a local pickChapterJob helper mirroring ChapterTable.tsx's so both views derive the same activeJob/queuePending inputs to StatusOrb.",
+  "files": {
+    "frontend/src/pages/Book/components/ChapterWorkspaceHeader.tsx": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "ChapterWorkspaceHeaderProps and ChapterDropdown's props gained an optional `jobs?: Record<string, Job>` (default {}). Added a pickChapterJob(chapter, jobs) helper (mirrors ChapterTable.tsx's) and render a <StatusOrb size={16}> per chapter row in ChapterDropdown, between the index number and the title, using chapter fields (audio_status, has_wav/has_m4a, done_segments_count/total_segments_count) plus the derived activeJob/queuePending."
+    },
+    "frontend/src/pages/Book/BookLayout.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "ChapterWorkspace now also destructures `jobs` from useBookDataContext() (already provided by the context, no new fetch) and passes it to <ChapterWorkspaceHeader jobs={jobs} />."
+    }
+  }
+}

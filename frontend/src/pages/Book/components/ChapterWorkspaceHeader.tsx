@@ -1,8 +1,10 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Bookmark, BookMarked, ChevronDown, ChevronLeft, ChevronRight, SkipForward, X } from 'lucide-react';
-import type { Chapter } from '@/types';
+import type { Chapter, Job } from '@/types';
 import { setLastChapter } from '@/pages/Book/lib/stages';
+import { StatusOrb } from '@/components/ui/StatusOrb';
+import { pickRelevantJob } from '@/utils/jobSelection';
 import {
   useBookmarks,
   addBookmark,
@@ -14,6 +16,21 @@ interface ChapterWorkspaceHeaderProps {
   bookId: string;
   chapters: Chapter[];
   activeChapterId: string;
+  jobs?: Record<string, Job>;
+}
+
+// ---------------------------------------------------------------------------
+// Helper: find the most relevant in-flight job for a chapter (mirrors
+// ChapterTable.tsx's pickChapterJob — same StatusOrb data contract, reused
+// rather than re-derived so the two views never drift).
+
+function pickChapterJob(chapter: Chapter, jobs: Record<string, Job>): Job | undefined {
+  return pickRelevantJob(
+    Object.values(jobs).filter((job) =>
+      job.project_id === chapter.project_id &&
+      (job.chapter_id === chapter.id || job.chapter_file?.includes(chapter.id)),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -110,11 +127,13 @@ function BookmarksPanel({
 function ChapterDropdown({
   chapters,
   activeChapterId,
+  jobs = {},
   onSelect,
   onClose,
 }: {
   chapters: Chapter[];
   activeChapterId: string;
+  jobs?: Record<string, Job>;
   onSelect: (chapterId: string) => void;
   onClose: () => void;
 }) {
@@ -122,6 +141,8 @@ function ChapterDropdown({
     <div className="workspace-chapter-dropdown" role="menu" aria-label="Switch chapter">
       {chapters.map((ch, idx) => {
         const isActive = ch.id === activeChapterId;
+        const activeJob = pickChapterJob(ch, jobs);
+        const queuePending = !activeJob && ch.audio_status === 'processing';
         return (
           <button
             key={ch.id}
@@ -138,6 +159,14 @@ function ChapterDropdown({
             <span className="workspace-chapter-dropdown__num" aria-hidden="true">
               {idx + 1}
             </span>
+            <StatusOrb
+              chap={ch}
+              activeJob={activeJob}
+              queuePending={queuePending}
+              doneSegments={ch.done_segments_count}
+              totalSegments={ch.total_segments_count}
+              size={16}
+            />
             <span className="workspace-chapter-dropdown__title">{ch.title}</span>
           </button>
         );
@@ -155,6 +184,7 @@ export function ChapterWorkspaceHeader({
   bookId,
   chapters,
   activeChapterId,
+  jobs = {},
 }: ChapterWorkspaceHeaderProps) {
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -269,6 +299,7 @@ export function ChapterWorkspaceHeader({
             <ChapterDropdown
               chapters={chapters}
               activeChapterId={activeChapterId}
+              jobs={jobs}
               onSelect={goToChapter}
               onClose={handleCloseDropdown}
             />

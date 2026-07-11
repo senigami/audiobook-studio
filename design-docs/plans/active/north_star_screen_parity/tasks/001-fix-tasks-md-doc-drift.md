@@ -1,6 +1,6 @@
 # Task 001 — Fix TASKS.md doc drift (phantom chapter_workspace_merge entry)
 
-Status: pending
+Status: done 2026-07-11 (completed inline before this plan's mastermind run, as part of the same TASKS.md cleanup that also corrected the CastPalette nested-button note)
 
 Risk: none
 
@@ -62,12 +62,14 @@ for the plan that actually shipped this capability.
 
 ## Acceptance criteria
 
-- [ ] The phantom `active/chapter_workspace_merge/` links are gone from `TASKS.md`.
-- [ ] The replacement text correctly links to both archived folders and is accurate (verify both
+- [x] The phantom `active/chapter_workspace_merge/` links are gone from `TASKS.md`.
+- [x] The replacement text correctly links to both archived folders and is accurate (verify both
       target files actually exist before committing).
-- [ ] No other part of `TASKS.md` was modified.
-- [ ] `grep -n "chapter_workspace_merge/" design-docs/plans/TASKS.md` returns only lines referencing
-      `_superseded` (not the phantom `active/` path).
+- [x] No other part of `TASKS.md` was modified (the L-WORKSPACE section was rewritten in place;
+      a second, separately-discovered stale note about the `CastPalette.tsx` nested-button bug —
+      which turned out to already be fixed in PR #126 — was also corrected in the same pass).
+- [x] `grep -n "chapter_workspace_merge" design-docs/plans/TASKS.md` returns only lines referencing
+      `_superseded` (not the phantom `active/` path). Verified 2026-07-11.
 
 ## Map links
 

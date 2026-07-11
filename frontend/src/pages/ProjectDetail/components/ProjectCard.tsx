@@ -1,8 +1,11 @@
-import React from 'react';
-import { Book, Calendar, Clock, User } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Book, Calendar, Clock, User, FolderOpen, Trash2, Play, Pause } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ActionMenu } from '@/components/ui/ActionMenu';
-import type { Project } from '@/types';
+import { ProjectStatusPill } from '@/components/ui/ProjectStatusPill';
+import { usePlayerBus, loadAndPlay, play, pause } from '@/store/playerBus';
+import { api } from '@/api';
+import type { Project, Audiobook } from '@/types';
 
 interface ProjectCardProps {
     project: Project;
@@ -23,6 +26,43 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
     onDelete,
     formatDate
 }) => {
+    // Lazily discover whether this project has an assembled audiobook to play.
+    // Fetched once, the first time the card is hovered (matches the hover-reveal
+    // affordance rather than an upfront N-project fan-out on library load).
+    const [audiobooks, setAudiobooks] = useState<Audiobook[] | null>(null);
+    const fetchedRef = useRef(false);
+
+    useEffect(() => {
+        if (!isHovered || fetchedRef.current) return;
+        fetchedRef.current = true;
+        api.fetchProjectAudiobooks(project.id)
+            .then((data: Audiobook[]) => setAudiobooks(data || []))
+            .catch(() => setAudiobooks([]));
+    }, [isHovered, project.id]);
+
+    const assembledAudiobook = audiobooks && audiobooks.length > 0 ? audiobooks[0] : null;
+    const playerBus = usePlayerBus();
+    const isThisBookLoaded = !!assembledAudiobook && playerBus.scope === 'book' && playerBus.audioUrl === assembledAudiobook.url;
+    const isThisBookPlaying = isThisBookLoaded && playerBus.playing;
+
+    const handlePlayClick = (event: React.MouseEvent) => {
+        event.stopPropagation();
+        if (!assembledAudiobook) return;
+        if (isThisBookLoaded) {
+            if (isThisBookPlaying) {
+                pause();
+            } else {
+                play();
+            }
+        } else {
+            loadAndPlay({
+                scope: 'book',
+                title: project.name,
+                audioUrl: assembledAudiobook.url || '',
+            });
+        }
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -152,15 +192,67 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                         pointerEvents: isHovered ? 'auto' : 'none'
                     }}
                 >
-                    <ActionMenu onDelete={() => {
-                        onDelete(project.id, project.name);
-                    }} />
+                    <ActionMenu items={[
+                        { label: 'Open', icon: FolderOpen, onClick: () => onClick(project.id) },
+                        { label: 'Delete', icon: Trash2, onClick: () => onDelete(project.id, project.name), isDestructive: true }
+                    ]} />
+                </motion.div>
+
+                {/* Hover-reveal play control. A ▶ here must mean "play audio" —
+                    when nothing is assembled yet it renders disabled with a
+                    tooltip rather than silently redirecting to Publish. */}
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{
+                        opacity: isHovered ? 1 : 0,
+                        scale: isHovered ? 1 : 0.9
+                    }}
+                    transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                    style={{
+                        position: 'absolute',
+                        inset: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 15,
+                        pointerEvents: isHovered ? 'auto' : 'none'
+                    }}
+                >
+                    {audiobooks !== null && (
+                        <button
+                            type="button"
+                            onClick={handlePlayClick}
+                            disabled={!assembledAudiobook}
+                            aria-label={`Play ${project.name}`}
+                            title={assembledAudiobook ? undefined : 'Nothing rendered yet'}
+                            style={{
+                                width: '48px',
+                                height: '48px',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                border: assembledAudiobook ? 'none' : '1px solid var(--border)',
+                                background: assembledAudiobook ? 'var(--accent)' : 'var(--surface-glass-white)',
+                                color: assembledAudiobook ? 'var(--text-on-accent)' : 'var(--text-muted)',
+                                boxShadow: assembledAudiobook ? 'var(--shadow-md)' : 'none',
+                                backdropFilter: assembledAudiobook ? undefined : 'blur(4px)',
+                                cursor: assembledAudiobook ? 'pointer' : 'not-allowed',
+                                opacity: assembledAudiobook ? 1 : 0.6
+                            }}
+                        >
+                            {isThisBookPlaying ? <Pause size={20} /> : <Play size={20} style={{ transform: 'translateX(2px)' }} />}
+                        </button>
+                    )}
                 </motion.div>
             </div>
             <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '4px', background: 'var(--surface)', zIndex: 11 }}>
-                <h3 style={{ fontSize: '1rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)' }} title={project.name}>
-                    {project.name}
-                </h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <h3 style={{ flex: 1, minWidth: 0, fontSize: '1rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)' }} title={project.name}>
+                        {project.name}
+                    </h3>
+                    {project.status && <ProjectStatusPill status={project.status} />}
+                </div>
                 {project.author ? (
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500 }}>
                         <User size={14} opacity={0.7} /> {project.author}
