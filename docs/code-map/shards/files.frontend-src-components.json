@@ -1,679 +1,716 @@
 {
- "files": {
-  "frontend/src/components/CastingSuggestionsModal.tsx": {
-   "purpose": "Ranked AI voice-casting suggestions modal -- the frontend caller for POST /api/voices/cast",
-   "exports": [
-    {
-     "name": "CastingSuggestionsModal",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/api/index.ts#api.castVoices",
-    "frontend/src/hooks/useFocusTrap.ts",
-    "frontend/src/types/index.ts",
-    "frontend/src/utils/voiceCasting.ts#buildCastingCatalog,characterToCastingBrief,resolveCastingVoiceIdToProfileName"
-   ],
-   "called_by": [
-    "frontend/src/components/CharactersTab.tsx"
-   ],
-   "notes": [
-    "never auto-assigns -- selecting a suggestion only calls the caller-supplied onAssign after explicit user confirm",
-    "handles needs_input (thin-brief empty state) and 422 (unknown contract/card version) verbatim"
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/components/CharactersTab.tsx": {
-   "purpose": "Characters table with voice assignment, color picker, CRUD",
-   "exports": [
-    {
-     "name": "CharactersTab",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/api/index.ts",
-    "frontend/src/components/CastingSuggestionsModal.tsx",
-    "frontend/src/components/forms/ColorSwatchPicker.tsx",
-    "frontend/src/components/overlays/ConfirmModal.tsx",
-    "frontend/src/pages/ChapterEditor/components/VoiceProfileSelect.tsx",
-    "frontend/src/types/index.ts",
-    "frontend/src/utils/voiceProfiles.ts"
-   ],
-   "called_by": [
-    "frontend/src/pages/Book/stages/CastingStage.tsx",
-    "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
-   ],
-   "notes": [
-    "2026-07-09: handleAdd/handleUpdateName/handleUpdateVoice/handleUpdateColor/handleDelete now emitToast() on failure in addition to console.error. handleUpdateName now does the same optimistic-update + loadCharacters()-revert-on-failure pattern as handleUpdateVoice/handleUpdateColor (previously neither optimistic-revert nor a toast existed for a failed rename); rename <input> now keyed by `${char.id}-${char.name}` so a revert forces a remount to the server value (uncontrolled input via defaultValue), and carries aria-label=`Character name: ${char.name}`. New handlePromote(id) wires the pre-existing api.promoteCharacter(id) (app/db/characters.py#promote_character, POST /api/characters/{id}/promote, already covered by backend tests) with optimistic chapter_id:null + revert-on-failure, exposed via a new '\\''Promote'\\'' button shown next to the '\\''temp'\\'' badge only when char.chapter_id is set."
-   ],
-   "calls_inferred": [
-    "frontend/src/api#api.fetchCharacters,createCharacter,updateCharacter,deleteCharacter"
-   ]
-  },
-  "frontend/src/components/LiveOutputTable.tsx": {
-   "purpose": "Real-time socket frame audit table with topic filtering and auto-scroll",
-   "exports": [
-    {
-     "name": "LiveOutputTableProps, LiveOutputTable",
-     "kind": "type/component"
-    }
-   ],
-   "calls": [
-    "frontend/src/api/contracts/liveEvents.ts",
-    "frontend/src/config/liveEventTopics.ts",
-    "frontend/src/store/liveEventAuditStore.ts"
-   ],
-   "called_by": [
-    "frontend/src/pages/LiveOutput/LiveOutputPage.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/store/liveEventAuditStore#subscribeThrottled,getLiveEventAuditSnapshot,clearLiveEventAudit"
-   ]
-  },
-  "frontend/src/components/ProjectBackupsPanel.tsx": {
-   "purpose": "Backup creation, listing, download, deletion, metadata editing",
-   "exports": [
-    {
-     "name": "ProjectBackupsPanel",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/api/index.ts",
-    "frontend/src/components/forms/InlineEdit.tsx",
-    "frontend/src/components/overlays/ConfirmModal.tsx",
-    "frontend/src/types/index.ts"
-   ],
-   "called_by": [
-    "frontend/src/pages/Book/stages/PublishStage.tsx",
-    "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/api#api.fetchProjectBackups"
-   ]
-  },
-  "frontend/src/components/RecordingGuide.tsx": {
-   "purpose": "Voice recording best-practices guide with expandable prompt library",
-   "exports": [
-    {
-     "name": "RecordingGuide",
-     "kind": "component"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/components/VoicesModals.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/components/VoicesModals.tsx": {
-   "purpose": "Modal container for voice creation, rename, variant management, export",
-   "exports": [
-    {
-     "name": "VoicesModals",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/components/RecordingGuide.tsx",
-    "frontend/src/components/overlays/ConfirmModal.tsx",
-    "frontend/src/pages/Voices/components/index.ts",
-    "frontend/src/types/index.ts",
-    "frontend/src/utils/voiceProfiles.ts"
-   ],
-   "called_by": [
-    "frontend/src/pages/Voices/VoicesPage.tsx"
-   ],
-   "notes": [
-    "2026-07-10: gained editingVoiceMetadata?: VoiceMetadata prop, threaded to ScriptEditor's new attributes prop.",
-    "2026-07-09: Added `isVoiceSettingsOpen`/`setIsVoiceSettingsOpen` props. The existing Script Editor Drawer now only opens when `editingProfile` is set AND `isVoiceSettingsOpen` is false; a new Drawer ('Voice Settings: {variantName}') renders VoiceSettingsPanel when `isVoiceSettingsOpen` is true, wired to the same editingEngine/editingSettings/handleSaveTestText/isSavingText as before — no new API calls.",
-    "2026-07-10: Modal container for voice creation, rename, variant management, export"
-   ],
-   "calls_inferred": [
-    "frontend/src/pages/Voices/components#*"
-   ]
-  },
-  "frontend/src/components/forms/ColorSwatchPicker.tsx": {
-   "purpose": "64-color grid with custom color picker",
-   "exports": [
-    {
-     "name": "ColorSwatchPicker",
-     "kind": "component"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/components/CharactersTab.tsx",
-    "frontend/src/pages/Book/studio/CastPalette.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/components/forms/GlassInput.tsx": {
-   "purpose": "Glassmorphic text input with optional icon",
-   "exports": [
-    {
-     "name": "GlassInput",
-     "kind": "component"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/pages/Book/studio/TempCharacterModal.tsx",
-    "frontend/src/pages/Voices/components/ScriptEditor.tsx",
-    "frontend/src/pages/Voices/components/VoiceModals.tsx",
-    "frontend/src/pages/Voices/components/VoicesTabHeader.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/components/forms/InlineEdit.tsx": {
-   "purpose": "Click-to-edit text field with Enter/Escape/blur handling",
-   "exports": [
-    {
-     "name": "InlineEdit",
-     "kind": "component",
-     "contract": "props: value, onSave, placeholder?, className?, style?, inputStyle?, inputAriaLabel?, inputSize?, multiline?, disabled?"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/components/ProjectBackupsPanel.tsx",
-    "frontend/src/pages/Book/components/BookInfoCard.tsx",
-    "frontend/src/pages/Book/components/ChapterTable.tsx",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx",
-    "frontend/src/pages/ProjectDetail/components/AssemblyPanel.tsx",
-    "frontend/src/pages/ProjectDetail/components/ChapterList.tsx"
-   ],
-   "notes": [
-    "2026-07-09: gained inputAriaLabel and inputSize props (threaded onto the active <input>/<textarea>, size only applied when set). The active input now also carries the caller's className (`inline-edit-input ${className}`, was 'inline-edit-input' only) so caller-scoped CSS can target the editing state directly. Trigger div's empty-state placeholder inherits the caller's font styling (color/style/opacity) via `style` rather than the component fixing its own tone -- callers (e.g. BookInfoCard) now control empty-field tone."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/components/forms/SearchableSelect.tsx": {
-   "purpose": "Dropdown with search filter and optional create-new action",
-   "exports": [
-    {
-     "name": "Option, SearchableSelect",
-     "kind": "type/component"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/demo/styleguide/StyleguidePage.tsx",
-    "frontend/src/pages/Voices/components/VoiceModals.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/components/forms/VoiceDropzone.tsx": {
-   "purpose": "Audio file upload with drag-drop, validation, duration display",
-   "exports": [
-    {
-     "name": "SelectedFile, VoiceDropzone",
-     "kind": "type/component"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/demo/styleguide/StyleguidePage.tsx",
-    "frontend/src/pages/Voices/components/VoiceModals.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/components/layout/BrandLogo.tsx": {
-   "purpose": "Audiobook Studio wordmark with optional icon and stacked layout",
-   "exports": [
-    {
-     "name": "BrandLogo",
-     "kind": "component"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/app/layout/TopBar.tsx",
-    "frontend/src/demo/stages/siteMockupStage.tsx",
-    "frontend/src/demo/styleguide/StyleguidePage.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/components/layout/Layout.tsx": {
-   "purpose": "Re-export of AppShell as Layout",
-   "exports": [
-    {
-     "name": "Layout",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/app/layout/AppShell.tsx"
-   ],
-   "called_by": [],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/app/layout/AppShell#AppShell"
-   ]
-  },
-  "frontend/src/components/overlays/ConfirmModal.tsx": {
-   "purpose": "Reusable confirmation dialog with destructive/alert variants",
-   "exports": [
-    {
-     "name": "ConfirmModal",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/hooks/useFocusTrap.ts"
-   ],
-   "called_by": [
-    "frontend/src/app/App.tsx",
-    "frontend/src/components/CharactersTab.tsx",
-    "frontend/src/components/ProjectBackupsPanel.tsx",
-    "frontend/src/components/VoicesModals.tsx",
-    "frontend/src/components/queue/GlobalQueue.tsx",
-    "frontend/src/pages/Book/components/ChapterTable.tsx",
-    "frontend/src/pages/Book/components/LexiconPanel.tsx",
-    "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx",
-    "frontend/src/pages/Engines/components/EngineCard.tsx",
-    "frontend/src/pages/Engines/components/EnginesPanel.tsx",
-    "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx",
-    "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/hooks/useFocusTrap#*"
-   ]
-  },
-  "frontend/src/components/overlays/PluginTrustModal.tsx": {
-   "purpose": "Trust confirmation modal for plugin import/install",
-   "exports": [
-    {
-     "name": "PluginPreviewInfo, PluginTrustModal",
-     "kind": "type/component"
-    }
-   ],
-   "calls": [
-    "frontend/src/hooks/useFocusTrap.ts"
-   ],
-   "called_by": [
-    "frontend/src/pages/Engines/components/EngineCard.tsx",
-    "frontend/src/pages/Engines/components/EnginesPanel.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/hooks/useFocusTrap#*"
-   ]
-  },
-  "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx": {
-   "purpose": "Animated progress bar with predictive ETA lane, confidence model, checkpoint modes",
-   "exports": [
-    {
-     "name": "PredictiveProgressBarProps, PredictiveProgressBar",
-     "kind": "type/component"
-    }
-   ],
-   "calls": [
-    "frontend/src/components/progress/PredictiveProgressBar/ProgressStatusRow.tsx",
-    "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarDebug.ts",
-    "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers.ts",
-    "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarLane.ts",
-    "frontend/src/components/progress/PredictiveProgressBar/useEtaConfidence.ts",
-    "frontend/src/hooks/useSegmentHandoffQueue.ts"
-   ],
-   "called_by": [
-    "frontend/src/app/layout/RailBookBlock.tsx",
-    "frontend/src/components/progress/progressBarContracts.ts",
-    "frontend/src/components/queue/QueueItem.tsx",
-    "frontend/src/hooks/useProgressBarTest.ts",
-    "frontend/src/pages/Book/components/ChapterTable.tsx",
-    "frontend/src/pages/DevProgressBar/DevProgressBarPage.tsx",
-    "frontend/src/pages/DevProgressBar/components/ProgressBarDebugPanel.tsx",
-    "frontend/src/pages/DevProgressBar/components/SegmentContractDebugPanel.tsx",
-    "frontend/src/pages/ProjectDetail/components/ChapterList.tsx"
-   ],
-   "notes": [
-    "auto-finalizing when progress>=0.995"
-   ],
-   "calls_inferred": [
-    "frontend/src/components/progress/PredictiveProgressBar/ProgressStatusRow#*",
-    "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers#*",
-    "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarLane#*",
-    "frontend/src/components/progress/PredictiveProgressBar/useEtaConfidence#*"
-   ]
-  },
-  "frontend/src/components/progress/PredictiveProgressBar/ProgressStatusRow.tsx": {
-   "purpose": "Label/percent/ETA/status-text header row rendered above the progress fill track, split out of PredictiveProgressBar",
-   "exports": [
-    {
-     "name": "ProgressStatusRow",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers.ts"
-   ],
-   "called_by": [
-    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarDebug.ts": {
-   "purpose": "Debug snapshot structure and builder for progress bar introspection",
-   "exports": [
-    {
-     "name": "ProgressLane, PredictiveProgressDebugSnapshot, buildPredictiveProgressDebugSnapshot",
-     "kind": "type/fn"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers.ts": {
-   "purpose": "Pure helpers for progress computation, ETA resolution, status classification",
-   "exports": [
-    {
-     "name": "ProgressPresentationState, clamp01, formatStylePercent, formatTime, smoothstepRamp, computeCv, emaStep, clampSlope, ETA_CONFIDENCE, getProgressInfo, getAutoFinalizing, getBusyStatusText",
-     "kind": "type/fn/const"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx",
-    "frontend/src/components/progress/PredictiveProgressBar/ProgressStatusRow.tsx",
-    "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarLane.ts",
-    "frontend/src/components/progress/PredictiveProgressBar/useEtaConfidence.ts",
-    "frontend/src/components/progress/progressBarContracts.ts"
-   ],
-   "notes": [
-    "clamp01 is NaN-safe sink for all progress display",
-    "MIN_SLOPE_CAP_BASE_MS collapsed-anchor recovery"
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarLane.ts": {
-   "purpose": "Pure lane-migration math for the predictive progress bar (ProgressLane/LaneMigration types, endAt/renderedStart/renderedEnd calculations), split out of PredictiveProgressBar",
-   "exports": [
-    {
-     "name": "ProgressLane, LaneMigration",
-     "kind": "type"
+  "files": {
+    "frontend/src/components/CastingSuggestionsModal.tsx": {
+      "purpose": "Ranked AI voice-casting suggestions modal -- the frontend caller for POST /api/voices/cast",
+      "exports": [
+        {
+          "name": "CastingSuggestionsModal",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts#api.castVoices",
+        "frontend/src/hooks/useFocusTrap.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/voiceCasting.ts#buildCastingCatalog,characterToCastingBrief,resolveCastingVoiceIdToProfileName"
+      ],
+      "called_by": [
+        "frontend/src/components/CharactersTab.tsx"
+      ],
+      "notes": [
+        "never auto-assigns -- selecting a suggestion only calls the caller-supplied onAssign after explicit user confirm",
+        "handles needs_input (thin-brief empty state) and 422 (unknown contract/card version) verbatim"
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "resolveEndAtMs, getLaneProgress, getRenderedStartAtMs, getRenderedEndAtMs, getRenderedStartProgress",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers.ts"
-   ],
-   "called_by": [
-    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/components/progress/PredictiveProgressBar/useEtaConfidence.ts": {
-   "purpose": "ETA confidence model hook with trust weighting and adaptive smoothing",
-   "exports": [
-    {
-     "name": "EtaConfidenceState, useEtaConfidence",
-     "kind": "type/hook"
-    }
-   ],
-   "calls": [
-    "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers.ts"
-   ],
-   "called_by": [
-    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx"
-   ],
-   "notes": [
-    "N=6 sample ring buffer for CV"
-   ],
-   "calls_inferred": [
-    "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers#*"
-   ]
-  },
-  "frontend/src/components/progress/SegmentRenderMonitor/SegmentRenderMonitor.tsx": {
-   "purpose": "BitTorrent-style render monitor (W-PAR Phase 2): data-driven segment strip, M1 char-weighted aggregate, M2 non-hue failure cue, M3 reduced-motion gating, degrade-by-count",
-   "exports": [
-    {
-     "name": "SegmentRenderMonitor",
-     "kind": "component"
+    "frontend/src/components/CharactersTab.tsx": {
+      "purpose": "Characters table with voice assignment, color picker, CRUD",
+      "exports": [
+        {
+          "name": "CharactersTab",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts",
+        "frontend/src/components/CastingSuggestionsModal.tsx",
+        "frontend/src/components/forms/ColorSwatchPicker.tsx",
+        "frontend/src/components/overlays/ConfirmModal.tsx",
+        "frontend/src/pages/ChapterEditor/components/VoiceProfileSelect.tsx",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/voiceProfiles.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Book/stages/CastingStage.tsx",
+        "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
+      ],
+      "notes": [
+        "2026-07-09: handleAdd/handleUpdateName/handleUpdateVoice/handleUpdateColor/handleDelete now emitToast() on failure in addition to console.error. handleUpdateName now does the same optimistic-update + loadCharacters()-revert-on-failure pattern as handleUpdateVoice/handleUpdateColor (previously neither optimistic-revert nor a toast existed for a failed rename); rename <input> now keyed by `${char.id}-${char.name}` so a revert forces a remount to the server value (uncontrolled input via defaultValue), and carries aria-label=`Character name: ${char.name}`. New handlePromote(id) wires the pre-existing api.promoteCharacter(id) (app/db/characters.py#promote_character, POST /api/characters/{id}/promote, already covered by backend tests) with optimistic chapter_id:null + revert-on-failure, exposed via a new '\\''Promote'\\'' button shown next to the '\\''temp'\\'' badge only when char.chapter_id is set."
+      ],
+      "calls_inferred": [
+        "frontend/src/api#api.fetchCharacters,createCharacter,updateCharacter,deleteCharacter"
+      ]
     },
-    {
-     "name": "charWeightedProgress",
-     "kind": "function",
-     "contract": "pure M1 aggregate: sum(done+rendering*progress chars)/sum(total chars)"
+    "frontend/src/components/LiveOutputTable.tsx": {
+      "purpose": "Real-time socket frame audit table with topic filtering and auto-scroll",
+      "exports": [
+        {
+          "name": "LiveOutputTableProps, LiveOutputTable",
+          "kind": "type/component"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/contracts/liveEvents.ts",
+        "frontend/src/config/liveEventTopics.ts",
+        "frontend/src/store/liveEventAuditStore.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/LiveOutput/LiveOutputPage.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/store/liveEventAuditStore#subscribeThrottled,getLiveEventAuditSnapshot,clearLiveEventAudit"
+      ]
+    },
+    "frontend/src/components/ProjectBackupsPanel.tsx": {
+      "purpose": "Backup creation, listing, download, deletion, metadata editing",
+      "exports": [
+        {
+          "name": "ProjectBackupsPanel",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts",
+        "frontend/src/components/forms/InlineEdit.tsx",
+        "frontend/src/components/overlays/ConfirmModal.tsx",
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Book/stages/BackupsStage.tsx",
+        "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/api#api.fetchProjectBackups"
+      ]
+    },
+    "frontend/src/components/RecordingGuide.tsx": {
+      "purpose": "Voice recording best-practices guide with expandable prompt library",
+      "exports": [
+        {
+          "name": "RecordingGuide",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/components/VoicesModals.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/components/VoicesModals.tsx": {
+      "purpose": "Modal container for voice creation, rename, variant management, export",
+      "exports": [
+        {
+          "name": "VoicesModals",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/RecordingGuide.tsx",
+        "frontend/src/components/overlays/ConfirmModal.tsx",
+        "frontend/src/pages/Voices/components/index.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/voiceProfiles.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/VoicesPage.tsx"
+      ],
+      "notes": [
+        "2026-07-10: gained editingVoiceMetadata?: VoiceMetadata prop, threaded to ScriptEditor's new attributes prop.",
+        "2026-07-09: Added `isVoiceSettingsOpen`/`setIsVoiceSettingsOpen` props. The existing Script Editor Drawer now only opens when `editingProfile` is set AND `isVoiceSettingsOpen` is false; a new Drawer ('Voice Settings: {variantName}') renders VoiceSettingsPanel when `isVoiceSettingsOpen` is true, wired to the same editingEngine/editingSettings/handleSaveTestText/isSavingText as before \u2014 no new API calls.",
+        "2026-07-10: Modal container for voice creation, rename, variant management, export"
+      ],
+      "calls_inferred": [
+        "frontend/src/pages/Voices/components#*"
+      ]
+    },
+    "frontend/src/components/forms/ColorSwatchPicker.tsx": {
+      "purpose": "64-color grid with custom color picker",
+      "exports": [
+        {
+          "name": "ColorSwatchPicker",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/components/CharactersTab.tsx",
+        "frontend/src/pages/Book/studio/CastPalette.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/components/forms/GlassInput.tsx": {
+      "purpose": "Glassmorphic text input with optional icon",
+      "exports": [
+        {
+          "name": "GlassInput",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Book/studio/TempCharacterModal.tsx",
+        "frontend/src/pages/Voices/components/ScriptEditor.tsx",
+        "frontend/src/pages/Voices/components/VoiceModals.tsx",
+        "frontend/src/pages/Voices/components/VoicesTabHeader.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/components/forms/InlineEdit.tsx": {
+      "purpose": "Click-to-edit text field with Enter/Escape/blur handling",
+      "exports": [
+        {
+          "name": "InlineEdit",
+          "kind": "component",
+          "contract": "props: value, onSave, placeholder?, className?, style?, inputStyle?, inputAriaLabel?, inputSize?, multiline?, disabled?"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/components/ProjectBackupsPanel.tsx",
+        "frontend/src/pages/Book/components/BookInfoCard.tsx",
+        "frontend/src/pages/Book/components/ChapterTable.tsx",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx",
+        "frontend/src/pages/ProjectDetail/components/AssemblyPanel.tsx",
+        "frontend/src/pages/ProjectDetail/components/ChapterList.tsx"
+      ],
+      "notes": [
+        "2026-07-09: gained inputAriaLabel and inputSize props (threaded onto the active <input>/<textarea>, size only applied when set). The active input now also carries the caller's className (`inline-edit-input ${className}`, was 'inline-edit-input' only) so caller-scoped CSS can target the editing state directly. Trigger div's empty-state placeholder inherits the caller's font styling (color/style/opacity) via `style` rather than the component fixing its own tone -- callers (e.g. BookInfoCard) now control empty-field tone."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/components/forms/SearchableSelect.tsx": {
+      "purpose": "Dropdown with search filter and optional create-new action",
+      "exports": [
+        {
+          "name": "Option, SearchableSelect",
+          "kind": "type/component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/demo/styleguide/StyleguidePage.tsx",
+        "frontend/src/pages/Voices/components/VoiceModals.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/components/forms/VoiceDropzone.tsx": {
+      "purpose": "Audio file upload with drag-drop, validation, duration display",
+      "exports": [
+        {
+          "name": "SelectedFile, VoiceDropzone",
+          "kind": "type/component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/demo/styleguide/StyleguidePage.tsx",
+        "frontend/src/pages/Voices/components/VoiceModals.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/components/layout/BrandLogo.tsx": {
+      "purpose": "Audiobook Studio wordmark with optional icon and stacked layout",
+      "exports": [
+        {
+          "name": "BrandLogo",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/app/layout/TopBar.tsx",
+        "frontend/src/demo/stages/siteMockupStage.tsx",
+        "frontend/src/demo/styleguide/StyleguidePage.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/components/layout/Layout.tsx": {
+      "purpose": "Re-export of AppShell as Layout",
+      "exports": [
+        {
+          "name": "Layout",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/app/layout/AppShell.tsx"
+      ],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/app/layout/AppShell#AppShell"
+      ]
+    },
+    "frontend/src/components/overlays/ConfirmModal.tsx": {
+      "purpose": "Reusable confirmation dialog with destructive/alert variants",
+      "exports": [
+        {
+          "name": "ConfirmModal",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/hooks/useFocusTrap.ts"
+      ],
+      "called_by": [
+        "frontend/src/app/App.tsx",
+        "frontend/src/components/CharactersTab.tsx",
+        "frontend/src/components/ProjectBackupsPanel.tsx",
+        "frontend/src/components/VoicesModals.tsx",
+        "frontend/src/components/queue/GlobalQueue.tsx",
+        "frontend/src/pages/Book/components/ChapterTable.tsx",
+        "frontend/src/pages/Book/components/LexiconPanel.tsx",
+        "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx",
+        "frontend/src/pages/Engines/components/EngineCard.tsx",
+        "frontend/src/pages/Engines/components/EnginesPanel.tsx",
+        "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx",
+        "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/hooks/useFocusTrap#*"
+      ]
+    },
+    "frontend/src/components/overlays/PluginTrustModal.tsx": {
+      "purpose": "Trust confirmation modal for plugin import/install",
+      "exports": [
+        {
+          "name": "PluginPreviewInfo, PluginTrustModal",
+          "kind": "type/component"
+        }
+      ],
+      "calls": [
+        "frontend/src/hooks/useFocusTrap.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Engines/components/EngineCard.tsx",
+        "frontend/src/pages/Engines/components/EnginesPanel.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/hooks/useFocusTrap#*"
+      ]
+    },
+    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx": {
+      "purpose": "Animated progress bar with predictive ETA lane, confidence model, checkpoint modes",
+      "exports": [
+        {
+          "name": "PredictiveProgressBarProps, PredictiveProgressBar",
+          "kind": "type/component"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/progress/PredictiveProgressBar/ProgressStatusRow.tsx",
+        "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarDebug.ts",
+        "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers.ts",
+        "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarLane.ts",
+        "frontend/src/components/progress/PredictiveProgressBar/useEtaConfidence.ts",
+        "frontend/src/hooks/useSegmentHandoffQueue.ts"
+      ],
+      "called_by": [
+        "frontend/src/app/layout/RailBookBlock.tsx",
+        "frontend/src/components/progress/progressBarContracts.ts",
+        "frontend/src/components/queue/QueueItem.tsx",
+        "frontend/src/hooks/useProgressBarTest.ts",
+        "frontend/src/pages/Book/components/ChapterTable.tsx",
+        "frontend/src/pages/DevProgressBar/DevProgressBarPage.tsx",
+        "frontend/src/pages/DevProgressBar/components/ProgressBarDebugPanel.tsx",
+        "frontend/src/pages/DevProgressBar/components/SegmentContractDebugPanel.tsx",
+        "frontend/src/pages/ProjectDetail/components/ChapterList.tsx"
+      ],
+      "notes": [
+        "auto-finalizing when progress>=0.995"
+      ],
+      "calls_inferred": [
+        "frontend/src/components/progress/PredictiveProgressBar/ProgressStatusRow#*",
+        "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers#*",
+        "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarLane#*",
+        "frontend/src/components/progress/PredictiveProgressBar/useEtaConfidence#*"
+      ]
+    },
+    "frontend/src/components/progress/PredictiveProgressBar/ProgressStatusRow.tsx": {
+      "purpose": "Label/percent/ETA/status-text header row rendered above the progress fill track, split out of PredictiveProgressBar",
+      "exports": [
+        {
+          "name": "ProgressStatusRow",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers.ts"
+      ],
+      "called_by": [
+        "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarDebug.ts": {
+      "purpose": "Debug snapshot structure and builder for progress bar introspection",
+      "exports": [
+        {
+          "name": "ProgressLane, PredictiveProgressDebugSnapshot, buildPredictiveProgressDebugSnapshot",
+          "kind": "type/fn"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers.ts": {
+      "purpose": "Pure helpers for progress computation, ETA resolution, status classification",
+      "exports": [
+        {
+          "name": "ProgressPresentationState, clamp01, formatStylePercent, formatTime, smoothstepRamp, computeCv, emaStep, clampSlope, ETA_CONFIDENCE, getProgressInfo, getAutoFinalizing, getBusyStatusText",
+          "kind": "type/fn/const"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx",
+        "frontend/src/components/progress/PredictiveProgressBar/ProgressStatusRow.tsx",
+        "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarLane.ts",
+        "frontend/src/components/progress/PredictiveProgressBar/useEtaConfidence.ts",
+        "frontend/src/components/progress/progressBarContracts.ts"
+      ],
+      "notes": [
+        "clamp01 is NaN-safe sink for all progress display",
+        "MIN_SLOPE_CAP_BASE_MS collapsed-anchor recovery"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarLane.ts": {
+      "purpose": "Pure lane-migration math for the predictive progress bar (ProgressLane/LaneMigration types, endAt/renderedStart/renderedEnd calculations), split out of PredictiveProgressBar",
+      "exports": [
+        {
+          "name": "ProgressLane, LaneMigration",
+          "kind": "type"
+        },
+        {
+          "name": "resolveEndAtMs, getLaneProgress, getRenderedStartAtMs, getRenderedEndAtMs, getRenderedStartProgress",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers.ts"
+      ],
+      "called_by": [
+        "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/components/progress/PredictiveProgressBar/useEtaConfidence.ts": {
+      "purpose": "ETA confidence model hook with trust weighting and adaptive smoothing",
+      "exports": [
+        {
+          "name": "EtaConfidenceState, useEtaConfidence",
+          "kind": "type/hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers.ts"
+      ],
+      "called_by": [
+        "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx"
+      ],
+      "notes": [
+        "N=6 sample ring buffer for CV"
+      ],
+      "calls_inferred": [
+        "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers#*"
+      ]
+    },
+    "frontend/src/components/progress/SegmentRenderMonitor/SegmentRenderMonitor.tsx": {
+      "purpose": "BitTorrent-style render monitor (W-PAR Phase 2): data-driven segment strip, M1 char-weighted aggregate, M2 non-hue failure cue, M3 reduced-motion gating, degrade-by-count",
+      "exports": [
+        {
+          "name": "SegmentRenderMonitor",
+          "kind": "component"
+        },
+        {
+          "name": "charWeightedProgress",
+          "kind": "function",
+          "contract": "pure M1 aggregate: sum(done+rendering*progress chars)/sum(total chars)"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Activity/ActivityPage.tsx"
+      ],
+      "notes": [
+        "STATUS: dev-gated, fixture-fed (devSegmentRenderMonitorFixture.ts) -- no real per-segment char-count hydration path into Activity page yet",
+        "degrade-by-count: <10 omitted, 10-60 full block strip, >60 compact summary bar; always-present accessible <table> fallback",
+        "M2 FIX (2026-07-03): the >60 summary branch originally showed zero failure signal -- fixed to surface failedCount + the same .segment-render-monitor__crosshatch pattern as the full-strip view, folded into aria-label too",
+        "M3: useReducedMotion() reads matchMedia once at mount AND subscribes to live 'change' events -- reactive, not just mount-time"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/components/progress/progressBarContracts.ts": {
+      "purpose": "Type contracts and builder for segment-scoped progress bars",
+      "exports": [
+        {
+          "name": "SegmentProgressBarInput, getSegmentProgressBarKey, buildSegmentProgressBarProps",
+          "kind": "type/fn"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx",
+        "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx",
+        "frontend/src/pages/DevProgressBar/components/SegmentContractDebugPanel.tsx"
+      ],
+      "notes": [
+        "never fabricate ETA"
+      ],
+      "calls_inferred": [
+        "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers#clamp01"
+      ]
+    },
+    "frontend/src/components/queue/GlobalQueue.css": {
+      "purpose": "Co-located stylesheet for GlobalQueue, extracted from inline styles into token-based classes (2026-07-10 ST-3).",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/components/queue/GlobalQueue.tsx": {
+      "purpose": "Master queue view with active/pending/completed sections and pause control",
+      "exports": [
+        {
+          "name": "GlobalQueue",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/overlays/ConfirmModal.tsx",
+        "frontend/src/components/queue/QueueItem.tsx",
+        "frontend/src/components/queue/QueueStats.tsx",
+        "frontend/src/components/queue/ReorderableQueueItem.tsx",
+        "frontend/src/components/ui/ActionMenu.tsx",
+        "frontend/src/hooks/useGlobalQueue.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/jobSelection.ts",
+        "frontend/src/utils/queueLabels.ts"
+      ],
+      "called_by": [
+        "frontend/src/app/App.tsx",
+        "frontend/src/pages/Activity/ActivityPage.tsx"
+      ],
+      "notes": [
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+      ],
+      "calls_inferred": [
+        "frontend/src/components/queue/QueueItem#*",
+        "frontend/src/components/queue/ReorderableQueueItem#*",
+        "frontend/src/hooks/useGlobalQueue#*"
+      ]
+    },
+    "frontend/src/components/queue/QueueItem.tsx": {
+      "purpose": "Live queue job row with progress bar, ETA, active segment tracking, debug",
+      "exports": [
+        {
+          "name": "QueueItem",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/devMode.ts",
+        "frontend/src/utils/jobSelection.ts",
+        "frontend/src/utils/queueItemDebugPayload.ts",
+        "frontend/src/utils/queueItemEtaSelection.ts",
+        "frontend/src/utils/queueLabels.ts",
+        "frontend/src/utils/runtimeDebug.ts"
+      ],
+      "called_by": [
+        "frontend/src/components/queue/GlobalQueue.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar#*",
+        "frontend/src/utils/queueItemEtaSelection#*"
+      ]
+    },
+    "frontend/src/components/queue/QueueStats.tsx": {
+      "purpose": "Aggregate queue ETA widget",
+      "exports": [
+        {
+          "name": "QueueStats",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/hooks/useNow.ts",
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/components/queue/GlobalQueue.tsx",
+        "frontend/src/pages/Activity/ActivityPage.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/hooks/useNow#useNow"
+      ]
+    },
+    "frontend/src/components/queue/ReorderableQueueItem.tsx": {
+      "purpose": "Draggable queue item for pending jobs",
+      "exports": [
+        {
+          "name": "ReorderableQueueItem",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/queueLabels.ts"
+      ],
+      "called_by": [
+        "frontend/src/components/queue/GlobalQueue.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/utils/queueLabels#formatQueueContext"
+      ]
+    },
+    "frontend/src/components/ui/ActionMenu.tsx": {
+      "purpose": "Kebab menu with flip-to-fit positioning and destructive action support",
+      "exports": [
+        {
+          "name": "ActionMenuItem, ActionMenu",
+          "kind": "type/component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/app/layout/RailBookBlock.tsx",
+        "frontend/src/components/queue/GlobalQueue.tsx",
+        "frontend/src/demo/styleguide/StyleguidePage.tsx",
+        "frontend/src/pages/Book/components/ChapterTable.tsx",
+        "frontend/src/pages/Book/studio/CastPalette.tsx",
+        "frontend/src/pages/Book/studio/StudioHeaderActions.tsx",
+        "frontend/src/pages/ProjectDetail/components/ChapterList.tsx",
+        "frontend/src/pages/ProjectDetail/components/ProjectCard.tsx",
+        "frontend/src/pages/ProjectLibrary/components/ProjectListView.tsx",
+        "frontend/src/pages/Voices/components/NarratorCard.tsx",
+        "frontend/src/pages/Voices/components/VoiceCatalogCard.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/components/ui/GhostButton.tsx": {
+      "purpose": "Transparent button with icon and optional label",
+      "exports": [
+        {
+          "name": "GhostButton",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Voices/components/VoicesTabHeader.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/components/ui/StatusOrb.tsx": {
+      "purpose": "Chapter audio status indicator: orb + optional arc + animated icon",
+      "exports": [
+        {
+          "name": "StatusOrb",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/app/layout/RailBookBlock.tsx",
+        "frontend/src/demo/styleguide/StyleguidePage.tsx",
+        "frontend/src/pages/Book/components/ChapterTable.tsx",
+        "frontend/src/pages/ProjectDetail/components/ChapterList.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/components/ui/Switch.tsx": {
+      "purpose": "Accessible toggle switch with optional label",
+      "exports": [
+        {
+          "name": "Switch",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/demo/styleguide/StyleguidePage.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/components/BookmarkList.tsx": {
+      "purpose": "Shared presentational bookmark-row list: renders {id,label,secondary?} rows with a nav button and remove (X) button; empty-state message when entries=[]",
+      "exports": [
+        {
+          "name": "BookmarkList",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Book/stages/ContentsStage.tsx",
+        "frontend/src/pages/Book/components/ChapterWorkspaceHeader.tsx",
+        "frontend/src/pages/ProjectLibrary/components/LibraryBookmarksPanel.tsx"
+      ],
+      "notes": [
+        "2026-07-11 (task 010 Gate 2 + bookmark-dropdown-theming-fix): added as a shared extraction so ContentsStage's book-scoped panel, ProjectLibraryPage's library-wide panel, and ChapterWorkspaceHeader's dropdown all converge on one themed row-rendering pattern instead of bespoke per-caller markup. No data-fetching of its own -- callers supply entries derived from @/store/bookmarks and their own onNavigate/onRemove callbacks."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/components/ui/ProjectStatusPill.tsx": {
+      "purpose": "Shared presentational project workflow-status pill (Drafting/Casting/Rendered)",
+      "exports": [
+        {
+          "name": "ProjectStatusPill",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/ProjectDetail/components/ProjectCard.tsx",
+        "frontend/src/pages/ProjectLibrary/components/ProjectListView.tsx"
+      ],
+      "notes": [
+        "2026-07-11 (North Star task 005): renders <ProjectStatusPill status={ProjectStatus} />, styled via project-status-pill / project-status-pill--{status} CSS classes (frontend/src/theme/components/misc.css). Reuses ChapterTable.tsx's chapter-table__pill visual pattern rather than inventing a new one."
+      ],
+      "calls_inferred": []
     }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/pages/Activity/ActivityPage.tsx"
-   ],
-   "notes": [
-    "STATUS: dev-gated, fixture-fed (devSegmentRenderMonitorFixture.ts) -- no real per-segment char-count hydration path into Activity page yet",
-    "degrade-by-count: <10 omitted, 10-60 full block strip, >60 compact summary bar; always-present accessible <table> fallback",
-    "M2 FIX (2026-07-03): the >60 summary branch originally showed zero failure signal -- fixed to surface failedCount + the same .segment-render-monitor__crosshatch pattern as the full-strip view, folded into aria-label too",
-    "M3: useReducedMotion() reads matchMedia once at mount AND subscribes to live 'change' events -- reactive, not just mount-time"
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/components/progress/progressBarContracts.ts": {
-   "purpose": "Type contracts and builder for segment-scoped progress bars",
-   "exports": [
-    {
-     "name": "SegmentProgressBarInput, getSegmentProgressBarKey, buildSegmentProgressBarProps",
-     "kind": "type/fn"
-    }
-   ],
-   "calls": [
-    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx",
-    "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers.ts"
-   ],
-   "called_by": [
-    "frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx",
-    "frontend/src/pages/DevProgressBar/components/SegmentContractDebugPanel.tsx"
-   ],
-   "notes": [
-    "never fabricate ETA"
-   ],
-   "calls_inferred": [
-    "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers#clamp01"
-   ]
-  },
-  "frontend/src/components/queue/GlobalQueue.css": {
-   "purpose": "Co-located stylesheet for GlobalQueue, extracted from inline styles into token-based classes (2026-07-10 ST-3).",
-   "exports": [],
-   "calls": [],
-   "called_by": [],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/components/queue/GlobalQueue.tsx": {
-   "purpose": "Master queue view with active/pending/completed sections and pause control",
-   "exports": [
-    {
-     "name": "GlobalQueue",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/components/overlays/ConfirmModal.tsx",
-    "frontend/src/components/queue/QueueItem.tsx",
-    "frontend/src/components/queue/QueueStats.tsx",
-    "frontend/src/components/queue/ReorderableQueueItem.tsx",
-    "frontend/src/components/ui/ActionMenu.tsx",
-    "frontend/src/hooks/useGlobalQueue.ts",
-    "frontend/src/types/index.ts",
-    "frontend/src/utils/jobSelection.ts",
-    "frontend/src/utils/queueLabels.ts"
-   ],
-   "called_by": [
-    "frontend/src/app/App.tsx",
-    "frontend/src/pages/Activity/ActivityPage.tsx"
-   ],
-   "notes": [
-    "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
-   ],
-   "calls_inferred": [
-    "frontend/src/components/queue/QueueItem#*",
-    "frontend/src/components/queue/ReorderableQueueItem#*",
-    "frontend/src/hooks/useGlobalQueue#*"
-   ]
-  },
-  "frontend/src/components/queue/QueueItem.tsx": {
-   "purpose": "Live queue job row with progress bar, ETA, active segment tracking, debug",
-   "exports": [
-    {
-     "name": "QueueItem",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx",
-    "frontend/src/types/index.ts",
-    "frontend/src/utils/devMode.ts",
-    "frontend/src/utils/jobSelection.ts",
-    "frontend/src/utils/queueItemDebugPayload.ts",
-    "frontend/src/utils/queueItemEtaSelection.ts",
-    "frontend/src/utils/queueLabels.ts",
-    "frontend/src/utils/runtimeDebug.ts"
-   ],
-   "called_by": [
-    "frontend/src/components/queue/GlobalQueue.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar#*",
-    "frontend/src/utils/queueItemEtaSelection#*"
-   ]
-  },
-  "frontend/src/components/queue/QueueStats.tsx": {
-   "purpose": "Aggregate queue ETA widget",
-   "exports": [
-    {
-     "name": "QueueStats",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/hooks/useNow.ts",
-    "frontend/src/types/index.ts"
-   ],
-   "called_by": [
-    "frontend/src/components/queue/GlobalQueue.tsx",
-    "frontend/src/pages/Activity/ActivityPage.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/hooks/useNow#useNow"
-   ]
-  },
-  "frontend/src/components/queue/ReorderableQueueItem.tsx": {
-   "purpose": "Draggable queue item for pending jobs",
-   "exports": [
-    {
-     "name": "ReorderableQueueItem",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/types/index.ts",
-    "frontend/src/utils/queueLabels.ts"
-   ],
-   "called_by": [
-    "frontend/src/components/queue/GlobalQueue.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/utils/queueLabels#formatQueueContext"
-   ]
-  },
-  "frontend/src/components/ui/ActionMenu.tsx": {
-   "purpose": "Kebab menu with flip-to-fit positioning and destructive action support",
-   "exports": [
-    {
-     "name": "ActionMenuItem, ActionMenu",
-     "kind": "type/component"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/app/layout/RailBookBlock.tsx",
-    "frontend/src/components/queue/GlobalQueue.tsx",
-    "frontend/src/demo/styleguide/StyleguidePage.tsx",
-    "frontend/src/pages/Book/components/ChapterTable.tsx",
-    "frontend/src/pages/Book/studio/CastPalette.tsx",
-    "frontend/src/pages/Book/studio/StudioHeaderActions.tsx",
-    "frontend/src/pages/ProjectDetail/components/ChapterList.tsx",
-    "frontend/src/pages/ProjectDetail/components/ProjectCard.tsx",
-    "frontend/src/pages/ProjectLibrary/components/ProjectListView.tsx",
-    "frontend/src/pages/Voices/components/NarratorCard.tsx",
-    "frontend/src/pages/Voices/components/VoiceCatalogCard.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/components/ui/GhostButton.tsx": {
-   "purpose": "Transparent button with icon and optional label",
-   "exports": [
-    {
-     "name": "GhostButton",
-     "kind": "component"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/pages/Voices/components/VoicesTabHeader.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/components/ui/StatusOrb.tsx": {
-   "purpose": "Chapter audio status indicator: orb + optional arc + animated icon",
-   "exports": [
-    {
-     "name": "StatusOrb",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/types/index.ts"
-   ],
-   "called_by": [
-    "frontend/src/app/layout/RailBookBlock.tsx",
-    "frontend/src/demo/styleguide/StyleguidePage.tsx",
-    "frontend/src/pages/Book/components/ChapterTable.tsx",
-    "frontend/src/pages/ProjectDetail/components/ChapterList.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/components/ui/Switch.tsx": {
-   "purpose": "Accessible toggle switch with optional label",
-   "exports": [
-    {
-     "name": "Switch",
-     "kind": "component"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/demo/styleguide/StyleguidePage.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
   }
- }
 }

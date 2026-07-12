@@ -1,147 +1,151 @@
 {
- "files": {
-  "frontend/src/theme/components/activity.css": {
-   "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .activity-page*.",
-   "exports": [],
-   "calls": [],
-   "called_by": [],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/theme/components/book-tabs.css": {
-   "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .casting-stage*, .lexicon-stage*.",
-   "exports": [],
-   "calls": [],
-   "called_by": [],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/theme/components/book.css": {
-   "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .book-layout, .book-stage-tabs, .chapter-workspace*, .chapter-table*, .manuscript-stage*, .studio-analysis-strip, .studio-header-actions, .chapter-text-panel*. Also gained .cast-palette__* (CastPalette.tsx, task 004) and .resync-modal-* (ResyncPreviewModal.tsx, task 008) classes during the ST-3 inline-style conversion.",
-   "exports": [],
-   "calls": [],
-   "called_by": [],
-   "notes": [
-    "2026-07-10 (chapter-lifecycle Stale/Error + pill contrast fix): added .chapter-table__pill--stale (background var(--warning-tint-bg), color var(--warning-text)) and .chapter-table__pill--error (background var(--error-tint-bg), color var(--error-text)) for ChapterTable'\\''s two new lifecycle pill states. In the same change, .chapter-table__pill--rendered'\\''s text color switched from the bare var(--success) to var(--success-text), matching the -text token pattern the new stale/error pills use (contrast fix — bare --success/--error are not guaranteed readable on the tint backgrounds).",
-    "2026-07-09: Added `.chapter-text-panel__info-banner` (calm accent-tint banner for Write mode's persistent entry notice, distinct from the warning-tint `.chapter-text-panel__unlock-strip`). Changed `.chapter-text-panel__footer` from `justify-content: space-between` to `flex-end` with a tighter gap now that Discard+Commit Changes form one paired action group. Added `.write-tool`/`.write-tool__hint` (mirrors the existing `.revise-tool`/`.revise-tool__hint` pattern) so the new WriteTool subtitle wrapper lays out and sizes correctly.",
-    "2026-07-10: Added '.chapter-workspace-header__nav-btn svg { flex-shrink: 0; }' mirroring the existing documented fix for .player-btn svg, pinning lucide icons to their intrinsic size instead of letting the inline-flex main-axis algorithm collapse them to 0 width.",
-    "2026-07-10: `.studio-analysis-strip` demoted from a bordered/shadowed card to a plain low-chrome container; added `.studio-analysis-strip__caption` (var(--type-caption), var(--text-muted)); removed the now-unused `__eyebrow`/`__stats`/`__stat`/`__value`/`__value--accent`/`__label`/`__divider` rules that backed the old per-stat card blocks.",
-    "2026-07-10 ST-3 styling-separation: shared classes added for the Book/CastPalette inline-style conversion."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/theme/components/core.css": {
-   "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .btn-* primitives + shared primitives, plus (2026-07-10) 6 new shared label classes (.label-micro-muted, .label-micro-muted-strong, .label-caption-strong, .label-micro-muted-italic, .label-uppercase-sm, .label-uppercase-md) and Engines-domain .registry-card/.registry-chip/.registry-link classes (no dedicated Engines CSS file existed).",
-   "exports": [],
-   "calls": [],
-   "called_by": [],
-   "notes": [
-    "2026-07-10: 5 dead selectors deleted (.btn-home, .btn-menu-destructive, .action-menu-item, .select-glass, .engine-chunk) before the domain split, per task 001.",
-    "2026-07-10 ST-2/ST-3 styling-separation: added 6 shared label classes (.label-micro-muted[-strong/-italic], .label-caption-strong, .label-uppercase-sm/-md) plus .registry-card/.registry-chip (OfficialRegistryPanel) for reuse across the inline-style-to-class conversions."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/theme/components/misc.css": {
-   "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .switch*, .modal-close-btn, .color-swatch-picker*, .control-target*, .segment-render-monitor* + @keyframes. Non-contiguous with shared.css by design (see shared.css's note) -- preserves original cascade position for both slices.",
-   "exports": [],
-   "calls": [],
-   "called_by": [],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/theme/components/nav.css": {
-   "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .nav-rail, .rail-book-block, .mobile-nav-drawer, .top-bar.",
-   "exports": [],
-   "calls": [],
-   "called_by": [],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/theme/components/player.css": {
-   "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .player-bar* family.",
-   "exports": [],
-   "calls": [],
-   "called_by": [],
-   "notes": [
-    "2026-07-10 (audio_player_completion_004 task 002): added the expandable tape-view CSS -- .player-tape-region (grow-upward, reduced-motion-safe), .tape/.tape-canvas/.tape-ruler/.tape-tick (WaveformTape.tsx), .nsp-minimap/.tape-minimap-* (WaveformTapeMinimap.tsx), .ns-size-*/.tape-zoom-* (WaveformTapeZoom.tsx, cover-slider chrome ported from the siteMockup demo). All new rules are token-based (INV-7).",
-    "2026-07-11 waveform fixes: .player-bar position:fixed -> position:relative + flex-shrink:0 (docked, not overlay). Added .tape-zoom-row / .tape-zoom-icon; tape-region height budget raised (120->220, max 260) with a .tape-canvas min-height floor; .tape-motion-toggle spacing."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/theme/components/publish.css": {
-   "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .publish-stage*, .book-info-card*, .assembly-picker, .book-identity-strip*, .continue-listening-card*.",
-   "exports": [],
-   "calls": [],
-   "called_by": [],
-   "notes": [
-    "book_tab_front_door session (2026-07-09) changes: .book-info-card__* placeholder colors switched var(--text-subtle)->var(--text-muted) with opacity:0.8 removed (WCAG contrast fix); .book-info-card__stepper grown 1.12rem->1.5rem (WCAG target-size fix); new .book-identity-strip* rules (compact flex row, 3rem cover, text on --text-primary/--text-secondary); new .continue-listening-card* rules (cover thumbnail, body, title, meta line on --text-muted, actions row); .book-stage__notes given display:flex/column/gap (later made moot -- see below); .book-stage__panel p renamed to .book-stage__panel .book-stage__description (later made moot); final hero-layout-restructure (Task 008) added .book-info-card__description (var(--text-secondary), 46rem max-width), a `.book-info-card__content .continue-listening-card` override stripping the nested card's own border/shadow/padding and hiding its cover thumbnail (renders as part of one bordered .book-info-card region, not a second card), demoted `.book-info-card__chips`/`.book-info-card__chip` to a quiet uniform var(--text-muted) footer line with a '.' separator (::after) instead of colored pill backgrounds, and removed the now-dead `.book-stage__primary`/`.book-stage__notes`/`.book-stage__panel` rules (their only consumer, the old BookStage.tsx aside markup, no longer exists). Pre-existing unrelated dead `.book-stage__hero*`/`.book-stage__eyebrow`/`.book-stage__title`/`.book-stage__subtitle` rules were left untouched (out of scope for this session).",
-    "2026-07-10: Component-level CSS rules (as opposed to tokens.css's design-token custom properties) -- one stylesheet covering most page-owned component classes across the app (e.g. .book-info-card__*, .book-identity-strip*, .continue-listening-card*, .book-stage__*)."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/theme/components/review-tools.css": {
-   "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .review-main*, .revise-tool*, .write-tool*.",
-   "exports": [],
-   "calls": [],
-   "called_by": [],
-   "notes": [
-    "2026-07-10: removed dead .book-stage-review and .review-chapter-rail* rules (the rail they styled no longer renders, BoothTool doesn't port it). .review-main/.review-main__*/.review-text-view* kept — BoothTool/index.tsx still uses them as-is.",
-    "2026-07-10: Warning #4 (reading surface): `.review-text-view` now uses `var(--font-reading)` + `var(--surface-reading)`; `.review-text-view__segment` uses `var(--type-reading)`/`var(--leading-reading)` instead of a flat 0.75rem UI-font size. Warning #6 (low-contrast active highlight): added a non-color `border-left: 3px solid var(--accent)` gutter bar to `.review-text-view__segment--active` alongside the existing tint/weight change. Added `.review-text-view__segment--pulse` + `@keyframes booth-autoplay-pulse` for the one-shot autoplay acknowledgment, with a `prefers-reduced-motion: reduce` override disabling the animation (matching the existing `.switch__knob` convention in this file).",
-    "2026-07-10: CRITICAL #2 (resting-state/touch affordance): `.revise-text-view__segment` gained a persistent `border-left: 2px solid var(--border-muted)` so extent/clickability is visible before any interaction; `:hover`/`:focus-within` now also intensify `border-color`/`border-left-color` to `var(--border)` (previously background-wash only) and reveal the new `.revise-text-view__edit-icon` (opacity 0→1, transition-based, not color-only). Warning #3 (segment vs. paragraph boundaries): reduced `.revise-text-view`'s inter-segment `gap` from 8px to 3px so consecutive same-paragraph segments read less like separate paragraphs, while the border-left tick keeps individual segment extents legible. Warning #6 (token pairing): `.revise-text-view__save-btn` now pairs `color: var(--on-action)` with `background: var(--accent)`, matching `.btn-primary`'s `--action-primary`/`--on-action` convention (was incorrectly paired with `var(--surface)`). Added `.revise-tool__hint` (quiet caption style, `var(--text-muted)`, 0.7rem) for the new topbar hint."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/theme/components/shared.css": {
-   "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: orphan utility block -- .sr-only, .input-group*, .input-field*, .popover-panel*, .icon-circle*, .as-*, .form-input*. Deliberately kept as a separate, non-contiguous file from misc.css (below) to preserve original cascade order (see index.css import order + 01-map.md Invariant I1).",
-   "exports": [],
-   "calls": [],
-   "called_by": [],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/theme/components/voice-lab.css": {
-   "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .voice-catalog-card*, .voice-lab-page*, .voice-lab-phase-stepper*, .voice-lab-section*, .voice-dropzone*. Also gained the majority of the ST-3 inline-style-conversion's new classes (VoiceModals, ScriptEditor, VariantEditor, VoicesTabHeader, SampleManager, MetadataEditorModal + its 5 metadata/ children all wrote here -- tasks 006/010/012/014/016/017), since it's the Voices domain's shared home.",
-   "exports": [],
-   "calls": [],
-   "called_by": [],
-   "notes": [
-    "2026-07-10 ST-3 styling-separation: Voices-tab component classes added (VoiceModals/ScriptEditor/MetadataEditorModal/VoicesTabHeader/SampleManager) plus the .variant-editor__* BEM class family for VariantEditor."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/theme/index.css": {
-   "purpose": "Theme entry stylesheet -- @imports tokens.css, base.css, the 11 theme/components/*.css domain files (in load-bearing cascade order), and utilities.css.",
-   "exports": [],
-   "calls": [
-    "frontend/src/theme/components/core.css",
-    "frontend/src/theme/components/nav.css",
-    "frontend/src/theme/components/book.css",
-    "frontend/src/theme/components/book-tabs.css",
-    "frontend/src/theme/components/publish.css",
-    "frontend/src/theme/components/activity.css",
-    "frontend/src/theme/components/shared.css",
-    "frontend/src/theme/components/player.css",
-    "frontend/src/theme/components/voice-lab.css",
-    "frontend/src/theme/components/review-tools.css",
-    "frontend/src/theme/components/misc.css"
-   ],
-   "called_by": [],
-   "notes": [
-    "2026-07-10 ST-1 styling-separation: imports the 11 theme/components/*.css domain files (core, nav, book, book-tabs, publish, activity, shared, player, voice-lab, review-tools, misc) in cascade order, replacing the retired single components.css."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/theme/tokens.css": {
-   "purpose": "Design-token custom properties (colors, spacing, typography scale) -- the single source of truth for the Quiet Studio token system; component stylesheets (components.css) and inline component styles consume these via var(--token-name).",
-   "exports": [],
-   "calls": [],
-   "called_by": [],
-   "notes": [
-    "Not previously tracked as a files record; added 2026-07-09. Touched during the 2026-07-09 book-layout session (already reflected in map.json content per that session's own consolidation).",
-    "2026-07-09 border-strong-token-gap-fix: added --border-strong (light: #c3cbdb, dark: #5a6480) next to --border/--border-muted -- closes a gap where components.css referenced this custom property (undefined until this fix) for the series-position pill border and the stepper's hover border-color.",
-    "2026-07-10: Added `--z-drawer: 400` to the light/root token block (value matches the existing var(--z-drawer, 400) fallback already used by .mobile-nav-drawer in components.css), slotted between the ~300 dropdown tier and the ~1000+ modal/toast tier."
-   ],
-   "calls_inferred": []
+  "files": {
+    "frontend/src/theme/components/activity.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .activity-page*.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/components/book-tabs.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .casting-stage*, .lexicon-stage*.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/components/book.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .book-layout, .book-stage-tabs, .chapter-workspace*, .chapter-table*, .manuscript-stage*, .studio-analysis-strip, .studio-header-actions, .chapter-text-panel*. Also gained .cast-palette__* (CastPalette.tsx, task 004) and .resync-modal-* (ResyncPreviewModal.tsx, task 008) classes during the ST-3 inline-style conversion.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-10 (chapter-lifecycle Stale/Error + pill contrast fix): added .chapter-table__pill--stale (background var(--warning-tint-bg), color var(--warning-text)) and .chapter-table__pill--error (background var(--error-tint-bg), color var(--error-text)) for ChapterTable'\\''s two new lifecycle pill states. In the same change, .chapter-table__pill--rendered'\\''s text color switched from the bare var(--success) to var(--success-text), matching the -text token pattern the new stale/error pills use (contrast fix \u2014 bare --success/--error are not guaranteed readable on the tint backgrounds).",
+        "2026-07-09: Added `.chapter-text-panel__info-banner` (calm accent-tint banner for Write mode's persistent entry notice, distinct from the warning-tint `.chapter-text-panel__unlock-strip`). Changed `.chapter-text-panel__footer` from `justify-content: space-between` to `flex-end` with a tighter gap now that Discard+Commit Changes form one paired action group. Added `.write-tool`/`.write-tool__hint` (mirrors the existing `.revise-tool`/`.revise-tool__hint` pattern) so the new WriteTool subtitle wrapper lays out and sizes correctly.",
+        "2026-07-10: Added '.chapter-workspace-header__nav-btn svg { flex-shrink: 0; }' mirroring the existing documented fix for .player-btn svg, pinning lucide icons to their intrinsic size instead of letting the inline-flex main-axis algorithm collapse them to 0 width.",
+        "2026-07-10: `.studio-analysis-strip` demoted from a bordered/shadowed card to a plain low-chrome container; added `.studio-analysis-strip__caption` (var(--type-caption), var(--text-muted)); removed the now-unused `__eyebrow`/`__stats`/`__stat`/`__value`/`__value--accent`/`__label`/`__divider` rules that backed the old per-stat card blocks.",
+        "2026-07-10 ST-3 styling-separation: shared classes added for the Book/CastPalette inline-style conversion."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/components/core.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .btn-* primitives + shared primitives, plus (2026-07-10) 6 new shared label classes (.label-micro-muted, .label-micro-muted-strong, .label-caption-strong, .label-micro-muted-italic, .label-uppercase-sm, .label-uppercase-md) and Engines-domain .registry-card/.registry-chip/.registry-link classes (no dedicated Engines CSS file existed).",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-10: 5 dead selectors deleted (.btn-home, .btn-menu-destructive, .action-menu-item, .select-glass, .engine-chunk) before the domain split, per task 001.",
+        "2026-07-10 ST-2/ST-3 styling-separation: added 6 shared label classes (.label-micro-muted[-strong/-italic], .label-caption-strong, .label-uppercase-sm/-md) plus .registry-card/.registry-chip (OfficialRegistryPanel) for reuse across the inline-style-to-class conversions."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/components/misc.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .switch*, .modal-close-btn, .color-swatch-picker*, .control-target*, .segment-render-monitor* + @keyframes. Non-contiguous with shared.css by design (see shared.css's note) -- preserves original cascade position for both slices.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-11 (task 005): added .project-status-pill / .project-status-pill--drafting|casting|rendered rules (rounded pill, tint/text-color pairing per state, same shape as book.css's .chapter-table__pill--*)."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/components/nav.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .nav-rail, .rail-book-block, .mobile-nav-drawer, .top-bar.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/components/player.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .player-bar* family.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-10 (audio_player_completion_004 task 002): added the expandable tape-view CSS -- .player-tape-region (grow-upward, reduced-motion-safe), .tape/.tape-canvas/.tape-ruler/.tape-tick (WaveformTape.tsx), .nsp-minimap/.tape-minimap-* (WaveformTapeMinimap.tsx), .ns-size-*/.tape-zoom-* (WaveformTapeZoom.tsx, cover-slider chrome ported from the siteMockup demo). All new rules are token-based (INV-7).",
+        "2026-07-11 waveform fixes: .player-bar position:fixed -> position:relative + flex-shrink:0 (docked, not overlay). Added .tape-zoom-row / .tape-zoom-icon; tape-region height budget raised (120->220, max 260) with a .tape-canvas min-height floor; .tape-motion-toggle spacing."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/components/publish.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .publish-stage*, .book-info-card*, .assembly-picker, .book-identity-strip*, .continue-listening-card*.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "book_tab_front_door session (2026-07-09) changes: .book-info-card__* placeholder colors switched var(--text-subtle)->var(--text-muted) with opacity:0.8 removed (WCAG contrast fix); .book-info-card__stepper grown 1.12rem->1.5rem (WCAG target-size fix); new .book-identity-strip* rules (compact flex row, 3rem cover, text on --text-primary/--text-secondary); new .continue-listening-card* rules (cover thumbnail, body, title, meta line on --text-muted, actions row); .book-stage__notes given display:flex/column/gap (later made moot -- see below); .book-stage__panel p renamed to .book-stage__panel .book-stage__description (later made moot); final hero-layout-restructure (Task 008) added .book-info-card__description (var(--text-secondary), 46rem max-width), a `.book-info-card__content .continue-listening-card` override stripping the nested card's own border/shadow/padding and hiding its cover thumbnail (renders as part of one bordered .book-info-card region, not a second card), demoted `.book-info-card__chips`/`.book-info-card__chip` to a quiet uniform var(--text-muted) footer line with a '.' separator (::after) instead of colored pill backgrounds, and removed the now-dead `.book-stage__primary`/`.book-stage__notes`/`.book-stage__panel` rules (their only consumer, the old BookStage.tsx aside markup, no longer exists). Pre-existing unrelated dead `.book-stage__hero*`/`.book-stage__eyebrow`/`.book-stage__title`/`.book-stage__subtitle` rules were left untouched (out of scope for this session).",
+        "2026-07-10: Component-level CSS rules (as opposed to tokens.css's design-token custom properties) -- one stylesheet covering most page-owned component classes across the app (e.g. .book-info-card__*, .book-identity-strip*, .continue-listening-card*, .book-stage__*)."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/components/review-tools.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .review-main*, .revise-tool*, .write-tool*.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-10: removed dead .book-stage-review and .review-chapter-rail* rules (the rail they styled no longer renders, BoothTool doesn't port it). .review-main/.review-main__*/.review-text-view* kept \u2014 BoothTool/index.tsx still uses them as-is.",
+        "2026-07-10: Warning #4 (reading surface): `.review-text-view` now uses `var(--font-reading)` + `var(--surface-reading)`; `.review-text-view__segment` uses `var(--type-reading)`/`var(--leading-reading)` instead of a flat 0.75rem UI-font size. Warning #6 (low-contrast active highlight): added a non-color `border-left: 3px solid var(--accent)` gutter bar to `.review-text-view__segment--active` alongside the existing tint/weight change. Added `.review-text-view__segment--pulse` + `@keyframes booth-autoplay-pulse` for the one-shot autoplay acknowledgment, with a `prefers-reduced-motion: reduce` override disabling the animation (matching the existing `.switch__knob` convention in this file).",
+        "2026-07-10: CRITICAL #2 (resting-state/touch affordance): `.revise-text-view__segment` gained a persistent `border-left: 2px solid var(--border-muted)` so extent/clickability is visible before any interaction; `:hover`/`:focus-within` now also intensify `border-color`/`border-left-color` to `var(--border)` (previously background-wash only) and reveal the new `.revise-text-view__edit-icon` (opacity 0\u21921, transition-based, not color-only). Warning #3 (segment vs. paragraph boundaries): reduced `.revise-text-view`'s inter-segment `gap` from 8px to 3px so consecutive same-paragraph segments read less like separate paragraphs, while the border-left tick keeps individual segment extents legible. Warning #6 (token pairing): `.revise-text-view__save-btn` now pairs `color: var(--on-action)` with `background: var(--accent)`, matching `.btn-primary`'s `--action-primary`/`--on-action` convention (was incorrectly paired with `var(--surface)`). Added `.revise-tool__hint` (quiet caption style, `var(--text-muted)`, 0.7rem) for the new topbar hint."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/components/shared.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: orphan utility block -- .sr-only, .input-group*, .input-field*, .popover-panel*, .icon-circle*, .as-*, .form-input*. Deliberately kept as a separate, non-contiguous file from misc.css (below) to preserve original cascade order (see index.css import order + 01-map.md Invariant I1).",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-11 (task 010 Gate 2): added .bookmarks-panel*/.bookmark-list* class rules (toggle header, row list, empty state, nav/remove buttons) shared by ContentsStage's and ProjectLibraryPage's bookmark panels."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/components/voice-lab.css": {
+      "purpose": "Component-level CSS rules (as opposed to tokens.css's design-token custom properties), split 2026-07-10 from the former monolithic frontend/src/theme/components.css (task 002, design-docs/plans/active/simplification/styling_separation_execution/) into 11 domain-scoped files under frontend/src/theme/components/, assembled via @import in theme/index.css in load-bearing cascade order (see that file and the plan's 01-map.md for the exact sequence). This file: .voice-catalog-card*, .voice-lab-page*, .voice-lab-phase-stepper*, .voice-lab-section*, .voice-dropzone*. Also gained the majority of the ST-3 inline-style-conversion's new classes (VoiceModals, ScriptEditor, VariantEditor, VoicesTabHeader, SampleManager, MetadataEditorModal + its 5 metadata/ children all wrote here -- tasks 006/010/012/014/016/017), since it's the Voices domain's shared home.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-10 ST-3 styling-separation: Voices-tab component classes added (VoiceModals/ScriptEditor/MetadataEditorModal/VoicesTabHeader/SampleManager) plus the .variant-editor__* BEM class family for VariantEditor."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/index.css": {
+      "purpose": "Theme entry stylesheet -- @imports tokens.css, base.css, the 11 theme/components/*.css domain files (in load-bearing cascade order), and utilities.css.",
+      "exports": [],
+      "calls": [
+        "frontend/src/theme/components/core.css",
+        "frontend/src/theme/components/nav.css",
+        "frontend/src/theme/components/book.css",
+        "frontend/src/theme/components/book-tabs.css",
+        "frontend/src/theme/components/publish.css",
+        "frontend/src/theme/components/activity.css",
+        "frontend/src/theme/components/shared.css",
+        "frontend/src/theme/components/player.css",
+        "frontend/src/theme/components/voice-lab.css",
+        "frontend/src/theme/components/review-tools.css",
+        "frontend/src/theme/components/misc.css"
+      ],
+      "called_by": [],
+      "notes": [
+        "2026-07-10 ST-1 styling-separation: imports the 11 theme/components/*.css domain files (core, nav, book, book-tabs, publish, activity, shared, player, voice-lab, review-tools, misc) in cascade order, replacing the retired single components.css."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/theme/tokens.css": {
+      "purpose": "Design-token custom properties (colors, spacing, typography scale) -- the single source of truth for the Quiet Studio token system; component stylesheets (components.css) and inline component styles consume these via var(--token-name).",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "Not previously tracked as a files record; added 2026-07-09. Touched during the 2026-07-09 book-layout session (already reflected in map.json content per that session's own consolidation).",
+        "2026-07-09 border-strong-token-gap-fix: added --border-strong (light: #c3cbdb, dark: #5a6480) next to --border/--border-muted -- closes a gap where components.css referenced this custom property (undefined until this fix) for the series-position pill border and the stepper's hover border-color.",
+        "2026-07-10: Added `--z-drawer: 400` to the light/root token block (value matches the existing var(--z-drawer, 400) fallback already used by .mobile-nav-drawer in components.css), slotted between the ~300 dropdown tier and the ~1000+ modal/toast tier."
+      ],
+      "calls_inferred": []
+    }
   }
- }
 }
