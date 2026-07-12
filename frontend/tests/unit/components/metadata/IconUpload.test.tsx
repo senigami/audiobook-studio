@@ -121,4 +121,65 @@ describe('IconUpload', () => {
       expect(onError).toHaveBeenCalledWith('Icon must be square (1:1 aspect ratio). Got 400×300.');
     });
   });
+
+  describe('drag and drop', () => {
+    function dropZone(container: HTMLElement) {
+      return container.querySelector('.metadata-icon-upload__row') as HTMLElement;
+    }
+
+    it('uploads a dropped square image the same way as a picked one', async () => {
+      FakeImage.behavior = 'square';
+      (api.uploadVoiceIcon as any).mockResolvedValue({ image: 'icon.png' });
+      const onSuccess = vi.fn();
+
+      const { container } = render(<IconUpload voiceId="v1" currentImagePath={undefined} onSuccess={onSuccess} onError={vi.fn()} />);
+
+      fireEvent.drop(dropZone(container), { dataTransfer: { files: [makeFile()] } });
+
+      await waitFor(() => {
+        expect(api.uploadVoiceIcon).toHaveBeenCalledWith('v1', expect.any(File));
+      });
+      expect(onSuccess).toHaveBeenCalledWith('icon.png');
+    });
+
+    it('opens the crop modal for a dropped non-square image', async () => {
+      FakeImage.behavior = 'nonsquare';
+
+      const { container } = render(<IconUpload voiceId="v1" currentImagePath={undefined} onSuccess={vi.fn()} onError={vi.fn()} />);
+
+      fireEvent.drop(dropZone(container), { dataTransfer: { files: [makeFile()] } });
+
+      await waitFor(() => {
+        expect(screen.getByRole('dialog', { name: /crop icon/i })).toBeInTheDocument();
+      });
+      expect(api.uploadVoiceIcon).not.toHaveBeenCalled();
+    });
+
+    it('shows a drag-active hint while a file is dragged over, and clears it on drag-leave', () => {
+      const { container } = render(<IconUpload voiceId="v1" currentImagePath={undefined} onSuccess={vi.fn()} onError={vi.fn()} />);
+
+      const zone = dropZone(container);
+      expect(screen.queryByText('Drop to upload')).toBeNull();
+
+      fireEvent.dragOver(zone, { dataTransfer: { files: [] } });
+      expect(screen.getByText('Drop to upload')).toBeInTheDocument();
+
+      fireEvent.dragLeave(zone);
+      expect(screen.queryByText('Drop to upload')).toBeNull();
+    });
+
+    it('rejects a dropped non-image file with an error, without touching the upload API', async () => {
+      const onError = vi.fn();
+      const { container } = render(<IconUpload voiceId="v1" currentImagePath={undefined} onSuccess={vi.fn()} onError={onError} />);
+
+      fireEvent.drop(dropZone(container), {
+        dataTransfer: { files: [new File(['not an image'], 'notes.txt', { type: 'text/plain' })] },
+      });
+
+      await waitFor(() => {
+        expect(onError).toHaveBeenCalledWith('Drop an image file (PNG, JPEG, or WebP).');
+      });
+      expect(api.uploadVoiceIcon).not.toHaveBeenCalled();
+    });
+  });
 });

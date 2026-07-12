@@ -1,0 +1,15 @@
+{
+  "date": "2026-07-12",
+  "author": "claude",
+  "summary": "Added drag-and-drop to the voice icon uploader, reusing this repo's established drag-drop interaction pattern (dashed-border highlight while dragging, as seen in VoiceDropzone.tsx) -- there's no shared drag-drop hook/component in this codebase yet, so the handlers are implemented locally here too, matching the existing convention rather than introducing a new abstraction.",
+  "files": [
+    {
+      "path": "frontend/src/pages/Voices/components/metadata/IconUpload.tsx",
+      "change": "Extracted the file-picker's dimension-probe/crop-or-upload decision into a shared handleFile() used by both the <input onChange> and a new onDrop handler on .metadata-icon-upload__row. Added onDragOver/onDragLeave/onDrop with isDragging state driving a dashed accent-blue border + glow highlight + 'Drop to upload' hint text swap. A dropped non-image file surfaces an error via onError rather than being silently ignored."
+    }
+  ],
+  "tests_added": [
+    "frontend/tests/unit/components/metadata/IconUpload.test.tsx -- 4 new cases under 'drag and drop': dropped square image uploads directly, dropped non-square image opens the crop modal, drag-over/drag-leave toggles the 'Drop to upload' hint, a dropped non-image file is rejected with an error and never reaches the upload API."
+  ],
+  "verified_live": "Confirmed in the running app: dragover shows the dashed-border + glow + 'Drop to upload' hint; dropping a real square PNG (built via canvas, DataTransfer) triggers the same upload path as the file picker (POST /api/voices/{id}/icon -> 200), then the icon renders via the GET route added in the prior commit."
+}

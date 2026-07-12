@@ -36,6 +36,7 @@ export function IconUpload({
 }) {
     const [uploading, setUploading] = useState(false);
     const [cropFile, setCropFile] = useState<File | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
     const doUpload = async (file: File) => {
@@ -52,13 +53,9 @@ export function IconUpload({
         }
     };
 
-    const handle = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        // D2: square images upload directly (unchanged fast path); a
-        // non-square source opens the crop modal instead of round-tripping
-        // to the server just to get a 422.
+    // Shared by both the file-picker input and drag-and-drop — same
+    // dimension-probe / crop-or-upload decision either way (D2).
+    const handleFile = async (file: File) => {
         try {
             const { w, h } = await readImageDimensions(file);
             if (w === h) {
@@ -72,6 +69,27 @@ export function IconUpload({
             // to the server's own validation/error message.
             await doUpload(file);
         }
+    };
+
+    const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        await handleFile(file);
+    };
+
+    // Reuses this repo's established drag-drop interaction pattern
+    // (dashed-border highlight while dragging, e.g. VoiceDropzone.tsx) —
+    // there's no shared hook for it yet, so the handlers are local here too.
+    const handleDrop = async (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        if (uploading) return;
+        const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith('image/'));
+        if (!file) {
+            onError('Drop an image file (PNG, JPEG, or WebP).');
+            return;
+        }
+        await handleFile(file);
     };
 
     const handleCropped = async (croppedFile: File) => {
@@ -88,7 +106,18 @@ export function IconUpload({
             <label className="metadata-field-label">
                 ICON
             </label>
-            <div className="metadata-icon-upload__row">
+            <div
+                className="metadata-icon-upload__row"
+                onDragOver={(e) => { e.preventDefault(); if (!uploading) setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleDrop}
+                style={{
+                    borderRadius: 'var(--radius-card)',
+                    border: isDragging ? '2px dashed var(--accent)' : '2px dashed transparent',
+                    background: isDragging ? 'var(--accent-glow)' : 'transparent',
+                    transition: 'border-color 0.15s ease-out, background-color 0.15s ease-out',
+                }}
+            >
                 <div className="metadata-icon-upload__preview">
                     {iconUrl ? (
                         <img src={iconUrl} alt="Voice icon" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -106,7 +135,9 @@ export function IconUpload({
                         {uploading ? 'Uploading…' : (iconUrl ? 'Replace icon' : 'Upload icon')}
                     </button>
                     <p className="metadata-field-hint">
-                        PNG, JPEG, or WebP. Non-square images can be cropped after selecting.
+                        {isDragging
+                            ? 'Drop to upload'
+                            : 'PNG, JPEG, or WebP. Drag and drop, or click to browse. Non-square images can be cropped after selecting.'}
                     </p>
                     <input
                         ref={inputRef}
@@ -114,7 +145,7 @@ export function IconUpload({
                         accept="image/png,image/jpeg,image/webp"
                         aria-label="Upload voice icon"
                         style={{ display: 'none' }}
-                        onChange={handle}
+                        onChange={handleInputChange}
                     />
                 </div>
             </div>
