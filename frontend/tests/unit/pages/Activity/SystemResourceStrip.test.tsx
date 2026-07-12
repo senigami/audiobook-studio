@@ -41,7 +41,7 @@ describe('SystemResourceStrip', () => {
     expect(dashes.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('applies high-pressure (amber) styling when pct >= 90 sustained for 2+ samples', () => {
+  it('applies hot (error) styling when pct >= 90 sustained for 2+ samples', () => {
     const samples: SystemResourceSample[] = [
       makeSample({ cpuPct: 40 }),
       makeSample({ cpuPct: 95 }),
@@ -51,10 +51,10 @@ describe('SystemResourceStrip', () => {
     render(<SystemResourceStrip samples={samples} hasVram={false} loading={false} />);
 
     const cpuValue = screen.getByText('96%');
-    expect(cpuValue).toHaveStyle({ color: 'var(--warning-text-strong)' });
+    expect(cpuValue).toHaveStyle({ color: 'var(--error)' });
   });
 
-  it('does not apply high-pressure styling for a single high sample', () => {
+  it('applies elevated (not sustained-hot) styling for a single high sample >= 70', () => {
     const samples: SystemResourceSample[] = [
       makeSample({ cpuPct: 40 }),
       makeSample({ cpuPct: 95 }),
@@ -63,6 +63,15 @@ describe('SystemResourceStrip', () => {
     render(<SystemResourceStrip samples={samples} hasVram={false} loading={false} />);
 
     const cpuValue = screen.getByText('95%');
+    expect(cpuValue).toHaveStyle({ color: 'var(--warning-text-strong)' });
+  });
+
+  it('does not apply elevated/hot styling below 70', () => {
+    const samples: SystemResourceSample[] = [makeSample({ cpuPct: 40 })];
+
+    render(<SystemResourceStrip samples={samples} hasVram={false} loading={false} />);
+
+    const cpuValue = screen.getByText('40%');
     expect(cpuValue).toHaveStyle({ color: 'var(--text-primary)' });
   });
 
@@ -82,5 +91,32 @@ describe('SystemResourceStrip', () => {
     const hidden = container.querySelectorAll('.sr-only');
     const texts = Array.from(hidden).map((el) => el.textContent);
     expect(texts.some((t) => t?.includes('CPU: 42 percent'))).toBe(true);
+  });
+
+  it('renders a below-graph meter bar filled to the current value, per row', () => {
+    const { container } = render(<SystemResourceStrip samples={[makeSample({ cpuPct: 42 })]} hasVram={false} loading={false} />);
+
+    const fills = container.querySelectorAll('.system-resource-strip__meter-fill');
+    expect(fills.length).toBe(2);
+    expect((fills[0] as HTMLElement).style.width).toBe('42%');
+  });
+
+  it('meter fill re-renders to a new width as the trailing sample changes (CSS transition animates the change)', () => {
+    const { container, rerender } = render(
+      <SystemResourceStrip samples={[makeSample({ cpuPct: 20 })]} hasVram={false} loading={false} />
+    );
+    const fillBefore = container.querySelector('.system-resource-strip__meter-fill') as HTMLElement;
+    expect(fillBefore.style.width).toBe('20%');
+
+    rerender(<SystemResourceStrip samples={[makeSample({ cpuPct: 20 }), makeSample({ cpuPct: 65 })]} hasVram={false} loading={false} />);
+    const fillAfter = container.querySelector('.system-resource-strip__meter-fill') as HTMLElement;
+    expect(fillAfter.style.width).toBe('65%');
+  });
+
+  it('meter fill is empty while loading', () => {
+    const { container } = render(<SystemResourceStrip samples={[]} hasVram={false} loading />);
+
+    const fill = container.querySelector('.system-resource-strip__meter-fill') as HTMLElement;
+    expect(fill.style.width).toBe('0%');
   });
 });

@@ -9,9 +9,12 @@ export interface SystemResourceStripProps {
 
 const HIGH_PRESSURE_THRESHOLD = 90;
 const HIGH_PRESSURE_SUSTAIN_COUNT = 2;
+const ELEVATED_PRESSURE_THRESHOLD = 70;
 
 const SPARK_WIDTH = 60;
 const SPARK_HEIGHT = 18;
+
+type PressureTier = 'normal' | 'elevated' | 'hot';
 
 /** Is the trailing `pcts` series in a sustained (>= N consecutive) high-pressure state? */
 function isSustainedHighPressure(pcts: number[]): boolean {
@@ -20,20 +23,40 @@ function isSustainedHighPressure(pcts: number[]): boolean {
   return trailing.every((p) => p >= HIGH_PRESSURE_THRESHOLD);
 }
 
+/** Current intensity tier: sustained-hot (alarm) > elevated (current reading only, no sustain gate) > normal. */
+function pressureTier(pcts: number[]): PressureTier {
+  if (isSustainedHighPressure(pcts)) return 'hot';
+  const last = pcts[pcts.length - 1];
+  if (last !== undefined && last >= ELEVATED_PRESSURE_THRESHOLD) return 'elevated';
+  return 'normal';
+}
+
+function scaleY(p: number): number {
+  return SPARK_HEIGHT - (Math.max(0, Math.min(100, p)) / 100) * SPARK_HEIGHT;
+}
+
 function buildSparklinePoints(pcts: number[]): string {
   if (pcts.length === 0) return '';
   if (pcts.length === 1) {
-    const y = SPARK_HEIGHT - (pcts[0] / 100) * SPARK_HEIGHT;
+    const y = scaleY(pcts[0]);
     return `0,${y.toFixed(1)} ${SPARK_WIDTH},${y.toFixed(1)}`;
   }
   const step = SPARK_WIDTH / (pcts.length - 1);
   return pcts
     .map((p, i) => {
       const x = i * step;
-      const y = SPARK_HEIGHT - (Math.max(0, Math.min(100, p)) / 100) * SPARK_HEIGHT;
+      const y = scaleY(p);
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(' ');
+}
+
+/** Baseline-anchored fill path: the sparkline line, dropped down to the bottom edge and closed. */
+function buildSparklineAreaPath(pcts: number[]): string {
+  if (pcts.length === 0) return '';
+  const points = buildSparklinePoints(pcts).split(' ');
+  const lastX = points[points.length - 1].split(',')[0];
+  return `M0,${SPARK_HEIGHT} L${points.join(' L')} L${lastX},${SPARK_HEIGHT} Z`;
 }
 
 interface ResourceRowProps {
@@ -44,57 +67,82 @@ interface ResourceRowProps {
   loading: boolean;
 }
 
+const TIER_COLOR: Record<PressureTier, string> = {
+  normal: 'var(--accent)',
+  elevated: 'var(--warning-text-strong)',
+  hot: 'var(--error)',
+};
+
 const ResourceRow: React.FC<ResourceRowProps> = ({ label, pcts, valueText, accessibleText, loading }) => {
-  const highPressure = !loading && isSustainedHighPressure(pcts);
-  const dotColor = highPressure ? 'var(--warning-text-strong)' : 'var(--accent)';
-  const valueColor = highPressure ? 'var(--warning-text-strong)' : 'var(--text-primary)';
+  const tier = loading ? 'normal' : pressureTier(pcts);
+  const tierColor = TIER_COLOR[tier];
+  const valueColor = tier === 'normal' ? 'var(--text-primary)' : tierColor;
+  const currentPct = !loading && pcts.length > 0 ? Math.max(0, Math.min(100, pcts[pcts.length - 1])) : 0;
 
   const lastPoint = (() => {
     if (loading || pcts.length === 0) return null;
     const step = pcts.length > 1 ? SPARK_WIDTH / (pcts.length - 1) : SPARK_WIDTH;
     const x = pcts.length > 1 ? (pcts.length - 1) * step : SPARK_WIDTH;
-    const y = SPARK_HEIGHT - (Math.max(0, Math.min(100, pcts[pcts.length - 1])) / 100) * SPARK_HEIGHT;
+    const y = scaleY(pcts[pcts.length - 1]);
     return { x, y };
   })();
 
-  return (
-    <div className="system-resource-strip__row">
-      <span className="system-resource-strip__label">{label}</span>
-      <svg
-        viewBox={`0 0 ${SPARK_WIDTH} ${SPARK_HEIGHT}`}
-        preserveAspectRatio="none"
-        aria-hidden="true"
-        className="system-resource-strip__spark"
-      >
+  const thresholdY = scaleY(HIGH_PRESSURE_THRESHOLD);
 
-        {loading || pcts.length === 0 ? (
-          <line
-            x1={0}
-            y1={SPARK_HEIGHT / 2}
-            x2={SPARK_WIDTH}
-            y2={SPARK_HEIGHT / 2}
-            stroke="var(--border)"
-            strokeWidth={1}
-          />
-        ) : (
-          <>
-            <polyline
-              points={buildSparklinePoints(pcts)}
-              fill="none"
-              stroke="var(--color-wave)"
+  return (
+    <div className="system-resource-strip__row-wrap">
+      <div className="system-resource-strip__row">
+        <span className="system-resource-strip__label">{label}</span>
+        <svg
+          viewBox={`0 0 ${SPARK_WIDTH} ${SPARK_HEIGHT}`}
+          preserveAspectRatio="none"
+          aria-hidden="true"
+          className="system-resource-strip__spark"
+        >
+          {loading || pcts.length === 0 ? (
+            <line
+              x1={0}
+              y1={SPARK_HEIGHT / 2}
+              x2={SPARK_WIDTH}
+              y2={SPARK_HEIGHT / 2}
+              stroke="var(--border)"
               strokeWidth={1}
             />
-            {lastPoint && <circle cx={lastPoint.x} cy={lastPoint.y} r={2} fill={dotColor} />}
-          </>
-        )}
-      </svg>
-      <span
-        className="system-resource-strip__value"
-        style={{ color: loading ? 'var(--text-muted)' : valueColor }}
-      >
-        {loading ? '—' : valueText}
-      </span>
-      <span className="sr-only">{accessibleText}</span>
+          ) : (
+            <>
+              <line
+                x1={0}
+                y1={thresholdY}
+                x2={SPARK_WIDTH}
+                y2={thresholdY}
+                stroke="var(--border)"
+                strokeWidth={0.75}
+                strokeDasharray="2,1.5"
+              />
+              <path d={buildSparklineAreaPath(pcts)} fill={tierColor} fillOpacity={0.16} stroke="none" />
+              <polyline points={buildSparklinePoints(pcts)} fill="none" stroke={tierColor} strokeWidth={1.25} />
+              {lastPoint && <circle cx={lastPoint.x} cy={lastPoint.y} r={2} fill={tierColor} />}
+            </>
+          )}
+        </svg>
+        <span
+          className="system-resource-strip__value"
+          style={{ color: loading ? 'var(--text-muted)' : valueColor }}
+        >
+          {loading ? '—' : valueText}
+        </span>
+        <span className="sr-only">{accessibleText}</span>
+      </div>
+      <div className="system-resource-strip__meter-row">
+        <span className="system-resource-strip__label-spacer" aria-hidden="true" />
+        <div className="system-resource-strip__meter" aria-hidden="true">
+          <div
+            className="system-resource-strip__meter-fill"
+            style={{ width: `${currentPct}%`, background: loading ? 'var(--border)' : tierColor }}
+          />
+        </div>
+        <span className="system-resource-strip__value-spacer" aria-hidden="true" />
+      </div>
     </div>
   );
 };
