@@ -57,6 +57,22 @@ describe('ContinueListeningCard', () => {
     );
   });
 
+  it('passes the known duration as initialDuration so PlayerBar never treats a multi-hour book as unknown-duration', () => {
+    // Book-scope audio can be many hours long. Without initialDuration,
+    // PlayerBar's fitsLegibly(0, ...) bootstrap treats "unknown duration" as
+    // "show the waveform", letting WaveformStrip attempt a full wavesurfer
+    // decode of the entire file before the browser's own metadata loads —
+    // for a multi-hour audiobook that can hang or crash the tab.
+    const loadAndPlaySpy = vi.spyOn(playerBus, 'loadAndPlay');
+
+    renderCard();
+    fireEvent.click(screen.getByRole('button', { name: /Continue Listening/i }));
+
+    expect(loadAndPlaySpy).toHaveBeenCalledWith(
+      expect.objectContaining({ initialDuration: baseAudiobook.duration_seconds }),
+    );
+  });
+
   it('sets the download anchor href/download attributes when Download is clicked', () => {
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     const anchors: HTMLAnchorElement[] = [];

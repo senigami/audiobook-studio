@@ -59,6 +59,12 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                 scope: 'book',
                 title: project.name,
                 audioUrl: assembledAudiobook.url || '',
+                // Book-scope audio can be many hours long — supply the known
+                // duration so PlayerBar never treats it as "unknown duration"
+                // (which would let the inline waveform attempt a full
+                // browser decode of the whole file). See
+                // LoadAndPlayOptions.initialDuration.
+                initialDuration: assembledAudiobook.duration_seconds,
             });
         }
     };

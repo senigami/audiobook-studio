@@ -32,6 +32,12 @@ export function ContinueListeningCard({ audiobooks, coverImagePath }: ContinueLi
       title: latest.title || latest.filename,
       subtitle: 'Full audiobook',
       audioUrl: latest.url,
+      // Book-scope audio can be many hours long. Supplying the known
+      // duration up front skips PlayerBar's "unknown duration" bootstrap
+      // window, which would otherwise let the inline waveform attempt a
+      // full browser decode of the entire file before real metadata loads
+      // — see LoadAndPlayOptions.initialDuration.
+      initialDuration: latest.duration_seconds,
     });
   };
 

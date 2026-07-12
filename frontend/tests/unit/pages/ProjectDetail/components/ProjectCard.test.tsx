@@ -137,6 +137,31 @@ describe('ProjectCard', () => {
         }));
     });
 
+    it('passes the assembled audiobook duration as initialDuration to avoid the unknown-duration bootstrap window', async () => {
+        // Book-scope audio can be many hours long. Without initialDuration,
+        // PlayerBar's fitsLegibly(0, ...) bootstrap treats "unknown
+        // duration" as "show the waveform", letting WaveformStrip attempt a
+        // full wavesurfer decode of the entire file before the browser's
+        // own metadata loads.
+        (api.fetchProjectAudiobooks as ReturnType<typeof vi.fn>).mockResolvedValue([
+            {
+                filename: 'vale.mp3',
+                title: 'The Whispering Vale',
+                cover_url: null,
+                url: '/api/audiobooks/vale.mp3',
+                duration_seconds: 48540,
+            },
+        ]);
+        render(<ProjectCard {...baseProps} />);
+
+        const btn = await screen.findByRole('button', { name: /play the whispering vale/i });
+        fireEvent.click(btn);
+
+        expect(loadAndPlay).toHaveBeenCalledWith(expect.objectContaining({
+            initialDuration: 48540,
+        }));
+    });
+
     it('clicking the play overlay never navigates the card (no bait-and-switch to Publish/details)', async () => {
         (api.fetchProjectAudiobooks as ReturnType<typeof vi.fn>).mockResolvedValue([
             { filename: 'vale.mp3', title: 'The Whispering Vale', cover_url: null, url: '/api/audiobooks/vale.mp3' },

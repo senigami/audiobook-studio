@@ -30,6 +30,20 @@ export interface LoadAndPlayOptions {
   onError?: () => void;
   hasPrev?: boolean;
   hasNext?: boolean;
+  /**
+   * Known duration in seconds, supplied by the caller when already available
+   * (e.g. backend metadata) so the player never passes through `duration: 0`
+   * — the "unknown duration" state that PlayerBar's fitsLegibly() treats as
+   * "show the waveform" (see playerRepresentation.ts). Without this, a
+   * multi-hour book-scope file goes through that optimistic window until
+   * the browser's own <audio> loadedmetadata fires, during which
+   * WaveformStrip can start a full wavesurfer decode of the entire file —
+   * for a multi-hour audiobook that's enough memory/CPU to hang or crash
+   * the tab, not just render briefly wrong. Omit only when the real
+   * duration genuinely isn't known yet (segment/chapter playback, where the
+   * file is small enough that the bootstrap window is harmless).
+   */
+  initialDuration?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -94,7 +108,7 @@ export function loadAndPlay(opts: LoadAndPlayOptions): void {
     audioUrl: opts.audioUrl,
     playing: true,
     position: 0,
-    duration: 0,
+    duration: opts.initialDuration ?? 0,
     queue: {
       hasPrev: opts.hasPrev ?? false,
       hasNext: opts.hasNext ?? false,
