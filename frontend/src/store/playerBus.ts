@@ -17,6 +17,13 @@ export interface PlayerBusState {
   queue: { hasPrev: boolean; hasNext: boolean };
   requestId: number;     // increments on every loadAndPlay
   seekRequestId: number; // increments on every seek() call
+  /**
+   * Set when this playback belongs to a book's continuous chapter
+   * auto-advance queue (bookContinuousPlayback.ts). null for any load that
+   * doesn't pass one — e.g. a one-off "Play Chapter Audio" click in
+   * ChapterTable.tsx — so it's never stale from a prior book session.
+   */
+  bookId: string | null;
 }
 
 export interface LoadAndPlayOptions {
@@ -24,6 +31,8 @@ export interface LoadAndPlayOptions {
   title: string;
   subtitle?: string;
   audioUrl: string;
+  /** See PlayerBusState.bookId. Omit for non-book playback. */
+  bookId?: string;
   onEnded?: () => void;
   onPrev?: () => void;
   onNext?: () => void;
@@ -61,6 +70,7 @@ const IDLE_STATE: PlayerBusState = {
   queue: { hasPrev: false, hasNext: false },
   requestId: 0,
   seekRequestId: 0,
+  bookId: null,
 };
 
 let state: PlayerBusState = { ...IDLE_STATE, queue: { ...IDLE_STATE.queue } };
@@ -114,6 +124,7 @@ export function loadAndPlay(opts: LoadAndPlayOptions): void {
       hasNext: opts.hasNext ?? false,
     },
     requestId: nextRequestId++,
+    bookId: opts.bookId ?? null,
   });
 }
 

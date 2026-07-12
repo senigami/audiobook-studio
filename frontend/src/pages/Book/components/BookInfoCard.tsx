@@ -5,10 +5,11 @@ import { ContinueListeningCard } from '@/pages/Book/components/ContinueListening
 import { useDragDropHighlight } from '@/hooks/useDragDropHighlight';
 import { CoverImageModal } from '@/pages/ProjectDetail/components/ProjectModals';
 import { formatLength } from '@/utils/format';
-import type { Audiobook, Project } from '@/types';
+import type { Audiobook, Chapter, Project } from '@/types';
 
 interface BookInfoCardProps {
   project: Project;
+  chapters: Chapter[];
   totalRuntime: number;
   totalPredicted: number | null;
   hasRendered: boolean;
@@ -19,6 +20,7 @@ interface BookInfoCardProps {
 
 export function BookInfoCard({
   project,
+  chapters = [],
   totalRuntime,
   totalPredicted,
   hasRendered,
@@ -365,7 +367,13 @@ export function BookInfoCard({
           inputAriaLabel="Book description"
         />
 
-        <ContinueListeningCard audiobooks={audiobooks} coverImagePath={project.cover_image_path} />
+        <ContinueListeningCard
+          audiobooks={audiobooks}
+          coverImagePath={project.cover_image_path}
+          bookId={project.id}
+          bookTitle={project.name}
+          chapters={chapters}
+        />
 
         <div className="book-info-card__chips" aria-label="Book metadata">
           {metadataPills.map((pill) => (

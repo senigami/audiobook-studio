@@ -14,7 +14,10 @@ import type { Project } from '@/types';
  */
 export function LibraryBookmarksPanel({ projects }: { projects: Project[] }) {
   const [open, setOpen] = useState(true);
-  const bookmarks = useBookmarks();
+  // useBookmarks() is intentionally raw/unfiltered (cross-book, every kind) —
+  // exclude the internal `kind: 'auto'` continue-listening marker here so it
+  // never appears in this user-facing list (see store/bookmarks.ts).
+  const bookmarks = useBookmarks().filter((bm) => bm.kind !== 'auto');
   const navigate = useNavigate();
 
   const projectNameById = new Map(projects.map((p) => [p.id, p.name]));

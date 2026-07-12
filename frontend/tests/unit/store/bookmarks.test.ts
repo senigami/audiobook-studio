@@ -7,6 +7,9 @@ import {
   renameBookmark,
   subscribeBookmarks,
   useBookBookmarks,
+  upsertAutoResumeBookmark,
+  getAutoResumeBookmark,
+  clearAutoResumeBookmark,
   _resetCache,
 } from '@/store/bookmarks';
 
@@ -123,6 +126,100 @@ describe('bookmarks store', () => {
       const { result } = renderHook(() => useBookBookmarks('book-1'));
 
       expect(result.current).toEqual([]);
+    });
+
+    it('excludes auto-resume bookmarks from the visible list', () => {
+      addBookmark({ bookId: 'book-1', chapterId: 'ch-a', label: 'user note' });
+      upsertAutoResumeBookmark('book-1', 'ch-b', 42);
+
+      const { result } = renderHook(() => useBookBookmarks('book-1'));
+
+      expect(result.current).toHaveLength(1);
+      expect(result.current[0].label).toBe('user note');
+      expect(result.current.every((b) => b.kind !== 'auto')).toBe(true);
+    });
+
+    it('a bookmark without a kind field behaves as a user bookmark (back-compat)', () => {
+      addBookmark({ bookId: 'book-1', chapterId: 'ch-a', label: 'legacy note' });
+
+      const { result } = renderHook(() => useBookBookmarks('book-1'));
+
+      expect(result.current).toHaveLength(1);
+      expect(result.current[0].kind).toBeUndefined();
+    });
+  });
+
+  describe('auto-resume bookmark', () => {
+    it('upsertAutoResumeBookmark creates a new auto bookmark when none exists', () => {
+      upsertAutoResumeBookmark('book-1', 'ch-1', 10);
+
+      const all = getBookmarks();
+      expect(all).toHaveLength(1);
+      expect(all[0].bookId).toBe('book-1');
+      expect(all[0].chapterId).toBe('ch-1');
+      expect(all[0].kind).toBe('auto');
+      expect(all[0].positionSeconds).toBe(10);
+    });
+
+    it('upsertAutoResumeBookmark updates the existing auto bookmark in place (same id)', () => {
+      upsertAutoResumeBookmark('book-1', 'ch-1', 10);
+      const firstId = getAutoResumeBookmark('book-1')?.id;
+
+      upsertAutoResumeBookmark('book-1', 'ch-2', 55);
+
+      const all = getBookmarks();
+      expect(all).toHaveLength(1);
+      expect(all[0].id).toBe(firstId);
+      expect(all[0].chapterId).toBe('ch-2');
+      expect(all[0].positionSeconds).toBe(55);
+    });
+
+    it('upsertAutoResumeBookmark does not disturb user bookmarks for the same book', () => {
+      addBookmark({ bookId: 'book-1', chapterId: 'ch-a', label: 'user note' });
+      upsertAutoResumeBookmark('book-1', 'ch-1', 10);
+
+      const all = getBookmarks();
+      expect(all).toHaveLength(2);
+      expect(all.some((b) => b.label === 'user note' && b.kind !== 'auto')).toBe(true);
+    });
+
+    it('getAutoResumeBookmark returns null when none exists', () => {
+      expect(getAutoResumeBookmark('book-1')).toBeNull();
+    });
+
+    it('getAutoResumeBookmark returns the auto bookmark for the book', () => {
+      upsertAutoResumeBookmark('book-1', 'ch-3', 99);
+
+      const bm = getAutoResumeBookmark('book-1');
+      expect(bm).not.toBeNull();
+      expect(bm?.chapterId).toBe('ch-3');
+      expect(bm?.positionSeconds).toBe(99);
+    });
+
+    it('getAutoResumeBookmark does not return a user bookmark for the same book', () => {
+      addBookmark({ bookId: 'book-1', chapterId: 'ch-a', label: 'user note' });
+
+      expect(getAutoResumeBookmark('book-1')).toBeNull();
+    });
+
+    it('clearAutoResumeBookmark removes only the auto entry, leaving user bookmarks intact', () => {
+      addBookmark({ bookId: 'book-1', chapterId: 'ch-a', label: 'user note' });
+      upsertAutoResumeBookmark('book-1', 'ch-1', 10);
+
+      clearAutoResumeBookmark('book-1');
+
+      const all = getBookmarks();
+      expect(all).toHaveLength(1);
+      expect(all[0].label).toBe('user note');
+      expect(getAutoResumeBookmark('book-1')).toBeNull();
+    });
+
+    it('clearAutoResumeBookmark is a no-op when no auto bookmark exists', () => {
+      addBookmark({ bookId: 'book-1', chapterId: 'ch-a', label: 'user note' });
+
+      clearAutoResumeBookmark('book-1');
+
+      expect(getBookmarks()).toHaveLength(1);
     });
   });
 });

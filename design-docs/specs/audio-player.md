@@ -1,7 +1,7 @@
 # Global Audio Player
 
 ```
-spec_version: 1.6.8
+spec_version: 1.6.9
 status: active
 created: 2026-06-13
 updated: 2026-07-11
@@ -21,6 +21,7 @@ sources:
 
 | Version | Date       | Change |
 |---------|------------|--------|
+| 1.6.9   | 2026-07-12 | **Whole-book playback now chapter-sequenced (§4.2), fixing a crash + a stale-spec drift.** "Continue Listening"/hover-play previously loaded the single assembled audiobook file as one clip — contradicting this doc's own long-standing "book playback (chapters sequenced via `onEnded`)" line (§4.1), and risking a tab crash on multi-hour books via the §3 unknown-duration bootstrap window (confirmed against a real 14h24m/426.6MB book). New `bookContinuousPlayback.ts` engine sequences the book's rendered chapters via normal chapter-scope `loadAndPlay` calls; resume position persists via a new `kind: 'auto'` bookmark (`bookmarks.ts`) filtered out of all user-facing bookmark UI. Added `PlayerBusState.bookId` (§2.1) and `LoadAndPlayOptions.initialDuration`/`.bookId` (§2.2) — the latter also independently fixes the same crash risk for any caller that already knows a large file's duration up front. Documented `'book'` in the `scope` enum (§2.1), which existed in code but was missing from this table pre-1.6.9. |
 | 1.0.0   | 2026-06-13 | Initial target contract for the global single-owner audio player (Phase R4) |
 | 1.1.0   | 2026-06-14 | R7 shipped: full VCR transport; `skip(deltaSeconds)`; Segment↔Chapter `altScope`/`switchScope` scope toggle; wavesurfer.js waveform strip; Review transport delegation; `status: target → active` |
 | 1.2.0–1.4.0 | 2026-06-15 | U16 scope-driven waveform iterations (waveform inline for segment scope, bar for chapter; far-right representation override). Superseded by 1.6.0. |
@@ -60,13 +61,14 @@ There MUST be exactly **one** owner of audio playback state for the whole app: t
 
 | Field | Type | Meaning |
 |---|---|---|
-| `scope` | `'segment' \| 'chapter' \| 'preview' \| null` | **Informational** kind-of-audio label used by adapters for sequencing semantics and titling; `null` = nothing loaded (bar hidden). It MUST NOT drive scrub representation or any user toggle (that is duration-driven — §5). |
+| `scope` | `'segment' \| 'chapter' \| 'preview' \| 'book' \| null` | **Informational** kind-of-audio label used by adapters for sequencing semantics and titling; `null` = nothing loaded (bar hidden). It MUST NOT drive scrub representation or any user toggle (that is duration-driven — §5). `'book'` was previously undocumented here despite existing in code; documented in 1.6.9 alongside `bookId` below. |
 | `title` | `string` | Primary label of the loaded source |
 | `subtitle` | `string \| undefined` | Optional secondary label |
 | `audioUrl` | `string \| null` | Source URL of the currently-loaded audio; `null` when nothing is loaded |
+| `bookId` | `string \| null` | (1.6.9) Set whenever the currently-loaded chapter is part of a book's continuous auto-advance queue (§4.2); `loadAndPlay` always sets it explicitly (`opts.bookId ?? null`) so it never leaks from a prior load. `null` for any one-off chapter/segment/preview play that doesn't pass it (e.g. `ChapterTable.tsx`'s single "Play Chapter Audio" button). Consumers use `bookId === <own id>` to detect "is my book's queue the active player" — NOT `scope`/`audioUrl` matching, since the URL changes on every auto-advance. |
 | `playing` | `boolean` | Whether the element is currently playing |
 | `position` | `number` | Current playhead position in seconds |
-| `duration` | `number` | Total duration in seconds (from `loadedmetadata`) |
+| `duration` | `number` | Total duration in seconds (from `loadedmetadata`, or seeded up front via `initialDuration` — §4.2) |
 | `queue` | `{ hasPrev: boolean; hasNext: boolean }` | Whether prev/next are available within the current sequence |
 | `requestId` | `number` | Monotonic load token so the PlayerBar element can ignore stale loads |
 | `seekRequestId` | `number` | Monotonic seek token so the seek effect fires without conflicting with `timeupdate` reporting |
@@ -75,7 +77,7 @@ The `altScope` field and the `switchScope()` toggle of earlier versions are **re
 
 ### 2.2 Bus API
 
-- `loadAndPlay({ scope, title, subtitle?, audioUrl, onEnded?, onPrev?, onNext?, onError?, hasPrev?, hasNext? })` — load a new source and begin playback.
+- `loadAndPlay({ scope, title, subtitle?, audioUrl, onEnded?, onPrev?, onNext?, onError?, hasPrev?, hasNext?, initialDuration?, bookId? })` — load a new source and begin playback. `initialDuration` (1.6.9) seeds `duration` up front instead of the default `0`, letting a caller that already knows the real duration (e.g. a multi-hour assembled audiobook) skip the "unknown duration" bootstrap window §3 describes (which otherwise treats `duration <= 0` as "show the waveform," risking a full browser decode attempt on a huge file before real `<audio>` metadata arrives). `bookId` (1.6.9) tags the load as part of a book's continuous queue — see §4.2.
 - `play()` / `pause()` — transport.
 - `seek(seconds)` — move the playhead; increments `seekRequestId`.
 - `skip(deltaSeconds)` — `seek(clamp(position + delta, 0, duration))`; skim-back/forward.
@@ -139,6 +141,17 @@ The bar is **transport for an already-loaded source**, and it is hidden when not
 
 - A surface that delegates *ongoing* transport to the bar (e.g. Review) MUST still keep a **start** affordance.
 - "Play the book in its entirety" is a first-class entry point; the adapter sequences chapters on the bus `onEnded`.
+
+### 4.2 Whole-book playback — chapter-sequenced, not a single file (1.6.9)
+
+Prior to 1.6.9, "Continue Listening" (Book tab) and the Library hover-play overlay both loaded the book's single **assembled** audiobook artifact (the m4b/wav produced by the export pipeline) as one `loadAndPlay({ scope: 'book', audioUrl: <assembled file> })` call — contradicting this section's own "chapters sequenced via `onEnded`" line above, which had never been implemented. For a multi-hour book (hundreds of MB), this meant the "unknown duration" bootstrap window (§3) could let the inline waveform attempt a full browser decode of the entire file before real `<audio>` metadata loaded — enough to hang or crash the tab. Confirmed reproducible against a real 14h24m/426.6 MB book.
+
+**1.6.9 fix — book scope now genuinely sequences chapters, per this section's original intent:**
+
+- `frontend/src/store/bookContinuousPlayback.ts` is the engine. `buildChapterQueue(chapters)` derives an ordered queue of only the book's *rendered* chapters (those with an audio file), building each chapter's URL the same way `ChapterTable.tsx`'s per-chapter play button does. `playBookContinuous(bookId, bookTitle, queue)` loads the queue's first (or resumed — see below) entry with `scope: 'chapter'` + `bookId` set, and wires `onPrev`/`onNext`/`onEnded` to walk the queue by index — each transition is a normal chapter-scoped `loadAndPlay`, so every existing chapter-scope behavior (peaks sidecar / tape eligibility, bounded duration, no crash risk) applies for free. Reaching the end of the last rendered chapter stops playback rather than looping back to chapter 1.
+- The assembled audiobook file is untouched and still serves its one remaining purpose: the separate **Download** affordance (offline listening), independently gated on that artifact existing — it is no longer used for in-app playback at all.
+- **Resume position** is persisted via the existing bookmarks store (`frontend/src/store/bookmarks.ts`), reusing its data model rather than inventing a parallel one: a `Bookmark` may carry `kind: 'auto'` (vs. the default/omitted `'user'`) plus `positionSeconds`. While a book's queue is the active player (`playerBus.bookId === bookId && playing`), `useAutoSaveResumePosition` throttles updates to at most once per ~5s via `upsertAutoResumeBookmark`. On the next "Continue Listening," `getAutoResumeBookmark` resolves which chapter + offset to resume at (falling back to chapter 1 / position 0 if no marker exists, or if the marked chapter is no longer in the rendered queue). The `kind: 'auto'` marker is filtered out of every user-facing bookmark list (`useBookBookmarks`, `LibraryBookmarksPanel.tsx`) — it must never appear as a visible bookmark a user could rename/navigate via the ordinary bookmark UI.
+- Consumers distinguish "this chapter is part of a book's continuous queue" from an unrelated one-off chapter play (e.g. `ChapterTable.tsx`'s own "Play Chapter Audio" button, which is untouched and never sets `bookId`) via the `bookId` bus field (§2.1) — never via `scope`/`audioUrl` matching, since the URL changes on every auto-advance.
 
 ---
 

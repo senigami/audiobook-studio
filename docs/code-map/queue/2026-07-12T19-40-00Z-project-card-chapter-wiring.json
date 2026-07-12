@@ -1,0 +1,21 @@
+{
+  "at": "2026-07-12T19:40:00Z",
+  "commit": "uncommitted",
+  "task": "Wire the chapter-by-chapter auto-advancing bookContinuousPlayback engine into the Project Library's ProjectCard hover-play overlay, replacing the old single-assembled-audiobook whole-file playback path.",
+  "files": {
+    "frontend/src/pages/ProjectDetail/components/ProjectCard.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Removed the fetchProjectAudiobooks-based audiobooks state/fetch (its only consumer, assembledAudiobook, is gone) and added an equivalent chapters state fetched via api.fetchChapters(project.id) on the same hover trigger, sharing the existing fetchedRef guard. queue = useMemo(() => buildChapterQueue(chapters ?? []), [chapters]). handlePlayClick's not-yet-loaded branch now calls playBookContinuous(project.id, project.name, queue) gated on queue.length > 0 instead of loadAndPlay({scope:'book', audioUrl: assembledAudiobook.url, ...}). isThisBookLoaded now checks playerBus.scope === 'chapter' && playerBus.bookId === project.id (was scope==='book' && audioUrl match, which breaks once chapters auto-advance and the URL changes). useAutoSaveResumePosition(project.id, queue) is called unconditionally at top level. The disabled+tooltip pattern ('Nothing rendered yet') is preserved but now gated on queue.length === 0 instead of !assembledAudiobook.",
+      "calls_added": [
+        "ProjectCard.tsx -> bookContinuousPlayback.ts (buildChapterQueue/playBookContinuous/useAutoSaveResumePosition)",
+        "ProjectCard.tsx -> api/index.ts (fetchChapters)"
+      ],
+      "calls_removed": [
+        "ProjectCard.tsx -> api/index.ts (fetchProjectAudiobooks)",
+        "ProjectCard.tsx -> playerBus.ts (loadAndPlay, for the book-scope whole-file Play action)"
+      ]
+    }
+  },
+  "flow_impact": "Completes the Project Library side of the chapter-by-chapter continuous playback engine added in 2026-07-12T18-30-00Z-book-continuous-playback-engine.json, in parallel with the Book tab's Continue Listening card wiring (2026-07-12T19-10-00Z-continue-listening-chapter-wiring.json). Library hover-play now drives playback through playBookContinuous/useAutoSaveResumePosition based on rendered chapters rather than a single assembled audiobook file; the assembled-audiobook fetch/lookup in ProjectCard.tsx was removed entirely as dead code once no logic path consumed it."
+}

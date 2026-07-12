@@ -262,4 +262,37 @@ describe('playerBus', () => {
   // duration-driven (see playerRepresentation.test.ts for the replacement
   // contract: fitsLegibly()). The `switchScope is not exported` / `altScope is
   // not present on the snapshot` assertions now live there.
+
+  // 20. bookId — marks book-continuous-playback loads (bookContinuousPlayback.ts)
+  // vs. one-off plays (e.g. ChapterTable.tsx), which must never set it.
+  it('defaults bookId to null', () => {
+    expect(getSnapshot().bookId).toBeNull();
+  });
+
+  it('sets bookId when passed to loadAndPlay', () => {
+    loadAndPlay({
+      scope: 'chapter',
+      title: 'Chapter 1',
+      audioUrl: 'http://example.com/ch1.wav',
+      bookId: 'book-1',
+    });
+    expect(getSnapshot().bookId).toBe('book-1');
+  });
+
+  it('resets bookId to null on a subsequent loadAndPlay call that omits it', () => {
+    loadAndPlay({
+      scope: 'chapter',
+      title: 'Chapter 1',
+      audioUrl: 'http://example.com/ch1.wav',
+      bookId: 'book-1',
+    });
+    expect(getSnapshot().bookId).toBe('book-1');
+
+    loadAndPlay({
+      scope: 'segment',
+      title: 'Segment 1',
+      audioUrl: 'http://example.com/seg.mp3',
+    });
+    expect(getSnapshot().bookId).toBeNull();
+  });
 });

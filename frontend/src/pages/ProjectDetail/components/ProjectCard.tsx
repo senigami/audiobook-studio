@@ -1,11 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Book, Calendar, Clock, User, FolderOpen, Trash2, Play, Pause } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ActionMenu } from '@/components/ui/ActionMenu';
 import { ProjectStatusPill } from '@/components/ui/ProjectStatusPill';
-import { usePlayerBus, loadAndPlay, play, pause } from '@/store/playerBus';
+import { usePlayerBus, play, pause } from '@/store/playerBus';
+import { buildChapterQueue, playBookContinuous, useAutoSaveResumePosition } from '@/store/bookContinuousPlayback';
 import { api } from '@/api';
-import type { Project, Audiobook } from '@/types';
+import type { Project, Chapter } from '@/types';
 
 interface ProjectCardProps {
     project: Project;
@@ -26,28 +27,31 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
     onDelete,
     formatDate
 }) => {
-    // Lazily discover whether this project has an assembled audiobook to play.
-    // Fetched once, the first time the card is hovered (matches the hover-reveal
+    // Lazily discover this project's rendered chapters so the hover-play
+    // overlay can drive chapter-by-chapter continuous playback. Fetched
+    // once, the first time the card is hovered (matches the hover-reveal
     // affordance rather than an upfront N-project fan-out on library load).
-    const [audiobooks, setAudiobooks] = useState<Audiobook[] | null>(null);
+    const [chapters, setChapters] = useState<Chapter[] | null>(null);
     const fetchedRef = useRef(false);
 
     useEffect(() => {
         if (!isHovered || fetchedRef.current) return;
         fetchedRef.current = true;
-        api.fetchProjectAudiobooks(project.id)
-            .then((data: Audiobook[]) => setAudiobooks(data || []))
-            .catch(() => setAudiobooks([]));
+        api.fetchChapters(project.id)
+            .then((data: Chapter[]) => setChapters(data || []))
+            .catch(() => setChapters([]));
     }, [isHovered, project.id]);
 
-    const assembledAudiobook = audiobooks && audiobooks.length > 0 ? audiobooks[0] : null;
+    const queue = useMemo(() => buildChapterQueue(chapters ?? []), [chapters]);
     const playerBus = usePlayerBus();
-    const isThisBookLoaded = !!assembledAudiobook && playerBus.scope === 'book' && playerBus.audioUrl === assembledAudiobook.url;
+    const isThisBookLoaded = playerBus.scope === 'chapter' && playerBus.bookId === project.id;
     const isThisBookPlaying = isThisBookLoaded && playerBus.playing;
+
+    useAutoSaveResumePosition(project.id, queue);
 
     const handlePlayClick = (event: React.MouseEvent) => {
         event.stopPropagation();
-        if (!assembledAudiobook) return;
+        if (queue.length === 0) return;
         if (isThisBookLoaded) {
             if (isThisBookPlaying) {
                 pause();
@@ -55,17 +59,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                 play();
             }
         } else {
-            loadAndPlay({
-                scope: 'book',
-                title: project.name,
-                audioUrl: assembledAudiobook.url || '',
-                // Book-scope audio can be many hours long — supply the known
-                // duration so PlayerBar never treats it as "unknown duration"
-                // (which would let the inline waveform attempt a full
-                // browser decode of the whole file). See
-                // LoadAndPlayOptions.initialDuration.
-                initialDuration: assembledAudiobook.duration_seconds,
-            });
+            playBookContinuous(project.id, project.name, queue);
         }
     };
 
@@ -224,32 +218,35 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                         pointerEvents: isHovered ? 'auto' : 'none'
                     }}
                 >
-                    {audiobooks !== null && (
-                        <button
-                            type="button"
-                            onClick={handlePlayClick}
-                            disabled={!assembledAudiobook}
-                            aria-label={`Play ${project.name}`}
-                            title={assembledAudiobook ? undefined : 'Nothing rendered yet'}
-                            style={{
-                                width: '48px',
-                                height: '48px',
-                                borderRadius: '50%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                border: assembledAudiobook ? 'none' : '1px solid var(--border)',
-                                background: assembledAudiobook ? 'var(--accent)' : 'var(--surface-glass-white)',
-                                color: assembledAudiobook ? 'var(--text-on-accent)' : 'var(--text-muted)',
-                                boxShadow: assembledAudiobook ? 'var(--shadow-md)' : 'none',
-                                backdropFilter: assembledAudiobook ? undefined : 'blur(4px)',
-                                cursor: assembledAudiobook ? 'pointer' : 'not-allowed',
-                                opacity: assembledAudiobook ? 1 : 0.6
-                            }}
-                        >
-                            {isThisBookPlaying ? <Pause size={20} /> : <Play size={20} style={{ transform: 'translateX(2px)' }} />}
-                        </button>
-                    )}
+                    {chapters !== null && (() => {
+                        const canPlay = queue.length > 0;
+                        return (
+                            <button
+                                type="button"
+                                onClick={handlePlayClick}
+                                disabled={!canPlay}
+                                aria-label={`Play ${project.name}`}
+                                title={canPlay ? undefined : 'Nothing rendered yet'}
+                                style={{
+                                    width: '48px',
+                                    height: '48px',
+                                    borderRadius: '50%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    border: canPlay ? 'none' : '1px solid var(--border)',
+                                    background: canPlay ? 'var(--accent)' : 'var(--surface-glass-white)',
+                                    color: canPlay ? 'var(--text-on-accent)' : 'var(--text-muted)',
+                                    boxShadow: canPlay ? 'var(--shadow-md)' : 'none',
+                                    backdropFilter: canPlay ? undefined : 'blur(4px)',
+                                    cursor: canPlay ? 'pointer' : 'not-allowed',
+                                    opacity: canPlay ? 1 : 0.6
+                                }}
+                            >
+                                {isThisBookPlaying ? <Pause size={20} /> : <Play size={20} style={{ transform: 'translateX(2px)' }} />}
+                            </button>
+                        );
+                    })()}
                 </motion.div>
             </div>
             <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '4px', background: 'var(--surface)', zIndex: 11 }}>

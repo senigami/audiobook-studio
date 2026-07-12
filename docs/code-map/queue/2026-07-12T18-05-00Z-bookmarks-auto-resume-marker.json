@@ -1,0 +1,15 @@
+{
+  "at": "2026-07-12T18:05:00Z",
+  "commit": "uncommitted",
+  "task": "Extend the bookmark store with an internal auto-resume marker as the data-layer foundation for a book-scope 'continue where you left off' playback feature (rest of the feature is being built in parallel by other agents).",
+  "files": {
+    "frontend/src/store/bookmarks.ts": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Bookmark gained optional kind?: 'auto' | 'user' (undefined == 'user', back-compat with pre-existing stored bookmarks) and optional positionSeconds?: number. Added upsertAutoResumeBookmark(bookId, chapterId, positionSeconds): creates or updates in place (same id) the single kind:'auto' bookmark per book, label '__auto_resume__' (internal, never rendered). Added getAutoResumeBookmark(bookId): Bookmark | null. Added clearAutoResumeBookmark(bookId): void, no-op if none exists. getBookmarks() stays raw/unfiltered. useBookBookmarks(bookId) now filters out kind==='auto' in its useMemo so the internal marker never appears in user-facing bookmark lists (ContentsStage.tsx consumes this hook). No import-time side effects added; all mutation timestamps still generated at call time.",
+      "calls_added": [],
+      "calls_removed": []
+    }
+  },
+  "flow_impact": "No new cross-module edges yet — upsertAutoResumeBookmark/getAutoResumeBookmark/clearAutoResumeBookmark are unused by any caller in this change; they are the data layer other in-flight agents will wire into playback (audio-position tracking calling upsertAutoResumeBookmark, and a 'Continue Listening' UI calling getAutoResumeBookmark). useBookmarks() (the unfiltered global hook used by frontend/src/pages/ProjectLibrary/components/LibraryBookmarksPanel.tsx) was deliberately left unfiltered per task scope — that panel will show the internal '__auto_resume__' label once an auto marker exists until it's updated to filter or switched to a filtered hook; flagged as a known follow-up, not fixed here."
+}

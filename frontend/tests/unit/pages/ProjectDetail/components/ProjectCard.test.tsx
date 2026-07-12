@@ -1,13 +1,15 @@
 /**
- * ProjectCard.test.tsx — task 003 (north_star_screen_parity)
+ * ProjectCard.test.tsx — task 003 (north_star_screen_parity) + chapter-by-
+ * chapter continuous playback wiring.
  *
  * Covers:
  *  - ActionMenu now receives an `items` array with "Open" (reusing the card's
  *    own click-to-navigate handler) and "Delete" (existing behavior).
- *  - A hover-reveal play-button overlay on the cover thumbnail that plays the
- *    project's assembled audiobook via the global player bus (loadAndPlay)
- *    when one exists, and is disabled with a "Nothing rendered yet" tooltip
- *    when nothing has been assembled — never a silent redirect to Publish.
+ *  - A hover-reveal play-button overlay on the cover thumbnail that drives
+ *    chapter-by-chapter continuous playback (playBookContinuous) built from
+ *    the project's rendered chapters, and is disabled with a "Nothing
+ *    rendered yet" tooltip when no chapter has been rendered — never a
+ *    silent redirect to Publish.
  *  - The "Details" button remains present/unchanged (INV-1).
  */
 import React from 'react';
@@ -16,11 +18,25 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock the playerBus boundary (audio owner) — R2, mock only the boundary.
 vi.mock('@/store/playerBus', () => ({
-    usePlayerBus: vi.fn(() => ({ scope: null, audioUrl: null, playing: false })),
-    loadAndPlay: vi.fn(),
+    usePlayerBus: vi.fn(() => ({ scope: null, audioUrl: null, bookId: null, playing: false })),
     play: vi.fn(),
     pause: vi.fn(),
 }));
+
+// Mock the bookContinuousPlayback boundary, but keep the real
+// buildChapterQueue implementation via importActual (R2 — mock only the
+// true external boundary; buildChapterQueue is pure logic worth exercising
+// for real).
+vi.mock('@/store/bookContinuousPlayback', async () => {
+    const actual = await vi.importActual<typeof import('@/store/bookContinuousPlayback')>(
+        '@/store/bookContinuousPlayback',
+    );
+    return {
+        ...actual,
+        playBookContinuous: vi.fn(),
+        useAutoSaveResumePosition: vi.fn(),
+    };
+});
 
 // Mock ActionMenu so we can assert on `items` without portal/DOM complexity
 // (same pattern as VoiceCatalogCard.test.tsx).
@@ -41,17 +57,18 @@ vi.mock('@/components/ui/ActionMenu', () => ({
     ),
 }));
 
-// Mock the API boundary used to discover whether an audiobook is assembled.
+// Mock the API boundary used to discover a project's rendered chapters.
 vi.mock('@/api', () => ({
     api: {
-        fetchProjectAudiobooks: vi.fn(),
+        fetchChapters: vi.fn(),
     },
 }));
 
 import { ProjectCard } from '@/pages/ProjectDetail/components/ProjectCard';
-import { usePlayerBus, loadAndPlay } from '@/store/playerBus';
+import { usePlayerBus } from '@/store/playerBus';
+import { playBookContinuous, useAutoSaveResumePosition, buildChapterQueue } from '@/store/bookContinuousPlayback';
 import { api } from '@/api';
-import type { Project } from '@/types';
+import type { Project, Chapter } from '@/types';
 
 const project: Project = {
     id: 'proj-1',
@@ -66,6 +83,27 @@ const project: Project = {
     updated_at: 0,
 };
 
+function makeChapter(overrides: Partial<Chapter> = {}): Chapter {
+    return {
+        id: 'ch-1',
+        project_id: 'proj-1',
+        title: 'Chapter One',
+        text_content: '',
+        speaker_profile_name: null,
+        sort_order: 0,
+        audio_status: 'done',
+        audio_file_path: 'ch-1.wav',
+        text_last_modified: null,
+        audio_generated_at: null,
+        char_count: 0,
+        word_count: 0,
+        sent_count: 0,
+        predicted_audio_length: 0,
+        audio_length_seconds: 0,
+        ...overrides,
+    };
+}
+
 const baseProps = {
     project,
     isHovered: true,
@@ -79,8 +117,8 @@ const baseProps = {
 describe('ProjectCard', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        (usePlayerBus as ReturnType<typeof vi.fn>).mockReturnValue({ scope: null, audioUrl: null, playing: false });
-        (api.fetchProjectAudiobooks as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+        (usePlayerBus as ReturnType<typeof vi.fn>).mockReturnValue({ scope: null, audioUrl: null, bookId: null, playing: false });
+        (api.fetchChapters as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     });
 
     // -------------------------------------------------------------------
@@ -89,21 +127,21 @@ describe('ProjectCard', () => {
 
     it('passes both "Open" and "Delete" items to ActionMenu', async () => {
         render(<ProjectCard {...baseProps} />);
-        await waitFor(() => expect(api.fetchProjectAudiobooks).toHaveBeenCalledWith('proj-1'));
+        await waitFor(() => expect(api.fetchChapters).toHaveBeenCalledWith('proj-1'));
         expect(screen.getByTestId('menu-item-Open')).toBeInTheDocument();
         expect(screen.getByTestId('menu-item-Delete')).toBeInTheDocument();
     });
 
     it('"Open" reuses the same navigation as clicking the card body', async () => {
         render(<ProjectCard {...baseProps} />);
-        await waitFor(() => expect(api.fetchProjectAudiobooks).toHaveBeenCalled());
+        await waitFor(() => expect(api.fetchChapters).toHaveBeenCalled());
         fireEvent.click(screen.getByTestId('menu-item-Open'));
         expect(baseProps.onClick).toHaveBeenCalledWith('proj-1');
     });
 
     it('"Delete" calls onDelete with the project id and name, unchanged', async () => {
         render(<ProjectCard {...baseProps} />);
-        await waitFor(() => expect(api.fetchProjectAudiobooks).toHaveBeenCalled());
+        await waitFor(() => expect(api.fetchChapters).toHaveBeenCalled());
         fireEvent.click(screen.getByTestId('menu-item-Delete'));
         expect(baseProps.onDelete).toHaveBeenCalledWith('proj-1', 'The Whispering Vale');
     });
@@ -112,8 +150,10 @@ describe('ProjectCard', () => {
     // Hover-play overlay
     // -------------------------------------------------------------------
 
-    it('shows a disabled play control with a "Nothing rendered yet" tooltip when no audiobook is assembled', async () => {
-        (api.fetchProjectAudiobooks as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    it('shows a disabled play control with a "Nothing rendered yet" tooltip when no chapter has rendered audio', async () => {
+        (api.fetchChapters as ReturnType<typeof vi.fn>).mockResolvedValue([
+            makeChapter({ audio_file_path: null }),
+        ]);
         render(<ProjectCard {...baseProps} />);
 
         const btn = await screen.findByRole('button', { name: /play the whispering vale/i });
@@ -121,50 +161,59 @@ describe('ProjectCard', () => {
         expect(btn).toHaveAttribute('title', 'Nothing rendered yet');
     });
 
-    it('plays the assembled audiobook via loadAndPlay when one exists', async () => {
-        (api.fetchProjectAudiobooks as ReturnType<typeof vi.fn>).mockResolvedValue([
-            { filename: 'vale.mp3', title: 'The Whispering Vale', cover_url: null, url: '/api/audiobooks/vale.mp3' },
-        ]);
+    it('plays chapter-by-chapter via playBookContinuous with the built queue when a chapter has rendered audio', async () => {
+        const chapters = [
+            makeChapter({ id: 'ch-1', title: 'Chapter One', audio_file_path: 'ch-1.wav' }),
+            makeChapter({ id: 'ch-2', title: 'Chapter Two', sort_order: 1, audio_file_path: null }),
+        ];
+        (api.fetchChapters as ReturnType<typeof vi.fn>).mockResolvedValue(chapters);
         render(<ProjectCard {...baseProps} />);
 
         const btn = await screen.findByRole('button', { name: /play the whispering vale/i });
         expect(btn).not.toBeDisabled();
 
         fireEvent.click(btn);
-        expect(loadAndPlay).toHaveBeenCalledWith(expect.objectContaining({
-            scope: 'book',
-            audioUrl: '/api/audiobooks/vale.mp3',
-        }));
+
+        expect(playBookContinuous).toHaveBeenCalledWith(
+            'proj-1',
+            'The Whispering Vale',
+            buildChapterQueue(chapters),
+        );
     });
 
-    it('passes the assembled audiobook duration as initialDuration to avoid the unknown-duration bootstrap window', async () => {
-        // Book-scope audio can be many hours long. Without initialDuration,
-        // PlayerBar's fitsLegibly(0, ...) bootstrap treats "unknown
-        // duration" as "show the waveform", letting WaveformStrip attempt a
-        // full wavesurfer decode of the entire file before the browser's
-        // own metadata loads.
-        (api.fetchProjectAudiobooks as ReturnType<typeof vi.fn>).mockResolvedValue([
-            {
-                filename: 'vale.mp3',
-                title: 'The Whispering Vale',
-                cover_url: null,
-                url: '/api/audiobooks/vale.mp3',
-                duration_seconds: 48540,
-            },
-        ]);
+    it('calls useAutoSaveResumePosition with the project id and built queue', async () => {
+        const chapters = [makeChapter({ id: 'ch-1', audio_file_path: 'ch-1.wav' })];
+        (api.fetchChapters as ReturnType<typeof vi.fn>).mockResolvedValue(chapters);
+        render(<ProjectCard {...baseProps} />);
+
+        await waitFor(() => expect(api.fetchChapters).toHaveBeenCalled());
+        await waitFor(() => {
+            expect(useAutoSaveResumePosition).toHaveBeenLastCalledWith('proj-1', buildChapterQueue(chapters));
+        });
+    });
+
+    it('treats playerBus.bookId matching this project as "this book loaded" for the pause/resume toggle', async () => {
+        (usePlayerBus as ReturnType<typeof vi.fn>).mockReturnValue({
+            scope: 'chapter',
+            audioUrl: '/api/projects/proj-1/chapters/ch-2/assets/audio?filename=ch-2.wav',
+            bookId: 'proj-1',
+            playing: true,
+        });
+        const chapters = [makeChapter({ id: 'ch-1', audio_file_path: 'ch-1.wav' })];
+        (api.fetchChapters as ReturnType<typeof vi.fn>).mockResolvedValue(chapters);
         render(<ProjectCard {...baseProps} />);
 
         const btn = await screen.findByRole('button', { name: /play the whispering vale/i });
+        // Playing this book's continuous queue -> clicking should pause, not
+        // start a new playBookContinuous call.
         fireEvent.click(btn);
 
-        expect(loadAndPlay).toHaveBeenCalledWith(expect.objectContaining({
-            initialDuration: 48540,
-        }));
+        expect(playBookContinuous).not.toHaveBeenCalled();
     });
 
     it('clicking the play overlay never navigates the card (no bait-and-switch to Publish/details)', async () => {
-        (api.fetchProjectAudiobooks as ReturnType<typeof vi.fn>).mockResolvedValue([
-            { filename: 'vale.mp3', title: 'The Whispering Vale', cover_url: null, url: '/api/audiobooks/vale.mp3' },
+        (api.fetchChapters as ReturnType<typeof vi.fn>).mockResolvedValue([
+            makeChapter({ id: 'ch-1', audio_file_path: 'ch-1.wav' }),
         ]);
         render(<ProjectCard {...baseProps} />);
 
@@ -181,7 +230,7 @@ describe('ProjectCard', () => {
 
     it('keeps the "Details" button unchanged', async () => {
         render(<ProjectCard {...baseProps} />);
-        await waitFor(() => expect(api.fetchProjectAudiobooks).toHaveBeenCalled());
+        await waitFor(() => expect(api.fetchChapters).toHaveBeenCalled());
         expect(screen.getByRole('button', { name: 'Details' })).toBeInTheDocument();
     });
 });

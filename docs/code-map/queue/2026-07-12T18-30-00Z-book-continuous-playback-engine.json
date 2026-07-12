@@ -1,0 +1,22 @@
+{
+  "at": "2026-07-12T18:30:00Z",
+  "commit": "uncommitted",
+  "task": "Build the core engine for chapter-by-chapter auto-advancing 'Continue Listening' playback: a new bookContinuousPlayback.ts module plus a bookId marker on playerBus, replacing the previous whole-book single-file playback approach.",
+  "files": {
+    "frontend/src/store/playerBus.ts": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Added optional bookId?: string to LoadAndPlayOptions and bookId: string | null to PlayerBusState. loadAndPlay() now always sets state.bookId = opts.bookId ?? null (explicitly cleared for any load that omits it, e.g. ChapterTable.tsx's one-off chapter plays, so it never carries over stale from a prior book session). IDLE_STATE and resetPlayerBusForTests() include bookId: null.",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "frontend/src/store/bookContinuousPlayback.ts": {
+      "change": "added",
+      "contract_changed": true,
+      "summary": "New engine module. buildChapterQueue(chapters): pure filter/map of a book's chapters to BookChapterQueueEntry[] (chapterId/title/audioUrl), keeping only rendered chapters (audio_file_path set) in order; audioUrl built via the same /api/projects/{project_id}/chapters/{id}/assets/audio?filename=encodeURIComponent(audio_file_path) pattern as ChapterTable.tsx. playBookContinuous(bookId, bookTitle, queue): reads getAutoResumeBookmark(bookId) from bookmarks.ts; if it names a chapter still in queue, starts there and seeks to positionSeconds right after loadAndPlay, else starts at index 0; no-op on empty queue. Wires onPrev/onNext/onEnded via a closure-scoped currentIndex (per invocation, not module-global) to advance through queue with scope:'chapter', bookId, title, subtitle `Chapter N: <title>`, hasPrev/hasNext. onEnded on the last entry calls clearAutoResumeBookmark(bookId) + stop() instead of looping. useAutoSaveResumePosition(bookId, queue): hook subscribing to playerBus; on each change, if playerBus.bookId===bookId and playing, persists via upsertAutoResumeBookmark throttled to ~5s using a Date.now() ref (no setInterval/setTimeout).",
+      "calls_added": ["bookContinuousPlayback.ts -> bookmarks.ts (getAutoResumeBookmark/upsertAutoResumeBookmark/clearAutoResumeBookmark)", "bookContinuousPlayback.ts -> playerBus.ts (loadAndPlay/seek/stop/subscribe/getSnapshot)"],
+      "calls_removed": []
+    }
+  },
+  "flow_impact": "Introduces the book-scope continuous-playback engine as a new consumer of both playerBus.ts and bookmarks.ts's auto-resume API (added in a prior parallel change, previously unused). Not yet wired into any UI component — ContinueListeningCard.tsx, ProjectCard.tsx, and ChapterTable.tsx are being updated by other agents in parallel and were deliberately left untouched here so this module's exported API (buildChapterQueue, playBookContinuous, useAutoSaveResumePosition) stays stable while they integrate against it."
+}
