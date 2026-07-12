@@ -8,7 +8,9 @@
     "011-monitor-peek-strip": { "state": "accepted", "note": "light/dark visual verification still pending owner" },
     "012-cap-configuration-ui": { "state": "accepted", "note": "manual restart verification (XTTS=4) still pending owner" },
     "013-bracketed-eta-wiring": { "state": "accepted", "note": "live-render verification still pending owner" },
-    "014-live-cap-admission": { "state": "accepted" }
+    "014-live-cap-admission": { "state": "accepted" },
+    "015-multi-job-render-monitor-rows": { "state": "planned" },
+    "016-segment-inventory-fetch-dedupe": { "state": "planned" }
   },
   "green_gate": "passed",
   "review_rounds": []

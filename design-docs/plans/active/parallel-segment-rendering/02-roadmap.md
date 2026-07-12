@@ -77,6 +77,29 @@ M-PAR-3 (done)
 - **M-PAR2-5 — "changes actually take effect live":** 014 done. A cap change reaches admission within one retry cycle, no restart required, no in-flight work evicted.
 - **Phase 2 complete** when all of 008-014 are done AND the monitor is un-gated from `useDevMode()` for real users (a final task-013-adjacent step: remove the dev gate once 008 lands and is verified live).
 
+## Workloads (Phase 3 — multi-job rows, added 2026-07-12)
+
+Phase 2 complete but scoped to one job at a time; this closes that gap. See [11-phase3-multi-job-rows.md](11-phase3-multi-job-rows.md) and [01-map.md](01-map.md)'s "Phase 3" section for parts Q-R, connections, invariants M8-M10, and risks R-J/R-K.
+
+| Task | Title | Part(s) | Depends on | Gist |
+|---|---|---|---|---|
+| [015](tasks/015-multi-job-render-monitor-rows.md) | Multi-job render-monitor rows | Q | Phase 2 (done) | Move the `SegmentPeekStrip`/`SegmentRenderMonitor` mount from `ActivityPage.tsx` page-singleton into each `QueueItem.tsx` row, so every concurrently-rendering job gets its own strip. Also fixes the stale "010/011 handle choosing among several" comment. |
+| [016](tasks/016-segment-inventory-fetch-dedupe.md) | `useSegmentInventory` fetch dedupe | R | none | Fix the effect re-fetching `GET /script-view` on every `active_segments_map` tick — fetch once per `chapterId`, merge the live map client-side via `useMemo` instead. Independent of 015 but should land in the same phase (015 multiplies its urgency). |
+
+### Phase 3 dependency graph
+
+```
+Phase 2 (done)
+ └─► 015 (independent of 016; either order)
+     016 ─────────────────► (fully independent; recommended same phase as 015)
+```
+
+### Phase 3 milestones
+
+- **M-PAR3-1 — "one strip per job":** 015 done. N concurrently-rendering jobs show N independent strips.
+- **M-PAR3-2 — "fetch scales with chapters, not ticks":** 016 done. `GET /script-view` fires once per chapter render, not once per progress tick.
+- **Phase 3 complete** when both 015 and 016 are done and green-gated.
+
 ## Cross-references
 
 - Implementation map + invariants/risks: [01-map.md](01-map.md).
