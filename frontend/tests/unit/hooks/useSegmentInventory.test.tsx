@@ -126,6 +126,57 @@ describe('useSegmentInventory', () => {
     expect(result.current.segments.length).toBe(1);
   });
 
+  it('does not refetch script-view when only active_segments_map changes for the same chapter (dedup)', async () => {
+    (api.fetchScriptView as any).mockResolvedValue(mockScriptView);
+
+    const { result, rerender } = renderHook(
+      ({ job }: { job: Job }) => useSegmentInventory(job),
+      {
+        initialProps: {
+          job: makeJob({
+            active_segments_map: {
+              'seg-3': { phase: 'rendering', progress: 0.1, eta_seconds: 20, char_count: 30 },
+            },
+          }),
+        },
+      },
+    );
+
+    await waitFor(() => {
+      expect(result.current.segments.length).toBe(3);
+    });
+    expect(api.fetchScriptView).toHaveBeenCalledTimes(1);
+
+    // Simulate several progress ticks: a brand-new object reference for
+    // active_segments_map each time (as real websocket job updates do),
+    // same chapter_id.
+    rerender({
+      job: makeJob({
+        active_segments_map: {
+          'seg-3': { phase: 'rendering', progress: 0.4, eta_seconds: 12, char_count: 30 },
+        },
+      }),
+    });
+    await waitFor(() => {
+      expect(result.current.segments.find((s) => s.id === 'seg-3')?.progress).toBe(0.4);
+    });
+
+    rerender({
+      job: makeJob({
+        active_segments_map: {
+          'seg-3': { phase: 'rendering', progress: 0.8, eta_seconds: 4, char_count: 30 },
+        },
+      }),
+    });
+    await waitFor(() => {
+      expect(result.current.segments.find((s) => s.id === 'seg-3')?.progress).toBe(0.8);
+    });
+
+    // The live merge updated across ticks, but the network fetch happened
+    // only once for this chapter_id.
+    expect(api.fetchScriptView).toHaveBeenCalledTimes(1);
+  });
+
   it('clears segments on fetch error', async () => {
     (api.fetchScriptView as any).mockRejectedValue(new Error('network error'));
 

@@ -1,6 +1,9 @@
 import React from 'react';
 import { Play, Pause, XCircle, Terminal } from 'lucide-react';
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
+import { SegmentRenderMonitor, FULL_STRIP_MIN } from '@/components/progress/SegmentRenderMonitor/SegmentRenderMonitor';
+import { SegmentPeekStrip } from '@/components/progress/SegmentRenderMonitor/SegmentPeekStrip';
+import { api } from '@/api';
 import type { ProcessingQueueItem, Job } from '@/types';
 import { formatQueueContext } from '@/utils/queueLabels';
 import { shouldShowIndeterminateProgress, isMainQueueSegmentItem } from '@/utils/jobSelection';
@@ -8,6 +11,22 @@ import { recordStudioDebugSnapshot } from '@/utils/runtimeDebug';
 import { useDevMode } from '@/utils/devMode';
 import { selectEtaSource, selectEtaSourceTimestamp } from '@/utils/queueItemEtaSelection';
 import { buildQueueItemDebugPayload } from '@/utils/queueItemDebugPayload';
+import { useSegmentInventory } from '@/hooks/useSegmentInventory';
+import { isPeekStripDismissed, setPeekStripDismissed } from '@/utils/segmentPeekStripState';
+import { ACTIVE_STATUSES } from '@/utils/jobStatus';
+
+// W-PAR task 011 (moved to per-row scope by task 015): the auto-appear
+// threshold for the Level-2 peek strip — a job with fewer than this many
+// segments concurrently *rendering* isn't yet showing the parallelism the
+// strip exists to surface. Owner-decided default (see
+// design-docs/plans/active/parallel-segment-rendering/tasks/011-monitor-peek-strip.md);
+// not a settings-exposed threshold (out of scope per that task's "Out of scope").
+const PEEK_STRIP_ACTIVE_THRESHOLD = 2;
+// Best-effort default (task 008): the render fan-out's own default
+// `max_concurrent_workers` (segment_synthesis.py) — no real per-job cap is
+// plumbed to the frontend yet, so this is a judgment call flagged for
+// review, not a fabricated number. Only feeds the monitor's caption text.
+const SEGMENT_MONITOR_CAP = 1;
 
 interface QueueItemProps {
     job: ProcessingQueueItem;
@@ -19,6 +38,7 @@ interface QueueItemProps {
     compact?: boolean;
     engines?: import('@/types').TtsEngine[];
     onVisualPendingChange?: (jobId: string, pending: boolean) => void;
+    onRefresh?: () => void | Promise<void>;
 }
 
 export const QueueItem: React.FC<QueueItemProps> = ({
@@ -30,7 +50,8 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     onRemove,
     compact = false,
     engines = [],
-    onVisualPendingChange
+    onVisualPendingChange,
+    onRefresh
 }) => {
     const devMode = useDevMode();
     const latestSnapshotRef = React.useRef<any>(null);
@@ -39,6 +60,61 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     }, []);
     const status = job.status;
     const isTrulyActive = ['preparing', 'running', 'processing', 'finalizing'].includes(status);
+
+    // W-PAR task 015: per-row segment inventory + peek-strip/render-monitor
+    // state, previously owned by ActivityPage.tsx for a single page-wide
+    // "active job" (tasks 008/011). Each QueueItem row now hydrates and
+    // gates its own strip independently, so N concurrently-active jobs each
+    // get their own instance with no shared state between rows.
+    const chapterId = liveJob?.chapter_id ?? (job as any)?.chapter_id;
+    const isSegmentMonitorActive = ACTIVE_STATUSES.has(status) && !!chapterId;
+    const { segments: inventorySegments } = useSegmentInventory(
+        devMode && isSegmentMonitorActive ? (liveJob ?? null) : null
+    );
+
+    const [peekDismissed, setPeekDismissedState] = React.useState(false);
+    const [monitorExpanded, setMonitorExpanded] = React.useState(false);
+    React.useEffect(() => {
+        setPeekDismissedState(isPeekStripDismissed(job.id));
+        setMonitorExpanded(false);
+    }, [job.id]);
+
+    const renderingCount = React.useMemo(
+        () => inventorySegments.filter((s) => s.phase === 'rendering').length,
+        [inventorySegments],
+    );
+    const failedSegmentCount = React.useMemo(
+        () => inventorySegments.filter((s) => s.phase === 'failed').length,
+        [inventorySegments],
+    );
+    // Only worth surfacing the peek strip if there's actually a full field to
+    // expand into (SegmentRenderMonitor itself renders nothing below this
+    // segment count — see its own degrade-by-count rule).
+    const monitorEligible = devMode && isSegmentMonitorActive && inventorySegments.length >= FULL_STRIP_MIN;
+    const peekEligible = monitorEligible && renderingCount >= PEEK_STRIP_ACTIVE_THRESHOLD;
+    // A failure must never be hidden by an earlier dismiss.
+    const showPeekStrip = peekEligible && !monitorExpanded && (!peekDismissed || failedSegmentCount > 0);
+    const showFullMonitor = monitorEligible && (monitorExpanded || !peekEligible);
+
+    const handlePeekExpand = React.useCallback(() => setMonitorExpanded(true), []);
+    const handlePeekDismiss = React.useCallback(() => {
+        setPeekDismissedState(true);
+        setPeekStripDismissed(job.id, true);
+    }, [job.id]);
+
+    // Task 010 — segment-level retry, moved per-row by task 015.
+    // `POST /api/segments/generate` (already used by ScriptView/BoothTool/
+    // ReviseTool for single-segment re-render) is the only per-segment
+    // (re)generation entry point this repo has; there is no server-side
+    // "retry" verb, so re-queuing generation for the same segment id IS the
+    // retry. Errors are surfaced via console.error only, matching this
+    // page's existing lack of a toast/snackbar mechanism — onRefresh()
+    // re-pulls job state so the queue reflects the requeue.
+    const handleSegmentRetry = React.useCallback((segmentId: string) => {
+        api.generateSegments([segmentId])
+            .then(() => onRefresh?.())
+            .catch((e) => console.error('Segment retry failed', e));
+    }, [onRefresh]);
     const rawStarted = job.started_at ?? liveJob?.started_at;
     const preferLiveEta = (isTrulyActive && typeof liveJob?.eta_seconds === 'number' && liveJob.eta_seconds > 0);
     const etaSource = selectEtaSource(job, liveJob, isTrulyActive);
@@ -550,6 +626,33 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     backwardTransitionTickCount={2}
                     tickMs={250}
                 />
+                {/*
+                    W-PAR task 015: per-row segment peek strip / render
+                    monitor, mounted BENEATH this row's own aggregate
+                    progress bar (additive, not a replacement) — reuses the
+                    same components/gating as the prior page-level version
+                    (tasks 008/011), just scoped to this job instead of a
+                    single page-wide "active job".
+                */}
+                {showPeekStrip && (
+                    <div style={{ marginTop: '0.75rem' }}>
+                        <SegmentPeekStrip
+                            segments={inventorySegments}
+                            activeCount={renderingCount}
+                            onExpand={handlePeekExpand}
+                            onDismiss={handlePeekDismiss}
+                        />
+                    </div>
+                )}
+                {showFullMonitor && (
+                    <div style={{ marginTop: '1rem' }}>
+                        <SegmentRenderMonitor
+                            segments={inventorySegments}
+                            cap={SEGMENT_MONITOR_CAP}
+                            onRetry={handleSegmentRetry}
+                        />
+                    </div>
+                )}
             </div>
         </div>
     );

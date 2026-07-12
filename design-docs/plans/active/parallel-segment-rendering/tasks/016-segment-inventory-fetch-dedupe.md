@@ -1,6 +1,6 @@
 # Task 016 — `useSegmentInventory` fetch dedupe
 
-Status: pending
+Status: complete — 2026-07-12
 
 Risk: none (single-file, no user-visible contract change)
 
@@ -101,10 +101,10 @@ Net effect: `api.fetchScriptView` calls drop from "once per progress tick" to "o
 
 ## Acceptance criteria
 
-- [ ] A test (new or added to the existing `useSegmentInventory` test file — check `frontend/tests/unit/hooks/` for one) that: renders the hook with a job, asserts `api.fetchScriptView` was called once; then updates `job.active_segments_map` to a new object reference (same `chapterId`) several times; asserts `api.fetchScriptView` is STILL called only once, but the returned `segments` array's per-span `phase`/`progress` values reflect each updated `active_segments_map`. **This test must fail against the current code before the fix (revert-check per testing-standards.md R1)** — confirm it fails (fetch call count > 1) on the pre-fix hook, then passes after.
-- [ ] A second test: `chapterId` changes to a different chapter → `api.fetchScriptView` is called again (once) for the new chapter — dedup must not become "never refetch."
-- [ ] Existing `useSegmentInventory` behavior (merge logic, stale-request guard, error-clears-to-empty) is unchanged — no regression in any pre-existing test for this hook.
-- [ ] `npm -C frontend run test -- --run`, lint, build all clean.
+- [x] A test (new or added to the existing `useSegmentInventory` test file — check `frontend/tests/unit/hooks/` for one) that: renders the hook with a job, asserts `api.fetchScriptView` was called once; then updates `job.active_segments_map` to a new object reference (same `chapterId`) several times; asserts `api.fetchScriptView` is STILL called only once, but the returned `segments` array's per-span `phase`/`progress` values reflect each updated `active_segments_map`. **This test must fail against the current code before the fix (revert-check per testing-standards.md R1)** — confirm it fails (fetch call count > 1) on the pre-fix hook, then passes after.
+- [x] A second test: `chapterId` changes to a different chapter → `api.fetchScriptView` is called again (once) for the new chapter — dedup must not become "never refetch." (Pre-existing test "refetches when the job chapter_id changes and ignores stale responses" already covers this and continues to pass.)
+- [x] Existing `useSegmentInventory` behavior (merge logic, stale-request guard, error-clears-to-empty) is unchanged — no regression in any pre-existing test for this hook.
+- [x] `npm -C frontend run test -- --run`, lint, build all clean.
 
 ## Map links
 

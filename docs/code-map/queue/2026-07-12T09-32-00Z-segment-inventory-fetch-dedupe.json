@@ -1,0 +1,22 @@
+{
+  "at": "2026-07-12T09:32:00Z",
+  "commit": "uncommitted",
+  "task": "Task 016: dedupe useSegmentInventory's script-view fetch — stop refetching on every active_segments_map tick, fetch once per chapterId and merge live progress client-side",
+  "files": {
+    "frontend/src/hooks/useSegmentInventory.ts": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Public return shape ({ segments, loading }) and Job | null | undefined input unchanged. Internally split one effect into two: a fetch effect depending only on [chapterId] that stores raw api.fetchScriptView(chapterId) spans in new baseSpans state (kept in sync with the existing requestIdRef stale-response guard; resets to [] on falsy chapterId or fetch error), and a useMemo depending on [baseSpans, activeSegmentsMap, engineId] that runs the same per-span merge logic (liveEntry override vs done/preparing fallback) to produce segments — pure computation, no network. Net effect: api.fetchScriptView calls drop from ~once-per-progress-tick to once-per-chapterId; segments still updates every tick via the memo.",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "frontend/tests/unit/hooks/useSegmentInventory.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added test 'does not refetch script-view when only active_segments_map changes for the same chapter (dedup)': renders hook, rerenders twice with new active_segments_map object references for the same chapterId, asserts api.fetchScriptView called exactly once while segments' per-span progress/phase update each rerender. Revert-checked: fails (3 calls) against pre-fix single-effect hook, passes after the fetch/merge split. Mocks only the api boundary (R2); no existing tests changed.",
+      "calls_added": [],
+      "calls_removed": []
+    }
+  },
+  "flow_impact": "No change to callers or data flow shape — ActivityPage.tsx's single useSegmentInventory usage (and task 015's planned per-row QueueItem.tsx usage) are unaffected. Removes the per-progress-tick GET /chapters/{chapter_id}/script-view refetch, which was previously bounded to one hook instance by the Phase 2 devMode gate but would have multiplied per concurrently-rendering row once task 015 lands or the gate is removed."
+}

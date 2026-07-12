@@ -1,6 +1,6 @@
 # Task 015 — Multi-job render-monitor rows
 
-Status: pending
+Status: complete — 2026-07-12
 
 Risk: multi-file
 
@@ -95,13 +95,21 @@ export interface SegmentRenderMonitorProps {
 
 ## Acceptance criteria
 
-- [ ] Two or more concurrently-rendering jobs each show their own `SegmentPeekStrip`/`SegmentRenderMonitor`, independently hydrated (verify via a test asserting distinct `segments` per row, not a shared reference).
-- [ ] A job not in the active-status set renders no strip.
-- [ ] Retry action on one row's segment does not affect any other row's state.
-- [ ] The stale "010/011 handle choosing among several" comment in `ActivityPage.tsx` is removed or corrected.
-- [ ] `isTrulyActive`/`ACTIVE_STATUSES` reconciled to one canonical status set, imported (not re-inlined) by both files.
-- [ ] `npm -C frontend run test -- --run`, `npm -C frontend run lint`, `npm -C frontend run build` all clean.
+- [x] Two or more concurrently-rendering jobs each show their own `SegmentPeekStrip`/`SegmentRenderMonitor`, independently hydrated (verify via a test asserting distinct `segments` per row, not a shared reference). See `frontend/tests/unit/components/queue/QueueItemSegmentMonitor.test.tsx`.
+- [x] A job not in the active-status set renders no strip.
+- [x] Retry action on one row's segment does not affect any other row's state.
+- [x] The stale "010/011 handle choosing among several" comment in `ActivityPage.tsx` is removed or corrected.
+- [x] `isTrulyActive`/`ACTIVE_STATUSES` reconciled to one canonical status set — `ACTIVE_STATUSES` now lives in `frontend/src/utils/jobStatus.ts` and is imported by `QueueItem.tsx`'s strip-gating condition. `isTrulyActive` itself was left as-is (it feeds ETA/progress selection elsewhere in `QueueItem.tsx`, not the strip gate — reconciling every other use was out of this task's scope per its own step 3 wording).
+- [x] `npm -C frontend run test -- --run`, `npm -C frontend run lint`, `npm -C frontend run build` all clean.
 - [ ] 👁 **Owner visual check (non-blocking, cannot be verified without a browser):** two chapters rendering simultaneously actually show two independent strips in the real UI, light and dark theme.
+
+## Implementation notes (2026-07-12)
+
+- Moved the segment-inventory hook call, peek/expand/dismiss local state, and the `SegmentPeekStrip`/`SegmentRenderMonitor` mount from `ActivityPage.tsx` into `QueueItem.tsx`, scoped per-row via `liveJob`/`job.id`. `GlobalQueue.tsx` now passes `onRefresh` through to each `QueueItem` so per-row retry can re-pull job state.
+- Added `frontend/src/utils/jobStatus.ts` exporting the canonical `ACTIVE_STATUSES` set, imported by `QueueItem.tsx` for the strip's gating condition.
+- `ActivityPage.tsx`'s stale comment claiming tasks 010/011 already handled "choosing among several" jobs was removed and replaced with an accurate pointer to `QueueItem.tsx`.
+- `frontend/tests/unit/pages/Activity/ActivityPagePeekStrip.test.tsx` was moved to `frontend/tests/unit/components/queue/QueueItemPeekStrip.test.tsx` (same single-row peek/expand/dismiss/re-surface scenarios, now exercising `QueueItem` directly since that's where the behavior lives).
+- New `frontend/tests/unit/components/queue/QueueItemSegmentMonitor.test.tsx` covers the actual multi-job fix: two concurrently-active jobs each get an independent strip/monitor with no cross-contamination on retry, and a non-active-status job renders neither. Revert-checked: these tests fail against the pre-fix code (only one row's strip/monitor rendered; the second row had no retry button since `QueueItem` had no segment-monitor code at all).
 
 ## Map links
 

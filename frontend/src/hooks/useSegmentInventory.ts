@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '@/api';
-import type { Job } from '@/types';
+import type { Job, ScriptSpan } from '@/types';
 import type { SegmentRenderMonitorSegment } from '@/components/progress/SegmentRenderMonitor/SegmentRenderMonitor';
 
 /**
@@ -26,7 +26,7 @@ export function useSegmentInventory(job: Job | null | undefined): {
   segments: SegmentRenderMonitorSegment[];
   loading: boolean;
 } {
-  const [segments, setSegments] = useState<SegmentRenderMonitorSegment[]>([]);
+  const [baseSpans, setBaseSpans] = useState<ScriptSpan[]>([]);
   const [loading, setLoading] = useState(false);
   const requestIdRef = useRef(0);
 
@@ -34,9 +34,11 @@ export function useSegmentInventory(job: Job | null | undefined): {
   const engineId = job?.engine;
   const activeSegmentsMap = job?.active_segments_map;
 
+  // Fetch the static script-view spans once per chapterId — this list only
+  // changes when the chapter's script changes, not on every progress tick.
   useEffect(() => {
     if (!chapterId) {
-      setSegments([]);
+      setBaseSpans([]);
       return;
     }
 
@@ -46,39 +48,42 @@ export function useSegmentInventory(job: Job | null | undefined): {
     api.fetchScriptView(chapterId)
       .then((data) => {
         if (requestIdRef.current !== myRequestId) return; // stale
-
-        const merged: SegmentRenderMonitorSegment[] = (data.spans || []).map((span) => {
-          const liveEntry = activeSegmentsMap?.[span.id];
-          if (liveEntry) {
-            return {
-              id: span.id,
-              charCount: liveEntry.char_count ?? span.char_count,
-              phase: liveEntry.phase,
-              progress: liveEntry.progress,
-              engineId: liveEntry.engine_id ?? engineId,
-              reasonCode: liveEntry.reason_code,
-            };
-          }
-          const isDone = span.status === 'done';
-          return {
-            id: span.id,
-            charCount: span.char_count,
-            phase: isDone ? 'done' : 'preparing',
-            progress: isDone ? 1 : 0,
-            engineId,
-          };
-        });
-
-        setSegments(merged);
+        setBaseSpans(data.spans || []);
       })
       .catch(() => {
         if (requestIdRef.current !== myRequestId) return;
-        setSegments([]);
+        setBaseSpans([]);
       })
       .finally(() => {
         if (requestIdRef.current === myRequestId) setLoading(false);
       });
-  }, [chapterId, engineId, activeSegmentsMap]);
+  }, [chapterId]);
+
+  // Merge live active_segments_map into the (stable) base spans on every
+  // tick — pure client-side computation, no network call.
+  const segments = useMemo<SegmentRenderMonitorSegment[]>(() => {
+    return baseSpans.map((span) => {
+      const liveEntry = activeSegmentsMap?.[span.id];
+      if (liveEntry) {
+        return {
+          id: span.id,
+          charCount: liveEntry.char_count ?? span.char_count,
+          phase: liveEntry.phase,
+          progress: liveEntry.progress,
+          engineId: liveEntry.engine_id ?? engineId,
+          reasonCode: liveEntry.reason_code,
+        };
+      }
+      const isDone = span.status === 'done';
+      return {
+        id: span.id,
+        charCount: span.char_count,
+        phase: isDone ? 'done' : 'preparing',
+        progress: isDone ? 1 : 0,
+        engineId,
+      };
+    });
+  }, [baseSpans, activeSegmentsMap, engineId]);
 
   return { segments, loading };
 }

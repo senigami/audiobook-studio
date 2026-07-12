@@ -338,6 +338,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                                         compact={compact}
                                         engines={engines}
                                         onVisualPendingChange={handleVisualPendingChange}
+                                        onRefresh={onRefresh}
                                     />
                                 ))}
                             </div>
