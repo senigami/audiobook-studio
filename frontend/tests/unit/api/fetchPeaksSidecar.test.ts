@@ -17,7 +17,8 @@ const CHAPTER_AUDIO_URL =
 
 function validSidecarPayload(overrides: Partial<Record<string, unknown>> = {}) {
   return {
-    version: 1,
+    version: 2, // must match CURRENT_SIDECAR_VERSION / backend SIDECAR_VERSION
+
     peaks: [0, 0.25, 0.5, 0.75, 1],
     duration_sec: 120,
     sample_rate: 44100,
@@ -107,7 +108,7 @@ describe('fetchPeaksSidecar', () => {
   it('returns null when the payload fails contract validation (wrong version)', async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve(validSidecarPayload({ version: 2 })),
+      json: () => Promise.resolve(validSidecarPayload({ version: 1 })),
     });
 
     const result = await fetchPeaksSidecar(CHAPTER_AUDIO_URL);

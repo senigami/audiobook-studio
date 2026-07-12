@@ -81,7 +81,17 @@ export const WaveformStrip: React.FC<WaveformStripProps> = ({ audioEl, audioUrl 
       // Load the audio URL so wavesurfer decodes peaks client-side.
       // The `media` option means wavesurfer will NOT create a new audio element
       // for playback — it only uses this URL for peak decoding.
-      ws.load(audioUrl);
+      //
+      // This effect can be torn down (e.g. `showWave` flips false once the
+      // real track duration arrives, right after mounting optimistically at
+      // duration=0 — see fitsLegibly()) before `load()` resolves. The cleanup
+      // below calls `ws.destroy()`, which aborts the in-flight fetch — that's
+      // expected, not a failure, so swallow the resulting AbortError rather
+      // than letting it surface as an uncaught rejection.
+      ws.load(audioUrl).catch((err: unknown) => {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        console.error('WaveformStrip: failed to load audio for waveform', err);
+      });
 
       wsRef.current = ws;
     });

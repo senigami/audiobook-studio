@@ -1,0 +1,22 @@
+{
+  "at": "2026-07-12T11:30:00Z",
+  "commit": "uncommitted",
+  "task": "Fix frontend peaks-sidecar contract to accept version 2 — it had been silently rejecting every real sidecar since the backend's SIDECAR_VERSION bumped 1->2 on 2026-07-10 (data-model.md 1.10.1 / audio-player.md 1.6.3), permanently disabling the WaveformTape detail view for every long chapter regardless of the render-hook or on-demand generation working correctly server-side.",
+  "files": {
+    "frontend/src/api/contracts/peaksSidecar.ts": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "parsePeaksSidecar() hardcoded `obj.version !== 1`, rejecting every payload the backend has served since the documented 1->2 version bump (higher peak density, 8->60 peaks/sec). Added an exported CURRENT_SIDECAR_VERSION=2 constant (must be bumped in lockstep with app/engines/audio_ops.py's SIDECAR_VERSION) and validate against it instead of a hardcoded literal. PeaksSidecar.version type updated 1 -> typeof CURRENT_SIDECAR_VERSION.",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "frontend/tests/unit/api/fetchPeaksSidecar.test.ts": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "validSidecarPayload()'s default version fixture updated 1 -> 2 to match reality. The 'wrong version' test previously used version:2 as its example of an invalid version (backwards, since 2 is actually current) -- changed to version:1 so the test still asserts real rejection behavior. Revert-checked: both the 'returns the validated peaks array on success' and 'wrong version' tests fail against the pre-fix (version!==1) contract when exercised with a real version-2 payload.",
+      "calls_added": [],
+      "calls_removed": []
+    }
+  },
+  "flow_impact": "PlayerBar.tsx's tapeAvailable check (`sidecarPeaks !== null`) was always false for every chapter over TAPE_DURATION_CAP_SEC because fetchPeaksSidecar->parsePeaksSidecar always returned null for the current (version 2) backend payload shape. This silently forced the wave-toggle button into its forceWave/inline-wavesurfer fallback path for every long chapter instead of ever opening WaveformTape -- the actual root cause behind 'long chapters never show the detail wave', discovered via a live network-request capture showing a 200 OK version:2 payload being discarded client-side. No other consumer of PeaksSidecar/parsePeaksSidecar needed a matching update (PlayerBar.tsx only consumes the already-validated number[] | null return, not the raw version field)."
+}

@@ -23,7 +23,7 @@ import { WaveformStrip } from '@/app/layout/WaveformStrip';
 // ---------------------------------------------------------------------------
 
 const mockDestroy = vi.fn();
-const mockLoad = vi.fn();
+const mockLoad = vi.fn(() => Promise.resolve());
 const mockCreate = vi.fn(() => ({ destroy: mockDestroy, load: mockLoad }));
 
 vi.mock('wavesurfer.js', () => ({
@@ -87,5 +87,63 @@ describe('WaveformStrip', () => {
     // Old instance destroyed before new one created
     expect(mockDestroy).toHaveBeenCalled();
     expect(mockLoad).toHaveBeenLastCalledWith('https://example.com/second.mp3');
+  });
+
+  it('swallows AbortError from load() rejecting after destroy() tears down mid-load', async () => {
+    // Simulates unmounting (e.g. `showWave` flipping false once the real
+    // duration arrives) before wavesurfer's async load() resolves — destroy()
+    // aborts the in-flight fetch, which wavesurfer surfaces as a rejected
+    // load() promise. This must not become an uncaught rejection.
+    let rejectLoad: (err: Error) => void = () => {};
+    mockLoad.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectLoad = reject;
+      }),
+    );
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { unmount } = render(
+      <WaveformStrip audioEl={audioEl} audioUrl="https://example.com/audio.mp3" />,
+    );
+    await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      unmount();
+    });
+
+    const abortError = new Error('signal is aborted without reason');
+    abortError.name = 'AbortError';
+    await act(async () => {
+      rejectLoad(abortError);
+      await Promise.resolve();
+    });
+
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('logs a non-abort load() failure to the console', async () => {
+    let rejectLoad: (err: Error) => void = () => {};
+    mockLoad.mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectLoad = reject;
+      }),
+    );
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    render(<WaveformStrip audioEl={audioEl} audioUrl="https://example.com/audio.mp3" />);
+    await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1));
+
+    const networkError = new Error('network error');
+    await act(async () => {
+      rejectLoad(networkError);
+      await Promise.resolve();
+    });
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'WaveformStrip: failed to load audio for waveform',
+      networkError,
+    );
+    consoleErrorSpy.mockRestore();
   });
 });
