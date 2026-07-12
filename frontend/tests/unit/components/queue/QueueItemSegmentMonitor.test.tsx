@@ -184,6 +184,64 @@ describe('QueueItem — task 015 per-row segment monitor', () => {
     expect(retriedId).toMatch(/^chapter-[AB]-seg-0$/);
   });
 
+  it('shows the live per-engine effective cap from engineCaps, not the hardcoded fallback', async () => {
+    vi.mocked(api.fetchScriptView).mockResolvedValue({
+      chapter_id: 'chapter-A',
+      base_revision_id: null,
+      paragraphs: [],
+      spans: makeSpans('chapter-A', 12, ['chapter-A-seg-0']),
+    } as any);
+
+    const { job, liveJob } = makeJob('job-A', 'chapter-A', 1);
+    (job as any).engine = 'xtts';
+    (liveJob as any).engine = 'xtts';
+
+    render(
+      <QueueItem
+        job={job}
+        liveJob={liveJob}
+        localPaused={false}
+        formatJobTitle={(j: any) => j.chapter_title}
+        formatTime={() => '10:00'}
+        onRemove={vi.fn()}
+        engineCaps={{ xtts: 4 }}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/1 rendering in parallel \(cap 4\)/i)).toBeInTheDocument();
+    });
+  });
+
+  it('falls back to the default cap when the job\'s engine has no entry in engineCaps', async () => {
+    vi.mocked(api.fetchScriptView).mockResolvedValue({
+      chapter_id: 'chapter-A',
+      base_revision_id: null,
+      paragraphs: [],
+      spans: makeSpans('chapter-A', 12, ['chapter-A-seg-0']),
+    } as any);
+
+    const { job, liveJob } = makeJob('job-A', 'chapter-A', 1);
+    (job as any).engine = 'xtts';
+    (liveJob as any).engine = 'xtts';
+
+    render(
+      <QueueItem
+        job={job}
+        liveJob={liveJob}
+        localPaused={false}
+        formatJobTitle={(j: any) => j.chapter_title}
+        formatTime={() => '10:00'}
+        onRemove={vi.fn()}
+        engineCaps={{ voxtral: 2 }}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/1 rendering in parallel \(cap 1\)/i)).toBeInTheDocument();
+    });
+  });
+
   it('renders no strip for a job outside the active-status set', async () => {
     vi.mocked(api.fetchScriptView).mockResolvedValue({ chapter_id: 'chapter-A', base_revision_id: null, paragraphs: [], spans: makeSpans('chapter-A', 12, ['chapter-A-seg-0', 'chapter-A-seg-1']) } as any);
 

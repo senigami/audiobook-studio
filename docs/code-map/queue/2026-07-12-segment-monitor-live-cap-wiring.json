@@ -1,0 +1,36 @@
+{
+  "date": "2026-07-12",
+  "author": "claude",
+  "summary": "Wired the render monitor's cap caption to the real live per-engine effective cap (W-PAR task 014's GET /api/engines/concurrency) instead of the hardcoded SEGMENT_MONITOR_CAP=1 fallback flagged as stale since task 014 shipped.",
+  "files": [
+    {
+      "path": "frontend/src/hooks/useEngineConcurrency.ts",
+      "change": "New hook. Polls GET /api/engines/concurrency every 5s, exposes engine_id -> effective_cap. Keeps the previous map on a fetch failure (never clears it to empty).",
+      "exports_added": ["useEngineConcurrency"]
+    },
+    {
+      "path": "frontend/src/api/index.ts",
+      "change": "Added fetchEngineConcurrency() + EngineConcurrencyEntry/EngineConcurrencyResponse types wrapping GET /api/engines/concurrency."
+    },
+    {
+      "path": "frontend/src/pages/Activity/ActivityPage.tsx",
+      "change": "Calls useEngineConcurrency() and passes engineCaps down to GlobalQueue."
+    },
+    {
+      "path": "frontend/src/components/queue/GlobalQueue.tsx",
+      "change": "Added engineCaps prop, threaded to QueueItem in the active-jobs render loop."
+    },
+    {
+      "path": "frontend/src/components/queue/QueueItem.tsx",
+      "change": "Added engineCaps prop. SegmentRenderMonitor's cap prop is now engineCaps?.[engineType] ?? SEGMENT_MONITOR_CAP -- the constant is now explicitly a fallback (used only when the job's engine has no live entry yet), not the primary value. Updated its comment accordingly."
+    }
+  ],
+  "tests_added": [
+    "frontend/tests/unit/hooks/useEngineConcurrency.test.ts -- polls on mount, exposes the engine_id->effective_cap map, refreshes on a later poll, keeps the previous map on fetch failure, stops polling on unmount.",
+    "frontend/tests/unit/components/queue/QueueItemSegmentMonitor.test.tsx -- two new cases: shows the live cap from engineCaps when present, falls back to SEGMENT_MONITOR_CAP when the job's engine has no entry."
+  ],
+  "tests_updated": [
+    "frontend/tests/unit/pages/Activity/ActivityPage.test.tsx -- added fetchEngineConcurrency mock (new hook call would otherwise throw undefined-is-not-a-function in this suite)."
+  ],
+  "verified_live": "Confirmed against a real running backend: GET /api/engines/concurrency returns real effective_cap values (xtts=2 in the dev environment, not the hardcoded 1) and the frontend hook fetches it on the Activity page."
+}

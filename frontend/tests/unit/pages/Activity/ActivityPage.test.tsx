@@ -19,6 +19,7 @@ vi.mock('@/api', () => ({
       vram_used_gb: null,
       vram_total_gb: null,
     }),
+    fetchEngineConcurrency: vi.fn().mockResolvedValue({ global_cap: 1, engines: [] }),
     fetchHome: vi.fn().mockResolvedValue({
       render_stats: {
         sample_count: 2,

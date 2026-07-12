@@ -9,6 +9,20 @@ export interface SystemResourcesResponse {
   vram_total_gb: number | null;
 }
 
+export interface EngineConcurrencyEntry {
+  engine_id: string;
+  engine_class: string;
+  manifest_max: number;
+  requested_cap: number;
+  effective_cap: number;
+  active_count: number;
+}
+
+export interface EngineConcurrencyResponse {
+  global_cap: number;
+  engines: EngineConcurrencyEntry[];
+}
+
 const parseApiResponse = async (res: Response) => {
   const data = await res.json();
   if (!res.ok || data?.status === 'error') {
@@ -477,6 +491,10 @@ export const api = {
 
   fetchOfficialPluginRegistry: async (): Promise<any> => {
     const res = await fetch('/api/engines/registry');
+    return parseApiResponse(res);
+  },
+  fetchEngineConcurrency: async (): Promise<EngineConcurrencyResponse> => {
+    const res = await fetch('/api/engines/concurrency');
     return parseApiResponse(res);
   },
 

@@ -33,6 +33,8 @@ interface GlobalQueueProps {
     compact?: boolean;
     engines?: import('@/types').TtsEngine[];
     historyFilter?: HistoryFilter;
+    /** engine_id -> live effective concurrency cap (W-PAR task 014). Passed through to QueueItem's render monitor caption. */
+    engineCaps?: Record<string, number>;
 }
 
 export const GlobalQueue: React.FC<GlobalQueueProps> = ({
@@ -44,6 +46,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
     compact = false,
     engines = [],
     historyFilter = 'All',
+    engineCaps,
 }) => {
     const {
         queue,
@@ -337,6 +340,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                                         onRemove={handleRemove}
                                         compact={compact}
                                         engines={engines}
+                                        engineCaps={engineCaps}
                                         onVisualPendingChange={handleVisualPendingChange}
                                         onRefresh={onRefresh}
                                     />

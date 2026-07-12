@@ -22,10 +22,10 @@ import { ACTIVE_STATUSES } from '@/utils/jobStatus';
 // design-docs/plans/active/parallel-segment-rendering/tasks/011-monitor-peek-strip.md);
 // not a settings-exposed threshold (out of scope per that task's "Out of scope").
 const PEEK_STRIP_ACTIVE_THRESHOLD = 2;
-// Best-effort default (task 008): the render fan-out's own default
-// `max_concurrent_workers` (segment_synthesis.py) — no real per-job cap is
-// plumbed to the frontend yet, so this is a judgment call flagged for
-// review, not a fabricated number. Only feeds the monitor's caption text.
+// Fallback only (task 008 default, superseded by task 014's live cap
+// admission): used for the monitor's caption text when `engineCaps` (the
+// job's engine isn't in the map yet, or GET /api/engines/concurrency hasn't
+// resolved/failed) doesn't have a real per-engine effective cap to show.
 const SEGMENT_MONITOR_CAP = 1;
 
 interface QueueItemProps {
@@ -37,6 +37,8 @@ interface QueueItemProps {
     onRemove: (id: string) => void;
     compact?: boolean;
     engines?: import('@/types').TtsEngine[];
+    /** engine_id -> live effective concurrency cap (W-PAR task 014). Falls back to SEGMENT_MONITOR_CAP when a lookup misses. */
+    engineCaps?: Record<string, number>;
     onVisualPendingChange?: (jobId: string, pending: boolean) => void;
     onRefresh?: () => void | Promise<void>;
 }
@@ -50,6 +52,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     onRemove,
     compact = false,
     engines = [],
+    engineCaps,
     onVisualPendingChange,
     onRefresh
 }) => {
@@ -648,7 +651,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     <div style={{ marginTop: '1rem' }}>
                         <SegmentRenderMonitor
                             segments={inventorySegments}
-                            cap={SEGMENT_MONITOR_CAP}
+                            cap={engineCaps?.[engineType] ?? SEGMENT_MONITOR_CAP}
                             onRetry={handleSegmentRetry}
                         />
                     </div>

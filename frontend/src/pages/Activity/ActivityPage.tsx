@@ -6,6 +6,7 @@ import { EngineCalibrationCard } from '@/pages/Activity/components/EngineCalibra
 import { ProductionTallyCard } from '@/pages/Activity/components/ProductionTallyCard';
 import { SystemResourceStrip } from '@/pages/Activity/components/SystemResourceStrip';
 import { useSystemResourceSamples } from '@/hooks/useSystemResourceSamples';
+import { useEngineConcurrency } from '@/hooks/useEngineConcurrency';
 
 export interface ActivityPageProps {
   paused: boolean;
@@ -32,6 +33,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({
 }) => {
   const [historyFilter, setHistoryFilter] = useState<(typeof HISTORY_FILTERS)[number]>('All');
   const { samples: resourceSamples, hasVram } = useSystemResourceSamples();
+  const { engineCaps } = useEngineConcurrency();
 
   const connectionState = useMemo(() => {
     if (isReconnecting) return 'reconnecting';
@@ -89,6 +91,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({
             onRefresh={onRefresh}
             compact={false}
             historyFilter={historyFilter}
+            engineCaps={engineCaps}
           />
         </div>
 
