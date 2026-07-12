@@ -74,13 +74,17 @@
 }
 
 .system-resource-strip__spark {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  height: 20px;
 }
 
 .system-resource-strip__value {
-  width: 52px;
-  flex: 0 0 52px;
+  flex: 0 0 auto;
+  min-width: 68px;
   text-align: right;
+  white-space: nowrap;
   font-size: var(--type-callout);
   font-variant-numeric: tabular-nums;
   font-weight: 600;

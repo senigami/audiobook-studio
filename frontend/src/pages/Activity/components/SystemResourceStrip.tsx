@@ -60,7 +60,13 @@ const ResourceRow: React.FC<ResourceRowProps> = ({ label, pcts, valueText, acces
   return (
     <div className="system-resource-strip__row">
       <span className="system-resource-strip__label">{label}</span>
-      <svg width={SPARK_WIDTH} height={SPARK_HEIGHT} aria-hidden="true" className="system-resource-strip__spark">
+      <svg
+        viewBox={`0 0 ${SPARK_WIDTH} ${SPARK_HEIGHT}`}
+        preserveAspectRatio="none"
+        aria-hidden="true"
+        className="system-resource-strip__spark"
+      >
+
         {loading || pcts.length === 0 ? (
           <line
             x1={0}
