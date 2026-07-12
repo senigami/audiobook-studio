@@ -17,6 +17,7 @@ call is made anywhere in this file.
 from __future__ import annotations
 
 import json
+import zipfile
 from pathlib import Path
 from typing import Any, Optional
 
@@ -61,7 +62,23 @@ def _patch_client(monkeypatch, fake_client: FakeHFHubClient):
     monkeypatch.setattr(voices_huggingface, "_client", lambda: fake_client)
 
 
-def _make_voice_root(voices_root: Path, name: str = "gravel-road") -> Path:
+def _make_voice_root(
+    voices_root: Path,
+    name: str = "gravel-road",
+    *,
+    variant_name: str = "Default",
+    engine: str | None = "xtts",
+    sample_bytes: bytes | None = b"fake-mp3-bytes",
+    include_latent: bool = False,
+) -> Path:
+    """Builds a voice root matching the REAL on-disk layout: samples and
+    engine assets live inside a variant subdirectory (``<VoiceName>/<VariantName>/``),
+    never at the voice root. An earlier version of this fixture wrote
+    ``samples/preview.mp3`` directly under the voice root, which doesn't
+    reflect any real installed voice and hid a genuine bug where the export
+    endpoint's sample lookup always missed (sample_bytes stayed empty) --
+    see TestExportEndpoint's real-layout tests below.
+    """
     voice_dir = voices_root / "Gravel Road"
     voice_dir.mkdir(parents=True, exist_ok=True)
     manifest = {
@@ -71,15 +88,23 @@ def _make_voice_root(voices_root: Path, name: str = "gravel-road") -> Path:
         "id": name,
         "name": "Gravel Road",
         "description": "",
-        "samples": [{"path": "samples/preview.mp3", "primary": True}],
         "languages": ["en-US"],
         "attributes": {"class": "human", "gender": "masculine", "age": "senior"},
         "tags": [],
     }
     (voice_dir / "voice.json").write_text(json.dumps(manifest))
-    samples_dir = voice_dir / "samples"
-    samples_dir.mkdir()
-    (samples_dir / "preview.mp3").write_bytes(b"fake-mp3-bytes")
+
+    variant_dir = voice_dir / variant_name
+    variant_dir.mkdir(parents=True, exist_ok=True)
+    profile: dict[str, Any] = {"variant_name": variant_name}
+    if engine:
+        profile["engine"] = engine
+    (variant_dir / "profile.json").write_text(json.dumps(profile))
+    if sample_bytes is not None:
+        (variant_dir / "sample.mp3").write_bytes(sample_bytes)
+    if include_latent:
+        (variant_dir / "latent.pth").write_bytes(b"fake-latent-bytes")
+
     return voice_dir
 
 
@@ -265,6 +290,71 @@ class TestExportEndpoint:
     def test_export_404_for_unknown_voice(self, client, voices_root, monkeypatch):
         resp = client.post("/api/voices/huggingface/export", json={"voice_id": "does-not-exist"})
         assert resp.status_code == 404
+
+    def test_export_includes_the_variants_own_sample_bytes(self, client, voices_root, monkeypatch):
+        """Real-layout regression test: the sample lives inside the variant
+        directory (Default/sample.mp3), never at the voice root. Pins the
+        fix for a real bug where the old lookup (voice_dir/"samples/preview.mp3"
+        or voice_dir/"sample.mp3") always missed for every real voice,
+        silently shipping an empty samples/preview.mp3 in every export."""
+        _make_voice_root(voices_root, sample_bytes=b"real-variant-sample-bytes")
+
+        resp = client.post("/api/voices/huggingface/export", json={"voice_id": "gravel-road"})
+        assert resp.status_code == 200, resp.text
+
+        with zipfile.ZipFile(resp.json()["bundle_path"]) as zf:
+            assert zf.read("samples/preview.mp3") == b"real-variant-sample-bytes"
+
+    def test_export_includes_the_same_variants_engine_asset(self, client, voices_root, monkeypatch):
+        """Task 004: the engine asset (latent.pth) is published under
+        assets/<engine_id>/ from the SAME variant as the sample (owner
+        requirement: never pair a sample with a different model's asset)."""
+        _make_voice_root(voices_root, engine="xtts", include_latent=True)
+
+        resp = client.post("/api/voices/huggingface/export", json={"voice_id": "gravel-road"})
+        assert resp.status_code == 200, resp.text
+
+        with zipfile.ZipFile(resp.json()["bundle_path"]) as zf:
+            assert zf.read("assets/xtts/latent.pth") == b"fake-latent-bytes"
+
+    def test_export_readme_names_the_model_that_generated_the_sample(self, client, voices_root, monkeypatch):
+        _make_voice_root(voices_root, engine="xtts", include_latent=True)
+
+        resp = client.post("/api/voices/huggingface/export", json={"voice_id": "gravel-road"})
+        assert resp.status_code == 200, resp.text
+
+        with zipfile.ZipFile(resp.json()["bundle_path"]) as zf:
+            readme = zf.read("README.md").decode()
+        assert "xtts" in readme.lower()
+
+    def test_export_has_no_assets_entry_when_variant_has_no_engine_asset(self, client, voices_root, monkeypatch):
+        _make_voice_root(voices_root, engine="xtts", include_latent=False)
+
+        resp = client.post("/api/voices/huggingface/export", json={"voice_id": "gravel-road"})
+        assert resp.status_code == 200, resp.text
+
+        with zipfile.ZipFile(resp.json()["bundle_path"]) as zf:
+            assert not any(n.startswith("assets/") for n in zf.namelist())
+
+    def test_export_honors_default_variant_from_state_over_alphabetical_fallback(self, client, voices_root, monkeypatch):
+        """Two variants exist; state.json's default_variant picks the
+        non-alphabetically-first one -- and its sample/asset must be the
+        one published, not "Aardvark"'s."""
+        voice_dir = _make_voice_root(voices_root, variant_name="Zebra", engine="voxtral", sample_bytes=b"zebra-sample", include_latent=True)
+        aardvark_dir = voice_dir / "Aardvark"
+        aardvark_dir.mkdir()
+        (aardvark_dir / "profile.json").write_text(json.dumps({"variant_name": "Aardvark", "engine": "xtts"}))
+        (aardvark_dir / "sample.mp3").write_bytes(b"aardvark-sample")
+        (aardvark_dir / "latent.pth").write_bytes(b"aardvark-latent")
+        (voice_dir / "state.json").write_text(json.dumps({"default_variant": "Zebra"}))
+
+        resp = client.post("/api/voices/huggingface/export", json={"voice_id": "gravel-road"})
+        assert resp.status_code == 200, resp.text
+
+        with zipfile.ZipFile(resp.json()["bundle_path"]) as zf:
+            assert zf.read("samples/preview.mp3") == b"zebra-sample"
+            assert zf.read("assets/voxtral/latent.pth") == b"fake-latent-bytes"
+            assert not any(n.startswith("assets/xtts") for n in zf.namelist())
 
 
 # ---------------------------------------------------------------------------
