@@ -88,42 +88,42 @@
         {
           "name": "create_chapter",
           "kind": "fn",
-          "contract": "str, str, Optional[str], int, float, int, int \u2192 str; creates chapter and syncs segments"
+          "contract": "str, str, Optional[str], int, float, int, int → str; creates chapter and syncs segments"
         },
         {
           "name": "get_chapter_segments_counts",
           "kind": "fn",
-          "contract": "str \u2192 tuple[int,int]; returns (done_count, total_count)"
+          "contract": "str → tuple[int,int]; returns (done_count, total_count)"
         },
         {
           "name": "get_chapter",
           "kind": "fn",
-          "contract": "str \u2192 Optional[Dict]; fetches chapter with audio flags detected from disk"
+          "contract": "str → Optional[Dict]; fetches chapter with audio flags detected from disk"
         },
         {
           "name": "list_chapters",
           "kind": "fn",
-          "contract": "str \u2192 List[Dict]; lists all chapters for project with audio flags"
+          "contract": "str → List[Dict]; lists all chapters for project with audio flags"
         },
         {
           "name": "update_chapter",
           "kind": "fn",
-          "contract": "str, **updates \u2192 bool; updates chapter, syncs segments if text changes"
+          "contract": "str, **updates → bool; updates chapter, syncs segments if text changes"
         },
         {
           "name": "delete_chapter",
           "kind": "fn",
-          "contract": "str \u2192 bool; deletes chapter and all segments, moves artifacts to trash"
+          "contract": "str → bool; deletes chapter and all segments, moves artifacts to trash"
         },
         {
           "name": "reorder_chapters",
           "kind": "fn",
-          "contract": "List[str] \u2192 None; reorders chapters by sort_order"
+          "contract": "List[str] → None; reorders chapters by sort_order"
         },
         {
           "name": "reset_chapter_audio",
           "kind": "fn",
-          "contract": "str \u2192 bool; resets chapter audio status to unprocessed, cleans files"
+          "contract": "str → bool; resets chapter audio status to unprocessed, cleans files"
         }
       ],
       "calls": [
@@ -153,8 +153,8 @@
         "chapter creation ensures nested directory structure immediately",
         "audio flags (has_wav/mp3/m4a) detected via disk inspection outside lock",
         "text updates trigger segment sync; rollback on failure",
-        "2026-07-09: get_chapter() now runs the same total_segments_count/done_segments_count subqueries as list_chapters() (previously only the list endpoint computed these), so single-chapter callers get the same shape as the list endpoint. No API contract change \u2014 these are additive fields on an existing response, and the chapter editor UI already reads them from `chapter.total_segments_count`/`done_segments_count` (ChapterWorkspaceHeader, ChapterTextPanel's analysisChapter fallback) so this fixes a pre-existing gap where the single-chapter endpoint silently omitted them.",
-        "2026-07-10: get_chapter(chapter_id, project_id=None) now takes an optional project_id and returns None (same as not-found) if the chapter belongs to a different project. Extracted the shared segment-count subquery shape into _segment_counts_sql(alias) / _SEGMENT_COUNTS_SQL_TEMPLATE, used by get_chapter_segments_counts, get_chapter, and list_chapters \u2014 standardized on the done_segments_count/total_segments_count naming (matches Chapter type in frontend/src/types/index.ts and the existing list_chapters consumers), including inside get_chapter_segments_counts which previously used done_count/total_count column aliases internally (its (done, total) tuple return order is unchanged, so callers in app/jobs/worker_metrics.py and app/studio_plugin_sdk/context.py needed no changes)."
+        "2026-07-09: get_chapter() now runs the same total_segments_count/done_segments_count subqueries as list_chapters() (previously only the list endpoint computed these), so single-chapter callers get the same shape as the list endpoint. No API contract change — these are additive fields on an existing response, and the chapter editor UI already reads them from `chapter.total_segments_count`/`done_segments_count` (ChapterWorkspaceHeader, ChapterTextPanel's analysisChapter fallback) so this fixes a pre-existing gap where the single-chapter endpoint silently omitted them.",
+        "2026-07-10: get_chapter(chapter_id, project_id=None) now takes an optional project_id and returns None (same as not-found) if the chapter belongs to a different project. Extracted the shared segment-count subquery shape into _segment_counts_sql(alias) / _SEGMENT_COUNTS_SQL_TEMPLATE, used by get_chapter_segments_counts, get_chapter, and list_chapters — standardized on the done_segments_count/total_segments_count naming (matches Chapter type in frontend/src/types/index.ts and the existing list_chapters consumers), including inside get_chapter_segments_counts which previously used done_count/total_count column aliases internally (its (done, total) tuple return order is unchanged, so callers in app/jobs/worker_metrics.py and app/studio_plugin_sdk/context.py needed no changes)."
       ],
       "calls_inferred": []
     },
@@ -164,12 +164,12 @@
         {
           "name": "cleanup_chapter_audio_files",
           "kind": "fn",
-          "contract": "str?, str, List[str]?, List[str]?, bool \u2192 bool; deletes chapter/segment audio files with pattern validation"
+          "contract": "str?, str, List[str]?, List[str]?, bool → bool; deletes chapter/segment audio files with pattern validation"
         },
         {
           "name": "move_chapter_artifacts_to_trash",
           "kind": "fn",
-          "contract": "str?, str, List[str]?, List[str]? \u2192 bool; moves files to project/trash/{chapter_id}"
+          "contract": "str?, str, List[str]?, List[str]? → bool; moves files to project/trash/{chapter_id}"
         }
       ],
       "calls": [
@@ -201,17 +201,17 @@
         {
           "name": "_is_safe_flat_name",
           "kind": "fn",
-          "contract": "str?, Pattern \u2192 bool; validates name matches pattern + is basename"
+          "contract": "str?, Pattern → bool; validates name matches pattern + is basename"
         },
         {
           "name": "_canonical_chapter_id",
           "kind": "fn",
-          "contract": "str \u2192 str; validates UUID format, raises on invalid"
+          "contract": "str → str; validates UUID format, raises on invalid"
         },
         {
           "name": "_detect_audio_flags",
           "kind": "fn",
-          "contract": "str, str?, Path? \u2192 Dict[str,bool]; detects has_wav/mp3/m4a via disk inspection"
+          "contract": "str, str?, Path? → Dict[str,bool]; detects has_wav/mp3/m4a via disk inspection"
         }
       ],
       "calls": [
@@ -231,27 +231,27 @@
         {
           "name": "create_character",
           "kind": "fn",
-          "contract": "str, str, str?, str, str?, **updates \u2192 str; creates character, returns ID"
+          "contract": "str, str, str?, str, str?, **updates → str; creates character, returns ID"
         },
         {
           "name": "get_characters",
           "kind": "fn",
-          "contract": "str, str? \u2192 List[Dict]; returns characters for project (optionally filtered by chapter)"
+          "contract": "str, str? → List[Dict]; returns characters for project (optionally filtered by chapter)"
         },
         {
           "name": "update_character",
           "kind": "fn",
-          "contract": "str, **updates \u2192 bool; updates character fields"
+          "contract": "str, **updates → bool; updates character fields"
         },
         {
           "name": "delete_character",
           "kind": "fn",
-          "contract": "str \u2192 bool; deletes character, resets segments to narrator, invalidates audio"
+          "contract": "str → bool; deletes character, resets segments to narrator, invalidates audio"
         },
         {
           "name": "promote_character",
           "kind": "fn",
-          "contract": "str \u2192 bool; clears chapter_id to promote temp character to book scope"
+          "contract": "str → bool; clears chapter_id to promote temp character to book scope"
         }
       ],
       "calls": [
@@ -273,42 +273,42 @@
         {
           "name": "get_db_path",
           "kind": "fn",
-          "contract": "() \u2192 Path; resolves DB_PATH from env or default"
+          "contract": "() → Path; resolves DB_PATH from env or default"
         },
         {
           "name": "get_studio_db_path",
           "kind": "fn",
-          "contract": "() \u2192 Path; resolves STUDIO_DB_PATH from env or default"
+          "contract": "() → Path; resolves STUDIO_DB_PATH from env or default"
         },
         {
           "name": "get_connection",
           "kind": "fn",
-          "contract": "() \u2192 sqlite3.Connection; creates new conn with Row factory, asserts test safety"
+          "contract": "() → sqlite3.Connection; creates new conn with Row factory, asserts test safety"
         },
         {
           "name": "get_studio_connection",
           "kind": "fn",
-          "contract": "() \u2192 sqlite3.Connection; creates studio.db connection"
+          "contract": "() → sqlite3.Connection; creates studio.db connection"
         },
         {
           "name": "init_db",
           "kind": "fn",
-          "contract": "() \u2192 None; creates/migrates both DBs under lock"
+          "contract": "() → None; creates/migrates both DBs under lock"
         },
         {
           "name": "verify_and_cleanup_legacy_tables",
           "kind": "fn",
-          "contract": "Connection \u2192 None; migrates settings/performance_samples from audiobook_studio.db to studio.db"
+          "contract": "Connection → None; migrates settings/performance_samples from audiobook_studio.db to studio.db"
         },
         {
           "name": "_running_under_test",
           "kind": "fn",
-          "contract": "() \u2192 bool; checks APP_TEST_MODE env + pytest detection"
+          "contract": "() → bool; checks APP_TEST_MODE env + pytest detection"
         },
         {
           "name": "_assert_safe_db_path_for_tests",
           "kind": "fn",
-          "contract": "Path \u2192 None; raises if non-test DB used during tests"
+          "contract": "Path → None; raises if non-test DB used during tests"
         }
       ],
       "calls": [
@@ -329,37 +329,37 @@
       "calls_inferred": []
     },
     "app/db/legacy_migration.py": {
-      "purpose": "One-time v1\u2192v2 conversion: migrate engine-specific metrics, settings, filesystem chapters",
+      "purpose": "One-time v1→v2 conversion: migrate engine-specific metrics, settings, filesystem chapters",
       "exports": [
         {
           "name": "migrate_performance_metrics",
           "kind": "fn",
-          "contract": "Dict \u2192 Dict; maps legacy xtts_cps to generic engine_cps, preserves history"
+          "contract": "Dict → Dict; maps legacy xtts_cps to generic engine_cps, preserves history"
         },
         {
           "name": "migrate_settings",
           "kind": "fn",
-          "contract": "Dict \u2192 Dict; removes speed_* and make_mp3 keys"
+          "contract": "Dict → Dict; removes speed_* and make_mp3 keys"
         },
         {
           "name": "ensure_state_migrated",
           "kind": "fn",
-          "contract": "Dict \u2192 bool; migrates state.json in-place, records history to DB, clears blob"
+          "contract": "Dict → bool; migrates state.json in-place, records history to DB, clears blob"
         },
         {
           "name": "migrate_db_performance_metrics",
           "kind": "fn",
-          "contract": "cursor \u2192 bool; converts legacy performance_metrics JSON blob to granular settings keys"
+          "contract": "cursor → bool; converts legacy performance_metrics JSON blob to granular settings keys"
         },
         {
           "name": "_record_legacy_performance_history_to_db",
           "kind": "fn",
-          "contract": "List[Dict] \u2192 None; inserts legacy samples into render_performance_samples table"
+          "contract": "List[Dict] → None; inserts legacy samples into render_performance_samples table"
         },
         {
           "name": "import_legacy_filesystem_data",
           "kind": "fn",
-          "contract": "() \u2192 Dict; scans CHAPTER_DIR for .txt, creates project, imports with audio lookup"
+          "contract": "() → Dict; scans CHAPTER_DIR for .txt, creates project, imports with audio lookup"
         }
       ],
       "calls": [
@@ -378,27 +378,27 @@
       ]
     },
     "app/db/lexicon.py": {
-      "purpose": "Per-project pronunciation lexicon CRUD: word\u2192replacement substitutions",
+      "purpose": "Per-project pronunciation lexicon CRUD: word→replacement substitutions",
       "exports": [
         {
           "name": "get_lexicon",
           "kind": "fn",
-          "contract": "str \u2192 List[Dict]; returns all entries for project, ordered by created_at"
+          "contract": "str → List[Dict]; returns all entries for project, ordered by created_at"
         },
         {
           "name": "add_lexicon_entry",
           "kind": "fn",
-          "contract": "str, str, str \u2192 str; inserts entry, returns UUID; raises ValueError if project_id already has an entry whose word case-insensitively matches (checked via SELECT ... LOWER(word)=LOWER(?) before INSERT)"
+          "contract": "str, str, str → str; inserts entry, returns UUID; raises ValueError if project_id already has an entry whose word case-insensitively matches (checked via SELECT ... LOWER(word)=LOWER(?) before INSERT)"
         },
         {
           "name": "update_lexicon_entry",
           "kind": "fn",
-          "contract": "str, word?, replacement? \u2192 bool; updates one/both fields"
+          "contract": "str, word?, replacement? → bool; updates one/both fields"
         },
         {
           "name": "delete_lexicon_entry",
           "kind": "fn",
-          "contract": "str \u2192 bool; deletes entry"
+          "contract": "str → bool; deletes entry"
         }
       ],
       "calls": [
@@ -423,22 +423,22 @@
       "calls_inferred": []
     },
     "app/db/migration.py": {
-      "purpose": "State.json\u2192DB and v1\u2192v2 migrations: legacy jobs, performance metrics, filesystem imports, cover files, voice profiles",
+      "purpose": "State.json→DB and v1→v2 migrations: legacy jobs, performance metrics, filesystem imports, cover files, voice profiles",
       "exports": [
         {
           "name": "migrate_state_json_to_db",
           "kind": "fn",
-          "contract": "() \u2192 None; migrates jobs/metrics from state.json to DB, cleans state.json"
+          "contract": "() → None; migrates jobs/metrics from state.json to DB, cleans state.json"
         },
         {
           "name": "migrate_legacy_project_covers",
           "kind": "fn",
-          "contract": "() \u2192 int; moves shared covers to project-local storage, returns count"
+          "contract": "() → int; moves shared covers to project-local storage, returns count"
         },
         {
           "name": "migrate_voice_profiles",
           "kind": "fn",
-          "contract": "Path? \u2192 None; reconciles speaker metadata + default_profile_name"
+          "contract": "Path? → None; reconciles speaker metadata + default_profile_name"
         }
       ],
       "calls": [
@@ -518,7 +518,7 @@
         {
           "name": "split_into_sentences",
           "kind": "fn",
-          "contract": "str \u2192 List[str]; returns sentence list"
+          "contract": "str → List[str]; returns sentence list"
         }
       ],
       "calls": [
@@ -538,47 +538,47 @@
         {
           "name": "record_render_sample",
           "kind": "fn",
-          "contract": "engine, chars, segment_count, duration?, tts_model?, **kwargs \u2192 None; calculates CPS/seconds_per_seg, inserts row"
+          "contract": "engine, chars, segment_count, duration?, tts_model?, **kwargs → None; calculates CPS/seconds_per_seg, inserts row"
         },
         {
           "name": "engine_sample_count",
           "kind": "fn",
-          "contract": "str \u2192 int; returns count of samples for engine (maturity signal for ETA baseline)"
+          "contract": "str → int; returns count of samples for engine (maturity signal for ETA baseline)"
         },
         {
           "name": "delete_render_samples_for_engine",
           "kind": "fn",
-          "contract": "str \u2192 int; deletes all samples for engine, returns count"
+          "contract": "str → int; deletes all samples for engine, returns count"
         },
         {
           "name": "reset_engine_calibration_history",
           "kind": "fn",
-          "contract": "str, str? \u2192 int; deletes samples for engine (optionally filtered by model)"
+          "contract": "str, str? → int; deletes samples for engine (optionally filtered by model)"
         },
         {
           "name": "expected_model_load_seconds",
           "kind": "fn",
-          "contract": "str, str? \u2192 float?; returns trimmed-mean of cold-load samples (\u22651.0s)"
+          "contract": "str, str? → float?; returns trimmed-mean of cold-load samples (≥1.0s)"
         },
         {
           "name": "reset_render_stats",
           "kind": "fn",
-          "contract": "() \u2192 Dict; sets reset baseline, returns get_render_stats()"
+          "contract": "() → Dict; sets reset baseline, returns get_render_stats()"
         },
         {
           "name": "apply_performance_retention_policy",
           "kind": "fn",
-          "contract": "() \u2192 None; deletes samples >180d old, keeps top 100 recent even if >30d"
+          "contract": "() → None; deletes samples >180d old, keeps top 100 recent even if >30d"
         },
         {
           "name": "get_render_history",
           "kind": "fn",
-          "contract": "limit=100 \u2192 List[Dict]; returns samples oldest\u2192newest"
+          "contract": "limit=100 → List[Dict]; returns samples oldest→newest"
         },
         {
           "name": "get_render_stats",
           "kind": "fn",
-          "contract": "() \u2192 Dict; returns summary (count, audio/render hours, by_engine breakdown)"
+          "contract": "() → Dict; returns summary (count, audio/render hours, by_engine breakdown)"
         }
       ],
       "calls": [
@@ -595,7 +595,7 @@
       ],
       "notes": [
         "record_render_sample: derives CPS from chars/sum_segment_render_seconds; calculates inter_group_overhead (duration - synthesis_duration)",
-        "expected_model_load_seconds: heuristic filters cold-load samples (model_load_seconds \u2265 1.0), returns trimmed-mean",
+        "expected_model_load_seconds: heuristic filters cold-load samples (model_load_seconds ≥ 1.0), returns trimmed-mean",
         "retention policy: keep 180d history + top 100 recent; deletes older than 180d no matter what",
         "all writes under _db_lock"
       ],
@@ -607,12 +607,12 @@
         {
           "name": "create_project",
           "kind": "fn",
-          "contract": "str, str?, str?, str?, str?, series_position: int? \u2192 str; creates project, initializes dirs, saves manifest, returns ID"
+          "contract": "str, str?, str?, str?, str?, series_position: int? → str; creates project, initializes dirs, saves manifest, returns ID"
         },
         {
           "name": "get_project",
           "kind": "fn",
-          "contract": "str \u2192 Dict?; returns project record with timing instrumentation"
+          "contract": "str → Dict?; returns project record with timing instrumentation"
         },
         {
           "name": "list_projects",
@@ -622,12 +622,12 @@
         {
           "name": "update_project",
           "kind": "fn",
-          "contract": "str, **updates \u2192 bool; updates project fields + updated_at"
+          "contract": "str, **updates → bool; updates project fields + updated_at"
         },
         {
           "name": "delete_project",
           "kind": "fn",
-          "contract": "str \u2192 bool; deletes project, all chapters/segments, physical directory"
+          "contract": "str → bool; deletes project, all chapters/segments, physical directory"
         },
         {
           "name": "_derive_project_status",
@@ -649,7 +649,7 @@
       "notes": [
         "create_project: immediately saves V2 manifest to project dir",
         "delete_project: cascades to chapters/segments/characters, physically removes project dir if storage.is_safe() passes",
-        "get_project: logs timing (lock wait, query duration) if total \u2265 100ms",
+        "get_project: logs timing (lock wait, query duration) if total ≥ 100ms",
         "2026-07-08: create_project gained series_position (Optional[int], keyword-only-by-convention, appended after speaker_profile_name); included in both the INSERT column list and the initial project manifest dict.",
         "2026-07-11 (task 005): list_projects() now runs one aggregate SQL query (_PROJECT_STATUS_AGGREGATE_SQL: projects LEFT JOIN chapters LEFT JOIN a per-chapter chapter_segments COUNT subquery, GROUP BY project) producing chapter_count/chapters_with_segments_count/chapters_rendered_count, from which `status` is derived via _derive_project_status and attached to each project dict -- no schema change, no per-card N+1 (verified via a sqlite3 trace-callback test). Owner-approved partial scope: 'studio'/actively-rendering and 'published'/assembled are out of scope (no DB-tracked signal without a live-job subscription or bulk has-audiobook query).",
         "2026-07-11 (task 006): list_projects() no longer discards chapter_count/chapters_rendered_count after deriving `status` -- both are now kept on each returned project dict (chapters_with_segments_count remains internal-only, still popped) so GET /api/projects exposes a genuine rendered-fraction figure without a new query."
@@ -662,52 +662,52 @@
         {
           "name": "upsert_queue_row",
           "kind": "fn",
-          "contract": "str, str?, str?, int, str, str?, str? \u2192 None; upsert processing_queue row"
+          "contract": "str, str?, str?, int, str, str?, str? → None; upsert processing_queue row"
         },
         {
           "name": "add_to_queue",
           "kind": "fn",
-          "contract": "str, str, int \u2192 str?; enqueues chapter, resets stale segments, returns job_id"
+          "contract": "str, str, int → str?; enqueues chapter, resets stale segments, returns job_id"
         },
         {
           "name": "get_queue",
           "kind": "fn",
-          "contract": "() \u2192 List[Dict]; joins with projects/chapters/performance, ordered by status+created_at"
+          "contract": "() → List[Dict]; joins with projects/chapters/performance, ordered by status+created_at"
         },
         {
           "name": "clear_queue",
           "kind": "fn",
-          "contract": "() \u2192 bool; deletes queued/preparing/done/failed, resets chapter statuses"
+          "contract": "() → bool; deletes queued/preparing/done/failed, resets chapter statuses"
         },
         {
           "name": "update_queue_item",
           "kind": "fn",
-          "contract": "str, str, float?, str?, str?, str?, bool \u2192 None; updates job status, syncs chapter audio fields"
+          "contract": "str, str, float?, str?, str?, str?, bool → None; updates job status, syncs chapter audio fields"
         },
         {
           "name": "reconcile_queue_status",
           "kind": "fn",
-          "contract": "List[str], Dict?[str,str] \u2192 None; aligns SQLite with in-memory job states"
+          "contract": "List[str], Dict?[str,str] → None; aligns SQLite with in-memory job states"
         },
         {
           "name": "reorder_queue",
           "kind": "fn",
-          "contract": "List[str] \u2192 bool; reorders by created_at + idx"
+          "contract": "List[str] → bool; reorders by created_at + idx"
         },
         {
           "name": "list_jobs_by_status",
           "kind": "fn",
-          "contract": "str \u2192 List[dict]; returns queue rows matching status"
+          "contract": "str → List[dict]; returns queue rows matching status"
         },
         {
           "name": "clear_completed_queue",
           "kind": "fn",
-          "contract": "() \u2192 int; deletes done/failed/cancelled, returns count"
+          "contract": "() → int; deletes done/failed/cancelled, returns count"
         },
         {
           "name": "remove_from_queue",
           "kind": "fn",
-          "contract": "str \u2192 bool; deletes queue item, resets chapter if not done"
+          "contract": "str → bool; deletes queue item, resets chapter if not done"
         }
       ],
       "calls": [
@@ -740,12 +740,12 @@
         {
           "name": "reconcile_project_audio",
           "kind": "fn",
-          "contract": "str \u2192 None; scans project audio dirs, updates chapter status if files exist"
+          "contract": "str → None; scans project audio dirs, updates chapter status if files exist"
         },
         {
           "name": "reconcile_all_chapter_statuses",
           "kind": "fn",
-          "contract": "Set[str] \u2192 None; resets 'processing' chapters not in active set; clears stuck statuses"
+          "contract": "Set[str] → None; resets 'processing' chapters not in active set; clears stuck statuses"
         }
       ],
       "calls": [
@@ -770,12 +770,12 @@
         {
           "name": "reconcile_orphan_segment_files_for_project",
           "kind": "fn",
-          "contract": "str, dry_run=False \u2192 dict; scans chapters, deletes orphans, returns summary"
+          "contract": "str, dry_run=False → dict; scans chapters, deletes orphans, returns summary"
         },
         {
           "name": "reconcile_orphan_segment_files",
           "kind": "fn",
-          "contract": "dry_run=False \u2192 dict; aggregates per-project GC, returns combined summary"
+          "contract": "dry_run=False → dict; aggregates per-project GC, returns combined summary"
         }
       ],
       "calls": [
@@ -805,42 +805,42 @@
         {
           "name": "_chapter_has_active_generation",
           "kind": "fn",
-          "contract": "str \u2192 bool; checks queue + in-memory jobs for active status"
+          "contract": "str → bool; checks queue + in-memory jobs for active status"
         },
         {
           "name": "update_segments_status_bulk",
           "kind": "fn",
-          "contract": "List[str], str, str, bool \u2192 None; bulk update, broadcasts if changed"
+          "contract": "List[str], str, str, bool → None; bulk update, broadcasts if changed"
         },
         {
           "name": "get_chapter_segments",
           "kind": "fn",
-          "contract": "str \u2192 List[Dict]; fetches segments, resets stale 'processing' state, validates 'done' files exist"
+          "contract": "str → List[Dict]; fetches segments, resets stale 'processing' state, validates 'done' files exist"
         },
         {
           "name": "clear_duplicate_segment_audio_paths",
           "kind": "fn",
-          "contract": "str, List[str], str? \u2192 List[str]; clears duplicate paths, returns invalidated IDs"
+          "contract": "str, List[str], str? → List[str]; clears duplicate paths, returns invalidated IDs"
         },
         {
           "name": "update_segment",
           "kind": "fn",
-          "contract": "str, broadcast=True, **updates \u2192 bool; updates segment, cleans stale files, broadcasts"
+          "contract": "str, broadcast=True, **updates → bool; updates segment, cleans stale files, broadcasts"
         },
         {
           "name": "update_segments_bulk",
           "kind": "fn",
-          "contract": "List[str], **updates \u2192 bool; bulk update, touches chapter audio_generated_at"
+          "contract": "List[str], **updates → bool; bulk update, touches chapter audio_generated_at"
         },
         {
           "name": "cleanup_orphaned_segments",
           "kind": "fn",
-          "contract": "str \u2192 None; deletes segments/ files not in DB"
+          "contract": "str → None; deletes segments/ files not in DB"
         },
         {
           "name": "sync_chapter_segments",
           "kind": "fn",
-          "contract": "str, str, conn? \u2192 bool; splits text, preserves IDs/assignments, invalidates dropped text"
+          "contract": "str, str, conn? → bool; splits text, preserves IDs/assignments, invalidates dropped text"
         },
         {
           "name": "chapter_completion_by_size",
@@ -884,34 +884,34 @@
         {
           "name": "infer_variant_name",
           "kind": "fn",
-          "contract": "str \u2192 str; returns variant from 'Speaker - Variant' or 'Default'"
+          "contract": "str → str; returns variant from 'Speaker - Variant' or 'Default'"
         },
         {
           "name": "infer_speaker_name",
           "kind": "fn",
-          "contract": "str, Dict? \u2192 str; strips variant suffix from compound names"
+          "contract": "str, Dict? → str; strips variant suffix from compound names"
         },
         {
           "name": "is_default_profile_name",
           "kind": "fn",
-          "contract": "str, Dict? \u2192 bool; returns True if variant==Default or no ' - '"
+          "contract": "str, Dict? → bool; returns True if variant==Default or no ' - '"
         },
         {
           "name": "looks_like_uuid",
           "kind": "fn",
-          "contract": "str? \u2192 bool; checks uuid.UUID() parse"
+          "contract": "str? → bool; checks uuid.UUID() parse"
         }
       ],
       "calls": [],
       "called_by": [],
       "notes": [
         "pure string logic: no I/O, no DB, no state",
-        "supports nested storage: 'Dracula - Angry' \u2192 speaker='Dracula', variant='Angry'"
+        "supports nested storage: 'Dracula - Angry' → speaker='Dracula', variant='Angry'"
       ],
       "calls_inferred": []
     },
     "app/db/speaker_paths.py": {
-      "purpose": "V2 nested voice directory resolution: profile_name \u2192 path, enforces containment, no DB/state access",
+      "purpose": "V2 nested voice directory resolution: profile_name → path, enforces containment, no DB/state access",
       "exports": [
         {
           "name": "SAFE_PROFILE_NAME_RE",
@@ -921,22 +921,22 @@
         {
           "name": "_profile_name_or_error",
           "kind": "fn",
-          "contract": "str \u2192 str; validates, raises ValueError on invalid"
+          "contract": "str → str; validates, raises ValueError on invalid"
         },
         {
           "name": "_profile_dir_has_assets",
           "kind": "fn",
-          "contract": "Path \u2192 bool; checks profile.json or loose .wav files"
+          "contract": "Path → bool; checks profile.json or loose .wav files"
         },
         {
           "name": "resolve_existing_profile_dir",
           "kind": "fn",
-          "contract": "Path, str \u2192 Path?; resolves 'Dracula - Angry' \u2192 voices/Dracula/Angry or 'Dracula' \u2192 voices/Dracula/Default"
+          "contract": "Path, str → Path?; resolves 'Dracula - Angry' → voices/Dracula/Angry or 'Dracula' → voices/Dracula/Default"
         },
         {
           "name": "new_profile_dir",
           "kind": "fn",
-          "contract": "Path, str \u2192 Path; computes target path for new profile, enforces containment"
+          "contract": "Path, str → Path; computes target path for new profile, enforces containment"
         }
       ],
       "calls": [
@@ -959,72 +959,72 @@
         {
           "name": "get_profile_engine",
           "kind": "fn",
-          "contract": "str?, str? \u2192 str; resolves engine ID for profile or speaker ID"
+          "contract": "str?, str? → str; resolves engine ID for profile or speaker ID"
         },
         {
           "name": "get_profile_dir",
           "kind": "fn",
-          "contract": "str \u2192 Path; resolves/creates profile directory"
+          "contract": "str → Path; resolves/creates profile directory"
         },
         {
           "name": "get_profile_wavs",
           "kind": "fn",
-          "contract": "str \u2192 str?; returns comma-separated abs paths of profile WAVs"
+          "contract": "str → str?; returns comma-separated abs paths of profile WAVs"
         },
         {
           "name": "get_speaker_settings",
           "kind": "fn",
-          "contract": "str \u2192 dict; returns metadata (speed, test_text, engine, engine-specific settings)"
+          "contract": "str → dict; returns metadata (speed, test_text, engine, engine-specific settings)"
         },
         {
           "name": "update_speaker_settings",
           "kind": "fn",
-          "contract": "str, **updates \u2192 bool; updates profile.json metadata"
+          "contract": "str, **updates → bool; updates profile.json metadata"
         },
         {
           "name": "normalize_profile_metadata",
           "kind": "fn",
-          "contract": "str, Dict?, persist=False \u2192 Dict; fills in variant_name/engine, applies aliases, optionally persists"
+          "contract": "str, Dict?, persist=False → Dict; fills in variant_name/engine, applies aliases, optionally persists"
         },
         {
           "name": "normalize_base_profiles",
           "kind": "fn",
-          "contract": "Path? \u2192 None; normalizes all speaker base profiles on disk"
+          "contract": "Path? → None; normalizes all speaker base profiles on disk"
         },
         {
           "name": "create_speaker",
           "kind": "fn",
-          "contract": "str, str?, str? \u2192 str; creates speaker record, returns ID"
+          "contract": "str, str?, str? → str; creates speaker record, returns ID"
         },
         {
           "name": "get_speaker",
           "kind": "fn",
-          "contract": "str \u2192 Dict?; returns speaker record"
+          "contract": "str → Dict?; returns speaker record"
         },
         {
           "name": "list_speakers",
           "kind": "fn",
-          "contract": "() \u2192 List[Dict]; returns all speakers ordered by name"
+          "contract": "() → List[Dict]; returns all speakers ordered by name"
         },
         {
           "name": "sync_speakers_from_profiles",
           "kind": "fn",
-          "contract": "Path? \u2192 None; discovers all profile dirs, creates/updates speaker records"
+          "contract": "Path? → None; discovers all profile dirs, creates/updates speaker records"
         },
         {
           "name": "update_speaker",
           "kind": "fn",
-          "contract": "str, **updates \u2192 bool; updates speaker record"
+          "contract": "str, **updates → bool; updates speaker record"
         },
         {
           "name": "delete_speaker",
           "kind": "fn",
-          "contract": "str \u2192 bool; deletes speaker + associated voice.json dirs"
+          "contract": "str → bool; deletes speaker + associated voice.json dirs"
         },
         {
           "name": "update_voice_profile_references",
           "kind": "fn",
-          "contract": "str, str \u2192 None; renames profile references in characters/segments"
+          "contract": "str, str → None; renames profile references in characters/segments"
         }
       ],
       "calls": [
@@ -1066,11 +1066,11 @@
         "plugins/tts_xtts/plugin/studio/app_adapter.py"
       ],
       "notes": [
-        "get_profile_engine: pure read from profile.json; resolution order: exact name \u2192 speaker name \u2192 speaker default \u2192 variants",
+        "get_profile_engine: pure read from profile.json; resolution order: exact name → speaker name → speaker default → variants",
         "sync_speakers_from_profiles: enumerates all V2 profile dirs, creates/updates speakers from metadata",
         "normalize_profile_metadata: infers variant_name/engine, applies engine aliases, optionally persists to profile.json",
         "Rule 9: all path operations validate containment (locally visible proofs)",
-        "profile names support nested layout: 'Dracula - Angry' \u2192 voices/Dracula/Angry or flat 'Dracula' \u2192 voices/Dracula/Default"
+        "profile names support nested layout: 'Dracula - Angry' → voices/Dracula/Angry or flat 'Dracula' → voices/Dracula/Default"
       ],
       "calls_inferred": [
         "app/core/config.py#VOICES_DIR",
@@ -1086,9 +1086,9 @@
           "contract": "re-exported from state_helpers"
         },
         {
-          "name": "get_settings, update_settings",
+          "name": "get_settings, update_settings, set_engine_cap",
           "kind": "fn",
-          "contract": "re-exported from state_settings"
+          "contract": "re-exported from state_settings (set_engine_cap added task 014, 2026-07-11)"
         },
         {
           "name": "get_performance_metrics, update_performance_metrics",
@@ -1122,7 +1122,8 @@
         "app/orchestration/tasks/segment_synthesis.py",
         "plugins/tts_mixed/handler.py",
         "plugins/tts_voxtral/plugin/studio/app_adapter.py",
-        "plugins/tts_xtts/plugin/studio/adapter.py"
+        "plugins/tts_xtts/plugin/studio/adapter.py",
+        "app/api/routers/engines.py"
       ],
       "notes": [
         "pure re-export facade; no new logic",
@@ -1136,42 +1137,42 @@
         {
           "name": "get_state_file",
           "kind": "fn",
-          "contract": "() \u2192 Path; returns state.json path (patched or default)"
+          "contract": "() → Path; returns state.json path (patched or default)"
         },
         {
           "name": "add_job_listener",
           "kind": "fn",
-          "contract": "callable \u2192 None; registers listener for job updates"
+          "contract": "callable → None; registers listener for job updates"
         },
         {
           "name": "_cache_listener_snapshot_support",
           "kind": "fn",
-          "contract": "callable \u2192 bool; inspects signature to detect snapshot arg support"
+          "contract": "callable → bool; inspects signature to detect snapshot arg support"
         },
         {
           "name": "_atomic_write_text",
           "kind": "fn",
-          "contract": "Path, str \u2192 None; tmp+rename write"
+          "contract": "Path, str → None; tmp+rename write"
         },
         {
           "name": "_default_state_minimal",
           "kind": "fn",
-          "contract": "() \u2192 Dict; fallback state structure"
+          "contract": "() → Dict; fallback state structure"
         },
         {
           "name": "_load_state_no_lock",
           "kind": "fn",
-          "contract": "() \u2192 Dict; assumes caller holds _STATE_LOCK, loads and auto-fixes corrupt"
+          "contract": "() → Dict; assumes caller holds _STATE_LOCK, loads and auto-fixes corrupt"
         },
         {
           "name": "load_state",
           "kind": "fn",
-          "contract": "() \u2192 Dict; loads state.json under lock"
+          "contract": "() → Dict; loads state.json under lock"
         },
         {
           "name": "save_state",
           "kind": "fn",
-          "contract": "Dict \u2192 None; saves state.json under lock"
+          "contract": "Dict → None; saves state.json under lock"
         }
       ],
       "calls": [
@@ -1195,7 +1196,7 @@
         {
           "name": "STATUS_PRIORITY",
           "kind": "const",
-          "contract": "Dict mapping status\u2192int; done/failed/cancelled=5, finalizing=4, running=3, preparing=2, queued=1"
+          "contract": "Dict mapping status→int; done/failed/cancelled=5, finalizing=4, running=3, preparing=2, queued=1"
         },
         {
           "name": "TERMINAL_STATUSES, ACTIVE_STATUSES",
@@ -1205,34 +1206,34 @@
         {
           "name": "should_drop_terminal_update",
           "kind": "fn",
-          "contract": "str?, Dict, bool \u2192 bool; returns True if update should be silently dropped"
+          "contract": "str?, Dict, bool → bool; returns True if update should be silently dropped"
         },
         {
           "name": "apply_status_regression_guard",
           "kind": "fn",
-          "contract": "str?, str, bool \u2192 Tuple[bool, str?]; decides if status change applies, returns (apply, reason_str)"
+          "contract": "str?, str, bool → Tuple[bool, str?]; decides if status change applies, returns (apply, reason_str)"
         },
         {
           "name": "normalize_segment_fields",
           "kind": "fn",
-          "contract": "Dict, Dict \u2192 Dict; clears segment/batch progress when IDs become None"
+          "contract": "Dict, Dict → Dict; clears segment/batch progress when IDs become None"
         },
         {
           "name": "apply_terminal_eta_cleanup",
           "kind": "fn",
-          "contract": "Dict, Dict \u2192 Dict; clears ETA when effective status becomes terminal"
+          "contract": "Dict, Dict → Dict; clears ETA when effective status becomes terminal"
         },
         {
           "name": "is_terminal_reset",
           "kind": "fn",
-          "contract": "str?, Dict \u2192 bool; returns True when transitioning terminal\u2192active"
+          "contract": "str?, Dict → bool; returns True when transitioning terminal→active"
         }
       ],
       "calls": [],
       "called_by": [],
       "notes": [
         "pure functions: no I/O, no locks, no side effects; suitable for unit testing",
-        "status regression guard allows terminal\u2192queued/preparing (clean-slate reset)",
+        "status regression guard allows terminal→queued/preparing (clean-slate reset)",
         "segment field normalization: if active_segment_id becomes None, clear active_segment_progress/eta/updated_at"
       ],
       "calls_inferred": []
@@ -1243,42 +1244,42 @@
         {
           "name": "get_jobs",
           "kind": "fn",
-          "contract": "() \u2192 Dict[str,Job]; loads and validates all jobs from state.json"
+          "contract": "() → Dict[str,Job]; loads and validates all jobs from state.json"
         },
         {
           "name": "put_job",
           "kind": "fn",
-          "contract": "Job \u2192 None; inserts/upserts job, broadcasts reset if terminal\u2192active"
+          "contract": "Job → None; inserts/upserts job, broadcasts reset if terminal→active"
         },
         {
           "name": "update_job",
           "kind": "fn",
-          "contract": "str, force_broadcast=False, source?, **updates \u2192 None; updates with guards, projects ETA, broadcasts"
+          "contract": "str, force_broadcast=False, source?, **updates → None; updates with guards, projects ETA, broadcasts"
         },
         {
           "name": "prune_completed_jobs",
           "kind": "fn",
-          "contract": "() \u2192 None; removes 50+ oldest terminal jobs to prevent bloat"
+          "contract": "() → None; removes 50+ oldest terminal jobs to prevent bloat"
         },
         {
           "name": "delete_jobs",
           "kind": "fn",
-          "contract": "List[str] \u2192 None; deletes jobs, clears terminal latches"
+          "contract": "List[str] → None; deletes jobs, clears terminal latches"
         },
         {
           "name": "clear_all_jobs",
           "kind": "fn",
-          "contract": "() \u2192 None; wipes jobs dict"
+          "contract": "() → None; wipes jobs dict"
         },
         {
           "name": "purge_jobs_for_chapter",
           "kind": "fn",
-          "contract": "str \u2192 None; deletes all jobs for chapter"
+          "contract": "str → None; deletes all jobs for chapter"
         },
         {
           "name": "requeue",
           "kind": "fn",
-          "contract": "str \u2192 None; resets terminal job to queued via terminal-reset path"
+          "contract": "str → None; resets terminal job to queued via terminal-reset path"
         }
       ],
       "calls": [
@@ -1309,8 +1310,8 @@
       ],
       "notes": [
         "update_job guards: stale-update drop, status-regression, progress-regression, ETA cleanup",
-        "observed progress projection: when 3%\u2264progress<98%, status=running, reason_code not in skip-list \u2192 extrapolate ETA",
-        "terminal-reset: terminal\u2192queued/preparing clears stale fields (started_at, eta_*, etc)",
+        "observed progress projection: when 3%≤progress<98%, status=running, reason_code not in skip-list → extrapolate ETA",
+        "terminal-reset: terminal→queued/preparing clears stale fields (started_at, eta_*, etc)",
         "force_broadcast bypasses guards, forces broadcast even if no fields changed",
         "ETA basis: 'remaining_from_update' computed relative to event timestamp",
         "pruning: keeps 50 most recent terminal jobs; older ones removed from state.json"
@@ -1325,47 +1326,47 @@
         {
           "name": "_default_performance_metrics",
           "kind": "fn",
-          "contract": "() \u2192 Dict; returns {'engine_cps':{}, 'render_history':[]}"
+          "contract": "() → Dict; returns {'engine_cps':{}, 'render_history':[]}"
         },
         {
           "name": "_normalize_performance_metrics",
           "kind": "fn",
-          "contract": "Dict? \u2192 Dict; coerces to schema with safety checks"
+          "contract": "Dict? → Dict; coerces to schema with safety checks"
         },
         {
           "name": "_read_performance_metrics_from_db",
           "kind": "fn",
-          "contract": "() \u2192 Dict; reads from studio.db settings + performance_samples"
+          "contract": "() → Dict; reads from studio.db settings + performance_samples"
         },
         {
           "name": "_write_performance_metrics_to_db",
           "kind": "fn",
-          "contract": "Dict \u2192 bool; writes engine_cps to settings table"
+          "contract": "Dict → bool; writes engine_cps to settings table"
         },
         {
           "name": "clear_engine_cps_cache",
           "kind": "fn",
-          "contract": "str \u2192 bool; deletes performance_metric:cps:{engine_id} from settings"
+          "contract": "str → bool; deletes performance_metric:cps:{engine_id} from settings"
         },
         {
           "name": "get_performance_metrics",
           "kind": "fn",
-          "contract": "() \u2192 Dict; thread-safe read of all metrics"
+          "contract": "() → Dict; thread-safe read of all metrics"
         },
         {
           "name": "update_performance_metrics",
           "kind": "fn",
-          "contract": "**updates \u2192 None; merges into metrics, writes to DB"
+          "contract": "**updates → None; merges into metrics, writes to DB"
         },
         {
           "name": "_read_engine_cps_only",
           "kind": "fn",
-          "contract": "() \u2192 Dict[str,float]; fast CPS read (skips history query)"
+          "contract": "() → Dict[str,float]; fast CPS read (skips history query)"
         },
         {
           "name": "seconds_per_char",
           "kind": "fn",
-          "contract": "str, float? \u2192 float?; returns 1/cps or None; used on hot progress path"
+          "contract": "str, float? → float?; returns 1/cps or None; used on hot progress path"
         }
       ],
       "calls": [
@@ -1395,22 +1396,27 @@
         {
           "name": "_default_state",
           "kind": "fn",
-          "contract": "() \u2192 Dict; returns full default state structure"
+          "contract": "() → Dict; returns full default state structure"
         },
         {
           "name": "_normalize_settings",
           "kind": "fn",
-          "contract": "Dict?, incoming_updates? \u2192 Dict; applies defaults, validates, enforces enabled_plugins rules"
+          "contract": "Dict?, incoming_updates? → Dict; applies defaults, validates, enforces enabled_plugins rules"
         },
         {
           "name": "get_settings",
           "kind": "fn",
-          "contract": "() \u2192 Dict; thread-safe read + normalize"
+          "contract": "() → Dict; thread-safe read + normalize"
         },
         {
           "name": "update_settings",
           "kind": "fn",
-          "contract": "dict?, **kwargs \u2192 None; merges, normalizes, persists"
+          "contract": "dict?, **kwargs → None; merges, normalizes, persists"
+        },
+        {
+          "name": "set_engine_cap",
+          "kind": "fn",
+          "contract": "(engine_id, cap: Optional[int]) -> None; single-key read-merge-write of tts_engine_caps under _STATE_LOCK (reentrant, nests update_settings) so two concurrent writes to DIFFERENT engines' overrides no longer clobber each other via the prior whole-object update_settings({'tts_engine_caps': {...}}) replace path; cap=None clears the override (task 014, 2026-07-11)"
         }
       ],
       "calls": [
@@ -1423,7 +1429,8 @@
         "app/engines/voice_engines.py#normalize_tts_engine"
       ],
       "called_by": [
-        "app/db/state.py"
+        "app/db/state.py",
+        "app/api/routers/engines.py"
       ],
       "notes": [
         "enforces enabled_plugins as source of truth for plugin enablement",
@@ -1431,7 +1438,7 @@
         "clears default_engine if it's no longer enabled",
         "preserves original default_engine on disk only if explicitly updated (prevents inferred defaults persisting)",
         "HF integration: huggingface_token added (same stripped-string pattern as tts_api_key)",
-        "tts_parallel_cap default raised 1 -> 2 (2026-07-05, owner directive: parallel rendering ships as the default, sequential is just the cap=1 case of the same code path) \u2014 both _default_state() and the _normalize_settings() fallback moved together"
+        "tts_parallel_cap default raised 1 -> 2 (2026-07-05, owner directive: parallel rendering ships as the default, sequential is just the cap=1 case of the same code path) — both _default_state() and the _normalize_settings() fallback moved together"
       ],
       "calls_inferred": []
     }

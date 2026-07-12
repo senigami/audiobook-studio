@@ -1,257 +1,258 @@
 {
- "files": {
-  "app/tts_server/__init__.py": {
-   "purpose": "Package marker: TTS Server must not import app.api/orchestration/db/domain/jobs",
-   "exports": [],
-   "calls": [],
-   "called_by": [
-    "app/tts_server/plugin_staging.py",
-    "app/tts_server/server.py"
-   ],
-   "notes": [
-    "boundary enforced at load time via AST validation"
-   ],
-   "calls_inferred": []
-  },
-  "app/tts_server/health.py": {
-   "purpose": "Health aggregation and engine status reporting for /health endpoint",
-   "exports": [
-    {
-     "name": "engine_status",
-     "kind": "function",
-     "contract": "-> 'ready'|'needs_setup'|'unverified'|'invalid_config'"
+  "files": {
+    "app/tts_server/__init__.py": {
+      "purpose": "Package marker: TTS Server must not import app.api/orchestration/db/domain/jobs",
+      "exports": [],
+      "calls": [],
+      "called_by": [
+        "app/tts_server/plugin_staging.py",
+        "app/tts_server/server.py"
+      ],
+      "notes": [
+        "boundary enforced at load time via AST validation"
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "call_check_env, build_health_response, build_engine_detail",
-     "kind": "function"
+    "app/tts_server/health.py": {
+      "purpose": "Health aggregation and engine status reporting for /health endpoint",
+      "exports": [
+        {
+          "name": "engine_status",
+          "kind": "function",
+          "contract": "-> 'ready'|'needs_setup'|'unverified'|'invalid_config'"
+        },
+        {
+          "name": "call_check_env, build_health_response, build_engine_detail",
+          "kind": "function"
+        },
+        {
+          "name": "STATUS_READY, STATUS_NEEDS_SETUP, STATUS_UNVERIFIED, STATUS_NOT_LOADED, STATUS_INVALID_CONFIG",
+          "kind": "constant"
+        }
+      ],
+      "calls": [
+        "app/engines/enablement.py#can_enable_engine",
+        "app/tts_server/plugin_loader.py",
+        "app/tts_server/settings_store.py#*"
+      ],
+      "called_by": [],
+      "notes": [
+        "call_check_env is single entry point for env checks",
+        "secret fields redacted before serialization"
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "STATUS_READY, STATUS_NEEDS_SETUP, STATUS_UNVERIFIED, STATUS_NOT_LOADED, STATUS_INVALID_CONFIG",
-     "kind": "constant"
+    "app/tts_server/performance_settings.py": {
+      "purpose": "Plugin-local render performance calibration: speed multipliers, samples, model resolution",
+      "exports": [
+        {
+          "name": "computer_speed_multiplier_from_cps, save_engine_computer_speed_multiplier, clear_engine_computer_speed_multiplier, clear_engine_computer_speed_baseline, get_engine_computer_speed_multiplier, resolve_engine_settings_model, filter_history_for_engine_model",
+          "kind": "function"
+        },
+        {
+          "name": "COMPUTER_SPEED_MULTIPLIER_KEY",
+          "kind": "constant"
+        }
+      ],
+      "calls": [
+        "app/db/performance.py#delete_render_samples_for_engine",
+        "app/db/state_performance.py#clear_engine_cps_cache",
+        "app/engines/behavior.py#DEFAULT_BASELINE_ENGINE_CPS",
+        "app/tts_server/plugin_loader.py#get_plugin_dir",
+        "app/tts_server/settings_store.py#*"
+      ],
+      "called_by": [
+        "app/engines/bridge.py",
+        "app/orchestration/scheduler/orchestrator_helpers.py"
+      ],
+      "notes": [
+        "multiplier persisted as read-only computed setting"
+      ],
+      "calls_inferred": []
+    },
+    "app/tts_server/plugin_loader.py": {
+      "purpose": "Plugin discovery, manifest validation, engine class import, dependency checking",
+      "exports": [
+        {
+          "name": "LoadedPlugin",
+          "kind": "class",
+          "contract": "manifest,engine,verification state,setup messages"
+        },
+        {
+          "name": "PluginLoadError",
+          "kind": "exception"
+        },
+        {
+          "name": "discover_plugins",
+          "kind": "function",
+          "contract": "(plugins_dir) -> list[LoadedPlugin]"
+        },
+        {
+          "name": "SUPPORTED_MANIFEST_VERSION",
+          "kind": "constant",
+          "contract": "'1.0'"
+        },
+        {
+          "name": "get_manifest_max_concurrent_workers, get_plugin_dir",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/core/config.py#PLUGINS_DIR",
+        "app/studio_plugin_sdk/__init__.py",
+        "app/studio_plugin_sdk/_import_utils.py#ensure_plugin_package_hierarchy",
+        "app/studio_plugin_sdk/context.py",
+        "app/studio_plugin_sdk/errors.py",
+        "app/tts_server/health.py#call_check_env",
+        "app/tts_server/plugin_validation.py#validate_studio_handlers",
+        "app/tts_server/settings_store.py#*",
+        "app/utils/text/textops_cleaning.py"
+      ],
+      "called_by": [
+        "app/studio_plugin_sdk/context.py",
+        "app/tts_server/health.py",
+        "app/tts_server/verification.py",
+        "app/orchestration/progress/service.py"
+      ],
+      "notes": [
+        "registers studio_plugin_sdk as sys.modules alias at import time",
+        "AST-based import gate rejects module-level app.* imports in plugin handlers",
+        "manifest requires contract_version/sdk_version/settings_schema_version/event_envelope_version"
+      ],
+      "calls_inferred": []
+    },
+    "app/tts_server/plugin_staging.py": {
+      "purpose": "Plugin import/staging pipeline: zip upload, GitHub-repo preview/staging, confirm/cancel, path containment, symlink rejection",
+      "exports": [
+        {
+          "name": "import_plugin_zip, preview_plugin_zip, preview_github_repo, confirm_staged_plugin, cancel_staged_plugin",
+          "kind": "function"
+        },
+        {
+          "name": "sweep_orphaned_staging_dirs",
+          "kind": "function",
+          "contract": "sweep_orphaned_staging_dirs(plugins_dir) removes leftover .preview_* dirs on startup"
+        },
+        {
+          "name": "_normalize_github_repo_url, _reject_staging_symlinks, _parse_requirements",
+          "kind": "function",
+          "contract": "security/parsing helpers moved verbatim from server.py (LF-7, 2026-07-04)"
+        }
+      ],
+      "calls": [
+        "app/tts_server/__init__.py",
+        "app/tts_server/plugin_loader.py#_validate_manifest,PluginLoadError"
+      ],
+      "called_by": [],
+      "notes": [
+        "LF-7 (2026-07-04): extracted from app/tts_server/server.py (1351->914 lines) — every containment/symlink check preserved verbatim, route decorators stay in server.py as thin wrappers per its 'sole HTTP boundary' docstring",
+        "_staging dict + _staging_lock (module-level) are the two-phase preview/confirm token store — tests reset via monkeypatch.setattr(plugin_staging_mod, '_staging', {}), NOT server_mod._staging",
+        "reaches back into server.py only via lazy 'from app.tts_server import server as _server' inside functions (not module-level) so monkeypatch.setattr(server_mod, 'load_plugins', ...) in tests still intercepts the reload call correctly"
+      ],
+      "calls_inferred": [
+        "app/tts_server/server.py#load_plugins (lazy, function-local import, avoids circular import)"
+      ]
+    },
+    "app/tts_server/plugin_validation.py": {
+      "purpose": "AST-based validation rejecting forbidden app.* imports in plugin studio handlers",
+      "exports": [
+        {
+          "name": "validate_studio_handlers, check_studio_handler_imports",
+          "kind": "function"
+        },
+        {
+          "name": "StudioHandlerImportError",
+          "kind": "exception"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "from app.studio_plugin_sdk allowed; other app.* forbidden",
+        "app_adapter.py/adapter.py excluded (intentional bridge code)",
+        "module_level_only=True (S8 default) tolerates function-body imports until S9"
+      ],
+      "calls_inferred": []
+    },
+    "app/tts_server/server.py": {
+      "purpose": "FastAPI TTS Server app: plugin discovery, synthesis, preview, settings endpoints (plugin import/staging moved to plugin_staging.py)",
+      "exports": [
+        {
+          "name": "app",
+          "kind": "FastAPI instance"
+        },
+        {
+          "name": "load_plugins, set_ready_port",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/core/config.py",
+        "app/engines/enablement.py#can_enable_engine",
+        "app/engines/voice/sdk.py",
+        "app/tts_server/__init__.py",
+        "app/tts_server/health.py#*",
+        "app/tts_server/performance_settings.py#clear_engine_computer_speed_baseline",
+        "app/tts_server/plugin_loader.py#*",
+        "app/tts_server/settings_store.py#*",
+        "app/tts_server/verification.py#verify_plugin",
+        "app/utils/render_timing.py#get_timing_val,derive_segment_timing_fields"
+      ],
+      "called_by": [],
+      "notes": [
+        "global _plugins protected by threading.Lock",
+        "task cancellation cooperative via /tasks/{id}/cancel",
+        "LF-7 (2026-07-04): plugin import/staging pipeline (zip upload, GitHub-repo preview, confirm/cancel, containment/symlink checks, _staging store) extracted to app/tts_server/plugin_staging.py (1351->914 lines); route decorators stay here as thin wrappers per this module's 'sole HTTP boundary' docstring",
+        "BE-4 (2026-07-04): /synthesize's timing_dict computation now calls app/utils/render_timing.py#derive_segment_timing_fields instead of an inline duplicate formula; model_load_seconds computation (None-default) stays local, deliberately not shared with orchestrator_helpers.py's 0.0-default version"
+      ],
+      "calls_inferred": [
+        "app/db/performance.py#record_render_sample",
+        "app/tts_server/plugin_staging.py#*"
+      ]
+    },
+    "app/tts_server/settings_store.py": {
+      "purpose": "Per-engine settings persistence, validation, secret redaction",
+      "exports": [
+        {
+          "name": "load_settings, save_settings, load_state, save_state, calculate_verification_metadata, secret_keys, redact_secret_settings, merge_settings, validate_engine_id",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/core/config.py#PLUGIN_DATA_DIR"
+      ],
+      "called_by": [],
+      "notes": [
+        "path via _contained_path() with normpath+startswith barrier",
+        "secret sentinel '***' guards round-trip",
+        "engine_id validation regex blocks traversal"
+      ],
+      "calls_inferred": []
+    },
+    "app/tts_server/verification.py": {
+      "purpose": "Verification synthesis runner: explicit user-triggered test synthesis",
+      "exports": [
+        {
+          "name": "VerificationResult",
+          "kind": "class"
+        },
+        {
+          "name": "verify_plugin, verify_all",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/db/performance.py#record_render_sample",
+        "app/tts_server/performance_settings.py#resolve_engine_settings_model",
+        "app/tts_server/plugin_loader.py",
+        "app/tts_server/settings_store.py#*"
+      ],
+      "called_by": [],
+      "notes": [
+        "delegates test execution to plugin.engine.run_test()",
+        "no automatic verification on startup"
+      ],
+      "calls_inferred": []
     }
-   ],
-   "calls": [
-    "app/engines/enablement.py#can_enable_engine",
-    "app/tts_server/plugin_loader.py",
-    "app/tts_server/settings_store.py#*"
-   ],
-   "called_by": [],
-   "notes": [
-    "call_check_env is single entry point for env checks",
-    "secret fields redacted before serialization"
-   ],
-   "calls_inferred": []
-  },
-  "app/tts_server/performance_settings.py": {
-   "purpose": "Plugin-local render performance calibration: speed multipliers, samples, model resolution",
-   "exports": [
-    {
-     "name": "computer_speed_multiplier_from_cps, save_engine_computer_speed_multiplier, clear_engine_computer_speed_multiplier, clear_engine_computer_speed_baseline, get_engine_computer_speed_multiplier, resolve_engine_settings_model, filter_history_for_engine_model",
-     "kind": "function"
-    },
-    {
-     "name": "COMPUTER_SPEED_MULTIPLIER_KEY",
-     "kind": "constant"
-    }
-   ],
-   "calls": [
-    "app/db/performance.py#delete_render_samples_for_engine",
-    "app/db/state_performance.py#clear_engine_cps_cache",
-    "app/engines/behavior.py#DEFAULT_BASELINE_ENGINE_CPS",
-    "app/tts_server/plugin_loader.py#get_plugin_dir",
-    "app/tts_server/settings_store.py#*"
-   ],
-   "called_by": [
-    "app/engines/bridge.py",
-    "app/orchestration/scheduler/orchestrator_helpers.py"
-   ],
-   "notes": [
-    "multiplier persisted as read-only computed setting"
-   ],
-   "calls_inferred": []
-  },
-  "app/tts_server/plugin_loader.py": {
-   "purpose": "Plugin discovery, manifest validation, engine class import, dependency checking",
-   "exports": [
-    {
-     "name": "LoadedPlugin",
-     "kind": "class",
-     "contract": "manifest,engine,verification state,setup messages"
-    },
-    {
-     "name": "PluginLoadError",
-     "kind": "exception"
-    },
-    {
-     "name": "discover_plugins",
-     "kind": "function",
-     "contract": "(plugins_dir) -> list[LoadedPlugin]"
-    },
-    {
-     "name": "SUPPORTED_MANIFEST_VERSION",
-     "kind": "constant",
-     "contract": "'1.0'"
-    },
-    {
-     "name": "get_manifest_max_concurrent_workers, get_plugin_dir",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/core/config.py#PLUGINS_DIR",
-    "app/studio_plugin_sdk/__init__.py",
-    "app/studio_plugin_sdk/_import_utils.py#ensure_plugin_package_hierarchy",
-    "app/studio_plugin_sdk/context.py",
-    "app/studio_plugin_sdk/errors.py",
-    "app/tts_server/health.py#call_check_env",
-    "app/tts_server/plugin_validation.py#validate_studio_handlers",
-    "app/tts_server/settings_store.py#*",
-    "app/utils/text/textops_cleaning.py"
-   ],
-   "called_by": [
-    "app/studio_plugin_sdk/context.py",
-    "app/tts_server/health.py",
-    "app/tts_server/verification.py"
-   ],
-   "notes": [
-    "registers studio_plugin_sdk as sys.modules alias at import time",
-    "AST-based import gate rejects module-level app.* imports in plugin handlers",
-    "manifest requires contract_version/sdk_version/settings_schema_version/event_envelope_version"
-   ],
-   "calls_inferred": []
-  },
-  "app/tts_server/plugin_staging.py": {
-   "purpose": "Plugin import/staging pipeline: zip upload, GitHub-repo preview/staging, confirm/cancel, path containment, symlink rejection",
-   "exports": [
-    {
-     "name": "import_plugin_zip, preview_plugin_zip, preview_github_repo, confirm_staged_plugin, cancel_staged_plugin",
-     "kind": "function"
-    },
-    {
-     "name": "sweep_orphaned_staging_dirs",
-     "kind": "function",
-     "contract": "sweep_orphaned_staging_dirs(plugins_dir) removes leftover .preview_* dirs on startup"
-    },
-    {
-     "name": "_normalize_github_repo_url, _reject_staging_symlinks, _parse_requirements",
-     "kind": "function",
-     "contract": "security/parsing helpers moved verbatim from server.py (LF-7, 2026-07-04)"
-    }
-   ],
-   "calls": [
-    "app/tts_server/__init__.py",
-    "app/tts_server/plugin_loader.py#_validate_manifest,PluginLoadError"
-   ],
-   "called_by": [],
-   "notes": [
-    "LF-7 (2026-07-04): extracted from app/tts_server/server.py (1351->914 lines) — every containment/symlink check preserved verbatim, route decorators stay in server.py as thin wrappers per its 'sole HTTP boundary' docstring",
-    "_staging dict + _staging_lock (module-level) are the two-phase preview/confirm token store — tests reset via monkeypatch.setattr(plugin_staging_mod, '_staging', {}), NOT server_mod._staging",
-    "reaches back into server.py only via lazy 'from app.tts_server import server as _server' inside functions (not module-level) so monkeypatch.setattr(server_mod, 'load_plugins', ...) in tests still intercepts the reload call correctly"
-   ],
-   "calls_inferred": [
-    "app/tts_server/server.py#load_plugins (lazy, function-local import, avoids circular import)"
-   ]
-  },
-  "app/tts_server/plugin_validation.py": {
-   "purpose": "AST-based validation rejecting forbidden app.* imports in plugin studio handlers",
-   "exports": [
-    {
-     "name": "validate_studio_handlers, check_studio_handler_imports",
-     "kind": "function"
-    },
-    {
-     "name": "StudioHandlerImportError",
-     "kind": "exception"
-    }
-   ],
-   "calls": [],
-   "called_by": [],
-   "notes": [
-    "from app.studio_plugin_sdk allowed; other app.* forbidden",
-    "app_adapter.py/adapter.py excluded (intentional bridge code)",
-    "module_level_only=True (S8 default) tolerates function-body imports until S9"
-   ],
-   "calls_inferred": []
-  },
-  "app/tts_server/server.py": {
-   "purpose": "FastAPI TTS Server app: plugin discovery, synthesis, preview, settings endpoints (plugin import/staging moved to plugin_staging.py)",
-   "exports": [
-    {
-     "name": "app",
-     "kind": "FastAPI instance"
-    },
-    {
-     "name": "load_plugins, set_ready_port",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/core/config.py",
-    "app/engines/enablement.py#can_enable_engine",
-    "app/engines/voice/sdk.py",
-    "app/tts_server/__init__.py",
-    "app/tts_server/health.py#*",
-    "app/tts_server/performance_settings.py#clear_engine_computer_speed_baseline",
-    "app/tts_server/plugin_loader.py#*",
-    "app/tts_server/settings_store.py#*",
-    "app/tts_server/verification.py#verify_plugin",
-    "app/utils/render_timing.py#get_timing_val,derive_segment_timing_fields"
-   ],
-   "called_by": [],
-   "notes": [
-    "global _plugins protected by threading.Lock",
-    "task cancellation cooperative via /tasks/{id}/cancel",
-    "LF-7 (2026-07-04): plugin import/staging pipeline (zip upload, GitHub-repo preview, confirm/cancel, containment/symlink checks, _staging store) extracted to app/tts_server/plugin_staging.py (1351->914 lines); route decorators stay here as thin wrappers per this module's 'sole HTTP boundary' docstring",
-    "BE-4 (2026-07-04): /synthesize's timing_dict computation now calls app/utils/render_timing.py#derive_segment_timing_fields instead of an inline duplicate formula; model_load_seconds computation (None-default) stays local, deliberately not shared with orchestrator_helpers.py's 0.0-default version"
-   ],
-   "calls_inferred": [
-    "app/db/performance.py#record_render_sample",
-    "app/tts_server/plugin_staging.py#*"
-   ]
-  },
-  "app/tts_server/settings_store.py": {
-   "purpose": "Per-engine settings persistence, validation, secret redaction",
-   "exports": [
-    {
-     "name": "load_settings, save_settings, load_state, save_state, calculate_verification_metadata, secret_keys, redact_secret_settings, merge_settings, validate_engine_id",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/core/config.py#PLUGIN_DATA_DIR"
-   ],
-   "called_by": [],
-   "notes": [
-    "path via _contained_path() with normpath+startswith barrier",
-    "secret sentinel '***' guards round-trip",
-    "engine_id validation regex blocks traversal"
-   ],
-   "calls_inferred": []
-  },
-  "app/tts_server/verification.py": {
-   "purpose": "Verification synthesis runner: explicit user-triggered test synthesis",
-   "exports": [
-    {
-     "name": "VerificationResult",
-     "kind": "class"
-    },
-    {
-     "name": "verify_plugin, verify_all",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/db/performance.py#record_render_sample",
-    "app/tts_server/performance_settings.py#resolve_engine_settings_model",
-    "app/tts_server/plugin_loader.py",
-    "app/tts_server/settings_store.py#*"
-   ],
-   "called_by": [],
-   "notes": [
-    "delegates test execution to plugin.engine.run_test()",
-    "no automatic verification on startup"
-   ],
-   "calls_inferred": []
   }
- }
 }

@@ -1,518 +1,535 @@
 {
- "files": {
-  "frontend/src/utils/chapterEditorHelpers.ts": {
-   "purpose": "Voice engine status resolution, blob download, character-to-voice default variant mapping",
-   "exports": [
-    {
-     "name": "resolveVoiceEngineStatus, downloadBlob, resolveDefaultVariantName, formatExportFilename",
-     "kind": "fn"
-    }
-   ],
-   "calls": [
-    "frontend/src/types/index.ts",
-    "frontend/src/utils/voiceProfiles.ts"
-   ],
-   "called_by": [
-    "frontend/src/hooks/chapter/useChapterAssignments.ts",
-    "frontend/src/hooks/chapter/useChapterQueue.ts",
-    "frontend/src/pages/Book/studio/useStudioChapter.ts",
-    "frontend/src/pages/Book/useBookData.ts",
-    "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/utils/voiceProfiles#*"
-   ]
-  },
-  "frontend/src/utils/chapterRenderProgress.ts": {
-   "purpose": "Predictive progress-bar math for live job renders with ETA/slope clamping",
-   "exports": [
-    {
-     "name": "getPredictiveJobProgress, deriveActiveBatchProgress, getRawActiveRenderProgress",
-     "kind": "fn"
-    }
-   ],
-   "calls": [
-    "frontend/src/types/index.ts"
-   ],
-   "called_by": [
-    "frontend/src/pages/Book/studio/useStudioChapter.ts"
-   ],
-   "notes": [
-    "predictScalarProgress blends baseProgress toward 0.995 ceiling"
-   ],
-   "calls_inferred": [
-    "frontend/src/types#Job"
-   ]
-  },
-  "frontend/src/utils/chunkGroups.ts": {
-   "purpose": "Group consecutive segments by character+profile+engine respecting text chunk limit",
-   "exports": [
-    {
-     "name": "buildChunkGroups, resolveSegmentProfileName, ChunkGroup",
-     "kind": "fn/type"
-    }
-   ],
-   "calls": [
-    "frontend/src/constants/audio.ts",
-    "frontend/src/types/index.ts",
-    "frontend/src/utils/voiceProfiles.ts"
-   ],
-   "called_by": [
-    "frontend/src/hooks/useChapterPlayback.ts",
-    "frontend/src/pages/Book/studio/useStudioChapter.ts"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/constants/audio#CHUNK_CHAR_LIMIT",
-    "frontend/src/utils/voiceProfiles#getVoiceProfileEngine"
-   ]
-  },
-  "frontend/src/utils/devMode.ts": {
-   "purpose": "Dev mode toggle stored in localStorage with React hook",
-   "exports": [
-    {
-     "name": "isDevModeEnabled, setDevModeEnabled, subscribeDevMode, useDevMode",
-     "kind": "fn"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/app/layout/MobileNavDrawer.tsx",
-    "frontend/src/app/layout/NavRail.tsx",
-    "frontend/src/components/queue/QueueItem.tsx",
-    "frontend/src/pages/Activity/ActivityPage.tsx",
-    "frontend/src/pages/Book/studio/StudioHeaderActions.tsx",
-    "frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx",
-    "frontend/src/pages/Settings/SettingsRoute.tsx",
-    "frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/utils/format.ts": {
-   "purpose": "Format helpers for duration/file size/relative timestamps",
-   "exports": [
-    {
-     "name": "formatLength, formatFileSize, formatRelativeTime",
-     "kind": "fn"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/app/layout/BookIdentityLine.tsx",
-    "frontend/src/pages/Book/components/AssemblyChapterPicker.tsx",
-    "frontend/src/pages/Book/stages/PublishStage.tsx",
-    "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/utils/jobEventAdapters.ts": {
-   "purpose": "Adapt socket event payloads to job-update record format",
-   "exports": [
-    {
-     "name": "adaptEventToJobUpdates, resolveEventUpdatedAt, copyRenderGroupFields, shouldOmitChapterProgressMessage",
-     "kind": "fn"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/hooks/useJobs.ts",
-    "frontend/src/utils/jobUpdateReducer.ts",
-    "frontend/src/utils/queueEventDispatcher.ts",
-    "frontend/src/utils/segmentsProgressProjector.ts"
-   ],
-   "notes": [
-    "adaptEventToJobUpdates extracts active_segments_map from event payloads (W-PAR 006)"
-   ],
-   "calls_inferred": [
-    "frontend/src/types#Job"
-   ]
-  },
-  "frontend/src/utils/jobEventUtils.ts": {
-   "purpose": "Job lifecycle/status reset rules for terminal transitions",
-   "exports": [
-    {
-     "name": "applyTerminalLifecycleReset, TERMINAL_LIFECYCLE_STATUSES, TerminalLifecycleStatus",
-     "kind": "fn/const/type"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/hooks/useJobs.ts",
-    "frontend/src/utils/queueEventDispatcher.ts"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/utils/jobSelection.ts": {
-   "purpose": "Job classification (segment vs chapter scoped) and relevancy picking",
-   "exports": [
-    {
-     "name": "isSegmentScopedJob, hasSegmentProgressCapability, isMainQueueSegmentItem, isChapterScopedJob, shouldShowIndeterminateProgress, pickRelevantJob",
-     "kind": "fn"
-    }
-   ],
-   "calls": [
-    "frontend/src/types/index.ts"
-   ],
-   "called_by": [
-    "frontend/src/api/hydration/index.ts",
-    "frontend/src/app/layout/RailBookBlock.tsx",
-    "frontend/src/components/queue/GlobalQueue.tsx",
-    "frontend/src/components/queue/QueueItem.tsx",
-    "frontend/src/hooks/chapter/useChapterLoader.ts",
-    "frontend/src/hooks/chapter/useChapterQueue.ts",
-    "frontend/src/pages/Book/components/ChapterTable.tsx",
-    "frontend/src/pages/Book/lib/chapterJobs.ts",
-    "frontend/src/pages/Book/stages/PublishStage.tsx",
-    "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx",
-    "frontend/src/pages/ProjectDetail/components/ChapterList.tsx",
-    "frontend/src/store/live-jobs.ts",
-    "frontend/src/utils/jobUpdateReducer.ts",
-    "frontend/src/utils/segmentProgressSelection.ts"
-   ],
-   "notes": [
-    "STATUS_RANK: running=5...done=0"
-   ],
-   "calls_inferred": [
-    "frontend/src/types#Job,TtsEngine"
-   ]
-  },
-  "frontend/src/utils/jobUpdateReducer.ts": {
-   "purpose": "Pure reducer for job-updated events with status regression/rollback protection",
-   "exports": [
-    {
-     "name": "applyJobUpdated, detectNewerRun, applySegmentFieldRules, STATUS_PRIORITY",
-     "kind": "fn/const"
-    }
-   ],
-   "calls": [
-    "frontend/src/types/index.ts",
-    "frontend/src/utils/jobEventAdapters.ts",
-    "frontend/src/utils/jobSelection.ts"
-   ],
-   "called_by": [
-    "frontend/src/hooks/useJobs.ts"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/utils/jobSelection#isSegmentScopedJob"
-   ]
-  },
-  "frontend/src/utils/queueEventDispatcher.ts": {
-   "purpose": "Pure topic-routing dispatcher for queue socket events",
-   "exports": [
-    {
-     "name": "dispatchQueueEvent, QueueEventDispatchDeps, DispatchResult, QUEUE_HANDLED_TOPICS",
-     "kind": "fn/type/const"
-    }
-   ],
-   "calls": [
-    "frontend/src/api/contracts/liveEvents.ts",
-    "frontend/src/utils/jobEventAdapters.ts",
-    "frontend/src/utils/jobEventUtils.ts"
-   ],
-   "called_by": [
-    "frontend/src/hooks/useQueueSync.ts"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/utils/jobEventAdapters#adaptEventToJobUpdates",
-    "frontend/src/utils/jobEventUtils#applyTerminalLifecycleReset"
-   ]
-  },
-  "frontend/src/utils/queueItemDebugPayload.ts": {
-   "purpose": "Build debug payload for queue item ETA/progress diagnostics",
-   "exports": [
-    {
-     "name": "buildQueueItemDebugPayload, QueueItemDebugInputs",
-     "kind": "fn/type"
-    }
-   ],
-   "calls": [
-    "frontend/src/store/liveEventAuditStore.ts",
-    "frontend/src/types/index.ts",
-    "frontend/src/utils/queueItemEtaSelection.ts"
-   ],
-   "called_by": [
-    "frontend/src/components/queue/QueueItem.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/store/liveEventAuditStore#getLiveEventAuditSnapshot"
-   ]
-  },
-  "frontend/src/utils/queueItemEtaSelection.ts": {
-   "purpose": "Pure ETA source selection and timestamp resolution",
-   "exports": [
-    {
-     "name": "selectEtaSource, selectEtaSourceTimestamp, EtaSource",
-     "kind": "fn/type"
-    }
-   ],
-   "calls": [
-    "frontend/src/types/index.ts"
-   ],
-   "called_by": [
-    "frontend/src/components/queue/QueueItem.tsx",
-    "frontend/src/utils/queueItemDebugPayload.ts"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/types#ProcessingQueueItem,Job"
-   ]
-  },
-  "frontend/src/utils/queueLabels.ts": {
-   "purpose": "Format queue item context/label for display",
-   "exports": [
-    {
-     "name": "formatQueueContext",
-     "kind": "fn"
-    }
-   ],
-   "calls": [
-    "frontend/src/types/index.ts",
-    "frontend/src/utils/voiceProfiles.ts"
-   ],
-   "called_by": [
-    "frontend/src/components/queue/GlobalQueue.tsx",
-    "frontend/src/components/queue/QueueItem.tsx",
-    "frontend/src/components/queue/ReorderableQueueItem.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/utils/voiceProfiles#formatVoiceEngineLabel"
-   ]
-  },
-  "frontend/src/utils/queueOverlayFields.ts": {
-   "purpose": "Allowlist for non-queue.items topics to update queue rows (overlay only)",
-   "exports": [
-    {
-     "name": "QUEUE_OVERLAY_FIELDS, pickOverlayFields, QueueOverlayField",
-     "kind": "const/fn/type"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/hooks/useQueueSync.ts"
-   ],
-   "notes": [
-    "QUEUE_OVERLAY_FIELDS whitelist now includes active_segments_map (W-PAR 006) — rides the queue.items frame per the queue-items-is-row-authority invariant"
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/utils/railState.ts": {
-   "purpose": "Sidebar rail collapse/width state persistence with React hook",
-   "exports": [
-    {
-     "name": "isRailCollapsed, getRailWidth, clampRailWidth, setRailCollapsed, setRailWidth, requestRailAutoCollapse, useRailCollapsed, useRailWidth",
-     "kind": "fn"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/app/layout/NavRail.tsx",
-    "frontend/src/pages/Book/stages/ContentsStage.tsx",
-    "frontend/src/pages/Book/stages/ManuscriptStage.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/utils/runtimeDebug.ts": {
-   "purpose": "Debug logging and telemetry timeline recording for WebSocket/studio events",
-   "exports": [
-    {
-     "name": "shouldEnableStudioDebugLogging, recordStudioDebugSnapshot, recordWebsocketDebugMessage, getTtsCommunicationTimeline, clearTtsCommunicationTimeline, subscribeTtsCommunicationTimeline, wsAudienceForType",
-     "kind": "fn"
-    }
-   ],
-   "calls": [
-    "frontend/src/store/studioSocketBus.ts"
-   ],
-   "called_by": [
-    "frontend/src/components/queue/QueueItem.tsx",
-    "frontend/src/hooks/chapter/useChapterLoader.ts",
-    "frontend/src/hooks/chapter/useChapterQueue.ts",
-    "frontend/src/hooks/useJobs.ts",
-    "frontend/src/hooks/useQueueSync.ts",
-    "frontend/src/pages/LiveOutput/LiveOutputPage.tsx"
-   ],
-   "notes": [
-    "timeline limit 1000 entries"
-   ],
-   "calls_inferred": [
-    "frontend/src/store/studioSocketBus#StudioSocketEnvelope"
-   ]
-  },
-  "frontend/src/utils/segmentProgressSelection.ts": {
-   "purpose": "Pure provenance-vs-direct field selection for segment progress overlays",
-   "exports": [
-    {
-     "name": "selectSegmentProgressFields, SegmentProgressFields",
-     "kind": "fn/type"
-    }
-   ],
-   "calls": [
-    "frontend/src/types/index.ts",
-    "frontend/src/utils/jobSelection.ts"
-   ],
-   "called_by": [
-    "frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx"
-   ],
-   "notes": [
-    "direct fields trump provenance overlays"
-   ],
-   "calls_inferred": [
-    "frontend/src/utils/jobSelection#hasSegmentProgressCapability"
-   ]
-  },
-  "frontend/src/utils/segmentsProgressProjector.ts": {
-   "purpose": "Pure builder for segments.progress socket projection to job update + trace",
-   "exports": [
-    {
-     "name": "buildSegmentsProgressProjection, SegmentsProgressProjection",
-     "kind": "fn/type"
-    }
-   ],
-   "calls": [
-    "frontend/src/store/studioSocketBus.ts",
-    "frontend/src/utils/jobEventAdapters.ts"
-   ],
-   "called_by": [
-    "frontend/src/hooks/useJobs.ts"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/store/studioSocketBus#StudioSocketEnvelope",
-    "frontend/src/utils/jobEventAdapters#resolveEventUpdatedAt"
-   ]
-  },
-  "frontend/src/utils/seriesPosition.ts": {
-   "purpose": "Parse/validate a series-position text input into an integer or null",
-   "exports": [
-    {
-     "name": "parseSeriesPositionInput",
-     "kind": "function",
-     "contract": "string → {value: number|null, error: string|null}; blank -> {null,null}; non-integer -> error message; else -> parsed int"
-    }
-   ],
-   "calls": [],
-   "called_by": [],
-   "notes": [
-    "added 2026-07-08."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/utils/theme.ts": {
-   "purpose": "Theme preference (light/dark/system) persistence and React hook",
-   "exports": [
-    {
-     "name": "getEffectiveTheme, applyTheme, loadThemePref, saveThemePref, useThemeToggle, Theme",
-     "kind": "fn/type"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/app/layout/MobileNavDrawer.tsx",
-    "frontend/src/app/layout/NavRail.tsx",
-    "frontend/src/main.tsx",
-    "frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/utils/toast.ts": {
-   "purpose": "Fire-and-forget window CustomEvent bridge for surfacing toast messages from code that has no direct access to the toast hook",
-   "exports": [
-    {
-     "name": "APP_TOAST_EVENT",
-     "kind": "const"
+  "files": {
+    "frontend/src/utils/chapterEditorHelpers.ts": {
+      "purpose": "Voice engine status resolution, blob download, character-to-voice default variant mapping",
+      "exports": [
+        {
+          "name": "resolveVoiceEngineStatus, downloadBlob, resolveDefaultVariantName, formatExportFilename",
+          "kind": "fn"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/voiceProfiles.ts"
+      ],
+      "called_by": [
+        "frontend/src/hooks/chapter/useChapterAssignments.ts",
+        "frontend/src/hooks/chapter/useChapterQueue.ts",
+        "frontend/src/pages/Book/studio/useStudioChapter.ts",
+        "frontend/src/pages/Book/useBookData.ts",
+        "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/utils/voiceProfiles#*"
+      ]
     },
-    {
-     "name": "emitToast",
-     "kind": "function",
-     "contract": "string → void; dispatches a window CustomEvent(APP_TOAST_EVENT, {detail:{message}})"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/hooks/useVoiceManagement.ts"
-   ],
-   "notes": [
-    "added 2026-07-08. App.tsx is the sole listener, forwarding to its own useToast()-backed showToast; decouples toast-emitting utility/validation code (import validation, series-position validation) from needing the hook directly."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/utils/voiceCasting.ts": {
-   "purpose": "Pure helpers bridging the casting contract (voice-bundles.md §9) to in-memory voice/character data",
-   "exports": [
-    {
-     "name": "voiceMetadataToCastingCard, buildCastingCatalog",
-     "kind": "function"
+    "frontend/src/utils/chapterRenderProgress.ts": {
+      "purpose": "Predictive progress-bar math for live job renders with ETA/slope clamping",
+      "exports": [
+        {
+          "name": "getPredictiveJobProgress, deriveActiveBatchProgress, getRawActiveRenderProgress",
+          "kind": "fn"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Book/studio/useStudioChapter.ts"
+      ],
+      "notes": [
+        "predictScalarProgress blends baseProgress toward 0.995 ceiling"
+      ],
+      "calls_inferred": [
+        "frontend/src/types#Job"
+      ]
     },
-    {
-     "name": "characterToCastingBrief",
-     "kind": "function",
-     "contract": "Character has no description/notes field today -- brief carries name only"
+    "frontend/src/utils/chunkGroups.ts": {
+      "purpose": "Group consecutive segments by character+profile+engine respecting text chunk limit",
+      "exports": [
+        {
+          "name": "buildChunkGroups, resolveSegmentProfileName, ChunkGroup",
+          "kind": "fn/type"
+        }
+      ],
+      "calls": [
+        "frontend/src/constants/audio.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/voiceProfiles.ts"
+      ],
+      "called_by": [
+        "frontend/src/hooks/useChapterPlayback.ts",
+        "frontend/src/pages/Book/studio/useStudioChapter.ts"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/constants/audio#CHUNK_CHAR_LIMIT",
+        "frontend/src/utils/voiceProfiles#getVoiceProfileEngine"
+      ]
     },
-    {
-     "name": "resolveCastingVoiceIdToProfileName",
-     "kind": "function",
-     "contract": "voice_id -> speaker_profile_name via VoiceMetadata.name -> Speaker.name -> SpeakerProfile; returns null when engines.length===0 (FIXED 2026-07-04: previously fell through to getDefaultVoiceProfileName's unfiltered branch, silently assigning a profile of unknown engine readiness -- fixed at this call site, not the shared utility, since other callers deliberately pass engines=undefined for a different legitimate use)"
+    "frontend/src/utils/devMode.ts": {
+      "purpose": "Dev mode toggle stored in localStorage with React hook",
+      "exports": [
+        {
+          "name": "isDevModeEnabled, setDevModeEnabled, subscribeDevMode, useDevMode",
+          "kind": "fn"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/app/layout/MobileNavDrawer.tsx",
+        "frontend/src/app/layout/NavRail.tsx",
+        "frontend/src/components/queue/QueueItem.tsx",
+        "frontend/src/pages/Activity/ActivityPage.tsx",
+        "frontend/src/pages/Book/studio/StudioHeaderActions.tsx",
+        "frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx",
+        "frontend/src/pages/Settings/SettingsRoute.tsx",
+        "frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/utils/format.ts": {
+      "purpose": "Format helpers for duration/file size/relative timestamps",
+      "exports": [
+        {
+          "name": "formatLength, formatFileSize, formatRelativeTime",
+          "kind": "fn"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/app/layout/BookIdentityLine.tsx",
+        "frontend/src/pages/Book/components/AssemblyChapterPicker.tsx",
+        "frontend/src/pages/Book/stages/PublishStage.tsx",
+        "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/utils/jobEventAdapters.ts": {
+      "purpose": "Adapt socket event payloads to job-update record format",
+      "exports": [
+        {
+          "name": "adaptEventToJobUpdates, resolveEventUpdatedAt, copyRenderGroupFields, shouldOmitChapterProgressMessage",
+          "kind": "fn"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/hooks/useJobs.ts",
+        "frontend/src/utils/jobUpdateReducer.ts",
+        "frontend/src/utils/queueEventDispatcher.ts",
+        "frontend/src/utils/segmentsProgressProjector.ts"
+      ],
+      "notes": [
+        "adaptEventToJobUpdates extracts active_segments_map from event payloads (W-PAR 006)"
+      ],
+      "calls_inferred": [
+        "frontend/src/types#Job"
+      ]
+    },
+    "frontend/src/utils/jobEventUtils.ts": {
+      "purpose": "Job lifecycle/status reset rules for terminal transitions",
+      "exports": [
+        {
+          "name": "applyTerminalLifecycleReset, TERMINAL_LIFECYCLE_STATUSES, TerminalLifecycleStatus",
+          "kind": "fn/const/type"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/hooks/useJobs.ts",
+        "frontend/src/utils/queueEventDispatcher.ts"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/utils/jobSelection.ts": {
+      "purpose": "Job classification (segment vs chapter scoped) and relevancy picking",
+      "exports": [
+        {
+          "name": "isSegmentScopedJob, hasSegmentProgressCapability, isMainQueueSegmentItem, isChapterScopedJob, shouldShowIndeterminateProgress, pickRelevantJob",
+          "kind": "fn"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/api/hydration/index.ts",
+        "frontend/src/app/layout/RailBookBlock.tsx",
+        "frontend/src/components/queue/GlobalQueue.tsx",
+        "frontend/src/components/queue/QueueItem.tsx",
+        "frontend/src/hooks/chapter/useChapterLoader.ts",
+        "frontend/src/hooks/chapter/useChapterQueue.ts",
+        "frontend/src/pages/Book/components/ChapterTable.tsx",
+        "frontend/src/pages/Book/lib/chapterJobs.ts",
+        "frontend/src/pages/Book/stages/PublishStage.tsx",
+        "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx",
+        "frontend/src/pages/ProjectDetail/components/ChapterList.tsx",
+        "frontend/src/store/live-jobs.ts",
+        "frontend/src/utils/jobUpdateReducer.ts",
+        "frontend/src/utils/segmentProgressSelection.ts"
+      ],
+      "notes": [
+        "STATUS_RANK: running=5...done=0"
+      ],
+      "calls_inferred": [
+        "frontend/src/types#Job,TtsEngine"
+      ]
+    },
+    "frontend/src/utils/jobUpdateReducer.ts": {
+      "purpose": "Pure reducer for job-updated events with status regression/rollback protection",
+      "exports": [
+        {
+          "name": "applyJobUpdated, detectNewerRun, applySegmentFieldRules, STATUS_PRIORITY",
+          "kind": "fn/const"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/jobEventAdapters.ts",
+        "frontend/src/utils/jobSelection.ts"
+      ],
+      "called_by": [
+        "frontend/src/hooks/useJobs.ts"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/utils/jobSelection#isSegmentScopedJob"
+      ]
+    },
+    "frontend/src/utils/queueEventDispatcher.ts": {
+      "purpose": "Pure topic-routing dispatcher for queue socket events",
+      "exports": [
+        {
+          "name": "dispatchQueueEvent, QueueEventDispatchDeps, DispatchResult, QUEUE_HANDLED_TOPICS",
+          "kind": "fn/type/const"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/contracts/liveEvents.ts",
+        "frontend/src/utils/jobEventAdapters.ts",
+        "frontend/src/utils/jobEventUtils.ts"
+      ],
+      "called_by": [
+        "frontend/src/hooks/useQueueSync.ts"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/utils/jobEventAdapters#adaptEventToJobUpdates",
+        "frontend/src/utils/jobEventUtils#applyTerminalLifecycleReset"
+      ]
+    },
+    "frontend/src/utils/queueItemDebugPayload.ts": {
+      "purpose": "Build debug payload for queue item ETA/progress diagnostics",
+      "exports": [
+        {
+          "name": "buildQueueItemDebugPayload, QueueItemDebugInputs",
+          "kind": "fn/type"
+        }
+      ],
+      "calls": [
+        "frontend/src/store/liveEventAuditStore.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/queueItemEtaSelection.ts"
+      ],
+      "called_by": [
+        "frontend/src/components/queue/QueueItem.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/store/liveEventAuditStore#getLiveEventAuditSnapshot"
+      ]
+    },
+    "frontend/src/utils/queueItemEtaSelection.ts": {
+      "purpose": "Pure ETA source selection and timestamp resolution",
+      "exports": [
+        {
+          "name": "selectEtaSource, selectEtaSourceTimestamp, EtaSource",
+          "kind": "fn/type"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/components/queue/QueueItem.tsx",
+        "frontend/src/utils/queueItemDebugPayload.ts"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/types#ProcessingQueueItem,Job"
+      ]
+    },
+    "frontend/src/utils/queueLabels.ts": {
+      "purpose": "Format queue item context/label for display",
+      "exports": [
+        {
+          "name": "formatQueueContext",
+          "kind": "fn"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/voiceProfiles.ts"
+      ],
+      "called_by": [
+        "frontend/src/components/queue/GlobalQueue.tsx",
+        "frontend/src/components/queue/QueueItem.tsx",
+        "frontend/src/components/queue/ReorderableQueueItem.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/utils/voiceProfiles#formatVoiceEngineLabel"
+      ]
+    },
+    "frontend/src/utils/queueOverlayFields.ts": {
+      "purpose": "Allowlist for non-queue.items topics to update queue rows (overlay only)",
+      "exports": [
+        {
+          "name": "QUEUE_OVERLAY_FIELDS, pickOverlayFields, QueueOverlayField",
+          "kind": "const/fn/type"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/hooks/useQueueSync.ts"
+      ],
+      "notes": [
+        "QUEUE_OVERLAY_FIELDS whitelist now includes active_segments_map (W-PAR 006) — rides the queue.items frame per the queue-items-is-row-authority invariant"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/utils/railState.ts": {
+      "purpose": "Sidebar rail collapse/width state persistence with React hook",
+      "exports": [
+        {
+          "name": "isRailCollapsed, getRailWidth, clampRailWidth, setRailCollapsed, setRailWidth, requestRailAutoCollapse, useRailCollapsed, useRailWidth",
+          "kind": "fn"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/app/layout/NavRail.tsx",
+        "frontend/src/pages/Book/stages/ContentsStage.tsx",
+        "frontend/src/pages/Book/stages/ManuscriptStage.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/utils/runtimeDebug.ts": {
+      "purpose": "Debug logging and telemetry timeline recording for WebSocket/studio events",
+      "exports": [
+        {
+          "name": "shouldEnableStudioDebugLogging, recordStudioDebugSnapshot, recordWebsocketDebugMessage, getTtsCommunicationTimeline, clearTtsCommunicationTimeline, subscribeTtsCommunicationTimeline, wsAudienceForType",
+          "kind": "fn"
+        }
+      ],
+      "calls": [
+        "frontend/src/store/studioSocketBus.ts"
+      ],
+      "called_by": [
+        "frontend/src/components/queue/QueueItem.tsx",
+        "frontend/src/hooks/chapter/useChapterLoader.ts",
+        "frontend/src/hooks/chapter/useChapterQueue.ts",
+        "frontend/src/hooks/useJobs.ts",
+        "frontend/src/hooks/useQueueSync.ts",
+        "frontend/src/pages/LiveOutput/LiveOutputPage.tsx"
+      ],
+      "notes": [
+        "timeline limit 1000 entries"
+      ],
+      "calls_inferred": [
+        "frontend/src/store/studioSocketBus#StudioSocketEnvelope"
+      ]
+    },
+    "frontend/src/utils/segmentProgressSelection.ts": {
+      "purpose": "Pure provenance-vs-direct field selection for segment progress overlays",
+      "exports": [
+        {
+          "name": "selectSegmentProgressFields, SegmentProgressFields",
+          "kind": "fn/type"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/jobSelection.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx"
+      ],
+      "notes": [
+        "direct fields trump provenance overlays"
+      ],
+      "calls_inferred": [
+        "frontend/src/utils/jobSelection#hasSegmentProgressCapability"
+      ]
+    },
+    "frontend/src/utils/segmentsProgressProjector.ts": {
+      "purpose": "Pure builder for segments.progress socket projection to job update + trace",
+      "exports": [
+        {
+          "name": "buildSegmentsProgressProjection, SegmentsProgressProjection",
+          "kind": "fn/type"
+        }
+      ],
+      "calls": [
+        "frontend/src/store/studioSocketBus.ts",
+        "frontend/src/utils/jobEventAdapters.ts"
+      ],
+      "called_by": [
+        "frontend/src/hooks/useJobs.ts"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/store/studioSocketBus#StudioSocketEnvelope",
+        "frontend/src/utils/jobEventAdapters#resolveEventUpdatedAt"
+      ]
+    },
+    "frontend/src/utils/seriesPosition.ts": {
+      "purpose": "Parse/validate a series-position text input into an integer or null",
+      "exports": [
+        {
+          "name": "parseSeriesPositionInput",
+          "kind": "function",
+          "contract": "string → {value: number|null, error: string|null}; blank -> {null,null}; non-integer -> error message; else -> parsed int"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "added 2026-07-08."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/utils/theme.ts": {
+      "purpose": "Theme preference (light/dark/system) persistence and React hook",
+      "exports": [
+        {
+          "name": "getEffectiveTheme, applyTheme, loadThemePref, saveThemePref, useThemeToggle, Theme",
+          "kind": "fn/type"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/app/layout/MobileNavDrawer.tsx",
+        "frontend/src/app/layout/NavRail.tsx",
+        "frontend/src/main.tsx",
+        "frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/utils/toast.ts": {
+      "purpose": "Fire-and-forget window CustomEvent bridge for surfacing toast messages from code that has no direct access to the toast hook",
+      "exports": [
+        {
+          "name": "APP_TOAST_EVENT",
+          "kind": "const"
+        },
+        {
+          "name": "emitToast",
+          "kind": "function",
+          "contract": "string → void; dispatches a window CustomEvent(APP_TOAST_EVENT, {detail:{message}})"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/hooks/useVoiceManagement.ts"
+      ],
+      "notes": [
+        "added 2026-07-08. App.tsx is the sole listener, forwarding to its own useToast()-backed showToast; decouples toast-emitting utility/validation code (import validation, series-position validation) from needing the hook directly."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/utils/voiceCasting.ts": {
+      "purpose": "Pure helpers bridging the casting contract (voice-bundles.md §9) to in-memory voice/character data",
+      "exports": [
+        {
+          "name": "voiceMetadataToCastingCard, buildCastingCatalog",
+          "kind": "function"
+        },
+        {
+          "name": "characterToCastingBrief",
+          "kind": "function",
+          "contract": "Character has no description/notes field today -- brief carries name only"
+        },
+        {
+          "name": "resolveCastingVoiceIdToProfileName",
+          "kind": "function",
+          "contract": "voice_id -> speaker_profile_name via VoiceMetadata.name -> Speaker.name -> SpeakerProfile; returns null when engines.length===0 (FIXED 2026-07-04: previously fell through to getDefaultVoiceProfileName's unfiltered branch, silently assigning a profile of unknown engine readiness -- fixed at this call site, not the shared utility, since other callers deliberately pass engines=undefined for a different legitimate use)"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/voiceProfiles.ts#getDefaultVoiceProfileName"
+      ],
+      "called_by": [],
+      "notes": [
+        "all pure functions, zero network/DOM dependency -- tested with plain fixture data"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/utils/voiceProfiles.ts": {
+      "purpose": "Voice profile selection, display labels, engine matching, voice option list building",
+      "exports": [
+        {
+          "name": "getDefaultEngineId, getVoiceProfileEngine, formatVoiceEngineLabel, getVariantDisplayName, isDefaultVoiceProfile, getDefaultVoiceProfileName, isVoiceProfileSelectable, buildVoiceOptions, getVoiceOptionLabel, VoiceOption",
+          "kind": "fn/type"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/components/CharactersTab.tsx",
+        "frontend/src/components/VoicesModals.tsx",
+        "frontend/src/hooks/chapter/useChapterQueue.ts",
+        "frontend/src/hooks/useVoicesData.ts",
+        "frontend/src/hooks/useVoicesTabActions.ts",
+        "frontend/src/hooks/useVoicesTabState.ts",
+        "frontend/src/pages/Book/studio/CastPalette.tsx",
+        "frontend/src/pages/Book/studio/TempCharacterModal.tsx",
+        "frontend/src/pages/Book/studio/useStudioChapter.ts",
+        "frontend/src/pages/Book/useBookData.ts",
+        "frontend/src/pages/ChapterEditor/components/ScriptView.tsx",
+        "frontend/src/pages/ChapterEditor/components/VoiceProfileSelect.tsx",
+        "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx",
+        "frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx",
+        "frontend/src/pages/VoiceLab/components/TestSection.tsx",
+        "frontend/src/pages/Voices/VoicesPage.tsx",
+        "frontend/src/pages/Voices/components/NarratorCard.tsx",
+        "frontend/src/pages/Voices/components/VariantEditor.tsx",
+        "frontend/src/pages/Voices/components/VoiceCatalogCard.tsx",
+        "frontend/src/pages/Voices/voicePhase.ts",
+        "frontend/src/utils/chapterEditorHelpers.ts",
+        "frontend/src/utils/chunkGroups.ts",
+        "frontend/src/utils/queueLabels.ts"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/types#*"
+      ]
+    },
+    "frontend/src/utils/segmentPeekStripState.ts": {
+      "purpose": "Per-job-id localStorage dismissal persistence for the SegmentRenderMonitor peek strip ('studio-peek-strip-dismissed:<jobId>'), matching railState.ts's try/catch get/set pattern.",
+      "exports": [
+        {
+          "name": "isPeekStripDismissed, setPeekStripDismissed",
+          "kind": "fn"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Activity/ActivityPage.tsx"
+      ],
+      "notes": [
+        "Task 011 (2026-07-11). Deliberately not reactive via useSyncExternalStore (single consumer: ActivityPage)."
+      ],
+      "calls_inferred": []
     }
-   ],
-   "calls": [
-    "frontend/src/types/index.ts",
-    "frontend/src/utils/voiceProfiles.ts#getDefaultVoiceProfileName"
-   ],
-   "called_by": [],
-   "notes": [
-    "all pure functions, zero network/DOM dependency -- tested with plain fixture data"
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/utils/voiceProfiles.ts": {
-   "purpose": "Voice profile selection, display labels, engine matching, voice option list building",
-   "exports": [
-    {
-     "name": "getDefaultEngineId, getVoiceProfileEngine, formatVoiceEngineLabel, getVariantDisplayName, isDefaultVoiceProfile, getDefaultVoiceProfileName, isVoiceProfileSelectable, buildVoiceOptions, getVoiceOptionLabel, VoiceOption",
-     "kind": "fn/type"
-    }
-   ],
-   "calls": [
-    "frontend/src/types/index.ts"
-   ],
-   "called_by": [
-    "frontend/src/components/CharactersTab.tsx",
-    "frontend/src/components/VoicesModals.tsx",
-    "frontend/src/hooks/chapter/useChapterQueue.ts",
-    "frontend/src/hooks/useVoicesData.ts",
-    "frontend/src/hooks/useVoicesTabActions.ts",
-    "frontend/src/hooks/useVoicesTabState.ts",
-    "frontend/src/pages/Book/studio/CastPalette.tsx",
-    "frontend/src/pages/Book/studio/TempCharacterModal.tsx",
-    "frontend/src/pages/Book/studio/useStudioChapter.ts",
-    "frontend/src/pages/Book/useBookData.ts",
-    "frontend/src/pages/ChapterEditor/components/ScriptView.tsx",
-    "frontend/src/pages/ChapterEditor/components/VoiceProfileSelect.tsx",
-    "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx",
-    "frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx",
-    "frontend/src/pages/VoiceLab/components/TestSection.tsx",
-    "frontend/src/pages/Voices/VoicesPage.tsx",
-    "frontend/src/pages/Voices/components/NarratorCard.tsx",
-    "frontend/src/pages/Voices/components/VariantEditor.tsx",
-    "frontend/src/pages/Voices/components/VoiceCatalogCard.tsx",
-    "frontend/src/pages/Voices/voicePhase.ts",
-    "frontend/src/utils/chapterEditorHelpers.ts",
-    "frontend/src/utils/chunkGroups.ts",
-    "frontend/src/utils/queueLabels.ts"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/types#*"
-   ]
   }
- }
 }

@@ -14,16 +14,22 @@
         "frontend/src/components/queue/QueueStats.tsx",
         "frontend/src/pages/Activity/components/EngineCalibrationCard.tsx",
         "frontend/src/pages/Activity/components/ProductionTallyCard.tsx",
-        "frontend/src/pages/Activity/devSegmentRenderMonitorFixture.ts",
         "frontend/src/types/index.ts",
-        "frontend/src/utils/devMode.ts"
+        "frontend/src/utils/devMode.ts",
+        "frontend/src/hooks/useSegmentInventory.ts#useSegmentInventory",
+        "frontend/src/api/index.ts#generateSegments",
+        "frontend/src/components/progress/SegmentRenderMonitor/SegmentPeekStrip.tsx",
+        "frontend/src/utils/segmentPeekStripState.ts"
       ],
       "called_by": [
         "frontend/src/app/App.tsx",
         "frontend/src/pages/Activity/index.ts"
       ],
       "notes": [
-        "history filter state All/Renders/Samples/API"
+        "history filter state All/Renders/Samples/API",
+        "Task 008 (2026-07-11): replaced DEV_FIXTURE_RENDER_MONITOR_JOB with a real active-job selection (first job in an active status with a chapter_id) fed through useSegmentInventory; SegmentRenderMonitor now renders real segments when devMode is on and an active job exists (still dev-gated). devSegmentRenderMonitorFixture.ts is no longer imported here but intentionally left on disk pending verification. cap is a documented best-effort constant (1) pending a real per-job cap field.",
+        "Task 010 (2026-07-11): wires SegmentRenderMonitor's onRetry prop to api.generateSegments([segmentId]) -- the same per-segment (re)generation endpoint ScriptView/BoothTool/ReviseTool already use; there is no server-side 'retry' verb, so this IS the real per-segment retry granularity available today. Calls onRefresh() after a successful requeue.",
+        "Task 011 (2026-07-11): wires the peek-strip/full-field progressive-disclosure ladder for the dev-gated active-job segment monitor. New derived state: renderingCount, failedCount, monitorEligible (devMode && activeJob && total >= FULL_STRIP_MIN), peekEligible (monitorEligible && renderingCount >= 2). Behavior change: the full SegmentRenderMonitor field no longer renders unconditionally on devMode+activeJob -- the peek strip renders instead once renderingCount >= 2, expanding to the full field only on click (or directly when renderingCount < 2). Dismiss persists per job id via segmentPeekStripState.ts, overridden whenever failedCount > 0. State resets when the active job id changes."
       ],
       "calls_inferred": [
         "frontend/src/components/queue/GlobalQueue",
@@ -224,7 +230,9 @@
         "frontend/src/types/index.ts"
       ],
       "called_by": [],
-      "notes": [],
+      "notes": [
+        "Task 012 (2026-07-11): new optional settings?: Settings prop, threaded through to EnginesPanel (same plumbing chain)."
+      ],
       "calls_inferred": []
     },
     "frontend/src/pages/Engines/components/EngineCalibrationSection.tsx": {
@@ -279,7 +287,8 @@
       ],
       "called_by": [],
       "notes": [
-        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change.",
+        "Task 012 (2026-07-11): new optional settings?: Settings prop. Adds a per-engine 'Concurrent Renders' override control reading/writing tts_engine_caps[engine.engine_id], clamped client-side to engine.behavior.max_concurrent_workers (falls back to DEFAULT_ENGINE_CAP_CEILING=8). handleSaveEngineCap posts raw JSON to POST /api/settings with {tts_engine_caps: {...existing, [engine_id]: clamped}}, merging with (not clobbering) other engines' overrides -- a separate write path from api.updateEngineSettings. UI copy notes the change takes effect on next app restart (WarmWorkerManager cap-freeze caching, out of scope per task 014)."
       ],
       "calls_inferred": [
         "frontend/src/pages/Engines/components/EngineMetadataPanel.tsx#*",
@@ -383,7 +392,8 @@
       ],
       "called_by": [],
       "notes": [
-        "two import flows: zip upload + GitHub URL"
+        "two import flows: zip upload + GitHub URL",
+        "Task 012 (2026-07-11): new optional settings?: Settings prop, threaded straight through to each EngineCard (prop-plumbing chain for the per-engine cap control)."
       ],
       "calls_inferred": [
         "frontend/src/hooks/useLiveTtsLogLines#*"
@@ -523,7 +533,7 @@
       "called_by": [],
       "notes": [
         "security warning about no internal API keys",
-        "2026-07-09: Rewrote static documentation content to match app/api/tts_api.py + app/core/security.py: replaced the false 'no API secret keys' claim with the real Bearer tts_api_key + tts_api_enabled gate, added the real 30 req/min sliding-window rate limiter, and replaced fictitious/internal-only routes (/api/engines, /api/speaker-profiles, /api/processing_queue, direct localhost:8001/synthesize) with the real external contract (GET /api/v1/tts/engines[/{id}], POST /api/v1/tts/synthesize, POST /api/v1/tts/preview, GET /api/v1/tts/jobs/{id}[/audio]). No component structure/props changed \u2014 text/example content only."
+        "2026-07-09: Rewrote static documentation content to match app/api/tts_api.py + app/core/security.py: replaced the false 'no API secret keys' claim with the real Bearer tts_api_key + tts_api_enabled gate, added the real 30 req/min sliding-window rate limiter, and replaced fictitious/internal-only routes (/api/engines, /api/speaker-profiles, /api/processing_queue, direct localhost:8001/synthesize) with the real external contract (GET /api/v1/tts/engines[/{id}], POST /api/v1/tts/synthesize, POST /api/v1/tts/preview, GET /api/v1/tts/jobs/{id}[/audio]). No component structure/props changed — text/example content only."
       ],
       "calls_inferred": []
     },
@@ -1040,7 +1050,8 @@
         "frontend/src/pages/Settings/SettingsRoute.tsx"
       ],
       "notes": [
-        "gained a 'Parallel Segment Rendering' toggle (2026-07-06) posting {tts_parallel_cap: 1|2} as JSON to /api/settings via a dedicated updateParallelCap() helper \u2014 the form-encoded updateBooleanSetting/updateStringSetting helpers can't carry this field, since app/api/routers/system.py only parses tts_parallel_cap from the JSON body branch, not the form branch"
+        "gained a 'Parallel Segment Rendering' toggle (2026-07-06) posting {tts_parallel_cap: 1|2} as JSON to /api/settings via a dedicated updateParallelCap() helper — the form-encoded updateBooleanSetting/updateStringSetting helpers can't carry this field, since app/api/routers/system.py only parses tts_parallel_cap from the JSON body branch, not the form branch",
+        "Task 012 (2026-07-11): replaces the binary 1/2 tts_parallel_cap ToggleButton with a real numeric stepper input (1-8, MAX_GLOBAL_PARALLEL_CAP matching MAX_GLOBAL_CONCURRENT_SYNTHESIS in app/orchestration/scheduler/resources.py), client-side clamped before calling the existing updateParallelCap() write (unchanged POST /api/settings {tts_parallel_cap} shape)."
       ],
       "calls_inferred": [
         "frontend/src/utils/devMode#*",

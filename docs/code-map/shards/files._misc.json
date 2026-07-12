@@ -204,8 +204,8 @@
       "called_by": [],
       "notes": [
         "importing this module never creates an instance or loads a catalog (modular_architecture.md no-import-side-effects)",
-        "useTranslation.ts (sibling file) wraps getI18n() with a pure passthrough (raw key or explicit default) when uninitialized \u2014 never throws",
-        "one sample catalog only (locales/en-US/welcome.json, WelcomePage strings) \u2014 full string-extraction is future work"
+        "useTranslation.ts (sibling file) wraps getI18n() with a pure passthrough (raw key or explicit default) when uninitialized — never throws",
+        "one sample catalog only (locales/en-US/welcome.json, WelcomePage strings) — full string-extraction is future work"
       ],
       "calls_inferred": []
     },
@@ -361,7 +361,8 @@
         "Project gained series_position: number | null (2026-07-08) -- round-trips through library create/edit and the book overview header.",
         "Project gained description: string | null (2026-07-09, book_tab_front_door Task 004), matching the backend's nullable TEXT column (Task 002).",
         "2026-07-11 (task 005): added `export type ProjectStatus = 'drafting' | 'casting' | 'rendered'` and `Project.status?: ProjectStatus` (optional -- server-populated, absent for stale/mocked callers).",
-        "2026-07-11 (task 006): Project gained optional `chapter_count?: number` and `chapters_rendered_count?: number`, server-populated fields for the static rendered-fraction calc."
+        "2026-07-11 (task 006): Project gained optional `chapter_count?: number` and `chapters_rendered_count?: number`, server-populated fields for the static rendered-fraction calc.",
+        "2026-07-11 (task 008): ActiveSegmentMapEntry.phase gains 'failed'; new optional char_count/engine_id fields, matching the backend active_segments_map entry shape (live-events.md 1.9.6)."
       ],
       "calls_inferred": []
     }

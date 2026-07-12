@@ -130,7 +130,7 @@
       ],
       "notes": [
         "2026-07-10: gained editingVoiceMetadata?: VoiceMetadata prop, threaded to ScriptEditor's new attributes prop.",
-        "2026-07-09: Added `isVoiceSettingsOpen`/`setIsVoiceSettingsOpen` props. The existing Script Editor Drawer now only opens when `editingProfile` is set AND `isVoiceSettingsOpen` is false; a new Drawer ('Voice Settings: {variantName}') renders VoiceSettingsPanel when `isVoiceSettingsOpen` is true, wired to the same editingEngine/editingSettings/handleSaveTestText/isSavingText as before \u2014 no new API calls.",
+        "2026-07-09: Added `isVoiceSettingsOpen`/`setIsVoiceSettingsOpen` props. The existing Script Editor Drawer now only opens when `editingProfile` is set AND `isVoiceSettingsOpen` is false; a new Drawer ('Voice Settings: {variantName}') renders VoiceSettingsPanel when `isVoiceSettingsOpen` is true, wired to the same editingEngine/editingSettings/handleSaveTestText/isSavingText as before — no new API calls.",
         "2026-07-10: Modal container for voice creation, rename, variant management, export"
       ],
       "calls_inferred": [
@@ -457,15 +457,20 @@
           "contract": "pure M1 aggregate: sum(done+rendering*progress chars)/sum(total chars)"
         }
       ],
-      "calls": [],
+      "calls": [
+        "frontend/src/components/progress/SegmentRenderMonitor/SegmentBlockRow.tsx#SegmentBlockRow"
+      ],
       "called_by": [
         "frontend/src/pages/Activity/ActivityPage.tsx"
       ],
       "notes": [
-        "STATUS: dev-gated, fixture-fed (devSegmentRenderMonitorFixture.ts) -- no real per-segment char-count hydration path into Activity page yet",
+        "STATUS (updated task 008, 2026-07-11): dev-gated but now real-data-driven end to end via frontend/src/hooks/useSegmentInventory.ts (fixture path removed from ActivityPage.tsx; devSegmentRenderMonitorFixture.ts left on disk unused pending verification).",
         "degrade-by-count: <10 omitted, 10-60 full block strip, >60 compact summary bar; always-present accessible <table> fallback",
         "M2 FIX (2026-07-03): the >60 summary branch originally showed zero failure signal -- fixed to surface failedCount + the same .segment-render-monitor__crosshatch pattern as the full-strip view, folded into aria-label too",
-        "M3: useReducedMotion() reads matchMedia once at mount AND subscribes to live 'change' events -- reactive, not just mount-time"
+        "M3: useReducedMotion() reads matchMedia once at mount AND subscribes to live 'change' events -- reactive, not just mount-time",
+        "Task 009 (2026-07-11): adds the previously-missing half of the §7A dual-layer accessibility contract -- a visually-hidden ('sr-only') aria-live=\"polite\" role=\"status\" region announcing only milestones (render start, coarse count-based thresholds -- every 10 segments or 25%, whichever is coarser -- and completion, with a failed-count variant) via local state (announcement) + refs (startedRef/completedRef/lastThresholdRef), effect keyed on total/doneCount/allSettled/failedCount. Never fires per-segment/per-tick. No prop/type contract change.",
+        "Task 010 (2026-07-11): adds click/tap interaction to the 10-60 full-strip mode -- clicking a (still aria-hidden, decorative) block opens a container-anchored SegmentDetailPopover (role=\"dialog\", not aria-hidden) showing index/phase/engine id/client-observed elapsed-time proxy/reason_code, and (failed only) a Retry button. New optional prop onRetry?: (segmentId: string) => void (component stays presentational). New optional field reasonCode?: string on SegmentRenderMonitorSegment. SegmentAccessibleTable gained an Actions column (Details/Retry, new required props onOpenDetail/onRetry) as the M6 keyboard-reachable equivalent to the popover. Positioning follows ScriptView.tsx's selection-popover pattern.",
+        "Task 011 (2026-07-11): the 10-60 segment full-field branch now delegates to <SegmentBlockRow height={10} onBlockClick={openPopoverFor} /> (extracted to SegmentBlockRow.tsx) instead of an inline block-mapping JSX block; behavior unchanged. Exports FULL_STRIP_MIN (was module-private) so ActivityPage's peek-strip eligibility gate reuses the same threshold. SegmentRenderPhase/SegmentRenderMonitorSegment moved to SegmentBlockRow.tsx and re-exported here for back-compat."
       ],
       "calls_inferred": []
     },
@@ -709,6 +714,55 @@
       ],
       "notes": [
         "2026-07-11 (North Star task 005): renders <ProjectStatusPill status={ProjectStatus} />, styled via project-status-pill / project-status-pill--{status} CSS classes (frontend/src/theme/components/misc.css). Reuses ChapterTable.tsx's chapter-table__pill visual pattern rather than inventing a new one."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/components/progress/SegmentRenderMonitor/SegmentBlockRow.tsx": {
+      "purpose": "Shared block-encoding primitive extracted out of SegmentRenderMonitor.tsx (task 011) so the full field (Level 3) and the peek strip (Level 2) render the same char-weighted block encoding at two heights instead of shipping a second implementation.",
+      "exports": [
+        {
+          "name": "SegmentBlockRow",
+          "kind": "component",
+          "contract": "props: segments, height, ariaLabel, optional onBlockClick"
+        },
+        {
+          "name": "SegmentRenderPhase, SegmentRenderMonitorSegment",
+          "kind": "type",
+          "contract": "moved here from SegmentRenderMonitor.tsx (re-exported there for back-compat)"
+        },
+        {
+          "name": "PHASE_LABEL, useReducedMotion",
+          "kind": "const/hook",
+          "contract": "useReducedMotion is the M3 reduced-motion gate"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/components/progress/SegmentRenderMonitor/SegmentRenderMonitor.tsx",
+        "frontend/src/components/progress/SegmentRenderMonitor/SegmentPeekStrip.tsx"
+      ],
+      "notes": [
+        "Task 011 (2026-07-11). Does not own the aggregate bar, accessible table, popover, or milestone aria-live region -- those stay SegmentRenderMonitor-only concerns."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/components/progress/SegmentRenderMonitor/SegmentPeekStrip.tsx": {
+      "purpose": "Level-2 progressive-disclosure component: a condensed (5px) SegmentBlockRow wrapped in one whole-strip Expand button plus a separate Dismiss button.",
+      "exports": [
+        {
+          "name": "SegmentPeekStrip",
+          "kind": "component",
+          "contract": "props: segments, activeCount, onExpand, onDismiss; purely presentational/controlled, no internal dismiss/expand state, no localStorage access"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/progress/SegmentRenderMonitor/SegmentBlockRow.tsx#SegmentBlockRow"
+      ],
+      "called_by": [
+        "frontend/src/pages/Activity/ActivityPage.tsx"
+      ],
+      "notes": [
+        "Task 011 (2026-07-11). Caller (ActivityPage) owns all expand/dismiss state; see segmentPeekStripState.ts for the persistence layer."
       ],
       "calls_inferred": []
     }

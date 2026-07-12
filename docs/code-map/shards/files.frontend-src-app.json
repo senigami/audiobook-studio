@@ -1,568 +1,569 @@
 {
- "files": {
-  "frontend/src/app/App.tsx": {
-   "purpose": "Root app component: Route tree, job tracking, top-level overlays (toast/startup/queue-drawer/confirm-modal render); toast/startup-copy/chapter-redirect state now live in dedicated hooks",
-   "exports": [
-    {
-     "name": "App",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/app/layout/AppShell.tsx",
-    "frontend/src/app/layout/StudioShell.tsx",
-    "frontend/src/components/overlays/ConfirmModal.tsx",
-    "frontend/src/components/queue/GlobalQueue.tsx",
-    "frontend/src/hooks/useChapterRedirect.ts#useChapterRedirect",
-    "frontend/src/hooks/useInitialData.ts",
-    "frontend/src/hooks/useJobs.ts",
-    "frontend/src/hooks/useQueueSync.ts",
-    "frontend/src/hooks/useStartupOverlay.ts#useStartupOverlay",
-    "frontend/src/hooks/useStudioSocketTransport.ts",
-    "frontend/src/hooks/useToast.ts#useToast",
-    "frontend/src/utils/toast.ts#APP_TOAST_EVENT",
-    "frontend/src/pages/Activity/ActivityPage.tsx",
-    "frontend/src/pages/Book/index.ts",
-    "frontend/src/pages/DevProgressBar/DevProgressBarPage.tsx",
-    "frontend/src/pages/Engines/index.ts",
-    "frontend/src/pages/Integrations/index.ts",
-    "frontend/src/pages/LiveOutput/LiveOutputPage.tsx",
-    "frontend/src/pages/ProjectDetail/ProjectViewRoute.tsx",
-    "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx#ProjectView",
-    "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx",
-    "frontend/src/pages/Queue/QueueRoute.tsx",
-    "frontend/src/pages/Settings/index.ts",
-    "frontend/src/pages/VoiceLab/VoiceLabPage.tsx",
-    "frontend/src/pages/Voices/VoicesPage.tsx",
-    "frontend/src/pages/Voices/components/VoiceUtils.tsx",
-    "frontend/src/pages/Welcome/WelcomePage.tsx",
-    "frontend/src/types/index.ts"
-   ],
-   "called_by": [
-    "frontend/src/main.tsx"
-   ],
-   "notes": [
-    "redirect logic: /project/:id -> /book/:id/:stage",
-    "queue drawer syncs back to previous path",
-    "F15 (2026-07-04): surfaces useInitialData's new `error` state as a retryable startup banner (role=alert, 'Retry now' button) in place of the silent spinner while a fetch is failing; only claims 'retrying automatically' when !initialData (true startup phase, where the poll loop actually retries) -- a later post-startup refetch failure doesn't re-arm that loop",
-    "LF-5 (2026-07-05): extracted useToast/useStartupOverlay/useChapterRedirect (630->560 lines); route table + shell composition stay per simplification/04's split boundary. Fusion-reviewed clean (independent React-hooks-correctness pass confirmed identical dep arrays/cleanup timing against the pre-image).",
-    "2026-07-08: new window 'studio-toast' (APP_TOAST_EVENT) listener forwards emitToast() messages from anywhere in the app into the existing showToast pipeline, decoupling toast-emitting utility code from the hook. New /project/:projectId/details route lazy-loads ProjectViewPage (ProjectDetailPage.tsx's ProjectView export) wrapped in ProjectViewRoute -- wires up components that previously had zero runtime importers (see those files' notes)."
-   ],
-   "calls_inferred": [
-    "frontend/src/app/layout/AppShell#AppShell",
-    "frontend/src/hooks/useInitialData#*",
-    "frontend/src/hooks/useJobs#*",
-    "frontend/src/hooks/useQueueSync#*",
-    "frontend/src/hooks/useStudioSocketTransport#*",
-    "frontend/src/pages/*"
-   ]
-  },
-  "frontend/src/app/layout/AppShell.tsx": {
-   "purpose": "Flex-grid layout container: TopBar + NavRail/main + MobileNavDrawer + PlayerBar",
-   "exports": [
-    {
-     "name": "AppShell",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/app/layout/BookIdentityLine.tsx",
-    "frontend/src/app/layout/MobileNavDrawer.tsx",
-    "frontend/src/app/layout/NavRail.tsx",
-    "frontend/src/app/layout/PlayerBar.tsx",
-    "frontend/src/app/layout/TopBar.tsx",
-    "frontend/src/app/navigation/model.ts",
-    "frontend/src/store/playerBus.ts"
-   ],
-   "called_by": [
-    "frontend/src/app/App.tsx",
-    "frontend/src/components/layout/Layout.tsx"
-   ],
-   "notes": [
-    "2026-07-11 waveform fixes: PlayerBar moved to a normal flex-column sibling of .shell-grid (docked), removing the hardcoded content padding-bottom that only accounted for the collapsed bar -- the content column now shrinks/scrolls when the bar grows instead of being covered."
-   ],
-   "calls_inferred": [
-    "frontend/src/app/layout/NavRail#*",
-    "frontend/src/app/layout/PlayerBar#*",
-    "frontend/src/app/layout/TopBar#*"
-   ]
-  },
-  "frontend/src/app/layout/BookIdentityLine.tsx": {
-   "purpose": "Button-styled display of current book in breadcrumb",
-   "exports": [
-    {
-     "name": "BookIdentityLine",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/app/layout/bookIdentityStore.ts",
-    "frontend/src/utils/format.ts"
-   ],
-   "called_by": [
-    "frontend/src/app/layout/AppShell.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/app/layout/bookIdentityStore#*"
-   ]
-  },
-  "frontend/src/app/layout/MobileNavDrawer.tsx": {
-   "purpose": "Overlay navigation drawer for mobile/tablet",
-   "exports": [
-    {
-     "name": "MobileNavDrawer",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/app/layout/navData.ts",
-    "frontend/src/utils/devMode.ts",
-    "frontend/src/utils/theme.ts"
-   ],
-   "called_by": [
-    "frontend/src/app/layout/AppShell.tsx"
-   ],
-   "notes": [
-    "2026-07-09: Added a drawerRef (useRef<HTMLElement>) attached to the <aside>, called useFocusTrap(drawerRef, open) to trap Tab/Shift-Tab inside the drawer and auto-focus/restore focus on open/close, and added an onKeyDown handler on the <aside> that calls onClose() when Escape is pressed — matching the Drawer component pattern in frontend/src/pages/Voices/components/VoiceUtils.tsx."
-   ],
-   "calls_inferred": [
-    "frontend/src/app/layout/navData#*"
-   ]
-  },
-  "frontend/src/app/layout/NavRail.tsx": {
-   "purpose": "Fixed left navigation rail: collapsible, resize handle, book block, theme toggle",
-   "exports": [
-    {
-     "name": "NavRail",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/app/layout/RailBookBlock.tsx",
-    "frontend/src/app/layout/layering.ts",
-    "frontend/src/app/layout/navData.ts",
-    "frontend/src/utils/devMode.ts",
-    "frontend/src/utils/railState.ts",
-    "frontend/src/utils/theme.ts"
-   ],
-   "called_by": [
-    "frontend/src/app/layout/AppShell.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/app/layout/RailBookBlock#*",
-    "frontend/src/app/layout/navData#*",
-    "frontend/src/utils/railState#*"
-   ]
-  },
-  "frontend/src/app/layout/PlayerBar.tsx": {
-   "purpose": "Docked audio player control bar (flex sibling of the shell grid, not a fixed overlay): transport, duration-driven scrub track (waveform/plain bar via fitsLegibly), and (2026-07-10) the expandable waveform tape for chapters under a duration cap, fed by browser decode or a server-computed peaks sidecar.",
-   "exports": [
-    {
-     "name": "PlayerBar",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/api/fetchPeaksSidecar.ts#fetchPeaksSidecar",
-    "frontend/src/app/layout/WaveformStrip.tsx",
-    "frontend/src/app/layout/WaveformTape.tsx#WaveformTape",
-    "frontend/src/app/layout/layering.ts",
-    "frontend/src/app/layout/playerRepresentation.ts#fitsLegibly",
-    "frontend/src/store/playerBus.ts"
-   ],
-   "called_by": [
-    "frontend/src/app/layout/AppShell.tsx"
-   ],
-   "notes": [
-    "audioCallbackRef pattern for React 19 render-time ref reads",
-    "W1 (2026-07-03): showWave predicate is now duration-driven (fitsLegibly + ResizeObserver-measured scrub width), not scope-driven; scope-toggle JSX/CSS removed",
-    "2026-07-10 (audio_player_completion_004 tasks 001/008): exports TAPE_DURATION_CAP_SEC=600; tapeOpen/windowSec/tapeMode state (reset on requestId); AudioLines toggle opens/closes the tape (inline-null-check JSX pattern, no separate tapeRendered boolean -- required for TS narrowing on audioEl/audioUrl). sidecarPeaks state + effect fetches the server peaks sidecar only when duration > TAPE_DURATION_CAP_SEC; tapeAvailable = under-cap OR sidecarPeaks!==null.",
-    "2026-07-11 waveform fixes (audio-player.md 5.6, binding MUST-NOT-regress): audio lifecycle split into a source-load effect (keyed [audioUrl,requestId], sets .src) and a play/pause effect (keyed [audioUrl,playing,requestId], never touches .src) -- fixes Play/Pause flicker (the old audio.src!==audioUrl guard always failed open and reloaded the media element). tapeOpen/windowSec/tapeMode are now session-persistent (NOT reset on track change). Motion toggle passed as WaveformTape zoomRowTrailing. Docked-flex, not fixed-overlay."
-   ],
-   "calls_inferred": [
-    "frontend/src/app/layout/WaveformStrip#WaveformStrip",
-    "frontend/src/store/playerBus#*"
-   ]
-  },
-  "frontend/src/app/layout/RailBookBlock.tsx": {
-   "purpose": "Book summary in nav rail: cover, title, stage links, expandable chapter list",
-   "exports": [
-    {
-     "name": "RailBookBlock",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/app/layout/bookIdentityStore.ts",
-    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx",
-    "frontend/src/components/ui/ActionMenu.tsx",
-    "frontend/src/components/ui/StatusOrb.tsx",
-    "frontend/src/pages/Book/lib/stages.ts",
-    "frontend/src/types/index.ts",
-    "frontend/src/utils/jobSelection.ts"
-   ],
-   "called_by": [
-    "frontend/src/app/layout/NavRail.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/app/layout/bookIdentityStore#*",
-    "frontend/src/components/ui/StatusOrb#*",
-    "frontend/src/pages/Book/lib/stages#*"
-   ]
-  },
-  "frontend/src/app/layout/StudioShell.tsx": {
-   "purpose": "Shell state derivation engine: navigation, hydration, breadcrumbs, project subnav",
-   "exports": [
-    {
-     "name": "createStudioShellState, deriveNavigationState, deriveHydrationStatus, ShellInputs",
-     "kind": "function/type"
-    }
-   ],
-   "calls": [
-    "frontend/src/app/navigation/breadcrumbs.ts",
-    "frontend/src/app/navigation/model.ts",
-    "frontend/src/app/navigation/project-subnav.ts"
-   ],
-   "called_by": [
-    "frontend/src/app/App.tsx",
-    "frontend/src/pages/ProjectDetail/ProjectViewRoute.tsx",
-    "frontend/src/pages/Queue/QueueRoute.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/app/navigation/breadcrumbs#*",
-    "frontend/src/app/navigation/model#GLOBAL_NAVIGATION_NODES",
-    "frontend/src/app/navigation/project-subnav#createProjectSubnav"
-   ]
-  },
-  "frontend/src/app/layout/TopBar.tsx": {
-   "purpose": "Header navigation: brand logo, breadcrumb, connection status, queue toggle",
-   "exports": [
-    {
-     "name": "TopBar",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/app/navigation/model.ts",
-    "frontend/src/components/layout/BrandLogo.tsx"
-   ],
-   "called_by": [
-    "frontend/src/app/layout/AppShell.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/app/navigation/model#StudioShellState",
-    "frontend/src/components/layout/BrandLogo#BrandLogo"
-   ]
-  },
-  "frontend/src/app/layout/WaveformStrip.tsx": {
-   "purpose": "Wavesurfer.js inline waveform display bound to parent <audio> element",
-   "exports": [
-    {
-     "name": "WaveformStrip",
-     "kind": "component"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/app/layout/PlayerBar.tsx"
-   ],
-   "notes": [
-    "ADR-0010: never creates own audio/AudioContext, accepts PlayerBar's audioEl"
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/app/layout/WaveformTape.tsx": {
-   "purpose": "Real WaveformTape renderer (004 tasks 006-007, W2): fixed-grid sampling, paged/moving motion, zoom+minimap, ported from the demo's MockWaveTape/MockTapeControls",
-   "exports": [
-    {
-     "name": "WaveformTape",
-     "kind": "component"
+  "files": {
+    "frontend/src/app/App.tsx": {
+      "purpose": "Root app component: Route tree, job tracking, top-level overlays (toast/startup/queue-drawer/confirm-modal render); toast/startup-copy/chapter-redirect state now live in dedicated hooks",
+      "exports": [
+        {
+          "name": "App",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/app/layout/AppShell.tsx",
+        "frontend/src/app/layout/StudioShell.tsx",
+        "frontend/src/components/overlays/ConfirmModal.tsx",
+        "frontend/src/components/queue/GlobalQueue.tsx",
+        "frontend/src/hooks/useChapterRedirect.ts#useChapterRedirect",
+        "frontend/src/hooks/useInitialData.ts",
+        "frontend/src/hooks/useJobs.ts",
+        "frontend/src/hooks/useQueueSync.ts",
+        "frontend/src/hooks/useStartupOverlay.ts#useStartupOverlay",
+        "frontend/src/hooks/useStudioSocketTransport.ts",
+        "frontend/src/hooks/useToast.ts#useToast",
+        "frontend/src/utils/toast.ts#APP_TOAST_EVENT",
+        "frontend/src/pages/Activity/ActivityPage.tsx",
+        "frontend/src/pages/Book/index.ts",
+        "frontend/src/pages/DevProgressBar/DevProgressBarPage.tsx",
+        "frontend/src/pages/Engines/index.ts",
+        "frontend/src/pages/Integrations/index.ts",
+        "frontend/src/pages/LiveOutput/LiveOutputPage.tsx",
+        "frontend/src/pages/ProjectDetail/ProjectViewRoute.tsx",
+        "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx#ProjectView",
+        "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx",
+        "frontend/src/pages/Queue/QueueRoute.tsx",
+        "frontend/src/pages/Settings/index.ts",
+        "frontend/src/pages/VoiceLab/VoiceLabPage.tsx",
+        "frontend/src/pages/Voices/VoicesPage.tsx",
+        "frontend/src/pages/Voices/components/VoiceUtils.tsx",
+        "frontend/src/pages/Welcome/WelcomePage.tsx",
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/main.tsx"
+      ],
+      "notes": [
+        "redirect logic: /project/:id -> /book/:id/:stage",
+        "queue drawer syncs back to previous path",
+        "F15 (2026-07-04): surfaces useInitialData's new `error` state as a retryable startup banner (role=alert, 'Retry now' button) in place of the silent spinner while a fetch is failing; only claims 'retrying automatically' when !initialData (true startup phase, where the poll loop actually retries) -- a later post-startup refetch failure doesn't re-arm that loop",
+        "LF-5 (2026-07-05): extracted useToast/useStartupOverlay/useChapterRedirect (630->560 lines); route table + shell composition stay per simplification/04's split boundary. Fusion-reviewed clean (independent React-hooks-correctness pass confirmed identical dep arrays/cleanup timing against the pre-image).",
+        "2026-07-08: new window 'studio-toast' (APP_TOAST_EVENT) listener forwards emitToast() messages from anywhere in the app into the existing showToast pipeline, decoupling toast-emitting utility code from the hook. New /project/:projectId/details route lazy-loads ProjectViewPage (ProjectDetailPage.tsx's ProjectView export) wrapped in ProjectViewRoute -- wires up components that previously had zero runtime importers (see those files' notes).",
+        "Task 012 (2026-07-11): the /engines route now also passes settings={initialData?.settings} into EnginesPage, matching the pattern already used for five other routes."
+      ],
+      "calls_inferred": [
+        "frontend/src/app/layout/AppShell#AppShell",
+        "frontend/src/hooks/useInitialData#*",
+        "frontend/src/hooks/useJobs#*",
+        "frontend/src/hooks/useQueueSync#*",
+        "frontend/src/hooks/useStudioSocketTransport#*",
+        "frontend/src/pages/*"
+      ]
     },
-    {
-     "name": "usePeaks",
-     "kind": "hook",
-     "contract": "(audioUrl, audioEl, suppliedPeaks?) -> number[]|null; 2026-07-10 (task 008): a non-empty suppliedPeaks short-circuits the fetch+decode effect entirely and is returned directly (no network/AudioContext) -- lets PlayerBar feed a server-computed peaks sidecar for over-cap clips. Existing behavior unchanged when suppliedPeaks is omitted."
+    "frontend/src/app/layout/AppShell.tsx": {
+      "purpose": "Flex-grid layout container: TopBar + NavRail/main + MobileNavDrawer + PlayerBar",
+      "exports": [
+        {
+          "name": "AppShell",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/app/layout/BookIdentityLine.tsx",
+        "frontend/src/app/layout/MobileNavDrawer.tsx",
+        "frontend/src/app/layout/NavRail.tsx",
+        "frontend/src/app/layout/PlayerBar.tsx",
+        "frontend/src/app/layout/TopBar.tsx",
+        "frontend/src/app/navigation/model.ts",
+        "frontend/src/store/playerBus.ts"
+      ],
+      "called_by": [
+        "frontend/src/app/App.tsx",
+        "frontend/src/components/layout/Layout.tsx"
+      ],
+      "notes": [
+        "2026-07-11 waveform fixes: PlayerBar moved to a normal flex-column sibling of .shell-grid (docked), removing the hardcoded content padding-bottom that only accounted for the collapsed bar -- the content column now shrinks/scrolls when the bar grows instead of being covered."
+      ],
+      "calls_inferred": [
+        "frontend/src/app/layout/NavRail#*",
+        "frontend/src/app/layout/PlayerBar#*",
+        "frontend/src/app/layout/TopBar#*"
+      ]
     },
-    {
-     "name": "TAPE_ZOOM_PRESETS_SEC",
-     "kind": "const",
-     "contract": "[3,5,8,15,30,60,120] (re-exported from waveformTapeZoomPresets.ts)"
+    "frontend/src/app/layout/BookIdentityLine.tsx": {
+      "purpose": "Button-styled display of current book in breadcrumb",
+      "exports": [
+        {
+          "name": "BookIdentityLine",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/app/layout/bookIdentityStore.ts",
+        "frontend/src/utils/format.ts"
+      ],
+      "called_by": [
+        "frontend/src/app/layout/AppShell.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/app/layout/bookIdentityStore#*"
+      ]
     },
-    {
-     "name": "PEAKS_COUNT",
-     "kind": "const",
-     "contract": "4000"
+    "frontend/src/app/layout/MobileNavDrawer.tsx": {
+      "purpose": "Overlay navigation drawer for mobile/tablet",
+      "exports": [
+        {
+          "name": "MobileNavDrawer",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/app/layout/navData.ts",
+        "frontend/src/utils/devMode.ts",
+        "frontend/src/utils/theme.ts"
+      ],
+      "called_by": [
+        "frontend/src/app/layout/AppShell.tsx"
+      ],
+      "notes": [
+        "2026-07-09: Added a drawerRef (useRef<HTMLElement>) attached to the <aside>, called useFocusTrap(drawerRef, open) to trap Tab/Shift-Tab inside the drawer and auto-focus/restore focus on open/close, and added an onKeyDown handler on the <aside> that calls onClose() when Escape is pressed — matching the Drawer component pattern in frontend/src/pages/Voices/components/VoiceUtils.tsx."
+      ],
+      "calls_inferred": [
+        "frontend/src/app/layout/navData#*"
+      ]
     },
-    {
-     "name": "snapZoom",
-     "kind": "function",
-     "contract": "re-exported from WaveformTapeZoom.tsx"
+    "frontend/src/app/layout/NavRail.tsx": {
+      "purpose": "Fixed left navigation rail: collapsible, resize handle, book block, theme toggle",
+      "exports": [
+        {
+          "name": "NavRail",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/app/layout/RailBookBlock.tsx",
+        "frontend/src/app/layout/layering.ts",
+        "frontend/src/app/layout/navData.ts",
+        "frontend/src/utils/devMode.ts",
+        "frontend/src/utils/railState.ts",
+        "frontend/src/utils/theme.ts"
+      ],
+      "called_by": [
+        "frontend/src/app/layout/AppShell.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/app/layout/RailBookBlock#*",
+        "frontend/src/app/layout/navData#*",
+        "frontend/src/utils/railState#*"
+      ]
     },
-    {
-     "name": "computeTapeBarCount",
-     "kind": "function",
-     "contract": "re-exported from waveformTapeZoomPresets.ts (moved there 2026-07-11 to break the minimap import cycle)"
-    }
-   ],
-   "calls": [
-    "frontend/src/app/layout/WaveformTapeMinimap.tsx#WaveformTapeMinimap",
-    "frontend/src/app/layout/WaveformTapeZoom.tsx#WaveformTapeZoom,snapZoom",
-    "frontend/src/app/layout/waveformTapeZoomPresets.ts#TAPE_ZOOM_PRESETS_SEC,TapeZoomPreset,computeTapeBarCount",
-    "frontend/src/store/playerBus.ts#seek"
-   ],
-   "called_by": [
-    "frontend/src/app/layout/PlayerBar.tsx"
-   ],
-   "notes": [
-    "usePeaks decoupled from the <audio> element (fetch+decode independent of audioEl.src) -- preserves ADR-0010 single-audio-owner; no <audio> or MediaElementSourceNode anywhere in this file (grep-confirmed)",
-    "fixed-grid sampling (audio-player.md 1.6.0 §5.3): gridSec = windowSec/BAR_COUNT, alignedStart snapped -- prevents waveform crawl",
-    "task 007 landed 2026-07-04: accepts optional onZoomChange/peaks props, renders WaveformTapeZoom above and WaveformTapeMinimap below the canvas when onZoomChange is provided; still not yet mounted into PlayerBar.tsx -- that's task 008's job",
-    "review-ratchet fix (2026-07-04): wheel-zoom listener is attached via a native, non-passive addEventListener('wheel', ..., {passive:false}) in a useEffect, not React's onWheel JSX prop -- React registers wheel as passive at the root (17+), so e.preventDefault() inside onWheel was a silent no-op in real browsers (page scrolled while zoom also snapped); jsdom couldn't reproduce the bug, so the regression test is structural (asserts the addEventListener call's options)",
-    "2026-07-10 adversarial-review fix (CRITICAL): minimapPeaks previously read the raw `peaks` prop (`peaks !== undefined ? peaks : peakArray`), which is null for every under-cap clip (PlayerBar passes peaks={sidecarPeaks}, only non-null over the duration cap) -- the minimap rendered flat placeholder bars while the canvas correctly showed the decoded waveform. Fixed: minimapPeaks = peakArray (usePeaks' already-resolved effective source), used by both canvas and minimap.",
-    "2026-07-11 waveform fixes: detail-canvas bar count now computeTapeBarCount(availablePeaks,duration,windowSec,containerWidthPx) instead of a fixed 180 (scales resolution with zoom width); playhead position driven by a 60Hz requestAnimationFrame loop in BOTH paged and moving modes (was ~4Hz timeupdate in paged, which stepped). computeTapeBarCount moved out to waveformTapeZoomPresets.ts and re-exported here."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/app/layout/WaveformTapeMinimap.tsx": {
-   "purpose": "Whole-clip minimap strip + draggable window rectangle for WaveformTape, task 007",
-   "exports": [
-    {
-     "name": "WaveformTapeMinimap",
-     "kind": "component",
-     "contract": "props: duration, currentTimeSec, windowStartSec, windowSec, onSeek, peaks, height?; bar count now from computeTapeBarCount(availablePeaks, duration, windowSec=duration, measuredWidth) with a ResizeObserver-measured width (was fixed MINIMAP_BARS=200); drag/click-outside-rect resolve through one pointerToPageStart formula, clamped to [0, duration-windowSec]; delegates all navigation via onSeek, never calls playerBus.seek directly"
-    }
-   ],
-   "calls": [
-    "frontend/src/app/layout/waveformTapeZoomPresets.ts#computeTapeBarCount"
-   ],
-   "called_by": [],
-   "notes": [
-    "ported from frontend/src/demo/stages/siteMockup/MockTapeControls.tsx (TapeMinimapStrip)",
-    "flat 0.4 fallback bar while peaks is null (still decoding)",
-    "review-adversarial catch during task 007: an early draft had two dead-code branches computing the identical pointer-to-time expression, fixed to the single correct formula before landing",
-    "2026-07-11 waveform fixes: bar count now computeTapeBarCount(windowSec=duration) + ResizeObserver measured width (was fixed MINIMAP_BARS=200); playhead line stroke changed to var(--text-muted) so it is visually distinct from the two blue window-rect edges."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/app/layout/WaveformTapeZoom.tsx": {
-   "purpose": "Cover-slider zoom preset control for WaveformTape (audio-player.md 1.6.0 §5.2), task 007",
-   "exports": [
-    {
-     "name": "WaveformTapeZoom",
-     "kind": "component",
-     "contract": "props: windowSec, onZoomChange, duration, availablePeaks, containerWidthPx; 7-preset dot/native-slider + lucide ZoomOut/ZoomIn step buttons; zoom-in cap relaxed to MIN_SAMPLES_IN_VIEW=4 (all 7 presets reachable); zoom-out hard-capped at 120s"
+    "frontend/src/app/layout/PlayerBar.tsx": {
+      "purpose": "Docked audio player control bar (flex sibling of the shell grid, not a fixed overlay): transport, duration-driven scrub track (waveform/plain bar via fitsLegibly), and (2026-07-10) the expandable waveform tape for chapters under a duration cap, fed by browser decode or a server-computed peaks sidecar.",
+      "exports": [
+        {
+          "name": "PlayerBar",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/fetchPeaksSidecar.ts#fetchPeaksSidecar",
+        "frontend/src/app/layout/WaveformStrip.tsx",
+        "frontend/src/app/layout/WaveformTape.tsx#WaveformTape",
+        "frontend/src/app/layout/layering.ts",
+        "frontend/src/app/layout/playerRepresentation.ts#fitsLegibly",
+        "frontend/src/store/playerBus.ts"
+      ],
+      "called_by": [
+        "frontend/src/app/layout/AppShell.tsx"
+      ],
+      "notes": [
+        "audioCallbackRef pattern for React 19 render-time ref reads",
+        "W1 (2026-07-03): showWave predicate is now duration-driven (fitsLegibly + ResizeObserver-measured scrub width), not scope-driven; scope-toggle JSX/CSS removed",
+        "2026-07-10 (audio_player_completion_004 tasks 001/008): exports TAPE_DURATION_CAP_SEC=600; tapeOpen/windowSec/tapeMode state (reset on requestId); AudioLines toggle opens/closes the tape (inline-null-check JSX pattern, no separate tapeRendered boolean -- required for TS narrowing on audioEl/audioUrl). sidecarPeaks state + effect fetches the server peaks sidecar only when duration > TAPE_DURATION_CAP_SEC; tapeAvailable = under-cap OR sidecarPeaks!==null.",
+        "2026-07-11 waveform fixes (audio-player.md 5.6, binding MUST-NOT-regress): audio lifecycle split into a source-load effect (keyed [audioUrl,requestId], sets .src) and a play/pause effect (keyed [audioUrl,playing,requestId], never touches .src) -- fixes Play/Pause flicker (the old audio.src!==audioUrl guard always failed open and reloaded the media element). tapeOpen/windowSec/tapeMode are now session-persistent (NOT reset on track change). Motion toggle passed as WaveformTape zoomRowTrailing. Docked-flex, not fixed-overlay."
+      ],
+      "calls_inferred": [
+        "frontend/src/app/layout/WaveformStrip#WaveformStrip",
+        "frontend/src/store/playerBus#*"
+      ]
     },
-    {
-     "name": "snapZoom",
-     "kind": "function",
-     "contract": "(current, 'in'|'out') -> next preset, clamped at the array ends"
-    }
-   ],
-   "calls": [
-    "frontend/src/app/layout/waveformTapeZoomPresets.ts#TAPE_ZOOM_PRESETS_SEC,TapeZoomPreset"
-   ],
-   "called_by": [],
-   "notes": [
-    "ported from frontend/src/demo/stages/siteMockup/MockTapeControls.tsx (ZoomPresetControl/snapZoom)",
-    "renders ns-size-* classes (ns-size-control/glyph/slider-wrap/track/tick/slider) -- these are NOT yet live app CSS, they only exist in the demo mock's mockup.css; task 009 must port them in (corrected 2026-07-04, review-ratchet -- the task docs originally, incorrectly, claimed free reuse)",
-    "touch-target sizing (44x44 HIG) deliberately deferred to task 009 via hook classes tape-zoom-glyph-hit/tape-zoom-slider-hit, no inline pixel dimensions yet",
-    "review-ratchet fix (2026-07-04): +/- buttons originally jumped to the extreme preset (ported verbatim from the mock) instead of stepping by one as task 007's acceptance criteria requires -- fixed to step, clamped to [zoomInCapIdx, LAST_IDX]",
-    "2026-07-11 waveform fixes: +/- glyphs replaced with lucide ZoomOut/ZoomIn icons (were blank ~44px hit-boxes -- the min-width/height floor overrode the sized glyph); zoom-in resolution cap relaxed from bar-for-bar peak parity to MIN_SAMPLES_IN_VIEW=4; dot/native-slider layout uses visPos()=LAST_IDX-i (widest left, tightest right), button logic unchanged."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/app/layout/bookIdentityStore.ts": {
-   "purpose": "External pub-sub store for BookIdentity state shared by TopBar/RailBookBlock/book routes",
-   "exports": [
-    {
-     "name": "getBookIdentitySnapshot, setBookIdentity, subscribeBookIdentity, BookIdentity",
-     "kind": "function/type"
-    }
-   ],
-   "calls": [
-    "frontend/src/types/index.ts"
-   ],
-   "called_by": [
-    "frontend/src/app/layout/BookIdentityLine.tsx",
-    "frontend/src/app/layout/RailBookBlock.tsx",
-    "frontend/src/pages/Book/BookLayout.tsx"
-   ],
-   "notes": [
-    "closure-based store, no diffing"
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/app/layout/layering.ts": {
-   "purpose": "Centralized z-index constants",
-   "exports": [
-    {
-     "name": "LAYERS",
-     "kind": "const"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/app/layout/NavRail.tsx",
-    "frontend/src/app/layout/PlayerBar.tsx",
-    "frontend/src/pages/ProjectDetail/components/ProjectBreadcrumbs.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/app/layout/navData.ts": {
-   "purpose": "Navigation structure definitions: nav groups, items, active nav lookup",
-   "exports": [
-    {
-     "name": "buildNavGroups, getActiveNavId, NavItem, NavGroup",
-     "kind": "function/type"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/app/layout/MobileNavDrawer.tsx",
-    "frontend/src/app/layout/NavRail.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/app/layout/playerRepresentation.ts": {
-   "purpose": "Pure duration-driven scrub representation decision (audio-player.md 1.6.0): waveform vs plain bar",
-   "exports": [
-    {
-     "name": "fitsLegibly",
-     "kind": "function",
-     "contract": "(durationSec, barWidthPx) -> boolean; pure, no DOM/side effects"
+    "frontend/src/app/layout/RailBookBlock.tsx": {
+      "purpose": "Book summary in nav rail: cover, title, stage links, expandable chapter list",
+      "exports": [
+        {
+          "name": "RailBookBlock",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/app/layout/bookIdentityStore.ts",
+        "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx",
+        "frontend/src/components/ui/ActionMenu.tsx",
+        "frontend/src/components/ui/StatusOrb.tsx",
+        "frontend/src/pages/Book/lib/stages.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/jobSelection.ts"
+      ],
+      "called_by": [
+        "frontend/src/app/layout/NavRail.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/app/layout/bookIdentityStore#*",
+        "frontend/src/components/ui/StatusOrb#*",
+        "frontend/src/pages/Book/lib/stages#*"
+      ]
     },
-    {
-     "name": "PX_PER_SEC_FLOOR",
-     "kind": "const",
-     "contract": "3 -- legibility floor per spec"
+    "frontend/src/app/layout/StudioShell.tsx": {
+      "purpose": "Shell state derivation engine: navigation, hydration, breadcrumbs, project subnav",
+      "exports": [
+        {
+          "name": "createStudioShellState, deriveNavigationState, deriveHydrationStatus, ShellInputs",
+          "kind": "function/type"
+        }
+      ],
+      "calls": [
+        "frontend/src/app/navigation/breadcrumbs.ts",
+        "frontend/src/app/navigation/model.ts",
+        "frontend/src/app/navigation/project-subnav.ts"
+      ],
+      "called_by": [
+        "frontend/src/app/App.tsx",
+        "frontend/src/pages/ProjectDetail/ProjectViewRoute.tsx",
+        "frontend/src/pages/Queue/QueueRoute.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/app/navigation/breadcrumbs#*",
+        "frontend/src/app/navigation/model#GLOBAL_NAVIGATION_NODES",
+        "frontend/src/app/navigation/project-subnav#createProjectSubnav"
+      ]
     },
-    {
-     "name": "DURATION_BOOTSTRAP",
-     "kind": "const",
-     "contract": "30 -- bootstrap threshold before bar width is known (FIXED 2026-07-04 from 120, which was 4x the spec value -- silent drift a test comment falsely called 'spec-defined')"
-    }
-   ],
-   "calls": [],
-   "called_by": [],
-   "notes": [
-    "scope-blind by construction -- no scope parameter, replaces the retired playerBus.scope-driven decision"
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/app/layout/waveformTapeZoomPresets.ts": {
-   "purpose": "Shared zoom-preset constants and the detail/minimap bar-count helper, extracted to break an ES module import cycle",
-   "exports": [
-    {
-     "name": "TAPE_ZOOM_PRESETS_SEC",
-     "kind": "const",
-     "contract": "[3,5,8,15,30,60,120] ascending: index 0 = most zoomed in (3s), index 6 = most zoomed out (120s)"
+    "frontend/src/app/layout/TopBar.tsx": {
+      "purpose": "Header navigation: brand logo, breadcrumb, connection status, queue toggle",
+      "exports": [
+        {
+          "name": "TopBar",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/app/navigation/model.ts",
+        "frontend/src/components/layout/BrandLogo.tsx"
+      ],
+      "called_by": [
+        "frontend/src/app/layout/AppShell.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/app/navigation/model#StudioShellState",
+        "frontend/src/components/layout/BrandLogo#BrandLogo"
+      ]
     },
-    {
-     "name": "TapeZoomPreset",
-     "kind": "type"
+    "frontend/src/app/layout/WaveformStrip.tsx": {
+      "purpose": "Wavesurfer.js inline waveform display bound to parent <audio> element",
+      "exports": [
+        {
+          "name": "WaveformStrip",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/app/layout/PlayerBar.tsx"
+      ],
+      "notes": [
+        "ADR-0010: never creates own audio/AudioContext, accepts PlayerBar's audioEl"
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "TAPE_BAR_COUNT",
-     "kind": "const",
-     "contract": "180 -- floor/default detail-canvas bar count"
+    "frontend/src/app/layout/WaveformTape.tsx": {
+      "purpose": "Real WaveformTape renderer (004 tasks 006-007, W2): fixed-grid sampling, paged/moving motion, zoom+minimap, ported from the demo's MockWaveTape/MockTapeControls",
+      "exports": [
+        {
+          "name": "WaveformTape",
+          "kind": "component"
+        },
+        {
+          "name": "usePeaks",
+          "kind": "hook",
+          "contract": "(audioUrl, audioEl, suppliedPeaks?) -> number[]|null; 2026-07-10 (task 008): a non-empty suppliedPeaks short-circuits the fetch+decode effect entirely and is returned directly (no network/AudioContext) -- lets PlayerBar feed a server-computed peaks sidecar for over-cap clips. Existing behavior unchanged when suppliedPeaks is omitted."
+        },
+        {
+          "name": "TAPE_ZOOM_PRESETS_SEC",
+          "kind": "const",
+          "contract": "[3,5,8,15,30,60,120] (re-exported from waveformTapeZoomPresets.ts)"
+        },
+        {
+          "name": "PEAKS_COUNT",
+          "kind": "const",
+          "contract": "4000"
+        },
+        {
+          "name": "snapZoom",
+          "kind": "function",
+          "contract": "re-exported from WaveformTapeZoom.tsx"
+        },
+        {
+          "name": "computeTapeBarCount",
+          "kind": "function",
+          "contract": "re-exported from waveformTapeZoomPresets.ts (moved there 2026-07-11 to break the minimap import cycle)"
+        }
+      ],
+      "calls": [
+        "frontend/src/app/layout/WaveformTapeMinimap.tsx#WaveformTapeMinimap",
+        "frontend/src/app/layout/WaveformTapeZoom.tsx#WaveformTapeZoom,snapZoom",
+        "frontend/src/app/layout/waveformTapeZoomPresets.ts#TAPE_ZOOM_PRESETS_SEC,TapeZoomPreset,computeTapeBarCount",
+        "frontend/src/store/playerBus.ts#seek"
+      ],
+      "called_by": [
+        "frontend/src/app/layout/PlayerBar.tsx"
+      ],
+      "notes": [
+        "usePeaks decoupled from the <audio> element (fetch+decode independent of audioEl.src) -- preserves ADR-0010 single-audio-owner; no <audio> or MediaElementSourceNode anywhere in this file (grep-confirmed)",
+        "fixed-grid sampling (audio-player.md 1.6.0 §5.3): gridSec = windowSec/BAR_COUNT, alignedStart snapped -- prevents waveform crawl",
+        "task 007 landed 2026-07-04: accepts optional onZoomChange/peaks props, renders WaveformTapeZoom above and WaveformTapeMinimap below the canvas when onZoomChange is provided; still not yet mounted into PlayerBar.tsx -- that's task 008's job",
+        "review-ratchet fix (2026-07-04): wheel-zoom listener is attached via a native, non-passive addEventListener('wheel', ..., {passive:false}) in a useEffect, not React's onWheel JSX prop -- React registers wheel as passive at the root (17+), so e.preventDefault() inside onWheel was a silent no-op in real browsers (page scrolled while zoom also snapped); jsdom couldn't reproduce the bug, so the regression test is structural (asserts the addEventListener call's options)",
+        "2026-07-10 adversarial-review fix (CRITICAL): minimapPeaks previously read the raw `peaks` prop (`peaks !== undefined ? peaks : peakArray`), which is null for every under-cap clip (PlayerBar passes peaks={sidecarPeaks}, only non-null over the duration cap) -- the minimap rendered flat placeholder bars while the canvas correctly showed the decoded waveform. Fixed: minimapPeaks = peakArray (usePeaks' already-resolved effective source), used by both canvas and minimap.",
+        "2026-07-11 waveform fixes: detail-canvas bar count now computeTapeBarCount(availablePeaks,duration,windowSec,containerWidthPx) instead of a fixed 180 (scales resolution with zoom width); playhead position driven by a 60Hz requestAnimationFrame loop in BOTH paged and moving modes (was ~4Hz timeupdate in paged, which stepped). computeTapeBarCount moved out to waveformTapeZoomPresets.ts and re-exported here."
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "computeTapeBarCount",
-     "kind": "function",
-     "contract": "(availablePeaks, duration, windowSec, containerWidthPx) -> bar count; scales visual resolution with zoom window, capped by real available peaks and measured pixel width, floored at TAPE_BAR_COUNT(180). Moved here from WaveformTape.tsx to break a WaveformTapeMinimap->WaveformTape import cycle."
+    "frontend/src/app/layout/WaveformTapeMinimap.tsx": {
+      "purpose": "Whole-clip minimap strip + draggable window rectangle for WaveformTape, task 007",
+      "exports": [
+        {
+          "name": "WaveformTapeMinimap",
+          "kind": "component",
+          "contract": "props: duration, currentTimeSec, windowStartSec, windowSec, onSeek, peaks, height?; bar count now from computeTapeBarCount(availablePeaks, duration, windowSec=duration, measuredWidth) with a ResizeObserver-measured width (was fixed MINIMAP_BARS=200); drag/click-outside-rect resolve through one pointerToPageStart formula, clamped to [0, duration-windowSec]; delegates all navigation via onSeek, never calls playerBus.seek directly"
+        }
+      ],
+      "calls": [
+        "frontend/src/app/layout/waveformTapeZoomPresets.ts#computeTapeBarCount"
+      ],
+      "called_by": [],
+      "notes": [
+        "ported from frontend/src/demo/stages/siteMockup/MockTapeControls.tsx (TapeMinimapStrip)",
+        "flat 0.4 fallback bar while peaks is null (still decoding)",
+        "review-adversarial catch during task 007: an early draft had two dead-code branches computing the identical pointer-to-time expression, fixed to the single correct formula before landing",
+        "2026-07-11 waveform fixes: bar count now computeTapeBarCount(windowSec=duration) + ResizeObserver measured width (was fixed MINIMAP_BARS=200); playhead line stroke changed to var(--text-muted) so it is visually distinct from the two blue window-rect edges."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/app/layout/WaveformTapeZoom.tsx": {
+      "purpose": "Cover-slider zoom preset control for WaveformTape (audio-player.md 1.6.0 §5.2), task 007",
+      "exports": [
+        {
+          "name": "WaveformTapeZoom",
+          "kind": "component",
+          "contract": "props: windowSec, onZoomChange, duration, availablePeaks, containerWidthPx; 7-preset dot/native-slider + lucide ZoomOut/ZoomIn step buttons; zoom-in cap relaxed to MIN_SAMPLES_IN_VIEW=4 (all 7 presets reachable); zoom-out hard-capped at 120s"
+        },
+        {
+          "name": "snapZoom",
+          "kind": "function",
+          "contract": "(current, 'in'|'out') -> next preset, clamped at the array ends"
+        }
+      ],
+      "calls": [
+        "frontend/src/app/layout/waveformTapeZoomPresets.ts#TAPE_ZOOM_PRESETS_SEC,TapeZoomPreset"
+      ],
+      "called_by": [],
+      "notes": [
+        "ported from frontend/src/demo/stages/siteMockup/MockTapeControls.tsx (ZoomPresetControl/snapZoom)",
+        "renders ns-size-* classes (ns-size-control/glyph/slider-wrap/track/tick/slider) -- these are NOT yet live app CSS, they only exist in the demo mock's mockup.css; task 009 must port them in (corrected 2026-07-04, review-ratchet -- the task docs originally, incorrectly, claimed free reuse)",
+        "touch-target sizing (44x44 HIG) deliberately deferred to task 009 via hook classes tape-zoom-glyph-hit/tape-zoom-slider-hit, no inline pixel dimensions yet",
+        "review-ratchet fix (2026-07-04): +/- buttons originally jumped to the extreme preset (ported verbatim from the mock) instead of stepping by one as task 007's acceptance criteria requires -- fixed to step, clamped to [zoomInCapIdx, LAST_IDX]",
+        "2026-07-11 waveform fixes: +/- glyphs replaced with lucide ZoomOut/ZoomIn icons (were blank ~44px hit-boxes -- the min-width/height floor overrode the sized glyph); zoom-in resolution cap relaxed from bar-for-bar peak parity to MIN_SAMPLES_IN_VIEW=4; dot/native-slider layout uses visPos()=LAST_IDX-i (widest left, tightest right), button logic unchanged."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/app/layout/bookIdentityStore.ts": {
+      "purpose": "External pub-sub store for BookIdentity state shared by TopBar/RailBookBlock/book routes",
+      "exports": [
+        {
+          "name": "getBookIdentitySnapshot, setBookIdentity, subscribeBookIdentity, BookIdentity",
+          "kind": "function/type"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/app/layout/BookIdentityLine.tsx",
+        "frontend/src/app/layout/RailBookBlock.tsx",
+        "frontend/src/pages/Book/BookLayout.tsx"
+      ],
+      "notes": [
+        "closure-based store, no diffing"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/app/layout/layering.ts": {
+      "purpose": "Centralized z-index constants",
+      "exports": [
+        {
+          "name": "LAYERS",
+          "kind": "const"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/app/layout/NavRail.tsx",
+        "frontend/src/app/layout/PlayerBar.tsx",
+        "frontend/src/pages/ProjectDetail/components/ProjectBreadcrumbs.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/app/layout/navData.ts": {
+      "purpose": "Navigation structure definitions: nav groups, items, active nav lookup",
+      "exports": [
+        {
+          "name": "buildNavGroups, getActiveNavId, NavItem, NavGroup",
+          "kind": "function/type"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/app/layout/MobileNavDrawer.tsx",
+        "frontend/src/app/layout/NavRail.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/app/layout/playerRepresentation.ts": {
+      "purpose": "Pure duration-driven scrub representation decision (audio-player.md 1.6.0): waveform vs plain bar",
+      "exports": [
+        {
+          "name": "fitsLegibly",
+          "kind": "function",
+          "contract": "(durationSec, barWidthPx) -> boolean; pure, no DOM/side effects"
+        },
+        {
+          "name": "PX_PER_SEC_FLOOR",
+          "kind": "const",
+          "contract": "3 -- legibility floor per spec"
+        },
+        {
+          "name": "DURATION_BOOTSTRAP",
+          "kind": "const",
+          "contract": "30 -- bootstrap threshold before bar width is known (FIXED 2026-07-04 from 120, which was 4x the spec value -- silent drift a test comment falsely called 'spec-defined')"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "scope-blind by construction -- no scope parameter, replaces the retired playerBus.scope-driven decision"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/app/layout/waveformTapeZoomPresets.ts": {
+      "purpose": "Shared zoom-preset constants and the detail/minimap bar-count helper, extracted to break an ES module import cycle",
+      "exports": [
+        {
+          "name": "TAPE_ZOOM_PRESETS_SEC",
+          "kind": "const",
+          "contract": "[3,5,8,15,30,60,120] ascending: index 0 = most zoomed in (3s), index 6 = most zoomed out (120s)"
+        },
+        {
+          "name": "TapeZoomPreset",
+          "kind": "type"
+        },
+        {
+          "name": "TAPE_BAR_COUNT",
+          "kind": "const",
+          "contract": "180 -- floor/default detail-canvas bar count"
+        },
+        {
+          "name": "computeTapeBarCount",
+          "kind": "function",
+          "contract": "(availablePeaks, duration, windowSec, containerWidthPx) -> bar count; scales visual resolution with zoom window, capped by real available peaks and measured pixel width, floored at TAPE_BAR_COUNT(180). Moved here from WaveformTape.tsx to break a WaveformTapeMinimap->WaveformTape import cycle."
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/app/layout/WaveformTape.tsx",
+        "frontend/src/app/layout/WaveformTapeZoom.tsx",
+        "frontend/src/app/layout/WaveformTapeMinimap.tsx"
+      ],
+      "notes": [
+        "task 007 (2026-07-04): split out of WaveformTape.tsx because WaveformTape renders WaveformTapeZoom, which needs these constants at module-eval time -- WaveformTape.tsx re-exports both so the task-006 import contract (import from './WaveformTape') is unchanged for existing callers",
+        "2026-07-11 waveform fixes: presets extended 5->7 ([3,5,8,15,30,60,120]); computeTapeBarCount + TAPE_BAR_COUNT moved in from WaveformTape.tsx (which re-exports computeTapeBarCount) to break the WaveformTapeMinimap->WaveformTape import cycle."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/app/navigation/breadcrumbs.ts": {
+      "purpose": "Breadcrumb generation for projects/chapters",
+      "exports": [
+        {
+          "name": "createProjectBreadcrumbs, createChapterBreadcrumbs, BreadcrumbItem, BreadcrumbContext",
+          "kind": "function/type"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/app/layout/StudioShell.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/app/navigation/model.ts": {
+      "purpose": "Navigation type definitions: RouteKind, NavigationState, HydrationStatus, StudioShellState",
+      "exports": [
+        {
+          "name": "NavigationLevel, RouteKind, NavigationState, HydrationStatus, StudioShellState, GLOBAL_NAVIGATION_NODES, PROJECT_NAVIGATION_NODES, CHAPTER_NAVIGATION_NODES, COMPANION_SURFACES",
+          "kind": "type/const"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/app/layout/AppShell.tsx",
+        "frontend/src/app/layout/StudioShell.tsx",
+        "frontend/src/app/layout/TopBar.tsx",
+        "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx",
+        "frontend/src/pages/ProjectDetail/ProjectViewRoute.tsx",
+        "frontend/src/pages/Queue/QueueRoute.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/app/navigation/project-subnav.ts": {
+      "purpose": "Project-level subnav items: Chapters, Assemblies, Backups, Characters",
+      "exports": [
+        {
+          "name": "createProjectSubnav, ProjectSubnavItem",
+          "kind": "function/type"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/app/layout/StudioShell.tsx",
+        "frontend/src/pages/ProjectDetail/components/ProjectSubnav.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/app/providers/index.tsx": {
+      "purpose": "App provider boundary stub for query/socket/theme/notification composition",
+      "exports": [
+        {
+          "name": "createStudioProviders",
+          "kind": "function",
+          "contract": "returns null, stub"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/client.ts",
+        "frontend/src/api/hydration/index.ts",
+        "frontend/src/store/notifications.ts"
+      ],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/api/client#createApiClient",
+        "frontend/src/api/hydration/index#createHydrationCoordinator",
+        "frontend/src/store/notifications#createNotificationsStore"
+      ]
     }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/app/layout/WaveformTape.tsx",
-    "frontend/src/app/layout/WaveformTapeZoom.tsx",
-    "frontend/src/app/layout/WaveformTapeMinimap.tsx"
-   ],
-   "notes": [
-    "task 007 (2026-07-04): split out of WaveformTape.tsx because WaveformTape renders WaveformTapeZoom, which needs these constants at module-eval time -- WaveformTape.tsx re-exports both so the task-006 import contract (import from './WaveformTape') is unchanged for existing callers",
-    "2026-07-11 waveform fixes: presets extended 5->7 ([3,5,8,15,30,60,120]); computeTapeBarCount + TAPE_BAR_COUNT moved in from WaveformTape.tsx (which re-exports computeTapeBarCount) to break the WaveformTapeMinimap->WaveformTape import cycle."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/app/navigation/breadcrumbs.ts": {
-   "purpose": "Breadcrumb generation for projects/chapters",
-   "exports": [
-    {
-     "name": "createProjectBreadcrumbs, createChapterBreadcrumbs, BreadcrumbItem, BreadcrumbContext",
-     "kind": "function/type"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/app/layout/StudioShell.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/app/navigation/model.ts": {
-   "purpose": "Navigation type definitions: RouteKind, NavigationState, HydrationStatus, StudioShellState",
-   "exports": [
-    {
-     "name": "NavigationLevel, RouteKind, NavigationState, HydrationStatus, StudioShellState, GLOBAL_NAVIGATION_NODES, PROJECT_NAVIGATION_NODES, CHAPTER_NAVIGATION_NODES, COMPANION_SURFACES",
-     "kind": "type/const"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/app/layout/AppShell.tsx",
-    "frontend/src/app/layout/StudioShell.tsx",
-    "frontend/src/app/layout/TopBar.tsx",
-    "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx",
-    "frontend/src/pages/ProjectDetail/ProjectViewRoute.tsx",
-    "frontend/src/pages/Queue/QueueRoute.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/app/navigation/project-subnav.ts": {
-   "purpose": "Project-level subnav items: Chapters, Assemblies, Backups, Characters",
-   "exports": [
-    {
-     "name": "createProjectSubnav, ProjectSubnavItem",
-     "kind": "function/type"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/app/layout/StudioShell.tsx",
-    "frontend/src/pages/ProjectDetail/components/ProjectSubnav.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/app/providers/index.tsx": {
-   "purpose": "App provider boundary stub for query/socket/theme/notification composition",
-   "exports": [
-    {
-     "name": "createStudioProviders",
-     "kind": "function",
-     "contract": "returns null, stub"
-    }
-   ],
-   "calls": [
-    "frontend/src/api/client.ts",
-    "frontend/src/api/hydration/index.ts",
-    "frontend/src/store/notifications.ts"
-   ],
-   "called_by": [],
-   "notes": [],
-   "calls_inferred": [
-    "frontend/src/api/client#createApiClient",
-    "frontend/src/api/hydration/index#createHydrationCoordinator",
-    "frontend/src/store/notifications#createNotificationsStore"
-   ]
   }
- }
 }

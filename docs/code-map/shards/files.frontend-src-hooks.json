@@ -69,7 +69,7 @@
         "frontend/src/hooks/useChapterEditor.ts"
       ],
       "notes": [
-        "2026-07-09: loadChapter() now calls api.fetchChapter(chapterId) (GET /api/chapters/{id}, ~700B/~4ms) instead of api.fetchChapters(projectId) + Array.find (GET /api/projects/{id}/chapters, ~780KB/~60-100ms for the measured 28-chapter book \u2014 the full list including every OTHER chapter's full text_content). This loader runs on mount, on every websocket chapter-update/segment-update tick, and on every 1s completion-poll tick (up to 30x per render), so the old code re-transferred the whole project's chapter text repeatedly just to read one chapter's fields. Minor behavior note: the single-chapter endpoint doesn't cross-check project_id the way `chapters.find(c => c.id === chapterId)` implicitly did \u2014 not exercised by real navigation (chapterId is always routing-scoped) so left as-is.",
+        "2026-07-09: loadChapter() now calls api.fetchChapter(chapterId) (GET /api/chapters/{id}, ~700B/~4ms) instead of api.fetchChapters(projectId) + Array.find (GET /api/projects/{id}/chapters, ~780KB/~60-100ms for the measured 28-chapter book — the full list including every OTHER chapter's full text_content). This loader runs on mount, on every websocket chapter-update/segment-update tick, and on every 1s completion-poll tick (up to 30x per render), so the old code re-transferred the whole project's chapter text repeatedly just to read one chapter's fields. Minor behavior note: the single-chapter endpoint doesn't cross-check project_id the way `chapters.find(c => c.id === chapterId)` implicitly did — not exercised by real navigation (chapterId is always routing-scoped) so left as-is.",
         "2026-07-10: Passes projectId to api.fetchChapter. On a 404 (error.status === 404) the catch block now clears chapter/segments/characters/scriptViewData and sets a new chapterNotFound flag instead of leaving stale state on screen with only a console.error."
       ],
       "calls_inferred": [
@@ -138,7 +138,7 @@
       "calls_inferred": [],
       "called_by": [],
       "notes": [
-        "Added 2026-07-06 to restore progress-presentation.md spec \u00a77 H5 (text fill follows ANIMATED display progress, never raw stepped event data) for N concurrently-rendering segments -- reuses the bar's existing lane math and 250ms tickMs cadence rather than inventing new interpolation logic. One shared setInterval keyed on a boolean so frame-identity churn never resets the timer."
+        "Added 2026-07-06 to restore progress-presentation.md spec §7 H5 (text fill follows ANIMATED display progress, never raw stepped event data) for N concurrently-rendering segments -- reuses the bar's existing lane math and 250ms tickMs cadence rather than inventing new interpolation logic. One shared setInterval keyed on a boolean so frame-identity churn never resets the timer."
       ]
     },
     "frontend/src/hooks/useChapterAnalysis.ts": {
@@ -252,7 +252,7 @@
         {
           "name": "useDragDropHighlight",
           "kind": "hook",
-          "contract": "(onDropFiles: (files: FileList) => void|Promise<void>) \u2192 { isDragging, resetDragState, dragDropProps: {onDragEnter,onDragOver,onDragLeave,onDrop} }"
+          "contract": "(onDropFiles: (files: FileList) => void|Promise<void>) → { isDragging, resetDragState, dragDropProps: {onDragEnter,onDragOver,onDragLeave,onDrop} }"
         }
       ],
       "calls": [],
@@ -346,7 +346,7 @@
       ],
       "notes": [
         "overlays (chapters.progress,voice.test) must not create job rows",
-        "segmentProgress entries now also capture eta_seconds/status/updated_at (2026-07-05) \u2014 previously discarded data from the segments.progress stream that useStudioChapter.ts now consumes as an active_segments_map fallback"
+        "segmentProgress entries now also capture eta_seconds/status/updated_at (2026-07-05) — previously discarded data from the segments.progress stream that useStudioChapter.ts now consumes as an active_segments_map fallback"
       ],
       "calls_inferred": [
         "frontend/src/hooks/useStudioSocketConnection#*",
@@ -665,7 +665,7 @@
         "frontend/src/pages/Voices/VoicesPage.tsx"
       ],
       "notes": [
-        "2026-07-10: profile-settings save failure path now emits a user-visible toast (emitToast) in addition to console.error, on both non-ok response and thrown error. (Uncovered drift \u2014 no queue entry named this file; found via direct diff scan against synced_commit.)"
+        "2026-07-10: profile-settings save failure path now emits a user-visible toast (emitToast) in addition to console.error, on both non-ok response and thrown error. (Uncovered drift — no queue entry named this file; found via direct diff scan against synced_commit.)"
       ],
       "calls_inferred": [
         "frontend/src/api#*"
@@ -748,6 +748,26 @@
       ],
       "notes": [
         "5s reconnect delay"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/hooks/useSegmentInventory.ts": {
+      "purpose": "Fetches api.fetchScriptView(chapterId) once per active job's chapter_id and merges each ScriptSpan with the live active_segments_map entry for its id, producing SegmentRenderMonitorSegment[] for SegmentRenderMonitor (present entry -> real phase/progress/char_count; absent -> 'done'/1 if span.status==='done' else 'preparing'/0). Request-id guarded against stale responses, mirroring useRenderGroups.ts's pattern.",
+      "exports": [
+        {
+          "name": "useSegmentInventory",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts#fetchScriptView"
+      ],
+      "called_by": [
+        "frontend/src/pages/Activity/ActivityPage.tsx"
+      ],
+      "notes": [
+        "Task 008 (2026-07-11): new hook closing the fixture-fed gap in SegmentRenderMonitor's real-data hydration.",
+        "Task 010 (2026-07-11): maps ActiveSegmentMapEntry.reason_code -> SegmentRenderMonitorSegment.reasonCode, and prefers liveEntry.engine_id (task 008 field) over the job-level engine as the per-segment engineId when present."
       ],
       "calls_inferred": []
     }

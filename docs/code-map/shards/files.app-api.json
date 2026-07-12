@@ -1,951 +1,962 @@
 {
- "files": {
-  "app/api/__init__.py": {
-   "purpose": "Package exports of routers and WS broadcast helpers",
-   "exports": [
-    {
-     "name": "manager, broadcast_queue_update, broadcast_segments_updated, broadcast_pause_state, broadcast_test_progress, broadcast_job_updated",
-     "kind": "function/const"
-    }
-   ],
-   "calls": [
-    "app/api/routers/__init__.py",
-    "app/api/ws.py#*"
-   ],
-   "called_by": [],
-   "notes": [],
-   "calls_inferred": [
-    "app/api/routers/*"
-   ]
-  },
-  "app/api/contracts/__init__.py": {
-   "purpose": "Public exports of API contract builders and types for WS/hydration payloads",
-   "exports": [
-    {
-     "name": "StudioEventEnvelope, StudioJobEventScope, StudioJobStatus",
-     "kind": "class"
+  "files": {
+    "app/api/__init__.py": {
+      "purpose": "Package exports of routers and WS broadcast helpers",
+      "exports": [
+        {
+          "name": "manager, broadcast_queue_update, broadcast_segments_updated, broadcast_pause_state, broadcast_test_progress, broadcast_job_updated",
+          "kind": "function/const"
+        }
+      ],
+      "calls": [
+        "app/api/routers/__init__.py",
+        "app/api/ws.py#*"
+      ],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": [
+        "app/api/routers/*"
+      ]
     },
-    {
-     "name": "build_job_lifecycle_event, build_chapter_lifecycle_event, build_chapter_progress_event, build_segment_lifecycle_event, build_segment_progress_event, build_queue_item_status_event, build_queue_item_invalidated_event, build_queue_paused_event, build_tts_log_event, build_voice_test_progress_event, build_system_event, build_plugin_event, build_studio_event",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/api/contracts/events.py"
-   ],
-   "called_by": [],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "app/api/contracts/events.py": {
-   "purpose": "Normalized WebSocket event contract: command enums, topic scopes, canonical mapping, frame builders",
-   "exports": [
-    {
-     "name": "JobLifecycleCommand",
-     "kind": "class"
+    "app/api/contracts/__init__.py": {
+      "purpose": "Public exports of API contract builders and types for WS/hydration payloads",
+      "exports": [
+        {
+          "name": "StudioEventEnvelope, StudioJobEventScope, StudioJobStatus",
+          "kind": "class"
+        },
+        {
+          "name": "build_job_lifecycle_event, build_chapter_lifecycle_event, build_chapter_progress_event, build_segment_lifecycle_event, build_segment_progress_event, build_queue_item_status_event, build_queue_item_invalidated_event, build_queue_paused_event, build_tts_log_event, build_voice_test_progress_event, build_system_event, build_plugin_event, build_studio_event",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/api/contracts/events.py"
+      ],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
     },
-    {
-     "name": "COMMAND_TOPIC_SCOPES, LEGACY_TO_CANONICAL, SEGMENT_SCOPED_COMMANDS",
-     "kind": "const"
+    "app/api/contracts/events.py": {
+      "purpose": "Normalized WebSocket event contract: command enums, topic scopes, canonical mapping, frame builders",
+      "exports": [
+        {
+          "name": "JobLifecycleCommand",
+          "kind": "class"
+        },
+        {
+          "name": "COMMAND_TOPIC_SCOPES, LEGACY_TO_CANONICAL, SEGMENT_SCOPED_COMMANDS",
+          "kind": "const"
+        },
+        {
+          "name": "is_command_allowed_for_topic, normalize_to_canonical_command",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/engines/behavior.py"
+      ],
+      "called_by": [
+        "app/api/contracts/__init__.py",
+        "app/orchestration/progress/service.py"
+      ],
+      "notes": [
+        "topics: jobs.lifecycle, queue.items, chapters.progress, segments.progress each with allowed command set",
+        "build_queue_item_status_event gained an active_segments_map kwarg (additive C2 contract, live-events.md 1.9.0/1.9.1), snake_case wire key",
+        "command-set dedup: removed raw-string duplicates of enum members from JOB_LIFECYCLE_COMMANDS/COMMAND_TOPIC_SCOPES/SEGMENT_SCOPED_COMMANDS; membership-identical, no contract/wire/version change",
+        "build_chapter_progress_event() gained active_segments_map kwarg (2026-07-05, additive/snake_case) — the missing delivery leg for the C2 live-map contract; without it a status-unchanged mid-render update could never reach the frontend regardless of backend state",
+        "Task 013 (2026-07-11): build_chapter_progress_event gained additive eta_low_seconds/eta_high_seconds/eta_display params (snake_case, same additive convention as active_segments_map); only written into the payload when eta_display is not None, so the fields are entirely absent (not null placeholders) until a job's BracketedEtaTracker exists. live-events.md bumped 1.9.6 -> 1.9.7."
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "is_command_allowed_for_topic, normalize_to_canonical_command",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/engines/behavior.py"
-   ],
-   "called_by": [
-    "app/api/contracts/__init__.py",
-    "app/orchestration/progress/service.py"
-   ],
-   "notes": [
-    "topics: jobs.lifecycle, queue.items, chapters.progress, segments.progress each with allowed command set",
-    "build_queue_item_status_event gained an active_segments_map kwarg (additive C2 contract, live-events.md 1.9.0/1.9.1), snake_case wire key",
-    "command-set dedup: removed raw-string duplicates of enum members from JOB_LIFECYCLE_COMMANDS/COMMAND_TOPIC_SCOPES/SEGMENT_SCOPED_COMMANDS; membership-identical, no contract/wire/version change",
-    "build_chapter_progress_event() gained active_segments_map kwarg (2026-07-05, additive/snake_case) — the missing delivery leg for the C2 live-map contract; without it a status-unchanged mid-render update could never reach the frontend regardless of backend state"
-   ],
-   "calls_inferred": []
-  },
-  "app/api/routers/__init__.py": {
-   "purpose": "Package exports of all router modules",
-   "exports": [
-    {
-     "name": "projects, chapters, voices, queue, settings, generation, system, analysis, migration, engines",
-     "kind": "const"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "app/api/__init__.py",
-    "app/api/routers/voices.py",
-    "app/api/routers/voices_actions.py",
-    "app/api/routers/voices_management.py",
-    "app/api/routers/voices_narrators.py",
-    "app/api/web.py"
-   ],
-   "notes": [],
-   "calls_inferred": [
-    "app/api/routers/*"
-   ]
-  },
-  "app/api/routers/analysis.py": {
-   "purpose": "Chapter text analysis: sentence detection, pronunciation/synthesis splits, duration estimation",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const"
+    "app/api/routers/__init__.py": {
+      "purpose": "Package exports of all router modules",
+      "exports": [
+        {
+          "name": "projects, chapters, voices, queue, settings, generation, system, analysis, migration, engines",
+          "kind": "const"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "app/api/__init__.py",
+        "app/api/routers/voices.py",
+        "app/api/routers/voices_actions.py",
+        "app/api/routers/voices_management.py",
+        "app/api/routers/voices_narrators.py",
+        "app/api/web.py"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "app/api/routers/*"
+      ]
     },
-    {
-     "name": "AnalysisError",
-     "kind": "class"
+    "app/api/routers/analysis.py": {
+      "purpose": "Chapter text analysis: sentence detection, pronunciation/synthesis splits, duration estimation",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const"
+        },
+        {
+          "name": "AnalysisError",
+          "kind": "class"
+        },
+        {
+          "name": "ChapterAnalysisResponse, TextAnalysisResponse",
+          "kind": "class"
+        }
+      ],
+      "calls": [
+        "app/core/__init__.py",
+        "app/db/__init__.py#get_chapter,get_chapter_segments,get_characters",
+        "app/engines/behavior.py#*",
+        "app/engines/voice_engines.py#*",
+        "app/utils/pathing.py",
+        "app/utils/text/textops.py#*"
+      ],
+      "called_by": [
+        "app/api/web.py"
+      ],
+      "notes": [
+        "AnalysisError caught in web.py returns {status,message}",
+        "BE-1a follow-up (2026-07-04): removed a dead self-alias REPORT_DIR = config.REPORT_DIR (get_report_dir() reads config.REPORT_DIR directly, never the module-level alias) -- Fable review caught that an earlier fix had retargeted a test's monkeypatch to this dead alias instead of removing it"
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "ChapterAnalysisResponse, TextAnalysisResponse",
-     "kind": "class"
-    }
-   ],
-   "calls": [
-    "app/core/__init__.py",
-    "app/db/__init__.py#get_chapter,get_chapter_segments,get_characters",
-    "app/engines/behavior.py#*",
-    "app/engines/voice_engines.py#*",
-    "app/utils/pathing.py",
-    "app/utils/text/textops.py#*"
-   ],
-   "called_by": [
-    "app/api/web.py"
-   ],
-   "notes": [
-    "AnalysisError caught in web.py returns {status,message}",
-    "BE-1a follow-up (2026-07-04): removed a dead self-alias REPORT_DIR = config.REPORT_DIR (get_report_dir() reads config.REPORT_DIR directly, never the module-level alias) -- Fable review caught that an earlier fix had retargeted a test's monkeypatch to this dead alias instead of removing it"
-   ],
-   "calls_inferred": []
-  },
-  "app/api/routers/chapters.py": {
-   "purpose": "Main chapter endpoints: list/create/read/update/delete + segments CRUD, mounts production/assets sub-routers",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const"
+    "app/api/routers/chapters.py": {
+      "purpose": "Main chapter endpoints: list/create/read/update/delete + segments CRUD, mounts production/assets sub-routers",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const"
+        },
+        {
+          "name": "api_list_project_chapters, api_create_chapter, api_get_chapter_details, api_update_chapter_details",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/api/routers/chapters_assets.py#router",
+        "app/api/routers/chapters_models.py",
+        "app/api/routers/chapters_production.py#router",
+        "app/api/ws.py#broadcast_chapter_updated,broadcast_queue_update",
+        "app/core/__init__.py",
+        "app/core/constants.py",
+        "app/db/__init__.py#*",
+        "app/db/state.py#*",
+        "app/domain/chunk_groups.py#*",
+        "app/orchestration/scheduler/orchestrator.py",
+        "app/utils/text/textops.py#compute_chapter_metrics"
+      ],
+      "called_by": [],
+      "notes": [
+        "2026-07-09: PUT /api/segments/{segment_id} now enforces an explicit field whitelist (SEGMENT_UPDATE_ALLOWED_FIELDS = character_id, speaker_profile_name, audio_status, text_content) before forwarding the request body into update_segment(**updates), which otherwise used untrusted request-supplied dict keys directly as SQL column names. Unknown fields now 400 rather than passing through silently.",
+        "2026-07-10: POST /api/segments/bulk-update now enforces the same SEGMENT_UPDATE_ALLOWED_FIELDS whitelist (character_id, speaker_profile_name, audio_status, text_content) used by PUT /api/segments/{segment_id}, before forwarding req.updates into update_segments_bulk(**updates), which builds f\"{k} = ?\" SQL from those keys exactly like the already-fixed single-segment path. Unknown fields now 400 rather than being interpolated as raw SQL column names. No new constant was defined — reused SEGMENT_UPDATE_ALLOWED_FIELDS.",
+        "2026-07-10: GET /api/chapters/{chapter_id} now accepts an optional project_id query param and passes it through to get_chapter for scoping; a mismatched project_id now 404s instead of returning another project's chapter."
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "api_list_project_chapters, api_create_chapter, api_get_chapter_details, api_update_chapter_details",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/api/routers/chapters_assets.py#router",
-    "app/api/routers/chapters_models.py",
-    "app/api/routers/chapters_production.py#router",
-    "app/api/ws.py#broadcast_chapter_updated,broadcast_queue_update",
-    "app/core/__init__.py",
-    "app/core/constants.py",
-    "app/db/__init__.py#*",
-    "app/db/state.py#*",
-    "app/domain/chunk_groups.py#*",
-    "app/orchestration/scheduler/orchestrator.py",
-    "app/utils/text/textops.py#compute_chapter_metrics"
-   ],
-   "called_by": [],
-   "notes": [
-    "2026-07-09: PUT /api/segments/{segment_id} now enforces an explicit field whitelist (SEGMENT_UPDATE_ALLOWED_FIELDS = character_id, speaker_profile_name, audio_status, text_content) before forwarding the request body into update_segment(**updates), which otherwise used untrusted request-supplied dict keys directly as SQL column names. Unknown fields now 400 rather than passing through silently.",
-    "2026-07-10: POST /api/segments/bulk-update now enforces the same SEGMENT_UPDATE_ALLOWED_FIELDS whitelist (character_id, speaker_profile_name, audio_status, text_content) used by PUT /api/segments/{segment_id}, before forwarding req.updates into update_segments_bulk(**updates), which builds f\"{k} = ?\" SQL from those keys exactly like the already-fixed single-segment path. Unknown fields now 400 rather than being interpolated as raw SQL column names. No new constant was defined — reused SEGMENT_UPDATE_ALLOWED_FIELDS.",
-    "2026-07-10: GET /api/chapters/{chapter_id} now accepts an optional project_id query param and passes it through to get_chapter for scoping; a mismatched project_id now 404s instead of returning another project's chapter."
-   ],
-   "calls_inferred": []
-  },
-  "app/api/routers/chapters_assets.py": {
-   "purpose": "Chapter audio export and preview endpoints",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const"
+    "app/api/routers/chapters_assets.py": {
+      "purpose": "Chapter audio export and preview endpoints",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const"
+        },
+        {
+          "name": "api_export_chapter_audio, api_get_chapter_preview, api_stream_chapter",
+          "kind": "function"
+        },
+        {
+          "name": "api_get_chapter_asset",
+          "kind": "function",
+          "contract": "GET .../chapters/{chapter_id}/assets/{asset_type}; asset_type in {audio,text,segment,peaks}. peaks branch (2026-07-10): resolves the WAV via the existing containment-safe 'audio' resolution, derives a sibling <wav>.peaks.json path, serves via _load_or_compute_peaks_sidecar; 404 (never 500) on missing WAV or any compute/stat failure."
+        },
+        {
+          "name": "_load_or_compute_peaks_sidecar, _get_peaks_lock",
+          "kind": "function",
+          "contract": "compute-on-miss + cache: serves a cached sidecar if version+stat match the live WAV, else computes via audio_ops.compute_peaks_sidecar under a per-WAV-path threading.Lock (double-checked), atomically writes the cache. Adversarial-review hardened (2026-07-10): wav_path.stat() and the cache write are both wrapped in try/except OSError -> degrades to None/best-effort rather than an unguarded 500 on a concurrent WAV delete/replace."
+        }
+      ],
+      "calls": [
+        "app/api/routers/chapters_models.py",
+        "app/api/utils.py",
+        "app/core/__init__.py",
+        "app/core/config.py#canonical_chapter_id,find_secure_file",
+        "app/db/__init__.py#get_chapter",
+        "app/db/state.py",
+        "app/domain/chapters/facade.py#export_chapter_audio",
+        "app/engines/audio_ops.py#compute_peaks_sidecar,SIDECAR_VERSION",
+        "app/engines/behavior.py",
+        "app/storage/manager.py#get_storage_manager",
+        "app/utils/text/textops.py#*"
+      ],
+      "called_by": [],
+      "notes": [
+        "FileNotFoundError (404) means canonical WAV doesn't exist",
+        "2026-07-10 (audio_player_completion_004 task 007): added the 'peaks' asset_type -- lazy compute-on-first-request peaks sidecar, not an eager production-time hook (an orchestrator-completion-chokepoint design was tried and found to miss this app's default-engine chapter-fanout render path entirely)."
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "api_export_chapter_audio, api_get_chapter_preview, api_stream_chapter",
-     "kind": "function"
+    "app/api/routers/chapters_models.py": {
+      "purpose": "Pydantic request/response models for chapter endpoints",
+      "exports": [
+        {
+          "name": "BulkStatusUpdate, BulkSegmentsUpdate, AudioExportRequest, ScriptSpan, ScriptParagraph, ScriptRenderBatch, ScriptViewResponse, ScriptAssignment, ScriptRangeAssignment",
+          "kind": "class"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "app/api/routers/chapters.py",
+        "app/api/routers/chapters_assets.py"
+      ],
+      "notes": [],
+      "calls_inferred": []
     },
-    {
-     "name": "api_get_chapter_asset",
-     "kind": "function",
-     "contract": "GET .../chapters/{chapter_id}/assets/{asset_type}; asset_type in {audio,text,segment,peaks}. peaks branch (2026-07-10): resolves the WAV via the existing containment-safe 'audio' resolution, derives a sibling <wav>.peaks.json path, serves via _load_or_compute_peaks_sidecar; 404 (never 500) on missing WAV or any compute/stat failure."
+    "app/api/routers/chapters_production.py": {
+      "purpose": "Script view and assignment endpoints for chapter production",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const"
+        },
+        {
+          "name": "api_get_script_view, api_get_resync_preview, api_save_script_assignments, api_compact_script_view",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/api/routers/chapters_models.py#*",
+        "app/domain/chapters/facade.py#*"
+      ],
+      "called_by": [],
+      "notes": [
+        "RevisionMismatch (409) indicates concurrent edits"
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "_load_or_compute_peaks_sidecar, _get_peaks_lock",
-     "kind": "function",
-     "contract": "compute-on-miss + cache: serves a cached sidecar if version+stat match the live WAV, else computes via audio_ops.compute_peaks_sidecar under a per-WAV-path threading.Lock (double-checked), atomically writes the cache. Adversarial-review hardened (2026-07-10): wav_path.stat() and the cache write are both wrapped in try/except OSError -> degrades to None/best-effort rather than an unguarded 500 on a concurrent WAV delete/replace."
-    }
-   ],
-   "calls": [
-    "app/api/routers/chapters_models.py",
-    "app/api/utils.py",
-    "app/core/__init__.py",
-    "app/core/config.py#canonical_chapter_id,find_secure_file",
-    "app/db/__init__.py#get_chapter",
-    "app/db/state.py",
-    "app/domain/chapters/facade.py#export_chapter_audio",
-    "app/engines/audio_ops.py#compute_peaks_sidecar,SIDECAR_VERSION",
-    "app/engines/behavior.py",
-    "app/storage/manager.py#get_storage_manager",
-    "app/utils/text/textops.py#*"
-   ],
-   "called_by": [],
-   "notes": [
-    "FileNotFoundError (404) means canonical WAV doesn't exist",
-    "2026-07-10 (audio_player_completion_004 task 007): added the 'peaks' asset_type -- lazy compute-on-first-request peaks sidecar, not an eager production-time hook (an orchestrator-completion-chokepoint design was tried and found to miss this app's default-engine chapter-fanout render path entirely)."
-   ],
-   "calls_inferred": []
-  },
-  "app/api/routers/chapters_models.py": {
-   "purpose": "Pydantic request/response models for chapter endpoints",
-   "exports": [
-    {
-     "name": "BulkStatusUpdate, BulkSegmentsUpdate, AudioExportRequest, ScriptSpan, ScriptParagraph, ScriptRenderBatch, ScriptViewResponse, ScriptAssignment, ScriptRangeAssignment",
-     "kind": "class"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "app/api/routers/chapters.py",
-    "app/api/routers/chapters_assets.py"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "app/api/routers/chapters_production.py": {
-   "purpose": "Script view and assignment endpoints for chapter production",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const"
+    "app/api/routers/engines.py": {
+      "purpose": "Engine registry and plugin management endpoints",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const"
+        },
+        {
+          "name": "GithubPreviewRequest",
+          "kind": "class"
+        },
+        {
+          "name": "ConcurrencyUpdateRequest",
+          "kind": "class",
+          "contract": "pydantic model: {cap: int | null}"
+        }
+      ],
+      "calls": [
+        "app/core/config.py#PLUGINS_DIR",
+        "app/db/performance.py",
+        "app/db/state_performance.py",
+        "app/engines/bridge.py#create_voice_bridge",
+        "app/engines/errors.py",
+        "app/engines/official_registry.py",
+        "app/engines/registry.py",
+        "app/engines/tts_client.py",
+        "app/utils/pathing.py#contained_path",
+        "app/orchestration/scheduler/resources.py#get_engine_id_semaphore",
+        "app/orchestration/scheduler/cap_settings.py#resolve_effective_cap,get_engine_caps,get_global_parallel_cap",
+        "app/orchestration/tasks/synthesis.py#_manifest_resource_claim",
+        "app/db/state.py#set_engine_cap"
+      ],
+      "called_by": [],
+      "notes": [
+        "_PLUGIN_FOLDER_RE: tts_[a-z][a-z0-9]{1,14}",
+        "_ENGINE_ID_RE: [a-z][a-z0-9_-]{0,63}",
+        "Task 014 (2026-07-11): new GET /api/engines/concurrency (global_cap + per-engine [engine_id, engine_class, manifest_max, requested_cap, effective_cap, active_count] snapshot, all in-process reads) and PUT /api/engines/{engine_id}/concurrency (body {cap: int|null}; validates 1<=cap<=manifest_max server-side, HTTP 422 with manifest_max on violation rather than silent clamping; null clears the override; writes via db.state.set_engine_cap). An alternative, validating write path to task 012's raw POST /api/settings route (additive; that path keeps working unchanged)."
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "api_get_script_view, api_get_resync_preview, api_save_script_assignments, api_compact_script_view",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/api/routers/chapters_models.py#*",
-    "app/domain/chapters/facade.py#*"
-   ],
-   "called_by": [],
-   "notes": [
-    "RevisionMismatch (409) indicates concurrent edits"
-   ],
-   "calls_inferred": []
-  },
-  "app/api/routers/engines.py": {
-   "purpose": "Engine registry and plugin management endpoints",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const"
+    "app/api/routers/generation.py": {
+      "purpose": "Chapter generation endpoints: submit synthesis/bake/mixed jobs, pause/resume, engine validation",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const"
+        },
+        {
+          "name": "api_render_chapter",
+          "kind": "function"
+        },
+        {
+          "name": "_build_chapter_synthesis_task",
+          "kind": "function",
+          "contract": "for uses_segment_orchestration(engine_id): constructs ChapterSynthesisTask with max_concurrent_workers from the per-engine manifest cap; used by api_add_to_queue and api_bake_chapter; the segment-scoped 'render these specific segments' endpoint is unchanged (still SynthesisTask)"
+        }
+      ],
+      "calls": [
+        "app/api/ws.py#broadcast_chapter_updated,broadcast_queue_update",
+        "app/core/config.py",
+        "app/db/__init__.py",
+        "app/db/chapters.py",
+        "app/db/models.py",
+        "app/db/queue.py",
+        "app/db/segments.py",
+        "app/db/state.py",
+        "app/domain/chunk_groups.py#*",
+        "app/domain/chunk_groups.py#build_script_entry_for_group",
+        "app/engines/behavior.py#supports_bake_rendering,supports_mixed_rendering,supports_standard_rendering,uses_segment_orchestration",
+        "app/engines/bridge.py#create_voice_bridge",
+        "app/engines/voice_engines.py#*",
+        "app/orchestration/scheduler/orchestrator.py#create_orchestrator",
+        "app/orchestration/scheduler/resources.py",
+        "app/orchestration/tasks/segment_synthesis.py#ChapterSynthesisTask",
+        "app/orchestration/tasks/synthesis.py#SynthesisTask",
+        "app/utils/pathing.py",
+        "app/utils/render_trace.py",
+        "plugins/tts_mixed/handler.py"
+      ],
+      "called_by": [],
+      "notes": [
+        "engine selection validated via _ensure_engines_enabled",
+        "BE-5 (2026-07-04): _resolved_segment_profiles resolved once per request in api_add_to_queue/api_bake_chapter/api_generate_segments and threaded through _validate_generation_engines/resolve_tts_engine_for_profiles/_engines_for_profiles instead of being re-queried per call"
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "GithubPreviewRequest",
-     "kind": "class"
-    }
-   ],
-   "calls": [
-    "app/core/config.py#PLUGINS_DIR",
-    "app/db/performance.py",
-    "app/db/state_performance.py",
-    "app/engines/bridge.py#create_voice_bridge",
-    "app/engines/errors.py",
-    "app/engines/official_registry.py",
-    "app/engines/registry.py",
-    "app/engines/tts_client.py",
-    "app/utils/pathing.py#contained_path"
-   ],
-   "called_by": [],
-   "notes": [
-    "_PLUGIN_FOLDER_RE: tts_[a-z][a-z0-9]{1,14}",
-    "_ENGINE_ID_RE: [a-z][a-z0-9_-]{0,63}"
-   ],
-   "calls_inferred": []
-  },
-  "app/api/routers/generation.py": {
-   "purpose": "Chapter generation endpoints: submit synthesis/bake/mixed jobs, pause/resume, engine validation",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const"
+    "app/api/routers/migration.py": {
+      "purpose": "Legacy migration endpoint: import state.json into SQLite",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const"
+        },
+        {
+          "name": "api_import_legacy_migration",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/db/__init__.py#migrate_state_json_to_db"
+      ],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
     },
-    {
-     "name": "api_render_chapter",
-     "kind": "function"
+    "app/api/routers/projects.py": {
+      "purpose": "Main project endpoints; segment orphan GC scheduled on open; mounts assembly/backups sub-routers",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const"
+        },
+        {
+          "name": "api_list_projects, api_get_project, api_create_project, api_update_project, api_reorder_chapters_route",
+          "kind": "function",
+          "contract": "api_create_project accepts optional series_position (Form int); api_update_project accepts series_position as a Form string so an empty submission is distinguishable from omission (reads request.form() directly to detect presence and clear the field to None); api_update_project also accepts an optional `description` (Form str, 2026-07-09) -- `if description is not None` handles the normal set case, with an `elif \"description\" in form_data` fallback (reads the raw form value) because FastAPI's Form(None) coerces an empty-string submission to None, indistinguishable from omission, same latent gap as author/series/name."
+        }
+      ],
+      "calls": [
+        "app/api/routers/projects_assembly.py#router",
+        "app/api/routers/projects_backups.py#router",
+        "app/api/routers/projects_helpers.py",
+        "app/core/config.py",
+        "app/core/constants.py",
+        "app/db/__init__.py#*",
+        "app/db/segment_gc.py#reconcile_orphan_segment_files_for_project"
+      ],
+      "called_by": [],
+      "notes": [
+        "_schedule_segment_gc runs as BackgroundTask",
+        "2026-07-08: api_create_project threads series_position into create_project(); api_update_project inspects request.form() for a submitted (possibly empty-string) series_position field so clearing the value round-trips to None rather than being ignored -- a non-empty value that fails int() parsing returns 400 {status:'error', message:'Invalid series position'}.",
+        "2026-07-09T21:07Z (Task 003): api_update_project gains `description: Optional[str] = Form(None)`. api_get_project needed no change -- it already returns dict(row) with no field allowlisting, so the new column round-trips automatically."
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "_build_chapter_synthesis_task",
-     "kind": "function",
-     "contract": "for uses_segment_orchestration(engine_id): constructs ChapterSynthesisTask with max_concurrent_workers from the per-engine manifest cap; used by api_add_to_queue and api_bake_chapter; the segment-scoped 'render these specific segments' endpoint is unchanged (still SynthesisTask)"
-    }
-   ],
-   "calls": [
-    "app/api/ws.py#broadcast_chapter_updated,broadcast_queue_update",
-    "app/core/config.py",
-    "app/db/__init__.py",
-    "app/db/chapters.py",
-    "app/db/models.py",
-    "app/db/queue.py",
-    "app/db/segments.py",
-    "app/db/state.py",
-    "app/domain/chunk_groups.py#*",
-    "app/domain/chunk_groups.py#build_script_entry_for_group",
-    "app/engines/behavior.py#supports_bake_rendering,supports_mixed_rendering,supports_standard_rendering,uses_segment_orchestration",
-    "app/engines/bridge.py#create_voice_bridge",
-    "app/engines/voice_engines.py#*",
-    "app/orchestration/scheduler/orchestrator.py#create_orchestrator",
-    "app/orchestration/scheduler/resources.py",
-    "app/orchestration/tasks/segment_synthesis.py#ChapterSynthesisTask",
-    "app/orchestration/tasks/synthesis.py#SynthesisTask",
-    "app/utils/pathing.py",
-    "app/utils/render_trace.py",
-    "plugins/tts_mixed/handler.py"
-   ],
-   "called_by": [],
-   "notes": [
-    "engine selection validated via _ensure_engines_enabled",
-    "BE-5 (2026-07-04): _resolved_segment_profiles resolved once per request in api_add_to_queue/api_bake_chapter/api_generate_segments and threaded through _validate_generation_engines/resolve_tts_engine_for_profiles/_engines_for_profiles instead of being re-queried per call"
-   ],
-   "calls_inferred": []
-  },
-  "app/api/routers/migration.py": {
-   "purpose": "Legacy migration endpoint: import state.json into SQLite",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const"
+    "app/api/routers/projects_assembly.py": {
+      "purpose": "Project assembly endpoints: list m4b audiobooks, submit assembly jobs, monitor progress",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const"
+        },
+        {
+          "name": "api_list_project_audiobooks",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/api/utils.py#*",
+        "app/core/config.py#get_project_dir,get_project_m4b_dir",
+        "app/db/__init__.py#*",
+        "app/db/models.py",
+        "app/db/queue.py",
+        "app/db/state.py#*",
+        "app/engines/audio_ops.py#get_audio_duration",
+        "app/orchestration/scheduler/orchestrator.py#create_orchestrator",
+        "app/orchestration/tasks/assembly.py#AssemblyTask",
+        "app/storage/manager.py#get_storage_manager",
+        "app/utils/pathing.py#*"
+      ],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
     },
-    {
-     "name": "api_import_legacy_migration",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/db/__init__.py#migrate_state_json_to_db"
-   ],
-   "called_by": [],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "app/api/routers/projects.py": {
-   "purpose": "Main project endpoints; segment orphan GC scheduled on open; mounts assembly/backups sub-routers",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const"
+    "app/api/routers/projects_backups.py": {
+      "purpose": "Project backup/snapshot endpoints",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const"
+        },
+        {
+          "name": "api_get_project_export_manifest, api_create_project_snapshot, api_create_project_backup_bundle",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/api/routers/projects_helpers.py#_get_project_service,_create_backup_archive",
+        "app/core/config.py",
+        "app/db/__init__.py#get_project",
+        "app/storage/manager.py",
+        "app/utils/pathing.py"
+      ],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
     },
-    {
-     "name": "api_list_projects, api_get_project, api_create_project, api_update_project, api_reorder_chapters_route",
-     "kind": "function",
-     "contract": "api_create_project accepts optional series_position (Form int); api_update_project accepts series_position as a Form string so an empty submission is distinguishable from omission (reads request.form() directly to detect presence and clear the field to None); api_update_project also accepts an optional `description` (Form str, 2026-07-09) -- `if description is not None` handles the normal set case, with an `elif \"description\" in form_data` fallback (reads the raw form value) because FastAPI's Form(None) coerces an empty-string submission to None, indistinguishable from omission, same latent gap as author/series/name."
-    }
-   ],
-   "calls": [
-    "app/api/routers/projects_assembly.py#router",
-    "app/api/routers/projects_backups.py#router",
-    "app/api/routers/projects_helpers.py",
-    "app/core/config.py",
-    "app/core/constants.py",
-    "app/db/__init__.py#*",
-    "app/db/segment_gc.py#reconcile_orphan_segment_files_for_project"
-   ],
-   "called_by": [],
-   "notes": [
-    "_schedule_segment_gc runs as BackgroundTask",
-    "2026-07-08: api_create_project threads series_position into create_project(); api_update_project inspects request.form() for a submitted (possibly empty-string) series_position field so clearing the value round-trips to None rather than being ignored -- a non-empty value that fails int() parsing returns 400 {status:'error', message:'Invalid series position'}.",
-    "2026-07-09T21:07Z (Task 003): api_update_project gains `description: Optional[str] = Form(None)`. api_get_project needed no change -- it already returns dict(row) with no field allowlisting, so the new column round-trips automatically."
-   ],
-   "calls_inferred": []
-  },
-  "app/api/routers/projects_assembly.py": {
-   "purpose": "Project assembly endpoints: list m4b audiobooks, submit assembly jobs, monitor progress",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const"
+    "app/api/routers/projects_helpers.py": {
+      "purpose": "Project repository implementation using SQLite project_snapshots table",
+      "exports": [
+        {
+          "name": "SqliteProjectRepository",
+          "kind": "class"
+        }
+      ],
+      "calls": [
+        "app/core/config.py",
+        "app/db/__init__.py#*",
+        "app/db/core.py#_db_lock,get_connection",
+        "app/domain/chapters/models.py",
+        "app/domain/projects/models.py#*",
+        "app/domain/projects/service.py#create_project_service,ProjectService",
+        "app/storage/manager.py",
+        "app/utils/pathing.py"
+      ],
+      "called_by": [
+        "app/api/routers/projects.py"
+      ],
+      "notes": [],
+      "calls_inferred": []
     },
-    {
-     "name": "api_list_project_audiobooks",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/api/utils.py#*",
-    "app/core/config.py#get_project_dir,get_project_m4b_dir",
-    "app/db/__init__.py#*",
-    "app/db/models.py",
-    "app/db/queue.py",
-    "app/db/state.py#*",
-    "app/engines/audio_ops.py#get_audio_duration",
-    "app/orchestration/scheduler/orchestrator.py#create_orchestrator",
-    "app/orchestration/tasks/assembly.py#AssemblyTask",
-    "app/storage/manager.py#get_storage_manager",
-    "app/utils/pathing.py#*"
-   ],
-   "called_by": [],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "app/api/routers/projects_backups.py": {
-   "purpose": "Project backup/snapshot endpoints",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const"
+    "app/api/routers/projects_lexicon.py": {
+      "purpose": "Pronunciation lexicon CRUD endpoints per project",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const"
+        },
+        {
+          "name": "api_get_lexicon, api_create_lexicon_entry, api_update_lexicon_entry, api_delete_lexicon_entry",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/db/__init__.py#get_project,get_lexicon,add_lexicon_entry,update_lexicon_entry,delete_lexicon_entry"
+      ],
+      "called_by": [
+        "app/api/web.py"
+      ],
+      "notes": [
+        "2026-07-09: api_create_lexicon_entry (POST /api/projects/{project_id}/lexicon) now catches ValueError from add_lexicon_entry (duplicate case-insensitive word) and returns 400 {\"status\":\"error\",\"message\":str(e)} instead of letting it propagate as a 500."
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "api_get_project_export_manifest, api_create_project_snapshot, api_create_project_backup_bundle",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/api/routers/projects_helpers.py#_get_project_service,_create_backup_archive",
-    "app/core/config.py",
-    "app/db/__init__.py#get_project",
-    "app/storage/manager.py",
-    "app/utils/pathing.py"
-   ],
-   "called_by": [],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "app/api/routers/projects_helpers.py": {
-   "purpose": "Project repository implementation using SQLite project_snapshots table",
-   "exports": [
-    {
-     "name": "SqliteProjectRepository",
-     "kind": "class"
-    }
-   ],
-   "calls": [
-    "app/core/config.py",
-    "app/db/__init__.py#*",
-    "app/db/core.py#_db_lock,get_connection",
-    "app/domain/chapters/models.py",
-    "app/domain/projects/models.py#*",
-    "app/domain/projects/service.py#create_project_service,ProjectService",
-    "app/storage/manager.py",
-    "app/utils/pathing.py"
-   ],
-   "called_by": [
-    "app/api/routers/projects.py"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "app/api/routers/projects_lexicon.py": {
-   "purpose": "Pronunciation lexicon CRUD endpoints per project",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const"
+    "app/api/routers/queue.py": {
+      "purpose": "Queue endpoints: list/clear/reorder/remove; merges live job state with DB history",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const"
+        },
+        {
+          "name": "api_get_queue",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/api/ws.py#broadcast_queue_update",
+        "app/db/__init__.py#get_queue,clear_queue,clear_completed_queue,reorder_queue,remove_from_queue",
+        "app/db/reconcile.py#reconcile_all_chapter_statuses",
+        "app/db/state.py#get_jobs",
+        "app/orchestration/progress/service.py",
+        "app/orchestration/scheduler/orchestrator.py"
+      ],
+      "called_by": [],
+      "notes": [
+        "_merge_live_queue_job copies status/progress/eta/segment fields from state.json job"
+      ],
+      "calls_inferred": [
+        "app/db/queue.py#reconcile_queue_status"
+      ]
     },
-    {
-     "name": "api_get_lexicon, api_create_lexicon_entry, api_update_lexicon_entry, api_delete_lexicon_entry",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/db/__init__.py#get_project,get_lexicon,add_lexicon_entry,update_lexicon_entry,delete_lexicon_entry"
-   ],
-   "called_by": [
-    "app/api/web.py"
-   ],
-   "notes": [
-    "2026-07-09: api_create_lexicon_entry (POST /api/projects/{project_id}/lexicon) now catches ValueError from add_lexicon_entry (duplicate case-insensitive word) and returns 400 {\"status\":\"error\",\"message\":str(e)} instead of letting it propagate as a 500."
-   ],
-   "calls_inferred": []
-  },
-  "app/api/routers/queue.py": {
-   "purpose": "Queue endpoints: list/clear/reorder/remove; merges live job state with DB history",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const"
+    "app/api/routers/settings.py": {
+      "purpose": "Audiobook file listing/deletion endpoints (legacy naming; not app settings)",
+      "exports": [
+        {
+          "name": "api_list_audiobooks, delete_audiobook",
+          "kind": "function",
+          "contract": "GET /api/audiobooks lists all m4b files; DELETE /api/audiobook/{filename} removes one with path safety checks"
+        }
+      ],
+      "calls": [
+        "app/api/utils.py#list_audiobooks",
+        "app/core/config.py#PROJECTS_DIR,get_project_m4b_dir",
+        "app/db/models.py",
+        "app/db/state.py#get_jobs,put_job,update_job",
+        "app/storage/manager.py#get_storage_manager"
+      ],
+      "called_by": [],
+      "notes": [
+        "SAFE_AUDIOBOOK_NAME_RE validates filename before path join"
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "api_get_queue",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/api/ws.py#broadcast_queue_update",
-    "app/db/__init__.py#get_queue,clear_queue,clear_completed_queue,reorder_queue,remove_from_queue",
-    "app/db/reconcile.py#reconcile_all_chapter_statuses",
-    "app/db/state.py#get_jobs",
-    "app/orchestration/progress/service.py",
-    "app/orchestration/scheduler/orchestrator.py"
-   ],
-   "called_by": [],
-   "notes": [
-    "_merge_live_queue_job copies status/progress/eta/segment fields from state.json job"
-   ],
-   "calls_inferred": [
-    "app/db/queue.py#reconcile_queue_status"
-   ]
-  },
-  "app/api/routers/settings.py": {
-   "purpose": "Audiobook file listing/deletion endpoints (legacy naming; not app settings)",
-   "exports": [
-    {
-     "name": "api_list_audiobooks, delete_audiobook",
-     "kind": "function",
-     "contract": "GET /api/audiobooks lists all m4b files; DELETE /api/audiobook/{filename} removes one with path safety checks"
-    }
-   ],
-   "calls": [
-    "app/api/utils.py#list_audiobooks",
-    "app/core/config.py#PROJECTS_DIR,get_project_m4b_dir",
-    "app/db/models.py",
-    "app/db/state.py#get_jobs,put_job,update_job",
-    "app/storage/manager.py#get_storage_manager"
-   ],
-   "called_by": [],
-   "notes": [
-    "SAFE_AUDIOBOOK_NAME_RE validates filename before path join"
-   ],
-   "calls_inferred": []
-  },
-  "app/api/routers/system.py": {
-   "purpose": "System endpoints: app status, settings get/set/reset, speakers, performance stats, TTS server health, pause/resume",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const"
+    "app/api/routers/system.py": {
+      "purpose": "System endpoints: app status, settings get/set/reset, speakers, performance stats, TTS server health, pause/resume",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const"
+        },
+        {
+          "name": "get_voices_dir",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/api/routers/voices.py",
+        "app/api/utils.py",
+        "app/core/__init__.py",
+        "app/db/__init__.py",
+        "app/db/models.py",
+        "app/db/performance.py#get_render_stats,reset_render_stats",
+        "app/db/state.py#*",
+        "app/engines/bridge.py",
+        "app/engines/errors.py",
+        "app/engines/watchdog.py#get_watchdog",
+        "app/orchestration/scheduler/resources.py#is_paused,set_paused",
+        "app/utils/pathing.py"
+      ],
+      "called_by": [],
+      "notes": [
+        "_redact_settings masks secrets with '***'",
+        "POST /api/settings accepts tts_parallel_cap/tts_engine_caps (W-PAR 007)",
+        "huggingface_token added to _SECRET_FIELDS -- reuses the existing generic redact-on-read/ignore-sentinel-on-write mechanism shared with tts_api_key"
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "get_voices_dir",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/api/routers/voices.py",
-    "app/api/utils.py",
-    "app/core/__init__.py",
-    "app/db/__init__.py",
-    "app/db/models.py",
-    "app/db/performance.py#get_render_stats,reset_render_stats",
-    "app/db/state.py#*",
-    "app/engines/bridge.py",
-    "app/engines/errors.py",
-    "app/engines/watchdog.py#get_watchdog",
-    "app/orchestration/scheduler/resources.py#is_paused,set_paused",
-    "app/utils/pathing.py"
-   ],
-   "called_by": [],
-   "notes": [
-    "_redact_settings masks secrets with '***'",
-    "POST /api/settings accepts tts_parallel_cap/tts_engine_caps (W-PAR 007)",
-    "huggingface_token added to _SECRET_FIELDS -- reuses the existing generic redact-on-read/ignore-sentinel-on-write mechanism shared with tts_api_key"
-   ],
-   "calls_inferred": []
-  },
-  "app/api/routers/voices.py": {
-   "purpose": "Voices router assembly: mounts all voices_* sub-routers into one /api surface",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const",
-     "contract": "APIRouter mounting voices_management, voices_characters, voices_narrators, voices_bundles, voices_actions, voices_metadata"
+    "app/api/routers/voices.py": {
+      "purpose": "Voices router assembly: mounts all voices_* sub-routers into one /api surface",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const",
+          "contract": "APIRouter mounting voices_management, voices_characters, voices_narrators, voices_bundles, voices_actions, voices_metadata"
+        },
+        {
+          "name": "list_speaker_profiles",
+          "kind": "function",
+          "contract": "re-exported alias to voices_management.list_speaker_profiles"
+        }
+      ],
+      "calls": [
+        "app/api/routers/__init__.py",
+        "app/api/routers/voices_helpers.py#VOICES_DIR,_is_engine_active,delete_speaker_sample",
+        "app/api/routers/voices_management.py#router,list_speaker_profiles",
+        "app/db/speakers.py",
+        "app/db/state.py",
+        "app/engines/bridge.py"
+      ],
+      "called_by": [
+        "app/api/routers/system.py"
+      ],
+      "notes": [
+        "pure composition module, re-exports internal helpers for tests"
+      ],
+      "calls_inferred": [
+        "app/api/routers/voices_actions.py#router",
+        "app/api/routers/voices_bundles.py#router",
+        "app/api/routers/voices_characters.py#router",
+        "app/api/routers/voices_huggingface.py#router",
+        "app/api/routers/voices_metadata.py#router",
+        "app/api/routers/voices_narrators.py#router"
+      ]
     },
-    {
-     "name": "list_speaker_profiles",
-     "kind": "function",
-     "contract": "re-exported alias to voices_management.list_speaker_profiles"
-    }
-   ],
-   "calls": [
-    "app/api/routers/__init__.py",
-    "app/api/routers/voices_helpers.py#VOICES_DIR,_is_engine_active,delete_speaker_sample",
-    "app/api/routers/voices_management.py#router,list_speaker_profiles",
-    "app/db/speakers.py",
-    "app/db/state.py",
-    "app/engines/bridge.py"
-   ],
-   "called_by": [
-    "app/api/routers/system.py"
-   ],
-   "notes": [
-    "pure composition module, re-exports internal helpers for tests"
-   ],
-   "calls_inferred": [
-    "app/api/routers/voices_actions.py#router",
-    "app/api/routers/voices_bundles.py#router",
-    "app/api/routers/voices_characters.py#router",
-    "app/api/routers/voices_huggingface.py#router",
-    "app/api/routers/voices_metadata.py#router",
-    "app/api/routers/voices_narrators.py#router"
-   ]
-  },
-  "app/api/routers/voices_actions.py": {
-   "purpose": "Voice profile action endpoints: test text, settings, build samples, test synthesis",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const"
+    "app/api/routers/voices_actions.py": {
+      "purpose": "Voice profile action endpoints: test text, settings, build samples, test synthesis",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const"
+        },
+        {
+          "name": "update_speaker_test_text, reset_speaker_test_text, api_update_profile_settings",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/api/routers/__init__.py",
+        "app/core/__init__.py",
+        "app/db/__init__.py",
+        "app/db/queue.py",
+        "app/db/speakers.py#*",
+        "app/engines/behavior.py",
+        "app/engines/errors.py",
+        "app/engines/voice_engines.py#get_default_profile_engine",
+        "app/orchestration/scheduler/orchestrator.py#create_orchestrator",
+        "app/orchestration/tasks/sample_build.py#SampleBuildTask",
+        "app/orchestration/tasks/sample_test.py#SampleTestTask",
+        "app/utils/__init__.py"
+      ],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": [
+        "app/api/routers/voices_helpers.py",
+        "app/core/config.py#canonical_voice_name",
+        "app/db/state.py"
+      ]
     },
-    {
-     "name": "update_speaker_test_text, reset_speaker_test_text, api_update_profile_settings",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/api/routers/__init__.py",
-    "app/core/__init__.py",
-    "app/db/__init__.py",
-    "app/db/queue.py",
-    "app/db/speakers.py#*",
-    "app/engines/behavior.py",
-    "app/engines/errors.py",
-    "app/engines/voice_engines.py#get_default_profile_engine",
-    "app/orchestration/scheduler/orchestrator.py#create_orchestrator",
-    "app/orchestration/tasks/sample_build.py#SampleBuildTask",
-    "app/orchestration/tasks/sample_test.py#SampleTestTask",
-    "app/utils/__init__.py"
-   ],
-   "called_by": [],
-   "notes": [],
-   "calls_inferred": [
-    "app/api/routers/voices_helpers.py",
-    "app/core/config.py#canonical_voice_name",
-    "app/db/state.py"
-   ]
-  },
-  "app/api/routers/voices_bundles.py": {
-   "purpose": "Voice bundle import/export endpoints (.zip)",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const"
+    "app/api/routers/voices_bundles.py": {
+      "purpose": "Voice bundle import/export endpoints (.zip)",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const"
+        },
+        {
+          "name": "download_voice_bundle_route, import_voice_bundle_route",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/api/routers/voices_helpers.py#get_voices_dir",
+        "app/db/speakers.py#sync_speakers_from_profiles",
+        "app/domain/voices/bundles.py#*",
+        "app/domain/voices/migration.py#migrate_voices_to_v2",
+        "app/utils/pathing.py"
+      ],
+      "called_by": [],
+      "notes": [
+        "VoiceBundleError returns 400"
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "download_voice_bundle_route, import_voice_bundle_route",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/api/routers/voices_helpers.py#get_voices_dir",
-    "app/db/speakers.py#sync_speakers_from_profiles",
-    "app/domain/voices/bundles.py#*",
-    "app/domain/voices/migration.py#migrate_voices_to_v2",
-    "app/utils/pathing.py"
-   ],
-   "called_by": [],
-   "notes": [
-    "VoiceBundleError returns 400"
-   ],
-   "calls_inferred": []
-  },
-  "app/api/routers/voices_characters.py": {
-   "purpose": "Character CRUD endpoints for chapter and book-scoped characters",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const"
+    "app/api/routers/voices_characters.py": {
+      "purpose": "Character CRUD endpoints for chapter and book-scoped characters",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const"
+        },
+        {
+          "name": "api_list_characters, api_create_character_route, api_update_character_route, api_delete_character_route, api_promote_character_route",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/__init__.py"
+      ],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": [
+        "app/db/__init__.py#get_characters,create_character,update_character,delete_character,promote_character"
+      ]
     },
-    {
-     "name": "api_list_characters, api_create_character_route, api_update_character_route, api_delete_character_route, api_promote_character_route",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/__init__.py"
-   ],
-   "called_by": [],
-   "notes": [],
-   "calls_inferred": [
-    "app/db/__init__.py#get_characters,create_character,update_character,delete_character,promote_character"
-   ]
-  },
-  "app/api/routers/voices_helpers.py": {
-   "purpose": "Voice profile helper utilities: dir management, validation, sample file ops, engine status",
-   "exports": [
-    {
-     "name": "get_voices_dir, VOICES_DIR",
-     "kind": "function/const"
+    "app/api/routers/voices_helpers.py": {
+      "purpose": "Voice profile helper utilities: dir management, validation, sample file ops, engine status",
+      "exports": [
+        {
+          "name": "get_voices_dir, VOICES_DIR",
+          "kind": "function/const"
+        },
+        {
+          "name": "_valid_profile_name, _valid_sample_name, _is_engine_active, delete_speaker_sample",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/core/__init__.py",
+        "app/db/models.py",
+        "app/db/speakers.py#*",
+        "app/db/state.py",
+        "app/domain/voices/manifest.py",
+        "app/engines/behavior.py",
+        "app/engines/bridge.py#create_voice_bridge",
+        "app/engines/errors.py",
+        "app/engines/voice_engines.py#list_tts_engines",
+        "app/utils/pathing.py#*"
+      ],
+      "called_by": [
+        "app/api/routers/voices_huggingface.py"
+      ],
+      "notes": [
+        "SAFE_PROFILE_NAME_RE: alphanumeric+dot/underscore/space/dash"
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "_valid_profile_name, _valid_sample_name, _is_engine_active, delete_speaker_sample",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/core/__init__.py",
-    "app/db/models.py",
-    "app/db/speakers.py#*",
-    "app/db/state.py",
-    "app/domain/voices/manifest.py",
-    "app/engines/behavior.py",
-    "app/engines/bridge.py#create_voice_bridge",
-    "app/engines/errors.py",
-    "app/engines/voice_engines.py#list_tts_engines",
-    "app/utils/pathing.py#*"
-   ],
-   "called_by": [
-    "app/api/routers/voices_huggingface.py"
-   ],
-   "notes": [
-    "SAFE_PROFILE_NAME_RE: alphanumeric+dot/underscore/space/dash"
-   ],
-   "calls_inferred": []
-  },
-  "app/api/routers/voices_huggingface.py": {
-   "purpose": "Real HuggingFace voice browse/import/export endpoints",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const",
-     "contract": "GET /search,/inspect; POST /import,/export,/upload -- mounted at /api/voices/huggingface/*"
-    }
-   ],
-   "calls": [
-    "app/api/routers/voices_helpers.py",
-    "app/core/config.py",
-    "app/db/speakers.py",
-    "app/db/state.py#get_settings",
-    "app/domain/voices/huggingface.py#HFHubClient,validate_hub_id,search_voices,inspect_card,check_consent,download_voice_files,annotate_from_card,export_hf_voice_bundle,upload_voice_to_hub",
-    "app/domain/voices/manifest.py",
-    "app/domain/voices/metadata.py#update_voice_metadata,find_voice_dir_by_id",
-    "app/utils/pathing.py"
-   ],
-   "called_by": [],
-   "notes": [
-    "import is synchronous (search->inspect->consent->download->register); not behind verify_api_key/rate_limit (that's the separate /api/v1/tts gateway) -- internal Studio feature",
-    "app is localhost-only by default (uvicorn binds 127.0.0.1, no --host flag in run.sh) -- security review treated the DoS-shaped findings (no timeout, no byte-size cap) as hardening nice-to-haves given this posture, not merge blockers"
-   ],
-   "calls_inferred": []
-  },
-  "app/api/routers/voices_management.py": {
-   "purpose": "Voice profile management: create/update/delete, default speaker profiles, metadata persistence, speaker sync",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const"
+    "app/api/routers/voices_huggingface.py": {
+      "purpose": "Real HuggingFace voice browse/import/export endpoints",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const",
+          "contract": "GET /search,/inspect; POST /import,/export,/upload -- mounted at /api/voices/huggingface/*"
+        }
+      ],
+      "calls": [
+        "app/api/routers/voices_helpers.py",
+        "app/core/config.py",
+        "app/db/speakers.py",
+        "app/db/state.py#get_settings",
+        "app/domain/voices/huggingface.py#HFHubClient,validate_hub_id,search_voices,inspect_card,check_consent,download_voice_files,annotate_from_card,export_hf_voice_bundle,upload_voice_to_hub",
+        "app/domain/voices/manifest.py",
+        "app/domain/voices/metadata.py#update_voice_metadata,find_voice_dir_by_id",
+        "app/utils/pathing.py"
+      ],
+      "called_by": [],
+      "notes": [
+        "import is synchronous (search->inspect->consent->download->register); not behind verify_api_key/rate_limit (that's the separate /api/v1/tts gateway) -- internal Studio feature",
+        "app is localhost-only by default (uvicorn binds 127.0.0.1, no --host flag in run.sh) -- security review treated the DoS-shaped findings (no timeout, no byte-size cap) as hardening nice-to-haves given this posture, not merge blockers"
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "_ensure_default_speaker_profile, _rename_profile_folders",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/__init__.py",
-    "app/api/routers/__init__.py",
-    "app/core/__init__.py",
-    "app/db/__init__.py#*",
-    "app/domain/voices/manifest.py",
-    "app/domain/voices/migration.py",
-    "app/engines/__init__.py",
-    "app/engines/errors.py",
-    "app/utils/__init__.py"
-   ],
-   "called_by": [],
-   "notes": [
-    "duplicate detection appends _1, _2 etc suffixes",
-    "profile dir must be under VOICES_DIR"
-   ],
-   "calls_inferred": [
-    "app/api/routers/voices_helpers.py#*",
-    "app/db/speakers.py#infer_variant_name,normalize_profile_metadata",
-    "app/engines/bridge.py"
-   ]
-  },
-  "app/api/routers/voices_metadata.py": {
-   "purpose": "Phase C voice metadata endpoints: list, search, casting, metadata/icon updates",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const"
+    "app/api/routers/voices_management.py": {
+      "purpose": "Voice profile management: create/update/delete, default speaker profiles, metadata persistence, speaker sync",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const"
+        },
+        {
+          "name": "_ensure_default_speaker_profile, _rename_profile_folders",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/__init__.py",
+        "app/api/routers/__init__.py",
+        "app/core/__init__.py",
+        "app/db/__init__.py#*",
+        "app/domain/voices/manifest.py",
+        "app/domain/voices/migration.py",
+        "app/engines/__init__.py",
+        "app/engines/errors.py",
+        "app/utils/__init__.py"
+      ],
+      "called_by": [],
+      "notes": [
+        "duplicate detection appends _1, _2 etc suffixes",
+        "profile dir must be under VOICES_DIR"
+      ],
+      "calls_inferred": [
+        "app/api/routers/voices_helpers.py#*",
+        "app/db/speakers.py#infer_variant_name,normalize_profile_metadata",
+        "app/engines/bridge.py"
+      ]
     },
-    {
-     "name": "list_voices",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/api/routers/voices_helpers.py#get_voices_dir",
-    "app/domain/voices/manifest.py#*",
-    "app/domain/voices/metadata.py#*",
-    "app/utils/pathing.py#secure_join_flat"
-   ],
-   "called_by": [],
-   "notes": [
-    "patch_voice_metadata accepts+persists provenance (whole-block replace, not merge — see voice-bundles.md sec8.1); RuntimeError from update_voice_metadata -> 500",
-    "GET /api/voices/search gained ?language=/?style= query params (Phase G, 2026-07-04)"
-   ],
-   "calls_inferred": []
-  },
-  "app/api/routers/voices_narrators.py": {
-   "purpose": "Speaker/narrator CRUD endpoints",
-   "exports": [
-    {
-     "name": "router",
-     "kind": "const"
+    "app/api/routers/voices_metadata.py": {
+      "purpose": "Phase C voice metadata endpoints: list, search, casting, metadata/icon updates",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const"
+        },
+        {
+          "name": "list_voices",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/api/routers/voices_helpers.py#get_voices_dir",
+        "app/domain/voices/manifest.py#*",
+        "app/domain/voices/metadata.py#*",
+        "app/utils/pathing.py#secure_join_flat"
+      ],
+      "called_by": [],
+      "notes": [
+        "patch_voice_metadata accepts+persists provenance (whole-block replace, not merge — see voice-bundles.md sec8.1); RuntimeError from update_voice_metadata -> 500",
+        "GET /api/voices/search gained ?language=/?style= query params (Phase G, 2026-07-04)"
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "api_list_speakers_route, api_create_speaker_route, api_update_speaker_route, api_delete_speaker_route",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/__init__.py",
-    "app/api/routers/__init__.py"
-   ],
-   "called_by": [],
-   "notes": [],
-   "calls_inferred": [
-    "app/api/routers/voices_management.py#_ensure_default_speaker_profile,_rename_profile_folders",
-    "app/db/__init__.py#*"
-   ]
-  },
-  "app/api/tts_api.py": {
-   "purpose": "External TTS API gateway at /api/v1/tts with API key + rate-limit protection",
-   "exports": [
-    {
-     "name": "tts_app",
-     "kind": "const"
+    "app/api/routers/voices_narrators.py": {
+      "purpose": "Speaker/narrator CRUD endpoints",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const"
+        },
+        {
+          "name": "api_list_speakers_route, api_create_speaker_route, api_update_speaker_route, api_delete_speaker_route",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/__init__.py",
+        "app/api/routers/__init__.py"
+      ],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": [
+        "app/api/routers/voices_management.py#_ensure_default_speaker_profile,_rename_profile_folders",
+        "app/db/__init__.py#*"
+      ]
     },
-    {
-     "name": "SynthesisRequest, JobStatusResponse",
-     "kind": "class"
+    "app/api/tts_api.py": {
+      "purpose": "External TTS API gateway at /api/v1/tts with API key + rate-limit protection",
+      "exports": [
+        {
+          "name": "tts_app",
+          "kind": "const"
+        },
+        {
+          "name": "SynthesisRequest, JobStatusResponse",
+          "kind": "class"
+        },
+        {
+          "name": "list_engines, get_engine, synthesize, preview, get_job_status, get_job_audio",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/core/config.py",
+        "app/core/security.py#verify_api_key,rate_limit",
+        "app/db/speakers.py",
+        "app/db/state.py",
+        "app/engines/bridge.py#create_voice_bridge",
+        "app/engines/errors.py",
+        "app/orchestration/scheduler/orchestrator.py#create_orchestrator",
+        "app/orchestration/tasks/api_synthesis.py#ApiSynthesisTask",
+        "app/utils/pathing.py#contained_path"
+      ],
+      "called_by": [],
+      "notes": [
+        "voice_ref validation: path refs must be under VOICES_DIR/TRANSIENT_DIR",
+        "inline vs queued threshold: 500 chars",
+        "engine unavailability returns empty registry not crash",
+        "2026-07-10: S12 fix: FastAPI's auto-generated docs_url/openapi_url/redoc_url routes are registered via add_route() (plain Starlette routing), which bypasses FastAPI's dependency-injection system -- so the `dependencies=[Depends(verify_api_key), Depends(rate_limit)]` passed to the FastAPI() constructor never applied to /api/v1/tts/docs or /api/v1/tts/openapi. Confirmed empirically pre-fix: both returned 200 with no Authorization header, and even when tts_api_enabled=False. Fix: disabled docs_url/openapi_url/redoc_url on the FastAPI() constructor and added explicit GET /openapi and GET /docs routes on `router` (which is include_router'd into the sub-app and therefore inherits the same verify_api_key + rate_limit dependencies as every data route, e.g. /engines, /synthesize, /jobs/{id}). Verified: 401 unauthenticated, 403 when tts_api_enabled=False, 200 with a valid key -- matching every other route's behavior."
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "list_engines, get_engine, synthesize, preview, get_job_status, get_job_audio",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/core/config.py",
-    "app/core/security.py#verify_api_key,rate_limit",
-    "app/db/speakers.py",
-    "app/db/state.py",
-    "app/engines/bridge.py#create_voice_bridge",
-    "app/engines/errors.py",
-    "app/orchestration/scheduler/orchestrator.py#create_orchestrator",
-    "app/orchestration/tasks/api_synthesis.py#ApiSynthesisTask",
-    "app/utils/pathing.py#contained_path"
-   ],
-   "called_by": [],
-   "notes": [
-    "voice_ref validation: path refs must be under VOICES_DIR/TRANSIENT_DIR",
-    "inline vs queued threshold: 500 chars",
-    "engine unavailability returns empty registry not crash",
-    "2026-07-10: S12 fix: FastAPI's auto-generated docs_url/openapi_url/redoc_url routes are registered via add_route() (plain Starlette routing), which bypasses FastAPI's dependency-injection system -- so the `dependencies=[Depends(verify_api_key), Depends(rate_limit)]` passed to the FastAPI() constructor never applied to /api/v1/tts/docs or /api/v1/tts/openapi. Confirmed empirically pre-fix: both returned 200 with no Authorization header, and even when tts_api_enabled=False. Fix: disabled docs_url/openapi_url/redoc_url on the FastAPI() constructor and added explicit GET /openapi and GET /docs routes on `router` (which is include_router'd into the sub-app and therefore inherits the same verify_api_key + rate_limit dependencies as every data route, e.g. /engines, /synthesize, /jobs/{id}). Verified: 401 unauthenticated, 403 when tts_api_enabled=False, 200 with a valid key -- matching every other route's behavior."
-   ],
-   "calls_inferred": []
-  },
-  "app/api/utils.py": {
-   "purpose": "Audiobook metadata probing, preview reading, file validation, dev server detection",
-   "exports": [
-    {
-     "name": "exists, probe_audiobook_metadata, preferred_audiobook_download_filename, read_preview, is_react_dev_active, list_audiobooks",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/core/__init__.py",
-    "app/core/config.py#*",
-    "app/engines/voice_engines.py",
-    "app/utils/pathing.py#*",
-    "app/utils/subprocess_utils.py#*",
-    "app/utils/text/textops.py#*"
-   ],
-   "called_by": [
-    "app/api/routers/chapters_assets.py",
-    "app/api/routers/system.py"
-   ],
-   "notes": [
-    "ffprobe timeout 3s, errors swallowed",
-    "path containment via find_secure_file+is_relative_to"
-   ],
-   "calls_inferred": []
-  },
-  "app/api/web.py": {
-   "purpose": "FastAPI app entry: mounts routers, static files, WebSocket, startup/shutdown lifecycle",
-   "exports": [
-    {
-     "name": "app",
-     "kind": "const",
-     "contract": "FastAPI instance"
+    "app/api/utils.py": {
+      "purpose": "Audiobook metadata probing, preview reading, file validation, dev server detection",
+      "exports": [
+        {
+          "name": "exists, probe_audiobook_metadata, preferred_audiobook_download_filename, read_preview, is_react_dev_active, list_audiobooks",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/core/__init__.py",
+        "app/core/config.py#*",
+        "app/engines/voice_engines.py",
+        "app/utils/pathing.py#*",
+        "app/utils/subprocess_utils.py#*",
+        "app/utils/text/textops.py#*"
+      ],
+      "called_by": [
+        "app/api/routers/chapters_assets.py",
+        "app/api/routers/system.py"
+      ],
+      "notes": [
+        "ffprobe timeout 3s, errors swallowed",
+        "path containment via find_secure_file+is_relative_to"
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "startup_event, shutdown_event, websocket_endpoint, get_project_cover_hardened, get_project_m4b_hardened, get_voice_preview_hardened, get_legacy_cover_output, lan_protection_middleware, catch_all",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/api/routers/__init__.py",
-    "app/api/routers/analysis.py",
-    "app/api/routers/projects_lexicon.py",
-    "app/api/tts_api.py#tts_app",
-    "app/api/ws.py#manager,broadcast_job_updated",
-    "app/core/boot.py#run_startup_recovery,boot_studio",
-    "app/core/config.py#*",
-    "app/db/__init__.py#init_db",
-    "app/db/migration.py",
-    "app/db/queue.py#reconcile_queue_status",
-    "app/db/reconcile.py#reconcile_all_chapter_statuses",
-    "app/db/state.py#*",
-    "app/engines/proc_utils.py",
-    "app/orchestration/progress/broadcaster.py#configure_progress_broadcaster",
-    "app/orchestration/progress/service.py",
-    "app/orchestration/scheduler/recovery.py#load_recoverable_task_contexts",
-    "app/orchestration/scheduler/resources.py"
-   ],
-   "called_by": [
-    "app/api/ws.py"
-   ],
-   "notes": [
-    "startup: DB init->cleanup->reconciliation->listener registration->task recovery->pause restore->TTS server boot",
-    "WebSocket origin check prevents CSWSH",
-    "path-serving uses _contained_file/_contained_root_file for traversal defense",
-    "LAN protection middleware enforces lan_binding_enabled on external API",
-    "BE-1a (2026-07-04): removed dead REPORT_DIR/UPLOAD_DIR import + REPORT_DIR=REPORT_DIR self-alias, and dead tts_generate_stub() (zero real callers)"
-   ],
-   "calls_inferred": [
-    "app/api/routers/*"
-   ]
-  },
-  "app/api/ws.py": {
-   "purpose": "WebSocket connection management, event-frame builders, progress/job lifecycle broadcasters",
-   "exports": [
-    {
-     "name": "manager",
-     "kind": "const"
+    "app/api/web.py": {
+      "purpose": "FastAPI app entry: mounts routers, static files, WebSocket, startup/shutdown lifecycle",
+      "exports": [
+        {
+          "name": "app",
+          "kind": "const",
+          "contract": "FastAPI instance"
+        },
+        {
+          "name": "startup_event, shutdown_event, websocket_endpoint, get_project_cover_hardened, get_project_m4b_hardened, get_voice_preview_hardened, get_legacy_cover_output, lan_protection_middleware, catch_all",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/api/routers/__init__.py",
+        "app/api/routers/analysis.py",
+        "app/api/routers/projects_lexicon.py",
+        "app/api/tts_api.py#tts_app",
+        "app/api/ws.py#manager,broadcast_job_updated",
+        "app/core/boot.py#run_startup_recovery,boot_studio",
+        "app/core/config.py#*",
+        "app/db/__init__.py#init_db",
+        "app/db/migration.py",
+        "app/db/queue.py#reconcile_queue_status",
+        "app/db/reconcile.py#reconcile_all_chapter_statuses",
+        "app/db/state.py#*",
+        "app/engines/proc_utils.py",
+        "app/orchestration/progress/broadcaster.py#configure_progress_broadcaster",
+        "app/orchestration/progress/service.py",
+        "app/orchestration/scheduler/recovery.py#load_recoverable_task_contexts",
+        "app/orchestration/scheduler/resources.py"
+      ],
+      "called_by": [
+        "app/api/ws.py"
+      ],
+      "notes": [
+        "startup: DB init->cleanup->reconciliation->listener registration->task recovery->pause restore->TTS server boot",
+        "WebSocket origin check prevents CSWSH",
+        "path-serving uses _contained_file/_contained_root_file for traversal defense",
+        "LAN protection middleware enforces lan_binding_enabled on external API",
+        "BE-1a (2026-07-04): removed dead REPORT_DIR/UPLOAD_DIR import + REPORT_DIR=REPORT_DIR self-alias, and dead tts_generate_stub() (zero real callers)"
+      ],
+      "calls_inferred": [
+        "app/api/routers/*"
+      ]
     },
-    {
-     "name": "ConnectionManager",
-     "kind": "class"
-    },
-    {
-     "name": "broadcast_tts_log_line, broadcast_queue_update, broadcast_segments_updated, broadcast_chapter_updated, broadcast_project_updated, broadcast_pause_state, broadcast_job_updated, broadcast_segment_progress, broadcast_test_progress, broadcast_studio_event, clear_terminal_latch",
-     "kind": "function"
+    "app/api/ws.py": {
+      "purpose": "WebSocket connection management, event-frame builders, progress/job lifecycle broadcasters",
+      "exports": [
+        {
+          "name": "manager",
+          "kind": "const"
+        },
+        {
+          "name": "ConnectionManager",
+          "kind": "class"
+        },
+        {
+          "name": "broadcast_tts_log_line, broadcast_queue_update, broadcast_segments_updated, broadcast_chapter_updated, broadcast_project_updated, broadcast_pause_state, broadcast_job_updated, broadcast_segment_progress, broadcast_test_progress, broadcast_studio_event, clear_terminal_latch",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/api/contracts/events.py#build_*",
+        "app/api/web.py",
+        "app/orchestration/progress/eta.py#BASE_FLOOR",
+        "app/orchestration/progress/service.py#get_progress_service",
+        "app/utils/render_trace.py#trace",
+        "app/utils/socket_trace.py#trace_outbound_socket_frame"
+      ],
+      "called_by": [
+        "app/orchestration/scheduler/orchestrator_helpers.py",
+        "plugins/tts_mixed/handler.py"
+      ],
+      "notes": [
+        "broadcast_job_updated is central bottleneck: always enriches with §4A confidence/ETA unless skip_studio_job_event",
+        "terminal latch prevents post-terminal frame re-entry",
+        "FIX 5: enrich failure sets safe confidence floor",
+        "_emit_queue_item_status_frame reads merged.get('active_segments_map') and passes it to build_queue_item_status_event (additive C2 field); transition-inferred SEGMENT_SAVED emission is unchanged, correct only while fan-out stays effectively N=1-active-at-a-time per chapter",
+        "broadcast_job_updated() now threads active_segments_map=merged.get('active_segments_map') into build_chapter_progress_event (2026-07-05 delivery-leg fix) — previously the field was written to job state but never reached this wire frame",
+        "broadcast_job_updated now extracts eta_updated_at from ProgressService.enrich()'s payload and threads it into build_chapter_progress_event(...) (2026-07-06 fix) -- enrich()'s own §4A dedupe logic computed this field correctly, but it was previously dropped before reaching build_chapter_progress_event, whose own default (time.time() when omitted) fired on every map-only tick and defeated the dedupe at the wire even though the internal computation was right."
+      ],
+      "calls_inferred": []
     }
-   ],
-   "calls": [
-    "app/api/contracts/events.py#build_*",
-    "app/api/web.py",
-    "app/orchestration/progress/eta.py#BASE_FLOOR",
-    "app/orchestration/progress/service.py#get_progress_service",
-    "app/utils/render_trace.py#trace",
-    "app/utils/socket_trace.py#trace_outbound_socket_frame"
-   ],
-   "called_by": [
-    "app/orchestration/scheduler/orchestrator_helpers.py",
-    "plugins/tts_mixed/handler.py"
-   ],
-   "notes": [
-    "broadcast_job_updated is central bottleneck: always enriches with §4A confidence/ETA unless skip_studio_job_event",
-    "terminal latch prevents post-terminal frame re-entry",
-    "FIX 5: enrich failure sets safe confidence floor",
-    "_emit_queue_item_status_frame reads merged.get('active_segments_map') and passes it to build_queue_item_status_event (additive C2 field); transition-inferred SEGMENT_SAVED emission is unchanged, correct only while fan-out stays effectively N=1-active-at-a-time per chapter",
-    "broadcast_job_updated() now threads active_segments_map=merged.get('active_segments_map') into build_chapter_progress_event (2026-07-05 delivery-leg fix) — previously the field was written to job state but never reached this wire frame",
-    "broadcast_job_updated now extracts eta_updated_at from ProgressService.enrich()'s payload and threads it into build_chapter_progress_event(...) (2026-07-06 fix) -- enrich()'s own §4A dedupe logic computed this field correctly, but it was previously dropped before reaching build_chapter_progress_event, whose own default (time.time() when omitted) fired on every map-only tick and defeated the dedupe at the wire even though the internal computation was right."
-   ],
-   "calls_inferred": []
   }
- }
 }
