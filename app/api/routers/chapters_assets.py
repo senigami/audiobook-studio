@@ -1,4 +1,3 @@
-import json
 import logging
 import re
 import os
@@ -12,7 +11,7 @@ from ...domain.chapters.facade import export_chapter_audio
 
 from ...db import get_chapter
 from ...db.state import get_settings
-from ...engines.audio_ops import compute_peaks_sidecar, SIDECAR_VERSION
+from ...engines.audio_ops import _read_fresh_sidecar, ensure_peaks_sidecar
 from ...utils.text.textops import sanitize_text, safe_split_long_sentences, pack_text_to_limit
 from ...core import config
 from ...core.config import find_secure_file
@@ -34,63 +33,32 @@ def _get_peaks_lock(key: str) -> threading.Lock:
 def _load_or_compute_peaks_sidecar(wav_path: Path, sidecar_path: Path) -> Optional[dict]:
     """Serves a peaks sidecar from cache if fresh, else computes and caches it.
 
-    "Fresh" means the cached sidecar's stamped version/size/mtime match the
-    WAV's current stat — any mismatch (stale re-render or version bump)
-    triggers recomputation rather than serving stale data.
+    Delegates the cache format (freshness check + atomic write) to the single
+    shared implementation ``ensure_peaks_sidecar`` in ``app.engines.audio_ops``,
+    which the render-time finalization hook also uses. This wrapper adds only
+    the HTTP-serving concerns: a lock-free fast path for the common
+    already-fresh case, and a per-WAV-path lock so concurrent requests compute
+    at most once.
+
+    Any failure degrades to None (→ route 404), never an unguarded 500 that
+    would break the frontend's browser-decode fallback path.
     """
-    # The WAV can be deleted/replaced between the route's exists() check and
-    # this stat by a concurrent re-render; a missing file must degrade to a
-    # 404 (None), never surface as an unguarded 500. (Plan risk: "any
-    # exception degrades to 404, never a 500 that breaks the frontend
-    # fallback path.")
+    # Lock-free fast path: the WAV can be deleted/replaced between the route's
+    # exists() check and this stat by a concurrent re-render; a missing file
+    # must degrade to a 404 (None), never surface as an unguarded 500.
     try:
         stat = wav_path.stat()
     except OSError:
         return None
 
-    if sidecar_path.exists():
-        try:
-            existing = json.loads(sidecar_path.read_text())
-            src = existing.get("source", {})
-            if (
-                existing.get("version") == SIDECAR_VERSION
-                and src.get("size_bytes") == stat.st_size
-                and src.get("mtime_ns") == stat.st_mtime_ns
-            ):
-                return existing
-        except (OSError, ValueError, json.JSONDecodeError):
-            pass
+    fresh = _read_fresh_sidecar(sidecar_path, stat)
+    if fresh is not None:
+        return fresh
 
+    # Serialize concurrent misses on the same WAV so they compute at most once.
     lock = _get_peaks_lock(str(wav_path))
     with lock:
-        if sidecar_path.exists():
-            try:
-                existing = json.loads(sidecar_path.read_text())
-                stat_now = wav_path.stat()
-                src = existing.get("source", {})
-                if (
-                    existing.get("version") == SIDECAR_VERSION
-                    and src.get("size_bytes") == stat_now.st_size
-                    and src.get("mtime_ns") == stat_now.st_mtime_ns
-                ):
-                    return existing
-            except (OSError, ValueError, json.JSONDecodeError):
-                pass
-
-        sidecar = compute_peaks_sidecar(wav_path)
-        if sidecar is None:
-            return None
-
-        # Caching is best-effort: if the atomic write fails (disk full,
-        # permission, races on the temp path), still serve the freshly
-        # computed peaks rather than 500 or discard a valid result.
-        try:
-            tmp_path = sidecar_path.with_suffix(".json.tmp")
-            tmp_path.write_text(json.dumps(sidecar))
-            os.replace(tmp_path, sidecar_path)
-        except OSError:
-            logger.warning("Failed to cache peaks sidecar at %s", sidecar_path, exc_info=True)
-        return sidecar
+        return ensure_peaks_sidecar(wav_path, sidecar_path)
 
 
 @router.post("/chapters/{chapter_id}/export-audio")

@@ -211,6 +211,7 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
                 reason_code="synthesis_ok",
                 force=True,
             )
+            self._emit_chapter_peaks_sidecar(context)
         else:
             reason_code = "synthesis_error_retriable" if getattr(result, "retriable", False) else "synthesis_error"
             self._publish(
@@ -222,6 +223,49 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             )
 
         return task_id
+
+    def _emit_chapter_peaks_sidecar(self, context: TaskContext) -> None:
+        """Proactively write the waveform peaks sidecar for a just-finalized chapter.
+
+        Fired at the single engine-agnostic completion point in ``submit()`` so
+        it covers BOTH the XTTS remote-synthesis path and the local ``mixed``
+        path without branching on engine id (the only discriminators used are
+        ``task_type`` and the reconciliation ``scope``). Long chapters (above
+        the browser-decode duration cap) can then show the waveform tape
+        immediately instead of waiting for lazy first-request generation by the
+        ``GET .../assets/peaks`` route (audio-player spec §5.4).
+
+        Scope guard:
+        - only chapter synthesis (``task_type == "synthesis"``,
+          ``scope == "chapter"``) — never segment re-renders (scope ``"job"``)
+          nor the book-level assembly m4b (a different ``task_type``);
+        - only the canonical chapter WAV (``output_path`` ending in ``.wav``).
+
+        Best-effort and non-blocking: this must never fail, delay, or regress a
+        render. Every failure — a None compute result or any exception — is
+        logged and swallowed; the render outcome is already published above.
+        """
+        try:
+            if context.task_type != "synthesis":
+                return
+            payload = context.payload or {}
+            if payload.get("scope") != "chapter":
+                return
+            output_path = payload.get("output_path")
+            if not output_path:
+                return
+            from pathlib import Path  # noqa: PLC0415
+            wav_path = Path(output_path)
+            if wav_path.suffix.lower() != ".wav":
+                return
+            from app.engines.audio_ops import ensure_peaks_sidecar  # noqa: PLC0415
+            ensure_peaks_sidecar(wav_path)
+        except Exception:
+            logger.warning(
+                "Peaks sidecar emission failed for task %s (non-fatal).",
+                getattr(context, "task_id", "?"),
+                exc_info=True,
+            )
 
     def recover(self, contexts: Optional[list] = None) -> list[str]:
         """Recover interrupted Studio 2.0 jobs after a restart.

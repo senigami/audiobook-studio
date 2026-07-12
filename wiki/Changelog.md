@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Changed] - 2026-07-11
 
+### Waveform tape appears instantly on freshly rendered long chapters
+
+- The waveform "peaks sidecar" (used by the expandable tape for chapters longer than the 600 s browser-decode cap) is now generated **proactively when a chapter finishes rendering**, instead of only lazily on the first waveform request. Long chapters now show their tape immediately on first open with no decode-latency stutter. The generation hook is best-effort and non-blocking — it never delays or fails a render — and runs at the orchestrator's single engine-agnostic completion point, so it covers every engine (XTTS and the local mixed path) without special-casing. The lazy on-request path is retained as the fallback for the existing back-catalog (this change does not backfill already-rendered chapters). See `design-docs/specs/audio-player.md` 1.6.8.
+
 ### North Star Screen Parity (13 tasks)
 
 - **Welcome page:** CTA row moved up next to the hero, matching the north-star demo instead of sitting below two unrelated sections.
