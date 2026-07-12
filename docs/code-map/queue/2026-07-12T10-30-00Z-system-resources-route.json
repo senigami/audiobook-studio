@@ -1,0 +1,15 @@
+{
+  "at": "2026-07-12T10:30:00Z",
+  "commit": "uncommitted",
+  "task": "Wire the previously-landed system_resources sampler into a real route: GET /api/system/resources returns {cpu_pct, ram_used_gb, ram_total_gb, vram_used_gb|null, vram_total_gb|null}. Follow-up to the 2026-07-12T10-05-00Z-system-resources-sampler.json entry, which noted the module had no caller yet.",
+  "files": {
+    "app/api/routers/system.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Added `from ...engines.system_resources import sample_resources` and a new thin route `GET /api/system/resources` (registered on the module's `/api`-prefixed router) that returns `sample_resources()` directly as the JSON body. No new dependencies; no side effects beyond the existing sampler's best-effort nvidia-smi subprocess call. Route never 500s on missing/failed GPU probe (sampler contract).",
+      "calls_added": ["get_system_resources->sample_resources"],
+      "calls_removed": []
+    }
+  },
+  "flow_impact": "app/engines/system_resources.py now has a real runtime caller: GET /api/system/resources (app/api/routers/system.py), mounted under the existing /api prefix in app/api/web.py's router includes. No scheduler/orchestrator/watchdog behavior touched — read-only observability endpoint."
+}

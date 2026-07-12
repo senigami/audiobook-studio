@@ -15,6 +15,7 @@ from ...orchestration.scheduler.resources import is_paused, set_paused
 from ...db import list_speakers
 from ...db.performance import get_render_stats, reset_render_stats
 from ...db.models import Job
+from ...engines.system_resources import sample_resources
 from ...utils.pathing import safe_basename, safe_join_flat
 from ..utils import read_preview
 # Compatibility for tests that monkeypatch these
@@ -45,6 +46,15 @@ def get_voices_dir() -> Path:
     return VOICES_DIR
 
 router = APIRouter(prefix="/api", tags=["system"])
+
+
+@router.get("/system/resources")
+def get_system_resources() -> dict:
+    """Best-effort snapshot of host CPU/RAM/VRAM usage.
+
+    VRAM fields are null when no NVIDIA GPU / nvidia-smi is available.
+    """
+    return sample_resources()
 
 
 def _build_runtime_services(request: Request) -> list[dict[str, Any]]:

@@ -12,6 +12,13 @@ vi.mock('@/api', () => ({
     clearCompletedJobs: vi.fn().mockResolvedValue({}),
     clearProcessingQueue: vi.fn().mockResolvedValue({}),
     cancelChapterGeneration: vi.fn().mockResolvedValue({}),
+    fetchSystemResources: vi.fn().mockResolvedValue({
+      cpu_pct: 10,
+      ram_used_gb: 2,
+      ram_total_gb: 16,
+      vram_used_gb: null,
+      vram_total_gb: null,
+    }),
     fetchHome: vi.fn().mockResolvedValue({
       render_stats: {
         sample_count: 2,

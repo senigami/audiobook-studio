@@ -45,3 +45,45 @@
   text-transform: uppercase;
 }
 
+/* System resource strip */
+.system-resource-strip {
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.system-resource-strip__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.system-resource-strip__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.system-resource-strip__label {
+  width: 34px;
+  flex: 0 0 34px;
+  font-size: var(--type-caption);
+  color: var(--text-secondary);
+}
+
+.system-resource-strip__spark {
+  flex: 0 0 auto;
+}
+
+.system-resource-strip__value {
+  width: 52px;
+  flex: 0 0 52px;
+  text-align: right;
+  font-size: var(--type-callout);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+

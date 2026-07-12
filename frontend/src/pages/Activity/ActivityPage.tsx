@@ -4,6 +4,8 @@ import { GlobalQueue } from '@/components/queue/GlobalQueue';
 import { QueueStats } from '@/components/queue/QueueStats';
 import { EngineCalibrationCard } from '@/pages/Activity/components/EngineCalibrationCard';
 import { ProductionTallyCard } from '@/pages/Activity/components/ProductionTallyCard';
+import { SystemResourceStrip } from '@/pages/Activity/components/SystemResourceStrip';
+import { useSystemResourceSamples } from '@/hooks/useSystemResourceSamples';
 
 export interface ActivityPageProps {
   paused: boolean;
@@ -29,6 +31,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({
   isReconnecting,
 }) => {
   const [historyFilter, setHistoryFilter] = useState<(typeof HISTORY_FILTERS)[number]>('All');
+  const { samples: resourceSamples, hasVram } = useSystemResourceSamples();
 
   const connectionState = useMemo(() => {
     if (isReconnecting) return 'reconnecting';
@@ -93,6 +96,11 @@ const ActivityPage: React.FC<ActivityPageProps> = ({
           <div className="activity-page__stats-panel">
             <h2 className="activity-page__stats-title">Stats</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <SystemResourceStrip
+                samples={resourceSamples}
+                hasVram={hasVram}
+                loading={resourceSamples.length === 0}
+              />
               <QueueStats queue={queue} jobs={jobs} />
               <EngineCalibrationCard engines={engines} />
               <ProductionTallyCard />

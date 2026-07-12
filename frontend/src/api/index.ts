@@ -1,6 +1,14 @@
 import type { Project, Chapter, ScriptViewResponse, ScriptAssignmentsUpdate } from '@/types';
 import { DEFAULT_VOICE_SENTINEL } from '@/constants/api';
 
+export interface SystemResourcesResponse {
+  cpu_pct: number;
+  ram_used_gb: number;
+  ram_total_gb: number;
+  vram_used_gb: number | null;
+  vram_total_gb: number | null;
+}
+
 const parseApiResponse = async (res: Response) => {
   const data = await res.json();
   if (!res.ok || data?.status === 'error') {
@@ -22,6 +30,10 @@ export const api = {
   },
   restartTtsServer: async (): Promise<any> => {
     const res = await fetch('/api/system/tts-server/restart', { method: 'POST' });
+    return parseApiResponse(res);
+  },
+  fetchSystemResources: async (): Promise<SystemResourcesResponse> => {
+    const res = await fetch('/api/system/resources');
     return parseApiResponse(res);
   },
   // --- Projects ---
