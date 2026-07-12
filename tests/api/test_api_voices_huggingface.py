@@ -336,6 +336,53 @@ class TestExportEndpoint:
         with zipfile.ZipFile(resp.json()["bundle_path"]) as zf:
             assert not any(n.startswith("assets/") for n in zf.namelist())
 
+    def test_export_rejects_traversal_shaped_engine_id_from_variant_manifest(self, client, voices_root, monkeypatch):
+        """A variant profile.json's ``engine`` value is disk-sourced, not
+        API-validated -- a compromised/imported voice could carry a
+        traversal-shaped value. It must never become a zip arcname segment
+        (``assets/../../evil/...`` is a zip-slip payload for any naive
+        extractor consuming the published bundle)."""
+        _make_voice_root(voices_root, engine="../../evil", include_latent=True)
+
+        resp = client.post("/api/voices/huggingface/export", json={"voice_id": "gravel-road"})
+        assert resp.status_code == 200, resp.text
+
+        with zipfile.ZipFile(resp.json()["bundle_path"]) as zf:
+            names = zf.namelist()
+        assert not any(".." in n for n in names)
+        assert not any(n.startswith("assets/") for n in names)
+        # The unsafe engine id must not leak into the README either.
+        with zipfile.ZipFile(resp.json()["bundle_path"]) as zf:
+            assert "evil" not in zf.read("README.md").decode()
+
+    def test_upload_does_not_include_stale_files_from_a_previous_publish(self, client, voices_root, monkeypatch):
+        """The upload extract dir is keyed by voice_id and reused across
+        publishes; without a wipe, a file present in publish #1 but removed
+        from the voice before publish #2 would still be pushed to the Hub."""
+        from app.db.state import update_settings
+
+        update_settings({"huggingface_token": "a-real-token"})
+        voice_dir = _make_voice_root(voices_root, include_latent=True)
+        fake = FakeHFHubClient()
+        _patch_client(monkeypatch, fake)
+
+        resp = client.post(
+            "/api/voices/huggingface/upload",
+            json={"voice_id": "gravel-road", "hub_id": "someone/gravel-road"},
+        )
+        assert resp.status_code == 200, resp.text
+
+        (voice_dir / "Default" / "latent.pth").unlink()
+        resp = client.post(
+            "/api/voices/huggingface/upload",
+            json={"voice_id": "gravel-road", "hub_id": "someone/gravel-road"},
+        )
+        assert resp.status_code == 200, resp.text
+
+        folder = fake.upload_calls[1]["folder_path"]
+        uploaded = {p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_file()}
+        assert "assets/xtts/latent.pth" not in uploaded, "stale engine asset from the previous publish was re-uploaded"
+
     def test_export_honors_default_variant_from_state_over_alphabetical_fallback(self, client, voices_root, monkeypatch):
         """Two variants exist; state.json's default_variant picks the
         non-alphabetically-first one -- and its sample/asset must be the

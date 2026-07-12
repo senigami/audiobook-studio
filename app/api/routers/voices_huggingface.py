@@ -39,6 +39,7 @@ end-to-end async job that also triggers the build).
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -74,6 +75,14 @@ from ...utils.pathing import contained_path, safe_basename
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/huggingface", tags=["voices-huggingface"])
+
+# A variant manifest's ``engine`` value is disk-sourced (written at variant
+# creation, but also present in imported voices), NOT validated at the API
+# boundary — before it is used as a zip arcname segment
+# (``assets/<engine_id>/...``) or README text, it must match the same strict
+# single-segment shape real engine ids use. Reject (skip assets), never
+# silently "fix" (backend-paths rule: reject traversal-style input).
+_SAFE_ENGINE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 
 
 def _client() -> HFHubClient:
@@ -354,6 +363,14 @@ def export_hub_voice(body: ExportRequestModel):
 
         variant_manifest = load_variant_manifest(variant_dir)
         engine_id = variant_manifest.get("engine")
+        if engine_id and not (isinstance(engine_id, str) and _SAFE_ENGINE_ID_RE.fullmatch(engine_id)):
+            logger.warning(
+                "Skipping engine assets for voice %r: variant %r declares an unsafe engine id %r",
+                body.voice_id,
+                variant_dir.name,
+                engine_id,
+            )
+            engine_id = None
         if engine_id:
             sample_engine_id = engine_id
             asset_files: list[tuple[str, bytes]] = []
@@ -425,6 +442,13 @@ def upload_hub_voice(body: UploadRequestModel):
     import zipfile
 
     extract_dir = contained_path(TRANSIENT_DIR, "hf_uploads", safe_basename(body.voice_id))
+    # Wipe any previous publish's extraction for this voice: the dir is
+    # keyed by voice_id and reused, so without this a file that existed in
+    # publish N but was removed from the voice before publish N+1 (e.g. a
+    # deleted latent.pth) would silently ride along to the Hub again.
+    import shutil
+
+    shutil.rmtree(extract_dir, ignore_errors=True)
     extract_dir.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(bundle_path) as zf:
         zf.extractall(extract_dir)

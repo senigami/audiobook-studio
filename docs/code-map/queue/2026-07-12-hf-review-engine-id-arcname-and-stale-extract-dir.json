@@ -1,0 +1,16 @@
+{
+  "date": "2026-07-12",
+  "author": "claude (adversarial reviewer)",
+  "summary": "Sign-off review of the last 7 commits found two defects in the HF export/upload path, both fixed. (1) A variant profile.json's `engine` value is disk-sourced (present in imported voices) and was used unvalidated as a zip arcname segment (`assets/{engine_id}/{filename}`) and README text -- a traversal-shaped value like '../../evil' produced a zip-slip payload inside the published .asvoice.zip (safe_basename only sanitizes, it does not reject, and nothing else validated the value). (2) The /upload endpoint's extraction dir (TRANSIENT_DIR/hf_uploads/<voice_id>) is reused across publishes without cleanup, so files removed from the voice between publish N and N+1 (e.g. a deleted latent.pth) were silently re-uploaded to the Hub.",
+  "files": [
+    {
+      "path": "app/api/routers/voices_huggingface.py",
+      "change": "Added _SAFE_ENGINE_ID_RE (^[A-Za-z0-9][A-Za-z0-9_-]*$); export_hub_voice now rejects (skips engine assets + README note, with a warning log) any variant-manifest engine id that fails it, per backend-paths 'reject, never fix'. upload_hub_voice now shutil.rmtree's the per-voice extract dir before extracting the fresh bundle."
+    }
+  ],
+  "tests_added": [
+    "tests/api/test_api_voices_huggingface.py::TestExportEndpoint::test_export_rejects_traversal_shaped_engine_id_from_variant_manifest",
+    "tests/api/test_api_voices_huggingface.py::TestExportEndpoint::test_upload_does_not_include_stale_files_from_a_previous_publish"
+  ],
+  "revert_checked": "Both new tests were run before the fix and failed for the right reasons (arcname containing '..' present in the zip; stale assets/xtts/latent.pth present in the second publish's upload folder); green after."
+}
