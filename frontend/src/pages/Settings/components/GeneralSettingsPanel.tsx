@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ShieldCheck, PlugZap, Music, Palette, FlaskConical, Layers } from 'lucide-react';
+import { ShieldCheck, PlugZap, Music, Palette, FlaskConical, Layers, KeyRound } from 'lucide-react';
 import type { Settings as AppSettings, SpeakerProfile, TtsEngine, Speaker } from '@/types';
 import { buildVoiceOptions } from '@/utils/voiceProfiles';
 import { SettingCard, ToggleButton } from '@/pages/Settings/components/SettingsComponents';
@@ -29,6 +29,8 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>(loadThemePref);
   const devMode = useDevMode();
+  const [hfTokenInput, setHfTokenInput] = useState('');
+  const hfTokenConfigured = settings?.huggingface_token === '***';
 
   const handleThemeChange = (val: Theme) => {
     setTheme(val);
@@ -67,6 +69,25 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
         body: JSON.stringify({ tts_parallel_cap: cap }),
       });
       onRefresh();
+    } catch (error) {
+      console.error('Failed to update setting', error);
+      onShowNotification?.('Settings update failed. Please try again.');
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  const saveHfToken = async (value: string) => {
+    setSavingKey('huggingface_token');
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ huggingface_token: value }),
+      });
+      setHfTokenInput('');
+      onRefresh();
+      onShowNotification?.(value ? 'Hugging Face token saved.' : 'Hugging Face token cleared.');
     } catch (error) {
       console.error('Failed to update setting', error);
       onShowNotification?.('Settings update failed. Please try again.');
@@ -290,6 +311,71 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
                   fontWeight: 800,
                 }}
               />
+            }
+          />
+        </div>
+      </section>
+
+      {/* Publishing section */}
+      <section>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <h3 style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+            Publishing
+          </h3>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+          <SettingCard
+            icon={KeyRound}
+            title="Hugging Face Access Token"
+            description={
+              hfTokenConfigured
+                ? 'Configured. Used to publish voices to Hugging Face from Voice Lab. Enter a new token to replace it, or save an empty field to clear it.'
+                : 'Required to publish voices to Hugging Face from Voice Lab. Create a token with write access at huggingface.co/settings/tokens.'
+            }
+            action={
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {hfTokenConfigured && (
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      color: 'var(--success)',
+                      background: 'var(--success-tint-bg, var(--accent-glow))',
+                      padding: '2px 8px',
+                      borderRadius: '999px',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Configured
+                  </span>
+                )}
+                <input
+                  type="password"
+                  aria-label="Hugging Face access token"
+                  placeholder={hfTokenConfigured ? 'Replace token…' : 'hf_...'}
+                  value={hfTokenInput}
+                  disabled={savingKey === 'huggingface_token'}
+                  onChange={(e) => setHfTokenInput(e.target.value)}
+                  style={{
+                    width: '200px',
+                    padding: '0.45rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.85rem',
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn-glass"
+                  disabled={savingKey === 'huggingface_token' || (!hfTokenInput && !hfTokenConfigured)}
+                  onClick={() => saveHfToken(hfTokenInput)}
+                  style={{ padding: '0.45rem 0.9rem', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 700 }}
+                >
+                  {savingKey === 'huggingface_token' ? 'Saving…' : hfTokenInput ? 'Save' : 'Clear'}
+                </button>
+              </div>
             }
           />
         </div>

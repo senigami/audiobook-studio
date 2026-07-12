@@ -1,7 +1,7 @@
 # Voice Bundle & Voice Directory Contract
 
 ```
-spec_version: 1.6.0
+spec_version: 1.7.0
 status: active
 sources:
   - app/domain/voices/manifest.py
@@ -22,6 +22,7 @@ sources:
 
 ## Changelog
 
+| 1.7.0   | 2026-07-12 | Closes `design-docs/plans/active/huggingface_voice_upload/` tasks 002 and 003 (task 004 remains owner-gated, untouched). **002:** `export_hf_voice_bundle()` (`app/domain/voices/huggingface.py`) now includes the generated `README.md` (reusing `bundles.generate_readme_md`, not duplicating it) and the voice's `icon.png` when present, both additive/optional. When a real sample is being published but the local `voice.json` has no `samples[]` (the common case — only the v1-schema migration ever wrote it), the export synthesizes a `{"path": "samples/preview.mp3", "primary": true}` entry for both the bundle's `voice.json` and the README, so the on-Hub manifest and its own model-card widget agree with each other instead of shipping a non-playable card. **003:** `HFHubClient.upload_files()` switched from N sequential `upload_file()` calls keyed on filename (flattened structure, non-atomic, plus a separate best-effort tag-card push) to one `HfApi.upload_folder()` call — one atomic commit, directory structure preserved (`samples/preview.mp3` no longer becomes `preview.mp3` at repo root), `repo_type="model"` now explicit on both `create_repo` and `upload_folder`. Signature change (`files: list[Path]` → `folder_path: Path`) rippled through `upload_voice_to_hub()` and the `/upload` router (which now passes its extracted bundle directory straight through instead of building a flattened file list). **Frontend wiring completed in the same change:** a new Settings → General → Publishing panel to configure the `huggingface_token` (redacted round-trip, matches the existing `_SECRET_FIELDS` pattern); Voice Lab's "Publish to Hugging Face" control replaced from a disabled "planned" placeholder pill with a real button opening a modal (repo-id input → `POST /api/voices/huggingface/upload` → success state with a Hub link + commit id, or the 422/502 error message surfaced verbatim). Verified live against the real backend: the no-token 422 path, and a real export producing a zip containing `voice.json` + `samples/preview.mp3` + `README.md` + `icon.png`. |
 | 1.6.0   | 2026-07-12 | §11 icon upload closes two real gaps found while implementing the D2 crop UI. (1) **`GET /api/voices/{id}/icon` didn't exist** — only the upload `POST` was ever built, so every icon `<img>` in the catalog/Voice Lab had 404'd since the feature originally shipped; added `GET /api/voices/{id}/icon` (`app/api/routers/voices_metadata.py`, `find_secure_file`-contained, 404 when no icon uploaded) actually serving the saved PNG. (2) D2's "crop UI (or error if non-square)" was previously only the reject branch; a non-square source image now opens `IconCropModal` (drag-to-reposition + zoom-slider, canvas-cropped client-side to a square PNG) instead of round-tripping to the server for a 422 — square sources still upload directly, unchanged. Confirms PNG (not JPG) is and remains the correct icon format per this spec and `docs/user-guide/voice-tags-icons.md`; a stale TASKS.md checklist item referencing "JPG" was a wording error, not a spec conflict. |
 
 | Version | Date       | Change                  |

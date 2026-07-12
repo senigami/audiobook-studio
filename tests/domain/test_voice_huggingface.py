@@ -53,10 +53,10 @@ class FakeHFHubClient:
     def download_files(self, hub_id, *, revision=None, token=None) -> list[Path]:  # pragma: no cover - unused here
         return []
 
-    def upload_files(self, hub_id, files, *, tags, token) -> str:
+    def upload_files(self, hub_id, folder_path, *, tags, token) -> str:
         # Record everything the module handed us so tests can assert the
         # token is used only as an opaque credential, never serialized.
-        self.upload_calls.append({"hub_id": hub_id, "files": files, "tags": tags, "token": token})
+        self.upload_calls.append({"hub_id": hub_id, "folder_path": folder_path, "tags": tags, "token": token})
         return self._upload_commit_id
 
 
@@ -175,12 +175,19 @@ class TestExportHFVoiceBundle:
 
         with zipfile.ZipFile(bundle_path) as zf:
             names = set(zf.namelist())
-            assert names == {"voice.json", "samples/preview.mp3"}
+            assert names == {"voice.json", "samples/preview.mp3", "README.md"}
 
             manifest_out = json.loads(zf.read("voice.json"))
-            assert manifest_out == voice_manifest
+            # The manifest has no samples[] and a real sample is being
+            # published, so the export synthesizes one (matching the
+            # generated README's widget block) -- verified separately below.
+            assert manifest_out == {
+                **voice_manifest,
+                "samples": [{"path": "samples/preview.mp3", "primary": True}],
+            }
 
             assert zf.read("samples/preview.mp3") == sample_bytes
+            assert "icon.png" not in names  # no icon_bytes passed -> optional path stays optional
 
     def test_export_creates_output_dir_when_missing(self, tmp_path: Path):
         """``output_dir`` doesn't exist yet -- export must create it
@@ -220,6 +227,65 @@ class TestExportHFVoiceBundle:
         # Nothing was written outside output_dir.
         assert not (tmp_path / "escaped.asvoice.zip").exists()
 
+    def test_export_includes_icon_when_provided(self, tmp_path: Path):
+        from app.domain.voices.huggingface import export_hf_voice_bundle
+
+        bundle_path = export_hf_voice_bundle(
+            voice_manifest={"id": "x", "name": "X"},
+            sample_mp3_bytes=b"fake-mp3-bytes",
+            output_dir=tmp_path,
+            bundle_name="x",
+            icon_bytes=b"fake-png-bytes",
+        )
+
+        with zipfile.ZipFile(bundle_path) as zf:
+            names = set(zf.namelist())
+            assert "icon.png" in names
+            assert zf.read("icon.png") == b"fake-png-bytes"
+
+    def test_export_readme_reflects_voice_manifest(self, tmp_path: Path):
+        from app.domain.voices.huggingface import export_hf_voice_bundle
+
+        bundle_path = export_hf_voice_bundle(
+            voice_manifest={
+                "id": "gravel-road",
+                "name": "Gravel Road",
+                "description": "A weathered, low Southern drawl.",
+                "attributes": {"class": "human", "gender": "masculine", "age": "senior"},
+            },
+            sample_mp3_bytes=b"fake-mp3-bytes",
+            output_dir=tmp_path,
+            bundle_name="gravel-road",
+        )
+
+        with zipfile.ZipFile(bundle_path) as zf:
+            readme = zf.read("README.md").decode()
+
+        assert "Gravel Road" in readme
+
+    def test_export_readme_has_playable_widget_even_without_manifest_samples(self, tmp_path: Path):
+        """The manifest handed in has no samples[] (the common case for an
+        installed voice today) -- the export must still synthesize a widget
+        entry pointing at the bundled sample, not silently ship a
+        non-playable Hub card."""
+        from app.domain.voices.huggingface import export_hf_voice_bundle
+
+        voice_manifest = {"id": "gravel-road", "name": "Gravel Road"}
+        assert "samples" not in voice_manifest
+
+        bundle_path = export_hf_voice_bundle(
+            voice_manifest=voice_manifest,
+            sample_mp3_bytes=b"fake-mp3-bytes",
+            output_dir=tmp_path,
+            bundle_name="gravel-road",
+        )
+
+        with zipfile.ZipFile(bundle_path) as zf:
+            readme = zf.read("README.md").decode()
+
+        assert "widget:" in readme
+        assert "url: samples/preview.mp3" in readme
+
 
 # ---------------------------------------------------------------------------
 # Token never logged / never serialized
@@ -240,14 +306,13 @@ class TestTokenHandling:
 
         client = FakeHFHubClient()
         token = HFToken(value="super-secret-hf-token")
-        sample_file = tmp_path / "voice.json"
-        sample_file.write_text("{}")
+        (tmp_path / "voice.json").write_text("{}")
 
         with caplog.at_level(logging.INFO):
             commit_id = upload_voice_to_hub(
                 client,
                 "someone/voice",
-                [sample_file],
+                tmp_path,
                 extra_tags=["as-gender-masculine"],
                 token=token,
             )
@@ -260,7 +325,7 @@ class TestTokenHandling:
         assert client.upload_calls[0]["token"] is token
         serializable = {
             "hub_id": client.upload_calls[0]["hub_id"],
-            "files": [str(p) for p in client.upload_calls[0]["files"]],
+            "folder_path": str(client.upload_calls[0]["folder_path"]),
             "tags": client.upload_calls[0]["tags"],
         }
         assert "super-secret-hf-token" not in json.dumps(serializable)

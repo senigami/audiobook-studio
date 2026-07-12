@@ -308,12 +308,21 @@ def export_hub_voice(body: ExportRequestModel):
             sample_bytes = candidate_path.read_bytes()
             break
 
+    icon_bytes: bytes | None = None
+    try:
+        icon_path = contained_path(voice_dir, "icon.png")
+    except ValueError:
+        icon_path = None
+    if icon_path is not None and icon_path.exists():
+        icon_bytes = icon_path.read_bytes()
+
     export_dir = contained_path(TRANSIENT_DIR, "hf_exports")
     bundle_path = export_hf_voice_bundle(
         voice_manifest=manifest,
         sample_mp3_bytes=sample_bytes,
         output_dir=export_dir,
         bundle_name=safe_basename(body.voice_id),
+        icon_bytes=icon_bytes,
     )
     return {"status": "ok", "bundle_path": str(bundle_path), "bundle_name": bundle_path.name}
 
@@ -359,13 +368,11 @@ def upload_hub_voice(body: UploadRequestModel):
     with zipfile.ZipFile(bundle_path) as zf:
         zf.extractall(extract_dir)
 
-    loose_files = [p for p in extract_dir.rglob("*") if p.is_file()]
-
     try:
         commit_id = upload_voice_to_hub(
             _client(),
             body.hub_id,
-            loose_files,
+            extract_dir,
             extra_tags=body.extra_tags,
             token=token,
         )

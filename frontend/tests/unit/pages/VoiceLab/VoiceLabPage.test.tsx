@@ -22,6 +22,7 @@ vi.mock('@/api', () => ({
     api: {
         listVoicesWithMetadata: vi.fn(),
         exportVoiceBundleUrl: vi.fn().mockReturnValue('/api/voices/test/bundle/download'),
+        uploadHfVoice: vi.fn(),
     },
 }));
 
@@ -206,6 +207,27 @@ describe('VoiceLabPage', () => {
             const dialog = screen.getByRole('dialog');
             expect(dialog).toBeInTheDocument();
         });
+    });
+
+    it('opens the real Publish to Hugging Face flow (not a decorative placeholder)', async () => {
+        const user = userEvent.setup();
+        renderAtPath(`/voices/${VOICE_ID}`);
+
+        await waitFor(() => {
+            expect(screen.getByText('Aria Nova')).toBeInTheDocument();
+        });
+
+        expect(screen.queryByText('planned')).toBeNull();
+
+        const publishBtn = screen.getByRole('button', { name: /publish to hugging face/i });
+        expect(publishBtn.tagName).toBe('BUTTON');
+        expect(publishBtn).not.toBeDisabled();
+        await user.click(publishBtn);
+
+        await waitFor(() => {
+            expect(screen.getByRole('dialog', { name: /publish to hugging face/i })).toBeInTheDocument();
+        });
+        expect(screen.getByLabelText('Hugging Face repo')).toBeInTheDocument();
     });
 
     it('renders section placeholders (samples, variants, test)', async () => {

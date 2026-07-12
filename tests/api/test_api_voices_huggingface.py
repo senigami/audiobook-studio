@@ -50,8 +50,8 @@ class FakeHFHubClient:
         self.download_calls.append({"hub_id": hub_id, "revision": revision, "token": token})
         return self._download_paths
 
-    def upload_files(self, hub_id, files, *, tags, token):
-        self.upload_calls.append({"hub_id": hub_id, "files": files, "tags": tags, "token": token})
+    def upload_files(self, hub_id, folder_path, *, tags, token):
+        self.upload_calls.append({"hub_id": hub_id, "folder_path": folder_path, "tags": tags, "token": token})
         return self._upload_commit_id
 
 
@@ -322,7 +322,8 @@ class TestUploadEndpoint:
         assert len(fake.upload_calls) == 1
         call = fake.upload_calls[0]
         assert call["hub_id"] == "someone/gravel-road"
-        uploaded_names = {Path(p).name for p in call["files"]}
-        assert "voice.json" in uploaded_names
-        assert "preview.mp3" in uploaded_names
+        folder = call["folder_path"]
+        uploaded_rel_paths = {p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_file()}
+        assert "voice.json" in uploaded_rel_paths
+        assert "samples/preview.mp3" in uploaded_rel_paths  # pins structure preservation, not flattening
         assert "as-narrator" in call["tags"]

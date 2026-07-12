@@ -233,12 +233,14 @@ class HFHubClientProtocol(Protocol):
     def upload_files(
         self,
         hub_id: str,
-        files: list[Path],
+        folder_path: Path,
         *,
         tags: list[str],
         token: HFToken,
     ) -> str:
-        """Push loose files to ``hub_id``, returning the resulting commit/revision id."""
+        """Push every file under ``folder_path`` to ``hub_id`` in one atomic commit,
+        preserving the folder's relative directory structure, returning the
+        resulting commit/revision id."""
         ...
 
 
@@ -405,7 +407,7 @@ class HFHubClient:
     def upload_files(
         self,
         hub_id: str,
-        files: list[Path],
+        folder_path: Path,
         *,
         tags: list[str],
         token: HFToken,
@@ -415,31 +417,17 @@ class HFHubClient:
         if not raw_token:
             raise ValueError("upload_files requires a non-empty HF token")
 
-        self._api.create_repo(hub_id, token=raw_token, exist_ok=True)
+        self._api.create_repo(hub_id, repo_type="model", token=raw_token, exist_ok=True)
 
-        last_commit = None
-        for file_path in files:
-            commit_info = self._api.upload_file(
-                path_or_fileobj=str(file_path),
-                path_in_repo=Path(file_path).name,
-                repo_id=hub_id,
-                token=raw_token,
-                commit_message=f"Add/update {Path(file_path).name} via Audiobook Studio",
-            )
-            last_commit = commit_info
+        commit_info = self._api.upload_folder(
+            folder_path=str(folder_path),
+            repo_id=hub_id,
+            repo_type="model",
+            token=raw_token,
+            commit_message=f"Publish voice via Audiobook Studio ({', '.join(tags) or 'no tags'})",
+        )
 
-        # Best-effort tag application: tags are declared via the model card's
-        # metadata rather than a dedicated "add tag" endpoint.
-        try:
-            from huggingface_hub import ModelCard, ModelCardData  # noqa: PLC0415
-
-            card_data = ModelCardData(tags=list(dict.fromkeys(tags)))
-            card = ModelCard.from_template(card_data, model_id=hub_id.split("/", 1)[-1])
-            card.push_to_hub(hub_id, token=raw_token)
-        except Exception:
-            logger.warning("Failed to push tag metadata card for %s (files were still uploaded)", hub_id)
-
-        commit_id = getattr(last_commit, "oid", None) or getattr(last_commit, "commit_url", None) or ""
+        commit_id = getattr(commit_info, "oid", None) or getattr(commit_info, "commit_url", None) or ""
         return str(commit_id)
 
 
@@ -611,14 +599,20 @@ def export_hf_voice_bundle(
     sample_mp3_bytes: bytes,
     output_dir: Path,
     bundle_name: str,
+    icon_bytes: bytes | None = None,
 ) -> Path:
     """Write a portable ``<bundle_name>.asvoice.zip`` under ``output_dir``.
 
-    Bundle shape: ``voice.json`` at the zip root plus
-    ``samples/preview.mp3`` (voice bundle audio is MP3 per this repo's
-    binding audio-format convention — see CLAUDE.md). ``sample_mp3_bytes``
-    is written verbatim; this function does not itself verify the bytes are
-    actually MP3-encoded — that is the caller's responsibility. This is a
+    Always includes ``voice.json`` and ``samples/preview.mp3`` (voice bundle
+    audio is MP3 per this repo's binding audio-format convention — see
+    CLAUDE.md). ``sample_mp3_bytes`` is written verbatim; this function does
+    not itself verify the bytes are actually MP3-encoded — that is the
+    caller's responsibility. Also includes a generated ``README.md`` (via
+    ``bundles.generate_readme_md`` — the same HF-card generator the
+    Studio-to-Studio bundle exporter uses, reused here rather than
+    duplicated) and, when ``icon_bytes`` is provided, ``icon.png``.
+    ``icon_bytes`` is optional so a voice with no icon set still exports
+    successfully with just the three always-present files. This is a
     self-contained scaffold: it does not touch the live voices root or the
     existing ``app.domain.voices.bundles`` exporter; a future integration
     pass decides whether to reuse that exporter directly.
@@ -629,13 +623,31 @@ def export_hf_voice_bundle(
 
     Never includes a token or any secret value in the bundle contents.
     """
+    from .bundles import generate_readme_md  # local import: avoid a module-level dependency on bundles.py
+
     output_dir.mkdir(parents=True, exist_ok=True)
     bundle_path = safe_join_flat(output_dir, f"{bundle_name}{ASVOICE_BUNDLE_SUFFIX}")
 
+    # generate_readme_md only emits the playable `widget:` block when
+    # voice_manifest["samples"] is non-empty. Most installed voices have no
+    # samples[] locally (only the v1-schema migration ever writes it), so
+    # when we actually have a sample to publish, synthesize the entry here
+    # -- both for the README and for the voice.json written into the bundle,
+    # so the on-Hub manifest and README agree with each other.
+    manifest_for_export = voice_manifest
+    if sample_mp3_bytes and not voice_manifest.get("samples"):
+        manifest_for_export = {
+            **voice_manifest,
+            "samples": [{"path": "samples/preview.mp3", "primary": True}],
+        }
+
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr(ASVOICE_MANIFEST_FILENAME, json.dumps(voice_manifest, indent=2))
+        zf.writestr(ASVOICE_MANIFEST_FILENAME, json.dumps(manifest_for_export, indent=2))
         zf.writestr("samples/preview.mp3", sample_mp3_bytes)
+        zf.writestr("README.md", generate_readme_md(manifest_for_export))
+        if icon_bytes:
+            zf.writestr("icon.png", icon_bytes)
 
     bundle_path.write_bytes(buffer.getvalue())
     return bundle_path
@@ -649,12 +661,12 @@ def export_hf_voice_bundle(
 def upload_voice_to_hub(
     client: HFHubClientProtocol,
     hub_id: str,
-    files: list[Path],
+    folder_path: Path,
     *,
     extra_tags: Optional[list[str]] = None,
     token: HFToken,
 ) -> str:
-    """Push loose files to ``hub_id``, auto-setting the anchor tag + ``as-*`` tags.
+    """Push a voice bundle folder to ``hub_id``, auto-setting the anchor tag + ``as-*`` tags.
 
     ``token`` is required for upload (plan §9 decided). The token value is
     never included in the returned commit id, in any log line, or in the
@@ -662,8 +674,8 @@ def upload_voice_to_hub(
     client.
     """
     tags = [HF_VOICE_TAG, *(extra_tags or [])]
-    logger.info("Uploading voice bundle to Hub repo %s (%d files)", hub_id, len(files))
-    return client.upload_files(hub_id, files, tags=tags, token=token)
+    logger.info("Uploading voice bundle to Hub repo %s (folder: %s)", hub_id, folder_path)
+    return client.upload_files(hub_id, folder_path, tags=tags, token=token)
 
 
 def utc_now_iso() -> str:

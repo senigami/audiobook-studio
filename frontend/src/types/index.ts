@@ -458,6 +458,8 @@ export interface Settings {
   mistral_api_key?: string;
   tts_parallel_cap?: number;
   tts_engine_caps?: Record<string, number>;
+  /** Redacted by the backend: '***' when set, '' when unset. The real value is never sent to the frontend. */
+  huggingface_token?: string;
 }
 
 export interface Audiobook {

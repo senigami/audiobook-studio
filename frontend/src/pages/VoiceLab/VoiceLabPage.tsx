@@ -20,6 +20,7 @@ import { getVoicePhase } from '@/pages/Voices/voicePhase';
 import { PhaseStepper } from '@/pages/VoiceLab/components/PhaseStepper';
 import { MetadataEditorModal } from '@/pages/Voices/components/MetadataEditorModal';
 import { VoiceIconControls } from '@/pages/VoiceLab/components/VoiceIconControls';
+import { PublishToHuggingFaceModal } from '@/pages/VoiceLab/components/PublishToHuggingFaceModal';
 
 // Sections filled by T6–T8 (lazy imports)
 const SamplesSection = React.lazy(() =>
@@ -57,6 +58,7 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
     // Metadata list — hydrated from the metadata endpoint
     const [voiceMetadataList, setVoiceMetadataList] = useState<VoiceMetadata[]>([]);
     const [metadataEditorOpen, setMetadataEditorOpen] = useState(false);
+    const [publishModalOpen, setPublishModalOpen] = useState(false);
 
     const fetchMetadata = useCallback(async () => {
         try {
@@ -248,38 +250,15 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
                             >
                                 Export bundle (.zip)
                             </button>
-                            {/* HF publish — planned placeholder only */}
-                            <span
-                                title="Publish to Hugging Face — planned"
-                                style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    padding: '4px 10px',
-                                    borderRadius: '999px',
-                                    fontSize: '0.72rem',
-                                    fontWeight: 700,
-                                    background: 'var(--surface-alt)',
-                                    color: 'var(--text-muted)',
-                                    border: '1px solid var(--border)',
-                                    opacity: 0.7,
-                                    cursor: 'default',
-                                    userSelect: 'none',
-                                }}
+                            <button
+                                type="button"
+                                onClick={() => setPublishModalOpen(true)}
+                                disabled={!metadata?.name}
+                                className="btn-glass"
+                                style={{ height: '36px', padding: '0 16px', fontSize: '0.85rem', borderRadius: '10px' }}
                             >
                                 Publish to Hugging Face
-                                <span style={{
-                                    padding: '1px 6px',
-                                    borderRadius: '999px',
-                                    fontSize: '0.6rem',
-                                    fontWeight: 800,
-                                    background: 'var(--warning-tint-bg)',
-                                    color: 'var(--warning-text)',
-                                    letterSpacing: '0.04em',
-                                }}>
-                                    planned
-                                </span>
-                            </span>
+                            </button>
                         </div>
                     </div>
 
@@ -315,6 +294,14 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
                 voice={metadata ?? (id ? { id, name: id, is_untagged: true } : null)}
                 onClose={() => setMetadataEditorOpen(false)}
                 onSaved={handleMetadataSaved}
+            />
+
+            {/* Publish to Hugging Face modal */}
+            <PublishToHuggingFaceModal
+                isOpen={publishModalOpen}
+                voiceId={id}
+                voiceName={metadata?.name ?? id}
+                onClose={() => setPublishModalOpen(false)}
             />
         </div>
     );
