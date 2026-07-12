@@ -680,3 +680,81 @@ class TestStrictVsLenientBoundary:
             json={"attributes": {"class": "alien"}},
         )
         assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# C5 — POST/GET /api/voices/{id}/icon
+# ---------------------------------------------------------------------------
+
+def _make_png_bytes(w: int, h: int) -> bytes:
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new("RGB", (w, h), color=(200, 50, 50)).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+class TestVoiceIcon:
+    def test_upload_square_png_then_download_round_trips(self, voices_root, client):
+        voices_root.mkdir(exist_ok=True)
+        _make_voice(voices_root, "Gravel Road", _gravel_road_manifest())
+
+        upload = client.post(
+            "/api/voices/gravel-road/icon",
+            files={"file": ("icon.png", _make_png_bytes(512, 512), "image/png")},
+        )
+        assert upload.status_code == 200
+        assert upload.json()["image"] == "icon.png"
+
+        # voice.json persisted the image field.
+        manifest = json.loads((voices_root / "Gravel Road" / "voice.json").read_text())
+        assert manifest["image"] == "icon.png"
+
+        # GET actually serves the uploaded bytes back (this route was
+        # missing entirely before — every icon <img> 404'd silently).
+        download = client.get("/api/voices/gravel-road/icon")
+        assert download.status_code == 200
+        assert download.headers["content-type"] == "image/png"
+        assert len(download.content) > 0
+
+    def test_upload_nonsquare_rejected_422(self, voices_root, client):
+        voices_root.mkdir(exist_ok=True)
+        _make_voice(voices_root, "Gravel Road", _gravel_road_manifest())
+
+        resp = client.post(
+            "/api/voices/gravel-road/icon",
+            files={"file": ("icon.png", _make_png_bytes(400, 300), "image/png")},
+        )
+        assert resp.status_code == 422
+        assert "square" in resp.json()["detail"].lower()
+
+    def test_upload_unsupported_content_type_rejected_422(self, voices_root, client):
+        voices_root.mkdir(exist_ok=True)
+        _make_voice(voices_root, "Gravel Road", _gravel_road_manifest())
+
+        resp = client.post(
+            "/api/voices/gravel-road/icon",
+            files={"file": ("icon.gif", b"not-really-a-gif", "image/gif")},
+        )
+        assert resp.status_code == 422
+
+    def test_upload_unknown_voice_404(self, voices_root, client):
+        voices_root.mkdir(exist_ok=True)
+
+        resp = client.post(
+            "/api/voices/does-not-exist/icon",
+            files={"file": ("icon.png", _make_png_bytes(256, 256), "image/png")},
+        )
+        assert resp.status_code == 404
+
+    def test_download_before_any_upload_returns_404(self, voices_root, client):
+        voices_root.mkdir(exist_ok=True)
+        _make_voice(voices_root, "Gravel Road", _gravel_road_manifest())
+
+        resp = client.get("/api/voices/gravel-road/icon")
+        assert resp.status_code == 404
+
+    def test_download_unknown_voice_404(self, voices_root, client):
+        voices_root.mkdir(exist_ok=True)
+
+        resp = client.get("/api/voices/does-not-exist/icon")
+        assert resp.status_code == 404

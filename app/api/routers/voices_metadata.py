@@ -7,6 +7,7 @@ Routes (all prefixed /api/voices by the parent router):
   GET  /api/voices/{id}                     → single voice metadata
   PATCH /api/voices/{id}/metadata           → update attributes/tags/description
   POST /api/voices/{id}/icon                → icon upload
+  GET  /api/voices/{id}/icon                 → icon download (serves the uploaded PNG)
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 from .voices_helpers import get_voices_dir
@@ -30,7 +31,7 @@ from ...domain.voices.metadata import (
     update_voice_metadata,
 )
 from ...domain.voices.manifest import save_voice_manifest, load_voice_manifest
-from ...utils.pathing import secure_join_flat
+from ...utils.pathing import find_secure_file, secure_join_flat
 
 logger = logging.getLogger(__name__)
 
@@ -265,3 +266,23 @@ async def upload_voice_icon(voice_id: str, file: UploadFile = File(...)):
     save_voice_manifest(voice_dir, raw)
 
     return {"status": "ok", "image": _ICON_FILENAME}
+
+
+@router.get("/{voice_id}/icon")
+async def get_voice_icon(voice_id: str):
+    """Serve the voice's uploaded icon (``icon.png``), if one exists.
+
+    Was missing entirely until now — the upload endpoint above has existed
+    since C5 shipped, but nothing served the file back, so every icon
+    <img> in the frontend 404'd silently since the feature launched.
+    """
+    voices_dir = _voices_dir()
+    voice_dir = find_voice_dir_by_id(voices_dir, voice_id)
+    if voice_dir is None:
+        raise HTTPException(status_code=404, detail=f"Voice not found: {voice_id!r}")
+
+    icon_path = find_secure_file(voice_dir, _ICON_FILENAME)
+    if icon_path is None:
+        raise HTTPException(status_code=404, detail="No icon uploaded for this voice")
+
+    return FileResponse(icon_path, media_type="image/png")

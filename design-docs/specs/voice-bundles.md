@@ -1,7 +1,7 @@
 # Voice Bundle & Voice Directory Contract
 
 ```
-spec_version: 1.5.1
+spec_version: 1.6.0
 status: active
 sources:
   - app/domain/voices/manifest.py
@@ -21,6 +21,8 @@ sources:
 > **TL;DR:** Voice assets live in a versioned two-level directory (`{VoiceName}/{VariantName}/`); portable bundles are zips with the same layout; all preview audio is MP3, reference samples are WAV, render output is WAV.
 
 ## Changelog
+
+| 1.6.0   | 2026-07-12 | §11 icon upload closes two real gaps found while implementing the D2 crop UI. (1) **`GET /api/voices/{id}/icon` didn't exist** — only the upload `POST` was ever built, so every icon `<img>` in the catalog/Voice Lab had 404'd since the feature originally shipped; added `GET /api/voices/{id}/icon` (`app/api/routers/voices_metadata.py`, `find_secure_file`-contained, 404 when no icon uploaded) actually serving the saved PNG. (2) D2's "crop UI (or error if non-square)" was previously only the reject branch; a non-square source image now opens `IconCropModal` (drag-to-reposition + zoom-slider, canvas-cropped client-side to a square PNG) instead of round-tripping to the server for a 422 — square sources still upload directly, unchanged. Confirms PNG (not JPG) is and remains the correct icon format per this spec and `docs/user-guide/voice-tags-icons.md`; a stale TASKS.md checklist item referencing "JPG" was a wording error, not a spec conflict. |
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
@@ -304,8 +306,10 @@ visual rule (pill tints, category colours) it **cross-references**
 > implemented under `frontend/src/pages/VoiceLab/components/`.
 >
 > The icon-upload backend also exists — `POST /api/voices/{id}/icon`
-> (`app/api/routers/voices_metadata.py`, multipart image, 1:1 aspect enforced) — and is
-> wired to `VoiceIconControls`.
+> (`app/api/routers/voices_metadata.py`, multipart image, 1:1 aspect enforced) and
+> `GET /api/voices/{id}/icon` (serves the saved PNG, 404 if none uploaded) — and is
+> wired to `VoiceIconControls`. A non-square source opens a client-side crop modal
+> (drag + zoom, canvas-cropped to a square PNG) rather than being rejected outright.
 >
 > Canonical design sources: `design-docs/plans/reference/site_experience_north_star.md` §5 + decision Q4 (U8
 > card content set) and `design-docs/plans/reference/site_redesign_rollout/07_phase_r5_platform.md`.
