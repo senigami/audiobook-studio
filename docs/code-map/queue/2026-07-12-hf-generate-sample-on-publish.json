@@ -1,0 +1,34 @@
+{
+  "date": "2026-07-12",
+  "author": "claude",
+  "summary": "Owner follow-up on Fable's sign-off review, which flagged (but left unfixed) that a voice with no sample.mp3 in its resolved variant still exported a 0-byte samples/preview.mp3. Owner directive: generate a sample automatically, the same way clicking the Voice Lab 'Test'/'Generate' button does, rather than publishing an empty file.",
+  "files": [
+    {
+      "path": "app/api/routers/voices_helpers.py",
+      "change": "New submit_sample_test_job(name, background_tasks) -> dict. Extracted verbatim from voices_actions.py's POST /{name}/test (engine-configured check, engine-active check, generation-material check, SampleTestTask submission via the orchestrator) so both the Test button and the HF publish flow share one implementation instead of duplicating it. Returns {ok: True, job_id, audio_url} or {ok: False, status_code, message}."
+    },
+    {
+      "path": "app/api/routers/voices_actions.py",
+      "change": "test_speaker_profile is now a thin wrapper calling submit_sample_test_job -- behavior-preserving refactor, verified by the existing (unmodified) test_api_voices_actions.py suite passing unchanged. Dropped the now-unused SampleTestTask import."
+    },
+    {
+      "path": "app/api/routers/voices_huggingface.py",
+      "change": "export_hub_voice gained a background_tasks: BackgroundTasks param. When the resolved variant's sample.mp3 is missing, it calls submit_sample_test_job with that variant's profile name (new _publish_profile_name helper, matching bundles.py:337's naming convention) and returns {status: 'generating', job_id, message} instead of proceeding with an empty sample. upload_hub_voice (which calls export_hub_voice internally) now checks for status=='generating' and propagates it rather than trying to build/upload a bundle that doesn't exist."
+    },
+    {
+      "path": "frontend/src/api/index.ts",
+      "change": "uploadHfVoice's return type widened to a discriminated union: {status:'ok', hub_id, commit_id} | {status:'generating', job_id, message}."
+    },
+    {
+      "path": "frontend/src/pages/VoiceLab/components/PublishToHuggingFaceModal.tsx",
+      "change": "New 'generating' result state (spinner + message + Cancel). On receiving it, auto-retries the publish call every 4s (GENERATING_RETRY_MS), bounded at 20 attempts (~80s, GENERATING_MAX_ATTEMPTS) before surfacing a 'taking longer than expected' error. Retry timer is cleared on modal close/unmount so it can never keep polling after the user navigates away."
+    }
+  ],
+  "tests_added": [
+    "tests/api/test_api_voices_huggingface.py::TestExportEndpoint::test_export_triggers_sample_generation_when_variant_has_no_sample",
+    "tests/api/test_api_voices_huggingface.py::TestUploadEndpoint::test_upload_propagates_generating_status_instead_of_uploading_a_broken_bundle",
+    "frontend/tests/unit/pages/VoiceLab/PublishToHuggingFaceModal.test.tsx -- 3 new cases: shows generating + auto-retries to success, stops retrying and errors after the attempt bound (never loops forever), closing the modal during generation stops the retry loop."
+  ],
+  "revert_checked": "Both new backend tests fail on the pre-fix code (stashed voices_huggingface.py/voices_helpers.py/voices_actions.py) with the expected reasons; pass after. Both new frontend tests fail on the pre-fix modal/api client; pass after.",
+  "verified_live": "The extracted submit_sample_test_job(), exercised through the pre-existing POST /api/speaker-profiles/{name}/test endpoint against a real installed voice (Dark Fantasy), returned an identical response shape (job_id + correct audio_url) to before the extraction -- confirms the refactor preserved behavior exactly. A full live check of the /export path's new generation-trigger branch was attempted against a scratch voice directory but blocked by DB-sync setup in the improvised test harness (not a code defect, since the real endpoint above worked); the unit-level revert-checked tests cover this path instead."
+}

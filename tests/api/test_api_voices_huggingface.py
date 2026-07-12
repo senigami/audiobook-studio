@@ -336,6 +336,38 @@ class TestExportEndpoint:
         with zipfile.ZipFile(resp.json()["bundle_path"]) as zf:
             assert not any(n.startswith("assets/") for n in zf.namelist())
 
+    def test_export_triggers_sample_generation_when_variant_has_no_sample(self, client, voices_root, monkeypatch):
+        """Owner requirement: never publish an empty sample -- if the
+        resolved variant has none yet, kick off the same generation job the
+        Voice Lab "Test"/"Generate" button submits, and tell the caller to
+        retry once it completes, instead of exporting a 0-byte file."""
+        from unittest.mock import patch
+
+        voice_dir = voices_root / "Gravel Road"
+        voice_dir.mkdir(parents=True, exist_ok=True)
+        manifest = {"id": "gravel-road", "name": "Gravel Road", "tags": []}
+        (voice_dir / "voice.json").write_text(json.dumps(manifest))
+        variant_dir = voice_dir / "Default"
+        variant_dir.mkdir(parents=True, exist_ok=True)
+        (variant_dir / "profile.json").write_text(json.dumps({
+            "variant_name": "Default",
+            "engine": "xtts",
+            "voice_asset_id": "voice_123",
+        }))
+        # No sample.mp3 written.
+
+        with patch("app.api.routers.voices_helpers._is_engine_active", return_value=True), \
+             patch("app.db.state.put_job") as mock_put_job, \
+             patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit") as mock_submit:
+            resp = client.post("/api/voices/huggingface/export", json={"voice_id": "gravel-road"})
+
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["status"] == "generating"
+        assert data["job_id"]
+        assert mock_put_job.called
+        assert mock_submit.called
+
     def test_export_rejects_traversal_shaped_engine_id_from_variant_manifest(self, client, voices_root, monkeypatch):
         """A variant profile.json's ``engine`` value is disk-sourced, not
         API-validated -- a compromised/imported voice could carry a
@@ -410,6 +442,41 @@ class TestExportEndpoint:
 
 
 class TestUploadEndpoint:
+    def test_upload_propagates_generating_status_instead_of_uploading_a_broken_bundle(self, client, voices_root, monkeypatch):
+        """/upload calls export_hub_voice internally -- when that kicks off
+        sample generation instead of producing a bundle, /upload must
+        surface the same "generating" signal, never try to upload a bundle
+        that was never built."""
+        from unittest.mock import patch
+        from app.db.state import update_settings
+
+        update_settings({"huggingface_token": "a-real-token"})
+        voice_dir = voices_root / "Gravel Road"
+        voice_dir.mkdir(parents=True, exist_ok=True)
+        (voice_dir / "voice.json").write_text(json.dumps({"id": "gravel-road", "name": "Gravel Road", "tags": []}))
+        variant_dir = voice_dir / "Default"
+        variant_dir.mkdir(parents=True, exist_ok=True)
+        (variant_dir / "profile.json").write_text(json.dumps({
+            "variant_name": "Default",
+            "engine": "xtts",
+            "voice_asset_id": "voice_123",
+        }))
+
+        fake = FakeHFHubClient()
+        _patch_client(monkeypatch, fake)
+
+        with patch("app.api.routers.voices_helpers._is_engine_active", return_value=True), \
+             patch("app.db.state.put_job"), \
+             patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
+            resp = client.post(
+                "/api/voices/huggingface/upload",
+                json={"voice_id": "gravel-road", "hub_id": "someone/gravel-road"},
+            )
+
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["status"] == "generating"
+        assert fake.upload_calls == []
+
     def test_upload_requires_a_configured_token(self, client, voices_root, monkeypatch):
         from app.db.state import update_settings
 

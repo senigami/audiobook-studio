@@ -1,6 +1,17 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// Flush the microtask queue so a resolved promise's .then handlers (and the
+// resulting state update) run, without relying on findBy's internal
+// setTimeout-based polling -- which never fires under fake timers unless
+// explicitly advanced (R4: no real sleeps, fake timers only).
+const flush = async () => {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+};
 import { PublishToHuggingFaceModal } from '@/pages/VoiceLab/components/PublishToHuggingFaceModal';
 
 vi.mock('@/api', () => ({
@@ -80,5 +91,86 @@ describe('PublishToHuggingFaceModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  describe('sample generation (owner requirement: never publish an empty sample)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('shows a generating state and auto-retries, then succeeds once the sample is ready', async () => {
+      (api.uploadHfVoice as any)
+        .mockResolvedValueOnce({ status: 'generating', job_id: 'test-abc', message: 'No sample exists yet -- generating one now.' })
+        .mockResolvedValueOnce({ status: 'ok', hub_id: 'someone/gravel-road', commit_id: 'abc123' });
+
+      render(<PublishToHuggingFaceModal isOpen voiceId="v1" voiceName="Gravel Road" onClose={vi.fn()} />);
+
+      fireEvent.change(screen.getByLabelText('Hugging Face repo'), { target: { value: 'someone/gravel-road' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
+      await flush();
+
+      expect(screen.getByText('Generating sample…')).toBeInTheDocument();
+      expect(api.uploadHfVoice).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(4000);
+      });
+
+      expect(api.uploadHfVoice).toHaveBeenCalledTimes(2);
+      expect(screen.getByText('Published')).toBeInTheDocument();
+    });
+
+    it('stops retrying and shows an error after the max attempts, never looping forever', async () => {
+      (api.uploadHfVoice as any).mockResolvedValue({ status: 'generating', job_id: 'test-abc', message: 'still going' });
+
+      render(<PublishToHuggingFaceModal isOpen voiceId="v1" voiceName="Gravel Road" onClose={vi.fn()} />);
+
+      fireEvent.change(screen.getByLabelText('Hugging Face repo'), { target: { value: 'someone/gravel-road' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
+      await flush();
+
+      expect(screen.getByText('Generating sample…')).toBeInTheDocument();
+
+      // Drain every scheduled retry (bounded at GENERATING_MAX_ATTEMPTS=20).
+      for (let i = 0; i < 20; i++) {
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(4000);
+        });
+      }
+
+      expect(screen.getByText(/taking longer than expected/i)).toBeInTheDocument();
+      // No further calls scheduled beyond the bound.
+      const callsAtBound = (api.uploadHfVoice as any).mock.calls.length;
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10000);
+      });
+      expect((api.uploadHfVoice as any).mock.calls.length).toBe(callsAtBound);
+    });
+
+    it('closing the modal during generation stops the auto-retry loop', async () => {
+      (api.uploadHfVoice as any).mockResolvedValue({ status: 'generating', job_id: 'test-abc', message: 'still going' });
+      const onClose = vi.fn();
+
+      render(<PublishToHuggingFaceModal isOpen voiceId="v1" voiceName="Gravel Road" onClose={onClose} />);
+
+      fireEvent.change(screen.getByLabelText('Hugging Face repo'), { target: { value: 'someone/gravel-road' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
+      await flush();
+
+      expect(screen.getByText('Generating sample…')).toBeInTheDocument();
+      const callsBeforeClose = (api.uploadHfVoice as any).mock.calls.length;
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+      expect(onClose).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(20000);
+      });
+      expect((api.uploadHfVoice as any).mock.calls.length).toBe(callsBeforeClose);
+    });
   });
 });

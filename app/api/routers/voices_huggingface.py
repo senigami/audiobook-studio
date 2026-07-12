@@ -43,13 +43,14 @@ import re
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel
 
 from .voices_helpers import (
     _new_voice_profile_dir,
     _new_voice_sample_path,
     get_voices_dir,
+    submit_sample_test_job,
 )
 from ...core.config import TRANSIENT_DIR
 from ...db.speakers import sync_speakers_from_profiles
@@ -328,8 +329,15 @@ def _resolve_publish_variant(voice_dir: Path) -> Path | None:
     return variant_dirs[0]
 
 
+def _publish_profile_name(voice_name: str, variant_dir: Path) -> str:
+    """The speaker-profile name a variant is addressed by elsewhere in the
+    app (matches bundles.py:337's convention): the voice name alone for the
+    "Default" variant, "<voice> - <variant>" for any other."""
+    return voice_name if variant_dir.name == "Default" else f"{voice_name} - {variant_dir.name}"
+
+
 @router.post("/export")
-def export_hub_voice(body: ExportRequestModel):
+def export_hub_voice(body: ExportRequestModel, background_tasks: BackgroundTasks):
     """Export an installed voice as a portable ``.asvoice.zip`` for manual upload."""
     voices_dir = get_voices_dir()
     voice_dir = find_voice_dir_by_id(voices_dir, body.voice_id)
@@ -360,6 +368,24 @@ def export_hub_voice(body: ExportRequestModel):
             sample_path = None
         if sample_path is not None and sample_path.exists():
             sample_bytes = sample_path.read_bytes()
+
+        if not sample_bytes:
+            # Owner requirement: never publish an empty sample -- generate
+            # one first, the same way the "Generate"/"Test" button in Voice
+            # Lab does (same job type, same orchestrator submission; see
+            # voices_helpers.submit_sample_test_job, shared with
+            # POST /{name}/test). The caller retries the publish once the
+            # job completes; the frontend surfaces this as a
+            # "generating..." state rather than a bare error.
+            profile_name = _publish_profile_name(voice_dir.name, variant_dir)
+            gen = submit_sample_test_job(profile_name, background_tasks)
+            if not gen["ok"]:
+                raise HTTPException(status_code=gen["status_code"], detail=gen["message"])
+            return {
+                "status": "generating",
+                "job_id": gen["job_id"],
+                "message": "No sample exists yet for this voice -- generating one now. Try publishing again once it completes.",
+            }
 
         variant_manifest = load_variant_manifest(variant_dir)
         engine_id = variant_manifest.get("engine")
@@ -417,7 +443,7 @@ class UploadRequestModel(BaseModel):
 
 
 @router.post("/upload")
-def upload_hub_voice(body: UploadRequestModel):
+def upload_hub_voice(body: UploadRequestModel, background_tasks: BackgroundTasks):
     """Publish an installed voice's exported bundle files to a Hugging Face repo."""
     try:
         validate_hub_id(body.hub_id)
@@ -436,7 +462,13 @@ def upload_hub_voice(body: UploadRequestModel):
     if voice_dir is None:
         raise HTTPException(status_code=404, detail=f"Voice not found: {body.voice_id!r}")
 
-    export_result = export_hub_voice(ExportRequestModel(voice_id=body.voice_id))
+    export_result = export_hub_voice(ExportRequestModel(voice_id=body.voice_id), background_tasks)
+    if export_result.get("status") == "generating":
+        # A sample generation job was just kicked off (no sample existed
+        # yet for the variant being published) -- propagate the same
+        # "generating" signal instead of trying to upload a bundle that
+        # doesn't exist yet.
+        return export_result
     bundle_path = Path(export_result["bundle_path"])
 
     import zipfile

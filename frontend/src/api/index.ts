@@ -642,7 +642,10 @@ export const api = {
     voiceId: string;
     hubId: string;
     extraTags?: string[];
-  }): Promise<{ status: string; hub_id: string; commit_id: string }> => {
+  }): Promise<
+    | { status: 'ok'; hub_id: string; commit_id: string }
+    | { status: 'generating'; job_id: string; message: string }
+  > => {
     const res = await fetch('/api/voices/huggingface/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

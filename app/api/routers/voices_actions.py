@@ -15,7 +15,6 @@ from ...engines.voice_engines import get_default_profile_engine
 from ...db.speakers import get_speaker_settings, update_speaker_settings, DEFAULT_SPEAKER_TEST_TEXT
 from ...orchestration.scheduler.orchestrator import create_orchestrator
 from ...orchestration.tasks.sample_build import SampleBuildTask
-from ...orchestration.tasks.sample_test import SampleTestTask
 from fastapi import BackgroundTasks
 
 logger = logging.getLogger(__name__)
@@ -320,66 +319,10 @@ def test_speaker_profile(name: str, background_tasks: BackgroundTasks):
     # Rule 9: Early validation
     name = config.canonical_voice_name(name)
     try:
-        settings = get_speaker_settings(name)
-        engine = settings.get("engine") or ""
-        if not engine:
-             return JSONResponse({"status": "error", "message": "No TTS engine is configured for this profile."}, status_code=400)
-        if not voices_helpers._is_engine_active(engine):
-            return JSONResponse({"status": "error", "message": f"Engine {engine} is not enabled in Settings."}, status_code=400)
-
-        if not voices_helpers._voice_has_generation_material(name):
-            return JSONResponse(
-                {"status": "error", "message": "Add at least one sample or keep a latent before testing this voice."},
-                status_code=400
-            )
-
-        jid = f"test-{uuid.uuid4().hex[:8]}"
-        j = models.Job(
-            id=jid,
-            engine="voice_test",
-            chapter_file="", # Required by model
-            status="queued",
-            created_at=time.time(),
-            speaker_profile=name,
-            custom_title=voices_helpers._voice_job_title(name),
-        )
-        state.put_job(j)
-        from ...db.queue import upsert_queue_row
-        upsert_queue_row(jid, status="queued", custom_title=j.custom_title, engine="voice_test")
-
-        # Submit to orchestrator
-        orchestrator = create_orchestrator()
-        pdir = voices_helpers._existing_voice_profile_dir(name)
-        if not pdir:
-             return JSONResponse({"status": "error", "message": "Voice profile directory not found"}, status_code=404)
-
-        task = SampleTestTask(
-            task_id=jid,
-            speaker_profile=name,
-            engine_id=engine,
-            output_path=pdir / "sample.wav",
-            voice_profile_dir=pdir,
-            test_text=settings["test_text"],
-            voice_job_settings=settings,
-            custom_title=voices_helpers._voice_job_title(name)
-        )
-        background_tasks.add_task(orchestrator.submit, task)
-
-        preview_url = voices_helpers._voice_preview_url(name)
-        # Use existing profile dir to construct a valid fallback path
-        pdir = voices_helpers._existing_voice_profile_dir(name)
-        try:
-            root = voices_helpers.get_voices_dir()
-            rel_path = pdir.relative_to(root)
-            url_path = rel_path.as_posix()
-        except (ValueError, AttributeError):
-            url_path = name
-
-        return JSONResponse({
-            "status": "ok",
-            "job_id": jid,
-            "audio_url": preview_url or f"/out/voices/{url_path}/sample.mp3"
-        })
+        result = voices_helpers.submit_sample_test_job(name, background_tasks)
+        if not result["ok"]:
+            return JSONResponse({"status": "error", "message": result["message"]}, status_code=result["status_code"])
+        return JSONResponse({"status": "ok", "job_id": result["job_id"], "audio_url": result["audio_url"]})
     except Exception as e:
         from ...engines.errors import EngineUnavailableError
         if isinstance(e, EngineUnavailableError):
