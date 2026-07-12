@@ -68,6 +68,7 @@ class OrchestratorPublishMixin:
 
         # Resolve has_segment_support capability from engine
         has_segment_support = False
+        engine_id: str | None = None
         if context.payload:
             engine_id = context.payload.get("engine_id") or context.payload.get("engine")
             if engine_id:
@@ -195,6 +196,12 @@ class OrchestratorPublishMixin:
                 indeterminate=indeterminate,
                 loading_elapsed_seconds=loading_elapsed_seconds,
                 ephemeral=ephemeral,
+                # W-PAR task 013: thread the active engine id through so
+                # ProgressService can key its per-job BracketedEtaTracker pool
+                # by the real engine (falls back to a single "default" pool,
+                # cap=1, when the job/context payload carries no engine_id —
+                # e.g. voice-test/sample tasks — matching today's behavior).
+                engine_id=engine_id or None,
             )
 
             if ephemeral:

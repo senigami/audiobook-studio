@@ -8,11 +8,16 @@ export type JobClassification = 'job' | 'chapter' | 'segment';
  * consumed verbatim from the chapter progress frame.
  */
 export interface ActiveSegmentMapEntry {
-  phase: 'preparing' | 'rendering' | 'done';
+  phase: 'preparing' | 'rendering' | 'done' | 'failed';
   progress: number;
   eta_seconds: number | null;
   reason_code?: string;
   indeterminate?: boolean;
+  /** Real per-segment character count (task 008) — never the render group's
+   * combined total; see `app/orchestration/tasks/segment_synthesis.py`'s
+   * `_segment_char_count`. */
+  char_count?: number;
+  engine_id?: string;
 }
 
 export interface TtsEngine {

@@ -1,0 +1,29 @@
+{
+  "at": "2026-07-11T22:00:00Z",
+  "commit": "uncommitted",
+  "task": "Phase 2 task 008: real segment inventory hydration for the Activity page SegmentRenderMonitor (frontend half; backend half already queued in 2026-07-12T00-38-06Z-task-008-segment-inventory-hydration.json)",
+  "files": {
+    "frontend/src/types/index.ts": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "ActiveSegmentMapEntry.phase gains 'failed'; new optional char_count/engine_id fields, matching the backend active_segments_map entry shape (live-events.md 1.9.6).",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "frontend/src/hooks/useSegmentInventory.ts": {
+      "change": "added",
+      "contract_changed": true,
+      "summary": "New hook: fetches api.fetchScriptView(chapterId) once per active job's chapter_id and merges each ScriptSpan with the live active_segments_map entry for its id, producing SegmentRenderMonitorSegment[] (present entry -> real phase/progress/char_count; absent -> 'done'/1 if span.status==='done' else 'preparing'/0). Request-id guarded against stale responses, mirroring useRenderGroups.ts's pattern.",
+      "calls_added": ["api.fetchScriptView"],
+      "calls_removed": []
+    },
+    "frontend/src/pages/Activity/ActivityPage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Replaces the DEV_FIXTURE_RENDER_MONITOR_JOB import/usage with a real active-job selection (first job in an active status with a chapter_id) fed through useSegmentInventory; SegmentRenderMonitor now renders real segments when devMode is on and an active job exists. useDevMode() gate intentionally kept per task scope (removal is a later step). cap is a documented best-effort constant (1, the fan-out's own default max_concurrent_workers) pending a real per-job cap field.",
+      "calls_added": ["useSegmentInventory"],
+      "calls_removed": []
+    }
+  },
+  "flow_impact": "SegmentRenderMonitor on the Activity page (still dev-gated) is now real-data-driven end to end: app/orchestration/tasks/segment_synthesis.py's active_segments_map (char_count + failed phase) -> useJobs.ts job hydration -> useSegmentInventory (merges with GET /chapters/{id}/script-view) -> ActivityPage.tsx -> SegmentRenderMonitor. devSegmentRenderMonitorFixture.ts is no longer imported by ActivityPage.tsx but intentionally left on disk (task's own out-of-scope note; deletion is a follow-up once verified live)."
+}

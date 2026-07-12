@@ -1,0 +1,73 @@
+/**
+ * SegmentPeekStrip — Level 2 of the render-monitor progressive-disclosure
+ * ladder (`10-phase2-render-monitor.md` "Placement"): a narrow, condensed
+ * block row that auto-appears below the chapter/job header once ≥2 segments
+ * are concurrently rendering, and expands inline (no navigation, no modal)
+ * to the full `SegmentRenderMonitor` field on click/tap.
+ *
+ * Reuses `SegmentBlockRow` — the same char-weighted block encoding as the
+ * full field — at a condensed scale rather than a second implementation.
+ */
+import React from 'react';
+import { SegmentBlockRow } from './SegmentBlockRow';
+import type { SegmentRenderMonitorSegment } from './SegmentBlockRow';
+
+export interface SegmentPeekStripProps {
+  segments: SegmentRenderMonitorSegment[];
+  /** Count of segments currently rendering in parallel — the auto-appear trigger's basis. */
+  activeCount: number;
+  onExpand: () => void;
+  onDismiss: () => void;
+}
+
+const PEEK_STRIP_HEIGHT = 5;
+
+export const SegmentPeekStrip: React.FC<SegmentPeekStripProps> = ({ segments, activeCount, onExpand, onDismiss }) => {
+  const total = segments.length;
+  const doneCount = segments.filter((s) => s.phase === 'done').length;
+  const failedCount = segments.filter((s) => s.phase === 'failed').length;
+  const ariaLabel = failedCount > 0
+    ? `${activeCount} segments rendering in parallel, ${doneCount} of ${total} done, ${failedCount} failed — condensed view`
+    : `${activeCount} segments rendering in parallel, ${doneCount} of ${total} done — condensed view`;
+
+  return (
+    <div
+      className="segment-peek-strip"
+      style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+    >
+      <button
+        type="button"
+        onClick={onExpand}
+        aria-label={`Expand segment render detail — ${ariaLabel}`}
+        style={{
+          flex: 1,
+          padding: 0,
+          border: 'none',
+          background: 'none',
+          cursor: 'pointer',
+          borderRadius: 3,
+          overflow: 'hidden',
+          display: 'block',
+        }}
+      >
+        <SegmentBlockRow segments={segments} height={PEEK_STRIP_HEIGHT} ariaLabel={ariaLabel} />
+      </button>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Dismiss segment render peek strip"
+        style={{
+          fontSize: 'var(--type-micro)',
+          color: 'var(--text-muted)',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          padding: '2px 6px',
+          flexShrink: 0,
+        }}
+      >
+        ✕
+      </button>
+    </div>
+  );
+};

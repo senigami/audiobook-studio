@@ -1,6 +1,6 @@
 # Task 013 — Wire `BracketedEtaTracker` into a live event
 
-Status: pending
+Status: complete — 2026-07-11 (live-render verification below still pending owner)
 
 Risk: quality-sensitive (progress/ETA display — this project has a standing progress-no-fabrication principle; getting this wrong risks a fabricated-looking number)
 
@@ -32,12 +32,14 @@ Both the render monitor's ETA display (Phase 2) and Phase 1's own chapter-level 
 
 ## Acceptance criteria
 
-- [ ] `BracketedEtaTracker` is genuinely consumed by a live event frame (not just imported and unused).
-- [ ] The ≥3-completions no-fabrication guard is honored end-to-end, verified by a test that asserts no numeric ETA appears before the third completion.
-- [ ] At cap=1, ETA output is byte-identical to today's existing single-stream calculation (parity test already exists per `test_eta_bracket_and_engine_cap.py` — confirm it still passes, extend if this wiring touches new code paths it doesn't already cover).
-- [ ] `live-events.md` and `progress-presentation.md`'s "known gap" sections updated to reflect the real wiring, with a changelog row.
-- [ ] `./venv/bin/python -m pytest -q` clean.
-- [ ] Live-verify: render a chapter with cap>1, confirm the ETA shown transitions from "estimating…" to a bracketed range after the third segment completes, and that it reads sensibly (not wildly different from the old single-stream estimate at cap=1).
+- [x] `BracketedEtaTracker` is genuinely consumed by a live event frame (not just imported and unused) — `ProgressService.publish()` feeds it real segment completions, `build_chapter_progress_event` carries `eta_low_seconds`/`eta_high_seconds`/`eta_display`.
+- [x] The ≥3-completions no-fabrication guard is honored end-to-end — fields absent before any completion, `eta_display=="estimating…"` with null bounds for 1-2 completions, real bracket from the 3rd on (`test_bracketed_eta_wiring.py`).
+- [x] At cap=1, ETA output is byte-identical to today's existing single-stream calculation (`test_eta_bracket_and_engine_cap.py::TestBracketedEtaCap1Parity` still passes unmodified).
+- [x] `live-events.md` (1.9.6→1.9.7) and `progress-presentation.md` (1.10.2→1.10.3) updated with changelog rows; known-gap sections rewritten.
+- [x] `./venv/bin/python -m pytest -q` clean (orchestrator re-ran `test_bracketed_eta_wiring.py` + `test_eta_bracket_and_engine_cap.py` independently: 23/23 pass).
+- [ ] **Not yet done — requires a live render.** Live-verify: render a chapter with cap>1, confirm the ETA transitions from "estimating…" to a bracketed range after the third segment completes and reads sensibly.
+
+**Note (orchestrator-verified deviation, accepted):** the implementer also plumbed `engine_id` end-to-end through `OrchestratorPublishMixin` → `ProgressService.publish()` — a pre-existing gap where `engine_id` was never threaded to `publish()`, which would have made this task's bracket-pool keying always collapse to one `"default"` pool. Minimal, mechanical, additive fix; reviewed and accepted as in-scope (without it this task's own deliverable would be functionally inert in production).
 
 ## Map links
 

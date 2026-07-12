@@ -1,6 +1,6 @@
 # Task 010 — Per-segment popover + keyboard-reachable detail
 
-Status: pending
+Status: complete — 2026-07-11
 
 Risk: multi-file
 
@@ -40,11 +40,11 @@ The shipped component is currently 100% static/non-interactive — no click hand
 
 ## Acceptance criteria
 
-- [ ] Clicking/tapping a block (10-60 mode) opens a popover with real segment detail.
-- [ ] A retry action exists for failed segments, wired to whatever the actual available retry granularity is (documented clearly if it's chapter-level, not segment-level, due to backend constraints).
-- [ ] The same detail/retry action is reachable via the accessible table without ever touching the block field (M6) — verified by a keyboard-only interaction test.
-- [ ] Popover itself is not `aria-hidden`; only the decorative block field remains so.
-- [ ] `npm -C frontend run test -- --run` (render + interaction tests per R4 — no sleep-based timing), lint, build clean.
+- [x] Clicking/tapping a block (10-60 mode) opens a popover with real segment detail.
+- [x] A retry action exists for failed segments — true per-segment retry via `POST /api/segments/generate` (`api.generateSegments([segmentId])`), the same endpoint ScriptView/BoothTool/ReviseTool already use, not a chapter-level fallback.
+- [x] The same detail/retry action is reachable via the accessible table without ever touching the block field (M6) — verified by a keyboard-only interaction test.
+- [x] Popover itself is not `aria-hidden`; only the decorative block field remains so.
+- [x] `npm -C frontend run test -- --run` (17/17 in the component suite), lint, build clean.
 
 ## Map links
 

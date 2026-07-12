@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { RefreshCw, FileText, Loader2, Upload } from 'lucide-react';
-import type { TtsEngine } from '@/types';
+import type { TtsEngine, Settings } from '@/types';
 import { api } from '@/api';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { PluginTrustModal, type PluginPreviewInfo } from '@/components/overlays/PluginTrustModal';
@@ -12,9 +12,10 @@ interface EnginesPanelProps {
   onShowNotification?: (message: string) => void;
   onRefresh?: () => void | Promise<void>;
   startupReady?: boolean;
+  settings?: Settings;
 }
 
-export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, onRefresh, startupReady = true }) => {
+export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, onRefresh, startupReady = true, settings }) => {
   const [engines, setEngines] = useState<TtsEngine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -269,6 +270,7 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
           engine={engine}
           onUpdate={refreshAppState}
           onShowNotification={onShowNotification}
+          settings={settings}
         />
       ))}
       <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', paddingTop: '0.25rem' }}>

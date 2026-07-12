@@ -1,0 +1,15 @@
+{
+  "at": "2026-07-12T00:45:00Z",
+  "commit": "uncommitted",
+  "task": "Phase 2 task 009: milestone aria-live region for SegmentRenderMonitor (§7A dual-layer a11y)",
+  "files": {
+    "frontend/src/components/progress/SegmentRenderMonitor/SegmentRenderMonitor.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Adds the previously-missing half of the §7A dual-layer accessibility contract: a visually-hidden ('sr-only', matching the repo's existing utility class) 'aria-live=\"polite\"' 'role=\"status\"' region that announces only milestones (render start, coarse count-based thresholds proportional to segment total — every 10 segments or 25%, whichever is coarser — and completion, with a failed-count variant) via new local state (announcement) + refs (startedRef/completedRef/lastThresholdRef) and an effect keyed on total/doneCount/allSettled/failedCount. Never fires per-segment/per-tick. The existing role=\"img\" decorative block field, aria-hidden per-segment blocks, and SegmentAccessibleTable are unchanged. No prop/type contract change — fulfills an already-documented progress-presentation.md §7A requirement, so no spec_version bump.",
+      "calls_added": [],
+      "calls_removed": []
+    }
+  },
+  "flow_impact": "SegmentRenderMonitor now emits assistive-tech milestone announcements (start/threshold/complete) alongside its existing visual strip and accessible table; no change to props, exported symbols, or the M1-M3 render/aggregate contract. No other file's flow is affected."
+}

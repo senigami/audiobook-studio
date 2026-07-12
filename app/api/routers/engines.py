@@ -16,6 +16,11 @@ router = APIRouter(prefix="/api/engines", tags=["engines"])
 class GithubPreviewRequest(BaseModel):
     git_url: str
 
+
+class ConcurrencyUpdateRequest(BaseModel):
+    """Body for ``PUT /{engine_id}/concurrency``. ``cap=None`` clears the override."""
+    cap: Optional[int] = None
+
 # ---------------------------------------------------------------------------
 # Input-validation helpers
 # ---------------------------------------------------------------------------
@@ -100,6 +105,102 @@ def get_official_registry_list():
     """Return the official plugin registry."""
     from ...engines.official_registry import get_official_registry
     return JSONResponse(get_official_registry())
+
+
+@router.get("/concurrency")
+def get_engine_concurrency():
+    """Return the global parallel cap and a per-engine concurrency snapshot.
+
+    W-PAR task 014 — the engine-scoped counterpart of the manifest ceiling
+    the caps UI reads. Sources: the manifest ceiling and engine class
+    (``_manifest_resource_claim``, reused not reimplemented), the live
+    effective cap (``resolve_effective_cap``, same function
+    ``reserve_task_resources`` resolves fresh on every admission attempt),
+    and each engine's per-engine-id semaphore ``active_count``. All
+    in-process reads (one manifest.json read per registered engine), no new
+    I/O against the TTS Server.
+    """
+    from ...orchestration.tasks.synthesis import _manifest_resource_claim  # noqa: PLC0415
+    from ...orchestration.scheduler.cap_settings import (  # noqa: PLC0415
+        get_engine_caps,
+        get_global_parallel_cap,
+        resolve_effective_cap,
+    )
+    from ...orchestration.scheduler.resources import get_engine_id_semaphore  # noqa: PLC0415
+    from ...engines.registry import load_engine_registry  # noqa: PLC0415
+
+    registry = load_engine_registry()
+    engine_caps = get_engine_caps()
+    global_cap = get_global_parallel_cap()
+
+    engines = []
+    for engine_id in sorted(registry.keys()):
+        claim = _manifest_resource_claim(engine_id)
+        engines.append(
+            {
+                "engine_id": engine_id,
+                "engine_class": claim.engine_class,
+                "manifest_max": claim.manifest_max,
+                "requested_cap": engine_caps.get(engine_id, global_cap),
+                "effective_cap": resolve_effective_cap(
+                    engine_id=engine_id, manifest_max=claim.manifest_max
+                ),
+                "active_count": get_engine_id_semaphore(engine_id, claim.manifest_max).active_count,
+            }
+        )
+
+    return JSONResponse({"global_cap": global_cap, "engines": engines})
+
+
+@router.put("/{engine_id}/concurrency")
+def update_engine_concurrency(engine_id: str, body: ConcurrencyUpdateRequest):
+    """Set (or clear) a per-engine concurrency cap override.
+
+    ``{"cap": <int>}`` sets an override, validated against the manifest
+    ceiling server-side (rejects out-of-range with 422 rather than silently
+    clamping — ``resolve_effective_cap``'s own clamp stays as the backstop
+    for env-var edits or clients that bypass this endpoint).
+    ``{"cap": null}`` clears the override back to the global cap.
+    """
+    if err := _check_engine_id(engine_id):
+        return err
+
+    from ...orchestration.tasks.synthesis import _manifest_resource_claim  # noqa: PLC0415
+    from ...orchestration.scheduler.cap_settings import (  # noqa: PLC0415
+        get_engine_caps,
+        get_global_parallel_cap,
+        resolve_effective_cap,
+    )
+    from ...orchestration.scheduler.resources import get_engine_id_semaphore  # noqa: PLC0415
+    from ...db.state import set_engine_cap  # noqa: PLC0415
+
+    claim = _manifest_resource_claim(engine_id)
+    manifest_max = claim.manifest_max
+
+    if body.cap is not None and not (1 <= body.cap <= manifest_max):
+        return JSONResponse(
+            {
+                "status": "error",
+                "message": f"cap must be between 1 and {manifest_max} (the manifest ceiling)",
+                "manifest_max": manifest_max,
+            },
+            status_code=422,
+        )
+
+    set_engine_cap(engine_id, body.cap)
+
+    engine_caps = get_engine_caps()
+    global_cap = get_global_parallel_cap()
+    return JSONResponse(
+        {
+            "engine_id": engine_id,
+            "engine_class": claim.engine_class,
+            "manifest_max": manifest_max,
+            "requested_cap": engine_caps.get(engine_id, global_cap),
+            "effective_cap": resolve_effective_cap(engine_id=engine_id, manifest_max=manifest_max),
+            "active_count": get_engine_id_semaphore(engine_id, manifest_max).active_count,
+        }
+    )
 
 
 @router.put("/{engine_id}/settings")

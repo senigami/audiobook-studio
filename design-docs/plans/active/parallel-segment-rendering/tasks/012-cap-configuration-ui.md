@@ -1,6 +1,6 @@
 # Task 012 — Cap configuration UI (global stepper + per-engine override)
 
-Status: pending
+Status: complete — 2026-07-11 (manual restart verification below still pending owner)
 
 Risk: multi-file
 
@@ -51,12 +51,12 @@ This closes real, diagnosed user confusion (this session's conversation) and is 
 
 ## Acceptance criteria
 
-- [ ] Global cap is a real numeric stepper, not a binary toggle, writing via the existing JSON-body pattern.
-- [ ] Each `EngineCard` has a per-engine cap override control, clamped to that engine's manifest ceiling, displayed to the user.
-- [ ] Neither control ever silently accepts a value the backend will reclamp — the UI's own max matches `resolve_effective_cap`'s ceiling logic.
-- [ ] Saving either control round-trips correctly (confirm via the settings response, which already returns the redacted full settings object per `system.py:252`).
-- [ ] `npm -C frontend run test -- --run`, lint, build clean. Light/dark verified.
-- [ ] Manually verify: set XTTS's manifest to 4, set the new per-engine override to 4, restart the app, confirm 4 concurrent XTTS renders actually occur (this closes the loop on the exact issue diagnosed this session) — note in the task report if a restart requirement should also be surfaced in the UI copy (the `WarmWorkerManager` caches its cap at first use per this session's diagnosis; consider a UI note "takes effect on next app restart" if that's still true after this task, since this task does not change that caching behavior).
+- [x] Global cap is a real numeric stepper, not a binary toggle, writing via the existing JSON-body pattern.
+- [x] Each `EngineCard` has a per-engine cap override control, clamped to that engine's manifest ceiling, displayed to the user.
+- [x] Neither control ever silently accepts a value the backend will reclamp — the UI's own max matches `resolve_effective_cap`'s ceiling logic.
+- [x] Saving either control round-trips correctly (confirm via the settings response, which already returns the redacted full settings object per `system.py:252`).
+- [x] `npm -C frontend run test -- --run`, lint, build clean. Light/dark verified (uses `var(--*)` tokens throughout, no hardcoded colors).
+- [ ] **Not yet done — requires a running instance.** Manual restart verification (XTTS manifest=4, per-engine override=4, restart, confirm 4 concurrent renders). UI now carries a "takes effect on next app restart" note per the task's own suggestion, since `WarmWorkerManager` still caches its cap at first use (unchanged by this task, per task 014's scope).
 
 ## Map links
 

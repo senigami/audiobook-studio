@@ -97,13 +97,23 @@ class ResourceClaim:
             ``resource.gpu``, ``"cpu_heavy"`` if ``resource.cpu_heavy``,
             else ``"cloud"``.  Empty string means ``"exclusive"``
             (legacy compat).
-        cap: Maximum concurrent tasks of this engine class (from
-            ``behavior.max_concurrent_workers``; default 1).
+        cap: Structural ceiling for this engine class — the manifest's
+            declared ``behavior.max_concurrent_workers`` (default 1). This is
+            the value semaphores are ever grown to via ``ensure_min_cap``; it
+            is NOT the live/effective concurrency limit (task 014 — the
+            effective limit is resolved fresh on every admission attempt from
+            ``manifest_max`` + current settings, see ``reserve_task_resources``).
         engine_id: Concrete engine identifier (e.g. ``"tts_xtts"``). Optional —
             when set, admission also enforces a per-engine-id ceiling
             independent of the shared ``engine_class`` semaphore (task 007,
             folded-in Fable finding), so this engine's own declared cap can
             never be inflated by a same-class sibling's larger request.
+        manifest_max: The manifest's declared ``behavior.max_concurrent_workers``
+            ceiling (task 014). Carried alongside ``cap`` (same value for
+            claims built by ``_manifest_resource_claim``) so
+            ``reserve_task_resources`` can resolve a live, settings-driven
+            limit fresh on every admission attempt without ever mutating the
+            structural ceiling a semaphore was grown to.
     """
 
     gpu: bool = False
@@ -113,6 +123,7 @@ class ResourceClaim:
     engine_class: str = ""
     cap: int = 1
     engine_id: str = ""
+    manifest_max: int = 1
 
     @classmethod
     def none(cls) -> "ResourceClaim":
@@ -184,33 +195,56 @@ class EngineClassSemaphore:
         self._lock = threading.Lock()
         self._active_ids: set[str] = set()
 
-    def try_acquire(self, task_id: str) -> tuple[bool, Optional[str]]:
+    def try_acquire(self, task_id: str, limit: Optional[int] = None) -> tuple[bool, Optional[str]]:
         """Non-blocking attempt to acquire one slot for ``task_id``.
+
+        ``self._cap`` is the structural ceiling (grown only via
+        ``ensure_min_cap``, from the manifest's declared
+        ``max_concurrent_workers``). ``limit``, when passed, is the *live*
+        limit — resolved fresh by the caller on every admission attempt
+        (e.g. from current settings, task 014) and never stored on this
+        semaphore. The effective admission threshold is
+        ``min(self._cap, limit)`` when ``limit`` is given, else ``self._cap``
+        — a live limit can only ever narrow admission, never widen it past
+        the structural ceiling. This is race-free by construction: the
+        comparison and the slot grant happen atomically under ``self._lock``;
+        a settings write landing between a caller reading settings and
+        calling this method is indistinguishable from the write having
+        happened a moment earlier or later.
+
+        Args:
+            task_id: Identifier for the task requesting a slot.
+            limit: Optional live limit to apply in addition to the structural
+                ceiling. When omitted, behavior is byte-identical to before
+                this parameter existed.
 
         Returns:
             ``(True, None)`` when a slot was acquired.
             ``(False, reason_str)`` when all slots are taken.
         """
         with self._lock:
-            if len(self._active_ids) < self._cap:
+            effective = self._cap if limit is None else max(1, min(self._cap, limit))
+            if len(self._active_ids) < effective:
                 self._active_ids.add(task_id)
                 logger.debug(
-                    "Engine-class slot acquired by %s (%d/%d active).",
+                    "Engine-class slot acquired by %s (%d/%d active, cap=%d).",
                     task_id,
                     len(self._active_ids),
+                    effective,
                     self._cap,
                 )
                 return True, None
             sample = next(iter(self._active_ids), "unknown")
             reason = (
-                f"All {self._cap} slot(s) for this engine class are occupied "
+                f"All {effective} slot(s) for this engine class are occupied "
                 f"(e.g. task {sample!r}). "
                 "This task will run when a current synthesis completes."
             )
             logger.debug(
-                "Engine-class slot unavailable for %s (%d/%d slots taken).",
+                "Engine-class slot unavailable for %s (%d/%d slots taken, cap=%d).",
                 task_id,
                 len(self._active_ids),
+                effective,
                 self._cap,
             )
             return False, reason
@@ -546,7 +580,15 @@ def reserve_task_resources(
     New optional keys in ``resource_claims``:
     - ``engine_class`` (str): Engine-class key for the counting semaphore.
       When absent, falls back to legacy ``exclusive`` / ``gpu`` logic.
-    - ``cap`` (int): Semaphore capacity (default 1; ignored for existing singletons).
+    - ``cap`` (int): Structural ceiling — semaphores are only ever grown to
+      this value (default 1; ignored for existing singletons' shrink).
+    - ``manifest_max`` (int): Same ceiling value, carried alongside ``cap``
+      (task 014). When present together with ``engine_id``, the *live*
+      admission limit is resolved fresh on every call via
+      ``resolve_effective_cap(engine_id, manifest_max)`` and passed as
+      ``limit`` to ``try_acquire`` — this is what makes a settings change to
+      ``tts_parallel_cap``/``tts_engine_caps`` take effect on already-queued
+      work without a restart (M7).
 
     Args:
         task_type: Queue task type requesting resources (used for logging).
@@ -577,6 +619,16 @@ def reserve_task_resources(
     # the shared class-level semaphore. Only claims that declare engine_id opt
     # into this extra gate; absent engine_id is a no-op (backward compatible).
     engine_id = str(resource_claims.get("engine_id", ""))
+    # Task 014: the live/effective admission limit, resolved fresh below (once
+    # engine_id is known to be non-empty) — kept separate from `cap`, which
+    # remains the structural ceiling semaphores are grown to.
+    live_limit: Optional[int] = None
+    if engine_class and engine_id:
+        manifest_max = resource_claims.get("manifest_max")
+        if manifest_max is not None:
+            from app.orchestration.scheduler.cap_settings import resolve_effective_cap  # noqa: PLC0415
+
+            live_limit = resolve_effective_cap(engine_id=engine_id, manifest_max=int(manifest_max))
 
     waiting_reason: Optional[str] = None
 
@@ -640,15 +692,18 @@ def reserve_task_resources(
     # --- Per-engine-class semaphore (new path) or legacy gates (old path) ---
     if engine_class:
         # New semaphore-based path: derive semaphore from engine_class + cap.
+        # `cap` here is always the structural ceiling (ensure_min_cap never
+        # shrinks); `live_limit` (task 014), when resolved above, narrows
+        # admission for THIS call only — never mutates the semaphore itself.
         sem = get_engine_semaphore(engine_class, cap)
-        admitted, waiting_reason = sem.try_acquire(task_id)
+        admitted, waiting_reason = sem.try_acquire(task_id, limit=live_limit)
         if admitted and engine_id:
             # Task 007 (Fable finding): a secondary per-engine-id ceiling so
             # this engine's OWN declared cap can never be inflated by a
             # same-class sibling engine that requested a larger cap first
             # (the class semaphore only ever grows — commit 7dd218aa).
             id_sem = get_engine_id_semaphore(engine_id, cap)
-            id_admitted, id_reason = id_sem.try_acquire(task_id)
+            id_admitted, id_reason = id_sem.try_acquire(task_id, limit=live_limit)
             if not id_admitted:
                 sem.release(task_id)
                 if _used_global_cap:

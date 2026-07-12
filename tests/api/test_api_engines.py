@@ -528,3 +528,91 @@ def test_unavailable_error_returns_generic_message_not_exception_text(client):
     body = response.json()
     assert "10.0.0.1" not in body["message"]
     assert body["message"] == "TTS Server is unavailable"
+
+
+# ===========================================================================
+# W-PAR task 014: GET/PUT /api/engines/{engine_id}/concurrency
+# ===========================================================================
+
+
+def _fake_registry(engine_ids):
+    from types import SimpleNamespace
+
+    return {eid: SimpleNamespace() for eid in engine_ids}
+
+
+def test_get_concurrency_returns_manifest_and_effective_caps(clean_db, client):
+    from app.orchestration.scheduler.resources import ResourceClaim
+    from app.db.state import update_settings
+
+    update_settings({"tts_parallel_cap": 2, "tts_engine_caps": {}})
+    fake_claim = ResourceClaim(engine_class="gpu", cap=4, engine_id="tts_xtts", manifest_max=4)
+
+    with patch("app.engines.registry.load_engine_registry", return_value=_fake_registry(["tts_xtts"])), \
+         patch("app.orchestration.tasks.synthesis._manifest_resource_claim", return_value=fake_claim):
+        response = client.get("/api/engines/concurrency")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["global_cap"] == 2  # DEFAULT_GLOBAL_CAP
+    assert len(body["engines"]) == 1
+    entry = body["engines"][0]
+    assert entry["engine_id"] == "tts_xtts"
+    assert entry["engine_class"] == "gpu"
+    assert entry["manifest_max"] == 4
+    assert entry["requested_cap"] == 2
+    assert entry["effective_cap"] == 2
+    assert entry["active_count"] == 0
+
+
+def test_put_concurrency_sets_override_within_ceiling(clean_db, client):
+    from app.orchestration.scheduler.resources import ResourceClaim
+    from app.db.state import update_settings
+
+    update_settings({"tts_parallel_cap": 2, "tts_engine_caps": {}})
+    fake_claim = ResourceClaim(engine_class="gpu", cap=4, engine_id="tts_xtts", manifest_max=4)
+
+    with patch("app.orchestration.tasks.synthesis._manifest_resource_claim", return_value=fake_claim):
+        response = client.put("/api/engines/tts_xtts/concurrency", json={"cap": 3})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["requested_cap"] == 3
+    assert body["effective_cap"] == 3
+    assert body["manifest_max"] == 4
+
+
+def test_put_concurrency_rejects_out_of_range_with_422(clean_db, client):
+    from app.orchestration.scheduler.resources import ResourceClaim
+
+    fake_claim = ResourceClaim(engine_class="gpu", cap=4, engine_id="tts_xtts", manifest_max=4)
+
+    with patch("app.orchestration.tasks.synthesis._manifest_resource_claim", return_value=fake_claim):
+        response = client.put("/api/engines/tts_xtts/concurrency", json={"cap": 7})
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["manifest_max"] == 4
+
+
+def test_put_concurrency_null_cap_clears_override(clean_db, client):
+    from app.orchestration.scheduler.resources import ResourceClaim
+    from app.db.state import get_settings, update_settings
+
+    update_settings({"tts_parallel_cap": 2, "tts_engine_caps": {}})
+    fake_claim = ResourceClaim(engine_class="gpu", cap=4, engine_id="tts_xtts", manifest_max=4)
+
+    with patch("app.orchestration.tasks.synthesis._manifest_resource_claim", return_value=fake_claim):
+        set_response = client.put("/api/engines/tts_xtts/concurrency", json={"cap": 3})
+        assert set_response.status_code == 200
+        assert get_settings()["tts_engine_caps"].get("tts_xtts") == 3
+
+        clear_response = client.put("/api/engines/tts_xtts/concurrency", json={"cap": None})
+        assert clear_response.status_code == 200
+
+    assert "tts_xtts" not in get_settings()["tts_engine_caps"]
+
+
+def test_put_concurrency_rejects_invalid_engine_id_format(clean_db, client):
+    response = client.put("/api/engines/NOT-A-VALID-ID!!/concurrency", json={"cap": 1})
+    assert response.status_code == 400

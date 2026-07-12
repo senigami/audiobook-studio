@@ -218,6 +218,17 @@ input[type="radio"] {
   }
 }
 
+/* Task 010 — per-segment detail popover, anchored the same way ScriptView's
+   selection popover is (container-relative absolute position). */
+.segment-render-monitor__popover {
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  padding: 8px 10px;
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  min-width: 160px;
+}
+
 /* ---------------------------------------------------------------------------
    Project status pill (task 005, north_star_screen_parity)
 

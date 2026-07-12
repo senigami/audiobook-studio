@@ -1,15 +1,16 @@
 # SP9 — System Architecture Spec
 
 ```
-spec_version: 1.6.2
+spec_version: 1.7.0
 status: active
 created: 2026-06-10
-updated: 2026-07-06
+updated: 2026-07-11
 sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
          app/engines/watchdog.py, app/engines/bridge.py,
          app/engines/bridge_remote.py, app/engines/tts_client.py,
          app/tts_server/plugin_loader.py, app/orchestration/scheduler/orchestrator.py,
-         app/orchestration/scheduler/resources.py, plugins/*/manifest.json,
+         app/orchestration/scheduler/resources.py, app/orchestration/tasks/synthesis.py,
+         app/db/state_settings.py, app/api/routers/engines.py, plugins/*/manifest.json,
          plugins/tts_xtts/plugin/core/warm_worker.py
 ```
 
@@ -19,6 +20,7 @@ sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
 
 | Version | Date       | Summary                                                    |
 |---------|------------|------------------------------------------------------------|
+| 1.7.0   | 2026-07-11 | **W-PAR task 014 — live per-engine cap admission (§3.1b) + `GET`/`PUT /api/engines/{engine_id}/concurrency`.** `ResourceClaim.cap` now means the manifest ceiling everywhere (structural, grown only via `ensure_min_cap`); a new `manifest_max` field carries the same value alongside it. `EngineClassSemaphore.try_acquire` gained an optional `limit` parameter — the *live*, settings-driven admission limit, resolved fresh via `cap_settings.resolve_effective_cap` on every `reserve_task_resources` call (not baked into the claim at task-construction time as before). This closes the gap where changing `tts_parallel_cap`/`tts_engine_caps` had no effect on already-queued/in-flight work until a restart: a shrink now blocks new admissions within one retry cycle (~1s orchestrator loop / ~0.5s per-child segment loop) without evicting in-flight tasks (`release()` never consulted cap, unchanged); a raise takes effect on the very next admission attempt. `ensure_min_cap`'s grow-only behavior is untouched — it only ever sees the stable manifest ceiling now, never a live value, so there is nothing for it to regrow. New `GET /api/engines/concurrency` (global cap + per-engine manifest/requested/effective/active snapshot) and `PUT /api/engines/{engine_id}/concurrency` (`{"cap": <int>|null}`, 422 on out-of-range) in `app/api/routers/engines.py`; writes go through a new single-key-merge `state_settings.set_engine_cap` (avoids two engines' overrides clobbering each other via a whole-`tts_engine_caps`-object replace). Per-child segment dispatch (`segment_synthesis.py`'s `SegmentSynthesisTask.run()`) already calls `reserve_task_resources` individually per child — traced and confirmed this session — so the live-limit mechanism reaches already-fanned-out chapter segments, not just the top-level orchestrator submit path. |
 | 1.6.2   | 2026-07-06 | Doc-only fix: §3.1's "Ships dark: at `cap=1` (today's default for all manifests)" sentence was stale relative to the 1.6.1 changelog entry it sits below — the global default cap is 2 (`cap_settings.DEFAULT_GLOBAL_CAP`) and XTTS's manifest ceiling is 2, so XTTS already runs 2 concurrent warm workers by default; Voxtral/Mixed remain pinned to 1 via their own manifest `max_concurrent_workers`. No behavior change, drift-correction only. |
 | 1.6.1   | 2026-07-05 | **§3.1a — parallel-cap default raised `1 → 2` (owner directive, supersedes the 1.6.0 "ships dark" default).** `cap_settings.DEFAULT_GLOBAL_CAP` and the `tts_parallel_cap` default materialized by `state_settings.py` both moved from 1 to 2; `effective_cap = min(2, manifest_max)` per engine, so only XTTS (`max_concurrent_workers: 2`) is affected — Voxtral/Mixed stay sequential via their own manifest ceiling of 1. Full rationale and changelog in `queue-jobs.md` §7.3b / 1.11.5. |
 | 1.6.0   | 2026-07-03 | **W-PAR task 007 — cap toggle as a Studio setting (§3.1a) + per-engine-id admission ceiling.** The orchestrator-side effective cap now comes from `cap_settings.resolve_effective_cap(engine_id, manifest_max)`, clamping the `tts_parallel_cap` / `tts_engine_caps` settings (env-fallback `TTS_PARALLEL_CAP` / `TTS_ENGINE_CAPS`) to the manifest ceiling — default stays 1 (ships dark). `resources.py` gained an independent per-`engine_id` semaphore checked alongside the per-`engine_class` gate whenever a claim declares `engine_id`, closing the latent "grow-only class semaphore shared by two same-class engine_ids" gap (folded-in Fable merge-gate finding; not observable today). No change to the orchestrator ↔ watchdog ↔ VoiceBridge ownership split or the server-side warm-worker pool (§3.1). |
@@ -176,6 +178,58 @@ closes a latent gap in the class semaphore's grow-only sizing: two different
 largest. See `queue-jobs.md §7.4a` for the full contract; this does not change
 the orchestrator ↔ watchdog ↔ VoiceBridge ownership split — admission is
 still entirely `resources.py`'s responsibility.
+
+### 3.1b Live cap admission — settings changes reach already-queued work (W-PAR task 014)
+
+Before this task, §3.1a's `resolve_effective_cap` result was baked into
+`ResourceClaim.cap` once, at task-construction time (`_manifest_resource_claim`).
+`EngineClassSemaphore` is grow-only by design (§3.1a), so a cap *raise* mid-run
+never took effect for already-constructed claims, and a cap *lower* never
+throttled anything already queued — either change required a process restart.
+
+**Structural ceiling vs. live limit, split apart:**
+
+- `ResourceClaim.cap` (and the new `ResourceClaim.manifest_max` field, same
+  value) is now purely the **structural ceiling** — the manifest's declared
+  `behavior.max_concurrent_workers`. `EngineClassSemaphore`s and the
+  per-`engine_id` semaphores are only ever grown to this value via
+  `ensure_min_cap`, exactly as before — `ensure_min_cap` never sees a live
+  setting value, so there is nothing for a settings change to accidentally
+  regrow.
+- `EngineClassSemaphore.try_acquire(task_id, limit=None)` gained the optional
+  `limit` parameter — the **live limit**. When passed, the admission
+  threshold for that one call is `min(self._cap, limit)`; the semaphore's own
+  `_cap` is never mutated. `reserve_task_resources` resolves this value fresh,
+  on every single call, via `cap_settings.resolve_effective_cap(engine_id,
+  manifest_max)` — i.e. the exact same current-settings read §3.1a already
+  used, just no longer cached in the claim.
+- `release_task_resources` is unchanged — releases were already unconditional
+  (never consulted `cap`), so shrinking the live limit never evicts an
+  in-flight task; it only blocks the *next* admission attempt until the
+  active count drops below the new limit.
+
+**Why this reaches already-queued work without a restart:** both the
+top-level orchestrator (`orchestrator.py`'s `submit()`, ~1s retry loop on
+denial) and per-child segment dispatch (`segment_synthesis.py`'s
+`SegmentSynthesisTask.run()`, ~0.5s retry loop on denial — confirmed this
+session to call `reserve_task_resources` **individually per child**, not
+sharing one parent-level reservation) re-enter `reserve_task_resources` with
+the same claim on every retry. Because the live limit is resolved fresh each
+time rather than read once from a frozen claim, a settings write becomes
+visible to every currently-waiting task within one retry cycle.
+
+**New API surface:** `GET /api/engines/concurrency` returns the global cap
+plus a per-engine snapshot (`engine_id`, `engine_class`, `manifest_max`,
+`requested_cap`, `effective_cap`, `active_count`); `PUT
+/api/engines/{engine_id}/concurrency` (body `{"cap": <int>|null}`) sets or
+clears a per-engine override, validated server-side against the manifest
+ceiling (HTTP 422 on out-of-range rather than silent clamping — the
+`resolve_effective_cap` clamp remains the backstop for env-var edits or
+direct settings writes). Writes go through
+`app.db.state_settings.set_engine_cap`, a single-key read-merge-write under
+the settings lock — a raw whole-object `update_settings({"tts_engine_caps":
+{...}})` write would silently clobber a concurrent write to a *different*
+engine's override; `set_engine_cap` merges just the one key.
 
 ---
 

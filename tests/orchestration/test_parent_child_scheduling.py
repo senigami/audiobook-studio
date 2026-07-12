@@ -351,3 +351,118 @@ class TestCancelStopsAllChildren:
         assert cancel_seen_by_children.is_set(), "children must observe the cancel stop signal"
         assert writes_after_cancel == [], "no child may complete/write after cancel (INV-7)"
         assert result_holder["result"].status == "cancelled"
+
+
+class TestActiveSegmentsMapCharCount:
+    """W-PAR task 008: each active_segments_map entry must carry the REAL
+    per-segment char_count (looked up by segment_id), never the render
+    group's combined text_length — a group can merge several manuscript
+    segments, so using the group total would inflate every segment folded
+    into a multi-segment group (the exact fabrication risk R-G forbids).
+    """
+
+    def test_char_count_reflects_real_per_segment_length(self):
+        from app.orchestration.tasks.segment_synthesis import SegmentSynthesisTask  # noqa: PLC0415
+        from app.orchestration.tasks.base import TaskResult  # noqa: PLC0415
+
+        observed: dict[str, dict] = {}
+
+        def _fake_run(self):
+            leader_id = self.group["segments"][0]["id"]
+            parent_ref[0]._on_child_segment_tick(
+                segment_id=leader_id, status="running", progress=0.3, eta_seconds=10,
+            )
+            observed[leader_id] = dict(parent_ref[0]._current_active_segments_map() or {})
+            return TaskResult(status="completed")
+
+        parent_ref: list = [None]
+        task = _make_chapter_task("chap-charcount-1", "chapter-charcount-1", groups_count=2, max_workers=1)
+        parent_ref[0] = task
+
+        with patch.object(SegmentSynthesisTask, "run", _fake_run):
+            result = task.run()
+
+        assert result.status == "completed"
+        assert observed, "expected at least one observed active_segments_map snapshot"
+        for i in range(2):
+            seg_id = f"chap-charcount-1-seg-{i}"
+            expected_len = len(f"Segment number {i} text content here.")
+            entry = observed[seg_id][seg_id]
+            assert entry["char_count"] == expected_len, (
+                f"char_count for {seg_id} must equal its OWN segment text length, "
+                f"not the render group's combined total; got {entry}"
+            )
+
+
+class TestFailedPhaseWrite:
+    """W-PAR task 008 / R-G: a genuinely (retry-exhausted) failed segment
+    must show phase == 'failed' on the active_segments_map wire — no
+    backend writes of 'failed' existed anywhere before this task.
+    """
+
+    def test_direct_final_failed_tick_writes_failed_phase_with_char_count(self):
+        task = _make_chapter_task("chap-failed-1", "chapter-failed-1", groups_count=1, max_workers=1)
+        children, _ = task._fan_out_chapter()
+        task._children = children
+        leader_id = children[0].group["segments"][0]["id"]
+
+        task._on_child_segment_tick(
+            segment_id=leader_id, status="failed", progress=0.5, eta_seconds=None, final=True,
+        )
+
+        snapshot = task._current_active_segments_map() or {}
+        entry = snapshot[leader_id]
+        assert entry["phase"] == "failed"
+        assert entry["char_count"] == len("Segment number 0 text content here.")
+
+    def test_non_final_failed_tick_still_pops_not_fabricated(self):
+        """A 'failed' status BEFORE the retry-once policy has resolved
+        (final=False, the default) must not write phase='failed' — that
+        would be a premature/fabricated permanent-failure signal while a
+        retry is still possible.
+        """
+        task = _make_chapter_task("chap-failed-2", "chapter-failed-2", groups_count=1, max_workers=1)
+        children, _ = task._fan_out_chapter()
+        task._children = children
+        leader_id = children[0].group["segments"][0]["id"]
+
+        # First put it in-flight so there's something to pop.
+        task._on_child_segment_tick(
+            segment_id=leader_id, status="running", progress=0.2, eta_seconds=5,
+        )
+        task._on_child_segment_tick(
+            segment_id=leader_id, status="failed", progress=0.5, eta_seconds=None,
+        )
+
+        snapshot = task._current_active_segments_map()
+        assert not snapshot or leader_id not in snapshot
+
+    def test_retry_exhausted_segment_shows_failed_phase_on_wire(self):
+        """End-to-end (via run()): a child that fails on both its original
+        attempt and its one permitted retry must reach the wire as
+        phase == 'failed' (via update_job) before the terminal
+        _clear_active_segments_map wipes the map."""
+        from app.orchestration.tasks.segment_synthesis import SegmentSynthesisTask  # noqa: PLC0415
+        from app.orchestration.tasks.base import TaskResult  # noqa: PLC0415
+
+        writes: list[dict] = []
+
+        def _fake_update_job(task_id, **kwargs):
+            if "active_segments_map" in kwargs and kwargs["active_segments_map"]:
+                writes.append(dict(kwargs["active_segments_map"]))
+
+        task = _make_chapter_task("chap-failed-3", "chapter-failed-3", groups_count=1, max_workers=1)
+
+        with patch.object(
+            SegmentSynthesisTask, "run",
+            return_value=TaskResult(status="failed", message="synthetic failure"),
+        ), patch("app.db.state.update_job", side_effect=_fake_update_job):
+            result = task.run()
+
+        assert result.status == "failed"
+        failed_entries = [
+            entry for snapshot in writes for entry in snapshot.values() if entry.get("phase") == "failed"
+        ]
+        assert failed_entries, f"expected a phase='failed' active_segments_map write; got {writes}"
+        assert failed_entries[0]["progress"] == 1.0
+        assert "char_count" in failed_entries[0]

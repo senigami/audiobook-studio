@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronDown, Cloud, Play, ShieldCheck, Download, Trash2, ShieldAlert, Loader2 } from 'lucide-react';
-import type { TtsEngine } from '@/types';
+import type { TtsEngine, Settings } from '@/types';
 import { api } from '@/api';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { PluginTrustModal, type PluginPreviewInfo } from '@/components/overlays/PluginTrustModal';
@@ -18,11 +18,17 @@ const getErrorMessage = (err: any): string => {
   return err.message || err.error || 'Unknown error';
 };
 
+// Fallback ceiling when a plugin's manifest doesn't declare
+// behavior.max_concurrent_workers — matches the MAX_GLOBAL_CONCURRENT_SYNTHESIS
+// backstop (app/orchestration/scheduler/resources.py:44-46).
+const DEFAULT_ENGINE_CAP_CEILING = 8;
+
 export const EngineCard: React.FC<{
   engine: TtsEngine;
   onUpdate: () => void;
   onShowNotification?: (message: string) => void;
-}> = ({ engine, onUpdate, onShowNotification }) => {
+  settings?: Settings;
+}> = ({ engine, onUpdate, onShowNotification, settings }) => {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -36,6 +42,15 @@ export const EngineCard: React.FC<{
   });
   const [activeScenario, setActiveScenario] = useState<any | null>(null);
   const [devLogs, setDevLogs] = useState<string[]>([]);
+  const [savingCap, setSavingCap] = useState(false);
+  const engineCapCeiling: number =
+    typeof engine.behavior?.max_concurrent_workers === 'number'
+      ? engine.behavior.max_concurrent_workers
+      : DEFAULT_ENGINE_CAP_CEILING;
+  const currentEngineCap = settings?.tts_engine_caps?.[engine.engine_id];
+  const [engineCapInput, setEngineCapInput] = useState<string>(
+    currentEngineCap != null ? String(currentEngineCap) : ''
+  );
 
   const addDevLog = (msg: string) => {
     setDevLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 50));
@@ -47,6 +62,10 @@ export const EngineCard: React.FC<{
     setActiveScenario(null);
     setDevLogs([]);
   }, [engine.last_test, engine.engine_id]);
+
+  useEffect(() => {
+    setEngineCapInput(currentEngineCap != null ? String(currentEngineCap) : '');
+  }, [currentEngineCap, engine.engine_id]);
 
   const displayEngine = activeScenario
     ? mergeScenarioEngine(engine, activeScenario.engine_detail)
@@ -132,6 +151,39 @@ export const EngineCard: React.FC<{
       onShowNotification?.('Failed to reset engine setting.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // tts_engine_caps is only read from the JSON body on the backend
+  // (app/api/routers/system.py's form branch doesn't parse it), so this
+  // posts JSON directly rather than going through api.updateEngineSettings
+  // (which writes to the engine's own manifest-declared settings_schema, a
+  // different store — see task 012 findings).
+  const handleSaveEngineCap = async (rawValue: string) => {
+    if (activeScenario) {
+      addDevLog(`Simulated: Concurrency cap saved for ${displayEngine.display_name}.`);
+      return;
+    }
+    const parsed = parseInt(rawValue, 10);
+    if (rawValue.trim() === '' || Number.isNaN(parsed) || parsed < 1) return;
+    const clamped = Math.min(parsed, engineCapCeiling);
+    setEngineCapInput(String(clamped));
+    setSavingCap(true);
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tts_engine_caps: { ...(settings?.tts_engine_caps || {}), [engine.engine_id]: clamped },
+        }),
+      });
+      await onUpdate();
+      onShowNotification?.(`${engine.display_name} concurrency cap saved.`);
+    } catch (err) {
+      console.error('Failed to save engine concurrency cap', err);
+      onShowNotification?.('Failed to save concurrency cap.');
+    } finally {
+      setSavingCap(false);
     }
   };
 
@@ -290,6 +342,53 @@ export const EngineCard: React.FC<{
 
         <EngineTestSample engine={displayEngine} testResult={testResult} />
 
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+            padding: '0.85rem 1rem',
+            borderRadius: '12px',
+            border: '1px solid var(--border)',
+            background: 'var(--surface-light)',
+            marginBottom: '1.25rem',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div>
+            <label htmlFor={`engine-cap-${engine.engine_id}`} style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', display: 'block' }}>
+              Concurrent Renders
+            </label>
+            <p style={{ margin: '0.2rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.8rem', lineHeight: 1.4 }}>
+              Override how many segments this engine may render at once (up to {engineCapCeiling} — engine limit). Takes effect on next app restart.
+            </p>
+          </div>
+          <input
+            id={`engine-cap-${engine.engine_id}`}
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={engineCapCeiling}
+            step={1}
+            aria-label={`${engine.display_name} concurrent render cap`}
+            placeholder={`up to ${engineCapCeiling}`}
+            value={engineCapInput}
+            disabled={savingCap}
+            onChange={(e) => setEngineCapInput(e.target.value)}
+            onBlur={(e) => handleSaveEngineCap(e.target.value)}
+            style={{
+              width: '90px',
+              padding: '0.45rem',
+              borderRadius: '8px',
+              border: '1px solid var(--border)',
+              background: 'var(--surface)',
+              color: 'var(--text-primary)',
+              fontSize: '0.85rem',
+              fontWeight: 800,
+            }}
+          />
+        </div>
 
         <div className="engine-card__footer">
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>

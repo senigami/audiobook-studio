@@ -166,3 +166,36 @@ def update_settings(updates: dict = None, **kwargs) -> None:
 
         state["settings"] = save_settings
         _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
+
+
+def set_engine_cap(engine_id: str, cap: Optional[int]) -> None:
+    """Merge a single per-engine concurrency cap override (W-PAR task 014).
+
+    Reads the current ``tts_engine_caps`` map and merges in (or removes,
+    when ``cap`` is ``None``) exactly the key for ``engine_id`` — unlike a
+    raw ``update_settings({"tts_engine_caps": {...}})`` call, which replaces
+    the whole map and would silently clobber a concurrent write to a
+    different engine's override. The read-merge-write happens under a single
+    ``_STATE_LOCK`` acquisition (the lock is reentrant, so the nested
+    ``update_settings`` call below is safe) so no other writer's update can
+    land in between.
+
+    Args:
+        engine_id: Engine identifier to set (or clear) an override for.
+        cap: New cap value (coerced to ``>= 1``), or ``None`` to clear the
+            override back to the global cap.
+    """
+    with _STATE_LOCK:
+        state = _load_state_no_lock()
+        current_caps = state.get("settings", {}).get("tts_engine_caps")
+        if isinstance(current_caps, dict):
+            current_caps = dict(current_caps)
+        else:
+            current_caps = {}
+
+        if cap is None:
+            current_caps.pop(str(engine_id), None)
+        else:
+            current_caps[str(engine_id)] = max(1, int(cap))
+
+        update_settings({"tts_engine_caps": current_caps})

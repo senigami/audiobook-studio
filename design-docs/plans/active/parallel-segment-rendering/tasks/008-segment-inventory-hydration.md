@@ -1,6 +1,6 @@
 # Task 008 — Real segment inventory + char count + failed-phase hydration
 
-Status: pending
+Status: complete — 2026-07-11 (live-render verification below still pending owner)
 
 Risk: multi-file, quality-sensitive (touches the live progress wire; a half-implemented `failed` phase would be a fabricated-looking status)
 
@@ -80,12 +80,12 @@ export interface SegmentRenderMonitorProps {
 
 ## Acceptance criteria
 
-- [ ] `active_segments_map` entries carry real `char_count` for at least the in-flight/recently-done segments.
-- [ ] A genuinely failed segment (final retry exhausted) shows `phase: "failed"` on the wire, verified by a backend test forcing a failure.
-- [ ] `ActivityPage.tsx` renders `SegmentRenderMonitor` from real script-view + `active_segments_map` data for at least one active job, with the fixture no longer in the render path (fixture file itself can remain on disk for now).
-- [ ] No second WebSocket channel/topic introduced (M4 in `01-map.md`) — this enriches the existing field and reuses the existing script-view REST endpoint.
-- [ ] `./venv/bin/python -m pytest -q` and `npm -C frontend run test -- --run` both clean; relevant spec files bumped with changelog rows.
-- [ ] Live-verify: render a chapter with several segments, confirm the monitor (even dev-gated) shows real per-segment character-weighted blocks matching actual segment lengths, not the fixture's synthetic ones.
+- [x] `active_segments_map` entries carry real `char_count` for at least the in-flight/recently-done segments.
+- [x] A genuinely failed segment (final retry exhausted) shows `phase: "failed"` on the wire, verified by a backend test forcing a failure.
+- [x] `ActivityPage.tsx` renders `SegmentRenderMonitor` from real script-view + `active_segments_map` data for at least one active job, with the fixture no longer in the render path (fixture file itself can remain on disk for now).
+- [x] No second WebSocket channel/topic introduced (M4 in `01-map.md`) — this enriches the existing field and reuses the existing script-view REST endpoint.
+- [x] `./venv/bin/python -m pytest -q` and `npm -C frontend run test -- --run` both clean; relevant spec files bumped with changelog rows.
+- [ ] **Not yet done — requires a live render.** Live-verify: render a chapter with several segments, confirm the monitor (even dev-gated) shows real per-segment character-weighted blocks matching actual segment lengths, not the fixture's synthetic ones.
 
 ## Map links
 

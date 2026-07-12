@@ -1,8 +1,8 @@
 # Progress Presentation Contract
 
 ```
-spec_version: 1.10.1
-updated: 2026-07-06
+spec_version: 1.10.3
+updated: 2026-07-11
 status: active
 sources:
   - app/api/ws.py
@@ -17,6 +17,8 @@ sources:
   - frontend/src/store/live-jobs.ts
   - frontend/src/api/contracts/liveEvents.ts
   - frontend/src/demo/stages/siteMockup/SegmentRenderStrip.tsx
+  - frontend/src/hooks/useSegmentInventory.ts
+  - frontend/src/components/progress/SegmentRenderMonitor/SegmentRenderMonitor.tsx
   - app/orchestration/progress/service.py
   - app/orchestration/progress/eta.py
   - app/orchestration/progress/events.py
@@ -33,6 +35,8 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.10.3  | 2026-07-11 | **§4A.11 wired onto the wire (W-PAR task 013 — was "utility only, not yet wired" since 1.9.0).** `ProgressService` maintains a per-job `BracketedEtaTracker`, fed at the existing SEGMENT_SAVED transition inside `publish()` — pool key = the job's `engine_id` (now threaded through `publish`/`orchestrator_publish._publish`, previously never passed), `chars_completed` = the segment's `active_render_group_weight`, `wall_seconds` = a per-segment start-time stamp taken at first observation in `enrich()`. The resulting `eta_low_seconds`/`eta_high_seconds`/`eta_display` ride the `chapters.progress` frame (see `live-events.md` 1.9.7) once a job's tracker exists (after its first real segment completion); before that, the fields are entirely absent — never emitted as `null` placeholders pretending to be data. The no-fabrication guard holds end-to-end: `eta_display == "estimating…"` with both bounds `None` until >= 3 completions, verified by a wire-level test (`tests/orchestration/test_bracketed_eta_wiring.py`). Cap=1 parity unaffected — `eta_seconds` computation (§4A.8/§4A.4 above) is untouched; the pinned `test_eta_bracket_and_engine_cap.py::TestBracketedEtaCap1Parity` tests still pass. Known limitation (flagged, not fixed here): a pool's declared cap resolves to `1` (conservative fallback) until `_resolve_pool_cap` can read that engine's manifest — a genuinely parallel render can still show a collapsed single-value ETA for the first segment of a not-yet-cached pool. The render-monitor bracket-display UI itself remains separate follow-up work. |
+| 1.10.2  | 2026-07-11 | **§7A `SegmentRenderMonitor` on the Activity page hydrated from real data (W-PAR task 008) — no longer 100% fixture-fed.** New `frontend/src/hooks/useSegmentInventory.ts` fetches the active job's chapter `GET /chapters/{id}/script-view` once and merges each span with the live `active_segments_map` entry for its id (present → real phase/progress/char_count; absent → `'done'`/1 if already rendered, else `'preparing'`/0 — SegmentRenderMonitor's own idle state, not a new invented phase). Backing wire change (`live-events.md` 1.9.6): `active_segments_map` entries now carry a real per-segment `char_count` (never the render-group's combined total — see that changelog row) and a `'failed'` phase for a genuinely retry-exhausted segment. `ActivityPage.tsx` still gates this behind `useDevMode()` for this task (removing the gate is a later step once verified live, per the roadmap). |
 | 1.10.1  | 2026-07-06 | **`eta_updated_at` dedupe was computed but silently dropped at the wire (found double-checking 1.10.0 against a fresh owner render capture).** `ProgressService.enrich()` already computes the §4A eta_updated_at dedupe correctly (reuse the previous anchor when `eta_seconds`/`progress` are unchanged) into its own payload dict, but `app.api.ws.broadcast_job_updated` never extracted `eta_updated_at` from that enriched payload and never passed it to `build_chapter_progress_event`, which silently falls back to `time.time()` when neither `eta_updated_at` nor `updated_at` is given. Invisible before 1.10.0 because `eta_seconds` was never positive for an extended multi-tick `preparing` window; the chapter-dispatch-ETA fix makes it positive for tens of seconds while children tick repeatedly (`_on_child_segment_tick`, `skip_job_updated=True`), exposing it: the queue bar's determinate fill re-anchored its end-time forward on every map-only tick instead of counting down — observed live as a countdown that never seems to move. Fixed: `broadcast_job_updated` now extracts `_enriched_eta_updated_at` and threads it into `build_chapter_progress_event`. |
 | 1.10.0  | 2026-07-06 | **Concurrent fan-out reconciliation (owner report): chapter-level dispatch ETA restored + N-way per-segment animated text fill (amends §2.6 W-MIX-LA note, §7 H5).** Two fixes for regressions the `ENGINE_CLASS_ADMISSION` concurrent fan-out exposed. **(1) Chapter-level dispatch ETA for fan-out parents.** The fan-out parent (`ChapterSynthesisTask`, `is_chapter_fanout`) bypasses `_dispatch_segment`, which was the only emitter of the proactive chapter-scope `pre_load_eta` frame — children still compute group-scoped frames but publish them EPHEMERALLY (segments.progress only, no durable job write; the frame carries no `active_segment_id` so the parent's live-map tick drops it too). The parent job's `eta_seconds` therefore stayed null through `preparing` and the queue bar's §2.6 determinate fill never engaged ("stuck on preparing"). `_dispatch` now publishes a durable chapter-level `pre_load_eta` frame (`status="preparing"`) just before the fan-out: `eta_seconds = calculate_chapter_startup_eta(total_group_chars, calibrated_cps, group_count, calibrated_overhead) + cold_load_term`. The load term is included only when the TTS server reports the engine cold AND `expected_model_load_seconds` DB history exists (unchanged §2.6 rule); a WARM engine's dispatch ETA carries no preparing time (owner design) — this widens the pre-fan-out behavior, which emitted the frame only when cold (the single-dispatch `_dispatch_segment` path is unchanged and still emits only when cold). No-fabrication holds: no calibration history → no frame, `eta_seconds` stays null. Char weights come from the parent's own chunk groups (B9). **(2) H5 generalized to N concurrent segments.** The map-driven text-fill path (`useStudioChapter.chapterRenderRenderingBatchProgressById` reading `active_segments_map`) fed RAW `entry.progress` to ScriptView — stepping only on real ≥1% frames, so the highlight jumped between percents (H5 violation; the legacy feedback loop via the single bar's `onDisplayProgress` is single-lane by construction). New `useAnimatedSegmentProgress` hook: one independent lane per segment id, reusing the bar's existing lane math (`resolveEndAtMs`/`getLaneProgress`, same 250 ms `tickMs` cadence), anchored per segment at its latest real (progress, eta) and interpolating between frames; the backend value is the authoritative floor; no positive ETA → the lane holds (no invented velocity); `preparing`-phase entries do not animate (§2.7). Each segment filters the shared stream by its own id — a frame for one segment never disturbs a sibling's in-flight animation. |
 | 1.9.0   | 2026-07-03 | **§4A.11 — bracketed throughput ETA under parallelism documented (W-PAR task 007).** `BracketedEtaTracker` (rolling-throughput / bottleneck-pool model, cap=1 parity, `"estimating…"` no-fabrication guard) is implemented and unit-tested but explicitly marked **not yet wired** into `enrich()` or any live frame — see `live-events.md` 1.9.3 Known gaps §7 for the matching honest-gap note. Documents the target contract for the follow-up wiring task rather than describing aspirational live behavior. |
@@ -549,13 +553,17 @@ eta     = ( w_base · T_base + (1 - w_base) · T_obs ) × (1 - p)
 - This blend only adjusts the **emitted segment ETA**; the §4A.3 chapter composition continues to
   read the raw observed segment ETA, so the chapter ETA path is unchanged.
 
-### 4A.11 Bracketed throughput ETA under parallelism (W-PAR task 007 — utility only, not yet wired)
+### 4A.11 Bracketed throughput ETA under parallelism (W-PAR task 007, wired in task 013)
 
 > **Status:** `app.orchestration.progress.eta.BracketedEtaTracker` implements this model and is
-> unit-tested (`tests/orchestration/test_eta_bracket_and_engine_cap.py`). It is **not** yet called
-> from `ProgressService.enrich()` or any live event builder — no frame on the wire today carries
-> `eta_low_seconds`/`eta_high_seconds`/`eta_display`. This subsection documents the target contract
-> the utility already satisfies, for the follow-up task that wires it into the live payload.
+> unit-tested (`tests/orchestration/test_eta_bracket_and_engine_cap.py`). As of W-PAR task 013 it
+> is wired: `ProgressService` keeps one tracker per job, fed real segment completions at the
+> SEGMENT_SAVED transition in `publish()` (see `tests/orchestration/test_bracketed_eta_wiring.py`),
+> and its `bracket()` output rides the `chapters.progress` frame as `eta_low_seconds`/
+> `eta_high_seconds`/`eta_display` (`live-events.md` 1.9.7). The fields are entirely absent from
+> the wire until this job's first real segment completion (no tracker yet); after that they follow
+> the no-fabrication guard below exactly. The render-monitor bracket-display UI itself is separate,
+> not-yet-built follow-up work.
 
 §4A's single-value `eta_seconds` assumes one segment renders at a time (single-stream CPS). Under
 real parallelism (`cap > 1`, W-PAR toggle, `queue-jobs.md §7.3b`) a slow XTTS segment and a fast

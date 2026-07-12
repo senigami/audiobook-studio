@@ -51,7 +51,6 @@ def _manifest_resource_claim(engine_id: str) -> ResourceClaim:
     """
     try:
         from app.tts_server.plugin_loader import get_plugin_dir, get_manifest_max_concurrent_workers  # noqa: PLC0415
-        from app.orchestration.scheduler.cap_settings import resolve_effective_cap  # noqa: PLC0415
         import json  # noqa: PLC0415
 
         plugin_dir = get_plugin_dir(engine_id)
@@ -69,13 +68,15 @@ def _manifest_resource_claim(engine_id: str) -> ResourceClaim:
         is_cpu_heavy = bool(resource.get("cpu_heavy", False))
         vram_mb = int(resource.get("vram_mb", 0))
         manifest_max = get_manifest_max_concurrent_workers(manifest)
-        # W-PAR task 007: the effective cap is min(setting/env cap, manifest max)
-        # — the operator-facing toggle can only lower the cap below the
-        # manifest ceiling, never raise it above what the plugin author
-        # declared safe. Defaults to DEFAULT_GLOBAL_CAP (2) when no
-        # setting/env override is present; engines with a lower manifest
-        # ceiling (e.g. Voxtral/Mixed at 1) stay sequential regardless.
-        cap = resolve_effective_cap(engine_id=engine_id, manifest_max=manifest_max)
+        # W-PAR task 014: `cap` is the structural ceiling (the manifest's
+        # declared max_concurrent_workers) — NOT the effective/live
+        # concurrency limit. The live limit (min(setting/env cap, manifest
+        # max)) is resolved fresh on every admission attempt inside
+        # `reserve_task_resources` via `resolve_effective_cap`, using the
+        # `manifest_max` field carried alongside `cap` below. This split lets
+        # a settings change reach already-queued/in-flight work without a
+        # process restart, while the semaphore's structural ceiling (grown
+        # only via `ensure_min_cap`) never has to shrink.
 
         if is_gpu:
             engine_class = "gpu"
@@ -90,8 +91,9 @@ def _manifest_resource_claim(engine_id: str) -> ResourceClaim:
             cpu_heavy=is_cpu_heavy,
             exclusive=False,
             engine_class=engine_class,
-            cap=cap,
+            cap=manifest_max,
             engine_id=engine_id,
+            manifest_max=manifest_max,
         )
     except Exception:
         logger.warning(
@@ -107,6 +109,7 @@ def _manifest_resource_claim(engine_id: str) -> ResourceClaim:
             engine_class="cloud",
             cap=1,
             engine_id=engine_id,
+            manifest_max=1,
         )
 
 

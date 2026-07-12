@@ -1892,4 +1892,9 @@ def _claim_to_dict(claim: object | None) -> dict[str, object]:
         # W-PAR task 007 (Fable finding): propagate engine_id so reserve/release
         # can enforce the per-engine-id ceiling alongside the class-level gate.
         "engine_id": getattr(claim, "engine_id", ""),
+        # W-PAR task 014: propagate the manifest ceiling separately from `cap`
+        # so `reserve_task_resources` can resolve a live, settings-driven
+        # admission limit fresh on every call without ever treating `cap`
+        # itself as anything but the structural ceiling.
+        "manifest_max": getattr(claim, "manifest_max", 1),
     }

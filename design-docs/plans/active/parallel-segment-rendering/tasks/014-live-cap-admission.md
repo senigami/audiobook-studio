@@ -1,6 +1,6 @@
 # Task 014 — Live per-engine cap admission (close the "setting has no effect" gap)
 
-Status: pending
+Status: complete — 2026-07-11
 
 Risk: quality-sensitive (touches the live admission path every render job goes through), multi-file
 
@@ -121,17 +121,17 @@ In `app/api/routers/engines.py` (engine-scoped runtime config — not `system.py
 
 ## Acceptance criteria
 
-- [ ] `cap_settings.py` docstring default corrected to `2`.
-- [ ] `EngineClassSemaphore.try_acquire(task_id, limit=None)` — existing callers (no `limit` passed) behave byte-identically to today; a test proves this.
-- [ ] Shrinking a live cap does not evict in-flight tasks and does block new admissions until active count drops below the new limit — proven by a test that holds N slots then lowers the limit below N.
-- [ ] Raising a live cap takes effect on the very next `reserve_task_resources` call for queued work, without a process restart — proven by a test.
-- [ ] `ResourceClaim.cap` now means the manifest ceiling everywhere it's read; no code path anywhere still assumes `cap` means "effective concurrency" (grep for `\.cap\b` on `ResourceClaim` instances and audit every hit).
-- [ ] The per-child segment dispatch trace (step 5) is done and its outcome (individually reserved, or not) is explicitly stated in the task's completion report — if not individually reserved, this is flagged as a follow-up, not silently left unverified.
-- [ ] `GET /api/engines/concurrency` and `PUT /api/engines/{engine_id}/concurrency` implemented, tested, and the 422 path verified with an out-of-range value.
-- [ ] `set_engine_cap` merges under lock without clobbering other engines' overrides — proven by a concurrent-write-style test (two calls for two different engine_ids, both survive).
-- [ ] Existing W-PAR test suite assertions about `claim.cap`/semaphore sizing updated where they assumed the old (effective-cap) semantic; full suite green.
-- [ ] `./venv/bin/python -m pytest -q` clean. Relevant spec (`design-docs/specs/system-architecture.md` or wherever engine concurrency is documented — check `design-docs/specs/README.md`'s router index for the right file) gets a changelog row for the new API + the cap-semantic change.
-- [ ] Append a code-map changelog-queue entry (`docs/code-map/queue/`) — this changes a contract (`ResourceClaim`'s `cap` field meaning) and adds new API surface.
+- [x] `cap_settings.py` docstring default corrected to `2`.
+- [x] `EngineClassSemaphore.try_acquire(task_id, limit=None)` — existing callers (no `limit` passed) behave byte-identically to today; a test proves this.
+- [x] Shrinking a live cap does not evict in-flight tasks and does block new admissions until active count drops below the new limit — proven by a test that holds N slots then lowers the limit below N.
+- [x] Raising a live cap takes effect on the very next `reserve_task_resources` call for queued work, without a process restart — proven by a test.
+- [x] `ResourceClaim.cap` now means the manifest ceiling everywhere it's read; no code path anywhere still assumes `cap` means "effective concurrency" (grep for `\.cap\b` on `ResourceClaim` instances and audit every hit).
+- [x] The per-child segment dispatch trace (step 5) is done and its outcome (individually reserved, or not) is explicitly stated in the task's completion report — **individually reserved: YES**, verified independently by the orchestrator too (`SegmentSynthesisTask.run()`, `app/orchestration/tasks/segment_synthesis.py:151-194`, calls `reserve_task_resources`/`release_task_resources` per child with its own claim in a retry-wait loop).
+- [x] `GET /api/engines/concurrency` and `PUT /api/engines/{engine_id}/concurrency` implemented, tested, and the 422 path verified with an out-of-range value.
+- [x] `set_engine_cap` merges under lock without clobbering other engines' overrides — proven by a concurrent-write-style test (two calls for two different engine_ids, both survive).
+- [x] Existing W-PAR test suite assertions about `claim.cap`/semaphore sizing updated where they assumed the old (effective-cap) semantic; full suite green.
+- [x] `./venv/bin/python -m pytest -q` clean (2291 passed, 3 skipped — orchestrator re-ran independently, confirmed). Relevant spec (`system-architecture.md`, `queue-jobs.md`) gets a changelog row for the new API + the cap-semantic change.
+- [x] Append a code-map changelog-queue entry (`docs/code-map/queue/`) — this changes a contract (`ResourceClaim`'s `cap` field meaning) and adds new API surface.
 
 ## Map links
 

@@ -1,0 +1,57 @@
+{
+  "at": "2026-07-11T23:30:00Z",
+  "commit": "uncommitted",
+  "task": "Phase 2 task 014: live per-engine cap admission (close the settings-have-no-live-effect gap)",
+  "files": {
+    "app/orchestration/scheduler/resources.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "ResourceClaim gains a `manifest_max: int = 1` field carrying the manifest ceiling alongside `cap` (which now ALWAYS means the structural ceiling, never the effective/live cap). EngineClassSemaphore.try_acquire(task_id, limit: Optional[int] = None) gains the `limit` param: when passed, admission threshold for that call is min(self._cap, limit); self._cap itself is never mutated by a live limit (ensure_min_cap's grow-only contract untouched). reserve_task_resources resolves the live limit fresh on every call (lazy import of cap_settings.resolve_effective_cap) when a claim carries both engine_class/engine_id and manifest_max, and passes it as `limit` to both the class-level and per-engine-id semaphores. release_task_resources unchanged (never consulted cap).",
+      "calls_added": ["EngineClassSemaphore.try_acquire(limit=...)", "cap_settings.resolve_effective_cap (lazy, per admission attempt inside reserve_task_resources)"],
+      "calls_removed": []
+    },
+    "app/orchestration/scheduler/cap_settings.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Doc-only fix: module docstring wrongly claimed _normalize_settings materializes tts_parallel_cap default 1; corrected to 2 (matches state_settings.py:22 and DEFAULT_GLOBAL_CAP).",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "app/orchestration/tasks/synthesis.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "_manifest_resource_claim no longer bakes resolve_effective_cap into ResourceClaim.cap. Now sets cap=manifest_max and manifest_max=manifest_max (both fields = the manifest ceiling); the live/effective cap is resolved later, fresh, inside reserve_task_resources. Fallback (manifest unreadable) claim also sets manifest_max=1 explicitly.",
+      "calls_added": [],
+      "calls_removed": ["cap_settings.resolve_effective_cap (moved out of this function, called instead inside reserve_task_resources)"]
+    },
+    "app/orchestration/scheduler/orchestrator_helpers.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "_claim_to_dict now also propagates claim.manifest_max into the resource_claims dict passed to reserve_task_resources/release_task_resources (default 1 via getattr for claims predating this field).",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "app/db/state_settings.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "New set_engine_cap(engine_id, cap: Optional[int]) helper: single-key read-merge-write of tts_engine_caps under _STATE_LOCK (reentrant, nests an update_settings call), so two concurrent writes to DIFFERENT engines' overrides no longer clobber each other via the prior only path (whole-object update_settings({'tts_engine_caps': {...}}) replace). cap=None clears the override.",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "app/db/state.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Facade re-exports the new state_settings.set_engine_cap (added to import list and __all__), matching the existing pattern for update_settings/get_settings.",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "app/api/routers/engines.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "New GET /api/engines/concurrency (global_cap + per-engine [engine_id, engine_class, manifest_max, requested_cap, effective_cap, active_count] snapshot, sourced from _manifest_resource_claim + resolve_effective_cap + get_engine_id_semaphore.active_count, all in-process reads) and PUT /api/engines/{engine_id}/concurrency (body {cap: int|null}; validates 1<=cap<=manifest_max server-side, HTTP 422 with manifest_max in the body on violation rather than silent clamping; null clears the override; writes via db.state.set_engine_cap). New ConcurrencyUpdateRequest pydantic model.",
+      "calls_added": ["_manifest_resource_claim", "cap_settings.resolve_effective_cap/get_engine_caps/get_global_parallel_cap", "resources.get_engine_id_semaphore", "db.state.set_engine_cap"],
+      "calls_removed": []
+    }
+  },
+  "flow_impact": "Separates the manifest ceiling (structural, grow-only via ensure_min_cap, carried in ResourceClaim.cap/manifest_max) from the live/effective admission limit (resolved fresh on every reserve_task_resources call). A tts_parallel_cap/tts_engine_caps settings change now reaches already-queued and already-running work within one retry cycle (orchestrator's ~1s loop, per-child segment dispatch's ~0.5s loop) instead of requiring a process restart. Per-child segment dispatch (segment_synthesis.py SegmentSynthesisTask.run(), lines ~151-194) was traced this session and confirmed to call reserve_task_resources/release_task_resources INDIVIDUALLY per child (not sharing one parent-level reservation) — so the live-limit mechanism reaches fanned-out chapter segments, not just the top-level orchestrator submit() path. generation.py's chapter-parent ThreadPoolExecutor sizing (lines ~283-291, unchanged code) now reads the manifest ceiling instead of the previously-frozen effective cap, verified by a new test (test_generation_pool_sizing_uses_manifest_ceiling_not_lowered_live_cap) rather than left as an untested assumption. New GET/PUT /api/engines/{engine_id}/concurrency endpoints give the caps UI (task 012) an alternative, validating write path (additive; task 012's raw POST /api/settings path keeps working unchanged)."
+}

@@ -359,6 +359,7 @@ function App() {
                   startupReady={initialData?.system_info?.startup_ready !== false}
                   onRefresh={handleRefresh}
                   onShowNotification={showToast}
+                  settings={initialData?.settings}
                 />
               } />
               <Route path="/integrations" element={<IntegrationsPage />} />

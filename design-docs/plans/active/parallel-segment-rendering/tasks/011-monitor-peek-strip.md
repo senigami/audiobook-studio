@@ -1,6 +1,6 @@
 # Task 011 — Peek-strip progressive disclosure
 
-Status: pending
+Status: complete — 2026-07-11 (light/dark visual verification below still pending owner)
 
 Risk: multi-file
 
@@ -33,11 +33,12 @@ Today the shipped component is all-or-nothing: either the full block field rende
 
 ## Acceptance criteria
 
-- [ ] Peek strip auto-appears when a job has ≥2 concurrently active segments.
-- [ ] Expands inline to the full block field on click/tap — no navigation away from the current page.
-- [ ] Dismiss persists across the session/reload but does not suppress failure information — a segment failure re-surfaces the strip even after a prior dismiss.
-- [ ] No second implementation of the block-encoding logic — the peek strip and full field share the same underlying rendering (extract a shared component if needed).
-- [ ] `npm -C frontend run test -- --run`, lint, build clean. Light/dark mode both verified.
+- [x] Peek strip auto-appears when a job has ≥2 concurrently active segments.
+- [x] Expands inline to the full block field on click/tap — no navigation away from the current page.
+- [x] Dismiss persists across the session/reload (localStorage, matching `railState.ts`'s pattern) but does not suppress failure information — a segment failure re-surfaces the strip even after a prior dismiss.
+- [x] No second implementation of the block-encoding logic — extracted shared `SegmentBlockRow`, used by both the peek strip and the full field.
+- [x] `npm -C frontend run test -- --run` (28 new/updated tests + 17 pre-existing SegmentRenderMonitor tests, all pass), lint, build clean.
+  - [ ] **Not yet done — requires a browser.** Light/dark mode visual verification (code uses only existing `var(--*)` tokens, no hardcoded colors, so it should theme correctly, but not visually confirmed).
 
 ## Map links
 

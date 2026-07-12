@@ -1,6 +1,6 @@
 # Task 009 — Milestone `aria-live` region for the render monitor
 
-Status: pending
+Status: complete — 2026-07-11
 
 Risk: none
 
@@ -37,11 +37,11 @@ A separate, visually-hidden (`sr-only`, matching this repo's existing utility cl
 
 ## Acceptance criteria
 
-- [ ] `aria-live="polite"` region present, visually hidden via the repo's existing `.sr-only`-equivalent pattern (grep for one before inventing).
-- [ ] Announces: start, major thresholds (proportional to segment count, not literal segment-by-segment), completion (success and failed-segment-count variants).
-- [ ] Does NOT announce on every individual segment phase change — verify via a test that simulates rapid per-segment updates and asserts the live region's text changes far less often than the segment count.
-- [ ] Existing `role="img"`/`SegmentAccessibleTable` behavior unchanged.
-- [ ] `npm -C frontend run test -- --run`, lint, build clean. New test added for the milestone-announcement logic (not sleep-based — use fake timers/direct prop updates per this repo's testing standards).
+- [x] `aria-live="polite"` region present, visually hidden via the repo's existing `.sr-only`-equivalent pattern (grep for one before inventing).
+- [x] Announces: start, major thresholds (proportional to segment count, not literal segment-by-segment), completion (success and failed-segment-count variants).
+- [x] Does NOT announce on every individual segment phase change — verify via a test that simulates rapid per-segment updates and asserts the live region's text changes far less often than the segment count.
+- [x] Existing `role="img"`/`SegmentAccessibleTable` behavior unchanged.
+- [x] `npm -C frontend run test -- --run`, lint, build clean. New test added for the milestone-announcement logic (not sleep-based — use fake timers/direct prop updates per this repo's testing standards).
 
 ## Map links
 

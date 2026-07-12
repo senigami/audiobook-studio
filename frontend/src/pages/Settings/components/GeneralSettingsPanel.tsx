@@ -6,6 +6,9 @@ import { SettingCard, ToggleButton } from '@/pages/Settings/components/SettingsC
 import { loadThemePref, saveThemePref, type Theme } from '@/utils/theme';
 import { isDevModeEnabled, setDevModeEnabled, useDevMode } from '@/utils/devMode';
 
+// Matches the MAX_GLOBAL_CONCURRENT_SYNTHESIS backstop (app/orchestration/scheduler/resources.py:44-46).
+const MAX_GLOBAL_PARALLEL_CAP = 8;
+
 interface GeneralSettingsPanelProps {
   settings: AppSettings | undefined;
   speakerProfiles?: SpeakerProfile[];
@@ -259,12 +262,33 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
           <SettingCard
             icon={Layers}
             title="Parallel Segment Rendering"
-            description="Render multiple segments at once when the engine allows it. Turn off to force strictly one-at-a-time (sequential) rendering."
+            description="How many segments Studio may render at once, across all engines. Set to 1 to force strictly one-at-a-time (sequential) rendering."
             action={
-              <ToggleButton
-                enabled={(settings?.tts_parallel_cap ?? 1) > 1}
-                busy={savingKey === 'tts_parallel_cap'}
-                onClick={() => updateParallelCap((settings?.tts_parallel_cap ?? 1) > 1 ? 1 : 2)}
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={MAX_GLOBAL_PARALLEL_CAP}
+                step={1}
+                aria-label="Max concurrent segment renders"
+                value={settings?.tts_parallel_cap ?? 1}
+                disabled={savingKey === 'tts_parallel_cap'}
+                onChange={(e) => {
+                  const raw = parseInt(e.target.value, 10);
+                  if (Number.isNaN(raw)) return;
+                  const clamped = Math.min(MAX_GLOBAL_PARALLEL_CAP, Math.max(1, raw));
+                  updateParallelCap(clamped);
+                }}
+                style={{
+                  width: '80px',
+                  padding: '0.45rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.85rem',
+                  fontWeight: 800,
+                }}
               />
             }
           />
