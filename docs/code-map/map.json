@@ -1,6 +1,6 @@
 {
   "meta": {
-    "synced_commit": "ab996ff0e00116cb6a2ad97db5a3a32c3db1d8d6",
+    "synced_commit": "59cbaf76f1d0790852e2cf87051fb0e0895c6577",
     "shards": [
       {
         "prefix": "frontend/src/pages/ChapterEditor/",
@@ -18,13 +18,13 @@
         "prefix": "frontend/src/components/",
         "path": "shards/files.frontend-src-components.json",
         "files": 36,
-        "bytes": 33088
+        "bytes": 34105
       },
       {
         "prefix": "frontend/src/pages/Book/",
         "path": "shards/files.frontend-src-pages-Book.json",
         "files": 32,
-        "bytes": 48861
+        "bytes": 50180
       },
       {
         "prefix": "app/studio_plugin_sdk/",
@@ -41,38 +41,38 @@
       {
         "prefix": "frontend/src/hooks/",
         "path": "shards/files.frontend-src-hooks.json",
-        "files": 36,
-        "bytes": 30076
+        "files": 37,
+        "bytes": 31534
       },
       {
         "prefix": "frontend/src/pages/",
         "path": "shards/files.frontend-src-pages.json",
-        "files": 68,
-        "bytes": 58376
+        "files": 69,
+        "bytes": 60822
       },
       {
         "prefix": "frontend/src/store/",
         "path": "shards/files.frontend-src-store.json",
-        "files": 8,
-        "bytes": 7388
+        "files": 9,
+        "bytes": 11496
       },
       {
         "prefix": "frontend/src/theme/",
         "path": "shards/files.frontend-src-theme.json",
         "files": 13,
-        "bytes": 19066
+        "bytes": 19231
       },
       {
         "prefix": "frontend/src/utils/",
         "path": "shards/files.frontend-src-utils.json",
-        "files": 24,
-        "bytes": 19549
+        "files": 25,
+        "bytes": 20460
       },
       {
         "prefix": "app/orchestration/",
         "path": "shards/files.app-orchestration.json",
         "files": 27,
-        "bytes": 41726
+        "bytes": 42549
       },
       {
         "prefix": "frontend/src/demo/",
@@ -90,13 +90,13 @@
         "prefix": "frontend/src/api/",
         "path": "shards/files.frontend-src-api.json",
         "files": 9,
-        "bytes": 9986
+        "bytes": 11886
       },
       {
         "prefix": "frontend/src/app/",
         "path": "shards/files.frontend-src-app.json",
         "files": 22,
-        "bytes": 27465
+        "bytes": 27845
       },
       {
         "prefix": "plugins/tts_xtts/",
@@ -113,8 +113,8 @@
       {
         "prefix": "app/engines/",
         "path": "shards/files.app-engines.json",
-        "files": 20,
-        "bytes": 22161
+        "files": 21,
+        "bytes": 24106
       },
       {
         "prefix": "app/storage/",
@@ -150,7 +150,7 @@
         "prefix": "app/api/",
         "path": "shards/files.app-api.json",
         "files": 33,
-        "bytes": 40671
+        "bytes": 41521
       },
       {
         "prefix": "app/db/",
@@ -187,7 +187,7 @@
       "frontend/src/demo/stages/siteMockup/panes/*.tsx (14 files, condensed in siteMockupStage.tsx notes)"
     ],
     "edge_tool": "hybrid: madge --json --extensions ts,tsx src/ (v8.0.0, run from frontend/) for frontend import edges; a custom stdlib-ast import-graph script (docs/code-map/tools/py_import_graph.py) for backend/plugin import edges. `calls` entries confirmed by one of these tools are kept/added as tool-derived; prior model-written entries the tool could not confirm (dynamic dispatch, cross-language, or a dotted-module reference the tool didn't resolve) moved to `calls_inferred`. `called_by` is the mechanical inverse of `calls` across the whole map, recomputed from scratch by this merge (2026-07-06).",
-    "synced_commit_note": "Map reflects HEAD (ce2efd9f) plus substantial uncommitted working-tree changes (directors_console_activation + dynamic_recording_guide plans, both archived 2026-07-10) — file_hashes/repo_checksum are computed from actual on-disk bytes, so they are accurate regardless of commit status; synced_commit itself will only be fully accurate once this work is committed."
+    "synced_commit_note": "Map reflects HEAD (ce2efd9f) plus substantial uncommitted working-tree changes (directors_console_activation + dynamic_recording_guide plans, both archived 2026-07-10) \u2014 file_hashes/repo_checksum are computed from actual on-disk bytes, so they are accurate regardless of commit status; synced_commit itself will only be fully accurate once this work is committed."
   },
   "flows": [
     {
@@ -244,7 +244,7 @@
         "app/engines/watchdog.py log listeners",
         "app/orchestration/scheduler/orchestrator_publish.py#_publish",
         "app/orchestration/progress/service.py#ProgressService (EtaSampleRing, compute_eta_confidence)",
-        "app/api/ws.py#broadcast_job_updated (§4A enrichment)",
+        "app/api/ws.py#broadcast_job_updated (\u00a74A enrichment)",
         "app/api/contracts/events.py#build_job_lifecycle_event/build_chapter_progress_event",
         "frontend/src/store/studioSocketBus.ts#publishStudioSocketMessage",
         "frontend/src/hooks/useJobs.ts",
@@ -254,7 +254,7 @@
         "frontend/src/components/progress/PredictiveProgressBar/*"
       ],
       "carries": "raw engine progress line -> velocity-ring sampling -> confidence-weighted ETA crossfade (calculated->observed) -> WebSocket frame -> frontend reducer with status-regression/progress-regression guards -> animated progress bar with its own client-side lane-migration smoothing",
-      "invariant": "confidence and ETA are never fabricated; frontend only trusts backend-computed confidence for §4A frames (chapters.progress/jobs.lifecycle) and only falls back to computeProgressConfidence() for older non-enriched frames (segments.progress/voice.test) ; eta_updated_at is deduped by ProgressService.enrich() but must be explicitly re-extracted and threaded through app/api/ws.py#broadcast_job_updated into build_chapter_progress_event -- that function's own default (time.time() when omitted) silently defeats the dedupe at the wire on every tick if the extraction is dropped (escaped defect, fixed 2026-07-06); the chapter-fanout parent's own \"running\" frame (segment_synthesis.py#_publish_progress) now also computes eta_seconds via decay of the dispatch-time estimate rather than leaving it None (2026-07-07 fix -- see parallel-segment-fanout flow for the decay mechanics) Task 013 (2026-07-11): BracketedEtaTracker (eta.py, W-PAR 007) is now wired into ProgressService.publish() at the SEGMENT_SAVED transition and onto the chapters.progress payload as eta_low_seconds/eta_high_seconds/eta_display -- previously built and unit-tested but never fed real data or exposed on the wire."
+      "invariant": "confidence and ETA are never fabricated; frontend only trusts backend-computed confidence for \u00a74A frames (chapters.progress/jobs.lifecycle) and only falls back to computeProgressConfidence() for older non-enriched frames (segments.progress/voice.test) ; eta_updated_at is deduped by ProgressService.enrich() but must be explicitly re-extracted and threaded through app/api/ws.py#broadcast_job_updated into build_chapter_progress_event -- that function's own default (time.time() when omitted) silently defeats the dedupe at the wire on every tick if the extraction is dropped (escaped defect, fixed 2026-07-06); the chapter-fanout parent's own \"running\" frame (segment_synthesis.py#_publish_progress) now also computes eta_seconds via decay of the dispatch-time estimate rather than leaving it None (2026-07-07 fix -- see parallel-segment-fanout flow for the decay mechanics) Task 013 (2026-07-11): BracketedEtaTracker (eta.py, W-PAR 007) is now wired into ProgressService.publish() at the SEGMENT_SAVED transition and onto the chapters.progress payload as eta_low_seconds/eta_high_seconds/eta_display -- previously built and unit-tested but never fed real data or exposed on the wire."
     },
     {
       "id": "voice-lifecycle",
@@ -309,7 +309,7 @@
         "frontend/src/components/queue/GlobalQueue.tsx"
       ],
       "carries": "REST snapshot on load/reconnect is merged with live WebSocket overlays; events arriving before the first snapshot are buffered (F3) and replayed once hydrated; only queue.items may create/rewrite rows, everything else overlays a fixed field allowlist; active_segments_map (W-PAR 006) rides the same queue.items frame as an additive overlay field",
-      "invariant": "reconnect prunes overlays older than (hydratedAtSeconds - 5s); the poll/refresh path does NOT prune (server timestamps may lag wall-clock) — asymmetric on purpose"
+      "invariant": "reconnect prunes overlays older than (hydratedAtSeconds - 5s); the poll/refresh path does NOT prune (server timestamps may lag wall-clock) \u2014 asymmetric on purpose"
     },
     {
       "id": "parallel-segment-fanout",
@@ -327,7 +327,7 @@
         "app/orchestration/tasks/segment_synthesis.py#ChapterSynthesisTask.run (stitch barrier: futures.wait(ALL_COMPLETED) then sort by segment_order)"
       ],
       "carries": "a chapter render for a segment-orchestrated engine fans its chunk groups into concurrent children (bounded by the per-engine-class semaphore); each child reuses _dispatch_segment's per-segment isolation via a synthetic one-group task rather than calling handle_mixed_job directly; completed children join at an explicit ALL_COMPLETED barrier and stitch in manuscript order regardless of completion order",
-      "invariant": "concurrency requires BOTH ENGINE_CLASS_ADMISSION truthy (default on, 2026-07-06) AND tts_parallel_cap>1 (default 2, 2026-07-05); disabling either restores the byte-identical sequential SynthesisTask/handle_mixed_job path (INV-1); the chapter-fanout PARENT itself must never flow through _dispatch_segment (would register a spurious idle log_listener); a concurrent child must never call handle_mixed_job directly (would re-trigger chapter-terminal stitch/DB-rebuild once per child instead of once per chapter) and must have skip_registry_dispatch=True (else falls through to the legacy per-engine registry handler and silently re-renders a sibling's remaining work — escaped defect, fixed 2026-07-05); synthetic fan-out children emit segment-scoped frames but no durable job rows (ephemeral TaskContext routes through ProgressService.publish(ephemeral=True), suppressing only jobs.lifecycle/queue.items/chapters.progress); chapter progress is size-weighted (grouped_progress from child text-length sums) and order-independent; an explicit backend active_segments_map={} ('nothing rendering') always wins over the frontend's segmentProgress-derived fallback (useStudioChapter.ts) ; the parent's own _publish_progress(status=\"running\", completed=0, ...) must fire immediately after futures submission (not only inside as_completed) or the parent job's status field sticks on \"preparing\" for the whole first chunk group (fixed 2026-07-06); a child tick's SEGMENT_PENDING/LOADING_MODEL sub-phase is conveyed via reason_code, not status -- _on_child_segment_tick must check both or the preparing pulse is lost (fixed 2026-07-06); 2026-07-07 fix: the chapter-scope _publish_progress \"running\" frame now computes and durably persists eta_seconds itself (via _dispatch_eta_seconds decayed by grouped_progress/progress, in _live_chapter_eta_seconds) through update_job(skip_job_updated=True) on every frame -- previously only the dispatch-time snapshot was durable and every later tick re-broadcast that frozen t=0 value for the whole render; eta_seconds is now omitted (not passed as explicit None) when no calibration exists so it does not clobber the ticks' own projection-derived ETA (fable-review fix, same day); a successful child tick now leaves a transient {phase:\"done\", progress:1.0, eta_seconds:0} marker in active_segments_map instead of popping (keeps the frontend's just-finished segment text lit via ScriptView liveDoneSpanIds / useStudioChapter chapterRenderDoneSegmentIds), while failed/cancelled children still pop -- run()'s as_completed loop now passes the child's real status (not a hardcoded \"done\") into _on_child_segment_tick so a permanently-failed child is never mismarked done (real bug, fixed in fable review same day) Task 014 (2026-07-11): ResourceClaim.cap is now ALWAYS the manifest structural ceiling (grow-only, never the live/effective value); the live/effective admission limit is resolved fresh on every reserve_task_resources call via cap_settings.resolve_effective_cap and passed as EngineClassSemaphore.try_acquire's `limit` param, so a tts_parallel_cap/tts_engine_caps settings change now reaches already-queued and already-running fan-out children within one retry cycle instead of requiring a process restart.",
+      "invariant": "concurrency requires BOTH ENGINE_CLASS_ADMISSION truthy (default on, 2026-07-06) AND tts_parallel_cap>1 (default 2, 2026-07-05); disabling either restores the byte-identical sequential SynthesisTask/handle_mixed_job path (INV-1); the chapter-fanout PARENT itself must never flow through _dispatch_segment (would register a spurious idle log_listener); a concurrent child must never call handle_mixed_job directly (would re-trigger chapter-terminal stitch/DB-rebuild once per child instead of once per chapter) and must have skip_registry_dispatch=True (else falls through to the legacy per-engine registry handler and silently re-renders a sibling's remaining work \u2014 escaped defect, fixed 2026-07-05); synthetic fan-out children emit segment-scoped frames but no durable job rows (ephemeral TaskContext routes through ProgressService.publish(ephemeral=True), suppressing only jobs.lifecycle/queue.items/chapters.progress); chapter progress is size-weighted (grouped_progress from child text-length sums) and order-independent; an explicit backend active_segments_map={} ('nothing rendering') always wins over the frontend's segmentProgress-derived fallback (useStudioChapter.ts) ; the parent's own _publish_progress(status=\"running\", completed=0, ...) must fire immediately after futures submission (not only inside as_completed) or the parent job's status field sticks on \"preparing\" for the whole first chunk group (fixed 2026-07-06); a child tick's SEGMENT_PENDING/LOADING_MODEL sub-phase is conveyed via reason_code, not status -- _on_child_segment_tick must check both or the preparing pulse is lost (fixed 2026-07-06); 2026-07-07 fix: the chapter-scope _publish_progress \"running\" frame now computes and durably persists eta_seconds itself (via _dispatch_eta_seconds decayed by grouped_progress/progress, in _live_chapter_eta_seconds) through update_job(skip_job_updated=True) on every frame -- previously only the dispatch-time snapshot was durable and every later tick re-broadcast that frozen t=0 value for the whole render; eta_seconds is now omitted (not passed as explicit None) when no calibration exists so it does not clobber the ticks' own projection-derived ETA (fable-review fix, same day); a successful child tick now leaves a transient {phase:\"done\", progress:1.0, eta_seconds:0} marker in active_segments_map instead of popping (keeps the frontend's just-finished segment text lit via ScriptView liveDoneSpanIds / useStudioChapter chapterRenderDoneSegmentIds), while failed/cancelled children still pop -- run()'s as_completed loop now passes the child's real status (not a hardcoded \"done\") into _on_child_segment_tick so a permanently-failed child is never mismarked done (real bug, fixed in fable review same day) Task 014 (2026-07-11): ResourceClaim.cap is now ALWAYS the manifest structural ceiling (grow-only, never the live/effective value); the live/effective admission limit is resolved fresh on every reserve_task_resources call via cap_settings.resolve_effective_cap and passed as EngineClassSemaphore.try_acquire's `limit` param, so a tts_parallel_cap/tts_engine_caps settings change now reaches already-queued and already-running fan-out children within one retry cycle instead of requiring a process restart.",
       "failure_modes": [
         "skip_registry_dispatch missing/False on a fan-out child task -> registry handler re-renders all remaining chapter groups per child, and the first-dispatched child silently does every sibling's work too (fixed 41c9d84c)",
         "on_segment_tick callback never wired/raises -> self._live_segments_map never updates -> active_segments_map stays structurally empty regardless of concurrency level, frontend map-branch highlighting never engages (fixed 2d80df6c)",
@@ -338,7 +338,7 @@
         "the chapter-level eta_seconds leg only had a t=0 dispatch snapshot with no further recompute -> every subsequent \"running\" tick re-broadcast the stale dispatch-time ETA verbatim for the whole render, so the queue bar never counted down (fixed 2026-07-07, _live_chapter_eta_seconds decay + durable update_job persistence)",
         "as_completed's tick hardcoded status=\"done\" for every resolved child regardless of actual outcome -> a permanently-failed/cancelled child was marked done in active_segments_map, lighting its text as successfully finished for the rest of the render (fixed 2026-07-07 fable review; run() now passes result.status through)"
       ],
-      "verified_by": "frontend/tests/e2e/chapter-render.spec.ts (W-PAR concurrent fan-out test, added 09608333, its own websocket-simulation bug fixed c00ea3f4) + tests/orchestration/test_engine_semaphores.py — NOTE: the e2e test exercises the mixed-engine leg only (engine_id='mixed' routes through render_one_group's LOCAL execution, bypassing the xtts marker-relay/stderr-write path entirely); no test exercised concurrent xtts marker relay before 2026-07-06's escaped defect (fixed same day, see tts-server-marker-relay flow). Also: tests/orchestration/test_chapter_fanout_dispatch_eta.py (2026-07-07 decay test + a harness fix wiring orc.progress_service into ChapterSynthesisTask, previously invisible to test assertions) and tests/orchestration/test_ephemeral_child_no_durable_job.py / test_correctness_invariants.py (done-marker-vs-pop semantics, including the permanently-failed-child-never-marked-done regression test)."
+      "verified_by": "frontend/tests/e2e/chapter-render.spec.ts (W-PAR concurrent fan-out test, added 09608333, its own websocket-simulation bug fixed c00ea3f4) + tests/orchestration/test_engine_semaphores.py \u2014 NOTE: the e2e test exercises the mixed-engine leg only (engine_id='mixed' routes through render_one_group's LOCAL execution, bypassing the xtts marker-relay/stderr-write path entirely); no test exercised concurrent xtts marker relay before 2026-07-06's escaped defect (fixed same day, see tts-server-marker-relay flow). Also: tests/orchestration/test_chapter_fanout_dispatch_eta.py (2026-07-07 decay test + a harness fix wiring orc.progress_service into ChapterSynthesisTask, previously invisible to test assertions) and tests/orchestration/test_ephemeral_child_no_durable_job.py / test_correctness_invariants.py (done-marker-vs-pop semantics, including the permanently-failed-child-never-marked-done regression test)."
     },
     {
       "id": "tts-server-marker-relay",
@@ -361,33 +361,36 @@
       "verified_by": "plugins/tts_xtts/tests/test_engine_progress_relay.py::TestEmitStderrAtomicConcurrency (write-side lock), tests/orchestration/test_dispatch_isolation.py::test_start_segment_with_foreign_sid_is_ignored (read-side guard), tests/orchestration/test_watchdog_progress_logic.py::test_merged_marker_line_logs_a_warning (tripwire), plugins/tts_xtts/tests/test_warm_worker.py::test_stale_stderr_from_prior_job_is_discarded_not_relayed (stale-queue drain) -- all added 2026-07-06; no test exercises this flow against a REAL XTTS subprocess under real GPU concurrency (all are mock/fake-stream unit tests of the isolation mechanisms)"
     },
     {
-      "id": "peaks-sidecar-on-request",
+      "id": "peaks-sidecar-generation",
       "path": [
+        "app/orchestration/scheduler/orchestrator.py#TaskOrchestrator._emit_chapter_peaks_sidecar (proactive, at chapter render finalization)",
+        "app/api/routers/chapters_assets.py#_load_or_compute_peaks_sidecar (lazy, on first GET request -- fallback for pre-2026-07-11 chapters and any producer the render hook misses)",
+        "app/engines/audio_ops.py#ensure_peaks_sidecar (single cache-format owner shared by both paths above)",
+        "app/engines/audio_ops.py#compute_peaks_sidecar",
         "frontend/src/app/layout/PlayerBar.tsx (sidecarPeaks fetch effect, duration > TAPE_DURATION_CAP_SEC)",
         "frontend/src/api/fetchPeaksSidecar.ts#fetchPeaksSidecar",
-        "app/api/routers/chapters_assets.py#api_get_chapter_asset (asset_type=peaks)",
-        "app/api/routers/chapters_assets.py#_load_or_compute_peaks_sidecar",
-        "app/engines/audio_ops.py#compute_peaks_sidecar",
+        "frontend/src/api/contracts/peaksSidecar.ts#parsePeaksSidecar",
         "frontend/src/app/layout/WaveformTape.tsx#usePeaks (suppliedPeaks short-circuits browser decode)"
       ],
       "carries": "a peaks sidecar JSON (or null on any failure), the WAV's own stat stamp for staleness detection; the sidecar is 60 peaks/sec at SIDECAR_VERSION 2 (2026-07-11 bump from 8/sec v1; a version bump auto-invalidates cached v1 sidecars)",
-      "invariant": "no eager/production-time computation -- lazy, cached, versioned; missing/stale/failed sidecar always degrades to browser-decode-or-plain-bar, never a hard failure",
+      "invariant": "STALE CLAIM CORRECTED 2026-07-12: this flow previously said 'no eager/production-time computation -- lazy only', which was true until 2026-07-11's render-time hook (orchestrator.py._emit_chapter_peaks_sidecar). Now BOTH paths exist and share one cache-format owner (ensure_peaks_sidecar): (1) proactive, best-effort/non-blocking at chapter render finalization (never delays/fails a render, does not backfill existing chapters, fires only for scope=='chapter' synthesis -- never segment re-renders or book-assembly m4b); (2) lazy on first request, the fallback that still covers the whole back-catalog. Either way: missing/stale/failed sidecar always degrades to browser-decode-or-plain-bar, never a hard failure. SEPARATE BUG FOUND+FIXED 2026-07-12: frontend/src/api/contracts/peaksSidecar.ts had hardcoded version:1 while SIDECAR_VERSION was already 2 -- silently rejected every real sidecar payload for both paths since 2026-07-10, the actual root cause of long chapters never showing waveform tape detail.",
       "failure_modes": [
         "WAV deleted/replaced mid-request -> stat() OSError -> route returns 404, frontend falls back (2026-07-10 review fix, previously an unguarded 500)",
         "very long WAV -> compute_peaks_sidecar downsamples via ffmpeg -ar above PEAKS_MAX_DECODE_SAMPLES rather than materializing an unbounded buffer (2026-07-10 review fix)",
-        "cache write fails (disk/permission) -> best-effort, still serves the freshly computed peaks rather than 500/discard"
+        "cache write fails (disk/permission) -> best-effort, still serves the freshly computed peaks rather than 500/discard",
+        "render-time emission fails for any reason -> logged and swallowed, render still completes normally, lazy on-request path (2) still covers the chapter"
       ],
       "verified_by": {
-        "test": "tests/api/test_peaks_asset_route.py + frontend/tests/unit/api/fetchPeaksSidecar.test.ts + frontend/tests/unit/app/layout/PlayerBar.test.tsx",
-        "covers": "each hop's unit/integration behavior (compute-on-miss, cache-hit, staleness, 404 paths, URL derivation, PlayerBar fetch gating) independently",
-        "untested_under": "the full chain has no single end-to-end test exercising all hops together in one run"
+        "test": "tests/orchestration/test_peaks_emission_on_finalize.py + tests/api/test_peaks_asset_route.py + frontend/tests/unit/api/fetchPeaksSidecar.test.ts + frontend/tests/unit/app/layout/PlayerBar.test.tsx",
+        "covers": "each hop's unit/integration behavior independently (render-time emission gate/best-effort-swallow, compute-on-miss, cache-hit, staleness, 404 paths, URL derivation, version-contract validation, PlayerBar fetch gating)",
+        "untested_under": "the full chain has no single end-to-end test exercising both generation paths and the frontend consumption together in one run"
       }
     }
   ],
   "invariants": [
     {
       "id": "no-import-side-effects",
-      "rule": "Importing a Studio 2.0 module must not start threads, register listeners, mutate global settings, or reconcile state — all such effects go through the explicit boot sequence in app/core/boot.py",
+      "rule": "Importing a Studio 2.0 module must not start threads, register listeners, mutate global settings, or reconcile state \u2014 all such effects go through the explicit boot sequence in app/core/boot.py",
       "applies_to": [
         "app/**"
       ],
@@ -400,7 +403,7 @@
         "app/**",
         "frontend/src/**"
       ],
-      "check": "grep -rnE \"engine_id\\s*==\\s*['\\\"](xtts|voxtral|mixed)['\\\"]|engine\\s*==\\s*['\\\"](xtts|voxtral|mixed)['\\\"]\" app/api/routers/queue.py app/orchestration/scheduler/resources.py app/orchestration/scheduler/policies.py frontend/src/components/queue frontend/src/utils/queue*.ts # scoped to the queue/routes/UI surface the invariant actually governs — app/orchestration/tasks/{synthesis,segment_synthesis}.py's engine_id==\"mixed\" checks are a documented, sanctioned exception (mixed engine's own local-execution routing), not a violation."
+      "check": "grep -rnE \"engine_id\\s*==\\s*['\\\"](xtts|voxtral|mixed)['\\\"]|engine\\s*==\\s*['\\\"](xtts|voxtral|mixed)['\\\"]\" app/api/routers/queue.py app/orchestration/scheduler/resources.py app/orchestration/scheduler/policies.py frontend/src/components/queue frontend/src/utils/queue*.ts # scoped to the queue/routes/UI surface the invariant actually governs \u2014 app/orchestration/tasks/{synthesis,segment_synthesis}.py's engine_id==\"mixed\" checks are a documented, sanctioned exception (mixed engine's own local-execution routing), not a violation."
     },
     {
       "id": "tts-server-isolation",
@@ -413,7 +416,7 @@
     },
     {
       "id": "orchestrator-forbidden-imports",
-      "rule": "app/orchestration/scheduler/orchestrator.py must not import app.jobs.worker, app.jobs.core, or app.db.queue directly — Studio 2.0 is a clean break from the legacy worker loop",
+      "rule": "app/orchestration/scheduler/orchestrator.py must not import app.jobs.worker, app.jobs.core, or app.db.queue directly \u2014 Studio 2.0 is a clean break from the legacy worker loop",
       "applies_to": [
         "app/orchestration/**"
       ],
@@ -421,7 +424,7 @@
     },
     {
       "id": "path-containment",
-      "rule": "Any path built from request data, DB values, uploads, or user-editable names is untrusted: use safe_join/secure_join_flat/find_secure_file (app/utils/pathing.py) — normalize+verify-under-root, never silently fix traversal attempts",
+      "rule": "Any path built from request data, DB values, uploads, or user-editable names is untrusted: use safe_join/secure_join_flat/find_secure_file (app/utils/pathing.py) \u2014 normalize+verify-under-root, never silently fix traversal attempts",
       "applies_to": [
         "app/**"
       ]
@@ -465,7 +468,7 @@
     },
     {
       "id": "single-owner-boundaries",
-      "rule": "Ownership split preserved: orchestrator owns job lifecycle, watchdog (app/engines/watchdog.py) owns TTS Server process lifecycle, VoiceBridge owns engine routing — these must not bleed into each other",
+      "rule": "Ownership split preserved: orchestrator owns job lifecycle, watchdog (app/engines/watchdog.py) owns TTS Server process lifecycle, VoiceBridge owns engine routing \u2014 these must not bleed into each other",
       "applies_to": [
         "app/orchestration/**",
         "app/engines/watchdog.py",
@@ -480,7 +483,7 @@
         "frontend/src/app/layout/WaveformStrip.tsx",
         "frontend/src/store/playerBus.ts"
       ],
-      "check": "grep -rn \"new Audio(\\|createElement('audio')\\|createElement(\\\"audio\\\")\\|new AudioContext(\\|new window\\.AudioContext(\" frontend/src --include=\"*.ts\" --include=\"*.tsx\" | grep -vE ':\\s*//' | grep -v \"app/layout/PlayerBar.tsx\" | grep -v \"components/forms/VoiceDropzone.tsx\" # non-empty = violation; VoiceDropzone.tsx's new Audio() is a known, accepted exception — a throwaway local-file preview before the recording is even uploaded/part of app state, never registered with playerBus"
+      "check": "grep -rn \"new Audio(\\|createElement('audio')\\|createElement(\\\"audio\\\")\\|new AudioContext(\\|new window\\.AudioContext(\" frontend/src --include=\"*.ts\" --include=\"*.tsx\" | grep -vE ':\\s*//' | grep -v \"app/layout/PlayerBar.tsx\" | grep -v \"components/forms/VoiceDropzone.tsx\" # non-empty = violation; VoiceDropzone.tsx's new Audio() is a known, accepted exception \u2014 a throwaway local-file preview before the recording is even uploaded/part of app state, never registered with playerBus"
     },
     {
       "id": "revision-safe-assignments",
@@ -596,7 +599,7 @@
       ]
     },
     "app/jobs": {
-      "purpose": "LEGACY worker-loop handlers (registry, voice worker, audiobook assembly, bridge_helpers) — partially superseded by app/orchestration but still actively dispatched for voice_build/voice_test/assembly and used by all TTS plugin handlers",
+      "purpose": "LEGACY worker-loop handlers (registry, voice worker, audiobook assembly, bridge_helpers) \u2014 partially superseded by app/orchestration but still actively dispatched for voice_build/voice_test/assembly and used by all TTS plugin handlers",
       "depends_on": [
         "app/db",
         "app/engines/bridge.py",
@@ -769,7 +772,7 @@
       ]
     },
     "frontend/src/demo": {
-      "purpose": "Self-contained scripted demo renderer (scene-script engine + REST/socket shims) built separately, published to docs/demo/ via build:demo — lower priority, not wired into production launch",
+      "purpose": "Self-contained scripted demo renderer (scene-script engine + REST/socket shims) built separately, published to docs/demo/ via build:demo \u2014 lower priority, not wired into production launch",
       "depends_on": [
         "frontend/src/store/studioSocketBus.ts",
         "frontend/src/components/* (mounts real prod components)"
@@ -787,7 +790,7 @@
       ],
       "co_changes": 8,
       "strength": 0.89,
-      "reason": "router delegates to this DB module for every chapter mutation; map's edge list for this file is incomplete — worth a direct-edge audit"
+      "reason": "router delegates to this DB module for every chapter mutation; map's edge list for this file is incomplete \u2014 worth a direct-edge audit"
     },
     {
       "files": [
@@ -805,7 +808,7 @@
       ],
       "co_changes": 6,
       "strength": 0.86,
-      "reason": "unknown — no import edge; low sample size (n=6), may be incidental co-membership in a few multi-file commits rather than a real coupling"
+      "reason": "unknown \u2014 no import edge; low sample size (n=6), may be incidental co-membership in a few multi-file commits rather than a real coupling"
     },
     {
       "files": [
@@ -814,7 +817,7 @@
       ],
       "co_changes": 6,
       "strength": 0.67,
-      "reason": "chapter/character-casting domain overlap (segments reference speaker assignments) — no direct import, shared schema concern"
+      "reason": "chapter/character-casting domain overlap (segments reference speaker assignments) \u2014 no direct import, shared schema concern"
     },
     {
       "files": [
@@ -823,7 +826,7 @@
       ],
       "co_changes": 5,
       "strength": 0.62,
-      "reason": "the orchestrator's marker-parsing regexes (SEGMENT_PENDING/START_SEGMENT/progress markers) and the engine's stdout marker emission must change together, but tts-server-isolation (invariant) forbids any import edge between them — this pair is the textbook 'implicit protocol coupling' case"
+      "reason": "the orchestrator's marker-parsing regexes (SEGMENT_PENDING/START_SEGMENT/progress markers) and the engine's stdout marker emission must change together, but tts-server-isolation (invariant) forbids any import edge between them \u2014 this pair is the textbook 'implicit protocol coupling' case"
     },
     {
       "files": [
@@ -832,7 +835,7 @@
       ],
       "co_changes": 5,
       "strength": 1.0,
-      "reason": "perfect co-change correlation (n=5, strength=1.0) but small sample — chapter render-submission endpoints touch the queue; flag for a direct-edge audit rather than treating as certain"
+      "reason": "perfect co-change correlation (n=5, strength=1.0) but small sample \u2014 chapter render-submission endpoints touch the queue; flag for a direct-edge audit rather than treating as certain"
     },
     {
       "files": [
@@ -960,11 +963,11 @@
         "frontend/src/components/queue/QueueItem.tsx"
       ],
       "transforms": [
-        "app/api/contracts/events.py#build_chapter_progress_event / build_queue_item_status_event — DB/state.json Job dict -> topic-scoped wire payload (snake_case additive fields like active_segments_map, no camelCase variant)",
-        "app/api/ws.py#broadcast_job_updated — merges an `updates` partial onto the current job before building wire events; ephemeral fan-out children (is_chapter_fanout children) never reach this at all — see active_segments_map entity",
-        "frontend/src/types/index.ts#Job — the wire shape as consumed by the frontend; several fields are 'computed but not wired' placeholders (e.g. chapter_wall_duration) present in state.json/wire but not yet read by any UI"
+        "app/api/contracts/events.py#build_chapter_progress_event / build_queue_item_status_event \u2014 DB/state.json Job dict -> topic-scoped wire payload (snake_case additive fields like active_segments_map, no camelCase variant)",
+        "app/api/ws.py#broadcast_job_updated \u2014 merges an `updates` partial onto the current job before building wire events; ephemeral fan-out children (is_chapter_fanout children) never reach this at all \u2014 see active_segments_map entity",
+        "frontend/src/types/index.ts#Job \u2014 the wire shape as consumed by the frontend; several fields are 'computed but not wired' placeholders (e.g. chapter_wall_duration) present in state.json/wire but not yet read by any UI"
       ],
-      "notes": "Two representations that must be kept straight: the DURABLE DB row (app/db/models.py, SQLite) vs. the LIVE in-memory job dict in state.json (app/db/state_jobs.py) — the live dict is a superset carrying transient fields (active_segment_id, active_segments_map, timing scalars) the DB row doesn't have. A synthetic fan-out child (_SyntheticSegmentTask, ephemeral=True) never gets its own durable Job row at all (INV-4, W-PAR enable-gate) — only the parent ChapterSynthesisTask does."
+      "notes": "Two representations that must be kept straight: the DURABLE DB row (app/db/models.py, SQLite) vs. the LIVE in-memory job dict in state.json (app/db/state_jobs.py) \u2014 the live dict is a superset carrying transient fields (active_segment_id, active_segments_map, timing scalars) the DB row doesn't have. A synthetic fan-out child (_SyntheticSegmentTask, ephemeral=True) never gets its own durable Job row at all (INV-4, W-PAR enable-gate) \u2014 only the parent ChapterSynthesisTask does."
     },
     "active_segments_map": {
       "defined_in": "app/orchestration/tasks/segment_synthesis.py#ChapterSynthesisTask._live_segments_map (authoritative in-memory source)",
@@ -976,17 +979,17 @@
         "frontend/src/pages/Book/studio/useStudioChapter.ts#chapterRenderActiveSegmentsMap (backendActiveSegmentsMap ?? fallbackActiveSegmentsMap)"
       ],
       "transforms": [
-        "app/db/state.py#update_job(active_segments_map=..., skip_job_updated=True) — written straight to job state, bypassing ProgressService.publish (which doesn't carry this field)",
+        "app/db/state.py#update_job(active_segments_map=..., skip_job_updated=True) \u2014 written straight to job state, bypassing ProgressService.publish (which doesn't carry this field)",
         "app/orchestration/scheduler/orchestrator_publish.py#_publish (ephemeral branch) -> on_segment_tick(...) callback -> ChapterSynthesisTask._on_child_segment_tick -> self._live_segments_map mutation (under _children_lock)",
         "app/api/ws.py#broadcast_job_updated -> app/api/contracts/events.py#build_chapter_progress_event -> wire payload.active_segments_map (delivery leg added 2026-07-05; before this, a populated map could never reach the frontend regardless of backend state)",
-        "frontend/src/pages/Book/studio/useStudioChapter.ts — when the backend field is undefined (not an explicit {}), falls back to a locally-derived map built from frontend/src/hooks/useJobs.ts's segmentProgress stream"
+        "frontend/src/pages/Book/studio/useStudioChapter.ts \u2014 when the backend field is undefined (not an explicit {}), falls back to a locally-derived map built from frontend/src/hooks/useJobs.ts's segmentProgress stream"
       ],
-      "notes": "Shape: dict[segment_id, {phase: 'preparing'|'rendering'|'done', progress: number, eta_seconds: number|null, reason_code?, indeterminate?}]. An explicit backend {} means 'nothing genuinely rendering right now' and MUST win over the frontend's local fallback — only a missing/undefined field triggers the fallback. Additive-only field (INV-1/INV-9): absent when the dispatch path has nothing concurrent to report, never required."
+      "notes": "Shape: dict[segment_id, {phase: 'preparing'|'rendering'|'done', progress: number, eta_seconds: number|null, reason_code?, indeterminate?}]. An explicit backend {} means 'nothing genuinely rendering right now' and MUST win over the frontend's local fallback \u2014 only a missing/undefined field triggers the fallback. Additive-only field (INV-1/INV-9): absent when the dispatch path has nothing concurrent to report, never required."
     },
     "Settings": {
       "defined_in": "app/db/state_settings.py#_default_state (settings sub-dict; no dataclass, plain dict)",
       "written_by": [
-        "app/api/routers/system.py#save_settings (POST /api/settings — JSON body branch and form-encoded branch parse DIFFERENT field subsets; tts_parallel_cap/tts_engine_caps are JSON-only)",
+        "app/api/routers/system.py#save_settings (POST /api/settings \u2014 JSON body branch and form-encoded branch parse DIFFERENT field subsets; tts_parallel_cap/tts_engine_caps are JSON-only)",
         "app/db/state_settings.py#_normalize_settings (defaults + coercion on every read/write)"
       ],
       "read_by": [
@@ -996,10 +999,10 @@
         "frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx"
       ],
       "transforms": [
-        "app/api/routers/system.py#_redact_settings — strips secret fields (API keys) before the dict ever reaches a JSON response",
-        "frontend/src/types/index.ts#Settings — the wire shape; tts_parallel_cap/tts_engine_caps added 2026-07-06"
+        "app/api/routers/system.py#_redact_settings \u2014 strips secret fields (API keys) before the dict ever reaches a JSON response",
+        "frontend/src/types/index.ts#Settings \u2014 the wire shape; tts_parallel_cap/tts_engine_caps added 2026-07-06"
       ],
-      "notes": "Settings-then-env fallback pattern used by BOTH api_priority_mode/TTS_API_PRIORITY and tts_parallel_cap/TTS_PARALLEL_CAP: the env var only matters before state.json has ever been normalized (fresh install) — _normalize_settings always materializes a concrete default afterward, so raising a value on a running install must go through the Settings API/UI, never the env var. GeneralSettingsPanel.tsx's existing updateBooleanSetting/updateStringSetting helpers POST form-encoded bodies and silently can't set tts_parallel_cap — a trap for future settings additions unless they're also added to system.py's form branch or use the JSON POST pattern instead."
+      "notes": "Settings-then-env fallback pattern used by BOTH api_priority_mode/TTS_API_PRIORITY and tts_parallel_cap/TTS_PARALLEL_CAP: the env var only matters before state.json has ever been normalized (fresh install) \u2014 _normalize_settings always materializes a concrete default afterward, so raising a value on a running install must go through the Settings API/UI, never the env var. GeneralSettingsPanel.tsx's existing updateBooleanSetting/updateStringSetting helpers POST form-encoded bodies and silently can't set tts_parallel_cap \u2014 a trap for future settings additions unless they're also added to system.py's form branch or use the JSON POST pattern instead."
     },
     "StudioSocketEnvelope": {
       "defined_in": "app/api/contracts/events.py (server-side canonical builders) / frontend/src/api/contracts/liveEvents.ts#StudioSocketEnvelope (client-side typed mirror)",
@@ -1008,12 +1011,12 @@
       ],
       "read_by": [
         "frontend/src/store/studioSocketBus.ts (dispatch by topic)",
-        "frontend/src/utils/queueEventDispatcher.ts (queue.items is the sole row-authority topic; all others may only overlay QUEUE_OVERLAY_FIELDS — see queue-items-is-row-authority invariant)",
+        "frontend/src/utils/queueEventDispatcher.ts (queue.items is the sole row-authority topic; all others may only overlay QUEUE_OVERLAY_FIELDS \u2014 see queue-items-is-row-authority invariant)",
         "frontend/src/hooks/useJobs.ts"
       ],
       "transforms": [
-        "app/api/contracts/events.py#normalize_to_canonical_command / LEGACY_TO_CANONICAL — reason_code strings get normalized to a canonical JobLifecycleCommand before topic-scope checks",
-        "app/api/ws.py#ConnectionManager broadcasts the same envelope to every subscribed client verbatim — no per-client reshaping"
+        "app/api/contracts/events.py#normalize_to_canonical_command / LEGACY_TO_CANONICAL \u2014 reason_code strings get normalized to a canonical JobLifecycleCommand before topic-scope checks",
+        "app/api/ws.py#ConnectionManager broadcasts the same envelope to every subscribed client verbatim \u2014 no per-client reshaping"
       ],
       "notes": "One envelope type, many topics (chapters.progress, segments.progress, queue.items, jobs.lifecycle, chapters.lifecycle, segments.lifecycle, tts_log, voice.test, system, projects.lifecycle). Payload shape is topic-specific (see e.g. ChapterProgressPayload); frontend contract types in liveEvents.ts are the enforced shape for tests per testing-standards.md R3 (contract-shaped event frames, no untyped hand-rolled frame literals)."
     }

@@ -32,6 +32,11 @@
           "name": "compute_peaks_sidecar",
           "kind": "function",
           "contract": "(wav_path: Path) -> dict|None. Versioned (SIDECAR_VERSION=2; PEAKS_PER_SEC=60, PEAKS_MAX=200_000 -- bumped from v1's 8/100k, loader treats a version mismatch as stale and recomputes) downsampled peaks sidecar: {version, peaks([0,1] max-abs/bucket), duration_sec, sample_rate, channels, peaks_per_sec, source:{filename,size_bytes,mtime_ns}}. Stats the WAV before+after computing; a mismatch (concurrent re-render) returns None rather than caching a torn read. 2026-07-10 review hardening: PEAKS_MAX_DECODE_SAMPLES=20_000_000 caps decoded INPUT sample count (ffmpeg -ar downsample when duration_sec*sample_rate would exceed it) -- previously only the OUTPUT bucket count (PEAKS_MAX) was capped, a real memory/CPU DoS-caliber gap for long WAVs inside a sync request handler."
+        },
+        {
+          "name": "ensure_peaks_sidecar",
+          "kind": "function",
+          "contract": "(wav_path, sidecar_path=None) -> dict|None. Single-owner cache wrapper around compute_peaks_sidecar: reads a fresh cached sidecar if version+source stat match, else computes and atomically writes. Called from two paths sharing this one implementation: (1) proactively at chapter render finalization (orchestrator.py TaskOrchestrator._emit_chapter_peaks_sidecar), (2) lazily on first GET request (chapters_assets.py _load_or_compute_peaks_sidecar)."
         }
       ],
       "calls": [
@@ -46,11 +51,13 @@
         "plugins/tts_voxtral/plugin/studio/app_adapter.py",
         "plugins/tts_xtts/plugin/server/engine.py",
         "plugins/tts_xtts/plugin/studio/adapter.py",
-        "plugins/tts_xtts/plugin/studio/app_adapter.py"
+        "plugins/tts_xtts/plugin/studio/app_adapter.py",
+        "app/orchestration/scheduler/orchestrator.py"
       ],
       "notes": [
         "finalize_sample_artifact keeps WAV if MP3 conversion fails",
-        "2026-07-11 waveform fixes: compute_peaks_sidecar density PEAKS_PER_SEC 8->60, PEAKS_MAX 100k->200k, SIDECAR_VERSION 1->2 (mismatch = stale, recompute). Max-abs-per-bucket aggregation unchanged."
+        "2026-07-11 waveform fixes: compute_peaks_sidecar density PEAKS_PER_SEC 8->60, PEAKS_MAX 100k->200k, SIDECAR_VERSION 1->2 (mismatch = stale, recompute). Max-abs-per-bucket aggregation unchanged.",
+        "2026-07-11/12: extracted ensure_peaks_sidecar as the single cache-format owner (_read_fresh_sidecar/_atomic_write_sidecar helpers); render-time emission hook added at orchestrator.py's one engine-agnostic completion point (scope=='chapter' synthesis only, best-effort/non-blocking, no backfill of existing chapters)."
       ],
       "calls_inferred": []
     },
@@ -649,6 +656,25 @@
         "singleton _global_watchdog prevents multiple server spawns"
       ],
       "calls_inferred": []
+    },
+    "app/engines/system_resources.py": {
+      "purpose": "Best-effort host resource sampling (CPU/RAM/VRAM) for the Activity page's system-resource strip",
+      "exports": [
+        {
+          "name": "sample_resources",
+          "kind": "function",
+          "contract": "() -> ResourceSample {cpu_pct, ram_used_gb, ram_total_gb, vram_used_gb: float|None, vram_total_gb: float|None}. Never raises -- CPU/RAM via psutil (non-blocking cpu_percent), VRAM via a 2s-timeout nvidia-smi subprocess call that degrades to None on any failure (missing binary, timeout, non-zero exit, unparseable output)."
+        }
+      ],
+      "calls": [],
+      "calls_inferred": [],
+      "called_by": [
+        "app/api/routers/system.py"
+      ],
+      "flows": [],
+      "notes": [
+        "Pure, synchronous, no import-time side effects, no threads -- safe to call directly from a request handler (modular_architecture.md). No new pip dependency for VRAM (subprocess+nvidia-smi, not pynvml)."
+      ]
     }
   }
 }

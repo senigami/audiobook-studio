@@ -100,7 +100,7 @@
       "calls_inferred": []
     },
     "app/orchestration/progress/service.py": {
-      "purpose": "Progress service boundary: weighted progress math (enrich() §4A kernel), ETA smoothing; emit rate-limit gate moved to emit_gate.py",
+      "purpose": "Progress service boundary: weighted progress math (enrich() \u00a74A kernel), ETA smoothing; emit rate-limit gate moved to emit_gate.py",
       "exports": [
         {
           "name": "ProgressService",
@@ -205,6 +205,11 @@
           "name": "TaskOrchestrator",
           "kind": "class",
           "contract": "submit(task)->task_id; recover(contexts)->list; cancel(task_id)"
+        },
+        {
+          "name": "TaskOrchestrator._emit_chapter_peaks_sidecar",
+          "kind": "method",
+          "contract": "Called from submit() after the terminal 'completed' publish. Gate: task_type=='synthesis' AND payload scope=='chapter' AND wav suffix=='.wav' (excludes segment re-renders and book-assembly m4b). Best-effort/non-blocking -- wrapped in try/except, never fails or delays a render. Lazy-imports app.engines.audio_ops (modular_architecture.md, avoids import-time engine coupling)."
         }
       ],
       "calls": [
@@ -227,7 +232,8 @@
         "app/orchestration/tasks/sample_test.py",
         "app/orchestration/tasks/segment_synthesis.py",
         "app/orchestration/tasks/synthesis.py",
-        "plugins/tts_mixed/handler.py"
+        "plugins/tts_mixed/handler.py",
+        "app/engines/audio_ops.py#ensure_peaks_sidecar"
       ],
       "called_by": [
         "app/api/routers/chapters.py",
@@ -236,7 +242,8 @@
       "notes": [
         "forbidden: app.jobs.worker, app.jobs.core, app.db.queue direct import -- now enforced by tests/orchestration/test_import_boundaries.py (BE-2, 2026-07-04; AST-based, fixed 2026-07-04 to also catch `from app.jobs import worker`-style submodule imports)",
         "submit flow: validate->publish queued->reconcile->reserve->dispatch->publish result",
-        "_reconstruct_task branches on task_type=='synthesis' + uses_segment_orchestration -> _reconstruct_chapter_task_from_context (rebuilds chunk-group script from DB, wires needs_render_fn/resolve_existing_output_fn/stitch_fn for K-of-N recovery); falls back to SynthesisTask.from_task_context on any resolution failure"
+        "_reconstruct_task branches on task_type=='synthesis' + uses_segment_orchestration -> _reconstruct_chapter_task_from_context (rebuilds chunk-group script from DB, wires needs_render_fn/resolve_existing_output_fn/stitch_fn for K-of-N recovery); falls back to SynthesisTask.from_task_context on any resolution failure",
+        "2026-07-11: render-time peaks-sidecar emission is the ONLY new call orchestrator.py makes for this feature -- single engine-agnostic completion chokepoint, covers XTTS remote + local mixed without branching on engine id."
       ],
       "calls_inferred": []
     },
@@ -309,10 +316,10 @@
       "called_by": [],
       "notes": [
         "_dispatch is now a 2-line thin fan-out driver delegating to _dispatch_segment (keystone INV-6, per-segment isolation for concurrency)",
-        "one-line is_chapter_fanout branch: if getattr(task, 'is_chapter_fanout', False): return task.run() — bypasses _dispatch_segment entirely for chapter-fan-out parents",
-        "_EMIT_ACTIVE_SEGMENTS_MAP module flag gates active_segments_map emission; flipped True once genuine multi-entry aggregation exists (W-PAR 008) — previously caused a cold-start regression (stale preparing-phase entries leaking into the frontend overlay at cap=1) before being gated off, then re-enabled once true multi-entry semantics existed",
+        "one-line is_chapter_fanout branch: if getattr(task, 'is_chapter_fanout', False): return task.run() \u2014 bypasses _dispatch_segment entirely for chapter-fan-out parents",
+        "_EMIT_ACTIVE_SEGMENTS_MAP module flag gates active_segments_map emission; flipped True once genuine multi-entry aggregation exists (W-PAR 008) \u2014 previously caused a cold-start regression (stale preparing-phase entries leaking into the frontend overlay at cap=1) before being gated off, then re-enabled once true multi-entry semantics existed",
         "BE-4 (2026-07-04): _record_render_stats_inner now prefers the server's precomputed synthesis_duration_seconds/sum_segment_render_seconds/inter_group_overhead_seconds from the timing payload when present (mathematically identical, pure redundant-work elimination), falling back to app/utils/render_timing.py's derive_segment_timing_fields only when absent; model_load_seconds keeps its own local 0.0-default derivation, deliberately not unified with server.py's None-default",
-        "_dispatch_segment's step-1 registry lookup is now skipped when task.skip_registry_dispatch is True (e.g. _SyntheticSegmentTask, W-PAR fan-out children) — fixed an escaped defect (2026-07-05) where every fan-out child fell through to a legacy whole-chapter handler and silently re-rendered a sibling's remaining work",
+        "_dispatch_segment's step-1 registry lookup is now skipped when task.skip_registry_dispatch is True (e.g. _SyntheticSegmentTask, W-PAR fan-out children) \u2014 fixed an escaped defect (2026-07-05) where every fan-out child fell through to a legacy whole-chapter handler and silently re-rendered a sibling's remaining work",
         "_dispatch's is_chapter_fanout branch now calls new _publish_chapter_dispatch_eta(task, context) before task.run() (2026-07-06 fix) -- publishes a durable status=\"preparing\" reason_code=\"pre_load_eta\" frame on the PARENT context (chapter fan-out bypasses _dispatch_segment, which was the only prior emitter of this ETA frame, so the parent job's eta_seconds stayed null through the whole preparing window and the queue bar's determinate fill never engaged). Cold-load term added only when the server reports the engine cold AND expected_model_load_seconds history exists; warm -> synthesis-only ETA. No calibration history -> no frame (no-fabrication). _resolve_engine_calibration(engine_id) and _expected_cold_load_seconds(engine_id, tts_model) extracted from _dispatch_segment's inline blocks as shared helpers used by both paths.",
         "2026-07-07 fix: _publish_chapter_dispatch_eta now additionally stashes the computed dispatch_eta_seconds onto task._dispatch_eta_seconds (duck-typed via hasattr, no import back into segment_synthesis.py) right before its existing self._publish(...) call, so segment_synthesis.py's _publish_progress has the calibrated baseline to decay across the render.",
         "Task 014 (2026-07-11): _claim_to_dict now also propagates claim.manifest_max into the resource_claims dict passed to reserve_task_resources/release_task_resources (default 1 via getattr for claims predating this field)."
@@ -344,7 +351,7 @@
         "0% not special-cased as 'not started'",
         "active_segments_map (optional _publish kwarg) only written when non-None; stalled_segments has NO corresponding _publish kwarg yet (deferred, unlike active_segments_map which is fully wired end-to-end)",
         "_publish routes ephemeral contexts through ProgressService.publish(ephemeral=True) and skips put_job/update_job only, so synthetic {parent}-seg-N children create no durable Job row or queue.items broadcast (segment-scoped frames still flow)",
-        "_publish()'s ephemeral branch now invokes an optional on_segment_tick(segment_id, status, progress, eta_seconds) callback stashed in the TaskContext payload before returning (2026-07-05) — the event-driven delivery mechanism for ChapterSynthesisTask._on_child_segment_tick, piggybacking the existing ≥1%-gated per-child publish call rather than adding a new timer/thread",
+        "_publish()'s ephemeral branch now invokes an optional on_segment_tick(segment_id, status, progress, eta_seconds) callback stashed in the TaskContext payload before returning (2026-07-05) \u2014 the event-driven delivery mechanism for ChapterSynthesisTask._on_child_segment_tick, piggybacking the existing \u22651%-gated per-child publish call rather than adding a new timer/thread",
         "_publish()'s ephemeral branch now forwards reason_code=reason_code into the on_segment_tick(...) callback alongside segment_id/status/progress/eta_seconds (2026-07-06) -- required so ChapterSynthesisTask._on_child_segment_tick can distinguish the SEGMENT_PENDING sub-phase (status=\"running\" literally, reason_code=\"SEGMENT_PENDING\") from genuine rendering.",
         "Task 013 (2026-07-11): threads the already-locally-resolved engine_id (previously computed only for has_segment_support lookup) through to progress_service.publish(engine_id=...), so ProgressService's per-job BracketedEtaTracker pool key reflects the real active engine instead of always defaulting to 'default'. Fixed engine_id from being conditionally-unbound (was only assigned inside 'if context.payload:')."
       ],

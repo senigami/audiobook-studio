@@ -125,7 +125,7 @@
         "frontend/src/app/layout/AppShell.tsx"
       ],
       "notes": [
-        "2026-07-09: Added a drawerRef (useRef<HTMLElement>) attached to the <aside>, called useFocusTrap(drawerRef, open) to trap Tab/Shift-Tab inside the drawer and auto-focus/restore focus on open/close, and added an onKeyDown handler on the <aside> that calls onClose() when Escape is pressed — matching the Drawer component pattern in frontend/src/pages/Voices/components/VoiceUtils.tsx."
+        "2026-07-09: Added a drawerRef (useRef<HTMLElement>) attached to the <aside>, called useFocusTrap(drawerRef, open) to trap Tab/Shift-Tab inside the drawer and auto-focus/restore focus on open/close, and added an onKeyDown handler on the <aside> that calls onClose() when Escape is pressed \u2014 matching the Drawer component pattern in frontend/src/pages/Voices/components/VoiceUtils.tsx."
       ],
       "calls_inferred": [
         "frontend/src/app/layout/navData#*"
@@ -273,7 +273,8 @@
         "frontend/src/app/layout/PlayerBar.tsx"
       ],
       "notes": [
-        "ADR-0010: never creates own audio/AudioContext, accepts PlayerBar's audioEl"
+        "ADR-0010: never creates own audio/AudioContext, accepts PlayerBar's audioEl",
+        "2026-07-12: ws.load(audioUrl) is no longer fire-and-forget -- attaches a .catch that swallows the expected AbortError from ws.destroy() aborting an in-flight decode fetch during effect teardown (e.g. the optimistic duration=0 mount torn down right after real duration arrives), and console.error-logs any other load failure instead of an uncaught rejection."
       ],
       "calls_inferred": []
     },
@@ -321,7 +322,7 @@
       ],
       "notes": [
         "usePeaks decoupled from the <audio> element (fetch+decode independent of audioEl.src) -- preserves ADR-0010 single-audio-owner; no <audio> or MediaElementSourceNode anywhere in this file (grep-confirmed)",
-        "fixed-grid sampling (audio-player.md 1.6.0 §5.3): gridSec = windowSec/BAR_COUNT, alignedStart snapped -- prevents waveform crawl",
+        "fixed-grid sampling (audio-player.md 1.6.0 \u00a75.3): gridSec = windowSec/BAR_COUNT, alignedStart snapped -- prevents waveform crawl",
         "task 007 landed 2026-07-04: accepts optional onZoomChange/peaks props, renders WaveformTapeZoom above and WaveformTapeMinimap below the canvas when onZoomChange is provided; still not yet mounted into PlayerBar.tsx -- that's task 008's job",
         "review-ratchet fix (2026-07-04): wheel-zoom listener is attached via a native, non-passive addEventListener('wheel', ..., {passive:false}) in a useEffect, not React's onWheel JSX prop -- React registers wheel as passive at the root (17+), so e.preventDefault() inside onWheel was a silent no-op in real browsers (page scrolled while zoom also snapped); jsdom couldn't reproduce the bug, so the regression test is structural (asserts the addEventListener call's options)",
         "2026-07-10 adversarial-review fix (CRITICAL): minimapPeaks previously read the raw `peaks` prop (`peaks !== undefined ? peaks : peakArray`), which is null for every under-cap clip (PlayerBar passes peaks={sidecarPeaks}, only non-null over the duration cap) -- the minimap rendered flat placeholder bars while the canvas correctly showed the decoded waveform. Fixed: minimapPeaks = peakArray (usePeaks' already-resolved effective source), used by both canvas and minimap.",
@@ -351,7 +352,7 @@
       "calls_inferred": []
     },
     "frontend/src/app/layout/WaveformTapeZoom.tsx": {
-      "purpose": "Cover-slider zoom preset control for WaveformTape (audio-player.md 1.6.0 §5.2), task 007",
+      "purpose": "Cover-slider zoom preset control for WaveformTape (audio-player.md 1.6.0 \u00a75.2), task 007",
       "exports": [
         {
           "name": "WaveformTapeZoom",

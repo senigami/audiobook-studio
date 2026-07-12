@@ -137,7 +137,7 @@
         {
           "name": "BookInfoCard",
           "kind": "component",
-          "contract": "props: project, totalRuntime, totalPredicted (number|null), hasRendered, hasUnrendered, audiobooks?: Audiobook[] (default []), onUpdateProject(data) => Promise<boolean> where data now includes an optional description field alongside name/series/author/series_position/cover."
+          "contract": "props: project, totalRuntime, totalPredicted (number|null), hasRendered, hasUnrendered, audiobooks?: Audiobook[] (default []), onUpdateProject(data) => Promise<boolean> where data now includes an optional description field alongside name/series/author/series_position/cover. Added 2026-07-12: chapters: Chapter[], passed through to ContinueListeningCard along with bookId={project.id}/bookTitle={project.name}."
         }
       ],
       "calls": [
@@ -272,12 +272,13 @@
         {
           "name": "ContinueListeningCard",
           "kind": "component",
-          "contract": "props: audiobooks: Audiobook[] (caller-supplied, already backend-sorted most-recent-first), coverImagePath: string | null. Renders latest = audiobooks[0]."
+          "contract": "props: audiobooks: Audiobook[] (Download source only, no longer the Play source), coverImagePath: string|null, bookId: string, bookTitle: string, chapters: Chapter[] (new 2026-07-12)."
         }
       ],
       "calls": [
-        "frontend/src/store/playerBus.ts#loadAndPlay",
-        "frontend/src/utils/format.ts#formatLength,formatFileSize,formatRelativeTime"
+        "frontend/src/utils/format.ts#formatLength,formatFileSize,formatRelativeTime",
+        "frontend/src/store/bookContinuousPlayback.ts#buildChapterQueue,playBookContinuous,useAutoSaveResumePosition",
+        "frontend/src/store/bookmarks.ts#getAutoResumeBookmark"
       ],
       "called_by": [],
       "notes": [
@@ -286,7 +287,8 @@
         "Play button calls playerBus.loadAndPlay({scope: 'book', title, subtitle: 'Full audiobook', audioUrl}) -- the 'book' PlayerScope added in Task 001 (playerBus.ts, 2026-07-09T21:03Z) exists specifically for this caller.",
         "Download button uses the existing document.createElement('a')/link.download/link.click() pattern copied from AssemblyPanel.tsx.",
         "Both Play and Download are disabled (not hidden) when audiobook.url is absent. Empty state ('Nothing rendered yet -- head to Contents to start casting and rendering.') renders when audiobooks is empty.",
-        "In BookInfoCard.tsx's composed layout, an override in components.css strips this card's own border/box-shadow/padding and hides its cover thumbnail, so it renders as part of the single .book-info-card bordered region rather than a second nested card."
+        "In BookInfoCard.tsx's composed layout, an override in components.css strips this card's own border/box-shadow/padding and hides its cover thumbnail, so it renders as part of the single .book-info-card bordered region rather than a second nested card.",
+        "2026-07-12 REDESIGN: Play button ('Continue Listening') now calls playBookContinuous(bookId, bookTitle, queue) instead of loadAndPlay({scope:'book', audioUrl:<assembled file>}) -- fixes a confirmed crash (multi-hour assembled file could hang/crash the tab) architecturally, since chapter-scope playback is never more than one chapter long. Enabled whenever ANY chapter is rendered (queue.length>0), independent of whether an assembled audiobook exists at all. Download button UNCHANGED, still keyed off audiobooks[0] -- the assembled file's only remaining purpose. Card label shows the actual resume chapter ('Resume: Chapter N: <title>'), computed via getAutoResumeBookmark(bookId) -> queue.findIndex(...) -> fallback index 0, not 'Full audiobook'. useAutoSaveResumePosition(bookId, queue) called unconditionally."
       ],
       "calls_inferred": []
     },
@@ -497,7 +499,8 @@
       ],
       "notes": [
         "added 2026-07-09 (first tab in the book stage order per lib/stages.ts's new leading 'book' entry; getLastStage() now defaults here).",
-        "History within this session: started as BookInfoCard + a static placeholder 'Overview notes' aside (renamed 'Description' 2026-07-09T14:55Z, honest reader-facing empty-state copy) -> Task 006 (22:05Z) added a sibling <ContinueListeningCard> beneath it -> Task 007 (22:15Z) replaced the static placeholder with a real InlineEdit bound to project.description -> Task 008 (22:30Z, hero-layout-restructure) removed the <aside> wrapper entirely, folding both the description edit and ContinueListeningCard into BookInfoCard.tsx's own content column. Net result: this file now only forwards project/totalRuntime/totalPredicted/hasRendered/hasUnrendered/availableAudiobooks (as the `audiobooks` prop) and actions.handleUpdateProject from useBookDataContext() into a single BookInfoCard."
+        "History within this session: started as BookInfoCard + a static placeholder 'Overview notes' aside (renamed 'Description' 2026-07-09T14:55Z, honest reader-facing empty-state copy) -> Task 006 (22:05Z) added a sibling <ContinueListeningCard> beneath it -> Task 007 (22:15Z) replaced the static placeholder with a real InlineEdit bound to project.description -> Task 008 (22:30Z, hero-layout-restructure) removed the <aside> wrapper entirely, folding both the description edit and ContinueListeningCard into BookInfoCard.tsx's own content column. Net result: this file now only forwards project/totalRuntime/totalPredicted/hasRendered/hasUnrendered/availableAudiobooks (as the `audiobooks` prop) and actions.handleUpdateProject from useBookDataContext() into a single BookInfoCard.",
+        "2026-07-12: now also destructures chapters from useBookDataContext() and threads it into BookInfoCard, for the chapter-by-chapter Continue Listening redesign (bookContinuousPlayback.ts)."
       ],
       "calls_inferred": []
     },

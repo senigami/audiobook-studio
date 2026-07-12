@@ -299,7 +299,7 @@
         "frontend/src/hooks/useQueueSync.ts"
       ],
       "notes": [
-        "QUEUE_OVERLAY_FIELDS whitelist now includes active_segments_map (W-PAR 006) — rides the queue.items frame per the queue-items-is-row-authority invariant"
+        "QUEUE_OVERLAY_FIELDS whitelist now includes active_segments_map (W-PAR 006) \u2014 rides the queue.items frame per the queue-items-is-row-authority invariant"
       ],
       "calls_inferred": []
     },
@@ -395,7 +395,7 @@
         {
           "name": "parseSeriesPositionInput",
           "kind": "function",
-          "contract": "string → {value: number|null, error: string|null}; blank -> {null,null}; non-integer -> error message; else -> parsed int"
+          "contract": "string \u2192 {value: number|null, error: string|null}; blank -> {null,null}; non-integer -> error message; else -> parsed int"
         }
       ],
       "calls": [],
@@ -433,7 +433,7 @@
         {
           "name": "emitToast",
           "kind": "function",
-          "contract": "string → void; dispatches a window CustomEvent(APP_TOAST_EVENT, {detail:{message}})"
+          "contract": "string \u2192 void; dispatches a window CustomEvent(APP_TOAST_EVENT, {detail:{message}})"
         }
       ],
       "calls": [],
@@ -446,7 +446,7 @@
       "calls_inferred": []
     },
     "frontend/src/utils/voiceCasting.ts": {
-      "purpose": "Pure helpers bridging the casting contract (voice-bundles.md §9) to in-memory voice/character data",
+      "purpose": "Pure helpers bridging the casting contract (voice-bundles.md \u00a79) to in-memory voice/character data",
       "exports": [
         {
           "name": "voiceMetadataToCastingCard, buildCastingCatalog",
@@ -530,6 +530,26 @@
         "Task 011 (2026-07-11). Deliberately not reactive via useSyncExternalStore (single consumer: ActivityPage)."
       ],
       "calls_inferred": []
+    },
+    "frontend/src/utils/jobStatus.ts": {
+      "purpose": "Canonical ACTIVE_STATUSES set shared between ActivityPage.tsx and QueueItem.tsx",
+      "exports": [
+        {
+          "name": "ACTIVE_STATUSES",
+          "kind": "const",
+          "contract": "Set<JobStatus> -- statuses considered 'actively rendering' for segment-monitor strip gating. Distinct from isTrulyActive (feeds ETA/progress selection, includes 'processing') -- deliberate, documented split, not full reconciliation."
+        }
+      ],
+      "calls": [],
+      "calls_inferred": [],
+      "called_by": [
+        "frontend/src/components/queue/QueueItem.tsx",
+        "frontend/src/pages/Activity/ActivityPage.tsx"
+      ],
+      "flows": [],
+      "notes": [
+        "2026-07-12 (Phase 3 task 015): extracted so QueueItem.tsx's per-row segment-monitor gate and ActivityPage.tsx use the identical status set."
+      ]
     }
   }
 }

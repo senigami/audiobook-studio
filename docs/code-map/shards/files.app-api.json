@@ -64,7 +64,7 @@
         "topics: jobs.lifecycle, queue.items, chapters.progress, segments.progress each with allowed command set",
         "build_queue_item_status_event gained an active_segments_map kwarg (additive C2 contract, live-events.md 1.9.0/1.9.1), snake_case wire key",
         "command-set dedup: removed raw-string duplicates of enum members from JOB_LIFECYCLE_COMMANDS/COMMAND_TOPIC_SCOPES/SEGMENT_SCOPED_COMMANDS; membership-identical, no contract/wire/version change",
-        "build_chapter_progress_event() gained active_segments_map kwarg (2026-07-05, additive/snake_case) — the missing delivery leg for the C2 live-map contract; without it a status-unchanged mid-render update could never reach the frontend regardless of backend state",
+        "build_chapter_progress_event() gained active_segments_map kwarg (2026-07-05, additive/snake_case) \u2014 the missing delivery leg for the C2 live-map contract; without it a status-unchanged mid-render update could never reach the frontend regardless of backend state",
         "Task 013 (2026-07-11): build_chapter_progress_event gained additive eta_low_seconds/eta_high_seconds/eta_display params (snake_case, same additive convention as active_segments_map); only written into the payload when eta_display is not None, so the fields are entirely absent (not null placeholders) until a job's BracketedEtaTracker exists. live-events.md bumped 1.9.6 -> 1.9.7."
       ],
       "calls_inferred": []
@@ -152,7 +152,7 @@
       "called_by": [],
       "notes": [
         "2026-07-09: PUT /api/segments/{segment_id} now enforces an explicit field whitelist (SEGMENT_UPDATE_ALLOWED_FIELDS = character_id, speaker_profile_name, audio_status, text_content) before forwarding the request body into update_segment(**updates), which otherwise used untrusted request-supplied dict keys directly as SQL column names. Unknown fields now 400 rather than passing through silently.",
-        "2026-07-10: POST /api/segments/bulk-update now enforces the same SEGMENT_UPDATE_ALLOWED_FIELDS whitelist (character_id, speaker_profile_name, audio_status, text_content) used by PUT /api/segments/{segment_id}, before forwarding req.updates into update_segments_bulk(**updates), which builds f\"{k} = ?\" SQL from those keys exactly like the already-fixed single-segment path. Unknown fields now 400 rather than being interpolated as raw SQL column names. No new constant was defined — reused SEGMENT_UPDATE_ALLOWED_FIELDS.",
+        "2026-07-10: POST /api/segments/bulk-update now enforces the same SEGMENT_UPDATE_ALLOWED_FIELDS whitelist (character_id, speaker_profile_name, audio_status, text_content) used by PUT /api/segments/{segment_id}, before forwarding req.updates into update_segments_bulk(**updates), which builds f\"{k} = ?\" SQL from those keys exactly like the already-fixed single-segment path. Unknown fields now 400 rather than being interpolated as raw SQL column names. No new constant was defined \u2014 reused SEGMENT_UPDATE_ALLOWED_FIELDS.",
         "2026-07-10: GET /api/chapters/{chapter_id} now accepts an optional project_id query param and passes it through to get_chapter for scoping; a mismatched project_id now 404s instead of returning another project's chapter."
       ],
       "calls_inferred": []
@@ -187,15 +187,16 @@
         "app/db/__init__.py#get_chapter",
         "app/db/state.py",
         "app/domain/chapters/facade.py#export_chapter_audio",
-        "app/engines/audio_ops.py#compute_peaks_sidecar,SIDECAR_VERSION",
         "app/engines/behavior.py",
         "app/storage/manager.py#get_storage_manager",
-        "app/utils/text/textops.py#*"
+        "app/utils/text/textops.py#*",
+        "app/engines/audio_ops.py#ensure_peaks_sidecar"
       ],
       "called_by": [],
       "notes": [
         "FileNotFoundError (404) means canonical WAV doesn't exist",
-        "2026-07-10 (audio_player_completion_004 task 007): added the 'peaks' asset_type -- lazy compute-on-first-request peaks sidecar, not an eager production-time hook (an orchestrator-completion-chokepoint design was tried and found to miss this app's default-engine chapter-fanout render path entirely)."
+        "2026-07-10 (audio_player_completion_004 task 007): added the 'peaks' asset_type -- lazy compute-on-first-request peaks sidecar, not an eager production-time hook (an orchestrator-completion-chokepoint design was tried and found to miss this app's default-engine chapter-fanout render path entirely).",
+        "2026-07-11/12: _load_or_compute_peaks_sidecar's per-WAV lock now delegates to audio_ops.ensure_peaks_sidecar (single cache-format owner) instead of calling compute_peaks_sidecar directly; frontend contract bug found+fixed same session -- parsePeaksSidecar had hardcoded version:1 while SIDECAR_VERSION was already 2, silently rejecting every real payload for 2+ days (frontend/src/api/contracts/peaksSidecar.ts)."
       ],
       "calls_inferred": []
     },
@@ -531,6 +532,11 @@
         {
           "name": "get_voices_dir",
           "kind": "function"
+        },
+        {
+          "name": "get_system_resources",
+          "kind": "function",
+          "contract": "GET /api/system/resources -> sample_resources() dict, thin pass-through. Stateless, computed fresh per request, no background sampler/thread."
         }
       ],
       "calls": [
@@ -545,13 +551,15 @@
         "app/engines/errors.py",
         "app/engines/watchdog.py#get_watchdog",
         "app/orchestration/scheduler/resources.py#is_paused,set_paused",
-        "app/utils/pathing.py"
+        "app/utils/pathing.py",
+        "app/engines/system_resources.py#sample_resources"
       ],
       "called_by": [],
       "notes": [
         "_redact_settings masks secrets with '***'",
         "POST /api/settings accepts tts_parallel_cap/tts_engine_caps (W-PAR 007)",
-        "huggingface_token added to _SECRET_FIELDS -- reuses the existing generic redact-on-read/ignore-sentinel-on-write mechanism shared with tts_api_key"
+        "huggingface_token added to _SECRET_FIELDS -- reuses the existing generic redact-on-read/ignore-sentinel-on-write mechanism shared with tts_api_key",
+        "2026-07-12: added GET /api/system/resources for the Activity page's live CPU/RAM/VRAM strip."
       ],
       "calls_inferred": []
     },
@@ -784,7 +792,7 @@
       ],
       "called_by": [],
       "notes": [
-        "patch_voice_metadata accepts+persists provenance (whole-block replace, not merge — see voice-bundles.md sec8.1); RuntimeError from update_voice_metadata -> 500",
+        "patch_voice_metadata accepts+persists provenance (whole-block replace, not merge \u2014 see voice-bundles.md sec8.1); RuntimeError from update_voice_metadata -> 500",
         "GET /api/voices/search gained ?language=/?style= query params (Phase G, 2026-07-04)"
       ],
       "calls_inferred": []
@@ -949,12 +957,12 @@
         "plugins/tts_mixed/handler.py"
       ],
       "notes": [
-        "broadcast_job_updated is central bottleneck: always enriches with §4A confidence/ETA unless skip_studio_job_event",
+        "broadcast_job_updated is central bottleneck: always enriches with \u00a74A confidence/ETA unless skip_studio_job_event",
         "terminal latch prevents post-terminal frame re-entry",
         "FIX 5: enrich failure sets safe confidence floor",
         "_emit_queue_item_status_frame reads merged.get('active_segments_map') and passes it to build_queue_item_status_event (additive C2 field); transition-inferred SEGMENT_SAVED emission is unchanged, correct only while fan-out stays effectively N=1-active-at-a-time per chapter",
-        "broadcast_job_updated() now threads active_segments_map=merged.get('active_segments_map') into build_chapter_progress_event (2026-07-05 delivery-leg fix) — previously the field was written to job state but never reached this wire frame",
-        "broadcast_job_updated now extracts eta_updated_at from ProgressService.enrich()'s payload and threads it into build_chapter_progress_event(...) (2026-07-06 fix) -- enrich()'s own §4A dedupe logic computed this field correctly, but it was previously dropped before reaching build_chapter_progress_event, whose own default (time.time() when omitted) fired on every map-only tick and defeated the dedupe at the wire even though the internal computation was right."
+        "broadcast_job_updated() now threads active_segments_map=merged.get('active_segments_map') into build_chapter_progress_event (2026-07-05 delivery-leg fix) \u2014 previously the field was written to job state but never reached this wire frame",
+        "broadcast_job_updated now extracts eta_updated_at from ProgressService.enrich()'s payload and threads it into build_chapter_progress_event(...) (2026-07-06 fix) -- enrich()'s own \u00a74A dedupe logic computed this field correctly, but it was previously dropped before reaching build_chapter_progress_event, whose own default (time.time() when omitted) fired on every map-only tick and defeated the dedupe at the wire even though the internal computation was right."
       ],
       "calls_inferred": []
     }

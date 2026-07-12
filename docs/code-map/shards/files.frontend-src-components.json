@@ -130,7 +130,7 @@
       ],
       "notes": [
         "2026-07-10: gained editingVoiceMetadata?: VoiceMetadata prop, threaded to ScriptEditor's new attributes prop.",
-        "2026-07-09: Added `isVoiceSettingsOpen`/`setIsVoiceSettingsOpen` props. The existing Script Editor Drawer now only opens when `editingProfile` is set AND `isVoiceSettingsOpen` is false; a new Drawer ('Voice Settings: {variantName}') renders VoiceSettingsPanel when `isVoiceSettingsOpen` is true, wired to the same editingEngine/editingSettings/handleSaveTestText/isSavingText as before — no new API calls.",
+        "2026-07-09: Added `isVoiceSettingsOpen`/`setIsVoiceSettingsOpen` props. The existing Script Editor Drawer now only opens when `editingProfile` is set AND `isVoiceSettingsOpen` is false; a new Drawer ('Voice Settings: {variantName}') renders VoiceSettingsPanel when `isVoiceSettingsOpen` is true, wired to the same editingEngine/editingSettings/handleSaveTestText/isSavingText as before \u2014 no new API calls.",
         "2026-07-10: Modal container for voice creation, rename, variant management, export"
       ],
       "calls_inferred": [
@@ -468,7 +468,7 @@
         "degrade-by-count: <10 omitted, 10-60 full block strip, >60 compact summary bar; always-present accessible <table> fallback",
         "M2 FIX (2026-07-03): the >60 summary branch originally showed zero failure signal -- fixed to surface failedCount + the same .segment-render-monitor__crosshatch pattern as the full-strip view, folded into aria-label too",
         "M3: useReducedMotion() reads matchMedia once at mount AND subscribes to live 'change' events -- reactive, not just mount-time",
-        "Task 009 (2026-07-11): adds the previously-missing half of the §7A dual-layer accessibility contract -- a visually-hidden ('sr-only') aria-live=\"polite\" role=\"status\" region announcing only milestones (render start, coarse count-based thresholds -- every 10 segments or 25%, whichever is coarser -- and completion, with a failed-count variant) via local state (announcement) + refs (startedRef/completedRef/lastThresholdRef), effect keyed on total/doneCount/allSettled/failedCount. Never fires per-segment/per-tick. No prop/type contract change.",
+        "Task 009 (2026-07-11): adds the previously-missing half of the \u00a77A dual-layer accessibility contract -- a visually-hidden ('sr-only') aria-live=\"polite\" role=\"status\" region announcing only milestones (render start, coarse count-based thresholds -- every 10 segments or 25%, whichever is coarser -- and completion, with a failed-count variant) via local state (announcement) + refs (startedRef/completedRef/lastThresholdRef), effect keyed on total/doneCount/allSettled/failedCount. Never fires per-segment/per-tick. No prop/type contract change.",
         "Task 010 (2026-07-11): adds click/tap interaction to the 10-60 full-strip mode -- clicking a (still aria-hidden, decorative) block opens a container-anchored SegmentDetailPopover (role=\"dialog\", not aria-hidden) showing index/phase/engine id/client-observed elapsed-time proxy/reason_code, and (failed only) a Retry button. New optional prop onRetry?: (segmentId: string) => void (component stays presentational). New optional field reasonCode?: string on SegmentRenderMonitorSegment. SegmentAccessibleTable gained an Actions column (Details/Retry, new required props onOpenDetail/onRetry) as the M6 keyboard-reachable equivalent to the popover. Positioning follows ScriptView.tsx's selection-popover pattern.",
         "Task 011 (2026-07-11): the 10-60 segment full-field branch now delegates to <SegmentBlockRow height={10} onBlockClick={openPopoverFor} /> (extracted to SegmentBlockRow.tsx) instead of an inline block-mapping JSX block; behavior unchanged. Exports FULL_STRIP_MIN (was module-private) so ActivityPage's peek-strip eligibility gate reuses the same threshold. SegmentRenderPhase/SegmentRenderMonitorSegment moved to SegmentBlockRow.tsx and re-exported here for back-compat."
       ],
@@ -529,7 +529,8 @@
         "frontend/src/pages/Activity/ActivityPage.tsx"
       ],
       "notes": [
-        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change.",
+        "2026-07-12 (Phase 3 task 015): passes onRefresh through to each QueueItem so its per-row segment-retry handler can trigger a queue refresh after a successful requeue."
       ],
       "calls_inferred": [
         "frontend/src/components/queue/QueueItem#*",
@@ -553,12 +554,19 @@
         "frontend/src/utils/queueItemDebugPayload.ts",
         "frontend/src/utils/queueItemEtaSelection.ts",
         "frontend/src/utils/queueLabels.ts",
-        "frontend/src/utils/runtimeDebug.ts"
+        "frontend/src/utils/runtimeDebug.ts",
+        "frontend/src/hooks/useSegmentInventory.ts#useSegmentInventory",
+        "frontend/src/api/index.ts#generateSegments",
+        "frontend/src/components/progress/SegmentRenderMonitor/SegmentRenderMonitor.tsx",
+        "frontend/src/components/progress/SegmentRenderMonitor/SegmentPeekStrip.tsx",
+        "frontend/src/utils/jobStatus.ts#ACTIVE_STATUSES"
       ],
       "called_by": [
         "frontend/src/components/queue/GlobalQueue.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-12 (Phase 3 task 015): each row now hydrates its own useSegmentInventory(liveJob) + peek/expand/dismiss state + segment-retry handler, gated on ACTIVE_STATUSES.has(status) && chapterId -- moved from ActivityPage.tsx's page-level singleton so N concurrently-active jobs each get an independent strip. SEGMENT_MONITOR_CAP=1 caption is a carried-over hardcoded constant, now stale since task 014 shipped live per-engine caps -- flagged, not fixed."
+      ],
       "calls_inferred": [
         "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar#*",
         "frontend/src/utils/queueItemEtaSelection#*"

@@ -9,17 +9,14 @@
         }
       ],
       "calls": [
-        "frontend/src/components/progress/SegmentRenderMonitor/SegmentRenderMonitor.tsx",
         "frontend/src/components/queue/GlobalQueue.tsx",
         "frontend/src/components/queue/QueueStats.tsx",
         "frontend/src/pages/Activity/components/EngineCalibrationCard.tsx",
         "frontend/src/pages/Activity/components/ProductionTallyCard.tsx",
         "frontend/src/types/index.ts",
         "frontend/src/utils/devMode.ts",
-        "frontend/src/hooks/useSegmentInventory.ts#useSegmentInventory",
-        "frontend/src/api/index.ts#generateSegments",
-        "frontend/src/components/progress/SegmentRenderMonitor/SegmentPeekStrip.tsx",
-        "frontend/src/utils/segmentPeekStripState.ts"
+        "frontend/src/hooks/useSystemResourceSamples.ts#useSystemResourceSamples",
+        "frontend/src/pages/Activity/components/SystemResourceStrip.tsx#SystemResourceStrip"
       ],
       "called_by": [
         "frontend/src/app/App.tsx",
@@ -29,7 +26,8 @@
         "history filter state All/Renders/Samples/API",
         "Task 008 (2026-07-11): replaced DEV_FIXTURE_RENDER_MONITOR_JOB with a real active-job selection (first job in an active status with a chapter_id) fed through useSegmentInventory; SegmentRenderMonitor now renders real segments when devMode is on and an active job exists (still dev-gated). devSegmentRenderMonitorFixture.ts is no longer imported here but intentionally left on disk pending verification. cap is a documented best-effort constant (1) pending a real per-job cap field.",
         "Task 010 (2026-07-11): wires SegmentRenderMonitor's onRetry prop to api.generateSegments([segmentId]) -- the same per-segment (re)generation endpoint ScriptView/BoothTool/ReviseTool already use; there is no server-side 'retry' verb, so this IS the real per-segment retry granularity available today. Calls onRefresh() after a successful requeue.",
-        "Task 011 (2026-07-11): wires the peek-strip/full-field progressive-disclosure ladder for the dev-gated active-job segment monitor. New derived state: renderingCount, failedCount, monitorEligible (devMode && activeJob && total >= FULL_STRIP_MIN), peekEligible (monitorEligible && renderingCount >= 2). Behavior change: the full SegmentRenderMonitor field no longer renders unconditionally on devMode+activeJob -- the peek strip renders instead once renderingCount >= 2, expanding to the full field only on click (or directly when renderingCount < 2). Dismiss persists per job id via segmentPeekStripState.ts, overridden whenever failedCount > 0. State resets when the active job id changes."
+        "Task 011 (2026-07-11): wires the peek-strip/full-field progressive-disclosure ladder for the dev-gated active-job segment monitor. New derived state: renderingCount, failedCount, monitorEligible (devMode && activeJob && total >= FULL_STRIP_MIN), peekEligible (monitorEligible && renderingCount >= 2). Behavior change: the full SegmentRenderMonitor field no longer renders unconditionally on devMode+activeJob -- the peek strip renders instead once renderingCount >= 2, expanding to the full field only on click (or directly when renderingCount < 2). Dismiss persists per job id via segmentPeekStripState.ts, overridden whenever failedCount > 0. State resets when the active job id changes.",
+        "2026-07-12 (Phase 3 tasks 015/016): removed the page-level single-activeJob SegmentPeekStrip/SegmentRenderMonitor mount (and the stale comment claiming 010/011 already handled 'choosing among several' jobs) -- moved to per-row QueueItem.tsx so every concurrently-rendering job gets its own strip. Added the always-visible SystemResourceStrip (live CPU/RAM/VRAM sparklines) above QueueStats in the stats rail."
       ],
       "calls_inferred": [
         "frontend/src/components/queue/GlobalQueue",
@@ -533,7 +531,7 @@
       "called_by": [],
       "notes": [
         "security warning about no internal API keys",
-        "2026-07-09: Rewrote static documentation content to match app/api/tts_api.py + app/core/security.py: replaced the false 'no API secret keys' claim with the real Bearer tts_api_key + tts_api_enabled gate, added the real 30 req/min sliding-window rate limiter, and replaced fictitious/internal-only routes (/api/engines, /api/speaker-profiles, /api/processing_queue, direct localhost:8001/synthesize) with the real external contract (GET /api/v1/tts/engines[/{id}], POST /api/v1/tts/synthesize, POST /api/v1/tts/preview, GET /api/v1/tts/jobs/{id}[/audio]). No component structure/props changed — text/example content only."
+        "2026-07-09: Rewrote static documentation content to match app/api/tts_api.py + app/core/security.py: replaced the false 'no API secret keys' claim with the real Bearer tts_api_key + tts_api_enabled gate, added the real 30 req/min sliding-window rate limiter, and replaced fictitious/internal-only routes (/api/engines, /api/speaker-profiles, /api/processing_queue, direct localhost:8001/synthesize) with the real external contract (GET /api/v1/tts/engines[/{id}], POST /api/v1/tts/synthesize, POST /api/v1/tts/preview, GET /api/v1/tts/jobs/{id}[/audio]). No component structure/props changed \u2014 text/example content only."
       ],
       "calls_inferred": []
     },
@@ -756,11 +754,12 @@
         }
       ],
       "calls": [
-        "frontend/src/api/index.ts",
         "frontend/src/components/ui/ActionMenu.tsx",
         "frontend/src/components/ui/ProjectStatusPill.tsx",
         "frontend/src/store/playerBus.ts",
-        "frontend/src/types/index.ts"
+        "frontend/src/types/index.ts",
+        "frontend/src/api/index.ts#fetchChapters",
+        "frontend/src/store/bookContinuousPlayback.ts#buildChapterQueue,playBookContinuous,useAutoSaveResumePosition"
       ],
       "called_by": [
         "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx"
@@ -768,7 +767,8 @@
       "notes": [
         "2026-07-08: new onOpenDetails(id) prop renders a 'Details' button (stopPropagation'd) that routes to the project details view, alongside the existing whole-card click-to-open behavior.",
         "2026-07-11 (task 003): ActionMenu call switched from legacy onDelete-only mode to items=[Open, Delete]. Added a hover-lazy api.fetchProjectAudiobooks(project.id) call and a centered hover-reveal play/pause overlay on the cover, wired to the global playerBus (loadAndPlay/play/pause, scope 'book'); disabled with a 'Nothing rendered yet' tooltip when no assembled audiobook exists (adversarial-review constraint: never redirects to Publish). Details button unchanged (INV-1).",
-        "2026-07-11 (task 005): renders <ProjectStatusPill status={project.status} /> next to the project title when project.status is present."
+        "2026-07-11 (task 005): renders <ProjectStatusPill status={project.status} /> next to the project title when project.status is present.",
+        "2026-07-12: hover-play now fetches api.fetchChapters(project.id) instead of api.fetchProjectAudiobosk -- removed that fetch/state entirely (zero remaining consumers once play logic moved to chapter-by-chapter, noUnusedLocals would fail otherwise). Play calls playBookContinuous(project.id, project.name, queue) built via buildChapterQueue; isThisBookLoaded now checks playerBus.bookId===project.id (not URL matching, which breaks across chapter auto-advance). useAutoSaveResumePosition(project.id, queue) called unconditionally."
       ],
       "calls_inferred": [
         "frontend/src/components/ui/ActionMenu"
@@ -1050,7 +1050,7 @@
         "frontend/src/pages/Settings/SettingsRoute.tsx"
       ],
       "notes": [
-        "gained a 'Parallel Segment Rendering' toggle (2026-07-06) posting {tts_parallel_cap: 1|2} as JSON to /api/settings via a dedicated updateParallelCap() helper — the form-encoded updateBooleanSetting/updateStringSetting helpers can't carry this field, since app/api/routers/system.py only parses tts_parallel_cap from the JSON body branch, not the form branch",
+        "gained a 'Parallel Segment Rendering' toggle (2026-07-06) posting {tts_parallel_cap: 1|2} as JSON to /api/settings via a dedicated updateParallelCap() helper \u2014 the form-encoded updateBooleanSetting/updateStringSetting helpers can't carry this field, since app/api/routers/system.py only parses tts_parallel_cap from the JSON body branch, not the form branch",
         "Task 012 (2026-07-11): replaces the binary 1/2 tts_parallel_cap ToggleButton with a real numeric stepper input (1-8, MAX_GLOBAL_PARALLEL_CAP matching MAX_GLOBAL_CONCURRENT_SYNTHESIS in app/orchestration/scheduler/resources.py), client-side clamped before calling the existing updateParallelCap() write (unchanged POST /api/settings {tts_parallel_cap} shape)."
       ],
       "calls_inferred": [
@@ -1409,7 +1409,8 @@
         "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx"
       ],
       "notes": [
-        "2026-07-11 (task 010 Gate 2, owner sign-off): uses useBookmarks() (all bookmarks, no bookId filter) and the shared BookmarkList, with each row's secondary text set to the owning book's Project.name (looked up from the `projects` prop). Row click calls setLastChapter(bookId, chapterId) + navigate via react-router's useNavigate; remove calls removeBookmark directly."
+        "2026-07-11 (task 010 Gate 2, owner sign-off): uses useBookmarks() (all bookmarks, no bookId filter) and the shared BookmarkList, with each row's secondary text set to the owning book's Project.name (looked up from the `projects` prop). Row click calls setLastChapter(bookId, chapterId) + navigate via react-router's useNavigate; remove calls removeBookmark directly.",
+        "2026-07-12: filters out kind==='auto' bookmarks locally (useBookmarks() is raw/unfiltered by design) so the new continue-listening resume marker (store/bookmarks.ts) never appears in this user-facing list."
       ],
       "calls_inferred": []
     },
@@ -1438,6 +1439,25 @@
         "2026-07-11 (tasks 004+007): 8-step table (trimmed from the demo's 12), following the existing try/catch localStorage pattern from utils/devMode.ts and utils/railState.ts."
       ],
       "calls_inferred": []
+    },
+    "frontend/src/pages/Activity/components/SystemResourceStrip.tsx": {
+      "purpose": "HIG-styled live CPU/RAM/VRAM sparkline card for the Activity page, always visible (not gated to active jobs)",
+      "exports": [
+        {
+          "name": "SystemResourceStrip",
+          "kind": "component",
+          "contract": "props: samples: SystemResourceSample[], hasVram: boolean, loading?: boolean. Renders CPU+RAM rows always, VRAM row only when hasVram (absent from DOM, not CSS-hidden). No-data placeholder shows '--'. High-pressure (pct>=90 sustained 2+ samples) turns that row's dot+value amber, row-scoped only. Sparkline svg is aria-hidden; each row has a visually-hidden accessible text span; no aria-live anywhere (a value updating every 2s must not spam screen readers)."
+        }
+      ],
+      "calls": [],
+      "calls_inferred": [],
+      "called_by": [
+        "frontend/src/pages/Activity/ActivityPage.tsx"
+      ],
+      "flows": [],
+      "notes": [
+        "2026-07-12: designed via the designer agent against Quiet Studio tokens (no new colors -- var(--color-wave)/var(--accent)/var(--warning-text-strong) only). Sparkline uses viewBox+preserveAspectRatio to stretch to the row's full width rather than a fixed pixel size (fixed same day after a layout-space complaint)."
+      ]
     }
   }
 }

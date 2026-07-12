@@ -5,7 +5,9 @@
       "exports": [],
       "calls": [],
       "called_by": [],
-      "notes": [],
+      "notes": [
+        "2026-07-12: added .system-resource-strip* rules (SystemResourceStrip.tsx) -- tokens only, no new hex/px (repo's hardcoded-style CI guard)."
+      ],
       "calls_inferred": []
     },
     "frontend/src/theme/components/book-tabs.css": {
@@ -22,7 +24,7 @@
       "calls": [],
       "called_by": [],
       "notes": [
-        "2026-07-10 (chapter-lifecycle Stale/Error + pill contrast fix): added .chapter-table__pill--stale (background var(--warning-tint-bg), color var(--warning-text)) and .chapter-table__pill--error (background var(--error-tint-bg), color var(--error-text)) for ChapterTable'\\''s two new lifecycle pill states. In the same change, .chapter-table__pill--rendered'\\''s text color switched from the bare var(--success) to var(--success-text), matching the -text token pattern the new stale/error pills use (contrast fix — bare --success/--error are not guaranteed readable on the tint backgrounds).",
+        "2026-07-10 (chapter-lifecycle Stale/Error + pill contrast fix): added .chapter-table__pill--stale (background var(--warning-tint-bg), color var(--warning-text)) and .chapter-table__pill--error (background var(--error-tint-bg), color var(--error-text)) for ChapterTable'\\''s two new lifecycle pill states. In the same change, .chapter-table__pill--rendered'\\''s text color switched from the bare var(--success) to var(--success-text), matching the -text token pattern the new stale/error pills use (contrast fix \u2014 bare --success/--error are not guaranteed readable on the tint backgrounds).",
         "2026-07-09: Added `.chapter-text-panel__info-banner` (calm accent-tint banner for Write mode's persistent entry notice, distinct from the warning-tint `.chapter-text-panel__unlock-strip`). Changed `.chapter-text-panel__footer` from `justify-content: space-between` to `flex-end` with a tighter gap now that Discard+Commit Changes form one paired action group. Added `.write-tool`/`.write-tool__hint` (mirrors the existing `.revise-tool`/`.revise-tool__hint` pattern) so the new WriteTool subtitle wrapper lays out and sizes correctly.",
         "2026-07-10: Added '.chapter-workspace-header__nav-btn svg { flex-shrink: 0; }' mirroring the existing documented fix for .player-btn svg, pinning lucide icons to their intrinsic size instead of letting the inline-flex main-axis algorithm collapse them to 0 width.",
         "2026-07-10: `.studio-analysis-strip` demoted from a bordered/shadowed card to a plain low-chrome container; added `.studio-analysis-strip__caption` (var(--type-caption), var(--text-muted)); removed the now-unused `__eyebrow`/`__stats`/`__stat`/`__value`/`__value--accent`/`__label`/`__divider` rules that backed the old per-stat card blocks.",
@@ -88,9 +90,9 @@
       "calls": [],
       "called_by": [],
       "notes": [
-        "2026-07-10: removed dead .book-stage-review and .review-chapter-rail* rules (the rail they styled no longer renders, BoothTool doesn't port it). .review-main/.review-main__*/.review-text-view* kept — BoothTool/index.tsx still uses them as-is.",
+        "2026-07-10: removed dead .book-stage-review and .review-chapter-rail* rules (the rail they styled no longer renders, BoothTool doesn't port it). .review-main/.review-main__*/.review-text-view* kept \u2014 BoothTool/index.tsx still uses them as-is.",
         "2026-07-10: Warning #4 (reading surface): `.review-text-view` now uses `var(--font-reading)` + `var(--surface-reading)`; `.review-text-view__segment` uses `var(--type-reading)`/`var(--leading-reading)` instead of a flat 0.75rem UI-font size. Warning #6 (low-contrast active highlight): added a non-color `border-left: 3px solid var(--accent)` gutter bar to `.review-text-view__segment--active` alongside the existing tint/weight change. Added `.review-text-view__segment--pulse` + `@keyframes booth-autoplay-pulse` for the one-shot autoplay acknowledgment, with a `prefers-reduced-motion: reduce` override disabling the animation (matching the existing `.switch__knob` convention in this file).",
-        "2026-07-10: CRITICAL #2 (resting-state/touch affordance): `.revise-text-view__segment` gained a persistent `border-left: 2px solid var(--border-muted)` so extent/clickability is visible before any interaction; `:hover`/`:focus-within` now also intensify `border-color`/`border-left-color` to `var(--border)` (previously background-wash only) and reveal the new `.revise-text-view__edit-icon` (opacity 0→1, transition-based, not color-only). Warning #3 (segment vs. paragraph boundaries): reduced `.revise-text-view`'s inter-segment `gap` from 8px to 3px so consecutive same-paragraph segments read less like separate paragraphs, while the border-left tick keeps individual segment extents legible. Warning #6 (token pairing): `.revise-text-view__save-btn` now pairs `color: var(--on-action)` with `background: var(--accent)`, matching `.btn-primary`'s `--action-primary`/`--on-action` convention (was incorrectly paired with `var(--surface)`). Added `.revise-tool__hint` (quiet caption style, `var(--text-muted)`, 0.7rem) for the new topbar hint."
+        "2026-07-10: CRITICAL #2 (resting-state/touch affordance): `.revise-text-view__segment` gained a persistent `border-left: 2px solid var(--border-muted)` so extent/clickability is visible before any interaction; `:hover`/`:focus-within` now also intensify `border-color`/`border-left-color` to `var(--border)` (previously background-wash only) and reveal the new `.revise-text-view__edit-icon` (opacity 0\u21921, transition-based, not color-only). Warning #3 (segment vs. paragraph boundaries): reduced `.revise-text-view`'s inter-segment `gap` from 8px to 3px so consecutive same-paragraph segments read less like separate paragraphs, while the border-left tick keeps individual segment extents legible. Warning #6 (token pairing): `.revise-text-view__save-btn` now pairs `color: var(--on-action)` with `background: var(--accent)`, matching `.btn-primary`'s `--action-primary`/`--on-action` convention (was incorrectly paired with `var(--surface)`). Added `.revise-tool__hint` (quiet caption style, `var(--text-muted)`, 0.7rem) for the new topbar hint."
       ],
       "calls_inferred": []
     },
