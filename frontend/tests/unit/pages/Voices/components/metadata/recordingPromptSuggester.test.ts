@@ -57,6 +57,7 @@ describe('suggestRecordingPrompt', () => {
             expect(result!.matchedArchetype).toBe('Warm Storyteller');
             expect(result!.prompt).toContain('Come closer, and let me tell you how it really happened');
             expect(result!.directionNote).toContain('Let warmth bloom on the open vowels');
+            expect(result!.sampleText).toContain('Come sit by the fire a while');
         });
     });
 
@@ -73,6 +74,7 @@ describe('suggestRecordingPrompt', () => {
             expect(result!.confidence).toBe('close');
             expect(result!.matchedArchetype).toBe('Heroic Protagonist');
             expect(result!.prompt).toContain("We didn't come this far to fail now");
+            expect(result!.sampleText).toContain('This is the line we hold');
         });
     });
 
@@ -91,6 +93,9 @@ describe('suggestRecordingPrompt', () => {
             expect(result!.prompt).toContain('let mischief bubble under the surface');
             expect(result!.prompt).toContain('keep the tone narrow and light');
             expect(result!.prompt).not.toContain('undefined');
+            // No shaky invented sample line for a composed (non-archetype-matched) result --
+            // leave whatever sample text is already set alone rather than guess.
+            expect(result!.sampleText).toBeNull();
         });
 
         it('skips class/pace pieces gracefully when absent, without emitting "undefined"', () => {

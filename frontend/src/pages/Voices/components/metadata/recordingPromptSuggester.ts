@@ -23,6 +23,15 @@ export interface SuggestionResult {
     directionNote: string;
     matchedArchetype: string | null;
     confidence: 'exact' | 'close' | 'composed';
+    /**
+     * Short showcase line for TTS-generated voice-sample previews (the archetype's
+     * `sample_text`), distinct from `prompt` which is written for a human voice actor.
+     * Only set when an archetype match is close/exact — unlike `prompt`, there's no
+     * composed fallback for this field: a shaky invented sample line is worse than
+     * leaving the existing default/custom sample text alone, so `null` here means
+     * "no better suggestion, don't touch what's already set."
+     */
+    sampleText: string | null;
 }
 
 // --- Scoring weights (task spec, "Algorithm" step 2) ---------------------
@@ -161,6 +170,7 @@ function composeFallback(attrs: VoiceAttributes): SuggestionResult {
         directionNote,
         matchedArchetype: null,
         confidence: 'composed',
+        sampleText: null,
     };
 }
 
@@ -190,6 +200,7 @@ export function suggestRecordingPrompt(attrs: VoiceAttributes | null | undefined
             directionNote: bestArchetype.direction_note,
             matchedArchetype: bestArchetype.archetype_name,
             confidence: bestScore >= EXACT_THRESHOLD ? 'exact' : 'close',
+            sampleText: bestArchetype.sample_text,
         };
     }
 

@@ -1,0 +1,44 @@
+{
+  "date": "2026-07-12",
+  "author": "claude",
+  "summary": "Adds a per-archetype 'Voice Sample Text' (short TTS-preview showcase line, distinct from the longer human-recording-prompt paragraph) to the 39-archetype reference dataset, and wires it in on both sides: the frontend recording-prompt suggester now also returns a matched sample line, and the backend auto-applies it when generating a sample for a voice that has tagged attributes but has never had its test_text customized -- so clicking 'Generate Sample' on a freshly-tagged, never-touched voice produces an archetype-tailored line instead of the generic default.",
+  "files": [
+    {
+      "path": "design-docs/reference/voice-archetypes/voice_archetypes.json",
+      "change": "New 'sample_text' field added to headers_key/headers_original and every archetype record, inserted right after recording_prompt. Single source of truth both recordingArchetypes.ts and the new Python matcher module read from (well, the TS file is statically generated from it, not read at runtime; the Python module reads it directly)."
+    },
+    {
+      "path": "design-docs/reference/voice-archetypes/voice_archetypes.csv",
+      "change": "Regenerated from the updated JSON with the new column in the same position."
+    },
+    {
+      "path": "frontend/src/pages/Voices/components/metadata/recordingArchetypes.ts",
+      "change": "Regenerated from voice_archetypes.json: RecordingArchetype interface gains sample_text: string; every one of the 39 records gets the new field."
+    },
+    {
+      "path": "frontend/src/pages/Voices/components/metadata/recordingPromptSuggester.ts",
+      "change": "SuggestionResult gains sampleText: string | null. suggestRecordingPrompt() returns the matched archetype's sample_text when confidence is close/exact; composeFallback() (the no-close-match path) always returns sampleText: null -- deliberately no composed fallback for spoken sample text, since an invented line is worse than leaving whatever's already set alone."
+    },
+    {
+      "path": "app/domain/voices/recording_archetypes.py",
+      "change": "New module. Python port of recordingPromptSuggester.ts's scoring algorithm (identical weights/thresholds: CLASS/GENDER/AGE/PACE match points, TONE/TIMBRE jaccard-overlap weights, CLOSE_THRESHOLD=6, EXACT_THRESHOLD=10, MAX_SCORE=12), reading the same voice_archetypes.json reference dataset. Exposes suggest_sample_text(attrs) -> str | None, returning a match only at close/exact confidence, None otherwise (never a composed guess)."
+    },
+    {
+      "path": "app/db/speakers.py",
+      "change": "New profile_has_custom_test_text(profile_name_or_id) -> bool: reads profile.json directly (not through get_speaker_settings, which always backfills a default) and returns whether 'test_text' key is actually present -- the signal for 'safe to apply a suggestion without clobbering something the user set.'"
+    },
+    {
+      "path": "app/api/routers/voices_helpers.py",
+      "change": "submit_sample_test_job (shared by POST /{name}/test and the HF publish flow) now checks profile_has_custom_test_text before building the sample job; if never customized, loads the voice manifest's attributes (checking both pdir and pdir.parent, since pdir is either the voice root or a variant subdirectory depending on layout) and calls suggest_sample_text. On a match, persists it via update_speaker_settings and re-fetches settings before the job is built, so both the synthesized sample and the Script Editor's displayed test_text reflect the suggestion afterward."
+    }
+  ],
+  "tests_added": [
+    "tests/domain/test_recording_archetypes.py -- 6 cases: empty/missing attrs -> None, exact match, close match, no-match -> None (not a guess), threshold constants pinned to match the TS suggester, determinism.",
+    "tests/api/test_api_voices_sample_text_suggestion.py -- 4 cases through the real POST /{name}/test endpoint: never-customized + closely-tagged voice gets the archetype sample text; already-customized test_text is never overwritten; untagged voice keeps the generic default; tagged-but-no-close-match keeps the generic default.",
+    "frontend/tests/unit/pages/Voices/components/metadata/recordingPromptSuggester.test.ts -- extended existing exact/close/composed cases with sampleText assertions (archetype text for exact/close, null for composed).",
+    "frontend/tests/unit/pages/Voices/components/metadata/recordingPromptSuggester.tieAndThresholds.test.ts -- fixture archetypes updated with the now-required sample_text field."
+  ],
+  "revert_checked": "Python-side: renamed app/domain/voices/recording_archetypes.py aside -> tests/domain/test_recording_archetypes.py fails to import (red for the right reason), restored -> green. API wiring: temporarily replaced the 'if not profile_has_custom_test_text(name):' guard with 'if False:' inline (git stash was unsafe here -- a concurrent agent session shares this working tree and stash would have discarded its uncommitted work too, confirmed the hard way and immediately reverted) -> the never-customized/closely-tagged case failed as expected (asserted the generic default instead of the archetype line), the other 3 cases stayed green (they assert the override does NOT happen) -> restored, all 4 green again.",
+  "verified_live": "Not yet clicked through in the running app UI this session -- verified via the real POST /api/speaker-profiles/{name}/test endpoint through FastAPI's TestClient (same route the UI's 'Generate Sample' button calls), full backend suite (2333 passed, 3 pre-existing unrelated failures in test_peaks_emission_on_finalize.py from an earlier commit), full relevant frontend suite (148 passed across Voices), tsc --noEmit clean, eslint clean.",
+  "known_gap_flagged_not_fixed": "None. The frontend suggester's sampleText field is currently only consumed by the ScriptEditor's 'Suggest from voice qualities' button indirectly (same suggestRecordingPrompt() call) -- no dedicated UI surfaces sampleText on its own yet, but the backend auto-apply on first sample generation is the primary path this task asked for."
+}

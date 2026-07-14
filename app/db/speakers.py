@@ -190,6 +190,32 @@ def get_profile_wavs(profile_name_or_id: str) -> Optional[str]:
     return ",".join([str(w.absolute()) for w in wavs])
 
 
+def profile_has_custom_test_text(profile_name_or_id: str) -> bool:
+    """True if this profile's profile.json explicitly sets ``test_text``.
+
+    False means the profile has never had one written (by the user, or by any
+    other caller) and would fall back to ``DEFAULT_SPEAKER_TEST_TEXT`` in
+    ``get_speaker_settings`` -- the signal a caller needs to know whether it's
+    safe to apply an archetype-suggested sample line without clobbering
+    something the user already set.
+    """
+    target_profile = _resolve_existing_profile_name(profile_name_or_id)
+    if not target_profile:
+        return False
+    pdir = _existing_profile_dir(target_profile)
+    if not pdir:
+        return False
+    meta_file = find_secure_file(pdir, "profile.json")
+    if not meta_file:
+        return False
+    try:
+        with open(meta_file, "r", encoding="utf-8", errors="replace") as f:
+            meta = json.loads(f.read())
+    except Exception:
+        return False
+    return "test_text" in meta
+
+
 def get_speaker_settings(profile_name_or_id: str) -> dict:
     """Returns metadata (like speed and test text) for a profile or speaker ID, falling back to global settings."""
     from ..db.state import get_settings
