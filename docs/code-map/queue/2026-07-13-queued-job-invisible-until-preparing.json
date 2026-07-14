@@ -1,0 +1,28 @@
+{
+  "date": "2026-07-13",
+  "author": "claude",
+  "summary": "Owner report: clicking 'Queue' on a chapter showed nothing in the Global Queue UI for a noticeable delay, appearing only once the job reached 'preparing'/'running'. Root cause: app/db/state_jobs.py's put_job() computed _snapshot_status_changed as `bool(existing_job and _snapshot_existing_status != job.status)` -- for a BRAND-NEW job, existing_job is None, so this is unconditionally False, even though a new job's creation genuinely IS a status transition (nonexistent -> queued). That False flowed into broadcast_job_updated's `(status_changed or prev_status is None or terminal_reset)` gate for the jobs.lifecycle broadcast. previous_status was correctly passed as None, but broadcast_job_updated's fallback (when previous_status is None) re-derives prev_status from `current_job.get('status')` -- and put_job passes the JUST-WRITTEN new job's own state as current_job (by design, so `merged` has every field) -- so prev_status came back 'queued' instead of genuinely unknown, and `prev_status is None` never fired either. Net effect: a freshly queued job's FIRST broadcast was silently swallowed; the frontend's useJobs only creates a new row from a jobs.lifecycle (or queue.items) event, so the job stayed invisible until a LATER, unrelated status transition (which does have a real prior status to differ from) finally announced it -- matching the observed 'nothing until preparing' delay.",
+  "files": [
+    {
+      "path": "app/db/state_jobs.py",
+      "change": "put_job()'s _snapshot_status_changed now also counts existing_job is None (brand-new job creation) as a real transition: `existing_job is None or _snapshot_existing_status != job.status`, not just an existing job's status differing."
+    },
+    {
+      "path": "tests/db/test_state_jobs_broadcast.py",
+      "change": "Added test_put_job_announces_a_brand_new_job_via_jobs_lifecycle: mocks app.api.ws.manager, calls put_job for a brand-new job, asserts a jobs.lifecycle topic message is broadcast."
+    },
+    {
+      "path": "tests/api/test_websocket_broadcast.py",
+      "change": "test_put_job_broadcasts_job_lifecycle_on_queued previously asserted updates['status_changed'] is False for a brand-new queued job -- that assertion WAS the bug, encoded as expected behavior. Corrected to assert True, with a comment explaining why."
+    }
+  ],
+  "tests_added": [
+    "tests/db/test_state_jobs_broadcast.py::test_put_job_announces_a_brand_new_job_via_jobs_lifecycle"
+  ],
+  "tests_corrected": [
+    "tests/api/test_websocket_broadcast.py::test_put_job_broadcasts_job_lifecycle_on_queued"
+  ],
+  "revert_checked": "Reverted the _snapshot_status_changed line: the new test failed (no jobs.lifecycle topic in the broadcast messages) for exactly the reported reason, and the corrected existing test failed back to expecting False. Restored the fix; both pass.",
+  "sibling_verification": "Ran tests/db/, tests/orchestration/, tests/api/test_websocket_broadcast.py, tests/api/test_api_jobs.py, tests/api/test_api_queue.py (855 tests) all green, then the full backend suite (2334 passed, 3 skipped) -- the only 3 failures (tests/orchestration/test_peaks_emission_on_finalize.py) are pre-existing order-dependent flakes unrelated to this change, confirmed by re-running that file alone (5/5 passed).",
+  "not_investigated": "The user separately asked about the top mini progress bar starting at a low percent (e.g. 2-4%) on resume instead of reflecting whole-chapter completion. That is a SEPARATE, already-diagnosed issue in app/orchestration/tasks/segment_synthesis.py's _publish_progress (completed/total scoped to only the remaining/re-dispatched groups on resume, not the whole chapter) -- the owner explicitly deferred fixing that ('if a triage would prefer to show only the remaining amount then do that'), so it was intentionally left as-is this session, not silently missed."
+}

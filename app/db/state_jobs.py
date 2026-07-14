@@ -88,7 +88,18 @@ def put_job(job: Job) -> None:
         # uses consistent data even if a concurrent update_job interleaves.
         _snapshot_is_terminal_reset = is_terminal_reset
         _snapshot_previous_status = _snapshot_existing_status
-        _snapshot_status_changed = bool(existing_job and _snapshot_existing_status != job.status)
+        # 2026-07-13 fix: a brand-new job (no existing_job) must count as a
+        # real transition too, not just an existing job's status differing.
+        # broadcast_job_updated's fallback (when previous_status is None)
+        # re-derives prev_status from `current_job` — which put_job passes as
+        # the JUST-WRITTEN new job's own state, so that fallback would read
+        # back "queued" instead of "nothing before this." Without
+        # status_changed=True here, the `(status_changed or prev_status is
+        # None or terminal_reset)` gate for the jobs.lifecycle broadcast never
+        # fires, so a freshly queued job never announces itself — it stayed
+        # invisible in the Global Queue UI until some LATER, unrelated status
+        # transition (which does have a real prior status) finally did.
+        _snapshot_status_changed = existing_job is None or _snapshot_existing_status != job.status
 
         state["jobs"][job.id] = asdict(job)
         _atomic_write_text(get_state_file(), json.dumps(state, indent=2))

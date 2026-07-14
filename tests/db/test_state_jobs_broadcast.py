@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from app.db.state import update_job, put_job, clear_all_jobs, STATE_FILE, requeue, get_jobs
 from app.db.models import Job
+from app.api import ws as ws_module
 
 
 @pytest.fixture(autouse=True)
@@ -313,3 +314,44 @@ def test_update_job_non_skip_reason_computes_eta_projection():
     )
     assert isinstance(stored.eta_seconds, int)
     assert stored.eta_seconds > 0
+
+
+# ---------------------------------------------------------------------------
+# 2026-07-13 fix — a brand-new job's FIRST put_job() must announce itself
+# ---------------------------------------------------------------------------
+
+def test_put_job_announces_a_brand_new_job_via_jobs_lifecycle(monkeypatch):
+    """Owner report: clicking "Queue" showed nothing in the Global Queue UI
+    until the job later transitioned to "preparing"/"running" via the
+    orchestrator's own ProgressService publish. Root cause: put_job() passes
+    the NEW job's own full state as `current_job` to broadcast_job_updated
+    (so `merged` has every field, matching intent) — but that same value also
+    gets used, when `previous_status` is None, as the FALLBACK source for
+    `prev_status`. For a brand-new job, `previous_status` IS explicitly None
+    (there genuinely was no prior job), but the fallback then reads
+    `current_job.get("status")` -- the NEW job's OWN status ("queued") -- so
+    `prev_status` comes out "queued" instead of None, `status_changed` was
+    ALSO computed as False (no existing_job to differ from), and the
+    `(status_changed or prev_status is None or terminal_reset)` gate that
+    triggers the jobs.lifecycle broadcast never fires. The frontend's
+    `useJobs` only creates a NEW row from a jobs.lifecycle (or queue.items)
+    event — a brand-new job was invisible until some LATER, unrelated status
+    transition (which correctly has a real prior status to differ from)
+    finally announced it.
+    """
+    messages = []
+
+    class DummyManager:
+        def broadcast(self, message):
+            messages.append(message)
+
+    monkeypatch.setattr(ws_module, "manager", DummyManager())
+
+    job = _make_job("job-brand-new", status="queued", chapter_id="chap-1", project_id="proj-1")
+    put_job(job)
+
+    topics = [m.get("topic") for m in messages]
+    assert "jobs.lifecycle" in topics, (
+        "A brand-new job's first put_job() must broadcast jobs.lifecycle so "
+        f"the frontend can create its row immediately. Got topics: {topics}"
+    )
