@@ -1,5 +1,10 @@
 import React from 'react';
 import type { SystemResourceSample } from '@/hooks/useSystemResourceSamples';
+import { smoothPath } from './smoothPath';
+
+// Moderate smoothing — rounded enough to look refined, but not so much that
+// spikes flatten into sine-like hills.
+const SMOOTHING = 0.65;
 
 export interface SystemResourceStripProps {
   samples: SystemResourceSample[];
@@ -35,28 +40,31 @@ function scaleY(p: number): number {
   return SPARK_HEIGHT - (Math.max(0, Math.min(100, p)) / 100) * SPARK_HEIGHT;
 }
 
-function buildSparklinePoints(pcts: number[]): string {
-  if (pcts.length === 0) return '';
+function sparklinePts(pcts: number[]): { x: number; y: number }[] {
+  if (pcts.length === 0) return [];
   if (pcts.length === 1) {
     const y = scaleY(pcts[0]);
-    return `0,${y.toFixed(1)} ${SPARK_WIDTH},${y.toFixed(1)}`;
+    return [
+      { x: 0, y },
+      { x: SPARK_WIDTH, y },
+    ];
   }
   const step = SPARK_WIDTH / (pcts.length - 1);
-  return pcts
-    .map((p, i) => {
-      const x = i * step;
-      const y = scaleY(p);
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(' ');
+  return pcts.map((p, i) => ({ x: i * step, y: scaleY(p) }));
 }
 
-/** Baseline-anchored fill path: the sparkline line, dropped down to the bottom edge and closed. */
+/** Smoothed line path through the trailing samples. */
+function buildSparklineLinePath(pcts: number[]): string {
+  return smoothPath(sparklinePts(pcts), SMOOTHING);
+}
+
+/** Baseline-anchored fill path: the smoothed sparkline line, dropped down to the bottom edge and closed. */
 function buildSparklineAreaPath(pcts: number[]): string {
-  if (pcts.length === 0) return '';
-  const points = buildSparklinePoints(pcts).split(' ');
-  const lastX = points[points.length - 1].split(',')[0];
-  return `M0,${SPARK_HEIGHT} L${points.join(' L')} L${lastX},${SPARK_HEIGHT} Z`;
+  const pts = sparklinePts(pcts);
+  if (pts.length === 0) return '';
+  const line = smoothPath(pts, SMOOTHING);
+  const lastX = pts[pts.length - 1].x;
+  return `${line} L${lastX.toFixed(1)},${SPARK_HEIGHT} L0,${SPARK_HEIGHT} Z`;
 }
 
 interface ResourceRowProps {
@@ -107,6 +115,7 @@ const ResourceRow: React.FC<ResourceRowProps> = ({ label, pcts, valueText, acces
               y2={SPARK_HEIGHT / 2}
               stroke="var(--border)"
               strokeWidth={1}
+              vectorEffect="non-scaling-stroke"
             />
           ) : (
             <>
@@ -118,10 +127,32 @@ const ResourceRow: React.FC<ResourceRowProps> = ({ label, pcts, valueText, acces
                 stroke="var(--border)"
                 strokeWidth={0.75}
                 strokeDasharray="2,1.5"
+                vectorEffect="non-scaling-stroke"
               />
               <path d={buildSparklineAreaPath(pcts)} fill={tierColor} fillOpacity={0.16} stroke="none" />
-              <polyline points={buildSparklinePoints(pcts)} fill="none" stroke={tierColor} strokeWidth={1.25} />
-              {lastPoint && <circle cx={lastPoint.x} cy={lastPoint.y} r={2} fill={tierColor} />}
+              <path
+                d={buildSparklineLinePath(pcts)}
+                fill="none"
+                stroke={tierColor}
+                strokeWidth={1.25}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                vectorEffect="non-scaling-stroke"
+              />
+              {lastPoint && (
+                // Zero-length round-capped stroke instead of a <circle>: with
+                // preserveAspectRatio="none" the viewBox scales x/y unevenly,
+                // which stretches a plain circle into an ellipse. A stroke's
+                // round linecap is drawn in unscaled stroke-space (especially
+                // with vector-effect), so it stays a true circle.
+                <path
+                  d={`M${lastPoint.x.toFixed(1)},${lastPoint.y.toFixed(1)} l 0.01 0`}
+                  stroke={tierColor}
+                  strokeWidth={4}
+                  strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              )}
             </>
           )}
         </svg>
