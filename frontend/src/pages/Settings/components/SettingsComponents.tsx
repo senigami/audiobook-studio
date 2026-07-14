@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { Minus, Plus } from 'lucide-react';
 import type { SettingsTab } from '@/pages/Settings/settingsRouteConfig';
 import type { RuntimeService } from '@/types';
 import { api } from '@/api';
@@ -103,6 +104,113 @@ export const ToggleButton: React.FC<{ id?: string; enabled: boolean; busy: boole
     {busy ? '...' : enabled ? 'ON' : 'OFF'}
   </button>
 );
+
+/**
+ * Apple-style "- [value] +" numeric stepper. The middle field stays a real,
+ * editable text input (so a value can still be typed directly), flanked by
+ * icon-only minus/plus buttons that step and clamp to [min, max].
+ *
+ * Commit semantics are caller-controlled: `onStep` fires immediately (with
+ * an already-clamped value) for both button clicks; `onInputChange`/
+ * `onInputBlur` mirror a plain <input>'s onChange/onBlur for the typed path,
+ * so a caller can choose immediate-commit (only pass onInputChange) or
+ * staged-commit-on-blur (pass onInputChange for local display state and
+ * onInputBlur to actually persist) without this component knowing which.
+ */
+export const NumberStepper: React.FC<{
+  id?: string;
+  ariaLabel: string;
+  value: number;
+  displayValue?: string;
+  min: number;
+  max: number;
+  step?: number;
+  disabled?: boolean;
+  onStep: (next: number) => void;
+  onInputChange?: (raw: string) => void;
+  onInputBlur?: (raw: string) => void;
+}> = ({ id, ariaLabel, value, displayValue, min, max, step = 1, disabled, onStep, onInputChange, onInputBlur }) => {
+  const [pressed, setPressed] = React.useState<'dec' | 'inc' | null>(null);
+  const clamp = (n: number) => Math.min(max, Math.max(min, n));
+  const canDecrement = !disabled && value > min;
+  const canIncrement = !disabled && value < max;
+
+  // A single fused capsule — one continuous control split by hairlines, not
+  // three separate floating buttons. Matches Apple's numeric stepper pattern
+  // (e.g. the border-width / line-spacing pickers in Pages/Numbers, or
+  // Shortcuts' "Repeat" count): one shape, minimal chrome, segments share the
+  // outer border instead of each drawing its own.
+  const segmentStyle = (enabled: boolean, isPressed: boolean): React.CSSProperties => ({
+    display: 'grid',
+    placeItems: 'center',
+    width: 32,
+    height: 32,
+    border: 'none',
+    background: isPressed ? 'var(--surface-pressed)' : 'transparent',
+    color: enabled ? 'var(--text-primary)' : 'var(--text-muted)',
+    cursor: enabled ? 'pointer' : 'not-allowed',
+  });
+
+  return (
+    <div
+      style={{
+        display: 'inline-flex',
+        flexShrink: 0,
+        alignItems: 'stretch',
+        borderRadius: 'var(--radius-round)',
+        border: '1px solid var(--border)',
+        background: 'var(--surface)',
+        overflow: 'hidden',
+      }}
+    >
+      <button
+        type="button"
+        aria-label={`Decrease ${ariaLabel}`}
+        disabled={!canDecrement}
+        onClick={() => onStep(clamp(value - step))}
+        onMouseDown={() => setPressed('dec')}
+        onMouseUp={() => setPressed(null)}
+        onMouseLeave={() => setPressed(null)}
+        style={{ ...segmentStyle(canDecrement, pressed === 'dec'), borderRight: '1px solid var(--border)' }}
+      >
+        <Minus size={14} strokeWidth={2.5} />
+      </button>
+      <input
+        id={id}
+        type="text"
+        inputMode="numeric"
+        aria-label={ariaLabel}
+        disabled={disabled}
+        value={displayValue ?? String(value)}
+        onChange={(e) => onInputChange?.(e.target.value)}
+        onBlur={(e) => onInputBlur?.(e.target.value)}
+        style={{
+          width: '2.25rem',
+          height: 32,
+          minHeight: 32,
+          textAlign: 'center',
+          border: 'none',
+          background: 'transparent',
+          color: 'var(--text-primary)',
+          fontSize: '0.9rem',
+          fontWeight: 800,
+        }}
+      />
+      <button
+        type="button"
+        aria-label={`Increase ${ariaLabel}`}
+        disabled={!canIncrement}
+        onClick={() => onStep(clamp(value + step))}
+        onMouseDown={() => setPressed('inc')}
+        onMouseUp={() => setPressed(null)}
+        onMouseLeave={() => setPressed(null)}
+        style={{ ...segmentStyle(canIncrement, pressed === 'inc'), borderLeft: '1px solid var(--border)' }}
+      >
+        <Plus size={14} strokeWidth={2.5} />
+      </button>
+    </div>
+  );
+};
 
 export const StatusCard: React.FC<{
   icon: React.ComponentType<{ size?: number }>;

@@ -71,6 +71,17 @@
   line-height: 1.55;
 }
 
+/* Apple disclosure-triangle convention (Finder outline view, macOS
+   sidebars/inspectors): points right at rest, rotates 90° clockwise to
+   point down when expanded — not down-to-up. */
+.details-chevron {
+  transition: transform var(--dur-fast, 0.15s) var(--ease-standard, ease);
+}
+
+.engine-card[open] > .engine-card__header .details-chevron {
+  transform: rotate(90deg);
+}
+
 /* Status + verification chips in the header — static shell; the tone-driven
    color/background/border still come from getBadgeStyles() inline (dynamic,
    see settingsRouteHelpers.ts). */

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, Cloud, Play, ShieldCheck, Download, Trash2, ShieldAlert, Loader2 } from 'lucide-react';
+import { ChevronRight, Cloud, Play, ShieldCheck, Download, Trash2, ShieldAlert, Loader2 } from 'lucide-react';
 import type { TtsEngine, Settings } from '@/types';
 import { api } from '@/api';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { PluginTrustModal, type PluginPreviewInfo } from '@/components/overlays/PluginTrustModal';
-import { ToggleButton } from '@/pages/Settings/components/SettingsComponents';
+import { ToggleButton, NumberStepper } from '@/pages/Settings/components/SettingsComponents';
 import { getEngineStatusLabel, getBadgeStyles } from '@/pages/Settings/settingsRouteHelpers';
 import { EngineDevPanel } from '@/pages/Engines/components/EngineDevPanel';
 import { mergeScenarioEngine } from '@/pages/Engines/components/engineScenarioMerge';
@@ -191,7 +191,7 @@ export const EngineCard: React.FC<{
     <details className="engine-card">
       <summary className="engine-card__header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-          <ChevronDown size={17} color="var(--text-muted)" className="details-chevron" />
+          <ChevronRight size={17} color="var(--text-muted)" className="details-chevron" />
           {engine.logo_url && (
             <div className="engine-card__logo">
               <img
@@ -364,29 +364,20 @@ export const EngineCard: React.FC<{
               Override how many segments this engine may render at once (up to {engineCapCeiling} — engine limit). Takes effect on next app restart.
             </p>
           </div>
-          <input
+          <NumberStepper
             id={`engine-cap-${engine.engine_id}`}
-            type="number"
-            inputMode="numeric"
+            ariaLabel={`${engine.display_name} concurrent render cap`}
+            value={Number(engineCapInput) || 1}
+            displayValue={engineCapInput}
             min={1}
             max={engineCapCeiling}
-            step={1}
-            aria-label={`${engine.display_name} concurrent render cap`}
-            placeholder={`up to ${engineCapCeiling}`}
-            value={engineCapInput}
             disabled={savingCap}
-            onChange={(e) => setEngineCapInput(e.target.value)}
-            onBlur={(e) => handleSaveEngineCap(e.target.value)}
-            style={{
-              width: '90px',
-              padding: '0.45rem',
-              borderRadius: '8px',
-              border: '1px solid var(--border)',
-              background: 'var(--surface)',
-              color: 'var(--text-primary)',
-              fontSize: '0.85rem',
-              fontWeight: 800,
+            onStep={(next) => {
+              setEngineCapInput(String(next));
+              handleSaveEngineCap(String(next));
             }}
+            onInputChange={(raw) => setEngineCapInput(raw)}
+            onInputBlur={(raw) => handleSaveEngineCap(raw)}
           />
         </div>
 

@@ -1225,6 +1225,31 @@ def test_add_to_queue_resolves_segment_profiles_once_per_request(clean_db, clien
     )
 
 
+def test_engines_for_profiles_resolves_each_distinct_profile_once():
+    """``_engines_for_profiles`` must call ``resolve_profile_engine`` at most
+    once per *distinct* profile name, not once per segment. Each call reads
+    state.json plus a voice-profile dir off disk, so calling it once per
+    segment turned an ~1000-segment "Queue All" into an ~18s N+1 stall before
+    the request even responded with a queue_id."""
+    import app.api.routers.generation as generation
+
+    calls = []
+
+    def fake_resolve(profile_name, fallback_engine=None):
+        calls.append(profile_name)
+        return "xtts"
+
+    profile_names = ["VoiceA"] * 1000
+    with patch.object(generation, "resolve_profile_engine", side_effect=fake_resolve):
+        engines = generation._engines_for_profiles(profile_names, None)
+
+    assert engines == ["xtts"]
+    assert calls == ["VoiceA"], (
+        f"expected resolve_profile_engine to be called exactly once for the single "
+        f"distinct profile, got {len(calls)} calls"
+    )
+
+
 def test_generate_segments_resolves_segment_profiles_once_per_request(clean_db, client):
     """api_generate_segments resolves profiles for a segment subset
     (only_segment_ids=set(sids)) via ``_resolved_segment_profiles``; that

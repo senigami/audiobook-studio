@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ShieldCheck, PlugZap, Music, Palette, FlaskConical, Layers, KeyRound } from 'lucide-react';
 import type { Settings as AppSettings, SpeakerProfile, TtsEngine, Speaker } from '@/types';
 import { buildVoiceOptions } from '@/utils/voiceProfiles';
-import { SettingCard, ToggleButton } from '@/pages/Settings/components/SettingsComponents';
+import { SettingCard, ToggleButton, NumberStepper } from '@/pages/Settings/components/SettingsComponents';
 import { loadThemePref, saveThemePref, type Theme } from '@/utils/theme';
 import { isDevModeEnabled, setDevModeEnabled, useDevMode } from '@/utils/devMode';
 
@@ -231,6 +231,7 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
                   borderRadius: '8px',
                   border: '1px solid var(--border)',
                   background: 'var(--surface)',
+                  color: 'var(--text-primary)',
                   fontSize: '0.85rem',
                   fontWeight: 800,
                   minWidth: '140px',
@@ -261,6 +262,7 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
                   borderRadius: '8px',
                   border: '1px solid var(--border)',
                   background: 'var(--surface)',
+                  color: 'var(--text-primary)',
                   fontSize: '0.85rem',
                   fontWeight: 800,
                   minWidth: '140px',
@@ -285,30 +287,18 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
             title="Parallel Segment Rendering"
             description="How many segments Studio may render at once, across all engines. Set to 1 to force strictly one-at-a-time (sequential) rendering."
             action={
-              <input
-                type="number"
-                inputMode="numeric"
+              <NumberStepper
+                ariaLabel="Max concurrent segment renders"
+                value={settings?.tts_parallel_cap ?? 1}
                 min={1}
                 max={MAX_GLOBAL_PARALLEL_CAP}
-                step={1}
-                aria-label="Max concurrent segment renders"
-                value={settings?.tts_parallel_cap ?? 1}
                 disabled={savingKey === 'tts_parallel_cap'}
-                onChange={(e) => {
-                  const raw = parseInt(e.target.value, 10);
-                  if (Number.isNaN(raw)) return;
-                  const clamped = Math.min(MAX_GLOBAL_PARALLEL_CAP, Math.max(1, raw));
+                onStep={(next) => updateParallelCap(next)}
+                onInputChange={(raw) => {
+                  const parsed = parseInt(raw, 10);
+                  if (Number.isNaN(parsed)) return;
+                  const clamped = Math.min(MAX_GLOBAL_PARALLEL_CAP, Math.max(1, parsed));
                   updateParallelCap(clamped);
-                }}
-                style={{
-                  width: '80px',
-                  padding: '0.45rem',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface)',
-                  color: 'var(--text-primary)',
-                  fontSize: '0.85rem',
-                  fontWeight: 800,
                 }}
               />
             }

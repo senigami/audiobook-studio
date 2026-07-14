@@ -77,4 +77,11 @@ Can start in parallel with Stage 4 (different files); finish before Stage 6.
 
 ## Post-release backlog (explicitly NOT gating)
 
-Doc 12 Part 2 ideas (ACX QA, audition panel, lexicon, …), doc 05's deferred rename (`plugins/` → `tts_engines/`; note `synthesis_mixed` → `tts_mixed` is now IN-scope pre-release per owner decision 2026-06-10, doc 05 §4.4), doc 11 P8–P9 leftovers, doc 12 S-hardening beyond blockers, plugin signing. After release, the versioned contracts from Stage 3 are the compatibility mechanism — legacy support obligations begin at v2.0.0, not before.
+**See [`design-docs/plans/post_release_backlog.md`](../../post_release_backlog.md)** — the
+canonical list of post-2.0 product/engineering ideas (ACX QA, audition panel, lexicon, dynamic
+VRAM-aware concurrency throttling, …), captured as they come up so nothing gets lost, scoped
+later when the owner picks one to schedule. Also not gating: doc 05's deferred rename
+(`plugins/` → `tts_engines/`; note `synthesis_mixed` → `tts_mixed` is now IN-scope pre-release
+per owner decision 2026-06-10, doc 05 §4.4), doc 11 P8–P9 leftovers, doc 12 S-hardening beyond
+blockers, plugin signing. After release, the versioned contracts from Stage 3 are the
+compatibility mechanism — legacy support obligations begin at v2.0.0, not before.

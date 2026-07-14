@@ -347,14 +347,16 @@ def _build_chapter_synthesis_task(
 
 def _engines_for_profiles(profile_names: list[Optional[str]], fallback_engine: Optional[str]) -> list[str]:
     engines: list[str] = []
-    seen: set[str] = set()
+    seen_profiles: set[str] = set()
+    seen_engines: set[str] = set()
     for profile_name in profile_names:
-        if not profile_name:
+        if not profile_name or profile_name in seen_profiles:
             continue
+        seen_profiles.add(profile_name)
         engine_id = resolve_profile_engine(profile_name, fallback_engine)
-        if engine_id in seen:
+        if engine_id in seen_engines:
             continue
-        seen.add(engine_id)
+        seen_engines.add(engine_id)
         engines.append(engine_id)
     return engines
 

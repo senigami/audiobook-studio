@@ -150,11 +150,12 @@ def resolve_tts_engine_for_profiles(
     fallback_engine: Optional[str] = None,
 ) -> tuple[str, bool]:
     fallback = resolve_profile_engine(default_profile, fallback_engine)
+    distinct_profiles = set(profile_names)
     resolved = {
         engine_id
         for engine_id in (
             resolve_profile_engine(profile_name, fallback)
-            for profile_name in profile_names
+            for profile_name in distinct_profiles
         )
         if engine_id
     }
