@@ -25,6 +25,19 @@
 > moved FURTHER from deletable, not closer. DC-2 stub routes and DC-3b targets
 > (`LiveOutputTab.tsx`, `ChapterEditorRoute.tsx`) still exist untouched.
 
+> **⚠ AUDIT CORRECTION (2026-07-12):** Re-verified per the "owner-deferred" audit. Restoration
+> precondition IS now met — RST-1..8 and WIRE-1..3 are all `[x]` done in `TASKS.md`. But the second
+> precondition (trees are truly dead) is **not** met, and has regressed further: `App.tsx` now
+> imports `ProjectDetailPage` directly for a real, live `/chapter/:chapterId`-adjacent route (not a
+> `<Navigate>` stub as of the 2026-07-01 note) — the route-level reachability excuse from that note no
+> longer applies either. `grep` confirms both trees still have live cross-tree importers:
+> `ProjectDetail/` from `App.tsx`, `ProjectLibraryPage.tsx`, `Book/stages/PublishStage.tsx`,
+> `Book/components/BookInfoCard.tsx`; `ChapterEditor/` from `CharactersTab.tsx`, 4
+> `hooks/chapter/*` files, and 7 files under `Book/`. **DC-1b stays blocked — this is not an owner
+> decision, it's a mechanical re-check that keeps failing.** No further action needed until a real
+> dead-code pass re-extracts these live dependents out of the trees first (DC-1a-style), at which
+> point re-run this same grep.
+
 ---
 
 ## Background (verified)

@@ -394,9 +394,9 @@ Plan: [final_release/stage3_sdk_migration_plan.md](active/final_release/stage3_s
   - [x] RST-6 chapter default-voice picker
   - [x] RST-7 engine-unavailable banner
   - [x] Book-scope pronunciation Lexicon (`apply_lexicon` wired across all render paths)
-  - [ ] RST-8 segment-aware player *(→ task 004, deferred by owner)*
-  - [ ] Per-span range assignment *(deferred by owner)*
-  - [ ] DC-1b dead-tree deletion *(gated on RST-8)*
+  - [x] RST-8 segment-aware player *(done — see task 004 row below, 2026-07-10; this line was stale, RST-8 was never actually owner-deferred, it just moved to a dependent task and completed there)*
+  - [x] Per-span range assignment *(already shipped — `chapter_segments` is the span table, `_apply_range_assignment()` is the backend split; this line was stale, no owner/design decision was ever actually needed, see [master_fix_plan 012](master_fix_plan/tasks/012-deferred-and-open-questions.md#resolved-was-mislabeled-as-an-open-owner-decision). Two narrow gaps remain, tracked there: spans don't survive source-text resync, and undo is generic U1 work, not span-specific.)*
+  - [ ] DC-1b dead-tree deletion *(re-verified 2026-07-12, still blocked — NOT an owner decision: `ProjectDetail`/`ChapterEditor` trees are still live-imported/route-mounted, more so than the 2026-07-01 check found; see [02_frontend_dead_code_removal.md](active/simplification/02_frontend_dead_code_removal.md) audit correction)*
   - [x] Follow-up: fix the underlying XTTS synthesis failure surfaced by [task 015](reference/book_view_redesign/tasks/015-surface-xtts-worker-error-on-failure.md) (diagnostics shipped; root-cause fix still open) *(RESOLVED 2026-06-19 by commit `8b9ae90a` — warm-worker orphaned stderr reader corrupted 2nd+ render markers; revert-checked test `test_every_job_receives_its_own_markers`; closure confirmed by audit 2026-07-01)*
   - [x] Follow-up: live-verify XTTS progress relay + segment highlights; check task_id mismatch if highlights don't fire ([task 019](reference/book_view_redesign/tasks/019-relay-xtts-progress-over-http.md)) *(RESOLVED — relay live + extended by the W-MIX-LA series; owner live-verified the synthesis core 2026-06-29)*
 
@@ -616,6 +616,7 @@ These plans exist but need a design/owner call before they become schedulable wo
   > - Switch modes rapidly — scroll position, playback position, and assignments are all preserved — ✅ confirmed live (playback state specifically verified to persist across Cast→Booth→Revise→Write switches)
 
 - [x] **Dynamic recording-guide prompts** — archived plan at [_archive/dynamic_recording_guide/README.md](_archive/dynamic_recording_guide/README.md) *(DONE 2026-07-10)* — adds a "Suggest from voice qualities" action to the voice-profile Script Editor: given a voice's tagged Class/Gender/Age/Tone/Timbre/Pace, suggests a recording prompt matching one of 39 curated archetypes ([design-docs/reference/voice-archetypes/](../reference/voice-archetypes/README.md), also as `.csv`/`.json`, plus a new 52-entry (28 Tone + 24 Timbre) tone/timbre phrase-fragment dictionary for the composed-fallback path) when close, or composes a fallback otherwise. Augments `test_text` (a suggestion, not a forced replacement) — no backend/schema change needed, confirmed `test_text` already round-trips through the existing settings-save path. All 4 tasks done: fragment dictionary (authored directly by the orchestrator, not delegated), `suggestRecordingPrompt()` (scoring thresholds validated against real archetype data before writing tests), wiring into `ScriptEditor.tsx` (threaded the previously-unused `voiceMetadataMap` through `VoicesPage.tsx`→`VoicesModals.tsx`→`ScriptEditor.tsx`), green gate (131/131 relevant tests, full suite 1809 passing, tsc/lint/build clean). Live verification was partial: confirmed the app loads and the Voices page renders tagged voices correctly, but the exact click path to the Script Editor drawer wasn't found within budget, and one exploratory click accidentally triggered a real (non-destructive) `POST /api/speaker-profiles/{name}/build` job — no data lost, just recomputed an existing voice's latent. The button's correctness rests on thorough static-diff review + unit tests rather than an in-browser click-through; recommend a quick owner sanity check.
+  - [x] **Follow-up (DONE 2026-07-12): archetype-matched sample text for "Generate Sample."** The 39-archetype dataset gained a `sample_text` field (a short TTS-showcase line, distinct from the longer `recording_prompt` written for a human voice actor). `suggestRecordingPrompt()`'s result now also carries `sampleText` (archetype match only, no composed-fallback guess). Backend: new `app/domain/voices/recording_archetypes.py` ports the same scoring algorithm and `submit_sample_test_job` (the shared job-builder behind `POST /{name}/test`) now auto-applies the matched sample text the *first* time a tagged-but-never-customized voice generates a sample — clicking "Generate Sample" on a fresh archetype-tagged voice gets a tailored line instead of the generic `DEFAULT_SPEAKER_TEST_TEXT`, and never overwrites anything already customized. New `app/db/speakers.py::profile_has_custom_test_text()` is the exact-key-presence check that makes "never customized" reliable. 10 new backend tests (Python matcher + real endpoint wiring, R1 revert-checked without git stash — a concurrent agent session shared this working tree, so stash was unsafe and a targeted in-place disable was used instead) + updated frontend suggester tests, full suites green.
 
 - [~] **HuggingFace voice browse + upload** — [plan](active/v2_huggingface_voice_interface.md) *(LIVE as of 2026-07-03 — real `huggingface_hub` network client, router, and frontend Discover tab all wired; see per-item notes for what's genuinely done vs. still deferred)*
   - [x] Import flow: search HF Hub → inspect card + license → consent gate → download → register as local voice → annotate metadata *(DONE 2026-07-03 — `HFHubClient` in `app/domain/voices/huggingface.py` makes real HTTPS calls via `huggingface_hub`; `POST /api/voices/huggingface/import` in `app/api/routers/voices_huggingface.py` runs the full flow synchronously and writes `provenance = {"source": "imported", "author", "consent_ack": true, "created_at"}` — the correct §8.1 shape, not the north-star mockup's stale `source: "huggingface"`/`hub_id` shape. Deliberately does NOT call the engine-specific `build_voice_asset` — see next line.)*
@@ -654,6 +655,32 @@ These plans exist but need a design/owner call before they become schedulable wo
   > - A voice with no structured attributes still appears in suggestions, with a lower confidence label
 
 ---
+
+## Pre-built, not yet wired *(agent-built ahead of schedule — audit 2026-07-12)*
+
+Sweep for substantial code that exists but is never imported/registered anywhere on a live path, to
+close the gap where an agent finds a "new" task already nearly done and nobody had documented it.
+Frontend turned up nothing new — every orphan (`src/demo/`, `src/i18n/`, the `Studio 2.0 boundary —
+not implemented yet` stubs) is already deliberate, already-documented scaffolding (see i18n line
+above). Two backend items were genuinely undocumented:
+
+- [x] **`app/domain/demo_bundle.py`** (90 lines, from `bb2bb025` #114/phase 11) — demo-library
+  restore from a zip, with real path-traversal validation (`ALLOWED_TOP_LEVEL` check) and a
+  `status`/`restore` CLI. **Found broken, not just unwired**: `run.sh`/`run.ps1` invoked it as
+  `python -m app.demo_bundle`, but the module lives at `app.domain.demo_bundle` — the module moved
+  into `app/domain/` without updating the two launchers, so every real `./run.sh`/`run.ps1` launch
+  with a `demo.zip` present silently skipped the demo-library install (`ModuleNotFoundError` was
+  swallowed by the launcher's own `if ! ( ... ); then return 0; fi` guard). *(FIXED 2026-07-12:
+  both launchers corrected to `app.domain.demo_bundle`; new test
+  `test_launcher_invokes_the_module_at_its_real_import_path` in `tests/domain/test_demo_bundle.py`
+  greps both launchers for the real module path so this can't silently drift again — R1
+  revert-checked red on the pre-fix scripts via `git stash`, green after.)*
+- [ ] **`app/engines/video_utils.py`** (63 lines, same commit `bb2bb025`) — `generate_video_sample()`
+  builds a real ffmpeg command (background + audio + optional logo overlay) to render an MP4 voice
+  preview. Exercised only by `tests/engines/test_engines.py`; zero production callers (no router, no
+  task, no plugin references it) and no matching spec under `design-docs/specs/`. Not fixed here —
+  flagged as pre-built future work with no landing spot yet. **Owner: is this still wanted (a
+  video-preview feature for voices), and if so what UI/route should call it?**
 
 ## Deferred / post-v2.0
 
