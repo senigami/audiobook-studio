@@ -456,7 +456,7 @@ function Maybe-RestoreDemoBundle($PythonInfo) {
 
     Push-Location $Root
     try {
-        & $PythonInfo.Command @($PythonInfo.Prefix + @("-m", "app.demo_bundle", "status", "--base-dir", $Root))
+        & $PythonInfo.Command @($PythonInfo.Prefix + @("-m", "app.domain.demo_bundle", "status", "--base-dir", $Root))
         if ($LASTEXITCODE -ne 0) {
             return
         }
@@ -482,7 +482,7 @@ function Maybe-RestoreDemoBundle($PythonInfo) {
         }
 
         Write-Step "Installing demo library"
-        & $PythonInfo.Command @($PythonInfo.Prefix + @("-m", "app.demo_bundle", "restore", "--base-dir", $Root, "--zip", $DemoZip))
+        & $PythonInfo.Command @($PythonInfo.Prefix + @("-m", "app.domain.demo_bundle", "restore", "--base-dir", $Root, "--zip", $DemoZip))
         if ($LASTEXITCODE -ne 0) {
             Fail "Failed to restore the demo library"
         }
