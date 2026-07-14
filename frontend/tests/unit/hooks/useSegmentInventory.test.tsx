@@ -30,10 +30,14 @@ const mockScriptView: ScriptViewResponse = {
   chapter_id: 'chap-1',
   base_revision_id: 'rev-1',
   paragraphs: [],
+  // Status strings match the REAL backend contract (app/domain/chapters/helpers.py
+  // `_normalize_segment_status`): a done segment's span.status is 'rendered', never
+  // the literal 'done' — that string only ever appears on the raw DB `audio_status`
+  // column, one layer below this API response.
   spans: [
-    { id: 'seg-1', order_index: 0, text: 'Hello there friend.', sanitized_text: 'Hello there friend.', character_id: null, speaker_profile_name: null, status: 'done', audio_file_path: null, audio_generated_at: null, char_count: 19, sanitized_char_count: 19 },
-    { id: 'seg-2', order_index: 1, text: 'A longer segment of dialogue right here.', sanitized_text: 'A longer segment of dialogue right here.', character_id: null, speaker_profile_name: null, status: 'unprocessed', audio_file_path: null, audio_generated_at: null, char_count: 41, sanitized_char_count: 41 },
-    { id: 'seg-3', order_index: 2, text: 'Currently rendering this one.', sanitized_text: 'Currently rendering this one.', character_id: null, speaker_profile_name: null, status: 'processing', audio_file_path: null, audio_generated_at: null, char_count: 30, sanitized_char_count: 30 },
+    { id: 'seg-1', order_index: 0, text: 'Hello there friend.', sanitized_text: 'Hello there friend.', character_id: null, speaker_profile_name: null, status: 'rendered', audio_file_path: null, audio_generated_at: null, char_count: 19, sanitized_char_count: 19 },
+    { id: 'seg-2', order_index: 1, text: 'A longer segment of dialogue right here.', sanitized_text: 'A longer segment of dialogue right here.', character_id: null, speaker_profile_name: null, status: 'draft', audio_file_path: null, audio_generated_at: null, char_count: 41, sanitized_char_count: 41 },
+    { id: 'seg-3', order_index: 2, text: 'Currently rendering this one.', sanitized_text: 'Currently rendering this one.', character_id: null, speaker_profile_name: null, status: 'rendering', audio_file_path: null, audio_generated_at: null, char_count: 30, sanitized_char_count: 30 },
   ],
   render_batches: [],
   audio_groups: [],

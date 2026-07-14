@@ -1,0 +1,22 @@
+{
+  "date": "2026-07-13",
+  "author": "claude",
+  "summary": "The per-segment torrent/ribbon display (SegmentRenderMonitor) showed every already-rendered segment as gray/preparing whenever it fell outside the small live active_segments_map window -- most visibly right after resuming/continuing a partially-rendered chapter, where 210 of 1011 already-done segments all read as not-done. Root cause: frontend/src/hooks/useSegmentInventory.ts compared span.status === 'done', but the backend's script-view builder (app/domain/chapters/helpers.py _normalize_segment_status) never emits that literal -- a completed segment's span.status is 'rendered' ('done' only exists on the raw DB audio_status column, one layer below this API). Every other consumer of the same ScriptSpan.status field in this codebase (ScriptView.tsx, useChapterAssignments.ts) already checks 'rendered', so this hook was the one outlier.",
+  "files": [
+    {
+      "path": "frontend/src/hooks/useSegmentInventory.ts",
+      "change": "isDone check corrected from span.status === 'done' to span.status === 'rendered'; doc comment updated to explain the backend contract (audio_status='done' -> span.status='rendered')."
+    },
+    {
+      "path": "frontend/tests/unit/hooks/useSegmentInventory.test.tsx",
+      "change": "Fixture spans' status values corrected to the real backend contract strings ('rendered'/'draft'/'rendering' instead of 'done'/'unprocessed'/'processing') so the existing merge test actually exercises the real contract instead of silently matching the bug's wrong assumption."
+    }
+  ],
+  "tests_added": [],
+  "tests_corrected": [
+    "frontend/tests/unit/hooks/useSegmentInventory.test.tsx::merges script-view spans with active_segments_map, using real per-span char counts"
+  ],
+  "revert_checked": "Reverted the one-line fix (span.status === 'done'): the corrected test failed with phase 'preparing' instead of 'done' for the already-rendered fixture span, for exactly the reported reason; restored the fix and it passed.",
+  "siblings_checked": "Grepped frontend/src for other `.status === 'done'` comparisons against ScriptSpan-shaped data -- all other hits are Job.status (a genuinely different enum where 'done' IS correct) or a live websocket segment-progress event shape (useStudioChapter.ts's segmentProgress, also a different contract). No other consumer of ScriptSpan.status made the same mistake.",
+  "known_gap_flagged_not_fixed": "ScriptSpan.status is typed as a loose `string` in frontend/src/types/index.ts, which is why TypeScript didn't catch this mismatch. Narrowing it to a literal union ('rendered' | 'rendering' | 'failed' | 'queued' | 'draft') matching app/domain/chapters/helpers.py's _normalize_segment_status would make this whole class of bug a compile error instead of a runtime one -- worth doing as a follow-up, not done here to keep this fix scoped to the reported bug."
+}

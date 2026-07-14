@@ -18,7 +18,10 @@ import type { SegmentRenderMonitorSegment } from '@/components/progress/SegmentR
  * and enriches with the `active_segments_map` field the job already carries.
  *
  * A span absent from `active_segments_map`:
- * - `status === 'done'` -> phase 'done', progress 1 (already rendered).
+ * - `status === 'rendered'` -> phase 'done', progress 1 (already rendered —
+ *   the script-view API's `_normalize_segment_status` maps a DB `audio_status`
+ *   of 'done' to the span field value 'rendered'; 'done' itself never appears
+ *   on `span.status`, only on the raw DB column one layer below this API).
  * - otherwise -> phase 'preparing', progress 0 (SegmentRenderMonitor's own
  *   dimmest/idle visual state — not a new invented phase).
  */
@@ -74,7 +77,7 @@ export function useSegmentInventory(job: Job | null | undefined): {
           reasonCode: liveEntry.reason_code,
         };
       }
-      const isDone = span.status === 'done';
+      const isDone = span.status === 'rendered';
       return {
         id: span.id,
         charCount: span.char_count,
