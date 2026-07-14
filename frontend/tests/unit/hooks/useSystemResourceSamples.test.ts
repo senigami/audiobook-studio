@@ -1,6 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { useSystemResourceSamples } from '@/hooks/useSystemResourceSamples';
+import { useSystemResourceSamples, __resetSystemResourceSamplesForTests } from '@/hooks/useSystemResourceSamples';
 import { api } from '@/api';
 
 vi.mock('@/api', () => ({
@@ -39,9 +39,11 @@ describe('useSystemResourceSamples', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
+    __resetSystemResourceSamplesForTests();
   });
 
   afterEach(() => {
+    __resetSystemResourceSamplesForTests();
     vi.useRealTimers();
   });
 
@@ -104,7 +106,7 @@ describe('useSystemResourceSamples', () => {
     expect(result.current.hasVram).toBe(false);
   });
 
-  it('stops polling on unmount', async () => {
+  it('keeps polling after unmount (module-level singleton, not per-mount)', async () => {
     (api.fetchSystemResources as any).mockResolvedValue(withVram());
 
     const { unmount } = renderHook(() => useSystemResourceSamples());
@@ -119,6 +121,23 @@ describe('useSystemResourceSamples', () => {
     });
     await flush();
 
-    expect((api.fetchSystemResources as any).mock.calls.length).toBe(callsAtUnmount);
+    expect((api.fetchSystemResources as any).mock.calls.length).toBeGreaterThan(callsAtUnmount);
+  });
+
+  it('re-mounting sees the history accumulated while unmounted, not an empty buffer', async () => {
+    (api.fetchSystemResources as any).mockResolvedValue(withVram());
+
+    const first = renderHook(() => useSystemResourceSamples());
+    await flush();
+    expect(first.result.current.samples.length).toBe(1);
+
+    first.unmount();
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    await flush();
+
+    const second = renderHook(() => useSystemResourceSamples());
+    expect(second.result.current.samples.length).toBe(2);
   });
 });
