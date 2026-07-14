@@ -9,6 +9,7 @@
  * full field — at a condensed scale rather than a second implementation.
  */
 import React from 'react';
+import { ChevronRight, X } from 'lucide-react';
 import { SegmentBlockRow } from './SegmentBlockRow';
 import type { SegmentRenderMonitorSegment } from './SegmentBlockRow';
 
@@ -41,32 +42,39 @@ export const SegmentPeekStrip: React.FC<SegmentPeekStripProps> = ({ segments, ac
         aria-label={`Expand segment render detail — ${ariaLabel}`}
         style={{
           flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
           padding: 0,
           border: 'none',
           background: 'none',
           cursor: 'pointer',
-          borderRadius: 3,
-          overflow: 'hidden',
-          display: 'block',
         }}
       >
-        <SegmentBlockRow segments={segments} height={PEEK_STRIP_HEIGHT} ariaLabel={ariaLabel} />
+        <span style={{ flex: 1, borderRadius: 3, overflow: 'hidden', display: 'block' }}>
+          <SegmentBlockRow segments={segments} height={PEEK_STRIP_HEIGHT} ariaLabel={ariaLabel} />
+        </span>
+        {/* Explicit disclosure affordance (owner feedback: the bare block row
+            read as an unexplained bar rather than an expand control) — a
+            chevron makes the click-to-expand behavior self-evident. */}
+        <ChevronRight size={14} strokeWidth={2} color="var(--text-muted)" style={{ flexShrink: 0 }} />
       </button>
       <button
         type="button"
         onClick={onDismiss}
         aria-label="Dismiss segment render peek strip"
         style={{
-          fontSize: 'var(--type-micro)',
           color: 'var(--text-muted)',
           background: 'none',
           border: 'none',
           cursor: 'pointer',
           padding: '2px 6px',
+          display: 'flex',
+          alignItems: 'center',
           flexShrink: 0,
         }}
       >
-        ✕
+        <X size={14} strokeWidth={2} />
       </button>
     </div>
   );
