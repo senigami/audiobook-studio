@@ -5,7 +5,7 @@
  * - Route renders for a fixture voice (stepper, name, back link)
  * - Stepper marks the correct phase from fixture profiles
  * - Unknown id redirects to /voices
- * - Overview tab renders metadata fields inline, no edit-metadata modal
+ * - Overview disclosure renders metadata fields inline, no edit-metadata modal
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -186,20 +186,54 @@ describe('VoiceLabPage', () => {
         });
     });
 
-    it('renders inline, always-editable metadata fields in the Overview tab (no modal)', async () => {
+    it('renders inline, always-editable metadata fields in the Overview disclosure (no modal)', async () => {
         renderAtPath(`/voices/${VOICE_ID}`);
 
         await waitFor(() => {
             expect(screen.getByText('Aria Nova')).toBeInTheDocument();
         });
 
-        // Overview is the default active tabpanel -- its fields (description,
-        // Save button) are visible without any trigger click, and there is
-        // no modal dialog to open anymore.
+        // Overview lives in the expanded-by-default "Voice details" disclosure
+        // (task 007) -- its fields (description, Save button) are visible
+        // without any trigger click, and there is no modal dialog to open
+        // anymore.
         expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /^save$/i })).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /edit metadata/i })).not.toBeInTheDocument();
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('collapses/expands the Overview disclosure via the native <details> toggle without gating Save on visibility', async () => {
+        const user = userEvent.setup();
+        renderAtPath(`/voices/${VOICE_ID}`);
+
+        await waitFor(() => {
+            expect(screen.getByText('Aria Nova')).toBeInTheDocument();
+        });
+
+        const summary = screen.getByText('Voice details').closest('summary') as HTMLElement;
+        const details = summary.closest('details') as HTMLDetailsElement;
+
+        // Expanded by default -- fields visible without any trigger click.
+        expect(details).toHaveAttribute('open');
+        expect(screen.getByLabelText(/description/i)).toBeVisible();
+        const saveBtnWhenOpen = screen.getByRole('button', { name: /^save$/i });
+        const disabledWhenOpen = saveBtnWhenOpen.hasAttribute('disabled');
+
+        // Collapsing hides the fields but doesn't unmount them, and the Save
+        // button's enabled/disabled state (driven by OverviewTab's own
+        // required-fields gating, untouched by this task) is identical
+        // whether the disclosure is open or closed -- toggling visibility
+        // isn't itself gating Save.
+        await user.click(summary);
+        expect(details).not.toHaveAttribute('open');
+        const saveBtnWhenClosed = screen.getByRole('button', { name: /^save$/i });
+        expect(saveBtnWhenClosed.hasAttribute('disabled')).toBe(disabledWhenOpen);
+
+        // Re-expanding restores visibility.
+        await user.click(summary);
+        expect(details).toHaveAttribute('open');
+        expect(screen.getByLabelText(/description/i)).toBeVisible();
     });
 
     it('opens the real Publish to Hugging Face flow (not a decorative placeholder)', async () => {
@@ -223,13 +257,15 @@ describe('VoiceLabPage', () => {
         expect(screen.getByLabelText('Hugging Face repo')).toBeInTheDocument();
     });
 
-    it('renders the voice detail tabs (Overview/Samples/Variants/Test)', async () => {
+    it('renders the voice detail tabs (Samples/Variants/Test) plus the Overview disclosure', async () => {
         renderAtPath(`/voices/${VOICE_ID}`);
         await waitFor(() => {
             expect(screen.getByRole('tablist', { name: 'Voice management' })).toBeInTheDocument();
         });
-        expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
-        expect(screen.getByRole('tab', { name: 'Samples' })).toBeInTheDocument();
+        // Overview was pulled out of the tab shell by task 007 into its own
+        // "Voice details" disclosure, expanded by default -- it's no longer a tab.
+        expect(screen.queryByRole('tab', { name: 'Overview' })).not.toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: 'Samples' })).toHaveAttribute('aria-selected', 'true');
         expect(screen.getByRole('tab', { name: 'Variants' })).toBeInTheDocument();
         expect(screen.getByRole('tab', { name: 'Test' })).toBeInTheDocument();
         // Overview is real, inline metadata content as of task 002 (no more

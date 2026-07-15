@@ -278,6 +278,34 @@
   gap: 20px;
 }
 
+/* Voice-level fields disclosure (task 007) -- Overview pulled out of the tab
+   shell into its own collapsible section, expanded by default, above the
+   remaining Samples/Variants/Test tabs. */
+.voice-lab-page__overview-disclosure {
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-light);
+  overflow: hidden;
+}
+
+.voice-lab-page__overview-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  font-weight: 700;
+  list-style: none;
+  padding: 0.9rem 1rem;
+}
+
+.voice-lab-page__overview-body {
+  padding: 0 1rem 1.1rem;
+  border-top: 1px solid var(--border);
+}
+
 .voice-lab-section-label {
   font-size: 0.72rem;
   font-weight: 700;

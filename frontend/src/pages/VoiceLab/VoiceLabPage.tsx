@@ -13,7 +13,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ChevronDown } from 'lucide-react';
 import type { SpeakerProfile, TtsEngine, VoiceMetadata, Job } from '@/types';
 import { api } from '@/api';
 import { voicePillsFromMetadata } from '@/pages/Voices/components/VoicePills';
@@ -56,7 +56,7 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
     // Controlled active tab (task 005) -- lets the Variants tab's "Script"
     // button (VariantEditor) switch straight to the Test tab instead of
     // opening the retired ScriptEditor drawer.
-    const [activeTabId, setActiveTabId] = useState('overview');
+    const [activeTabId, setActiveTabId] = useState('samples');
     // Preselects the Test tab's active variant when Script is activated from the Variants tab's
     // switcher (task 013) -- otherwise the Test tab falls back to its own default-variant logic.
     const [preselectedTestVariant, setPreselectedTestVariant] = useState<string | null>(null);
@@ -223,16 +223,13 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
     // not-yet-tagged voice still has a VoiceMetadata shape to edit inline.
     const overviewVoice: VoiceMetadata = metadata ?? { id, name: id, is_untagged: true };
 
-    // Overview was relocated by task 002 (inline metadata editing, no modal);
-    // Samples by task 003; Variants (+ Voice Settings, promoted from the old
-    // card's overflow menu) by task 004; Test (+ ScriptEditor's test-text
-    // editing UI, folded in) by task 005.
+    // Overview was relocated by task 002 (inline metadata editing, no modal),
+    // then pulled out of the tab shell entirely by task 007 into a standalone
+    // disclosure panel (below, above this tab list) -- it's no longer one of
+    // `detailTabs`. Samples by task 003; Variants (+ Voice Settings, promoted
+    // from the old card's overflow menu) by task 004; Test (+ ScriptEditor's
+    // test-text editing UI, folded in) by task 005.
     const detailTabs: VoiceDetailTabDef[] = [
-        {
-            id: 'overview',
-            label: 'Overview',
-            content: <OverviewTab voice={overviewVoice} onSaved={handleMetadataSaved} />,
-        },
         {
             id: 'samples',
             label: 'Samples',
@@ -320,6 +317,21 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
             <div className="voice-lab-page__stepper-row">
                 <PhaseStepper phase={phase} />
             </div>
+
+            {/* Voice-level fields (description, languages, class/gender/age,
+                many-value fields, free tags) -- pulled out of the tab shell by
+                task 007 into a standalone disclosure, expanded by default, so
+                they're visible alongside whichever tab (Samples/Variants/Test)
+                is active below. */}
+            <details className="voice-lab-page__overview-disclosure" open>
+                <summary className="voice-lab-page__overview-summary">
+                    <ChevronDown size={16} />
+                    Voice details
+                </summary>
+                <div className="voice-lab-page__overview-body">
+                    <OverviewTab voice={overviewVoice} onSaved={handleMetadataSaved} />
+                </div>
+            </details>
 
             <VoiceDetailTabs
                 tabs={detailTabs}
