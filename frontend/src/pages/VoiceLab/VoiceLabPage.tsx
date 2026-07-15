@@ -122,10 +122,13 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
         ? voiceMetadataList.find(m => m.id === id) ?? null
         : null;
 
-    // All profiles belonging to this voice group (by speaker_id matching)
-    const profiles = id
-        ? speakerProfiles.filter(p => p.speaker_id === id)
-        : [];
+    // Memoized: an unmemoized filter() here creates a new array reference every
+    // render, which useVoiceManagement's effect treats as "profiles changed" and
+    // refetches /api/speakers -> setState -> rerender -> refetch, forever.
+    const profiles = useMemo(
+        () => (id ? speakerProfiles.filter(p => p.speaker_id === id) : []),
+        [id, speakerProfiles]
+    );
 
     // Real rebuild/build-tracking/confirm plumbing for the Variants tab
     // (task 004 R3 fix) -- the same hook VoicesPage.tsx uses, rather than the
