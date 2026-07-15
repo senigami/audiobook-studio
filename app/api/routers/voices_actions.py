@@ -188,6 +188,20 @@ async def build_speaker_profile(
         resolved_pdir = os.path.abspath(os.fspath(path))
 
         if resolved_pdir.startswith(trusted_voices_root + os.sep):
+            # Snapshot the outgoing state before it's overwritten (voice-variant
+            # version history) — never let a version-history failure block the
+            # rebuild itself.
+            try:
+                from ...domain.voices.variant_versions import snapshot_current_as_version
+                snapshot_current_as_version(
+                    Path(resolved_pdir),
+                    engine_id=str(spk_settings.get("engine") or ""),
+                    test_text=str(spk_settings.get("test_text") or ""),
+                    voice_job_settings=spk_settings,
+                )
+            except Exception:
+                logger.exception("Failed to snapshot pre-rebuild version for %s", name)
+
             # Clear existing sample (wav and mp3) to ensure accurate building status
             for _sample_name in ("sample.wav", "sample.mp3"):
                 _sample_full = os.path.normpath(os.path.join(resolved_pdir, _sample_name))

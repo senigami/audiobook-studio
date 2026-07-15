@@ -1,0 +1,25 @@
+{
+  "date": "2026-07-15",
+  "author": "claude",
+  "summary": "Adversarial-review fix for the voice-variant version-history plan (tasks 004/005/008). Found two related bugs: (1) the static /out/voices/{path} route's filename whitelist only allowed sample.mp3/sample.wav, so the artifact_url the versions list/promote/ab-test endpoints had been returning since task 004 (.../versions/<id>/artifact.mp3) 404'd -- cached playback was unreachable this whole time, caught only by adding a real HTTP-level test instead of a disk-existence check. (2) the A/B panel's job-mode fallback (VersionAbPanel.tsx) polled listVoiceVersions and watched has_artifact, which is backed by the version's own immutable artifact -- already true for any version that had a prior build -- so a fresh render request could silently resolve to the WRONG (stale, pre-existing) audio instead of the new render, or never resolve for a version with no artifact yet.",
+  "files": [
+    {
+      "path": "app/api/web.py",
+      "change": "Added 'artifact.mp3' to get_voice_preview_hardened's filename whitelist. Added a new route GET /out/voice-ab-test/{job_id}/{filename}, containment-checked under TRANSIENT_DIR/voice-ab-test with a strict job_id format regex (abtest-<8hex>) and filename fixed to render.mp3, serving the scratch renders the A/B endpoint's job branch produces.",
+      "contract_changed": true
+    },
+    {
+      "path": "frontend/src/pages/Voices/components/VersionAbPanel.tsx",
+      "change": "Replaced the has_artifact-based polling fallback with a poll of the existing GET /api/processing_queue endpoint for the submitted job_id's status. On status 'done', the side's audio_url becomes the predictable /out/voice-ab-test/{job_id}/render.mp3 URL from the new static route above. Also fixed a re-run staleness bug: handleRunComparison now cancels any in-flight poll timers from a prior run before starting a new one."
+    },
+    {
+      "path": "tests/api/test_api_voices_versions.py",
+      "change": "Added two HTTP-level tests: one confirming a version's artifact_url is actually fetchable (not just present on disk), and one confirming the new /out/voice-ab-test/{job_id}/render.mp3 route serves the right bytes and 404s on a bad filename, a malformed job_id, or a traversal attempt. Both R1 revert-checked."
+    },
+    {
+      "path": "frontend/tests/unit/pages/Voices/components/VersionAbPanel.test.tsx",
+      "change": "Added a fake-timer test exercising the job-mode poll resolving through two ticks (running -> done) to a playable audio_url at the new static route path -- the previously-missing coverage that let the has_artifact bug ship undetected."
+    }
+  ],
+  "flow_impact": "voice-variant version history: the feature's cached-playback path (every version's artifact_url) and its fresh-render A/B path were both silently unreachable before this fix; both now resolve to real, servable audio."
+}

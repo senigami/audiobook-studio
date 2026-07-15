@@ -275,6 +275,7 @@ export interface SpeakerProfile {
   is_ready?: boolean;
   readiness_message?: string;
   settings?: Record<string, any>;
+  version_count?: number;
 }
 
 export interface Speaker {

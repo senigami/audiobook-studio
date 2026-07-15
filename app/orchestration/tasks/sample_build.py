@@ -160,6 +160,21 @@ class SampleBuildTask(StudioTask):
                 voice_asset_id=self.voice_job_settings.get("voice_asset_id"),
                 model=self.voice_job_settings.get("model"),
             )
+
+            if vdir_path and vdir_path.exists():
+                try:
+                    from app.domain.voices.variant_versions import record_new_version
+                    record_new_version(
+                        vdir_path,
+                        engine_id=self.engine_id,
+                        test_text=self.test_text,
+                        voice_job_settings=self.voice_job_settings,
+                    )
+                except Exception:
+                    import logging
+                    logging.getLogger(__name__).exception(
+                        "Failed to record new version for %s", self.speaker_profile
+                    )
         except Exception as e:
              return TaskResult(status="failed", message=f"Metadata update failed: {e}")
 

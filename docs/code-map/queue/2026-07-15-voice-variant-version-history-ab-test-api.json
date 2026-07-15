@@ -1,0 +1,17 @@
+{
+  "date": "2026-07-15",
+  "author": "claude",
+  "summary": "Task 005 of the voice-variant version-history plan: adds POST /api/speaker-profiles/{name}/versions/ab-test to app/api/routers/voices_versions.py (task 004's file). Given two version ids and a test passage, returns either a cached artifact.mp3 URL (when a version's own recorded test_text matches the requested passage) or submits a SampleTestTask per version pointed at that version's versions/<id>/samples/ snapshot, never the live variant directory and never writing back into the version dir itself. sample_test.py / SampleTestTask deliberately untouched.",
+  "files": [
+    {
+      "path": "app/api/routers/voices_versions.py",
+      "change": "Added ab_test_speaker_versions endpoint after the existing promote endpoint. Deviation from the plan's own snippet: get_version() does not include a computed has_artifact key (unlike list_versions()), so the cached-path check computes artifact existence directly (pdir / 'versions' / version_id / 'artifact.mp3').exists() instead of trusting a nonexistent dict key. Fresh renders go through SampleTestTask with voice_profile_dir set to the version's samples/ snapshot and output_path under config.TRANSIENT_DIR (scratch, never versions/<id>/). Carries a code comment warning that SampleTestTask.run() writes preview_* keys to the canonical profile.json (last-write-wins across the two A/B sides) -- callers must use the job_id/queue mechanism, never read preview_* back to determine which side finished.",
+      "contract_changed": true
+    },
+    {
+      "path": "tests/api/test_api_voices_versions.py",
+      "change": "Extended with ab-test coverage: missing-fields 400, cached-hit vs fresh-job branching (asserting SampleTestTask's voice_profile_dir points at the version's samples snapshot, not the live dir), unknown-version 404 with no partial side effects on the other slot, and an R1 revert-check on the cached-path optimization (temporarily removing the artifact.mp3 file to force the job path, then restoring)."
+    }
+  ],
+  "flow_impact": "voice-variant version history: promote (task 004) and A/B comparison (this entry) together let a user compare two recorded versions and pick one, closing out the feature's user-facing surface on the API side (frontend consumption is a later task)."
+}

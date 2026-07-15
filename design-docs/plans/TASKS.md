@@ -727,15 +727,18 @@ before delete + snapshot after build), a promote-to-active endpoint (file copy o
 re-synthesis), and an A/B panel reusing `SampleTestTask` unmodified. No backfill for pre-existing
 voices — history starts at the first rebuild after this ships.
 
-- [ ] **001** — Variant versions schema module (`app/domain/voices/variant_versions.py`)
-- [ ] **002** — Snapshot before delete in the build endpoint (`voices_actions.py`)
-- [ ] **003** — Record new version after a successful rebuild (`sample_build.py`)
-- [ ] **004** — Versions router: list + promote (`voices_versions.py`, new)
-- [ ] **005** — Versions router: A/B test endpoint (same file)
-- [ ] **006** — Frontend: `SpeakerProfile` type + API client methods
-- [ ] **007** — Version history list + promote UI (`VariantEditor.tsx`)
-- [ ] **008** — A/B playback panel
-- [ ] **009** — This TASKS.md entry stays current as 001-008 land
+- [x] **001** — Variant versions schema module (`app/domain/voices/variant_versions.py`)
+- [x] **002** — Snapshot before delete in the build endpoint (`voices_actions.py`)
+- [x] **003** — Record new version after a successful rebuild (`sample_build.py`)
+- [x] **004** — Versions router: list + promote (`voices_versions.py`, new)
+- [x] **005** — Versions router: A/B test endpoint (same file)
+- [x] **006** — Frontend: `SpeakerProfile` type + API client methods
+- [x] **007** — Version history list + promote UI (`VariantEditor.tsx`)
+- [x] **008** — A/B playback panel
+- [x] **009** — This TASKS.md entry stays current as 001-008 land
+- [x] **010** — Review fix: static route filename whitelist excluded `artifact.mp3` (cached playback of any version was unreachable via HTTP)
+- [x] **011** — Review fix: A/B job-mode completion signal was wrong (watched `has_artifact`, could silently serve stale/wrong audio) — replaced with real job-status polling + new `/out/voice-ab-test/{job_id}/render.mp3` static route
+- [x] **012** — Fable sign-off fix: stale in-flight A/B poll tick could overwrite a fresh comparison run's result with an old job's audio — fixed with a generation-counter guard
 
 ## Deferred / post-v2.0
 

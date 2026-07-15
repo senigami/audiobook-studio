@@ -103,6 +103,27 @@ describe('api methods', () => {
         expect(global.fetch).toHaveBeenCalledWith('/api/generation/resume', expect.objectContaining({ method: 'POST' }))
     })
 
+    it('voice variant version history', async () => {
+        await api.listVoiceVersions('Narrator One')
+        expect(global.fetch).toHaveBeenCalledWith('/api/speaker-profiles/Narrator%20One/versions')
+
+        await api.promoteVoiceVersion('Narrator One', 'v1')
+        expect(global.fetch).toHaveBeenCalledWith(
+            '/api/speaker-profiles/Narrator%20One/versions/v1/promote',
+            expect.objectContaining({ method: 'POST' })
+        )
+
+        await api.runVersionAbTest('Narrator One', 'v1', 'v2', 'Hello world')
+        expect(global.fetch).toHaveBeenCalledWith(
+            '/api/speaker-profiles/Narrator%20One/versions/ab-test',
+            expect.objectContaining({
+                method: 'POST',
+                headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ version_a_id: 'v1', version_b_id: 'v2', test_text: 'Hello world' }),
+            })
+        )
+    })
+
     it('throws helpful errors for blocked generation requests', async () => {
         global.fetch = vi.fn().mockResolvedValue({
             ok: false,

@@ -1,0 +1,24 @@
+{
+  "date": "2026-07-15",
+  "author": "claude",
+  "summary": "Task 003 of the voice-variant version-history plan: wires app/domain/voices/variant_versions.py's record_new_version into SampleBuildTask.run() (app/orchestration/tasks/sample_build.py). After a successful rebuild's update_speaker_settings call, the task now records the just-built sample (engine/test_text/voice_job_settings + the new wav set + sample.mp3) as a new version and marks it active_version_id, in its own try/except so a version-history failure never turns a successful build into a reported task failure. sample_test.py / SampleTestTask deliberately untouched (hard constraint of this plan). Also new: app/domain/voices/variant_versions.py itself (task 001) -- the schema module both this task and task 002 call, owning versions/versions.json + versions/v-*/ on-disk shape (snapshot_current_as_version, record_new_version, list_versions, get_version, get_active_version_id, promote_version).",
+  "files": [
+    {
+      "path": "app/domain/voices/variant_versions.py",
+      "change": "New module. Pure functions over an already-resolved variant Path: snapshot_current_as_version, record_new_version, list_versions, get_version, get_active_version_id, promote_version. Owns versions/versions.json + versions/v-<timestamp>-<shortid>/{samples/,artifact.mp3,meta.json} schema. No import-time side effects."
+    },
+    {
+      "path": "app/orchestration/tasks/sample_build.py",
+      "change": "In SampleBuildTask.run(), after update_speaker_settings succeeds, added a nested try/except calling variant_versions.record_new_version(vdir_path, engine_id=self.engine_id, test_text=self.test_text, voice_job_settings=self.voice_job_settings). Failure is logged and swallowed, never raised. No other logic changed; app/orchestration/tasks/sample_test.py was not touched."
+    },
+    {
+      "path": "tests/domain/test_variant_versions.py",
+      "change": "New test file for the schema module: snapshot/backfilled-flag, record_new_version active-id behavior, list_versions/get_version/get_active_version_id/promote_version, and a check that versions/ is never misdetected as a sibling variant by voices_helpers._voice_dirs_map()."
+    },
+    {
+      "path": "tests/orchestration/test_voices_orchestration_integration.py",
+      "change": "Added test_voice_build_records_new_version: runs SampleBuildTask.run() end-to-end with the existing stubbed-bridge harness and asserts active_version_id is set, the version's engine_id/test_text match the build, and its artifact.mp3 byte-matches the newly built sample.mp3. R1 revert-checked."
+    }
+  ],
+  "flow_impact": "voice-rebuild flow: a rebuild now both snapshots the outgoing sample (task 002, prior queue entry) and records the incoming sample as a new active version (this entry) -- rebuilding a voice variant no longer silently discards either the old or the new state."
+}

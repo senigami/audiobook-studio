@@ -391,3 +391,45 @@ def test_build_profile_exception_does_not_expose_stack_trace(clean_db, voices_ro
     assert "internal secret path" not in body
     assert "/etc/passwd" not in body
     assert "Traceback" not in body
+
+
+def test_build_snapshots_previous_sample_as_version(clean_db, voices_root, client):
+    """Rebuilding a variant must snapshot its outgoing sample.mp3 (and settings)
+    into versions/ before the sample is cleared, so version history survives
+    the delete-and-rebuild cycle."""
+    voices_dir = voices_root
+    voices_dir.mkdir(parents=True, exist_ok=True)
+
+    profile_root = voices_dir / "SpeakerA"
+    profile_root.mkdir(parents=True, exist_ok=True)
+    (profile_root / "voice.json").write_text(json.dumps({"version": 2, "name": "SpeakerA"}))
+    profile_dir = profile_root / "Default"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "profile.json").write_text(json.dumps({
+        "variant_name": "Default",
+        "engine": "xtts",
+        "test_text": "Hello world",
+    }))
+
+    # Simulate the result of a prior build: a live sample.mp3 on disk.
+    previous_sample_bytes = b"previous-sample-artifact-bytes"
+    (profile_dir / "sample.mp3").write_bytes(previous_sample_bytes)
+    (profile_dir / "1.wav").write_text("fake wav content")
+
+    with patch("app.api.routers.voices_helpers.VOICES_DIR", voices_dir), \
+         patch("app.db.state.put_job"), \
+         patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit"):
+        response = client.post("/api/speaker-profiles/SpeakerA/build")
+    assert response.status_code == 200
+
+    versions_manifest_path = profile_dir / "versions" / "versions.json"
+    assert versions_manifest_path.exists()
+    manifest = json.loads(versions_manifest_path.read_text())
+    assert len(manifest["versions"]) == 1
+
+    version_id = manifest["versions"][0]["id"]
+    artifact_path = profile_dir / "versions" / version_id / "artifact.mp3"
+    assert artifact_path.read_bytes() == previous_sample_bytes
+
+    # The live sample.mp3 was cleared as part of the rebuild.
+    assert not (profile_dir / "sample.mp3").exists()

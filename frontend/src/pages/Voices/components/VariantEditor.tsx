@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { SpeedPopover } from '@/pages/Voices/components/VoiceUtils';
 import { useVariantActions } from '@/hooks/useVariantActions';
 import { SampleManager } from '@/pages/Voices/components/SampleManager';
+import { VersionHistoryPanel } from '@/pages/Voices/components/VersionHistoryPanel';
 import { formatVoiceEngineLabel, getVariantDisplayName, getVoiceProfileEngine } from '@/utils/voiceProfiles';
 
 interface VariantEditorProps {
@@ -307,6 +308,12 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
             )}
 
             {renderControls()}
+
+            <VersionHistoryPanel
+                voiceName={profile.name}
+                onPromoted={onRefresh}
+                requestConfirm={requestConfirm}
+            />
 
             <div className="variant-editor__footer">
                 <div className="variant-editor__footer-copy">

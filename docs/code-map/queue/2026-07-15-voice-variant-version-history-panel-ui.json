@@ -1,0 +1,23 @@
+{
+  "date": "2026-07-15",
+  "author": "claude",
+  "summary": "Task 007 of the voice-variant version-history plan: adds the frontend list+promote UI for a variant's version history. New hook useVariantVersions wraps api.listVoiceVersions/promoteVoiceVersion (task 005's endpoints) with load/error state and a promote() that refreshes on success. New VersionHistoryPanel renders a collapsible 'Version history (N)' section (or, when there are zero versions, a single muted 'History starts with the next rebuild' line and no collapsible section) with per-version timestamp/engine-badge/sample-count/Active-or-Promote row; Promote routes through the caller's requestConfirm with isDestructive: false before calling promote(). Mounted in VariantEditor between renderControls() and the footer, wired to the existing onRefresh/requestConfirm props (no new props added to VariantEditor). No play/pause affordance added (deferred to task 008).",
+  "files": [
+    {
+      "path": "frontend/src/hooks/useVariantVersions.ts",
+      "change": "New hook: fetches versions via api.listVoiceVersions on mount/voiceName change, exposes versions/loading/error/refresh/promote; promote() calls api.promoteVoiceVersion then refresh()es on {status: 'ok'}. Defensively falls back to [] when the response has no versions field."
+    },
+    {
+      "path": "frontend/src/pages/Voices/components/VersionHistoryPanel.tsx",
+      "change": "New component consuming useVariantVersions; renders the zero-versions muted line or a collapsible version list (own local isExpanded state, chevron toggle styled like SampleManager's), reusing VariantEditor's engine-badge color convention and requestConfirm shape for the Promote action."
+    },
+    {
+      "path": "frontend/src/pages/Voices/components/VariantEditor.tsx",
+      "change": "Added VersionHistoryPanel import and mounted it between renderControls() and the footer, passing voiceName={profile.name}, onPromoted={onRefresh}, requestConfirm={requestConfirm} — no other logic touched."
+    },
+    {
+      "path": "frontend/tests/unit/pages/Voices/components/VersionHistoryPanel.test.tsx",
+      "change": "New test file: mocks @/api's listVoiceVersions/promoteVoiceVersion (network boundary, not the hook). Covers zero-versions rendering, active-vs-promote row rendering + requestConfirm call shape, successful promote calling onPromoted, and failed promote not calling onPromoted."
+    }
+  ]
+}

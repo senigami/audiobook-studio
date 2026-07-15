@@ -550,6 +550,61 @@ export const api = {
     const res = await fetch('/api/voices/');
     return parseApiResponse(res);
   },
+
+  // --- Voice variant version history ---
+  listVoiceVersions: async (
+    voiceName: string
+  ): Promise<{
+    versions: Array<{
+      id: string;
+      created_at: number;
+      backfilled: boolean;
+      engine_id: string;
+      model: string | null;
+      test_text: string;
+      sample_count: number;
+      has_artifact: boolean;
+      is_active: boolean;
+      artifact_url: string | null;
+    }>;
+    active_version_id: string | null;
+  }> => {
+    const res = await fetch(`/api/speaker-profiles/${encodeURIComponent(voiceName)}/versions`);
+    return parseApiResponse(res);
+  },
+
+  promoteVoiceVersion: async (
+    voiceName: string,
+    versionId: string
+  ): Promise<{ status: string; active_version_id?: string; message?: string }> => {
+    const res = await fetch(
+      `/api/speaker-profiles/${encodeURIComponent(voiceName)}/versions/${encodeURIComponent(versionId)}/promote`,
+      { method: 'POST' }
+    );
+    return parseApiResponse(res);
+  },
+
+  runVersionAbTest: async (
+    voiceName: string,
+    versionAId: string,
+    versionBId: string,
+    testText: string
+  ): Promise<{
+    status: string;
+    results?: Record<'a' | 'b', { mode: 'cached' | 'job'; audio_url?: string; job_id?: string }>;
+    message?: string;
+  }> => {
+    const res = await fetch(
+      `/api/speaker-profiles/${encodeURIComponent(voiceName)}/versions/ab-test`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version_a_id: versionAId, version_b_id: versionBId, test_text: testText }),
+      }
+    );
+    return parseApiResponse(res);
+  },
+
   patchVoiceMetadata: async (
     voiceId: string,
     patch: {
