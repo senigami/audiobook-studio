@@ -377,7 +377,14 @@ export function ChapterWorkspaceHeader({
             aria-expanded={dropdownOpen}
             aria-label="Switch chapter"
           >
-            <span>Contents</span>
+            {/* "Chapter N of M" instead of plain "Contents" — a first-time user
+                read a bare heading-like label as non-interactive (persona
+                fast-follow, Rosa/nontechnical-author finding from the
+                contextual-left-nav sign-off). The chevron + bordered/filled
+                trigger styling below is the other half of that fix. */}
+            <span>
+              {activeIndex >= 0 ? `Chapter ${activeIndex + 1} of ${chapters.length}` : 'Contents'}
+            </span>
             <ChevronDown size={12} strokeWidth={2.5} aria-hidden="true" />
           </button>
 

@@ -117,20 +117,26 @@
   padding: 0.3rem 0.6rem;
   min-height: 44px;
   border: 1px solid var(--border);
-  background: var(--surface);
+  /* Filled (not flat) so it reads as a pressable control next to the plain-text
+     title/back-button, not a section heading (persona fast-follow: Rosa/
+     nontechnical-author, contextual-left-nav sign-off round 4). */
+  background: var(--surface-alt);
   border-radius: var(--radius-button);
+  box-shadow: var(--shadow-sm);
   font-size: var(--type-caption);
   font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
   transition: color var(--dur-fast) var(--ease-standard),
-              border-color var(--dur-fast) var(--ease-standard);
+              border-color var(--dur-fast) var(--ease-standard),
+              background var(--dur-fast) var(--ease-standard);
 }
 
 .chapter-workspace-header__switcher-trigger:hover,
 .chapter-workspace-header__switcher-trigger--open {
   color: var(--accent);
   border-color: var(--accent);
+  background: var(--accent-glow);
 }
 
 /* Chapter dropdown panel */

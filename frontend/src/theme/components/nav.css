@@ -146,6 +146,25 @@
   color: var(--text-primary);
 }
 
+/* Ambient chapter-progress glance (persona fast-follow: Oliver/deadline-editor
+   finding, contextual-left-nav sign-off round 4) — a no-click substitute for
+   the rail's removed permanent chapter list, visible while working a
+   different tab (Cast/Publish) within the book. */
+.rail-book-block__progress {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.35rem;
+  padding-left: 2px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.rail-book-block__progress-rendering {
+  color: var(--accent);
+}
+
 /* Stage links — indented further than title row */
 .rail-book-block__stages {
   display: flex;
