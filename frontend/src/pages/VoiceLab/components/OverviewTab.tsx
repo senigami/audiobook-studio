@@ -32,6 +32,7 @@ import { api } from '@/api';
 import { getSection } from '@/pages/Voices/components/metadata/taxonomy';
 import { OneSelect } from '@/pages/Voices/components/metadata/OneSelect';
 import { ManySelect } from '@/pages/Voices/components/metadata/ManySelect';
+import SearchableSelect from '@/components/forms/SearchableSelect';
 import { TagsInput } from '@/pages/Voices/components/metadata/TagsInput';
 import { IconUpload } from '@/pages/Voices/components/metadata/IconUpload';
 
@@ -95,7 +96,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ voice, onSaved }) => {
 
     if (!voice) return null;
 
-    const oneFields: Array<keyof VoiceAttributes> = ['class', 'gender', 'age', 'accent', 'pace'];
+    const comboboxFields: Array<keyof VoiceAttributes> = ['class', 'gender', 'age'];
+    const oneFields: Array<keyof VoiceAttributes> = ['accent', 'pace'];
     const manyFields: Array<keyof VoiceAttributes> = ['language', 'style', 'tone', 'timbre', 'use_case', 'quality'];
 
     return (
@@ -151,6 +153,27 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ voice, onSaved }) => {
             <p className="metadata-field-label" style={{ margin: 0 }}>
                 ATTRIBUTES <span style={{ color: 'var(--error)' }}>*</span> required fields
             </p>
+
+            {/* Single-value required fields (class/gender/age) — searchable combobox */}
+            {comboboxFields.map(key => {
+                const section = getSection(key);
+                if (!section) return null;
+                return (
+                    <div className="metadata-field" key={key}>
+                        <label className="metadata-field-label">
+                            {section.label.toUpperCase()}
+                            <span style={{ color: 'var(--error)', marginLeft: '2px' }}>*</span>
+                        </label>
+                        <SearchableSelect
+                            options={section.values.map(v => ({ id: v.id, name: v.label }))}
+                            value={(attrs as any)[key] ?? ''}
+                            onChange={val => setAttr(key, val === 'none' ? undefined : val)}
+                            placeholder={`Select ${section.label}...`}
+                            showCreateNew={false}
+                        />
+                    </div>
+                );
+            })}
 
             {/* One-value fields */}
             {oneFields.map(key => {

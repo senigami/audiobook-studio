@@ -1,0 +1,250 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Check, ChevronDown, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+export interface MultiSelectOption {
+    id: string;
+    label: string;
+}
+
+export interface MultiSelectProps {
+    options: MultiSelectOption[];
+    value: string[];
+    onChange: (value: string[]) => void;
+    placeholder?: string;
+    label?: string;
+    disabled?: boolean;
+}
+
+const MultiSelect: React.FC<MultiSelectProps> = ({
+    options,
+    value,
+    onChange,
+    placeholder = 'Select options...',
+    label,
+    disabled = false
+}) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [highlightedIndex, setHighlightedIndex] = useState(0);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const triggerRef = useRef<HTMLButtonElement>(null);
+
+    const toggle = (id: string) => {
+        if (value.includes(id)) {
+            onChange(value.filter(v => v !== id));
+        } else {
+            onChange([...value, id]);
+        }
+    };
+
+    const remove = (id: string) => {
+        onChange(value.filter(v => v !== id));
+    };
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        if (isOpen) {
+            setHighlightedIndex(0);
+        }
+    }, [isOpen]);
+
+    const closeAndFocusTrigger = () => {
+        setIsOpen(false);
+        triggerRef.current?.focus();
+    };
+
+    const handleTriggerKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+        if (disabled) return;
+        if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setIsOpen(true);
+        }
+    };
+
+    const handlePanelKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setHighlightedIndex((prev) => (prev + 1) % Math.max(options.length, 1));
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setHighlightedIndex((prev) => (prev - 1 + Math.max(options.length, 1)) % Math.max(options.length, 1));
+        } else if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            const opt = options[highlightedIndex];
+            if (opt) toggle(opt.id);
+        } else if (event.key === 'Escape') {
+            event.preventDefault();
+            closeAndFocusTrigger();
+        }
+    };
+
+    const selectedOptions = value
+        .map(id => options.find(opt => opt.id === id))
+        .filter((opt): opt is MultiSelectOption => Boolean(opt));
+
+    return (
+        <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+            <button
+                ref={triggerRef}
+                type="button"
+                onClick={() => !disabled && setIsOpen(!isOpen)}
+                onKeyDown={handleTriggerKeyDown}
+                disabled={disabled}
+                aria-haspopup="listbox"
+                aria-expanded={isOpen}
+                aria-label={selectedOptions.length === 0 ? (label || placeholder) : undefined}
+                className="form-input"
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '8px',
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    background: 'var(--surface-light)',
+                    padding: '8px 14px',
+                    minHeight: '44px',
+                    borderColor: isOpen ? 'var(--accent)' : 'var(--border)',
+                    boxShadow: isOpen ? '0 0 0 2px var(--accent-glow)' : 'none',
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    width: '100%',
+                    textAlign: 'left'
+                }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', flex: 1 }}>
+                    {selectedOptions.length === 0 ? (
+                        <span style={{ color: 'var(--text-muted)' }}>{placeholder}</span>
+                    ) : (
+                        selectedOptions.map(opt => (
+                            <span
+                                key={opt.id}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '2px 6px',
+                                    borderRadius: 'var(--radius-compact, 6px)',
+                                    background: 'var(--accent-glow)',
+                                    color: 'var(--accent)',
+                                    fontSize: '0.8rem'
+                                }}
+                            >
+                                {opt.label}
+                                <span
+                                    role="button"
+                                    aria-label={`Remove ${opt.label}`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        remove(opt.id);
+                                    }}
+                                    style={{ display: 'inline-flex', cursor: 'pointer' }}
+                                >
+                                    <X size={12} />
+                                </span>
+                            </span>
+                        ))
+                    )}
+                </div>
+                <ChevronDown
+                    size={16}
+                    style={{
+                        color: 'var(--text-muted)',
+                        transform: isOpen ? 'rotate(180deg)' : 'none',
+                        transition: 'transform 0.2s ease',
+                        flexShrink: 0
+                    }}
+                />
+            </button>
+
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                        animate={{ opacity: 1, scale: 1, y: 4 }}
+                        exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                        role="listbox"
+                        aria-multiselectable="true"
+                        onKeyDown={handlePanelKeyDown}
+                        style={{
+                            position: 'absolute',
+                            top: '100%',
+                            left: 0,
+                            right: 0,
+                            background: 'var(--surface)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 'var(--radius-card)',
+                            boxShadow: 'var(--shadow-lg)',
+                            zIndex: 1000,
+                            overflow: 'hidden',
+                            marginTop: '4px'
+                        }}
+                    >
+                        <div style={{ maxHeight: '240px', overflowY: 'auto', padding: '4px' }}>
+                            {options.length > 0 ? (
+                                options.map((opt, index) => (
+                                    <MultiSelectRow
+                                        key={opt.id}
+                                        opt={opt}
+                                        isSelected={value.includes(opt.id)}
+                                        isHighlighted={index === highlightedIndex}
+                                        onClick={() => toggle(opt.id)}
+                                        onMouseEnter={() => setHighlightedIndex(index)}
+                                    />
+                                ))
+                            ) : (
+                                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                    No options available
+                                </div>
+                            )}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
+
+const MultiSelectRow: React.FC<{
+    opt: MultiSelectOption;
+    isSelected: boolean;
+    isHighlighted: boolean;
+    onClick: () => void;
+    onMouseEnter: () => void;
+}> = ({ opt, isSelected, isHighlighted, onClick, onMouseEnter }) => {
+    return (
+        <div
+            role="option"
+            aria-selected={isSelected}
+            onClick={onClick}
+            onMouseEnter={onMouseEnter}
+            style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: isSelected ? 'var(--accent-glow)' : (isHighlighted ? 'var(--surface-light)' : 'transparent'),
+                color: isSelected ? 'var(--accent)' : 'var(--text-primary)',
+                fontSize: '0.9rem',
+                textAlign: 'left',
+                marginTop: '2px',
+                transition: 'background 0.1s ease',
+                cursor: 'pointer'
+            }}
+        >
+            {opt.label}
+            {isSelected && <Check size={14} />}
+        </div>
+    );
+};
+
+export default MultiSelect;
