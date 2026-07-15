@@ -1,0 +1,29 @@
+{
+  "date": "2026-07-15",
+  "author": "claude",
+  "summary": "Task 003 of the voices-variants-round2 plan: folds the standalone IconUpload section out of OverviewTab and onto VoiceDetailHeader's avatar directly (upload/replace button under it, drag-and-drop onto the image itself).",
+  "files": [
+    {
+      "path": "frontend/src/pages/Voices/components/metadata/IconUpload.tsx",
+      "change": "Extracted all upload/drag-drop/dimension-probe/copy-prompt mechanics into a new exported useIconUpload({voiceId, metadata, onSuccess, onError}) hook. The IconUpload component itself is now a thin consumer of that hook, kept in place (unmounted from the app, still independently unit-tested) rather than deleted.",
+      "contract_changed": true
+    },
+    {
+      "path": "frontend/src/pages/VoiceLab/components/VoiceDetailHeader.tsx",
+      "change": "Avatar div is now the drag/drop target; added a persistent upload/replace button plus the icon-generation-prompt copy button underneath the avatar (new .voice-detail-header__avatar-block). Added voiceId prop usage; local iconOverride/iconUploadError state resets on voiceId change, mirroring the old OverviewTab pattern."
+    },
+    {
+      "path": "frontend/src/pages/VoiceLab/components/OverviewTab.tsx",
+      "change": "Removed the standalone ICON section (IconUpload mount, iconPath/iconError local state, IconUpload import)."
+    },
+    {
+      "path": "frontend/src/theme/components/voice-lab.css",
+      "change": "Added .voice-detail-header__avatar-block / __icon-actions / __icon-btn layout rules, reusing existing .metadata-icon-upload__* classes rather than duplicating them."
+    },
+    {
+      "path": "frontend/tests/unit/pages/VoiceLab/components/VoiceDetailHeader.test.tsx",
+      "change": "New file. Covers the DC-013 icon-prompt regression test (moved from OverviewTab.test.tsx), upload-via-button, drop-onto-avatar, and upload-error-surfacing."
+    }
+  ],
+  "flow_impact": "Fifth task landed in the voices-variants-round2 plan. Unblocks task 007 (disclosure panel), which also touches OverviewTab.tsx and VoiceDetailHeader.tsx and was sequenced to land after both 003 and 006."
+}
