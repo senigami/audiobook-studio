@@ -9,7 +9,7 @@
  * - One-line description
  * - Preview (Play) button (routes through playerBus)
  * - Phase-appropriate primary CTA (from getPrimaryCta/getVoicePhase)
- * - Set Default direct action
+ * - Set as App Default direct action
  * - Slim ⋯ ActionMenu: Rename Voice / Export Voice Bundle / Delete Voice
  *
  * "Open in Voice Lab" (redundant with the card body/CTA, which already navigate there),
@@ -186,8 +186,8 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
 
             {/* Default badge */}
             {hasDefaultProfile && (
-                <span className="voice-catalog-card__default-badge" aria-label="Default voice">
-                    ★ default
+                <span className="voice-catalog-card__default-badge" aria-label="App default voice">
+                    App default
                 </span>
             )}
 
@@ -288,16 +288,17 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
                     {cta.label}
                 </button>
 
-                {/* Set Default — direct card action (not in the overflow menu) */}
+                {/* Set as App Default — direct card action (not in the overflow menu) */}
                 <button
                     type="button"
-                    aria-label="Set as default"
-                    disabled={hasDefaultProfile && profiles.find(p => p.is_default)?.name === defaultProfile?.name}
+                    aria-label="Set as App Default"
+                    title="Used app-wide when no voice is specified"
+                    disabled={hasDefaultProfile}
                     onClick={() => defaultProfile && onSetDefaultClick(defaultProfile.name)}
                     className="btn-glass voice-catalog-card__set-default-btn"
                 >
                     <Star size={12} />
-                    Set Default
+                    Set as App Default
                 </button>
 
                 {/* Delete — direct card action (not in the overflow menu), per the Power User

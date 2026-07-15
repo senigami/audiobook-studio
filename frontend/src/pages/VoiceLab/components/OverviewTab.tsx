@@ -104,6 +104,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ voice, onSaved }) => {
             <IconUpload
                 voiceId={voice.id}
                 currentImagePath={iconPath}
+                metadata={voice}
                 onSuccess={(img) => setIconPath(img)}
                 onError={(msg) => setIconError(msg)}
             />

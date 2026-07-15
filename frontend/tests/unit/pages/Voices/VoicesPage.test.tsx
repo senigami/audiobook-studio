@@ -63,9 +63,9 @@ describe('VoicesTab', () => {
             render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
         })
 
-        // Narrator2 has is_default=true — VoiceCatalogCard renders a "★ default" badge
-        // with aria-label="Default voice"
-        expect(screen.getByLabelText('Default voice')).toBeInTheDocument()
+        // Narrator2 has is_default=true — VoiceCatalogCard renders an "App default" badge
+        // with aria-label="App default voice"
+        expect(screen.getByLabelText('App default voice')).toBeInTheDocument()
     })
 
     it('opens profile details and allows building voice', async () => {
@@ -241,7 +241,10 @@ describe('VoicesTab', () => {
             render(<NarratorWithScriptEditor />)
         })
 
-        fireEvent.click(await screen.findByTitle('Edit Preview Script'))
+        // Script is now consolidated into VariantEditor's ActionMenu overflow
+        // (task 009 chrome demotion) — open it first, then click the item.
+        fireEvent.click(await screen.findByTitle('More actions'))
+        fireEvent.click(await screen.findByRole('button', { name: /^Script$/i }))
 
         const input = screen.getByDisplayValue('New Zealand')
         expect(input).not.toBeDisabled()
@@ -279,12 +282,12 @@ describe('VoicesTab', () => {
         expect(screen.getByText('Export Voice Bundle')).toBeInTheDocument()
     })
 
-    it('exposes Set Default and Delete as direct card actions, not in the overflow menu', async () => {
+    it('exposes Set as App Default and Delete as direct card actions, not in the overflow menu', async () => {
         await act(async () => {
             render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
         })
 
-        expect(await screen.findAllByRole('button', { name: /set as default/i })).not.toHaveLength(0)
+        expect(await screen.findAllByRole('button', { name: /set as app default/i })).not.toHaveLength(0)
         expect(await screen.findAllByRole('button', { name: /delete voice/i })).not.toHaveLength(0)
     })
 

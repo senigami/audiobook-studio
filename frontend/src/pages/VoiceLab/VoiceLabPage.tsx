@@ -57,6 +57,9 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
     // button (VariantEditor) switch straight to the Test tab instead of
     // opening the retired ScriptEditor drawer.
     const [activeTabId, setActiveTabId] = useState('overview');
+    // Preselects the Test tab's active variant when Script is activated from the Variants tab's
+    // switcher (task 013) -- otherwise the Test tab falls back to its own default-variant logic.
+    const [preselectedTestVariant, setPreselectedTestVariant] = useState<string | null>(null);
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
 
@@ -245,7 +248,10 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
                     onRefresh={onRefresh}
                     onBuildNow={handleBuildNow}
                     requestConfirm={requestConfirm}
-                    onEditTestText={() => setActiveTabId('test')}
+                    onEditTestText={(profile) => {
+                        setPreselectedTestVariant(profile.name);
+                        setActiveTabId('test');
+                    }}
                     settingsProfile={settingsProfile}
                     settings={editingSettings}
                     onSettingsChange={setEditingSettings}
@@ -270,6 +276,7 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
                     onRefresh={onRefresh}
                     voiceName={metadata?.name ?? id}
                     attributes={metadata?.attributes}
+                    preselectedVariantName={preselectedTestVariant}
                 />
             ),
         },

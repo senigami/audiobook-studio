@@ -118,6 +118,7 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
         "variant_name": None,
         "built_samples": [],
         "engine": "",
+        "performance_tags": [],
     }
     # Resolve to canonical name if it exists
     target_profile = _resolve_existing_profile_name(profile_name_or_id)
@@ -199,6 +200,14 @@ def update_speaker_settings(profile_name: str, **updates) -> bool:
                 meta = json.loads(f.read())
         except Exception:
             meta = {}
+
+    if "performance_tags" in updates and updates["performance_tags"] is not None:
+        normalized_tags = []
+        for tag in updates["performance_tags"]:
+            normalized = str(tag).strip().lower().replace(" ", "-")
+            if normalized and normalized not in normalized_tags:
+                normalized_tags.append(normalized)
+        updates["performance_tags"] = normalized_tags
 
     for k, v in updates.items():
         if v is None:

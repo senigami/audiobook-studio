@@ -137,9 +137,10 @@ export const VoiceDetailHeader: React.FC<VoiceDetailHeaderProps> = ({
                     onClick={handleSetDefault}
                     disabled={!defaultProfile || defaultProfile.is_default}
                     className="btn-glass"
+                    title="Used app-wide when no voice is specified"
                 >
                     <Star size={14} />
-                    {defaultProfile?.is_default ? 'Default voice' : 'Set as default'}
+                    {defaultProfile?.is_default ? 'App default' : 'Set as App Default'}
                 </button>
                 <button
                     type="button"

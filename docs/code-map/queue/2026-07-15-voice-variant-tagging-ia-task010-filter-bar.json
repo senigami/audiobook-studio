@@ -1,0 +1,23 @@
+{
+  "date": "2026-07-15",
+  "author": "claude",
+  "summary": "Task 010 of the voice-variant-tagging-and-ia plan (DC-003): adds a toggleable performance_tags filter-chip bar, rendered above VariantSwitcher (task 008) only when the character has more than 4 variants (rail mode). Filtering is OR-within-facet (matches app/domain/voices/metadata.py's existing character-level filter convention). VariantsSection.tsx now computes visibleProfiles from profiles + activeFilters and passes that (not the full profiles array) down to VariantSwitcher, and auto-selects the first remaining visible profile if an active filter change hides the currently-selected variant (AR-10).",
+  "files": [
+    {
+      "path": "frontend/src/pages/Voices/components/VariantFilterBar.tsx",
+      "change": "New component. Renders one toggle chip per distinct performance_tags value across all profiles (reuses metadata/chip.tsx's chip() helper — ManySelect's toggle-chip styling — rather than TagAutocompleteInput's type-to-add styling, since these chips are only ever toggled). Renders null when no profile has any performance_tags."
+    },
+    {
+      "path": "frontend/src/pages/VoiceLab/components/VariantsSection.tsx",
+      "change": "Added activeFilters state and a local STRIP_THRESHOLD=4 constant (kept in sync with VariantSwitcher's own internal threshold, since VariantSwitcher doesn't expose its strip/rail mode externally). Computes visibleProfiles (OR-within-facet filter) and isStrip; renders VariantFilterBar above VariantSwitcher only when !isStrip; passes visibleProfiles (not profiles) to VariantSwitcher. Added a new effect: if the currently-selected variant is filtered out of visibleProfiles, auto-select visibleProfiles[0] rather than leaving the detail pane pointed at a hidden variant."
+    },
+    {
+      "path": "frontend/tests/unit/pages/Voices/components/VariantFilterBar.test.tsx",
+      "change": "New test file. Covers chip rendering per distinct tag, OR-within toggle add/remove, aria-pressed reflecting active filters, and the no-tags no-render case."
+    },
+    {
+      "path": "frontend/tests/unit/pages/VoiceLab/VariantsSection.test.tsx",
+      "change": "Added 3 tests: filter bar absent in strip mode (<=4 variants), filter bar present + narrows visible tabs in rail mode (>4 variants), and the filter-hides-selected-variant fallback (auto-selects the first remaining visible variant)."
+    }
+  ]
+}

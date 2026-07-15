@@ -1277,6 +1277,21 @@
   font-weight: 700;
 }
 
+.metadata-icon-upload__prompt-btn {
+  height: 36px;
+  width: 36px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.metadata-icon-upload__copy-error {
+  font-size: 0.72rem;
+  color: var(--error);
+}
+
 /* ---------------------------------------------------------------------------
  * ManySelect/OneSelect chip row (metadata editor) — ST-3 conversion (task 014, 3/6)
  * --------------------------------------------------------------------------- */

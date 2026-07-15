@@ -59,7 +59,7 @@ async def api_update_profile_settings(name: str, request: Request):
 
     from ...engines.behavior import get_synthesis_settings_allowlist
     allowed = set(get_synthesis_settings_allowlist(requested_engine))
-    allowed.update({"engine", "test_text"})
+    allowed.update({"engine", "test_text", "performance_tags"})
 
     invalid_keys = [k for k in settings if k not in allowed]
     if invalid_keys:
@@ -87,6 +87,35 @@ def update_speaker_variant_name(name: str, variant_name: str = Form(...)):
     clean_variant_name = (variant_name or "").strip() or "Default"
     update_speaker_settings(name, variant_name=None if clean_variant_name == "Default" else clean_variant_name)
     return JSONResponse({"status": "ok", "variant_name": clean_variant_name})
+
+
+@router.post("/{name}/variants/{variant_name}/set-default")
+async def api_set_default_variant(name: str, variant_name: str):
+    # Rule 9: Early validation
+    name = config.canonical_voice_name(name)
+    pdir = voices_helpers._existing_voice_profile_dir(name)
+    if not pdir:
+        return JSONResponse({"status": "error", "message": "Voice profile directory not found"}, status_code=404)
+
+    voice_root = pdir.parent
+
+    # Rule 9: variant_name comes from the URL and is untrusted — containment-check
+    # it against real subdirectories of the voice root before ever writing state,
+    # rather than trusting the string blindly.
+    try:
+        target_variant_dir = pathing.secure_join_flat(voice_root, variant_name)
+    except ValueError:
+        return JSONResponse({"status": "error", "message": "Invalid variant name"}, status_code=403)
+
+    if not target_variant_dir.is_dir() or not pathing.find_secure_file(target_variant_dir, "profile.json"):
+        return JSONResponse({"status": "error", "message": "Variant not found"}, status_code=404)
+
+    from ...domain.voices.manifest import load_voice_state, save_voice_state
+    voice_state = load_voice_state(voice_root)
+    voice_state["default_variant"] = variant_name
+    save_voice_state(voice_root, voice_state)
+
+    return JSONResponse({"status": "ok", "default_variant": variant_name})
 
 
 @router.post("/{name}/engine")

@@ -30,6 +30,9 @@ export interface TestTabProps {
     voiceName: string;
     /** Tagged attributes for the voice — drives the "Suggest from voice qualities" button. */
     attributes?: VoiceAttributes;
+    /** Preselects this variant when the Test tab is reached via Script from the Variants tab's
+     * switcher (task 013). Falls back to the default-variant behavior if unset or not found. */
+    preselectedVariantName?: string | null;
 }
 
 export const TestTab: React.FC<TestTabProps> = ({
@@ -41,8 +44,12 @@ export const TestTab: React.FC<TestTabProps> = ({
     onRefresh,
     voiceName,
     attributes,
+    preselectedVariantName,
 }) => {
-    const defaultProfile = profiles.find(p => p.is_default) ?? profiles[0];
+    const defaultProfile =
+        (preselectedVariantName && profiles.find(p => p.name === preselectedVariantName)) ||
+        profiles.find(p => p.is_default) ||
+        profiles[0];
     const [activeProfile, setActiveProfile] = useState<SpeakerProfile | undefined>(defaultProfile);
 
     const [variantName, setVariantName] = useState(getVariantDisplayName(defaultProfile));
@@ -150,6 +157,7 @@ export const TestTab: React.FC<TestTabProps> = ({
                 onTest={onTest}
                 onRefresh={onRefresh}
                 onActiveProfileChange={setActiveProfile}
+                preselectedVariantName={preselectedVariantName}
             />
 
             {activeProfile && (

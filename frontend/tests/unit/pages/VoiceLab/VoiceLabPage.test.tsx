@@ -88,7 +88,12 @@ const mockEngines: TtsEngine[] = [
 // Helper: render at a given path
 // ---------------------------------------------------------------------------
 
-function renderAtPath(path: string, id: string = VOICE_ID, metadataList: VoiceMetadata[] = [mockMetadata]) {
+function renderAtPath(
+    path: string,
+    id: string = VOICE_ID,
+    metadataList: VoiceMetadata[] = [mockMetadata],
+    profiles: SpeakerProfile[] = [mockReadyProfile],
+) {
     (api.listVoicesWithMetadata as ReturnType<typeof vi.fn>).mockResolvedValue(metadataList);
 
     return render(
@@ -100,7 +105,7 @@ function renderAtPath(path: string, id: string = VOICE_ID, metadataList: VoiceMe
                     element={
                         <Suspense fallback={<div>Loading</div>}>
                             <VoiceLabPage
-                                speakerProfiles={[mockReadyProfile]}
+                                speakerProfiles={profiles}
                                 engines={mockEngines}
                                 jobs={{}}
                                 testProgress={{}}
@@ -283,11 +288,109 @@ describe('VoiceLabPage', () => {
         });
 
         await user.click(screen.getByRole('tab', { name: 'Variants' }));
+        // Script is now consolidated into the per-variant ActionMenu overflow
+        // (task 009 chrome demotion) — open it first, then click the item.
+        await user.click(await screen.findByTitle('More actions'));
         await user.click(screen.getByRole('button', { name: /^Script$/i }));
 
         expect(screen.getByRole('tab', { name: 'Test' })).toHaveAttribute('aria-selected', 'true');
         expect(screen.getByRole('button', { name: /Suggest from voice qualities/i })).toBeInTheDocument();
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('operates on the selected variant\'s own test text, not a sibling\'s (INV-WRITE-1)', async () => {
+        const variantB: SpeakerProfile = {
+            ...mockReadyProfile,
+            name: 'Aria Nova - Angry',
+            variant_name: 'Angry',
+            is_default: false,
+            test_text: 'Angry variant script',
+        };
+        const variantAWithText: SpeakerProfile = { ...mockReadyProfile, test_text: 'Default variant script' };
+
+        const user = userEvent.setup();
+        renderAtPath(`/voices/${VOICE_ID}`, VOICE_ID, [mockMetadata], [variantAWithText, variantB]);
+        await waitFor(() => {
+            expect(screen.getByText('Aria Nova')).toBeInTheDocument();
+        });
+
+        await user.click(screen.getByRole('tab', { name: 'Test' }));
+
+        // Defaults to variant A's own test text, shown in the folded-in
+        // ScriptEditor's "preview text script" textarea (scoped by class since
+        // TestSection's own separate "Test script" input shares the same seed
+        // value and would otherwise create an ambiguous match).
+        const getScriptEditorTextarea = () =>
+            document.querySelector('.script-editor-textarea') as HTMLTextAreaElement;
+        expect(getScriptEditorTextarea()).toHaveValue('Default variant script');
+
+        // Selecting variant B in the "Test variant" dropdown switches the folded-in
+        // ScriptEditor to variant B's own test text -- not A's, and not a blend.
+        await user.selectOptions(screen.getByLabelText('Test variant'), variantB.name);
+
+        expect(getScriptEditorTextarea()).toHaveValue('Angry variant script');
+    });
+
+    // ---------------------------------------------------------------------------
+    // Test tab preselects the switcher's active variant — task 013
+    // ---------------------------------------------------------------------------
+    it('preselects the variant that was active in the switcher when Script is activated', async () => {
+        const variantB: SpeakerProfile = {
+            ...mockReadyProfile,
+            name: 'Aria Nova - Angry',
+            variant_name: 'Angry',
+            is_default: false,
+            test_text: 'Angry variant script',
+        };
+        const variantAWithText: SpeakerProfile = { ...mockReadyProfile, test_text: 'Default variant script' };
+
+        const user = userEvent.setup();
+        renderAtPath(`/voices/${VOICE_ID}`, VOICE_ID, [mockMetadata], [variantAWithText, variantB]);
+        await waitFor(() => {
+            expect(screen.getByText('Aria Nova')).toBeInTheDocument();
+        });
+
+        await user.click(screen.getByRole('tab', { name: 'Variants' }));
+
+        // Select variant B ("Angry") in the switcher before activating Script.
+        await user.click(await screen.findByRole('tab', { name: /Angry/ }));
+
+        // Script is consolidated into the per-variant ActionMenu overflow (task 009).
+        await user.click(await screen.findByTitle('More actions'));
+        await user.click(screen.getByRole('button', { name: /^Script$/i }));
+
+        expect(screen.getByRole('tab', { name: 'Test' })).toHaveAttribute('aria-selected', 'true');
+
+        const getScriptEditorTextarea = () =>
+            document.querySelector('.script-editor-textarea') as HTMLTextAreaElement;
+        // Lands on variant B's own test text, not A's (and not a default/first variant).
+        expect(getScriptEditorTextarea()).toHaveValue('Angry variant script');
+        expect(screen.getByLabelText('Test variant')).toHaveValue(variantB.name);
+    });
+
+    it('defaults the Test tab to the default variant when reached directly (not via Script) — no regression', async () => {
+        const variantB: SpeakerProfile = {
+            ...mockReadyProfile,
+            name: 'Aria Nova - Angry',
+            variant_name: 'Angry',
+            is_default: false,
+            test_text: 'Angry variant script',
+        };
+        const variantAWithText: SpeakerProfile = { ...mockReadyProfile, test_text: 'Default variant script' };
+
+        const user = userEvent.setup();
+        renderAtPath(`/voices/${VOICE_ID}`, VOICE_ID, [mockMetadata], [variantAWithText, variantB]);
+        await waitFor(() => {
+            expect(screen.getByText('Aria Nova')).toBeInTheDocument();
+        });
+
+        // Clicking Test directly (never touching the Variants tab/switcher/Script).
+        await user.click(screen.getByRole('tab', { name: 'Test' }));
+
+        const getScriptEditorTextarea = () =>
+            document.querySelector('.script-editor-textarea') as HTMLTextAreaElement;
+        expect(getScriptEditorTextarea()).toHaveValue('Default variant script');
+        expect(screen.getByLabelText('Test variant')).toHaveValue(variantAWithText.name);
     });
 
     // ---------------------------------------------------------------------------

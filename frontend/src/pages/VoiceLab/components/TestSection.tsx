@@ -20,6 +20,10 @@ export interface TestSectionProps {
     /** Notifies the parent (e.g. TestTab) which variant is currently selected in the
      * "Variant" dropdown, so folded-in script-editing UI can stay in sync with it. */
     onActiveProfileChange?: (profile: SpeakerProfile | undefined) => void;
+    /** Preselects this variant in the "Variant" dropdown (task 013 -- e.g. when Script is
+     * activated from the Variants tab's switcher), instead of the default-variant fallback.
+     * Falls back to the default-variant behavior if unset or not found in `profiles`. */
+    preselectedVariantName?: string | null;
 }
 
 export const TestSection: React.FC<TestSectionProps> = ({
@@ -29,8 +33,12 @@ export const TestSection: React.FC<TestSectionProps> = ({
     onTest,
     onEditTestText,
     onActiveProfileChange,
+    preselectedVariantName,
 }) => {
-    const defaultProfile = profiles.find(p => p.is_default) ?? profiles[0];
+    const defaultProfile =
+        (preselectedVariantName && profiles.find(p => p.name === preselectedVariantName)) ||
+        profiles.find(p => p.is_default) ||
+        profiles[0];
     const [selectedProfileName, setSelectedProfileName] = useState(defaultProfile?.name ?? '');
     const [selectedRefSample, setSelectedRefSample] = useState('');
     const [scriptText, setScriptText] = useState(defaultProfile?.test_text ?? '');
@@ -42,6 +50,18 @@ export const TestSection: React.FC<TestSectionProps> = ({
     useEffect(() => {
         onActiveProfileChange?.(activeProfile);
     }, [activeProfile?.name]);
+
+    // Re-sync the dropdown when a new preselection arrives after mount (the tabpanel stays
+    // mounted across tab switches -- see VoiceDetailTabs.tsx -- so this component's own state
+    // wouldn't otherwise pick up a later Script→Test-tab preselection).
+    useEffect(() => {
+        if (!preselectedVariantName) return;
+        const p = profiles.find(pr => pr.name === preselectedVariantName);
+        if (p) {
+            setSelectedProfileName(p.name);
+            setScriptText(p.test_text ?? '');
+        }
+    }, [preselectedVariantName]);
 
     // Single-owner playback (ADR-0010): preview plays through the global player bus,
     // never a local <audio>/new Audio() element.

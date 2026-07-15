@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { SpeakerProfile, TtsEngine } from '@/types';
 import {
     Trash2, Play, Loader2, RefreshCw, FileEdit,
-    Pause, Sliders
+    Pause, Sliders, MoreVertical
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { SpeedPopover } from '@/pages/Voices/components/VoiceUtils';
@@ -10,6 +10,10 @@ import { useVariantActions } from '@/hooks/useVariantActions';
 import { SampleManager } from '@/pages/Voices/components/SampleManager';
 import { VersionHistoryPanel } from '@/pages/Voices/components/VersionHistoryPanel';
 import { formatVoiceEngineLabel, getVariantDisplayName, getVoiceProfileEngine } from '@/utils/voiceProfiles';
+import { TagAutocompleteInput } from '@/pages/Voices/components/metadata/TagAutocompleteInput';
+import { ActionMenu, type ActionMenuItem } from '@/components/ui/ActionMenu';
+
+const PERFORMANCE_TAG_STARTER_VOCABULARY = ['happy', 'sad', 'angry', 'calm', 'slow', 'fast', 'measured'];
 
 interface VariantEditorProps {
     profile: SpeakerProfile;
@@ -26,12 +30,16 @@ interface VariantEditorProps {
     showControlsInline?: boolean;
     buildingProfiles: Record<string, boolean>;
     engines?: TtsEngine[];
+    /** Tags already used by this voice's other variants, for the suggestions
+     *  dropdown — aggregated + deduplicated by the caller (VariantsSection). */
+    tagSuggestions?: string[];
 }
 
 export const VariantEditor: React.FC<VariantEditorProps> = ({
     profile, isTesting, onTest, onDeleteVariant, onMoveVariant, onRefresh,
     onEditTestText, onBuildNow, requestConfirm, testStatus,
-    voiceName, showControlsInline = false, buildingProfiles, engines = []
+    voiceName, showControlsInline = false, buildingProfiles, engines = [],
+    tagSuggestions = []
 }) => {
     const engine = getVoiceProfileEngine(profile) || 'unknown';
     const activeEngine = engines.find(e => e.engine_id === engine);
@@ -88,6 +96,21 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
         }
     };
 
+    const handleSaveTags = async (newTags: string[]) => {
+        try {
+            await fetch(`/api/speaker-profiles/${encodeURIComponent(profile.name)}/settings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ performance_tags: newTags }),
+            });
+        } catch (err) {
+            console.error('Failed to save performance tags', err);
+        }
+        onRefresh();
+    };
+
+    const combinedTagSuggestions = Array.from(new Set([...tagSuggestions, ...PERFORMANCE_TAG_STARTER_VOCABULARY]));
+
     const [showSpeedPopover, setShowSpeedPopover] = useState(false);
     const [isSamplesExpanded, setIsSamplesExpanded] = useState(profile.wav_count === 0 || profile.samples?.length === 0);
     const [isRebuildRequired, setIsRebuildRequired] = useState(profile.is_rebuild_required || false);
@@ -101,6 +124,51 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
             setIsSamplesExpanded(true);
         }
     }, [profile.wav_count, profile.name]);
+
+    // Chrome demotion (task 009): Script, Move, Delete, and Rebuild/Regenerate
+    // all consolidate into a single ActionMenu overflow. Rebuild/Regenerate is
+    // still gated by the same enabled/disabled logic as before (hasBuildMaterial
+    // + engineUsable + not mid-build/test) — it stays available whenever the
+    // user could meaningfully trigger it, not only when isRebuildRequired.
+    const rebuildOrGenerateItem: ActionMenuItem = isCloudEngine ? {
+        label: isTesting ? 'Regenerating...' : (profile.preview_url ? 'Regenerate' : 'Generate'),
+        icon: RefreshCw,
+        onClick: handleGeneratePreview,
+        disabled: !canGeneratePreview || isTesting,
+    } : {
+        label: isBuilding ? 'Rebuilding...' : (isTesting ? 'Generating...' : 'Rebuild'),
+        icon: RefreshCw,
+        onClick: handleRebuild,
+        disabled: !hasBuildMaterial || !engineUsable || isBuilding || isTesting,
+    };
+
+    const actionMenuItems: ActionMenuItem[] = [
+        {
+            label: 'Script',
+            icon: FileEdit,
+            onClick: () => onEditTestText(profile),
+        },
+        rebuildOrGenerateItem,
+        { isDivider: true },
+        {
+            label: 'Move Variant',
+            icon: RefreshCw,
+            onClick: () => onMoveVariant(profile),
+        },
+        {
+            label: 'Delete Variant',
+            icon: Trash2,
+            isDestructive: true,
+            onClick: () => {
+                requestConfirm({
+                    title: 'Delete variant?',
+                    message: `Delete variant '${profile.variant_name || 'Default'}' from '${voiceName}'? This cannot be undone.`,
+                    isDestructive: true,
+                    onConfirm: () => onDeleteVariant(profile.name)
+                });
+            },
+        },
+    ];
 
     const renderControls = () => (
         <div className="variant-editor__controls-body">
@@ -214,75 +282,34 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                         {engineBadge.label}
                     </span>
 
-                    <button
-                        onClick={() => onEditTestText(profile)}
-                        className="btn-ghost hover-bg-subtle variant-editor__script-btn"
-                        title="Edit Preview Script"
-                    >
-                        <FileEdit size={16} />
-                        Script
-                    </button>
+                    <ActionMenu
+                        items={actionMenuItems}
+                        trigger={
+                            <span
+                                className="btn-ghost hover-bg-subtle variant-editor__more-btn"
+                                title="More actions"
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: 32,
+                                    height: 32,
+                                    borderRadius: 'var(--radius-round)',
+                                }}
+                            >
+                                <MoreVertical size={16} />
+                            </span>
+                        }
+                    />
+                </div>
 
-                    {!isCloudEngine && (
-                        <button
-                            disabled={!hasBuildMaterial || !engineUsable || isBuilding || isTesting}
-                            className={`${isRebuildRequired ? "btn-primary" : "btn-ghost hover-bg-subtle"} variant-editor__toolbar-btn variant-editor__toolbar-btn--rebuild`}
-                            onClick={(e) => { e.stopPropagation(); handleRebuild(); }}
-                            title={!engineUsable
-                                ? `Engine ${activeEngine?.display_name || formatVoiceEngineLabel(engine)} is disabled or unavailable.`
-                                : !hasBuildMaterial
-                                    ? 'Add at least one sample or keep a latent before rebuilding this voice'
-                                    : isRebuildRequired && profile.rebuild_reasons?.length
-                                        ? `Rebuild Required: ${profile.rebuild_reasons.map(r => r.replace('_', ' ')).join(', ')}`
-                                        : "Rebuild Voice Model"}
-                            style={isRebuildRequired ? {} : { background: 'var(--surface)', border: '1px solid var(--border)' }}
-                        >
-                            {isBuilding ? (
-                                <>
-                                    <Loader2 size={16} className="animate-spin" />
-                                    Rebuilding...
-                                </>
-                            ) : isTesting ? (
-                                <>
-                                    <RefreshCw size={16} className="animate-spin" />
-                                    Generating...
-                                </>
-                            ) : (
-                                <>
-                                    <RefreshCw size={16} />
-                                    Rebuild
-                                </>
-                            )}
-                        </button>
-                    )}
-
-                    {isCloudEngine && (
-                        <button
-                            disabled={!canGeneratePreview || isTesting}
-                            className={`${isRebuildRequired ? "btn-primary" : "btn-ghost hover-bg-subtle"} variant-editor__toolbar-btn variant-editor__toolbar-btn--generate`}
-                            onClick={handleGeneratePreview}
-                            title={!engineUsable
-                                ? `Engine ${activeEngine?.display_name || engine} is disabled or unavailable.`
-                                : !hasBuildMaterial
-                                    ? 'Add at least one sample or keep a latent before generating a preview'
-                                    : isRebuildRequired && profile.rebuild_reasons?.length
-                                        ? `Regeneration Required: ${profile.rebuild_reasons.map(r => r.replace('_', ' ')).join(', ')}`
-                                        : (profile.preview_url ? "Regenerate Sample" : "Generate Sample")}
-                            style={isRebuildRequired ? {} : { background: 'var(--surface)', border: '1px solid var(--border)' }}
-                        >
-                            {isTesting ? (
-                                <>
-                                    <RefreshCw size={16} className="animate-spin" />
-                                    Regenerating...
-                                </>
-                            ) : (
-                                <>
-                                    <RefreshCw size={16} />
-                                    {profile.preview_url ? 'Regenerate' : 'Generate'}
-                                </>
-                            )}
-                        </button>
-                    )}
+                <div className="variant-editor__tags-row" style={{ marginTop: '0.5rem' }}>
+                    <TagAutocompleteInput
+                        tags={profile.performance_tags ?? []}
+                        onChange={handleSaveTags}
+                        suggestions={combinedTagSuggestions}
+                        placeholder="Add a performance tag..."
+                    />
                 </div>
             </div>
 
@@ -314,36 +341,6 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                 onPromoted={onRefresh}
                 requestConfirm={requestConfirm}
             />
-
-            <div className="variant-editor__footer">
-                <div className="variant-editor__footer-copy">
-                    <span className="variant-editor__footer-title">Advanced Actions</span>
-                    <span className="variant-editor__footer-desc">Move this variant to another voice or delete it.</span>
-                </div>
-                <div className="variant-editor__footer-actions">
-                    <button
-                        onClick={() => onMoveVariant(profile)}
-                        className="btn-ghost hover-bg-subtle variant-editor__footer-btn"
-                    >
-                        <RefreshCw size={14} />
-                        Move Variant
-                    </button>
-                    <button
-                        onClick={() => {
-                            requestConfirm({
-                                title: 'Delete variant?',
-                                message: `Delete variant '${profile.variant_name || 'Default'}' from '${voiceName}'? This cannot be undone.`,
-                                isDestructive: true,
-                                onConfirm: () => onDeleteVariant(profile.name)
-                            });
-                        }}
-                        className="btn-ghost hover-bg-destructive variant-editor__footer-btn"
-                    >
-                        <Trash2 size={14} />
-                        Delete Variant
-                    </button>
-                </div>
-            </div>
         </div>
     );
 };

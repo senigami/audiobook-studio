@@ -276,6 +276,10 @@ export interface SpeakerProfile {
   readiness_message?: string;
   settings?: Record<string, any>;
   version_count?: number;
+  performance_tags?: string[];
+  /** Per-variant default flag (task 005) — the character's default variant for bundle
+   * export. Distinct from `is_default` (the app-wide default speaker profile). */
+  is_variant_default?: boolean;
 }
 
 export interface Speaker {

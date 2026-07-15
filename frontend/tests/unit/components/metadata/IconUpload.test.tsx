@@ -2,6 +2,8 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { IconUpload } from '@/pages/Voices/components/metadata/IconUpload';
+import { buildIconPrompt } from '@/pages/VoiceLab/iconPrompt';
+import type { VoiceMetadata } from '@/types';
 
 vi.mock('@/api', () => ({
   api: {
@@ -180,6 +182,74 @@ describe('IconUpload', () => {
         expect(onError).toHaveBeenCalledWith('Drop an image file (PNG, JPEG, or WebP).');
       });
       expect(api.uploadVoiceIcon).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('copy icon prompt', () => {
+    const meta: VoiceMetadata = {
+      id: 'v1',
+      name: 'Dracula',
+      is_untagged: false,
+      description: 'A menacing count.',
+      attributes: { class: 'monster', gender: 'male', age: 'ancient' },
+      tags: ['gothic'],
+    };
+
+    it('reveals the built prompt as a tooltip on the copy-prompt button', () => {
+      render(
+        <IconUpload
+          voiceId="v1"
+          currentImagePath={undefined}
+          metadata={meta}
+          onSuccess={vi.fn()}
+          onError={vi.fn()}
+        />
+      );
+
+      const button = screen.getByRole('button', { name: 'Copy icon generation prompt' });
+      expect(button).toHaveAttribute('title', buildIconPrompt(meta));
+    });
+
+    it('copies the exact buildIconPrompt output to the clipboard on click', async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, { clipboard: { writeText } });
+
+      render(
+        <IconUpload
+          voiceId="v1"
+          currentImagePath={undefined}
+          metadata={meta}
+          onSuccess={vi.fn()}
+          onError={vi.fn()}
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Copy icon generation prompt' }));
+
+      await waitFor(() => {
+        expect(writeText).toHaveBeenCalledWith(buildIconPrompt(meta));
+      });
+    });
+
+    it('surfaces a visible error when the clipboard write is rejected, instead of failing silently', async () => {
+      const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+      Object.assign(navigator, { clipboard: { writeText } });
+
+      render(
+        <IconUpload
+          voiceId="v1"
+          currentImagePath={undefined}
+          metadata={meta}
+          onSuccess={vi.fn()}
+          onError={vi.fn()}
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Copy icon generation prompt' }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent(/could not copy/i);
+      });
     });
   });
 });

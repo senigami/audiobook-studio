@@ -157,7 +157,11 @@ describe('Voices Tab Components', () => {
 
             const buttons = screen.getAllByRole('button');
             expect(buttons.some(btn => btn.getAttribute('title') === 'Add at least one sample or keep a latent before generating a preview')).toBe(true);
-            expect(buttons.some(btn => btn.getAttribute('title') === 'Add at least one sample or keep a latent before rebuilding this voice')).toBe(true);
+            // Rebuild is now consolidated into VariantEditor's ActionMenu overflow
+            // (task 009 chrome demotion) — open it (index 1: index 0 is the
+            // card-level ActionMenu) and check the item's disabled state.
+            fireEvent.click(screen.getAllByLabelText('More actions')[1]);
+            expect(screen.getByRole('button', { name: 'Rebuild' })).toBeDisabled();
         });
 
         it('allows testing and rebuilding when a latent exists even without raw samples', () => {
@@ -186,7 +190,11 @@ describe('Voices Tab Components', () => {
             expect(screen.getByText('BUILD TO TEST')).toBeInTheDocument();
             const buttons = screen.getAllByRole('button');
             expect(buttons.some(btn => btn.getAttribute('title') === 'Generate Sample' && !btn.hasAttribute('disabled'))).toBe(true);
-            expect(buttons.some(btn => btn.getAttribute('title') === 'Rebuild Voice Model' && !btn.hasAttribute('disabled'))).toBe(true);
+            // Rebuild is now consolidated into VariantEditor's ActionMenu overflow
+            // (task 009 chrome demotion) — open it (index 1: index 0 is the
+            // card-level ActionMenu) and check the item is enabled.
+            fireEvent.click(screen.getAllByLabelText('More actions')[1]);
+            expect(screen.getByRole('button', { name: 'Rebuild' })).not.toBeDisabled();
         });
 
         it('prefers the base Default profile over a sibling variant', () => {
@@ -243,10 +251,14 @@ describe('Voices Tab Components', () => {
 
             expect(screen.getAllByText(/cloud engine/i).length).toBeGreaterThan(0);
             expect(screen.queryByText('1.00x')).not.toBeInTheDocument();
-            expect(screen.queryByText('Rebuild')).not.toBeInTheDocument();
             expect(screen.getByText('BUILD TO TEST')).toBeInTheDocument();
+            expect(screen.getAllByTitle('Generate Sample').length).toBe(1);
+            // Generate is now consolidated into VariantEditor's ActionMenu overflow
+            // (task 009 chrome demotion) — open it (index 1: index 0 is the
+            // card-level ActionMenu) and confirm the item, not "Rebuild".
+            fireEvent.click(screen.getAllByLabelText('More actions')[1]);
             expect(screen.getByText('Generate')).toBeInTheDocument();
-            expect(screen.getAllByTitle('Generate Sample').length).toBe(2);
+            expect(screen.queryByText('Rebuild')).not.toBeInTheDocument();
         });
 
         it('shows rebuild required status and regenerate action for stale Voxtral previews', () => {
@@ -273,8 +285,12 @@ describe('Voices Tab Components', () => {
             );
 
             expect(screen.getByText(/PREVIEW STALE/i)).toBeInTheDocument();
-            expect(screen.getByText('Regenerate')).toBeInTheDocument();
             expect(screen.getByTitle('Play Sample')).not.toBeDisabled();
+            // Regenerate is now consolidated into VariantEditor's ActionMenu overflow
+            // (task 009 chrome demotion) — open it (index 1: index 0 is the
+            // card-level ActionMenu) and confirm the item.
+            fireEvent.click(screen.getAllByLabelText('More actions')[1]);
+            expect(screen.getByText('Regenerate')).toBeInTheDocument();
         });
 
         it('keeps existing Voxtral previews playable but blocks new generation when cloud voices are disabled', () => {
@@ -301,8 +317,12 @@ describe('Voices Tab Components', () => {
             );
 
             expect(screen.getByTitle('Play Sample')).not.toBeDisabled();
-            expect(screen.getByRole('button', { name: /Regenerate/i })).toBeDisabled();
             expect(screen.getByText(/disabled or unavailable/i)).toBeInTheDocument();
+            // Regenerate is now consolidated into VariantEditor's ActionMenu overflow
+            // (task 009 chrome demotion) — open it (index 1: index 0 is the
+            // card-level ActionMenu) and confirm the item is disabled.
+            fireEvent.click(screen.getAllByLabelText('More actions')[1]);
+            expect(screen.getByRole('button', { name: /Regenerate/i })).toBeDisabled();
         });
     });
 
@@ -366,12 +386,14 @@ describe('Voices Tab Components', () => {
             );
 
             expect(screen.getByText('1.00x')).toBeInTheDocument();
-            expect(screen.getByText('Script')).toBeInTheDocument();
             expect(screen.getByTitle('Play Sample')).toHaveClass('hover-bg-subtle');
-            expect(screen.getByRole('button', { name: 'Delete Variant' })).toHaveClass('hover-bg-destructive');
             expect(screen.getByRole('button', { name: '1.00x' })).toHaveClass('hover-bg-subtle');
-            expect(screen.getByRole('button', { name: 'Script' })).toHaveClass('hover-bg-subtle');
-            expect(screen.getByRole('button', { name: 'Move Variant' })).toHaveClass('hover-bg-subtle');
+            // Script/Move Variant/Delete Variant are now consolidated into the
+            // ActionMenu overflow (task 009 chrome demotion) — open it to reach them.
+            fireEvent.click(screen.getByTitle('More actions'));
+            expect(screen.getByRole('button', { name: 'Script' })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Move Variant' })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Delete Variant' })).toBeInTheDocument();
         });
     });
 
@@ -457,8 +479,9 @@ describe('Voices Tab Components', () => {
                 />
             );
 
-            // Open ActionMenu
-            fireEvent.click(screen.getByLabelText('More actions'));
+            // Open the card-level ActionMenu (index 0: index 1 is the nested
+            // VariantEditor's own ActionMenu, added by task 009's chrome demotion).
+            fireEvent.click(screen.getAllByLabelText('More actions')[0]);
             expect(screen.getByText('Export Voice Bundle')).toBeInTheDocument();
 
             fireEvent.click(screen.getByText('Export Voice Bundle'));

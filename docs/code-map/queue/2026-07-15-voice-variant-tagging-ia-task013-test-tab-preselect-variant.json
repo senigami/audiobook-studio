@@ -1,0 +1,23 @@
+{
+  "date": "2026-07-15",
+  "author": "claude",
+  "summary": "Task 013 of the voice-variant-tagging-and-ia plan: closes the gap task 002 identified -- VariantEditor's Script button already switched VoiceLabPage to the Test tab but discarded the SpeakerProfile it was called with, so the Test tab always fell back to its own default-variant logic regardless of which variant was active in the switcher. VoiceLabPage now captures profile.name from onEditTestText and threads it down as preselectedVariantName through TestTab into TestSection (which owns the actual 'Variant' dropdown selection state and reports it back up via onActiveProfileChange). Direct Test-tab navigation (not via Script) is unaffected -- preselectedVariantName defaults to null and the existing is_default/profiles[0] fallback chain is preserved.",
+  "files": [
+    {
+      "path": "frontend/src/pages/VoiceLab/VoiceLabPage.tsx",
+      "change": "Added preselectedTestVariant state; onEditTestText now reads profile.name into it before switching to the Test tab (previously discarded the profile arg entirely); passes preselectedTestVariant into TestTab as preselectedVariantName."
+    },
+    {
+      "path": "frontend/src/pages/VoiceLab/components/TestTab.tsx",
+      "change": "Accepts optional preselectedVariantName prop; its own defaultProfile computation now prefers a matching profile over the is_default/profiles[0] fallback; forwards preselectedVariantName into TestSection."
+    },
+    {
+      "path": "frontend/src/pages/VoiceLab/components/TestSection.tsx",
+      "change": "Accepts optional preselectedVariantName prop (this component owns the actual 'Test variant' dropdown selection state). Initial selection prefers a matching profile; a new effect re-syncs the dropdown + script text when preselectedVariantName changes after mount, since the Test tabpanel stays mounted across tab switches (VoiceDetailTabs renders all tabpanels, toggling `hidden`) so the component's own useState wouldn't otherwise pick up a later Script-triggered preselection."
+    },
+    {
+      "path": "frontend/tests/unit/pages/VoiceLab/VoiceLabPage.test.tsx",
+      "change": "Added two tests: selecting a non-default variant in the switcher then activating Script lands on the Test tab with that variant's own test text/dropdown selection (not the default's); and clicking the Test tab directly (no Script) still defaults to the default variant, unaffected by this change."
+    }
+  ]
+}

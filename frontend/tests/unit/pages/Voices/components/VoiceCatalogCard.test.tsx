@@ -140,15 +140,16 @@ describe('VoiceCatalogCard', () => {
         expect(screen.getByText('feminine')).toBeInTheDocument();
     });
 
-    it('shows "★ default" badge when voice has a default profile', () => {
+    it('shows "App default" badge when voice has a default profile', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
-        expect(screen.getByLabelText('Default voice')).toBeInTheDocument();
+        expect(screen.getByLabelText('App default voice')).toBeInTheDocument();
+        expect(screen.getByText('App default')).toBeInTheDocument();
     });
 
     it('does NOT show default badge when no profile is default', () => {
         const profiles = [{ ...readyProfile, is_default: false }];
         render(<VoiceCatalogCard {...baseProps} profiles={profiles} />);
-        expect(screen.queryByLabelText('Default voice')).not.toBeInTheDocument();
+        expect(screen.queryByLabelText('App default voice')).not.toBeInTheDocument();
     });
 
     it('shows UntaggedBadge when voice is untagged (no attributes, no tags)', () => {
@@ -230,25 +231,67 @@ describe('VoiceCatalogCard', () => {
     });
 
     // ---------------------------------------------------------------------------
-    // Set Default — direct card action (task 006)
+    // Set as App Default — direct card action (task 006; relabeled + disabled-logic
+    // fix, task 011)
     // ---------------------------------------------------------------------------
 
-    it('renders "Set Default" as a direct card action (not inside the overflow menu)', () => {
+    it('renders "Set as App Default" as a direct card action (not inside the overflow menu)', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[{ ...readyProfile, is_default: false }]} />);
-        expect(screen.getByRole('button', { name: /set as default/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Set as App Default' })).toBeInTheDocument();
         expect(screen.queryByTestId('menu-item-Set as Default')).not.toBeInTheDocument();
     });
 
-    it('clicking "Set Default" calls onSetDefaultClick with the default profile name', () => {
+    it('clicking "Set as App Default" calls onSetDefaultClick with the default profile name', () => {
         const profiles = [{ ...readyProfile, is_default: false }];
         render(<VoiceCatalogCard {...baseProps} profiles={profiles} />);
-        fireEvent.click(screen.getByRole('button', { name: /set as default/i }));
+        fireEvent.click(screen.getByRole('button', { name: 'Set as App Default' }));
         expect(baseProps.onSetDefaultClick).toHaveBeenCalledWith(profiles[0].name);
     });
 
-    it('disables "Set Default" when the profile is already the default', () => {
+    it('disables "Set as App Default" when the profile is already the default', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
-        expect(screen.getByRole('button', { name: /set as default/i })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Set as App Default' })).toBeDisabled();
+    });
+
+    // Regression test for the task 011 disabled-logic fix.
+    //
+    // Precise prior bug mechanism (confirmed by reading the pre-fix condition and
+    // exercising it directly, not assumed): the old disabled expression was
+    //   hasDefaultProfile && profiles.find(p => p.is_default)?.name === defaultProfile?.name
+    // For the common case — this card's own currently-default profile IS selectable
+    // (isVoiceProfileSelectable true) — `defaultProfile` always resolves to that same
+    // profile first (its derivation prioritizes `is_default && selectable`), so the
+    // second clause was tautologically true whenever `hasDefaultProfile` was true.
+    // That means, for ordinary single- or multi-profile cards, the old condition was
+    // behaviorally IDENTICAL to the simplified `hasDefaultProfile` used after the fix
+    // (verified: neither a second card that doesn't hold default status, nor a
+    // same-card multi-profile case with a selectable default, changes value across the
+    // two versions of the condition).
+    //
+    // The one case where the two conditions actually diverge is when THIS card's own
+    // default profile is present but NOT selectable (e.g. its engine is missing/
+    // disabled) while a sibling profile in the SAME card is selectable: the old
+    // tautology broke down there (`defaultProfile` fell through to the sibling, whose
+    // name differs from the still-marked-default profile's name), so `disabled`
+    // evaluated to `false` — the button was enabled and, if clicked, pointed the
+    // app-wide default at the sibling profile even though this card's voice already
+    // held default status via its other (unselectable) profile. The fix's simplified
+    // `disabled={hasDefaultProfile}` closes this: once ANY of this card's own profiles
+    // holds default status, the button stays disabled regardless of that profile's
+    // current selectability.
+    it('disables "Set as App Default" when this card already holds default status via an unselectable profile, even though a sibling profile in the same card is selectable', () => {
+        const profiles = [
+            { ...readyProfile, name: 'Clara Bell - A', is_default: true, engine: 'nonexistent-engine' },
+            { ...readyProfile, name: 'Clara Bell - B', is_default: false, engine: 'xtts' },
+        ];
+        render(<VoiceCatalogCard {...baseProps} profiles={profiles} />);
+        expect(screen.getByRole('button', { name: 'Set as App Default' })).toBeDisabled();
+    });
+
+    it('a different card whose own voice does not currently hold default status shows its button enabled', () => {
+        const profiles = [{ ...readyProfile, name: 'Other Voice', is_default: false }];
+        render(<VoiceCatalogCard {...baseProps} profiles={profiles} />);
+        expect(screen.getByRole('button', { name: 'Set as App Default' })).not.toBeDisabled();
     });
 
     // ---------------------------------------------------------------------------

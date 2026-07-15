@@ -1,0 +1,19 @@
+{
+  "date": "2026-07-15",
+  "author": "claude",
+  "summary": "Task 006 of the voice-variant tagging + IA plan: new self-contained TagAutocompleteInput component merging TagsInput's commit/normalize/backspace-remove mechanics with ManySelect's suggestion-chip styling. Committed tags render via VoicePillRow (not hand-rolled), which required a small generic extension (PillSpec.onRemove) since VoicePillRow previously had no removal affordance. No existing call sites wired yet (out of scope for this task; tasks 007/010 consume it).",
+  "files": [
+    {
+      "path": "frontend/src/pages/Voices/components/metadata/TagAutocompleteInput.tsx",
+      "change": "New component: draft input + filtered suggestion dropdown (styled via metadata/chip.tsx's chip()). commitValue() normalizes exactly like TagsInput.tsx (.trim().toLowerCase().replace(/\\s+/g,'-')), dedupes against existing tags. Keyboard: Enter/comma commits typed draft (or the arrow-highlighted suggestion when one is highlighted), Backspace on empty draft removes the last tag, Escape closes the dropdown without committing. Dropdown items use onMouseDown preventDefault so clicking a suggestion doesn't fire the input's blur-commit first."
+    },
+    {
+      "path": "frontend/src/pages/Voices/components/VoicePills.tsx",
+      "change": "Extended PillSpec with optional onRemove callback; VoicePill renders a remove \"×\" button (matching existing pill token/style, not new hand-rolled styling) when a spec provides it. Backward-compatible — no existing caller passes onRemove, so read-only rendering is unchanged."
+    },
+    {
+      "path": "frontend/tests/unit/pages/Voices/components/metadata/TagAutocompleteInput.test.tsx",
+      "change": "New test file: Enter/comma commit + normalization, filtered dropdown + click-to-commit, backspace removes last tag, no duplicate add (typed or via dropdown), remove × removes exactly one tag, keyboard-only arrow-down+Enter commits a suggestion, Escape closes dropdown without committing."
+    }
+  ]
+}

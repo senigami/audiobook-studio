@@ -1,7 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { Upload } from 'lucide-react';
+import { Upload, ClipboardCopy } from 'lucide-react';
+import type { VoiceMetadata } from '@/types';
 import { api } from '@/api';
 import { IconCropModal } from '@/pages/Voices/components/metadata/IconCropModal';
+import { buildIconPrompt } from '@/pages/VoiceLab/iconPrompt';
 
 /** Reads just the natural dimensions of a File, without keeping it decoded in memory. */
 function readImageDimensions(file: File): Promise<{ w: number; h: number }> {
@@ -26,18 +28,30 @@ function readImageDimensions(file: File): Promise<{ w: number; h: number }> {
 export function IconUpload({
     voiceId,
     currentImagePath,
+    metadata,
     onSuccess,
     onError,
 }: {
     voiceId: string;
     currentImagePath: string | undefined;
+    metadata?: VoiceMetadata | null;
     onSuccess: (image: string) => void;
     onError: (msg: string) => void;
 }) {
     const [uploading, setUploading] = useState(false);
     const [cropFile, setCropFile] = useState<File | null>(null);
     const [isDragging, setIsDragging] = useState(false);
+    const [copyError, setCopyError] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+
+    const handleCopyPrompt = async () => {
+        setCopyError(null);
+        try {
+            await navigator.clipboard.writeText(buildIconPrompt(metadata ?? null));
+        } catch {
+            setCopyError('Could not copy — clipboard unavailable.');
+        }
+    };
 
     const doUpload = async (file: File) => {
         setUploading(true);
@@ -126,14 +140,30 @@ export function IconUpload({
                     )}
                 </div>
                 <div className="metadata-icon-upload__actions">
-                    <button
-                        type="button"
-                        disabled={uploading}
-                        onClick={() => inputRef.current?.click()}
-                        className="btn-glass metadata-icon-upload__btn"
-                    >
-                        {uploading ? 'Uploading…' : (iconUrl ? 'Replace icon' : 'Upload icon')}
-                    </button>
+                    <div style={{ display: 'flex', gap: 'var(--space-2, 8px)', alignItems: 'center' }}>
+                        <button
+                            type="button"
+                            disabled={uploading}
+                            onClick={() => inputRef.current?.click()}
+                            className="btn-glass metadata-icon-upload__btn"
+                        >
+                            {uploading ? 'Uploading…' : (iconUrl ? 'Replace icon' : 'Upload icon')}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleCopyPrompt}
+                            className="btn-glass metadata-icon-upload__prompt-btn"
+                            aria-label="Copy icon generation prompt"
+                            title={buildIconPrompt(metadata ?? null)}
+                        >
+                            <ClipboardCopy size={14} />
+                        </button>
+                        {copyError && (
+                            <span role="alert" className="metadata-icon-upload__copy-error">
+                                {copyError}
+                            </span>
+                        )}
+                    </div>
                     <p className="metadata-field-hint">
                         {isDragging
                             ? 'Drop to upload'

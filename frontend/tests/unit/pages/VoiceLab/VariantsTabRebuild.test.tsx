@@ -137,6 +137,9 @@ describe('VoiceLabPage Variants tab — real rebuild wiring (R3)', () => {
 
         await user.click(screen.getByRole('tab', { name: 'Variants' }));
 
+        // Rebuild is now consolidated into the per-variant ActionMenu overflow
+        // (task 009 chrome demotion) — open it first, then click the item.
+        await user.click(await screen.findByTitle('More actions'));
         const rebuildBtn = await screen.findByRole('button', { name: 'Rebuild' });
         await user.click(rebuildBtn);
 
@@ -231,12 +234,17 @@ describe('VoiceLabPage Variants tab — real rebuild wiring (R3)', () => {
 
         await user.click(screen.getByRole('tab', { name: 'Variants' }));
 
+        // Rebuild is now consolidated into the per-variant ActionMenu overflow
+        // (task 009 chrome demotion) — open it first, then click the item.
+        await user.click(await screen.findByTitle('More actions'));
         const rebuildBtn = await screen.findByRole('button', { name: 'Rebuild' });
         await user.click(rebuildBtn);
 
         // Observable real effect: the button's own building state (backed by
         // `buildingProfiles`, tracked from the real job id returned by the
         // build call) flips to "Rebuilding...", not a stub that's always {}.
+        // The menu closes on selection, so reopen it to observe the item's label.
+        await user.click(await screen.findByTitle('More actions'));
         await waitFor(() => {
             expect(screen.getByRole('button', { name: /Rebuilding/i })).toBeInTheDocument();
         });

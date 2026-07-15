@@ -21,6 +21,8 @@ export interface PillSpec {
     category: PillCategory;
     /** Original metadata key, for testing/debugging */
     key: string;
+    /** When present, renders a remove "×" affordance on the pill. */
+    onRemove?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -124,12 +126,13 @@ export const VoicePill: React.FC<VoicePillProps> = ({ spec }) => {
             style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                padding: '2px 8px',
+                gap: 'var(--space-1)',
+                padding: `calc(var(--space-1) / 2) var(--space-2)`,
                 borderRadius: 'var(--radius-round)',
                 border: `1px solid ${style.border}`,
                 background: style.bg,
                 color: style.text,
-                fontSize: '0.6875rem',
+                fontSize: 'var(--type-micro)',
                 fontWeight: 600,
                 letterSpacing: '0.01em',
                 whiteSpace: 'nowrap',
@@ -138,6 +141,26 @@ export const VoicePill: React.FC<VoicePillProps> = ({ spec }) => {
             }}
         >
             {spec.label}
+            {spec.onRemove && (
+                <button
+                    type="button"
+                    onClick={spec.onRemove}
+                    aria-label={`Remove ${spec.label}`}
+                    style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        background: 'none',
+                        border: 'none',
+                        color: 'inherit',
+                        cursor: 'pointer',
+                        padding: 0,
+                        lineHeight: 1,
+                        fontSize: '0.85rem',
+                    }}
+                >
+                    ×
+                </button>
+            )}
         </span>
     );
 };
@@ -167,7 +190,7 @@ export const VoicePillRow: React.FC<VoicePillRowProps> = ({ pills, max = 0 }) =>
             style={{
                 display: 'flex',
                 flexWrap: 'wrap',
-                gap: '4px',
+                gap: 'var(--space-1)',
                 alignItems: 'center',
             }}
         >
@@ -178,17 +201,17 @@ export const VoicePillRow: React.FC<VoicePillRowProps> = ({ pills, max = 0 }) =>
                 <button
                     type="button"
                     aria-label={`Show ${overflow} more attributes`}
-                    aria-expanded={false}
+                    aria-expanded={expanded}
                     onClick={() => setExpanded(true)}
                     style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        padding: '2px 8px',
+                        padding: `calc(var(--space-1) / 2) var(--space-2)`,
                         borderRadius: 'var(--radius-round)',
                         border: '1px solid var(--pill-tag-border)',
                         background: 'var(--pill-tag-bg)',
                         color: 'var(--text-muted)',
-                        fontSize: '0.6875rem',
+                        fontSize: 'var(--type-micro)',
                         fontWeight: 600,
                         cursor: 'pointer',
                         lineHeight: 1.5,
@@ -202,16 +225,17 @@ export const VoicePillRow: React.FC<VoicePillRowProps> = ({ pills, max = 0 }) =>
                 <button
                     type="button"
                     aria-label="Show fewer attributes"
+                    aria-expanded={expanded}
                     onClick={() => setExpanded(false)}
                     style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        padding: '2px 8px',
+                        padding: `calc(var(--space-1) / 2) var(--space-2)`,
                         borderRadius: 'var(--radius-round)',
                         border: '1px solid var(--pill-tag-border)',
                         background: 'var(--pill-tag-bg)',
                         color: 'var(--text-muted)',
-                        fontSize: '0.6875rem',
+                        fontSize: 'var(--type-micro)',
                         fontWeight: 600,
                         cursor: 'pointer',
                         lineHeight: 1.5,
@@ -238,13 +262,13 @@ export const UntaggedBadge: React.FC<{ onClick?: () => void }> = ({ onClick }) =
         style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '4px',
-            padding: '2px 8px',
+            gap: 'var(--space-1)',
+            padding: `calc(var(--space-1) / 2) var(--space-2)`,
             borderRadius: 'var(--radius-round)',
             border: '1px solid var(--warning-tint-border)',
             background: 'var(--warning-tint-bg)',
             color: 'var(--warning-text)',
-            fontSize: '0.6875rem',
+            fontSize: 'var(--type-micro)',
             fontWeight: 600,
             cursor: onClick ? 'pointer' : 'default',
             lineHeight: 1.5,

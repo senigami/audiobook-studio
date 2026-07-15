@@ -1,0 +1,25 @@
+{
+  "date": "2026-07-15",
+  "author": "claude",
+  "summary": "Voice-variant tagging + IA redesign plan (~/.claude/plans/audiobook-factory/voice-variant-tagging-and-ia/), task 008 of 13: new VariantSwitcher component (count-based horizontal strip <=4 variants / vertical rail >4), one shared per-item row (name, engine.speed, read-only performance_tags chips, play/pause via playerBus, and the new per-variant default-star). Not yet wired into VariantsSection (task 009) or paired with the rail filter bar (task 010).",
+  "files": [
+    {
+      "path": "frontend/src/pages/Voices/components/VariantSwitcher.tsx",
+      "change": "New component. profiles.length <= 4 renders a horizontal roving-tabindex tab strip, > 4 renders a vertical roving-tabindex rail (aria-orientation set per mode); keyboard shape adapted from VoiceDetailTabs.tsx (ArrowLeft/Right or Up/Down + Home/End, sr-only aria-live announcement). Each item: name, `${engine} . ${speed}x`, VoicePillRow(performance_tags, max=2, read-only -- no onRemove), a play/pause toggle driven by usePlayerBus/loadAndPlay/play/pause (no new local playback state), and a trailing default-star button (aria-pressed=is_variant_default, aria-label=`Default variant for ${voiceName}`, stopPropagation, no confirm dialog, calls onSetDefault directly). role=\"tab\" lives on a div (not <button>) per item so the default-star's real <button> is never a nested-button; Enter/Space re-added manually to restore native-button activation semantics.",
+      "contract_changed": true
+    },
+    {
+      "path": "frontend/src/types/index.ts",
+      "change": "Added SpeakerProfile.is_variant_default?: boolean (task 005's backend field, distinct from the pre-existing is_default global-app-default field) -- backend-only until this task, frontend type was missing it.",
+      "contract_changed": true
+    },
+    {
+      "path": "frontend/tests/unit/pages/Voices/components/VariantSwitcher.test.tsx",
+      "change": "New test file: strip vs rail conditional by profile count, click-to-select, default-star click calls onSetDefault without also calling onSelect, star reflects is_variant_default, tag-chip capping (2 + overflow), and ArrowRight/ArrowDown roving-tabindex navigation in each orientation (with a check that horizontal keys are inert in rail mode)."
+    }
+  ],
+  "out_of_scope_next": [
+    "Task 009: wire VariantSwitcher + exactly one VariantEditor into VariantsSection (INV-SELECT-1).",
+    "Task 010: rail-mode filter bar, rendered by the parent alongside VariantSwitcher, not inside it."
+  ]
+}
