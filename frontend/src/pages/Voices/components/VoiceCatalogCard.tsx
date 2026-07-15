@@ -9,10 +9,16 @@
  * - One-line description
  * - Preview (Play) button (routes through playerBus)
  * - Phase-appropriate primary CTA (from getPrimaryCta/getVoicePhase)
- * - ⋯ ActionMenu: Set as default / Edit Metadata / Edit Recording Script / Voice Settings / Rename Voice / Export Voice Bundle / Delete Voice
+ * - Set Default direct action
+ * - Slim ⋯ ActionMenu: Rename Voice / Export Voice Bundle / Delete Voice
+ *
+ * "Open in Voice Lab" (redundant with the card body/CTA, which already navigate there),
+ * "Edit Metadata" (→ VoiceLabPage Overview tab), "Edit Recording Script" (→ Test tab), and
+ * "Voice Settings" (→ Variants tab) were relocated to the consolidated voice detail page
+ * (task 006, voice-card-consolidation plan) — see VoiceDetailTabs/VoiceLabPage.
  */
 import React from 'react';
-import { User, Star, Download, FileEdit, Trash2, Tag, Play, Pause, Mic, SlidersHorizontal, Loader2, ExternalLink } from 'lucide-react';
+import { User, Star, Download, FileEdit, Trash2, Play, Pause, Loader2 } from 'lucide-react';
 import type { Speaker, SpeakerProfile, TtsEngine, VoiceMetadata } from '@/types';
 import { ActionMenu } from '@/components/ui/ActionMenu';
 import { VoicePillRow, UntaggedBadge, voicePillsFromMetadata } from '@/pages/Voices/components/VoicePills';
@@ -39,11 +45,9 @@ export interface VoiceCatalogCardProps {
     onRenameClick: (speaker: Speaker) => void;
     onExportVoice?: (voiceName: string) => void;
     requestConfirm: (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean }) => void;
+    /** Still used for the untagged-badge affordance in the card body; Edit Metadata is no
+     * longer a menu item (relocated to the VoiceLabPage Overview tab, task 006). */
     onEditMetadata?: () => void;
-    onEditTestText?: (profile: SpeakerProfile) => void;
-    /** Opens the standalone Voice Settings drawer (per-voice plugin controls), relocated
-     * out of the Script Editor drawer per the Phase 12 placement backlog item. */
-    onEditVoiceSettings?: (profile: SpeakerProfile) => void;
     onRefresh: () => void;
 }
 
@@ -64,8 +68,6 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
     onExportVoice,
     requestConfirm,
     onEditMetadata,
-    onEditTestText,
-    onEditVoiceSettings,
     onRefresh,
 }) => {
     const playerBus = usePlayerBus();
@@ -257,35 +259,35 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
                     {cta.label}
                 </button>
 
-                {/* Overflow menu */}
+                {/* Set Default — direct card action (not in the overflow menu) */}
+                <button
+                    type="button"
+                    aria-label="Set as default"
+                    disabled={hasDefaultProfile && profiles.find(p => p.is_default)?.name === defaultProfile?.name}
+                    onClick={() => defaultProfile && onSetDefaultClick(defaultProfile.name)}
+                    className="btn-glass voice-catalog-card__set-default-btn"
+                >
+                    <Star size={12} />
+                    Set Default
+                </button>
+
+                {/* Delete — direct card action (not in the overflow menu), per the Power User
+                    and Large Catalog Curator persona findings: destructive actions used
+                    one-card-at-a-time while scanning many tiles must not require an extra
+                    menu-open click. */}
+                <button
+                    type="button"
+                    aria-label="Delete voice"
+                    onClick={handleDelete}
+                    className="btn-glass hover-bg-destructive voice-catalog-card__delete-btn"
+                >
+                    <Trash2 size={12} />
+                    Delete
+                </button>
+
+                {/* Overflow menu — slimmed to Rename/Export only (task 006, corrected) */}
                 <ActionMenu
                     items={[
-                        {
-                            label: 'Set as Default',
-                            icon: Star,
-                            disabled: hasDefaultProfile && profiles.find(p => p.is_default)?.name === defaultProfile?.name,
-                            onClick: () => defaultProfile && onSetDefaultClick(defaultProfile.name),
-                        },
-                        {
-                            label: 'Open in Voice Lab',
-                            icon: ExternalLink,
-                            onClick: () => onNavigateToLab(speaker.id),
-                        },
-                        {
-                            label: 'Edit Metadata',
-                            icon: Tag,
-                            onClick: () => onEditMetadata?.(),
-                        },
-                        {
-                            label: 'Edit Recording Script',
-                            icon: Mic,
-                            onClick: () => defaultProfile && onEditTestText?.(defaultProfile),
-                        },
-                        {
-                            label: 'Voice Settings',
-                            icon: SlidersHorizontal,
-                            onClick: () => defaultProfile && onEditVoiceSettings?.(defaultProfile),
-                        },
                         {
                             label: 'Rename Voice',
                             icon: FileEdit,
@@ -295,12 +297,6 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
                             label: 'Export Voice Bundle',
                             icon: Download,
                             onClick: () => onExportVoice?.(speaker.name),
-                        },
-                        {
-                            label: 'Delete Voice (all variants)',
-                            icon: Trash2,
-                            onClick: handleDelete,
-                            isDestructive: true,
                         },
                     ]}
                 />

@@ -1,5 +1,4 @@
-import { type Speaker, type TtsEngine } from '@/types';
-import { getVariantDisplayName, isDefaultVoiceProfile } from '@/utils/voiceProfiles';
+import { type TtsEngine } from '@/types';
 import { api } from '@/api';
 
 interface UseVoicesTabActionsProps {
@@ -20,90 +19,8 @@ export function useVoicesTabActions({
     const {
         fetchSpeakers,
         handleUpdateEngine,
-        handleUpdateSettings,
         formatError
     } = management;
-
-    const handleSaveTestText = async () => {
-        if (!state.editingProfile) return;
-        state.setIsSavingText(true);
-        try {
-            const settingsToUpdate: Record<string, any> = {
-                test_text: state.testText,
-                engine: state.editingEngine
-            };
-
-            const activeEngine = engines.find(e => e.engine_id === state.editingEngine);
-            if (activeEngine?.cloud || activeEngine?.capabilities?.includes('voice_asset_id')) {
-                settingsToUpdate.reference_sample = state.referenceSample || null;
-                settingsToUpdate.voice_asset_id = state.engineVoiceId;
-            }
-
-            // Merge only the plugin-specific settings allowed for the active engine.
-            const allowedPluginSettings = new Set(activeEngine?.behavior?.synthesis_settings || []);
-            const pluginSettings = Object.fromEntries(
-                Object.entries(state.editingSettings || {}).filter(([key]) => allowedPluginSettings.has(key))
-            );
-            Object.assign(settingsToUpdate, pluginSettings);
-
-            const success = await handleUpdateSettings(state.editingProfile.name, settingsToUpdate);
-
-            if (success) {
-                const currentVariantDisplay = getVariantDisplayName(state.editingProfile);
-                if (state.variantName && state.variantName !== currentVariantDisplay) {
-                    if (isDefaultVoiceProfile(state.editingProfile)) {
-                        const variantForm = new URLSearchParams();
-                        variantForm.append('variant_name', state.variantName);
-                        await fetch(`/api/speaker-profiles/${encodeURIComponent(state.editingProfile.name)}/variant-name`, {
-                            method: 'POST',
-                            body: variantForm
-                        });
-                    } else {
-                        let newFullName = state.variantName;
-                        if (state.editingProfile.speaker_id) {
-                            const speaker = management.speakers.find((s: Speaker) => s.id === state.editingProfile?.speaker_id);
-                            if (speaker) {
-                                newFullName = (state.variantName === 'Default' || state.variantName === speaker.name) ? speaker.name : `${speaker.name} - ${state.variantName}`;
-                            }
-                        }
-
-                        const renameForm = new URLSearchParams();
-                        renameForm.append('new_name', newFullName);
-                        await fetch(`/api/speaker-profiles/${encodeURIComponent(state.editingProfile.name)}/rename`, {
-                            method: 'POST',
-                            body: renameForm
-                        });
-                    }
-                }
-                state.setEditingProfile(null);
-                onRefresh();
-            }
-        } catch (e) {
-            console.error('Failed to save profile', e);
-        } finally {
-            state.setIsSavingText(false);
-        }
-    };
-
-    const handleResetTestText = async () => {
-        if (!state.editingProfile) return;
-        state.setIsSavingText(true);
-        try {
-            const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(state.editingProfile.name)}/reset-test-text`, {
-                method: 'POST'
-            });
-            const result = await resp.json();
-            if (result.status === 'ok' || result.status === 'success') {
-                state.setTestText(result.test_text);
-                state.setEditingProfile(null);
-                onRefresh();
-            }
-        } catch (e) {
-            console.error('Failed to reset script', e);
-        } finally {
-            state.setIsSavingText(false);
-        }
-    };
 
     const handleCreateVoice = async () => {
         state.setIsCreatingVoice(true);
@@ -321,8 +238,6 @@ export function useVoicesTabActions({
     };
 
     return {
-        handleSaveTestText,
-        handleResetTestText,
         handleCreateVoice,
         handleRenameSpeaker,
         handleAddVariant,

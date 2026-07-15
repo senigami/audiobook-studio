@@ -94,6 +94,17 @@
   border-radius: var(--radius-round);
 }
 
+.voice-catalog-card__set-default-btn,
+.voice-catalog-card__delete-btn {
+  height: 26px;
+  padding: 0 8px;
+  font-size: 0.65rem;
+  border-radius: var(--radius-round);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
 /* Voices catalog grid wrapper — R5-T3 */
 .voices-catalog-grid {
   display: grid;
@@ -325,6 +336,126 @@
   font-weight: 800; /* no matching --type-weight-* token (700/700/600/400/500/600) — token gap */
   color: var(--text-muted);
   letter-spacing: 0.05em; /* no matching --tracking-* token (tight -0.01em / wide 0.08em) — token gap */
+}
+
+/* ---------------------------------------------------------------------------
+ * Voice Detail page shell — voice-card-consolidation task 001
+ * VoiceDetailHeader + VoiceDetailTabs. Header keeps the identity block
+ * (.voice-lab-page__avatar/__header-body/__name/__edit-meta-btn/__description
+ * above already cover that part); this block adds the actions row +
+ * persistent status strip, and the generic tabs primitive.
+ * --------------------------------------------------------------------------- */
+
+.voice-detail-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.voice-detail-header__identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.voice-detail-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.voice-detail-header__actions .btn-glass,
+.voice-detail-header__actions .btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 36px;
+  padding: 0 16px;
+  font-size: 0.85rem;
+  border-radius: var(--radius-button);
+}
+
+.voice-detail-header__delete-btn {
+  color: var(--error);
+  border: 1px solid var(--error);
+}
+
+.voice-detail-header__status-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-alt);
+}
+
+.voice-detail-header__status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--type-caption);
+  color: var(--text-secondary);
+}
+
+.voice-detail-header__status-item--muted {
+  color: var(--text-muted);
+}
+
+.voice-detail-header__status-variant {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.voice-detail-header__status-detail {
+  color: var(--text-muted);
+}
+
+.voice-detail-header__status-icon--success {
+  color: var(--success);
+}
+
+.voice-detail-header__status-icon--warning {
+  color: var(--warning-text);
+}
+
+/* Generic ARIA tabs primitive — VoiceDetailTabs.tsx */
+.voice-detail-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.voice-detail-tabs__list {
+  display: flex;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.voice-detail-tabs__tab {
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+}
+
+.voice-detail-tabs__tab--active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.voice-detail-tabs__panel {
+  min-height: 80px;
+}
+
+.voice-detail-tabs__placeholder {
+  color: var(--text-muted);
+  font-size: var(--type-caption);
 }
 
 .script-editor-field-group {
@@ -1237,7 +1368,9 @@
      voice" CTA were 26px tall, below Apple's 44pt touch-target guidance
      for primary actions. */
   .voice-catalog-card__preview-btn,
-  .voice-catalog-card__cta-btn {
+  .voice-catalog-card__cta-btn,
+  .voice-catalog-card__set-default-btn,
+  .voice-catalog-card__delete-btn {
     height: 36px;
     font-size: 0.75rem;
   }

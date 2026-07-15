@@ -5,7 +5,7 @@
  * - Route renders for a fixture voice (stepper, name, back link)
  * - Stepper marks the correct phase from fixture profiles
  * - Unknown id redirects to /voices
- * - Edit-metadata opens the modal (focus-trap dialog present)
+ * - Overview tab renders metadata fields inline, no edit-metadata modal
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -23,18 +23,8 @@ vi.mock('@/api', () => ({
         listVoicesWithMetadata: vi.fn(),
         exportVoiceBundleUrl: vi.fn().mockReturnValue('/api/voices/test/bundle/download'),
         uploadHfVoice: vi.fn(),
+        patchVoiceMetadata: vi.fn(),
     },
-}));
-
-// Mock lazy-loaded sections to avoid their full dependency chain in unit tests
-vi.mock('@/pages/VoiceLab/components/SamplesSection', () => ({
-    SamplesSection: () => <div data-testid="samples-section">Samples</div>,
-}));
-vi.mock('@/pages/VoiceLab/components/VariantsSection', () => ({
-    VariantsSection: () => <div data-testid="variants-section">Variants</div>,
-}));
-vi.mock('@/pages/VoiceLab/components/TestSection', () => ({
-    TestSection: () => <div data-testid="test-section">Test</div>,
 }));
 
 import { api } from '@/api';
@@ -191,22 +181,20 @@ describe('VoiceLabPage', () => {
         });
     });
 
-    it('opens MetadataEditorModal when "Edit metadata" is clicked', async () => {
-        const user = userEvent.setup();
+    it('renders inline, always-editable metadata fields in the Overview tab (no modal)', async () => {
         renderAtPath(`/voices/${VOICE_ID}`);
 
         await waitFor(() => {
             expect(screen.getByText('Aria Nova')).toBeInTheDocument();
         });
 
-        const editBtn = screen.getByRole('button', { name: /edit metadata/i });
-        await user.click(editBtn);
-
-        // MetadataEditorModal renders a dialog element with role="dialog"
-        await waitFor(() => {
-            const dialog = screen.getByRole('dialog');
-            expect(dialog).toBeInTheDocument();
-        });
+        // Overview is the default active tabpanel -- its fields (description,
+        // Save button) are visible without any trigger click, and there is
+        // no modal dialog to open anymore.
+        expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /^save$/i })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /edit metadata/i })).not.toBeInTheDocument();
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
     it('opens the real Publish to Hugging Face flow (not a decorative placeholder)', async () => {
@@ -230,13 +218,76 @@ describe('VoiceLabPage', () => {
         expect(screen.getByLabelText('Hugging Face repo')).toBeInTheDocument();
     });
 
-    it('renders section placeholders (samples, variants, test)', async () => {
+    it('renders the voice detail tabs (Overview/Samples/Variants/Test)', async () => {
         renderAtPath(`/voices/${VOICE_ID}`);
         await waitFor(() => {
-            expect(screen.getByTestId('samples-section')).toBeInTheDocument();
-            expect(screen.getByTestId('variants-section')).toBeInTheDocument();
-            expect(screen.getByTestId('test-section')).toBeInTheDocument();
+            expect(screen.getByRole('tablist', { name: 'Voice management' })).toBeInTheDocument();
         });
+        expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
+        expect(screen.getByRole('tab', { name: 'Samples' })).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: 'Variants' })).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: 'Test' })).toBeInTheDocument();
+        // Overview is real, inline metadata content as of task 002 (no more
+        // "coming soon" placeholder) -- assert its description field instead.
+        expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
+    });
+
+    it('keeps the status strip visible after switching tabs (INV-VC-4)', async () => {
+        const user = userEvent.setup();
+        const { container } = renderAtPath(`/voices/${VOICE_ID}`);
+        await waitFor(() => {
+            expect(screen.getByText('Aria Nova')).toBeInTheDocument();
+        });
+
+        // Status strip shows the fixture's one variant ("Default"). Scoped to the
+        // header's status strip (not `screen`) since task 004's real Variants tab
+        // content also renders a "Default" variant row once that tab is active.
+        const statusStrip = container.querySelector('.voice-detail-header__status-strip');
+        expect(statusStrip).not.toBeNull();
+        expect(statusStrip).toHaveTextContent('Default');
+
+        await user.click(screen.getByRole('tab', { name: 'Variants' }));
+
+        expect(screen.getByRole('tab', { name: 'Variants' })).toHaveAttribute('aria-selected', 'true');
+        // Status strip content is still present -- it lives in the header, not a tabpanel
+        expect(statusStrip).toHaveTextContent('Default');
+    });
+
+    // ---------------------------------------------------------------------------
+    // Test tab — task 005 (TestSection relocated, ScriptEditor folded in)
+    // ---------------------------------------------------------------------------
+    it('renders TestSection + the folded-in ScriptEditor content under the Test tab', async () => {
+        const user = userEvent.setup();
+        renderAtPath(`/voices/${VOICE_ID}`);
+        await waitFor(() => {
+            expect(screen.getByText('Aria Nova')).toBeInTheDocument();
+        });
+
+        await user.click(screen.getByRole('tab', { name: 'Test' }));
+
+        // TestSection content (variant/generate-test controls)
+        expect(screen.getByLabelText('Test variant')).toBeInTheDocument();
+        // Folded-in ScriptEditor content (was previously only reachable via a
+        // separate drawer) -- variant name field + "Suggest from voice qualities".
+        expect(screen.getByText(/Changing the variant label updates/i)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Suggest from voice qualities/i })).toBeInTheDocument();
+        // No more separate "Edit preview script" link now that it's inline.
+        expect(screen.queryByText(/Edit preview script/i)).not.toBeInTheDocument();
+    });
+
+    it('switches to the Test tab when the Variants tab\'s "Script" button is clicked, instead of opening a drawer', async () => {
+        const user = userEvent.setup();
+        renderAtPath(`/voices/${VOICE_ID}`);
+        await waitFor(() => {
+            expect(screen.getByText('Aria Nova')).toBeInTheDocument();
+        });
+
+        await user.click(screen.getByRole('tab', { name: 'Variants' }));
+        await user.click(screen.getByRole('button', { name: /^Script$/i }));
+
+        expect(screen.getByRole('tab', { name: 'Test' })).toHaveAttribute('aria-selected', 'true');
+        expect(screen.getByRole('button', { name: /Suggest from voice qualities/i })).toBeInTheDocument();
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
     // ---------------------------------------------------------------------------

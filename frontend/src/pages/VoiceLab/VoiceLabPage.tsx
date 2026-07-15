@@ -2,36 +2,41 @@
  * VoiceLabPage.tsx — R5-T5
  *
  * Full-page workspace at /voices/:id.
- * Header: ← back link, avatar, name, pills, description, "Edit metadata" button.
+ * Header: ← back link, avatar, name, pills, description. Metadata editing
+ * moved inline into the Overview tabpanel (task 002) -- no header trigger
+ * or modal.
  * PhaseStepper driven by getVoicePhase.
  * Body: placeholder section anchors filled by T6–T8.
  *
  * Data: re-fetches via api.listVoicesWithMetadata + speaker profiles from initialData
  * passed as props from App.tsx (same as VoicesTab).
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { User, ArrowLeft, Pencil } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import type { SpeakerProfile, TtsEngine, VoiceMetadata, Job } from '@/types';
 import { api } from '@/api';
-import { VoicePillRow } from '@/pages/Voices/components/VoicePills';
 import { voicePillsFromMetadata } from '@/pages/Voices/components/VoicePills';
 import { getVoicePhase } from '@/pages/Voices/voicePhase';
 import { PhaseStepper } from '@/pages/VoiceLab/components/PhaseStepper';
-import { MetadataEditorModal } from '@/pages/Voices/components/MetadataEditorModal';
-import { VoiceIconControls } from '@/pages/VoiceLab/components/VoiceIconControls';
 import { PublishToHuggingFaceModal } from '@/pages/VoiceLab/components/PublishToHuggingFaceModal';
+import { VoiceDetailHeader } from '@/pages/VoiceLab/components/VoiceDetailHeader';
+import { VoiceDetailTabs, type VoiceDetailTabDef } from '@/pages/VoiceLab/components/VoiceDetailTabs';
+import { OverviewTab } from '@/pages/VoiceLab/components/OverviewTab';
+import { SamplesTab } from '@/pages/VoiceLab/components/SamplesTab';
+import { VariantsTab } from '@/pages/VoiceLab/components/VariantsTab';
+import { TestTab } from '@/pages/VoiceLab/components/TestTab';
+import { ConfirmModal } from '@/components/overlays/ConfirmModal';
+import { useVoiceManagement } from '@/hooks/useVoiceManagement';
+import { getDefaultVoiceProfileName } from '@/utils/voiceProfiles';
 
-// Sections filled by T6–T8 (lazy imports)
-const SamplesSection = React.lazy(() =>
-    import('@/pages/VoiceLab/components/SamplesSection').then(m => ({ default: m.SamplesSection }))
-);
-const VariantsSection = React.lazy(() =>
-    import('@/pages/VoiceLab/components/VariantsSection').then(m => ({ default: m.VariantsSection }))
-);
-const TestSection = React.lazy(() =>
-    import('@/pages/VoiceLab/components/TestSection').then(m => ({ default: m.TestSection }))
-);
+// NOTE: VoiceIconControls (previously lazy-loaded and rendered directly below
+// the phase stepper) is not rendered in this task. SamplesSection was
+// relocated into the Samples tabpanel by task 003 (via SamplesTab);
+// VariantsSection + VoiceSettingsPanel were relocated into the Variants
+// tabpanel by task 004 (via VariantsTab); TestSection + ScriptEditor's
+// test-text editing UI were relocated/folded into the Test tabpanel by task
+// 005 (via TestTab) -- the old ScriptEditor drawer is retired.
 
 export interface VoiceLabPageProps {
     speakerProfiles: SpeakerProfile[];
@@ -41,10 +46,6 @@ export interface VoiceLabPageProps {
     onRefresh: () => void;
 }
 
-const SectionFallback: React.FC = () => (
-    <div style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Loading…</div>
-);
-
 export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
     speakerProfiles,
     engines,
@@ -52,6 +53,10 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
     testProgress,
     onRefresh,
 }) => {
+    // Controlled active tab (task 005) -- lets the Variants tab's "Script"
+    // button (VariantEditor) switch straight to the Test tab instead of
+    // opening the retired ScriptEditor drawer.
+    const [activeTabId, setActiveTabId] = useState('overview');
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
 
@@ -70,8 +75,31 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
 
     // Metadata list — hydrated from the metadata endpoint
     const [voiceMetadataList, setVoiceMetadataList] = useState<VoiceMetadata[]>([]);
-    const [metadataEditorOpen, setMetadataEditorOpen] = useState(false);
     const [publishModalOpen, setPublishModalOpen] = useState(false);
+
+    // Confirm dialog state -- real requestConfirm plumbing for the Variants
+    // tab (task 004 R3 fix), same pattern as VoicesModals.tsx/VoicesPage.tsx's
+    // ConfirmModal + confirmConfig.
+    const [confirmConfig, setConfirmConfig] = useState<{
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        isDestructive?: boolean;
+        isAlert?: boolean;
+    } | null>(null);
+    const requestConfirm = useCallback((config: {
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        isDestructive?: boolean;
+        isAlert?: boolean;
+    }) => setConfirmConfig(config), []);
+
+    // Voice Settings (promoted into the Variants tab, task 004) -- edits the
+    // default variant's plugin settings. isSavingSettings is local since
+    // useVoiceManagement's handleUpdateSettings doesn't track a busy flag.
+    const [editingSettings, setEditingSettings] = useState<Record<string, any>>({});
+    const [isSavingSettings, setIsSavingSettings] = useState(false);
 
     const fetchMetadata = useCallback(async () => {
         try {
@@ -95,6 +123,40 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
     const profiles = id
         ? speakerProfiles.filter(p => p.speaker_id === id)
         : [];
+
+    // Real rebuild/build-tracking/confirm plumbing for the Variants tab
+    // (task 004 R3 fix) -- the same hook VoicesPage.tsx uses, rather than the
+    // pre-task-001 VoiceLabPage's inert `buildingProfiles={{}}` /
+    // `onBuildNow={async () => false}` / `requestConfirm={() => undefined}`
+    // stubs (confirmed a live bug -- see task 004's completion report).
+    const { buildingProfiles, handleBuildNow, handleUpdateSettings } = useVoiceManagement(
+        onRefresh,
+        profiles,
+        requestConfirm,
+        jobs
+    );
+
+    const settingsProfileName = useMemo(() => getDefaultVoiceProfileName(profiles, engines), [profiles, engines]);
+    const settingsProfile = profiles.find(p => p.name === settingsProfileName) ?? null;
+
+    useEffect(() => {
+        setEditingSettings(settingsProfile?.settings || {});
+    }, [settingsProfile]);
+
+    const handleSaveVoiceSettings = useCallback(async () => {
+        if (!settingsProfile) return;
+        setIsSavingSettings(true);
+        try {
+            const activeEngine = engines.find(e => e.engine_id === settingsProfile.engine);
+            const allowedPluginSettings = new Set(activeEngine?.behavior?.synthesis_settings || []);
+            const settingsToUpdate = Object.fromEntries(
+                Object.entries(editingSettings || {}).filter(([key]) => allowedPluginSettings.has(key))
+            );
+            await handleUpdateSettings(settingsProfile.name, settingsToUpdate);
+        } finally {
+            setIsSavingSettings(false);
+        }
+    }, [settingsProfile, engines, editingSettings, handleUpdateSettings]);
 
     // Unknown id → redirect
     useEffect(() => {
@@ -128,6 +190,18 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
         });
     }, [id, profiles, onRefresh, navigate]);
 
+    // Set default — mirrors hooks/useVoiceManagement.ts's handleSetDefault
+    // (POST /api/settings/default-speaker), inlined here (self-contained,
+    // like handleDelete above) since VoiceLabPage doesn't receive that hook
+    // as a prop today and this task's scope doesn't add new props.
+    const handleSetDefault = useCallback((profileName: string) => {
+        const formData = new URLSearchParams();
+        formData.append('name', profileName);
+        fetch('/api/settings/default-speaker', { method: 'POST', body: formData }).then(resp => {
+            if (resp.ok) onRefresh();
+        });
+    }, [onRefresh]);
+
     const handleMetadataSaved = useCallback((updated: VoiceMetadata) => {
         setVoiceMetadataList(prev =>
             prev.some(m => m.id === updated.id)
@@ -137,6 +211,69 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
     }, []);
 
     if (!id) return null;
+
+    // Same untagged-voice fallback the modal used to pass through
+    // (`metadata ?? { id, name: id, is_untagged: true }`) so a
+    // not-yet-tagged voice still has a VoiceMetadata shape to edit inline.
+    const overviewVoice: VoiceMetadata = metadata ?? { id, name: id, is_untagged: true };
+
+    // Overview was relocated by task 002 (inline metadata editing, no modal);
+    // Samples by task 003; Variants (+ Voice Settings, promoted from the old
+    // card's overflow menu) by task 004; Test (+ ScriptEditor's test-text
+    // editing UI, folded in) by task 005.
+    const detailTabs: VoiceDetailTabDef[] = [
+        {
+            id: 'overview',
+            label: 'Overview',
+            content: <OverviewTab voice={overviewVoice} onSaved={handleMetadataSaved} />,
+        },
+        {
+            id: 'samples',
+            label: 'Samples',
+            content: <SamplesTab profiles={profiles} onRefresh={onRefresh} />,
+        },
+        {
+            id: 'variants',
+            label: 'Variants',
+            content: (
+                <VariantsTab
+                    speakerName={metadata?.name ?? ''}
+                    profiles={profiles}
+                    engines={engines}
+                    buildingProfiles={buildingProfiles}
+                    testProgress={testProgress}
+                    onRefresh={onRefresh}
+                    onBuildNow={handleBuildNow}
+                    requestConfirm={requestConfirm}
+                    onEditTestText={() => setActiveTabId('test')}
+                    settingsProfile={settingsProfile}
+                    settings={editingSettings}
+                    onSettingsChange={setEditingSettings}
+                    isSavingSettings={isSavingSettings}
+                    onSaveSettings={handleSaveVoiceSettings}
+                />
+            ),
+        },
+        {
+            id: 'test',
+            label: 'Test',
+            content: (
+                <TestTab
+                    profiles={profiles}
+                    engines={engines}
+                    testProgress={testProgress}
+                    jobs={jobs}
+                    onTest={async (name) => {
+                        await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}/test`, { method: 'POST' });
+                        onRefresh();
+                    }}
+                    onRefresh={onRefresh}
+                    voiceName={metadata?.name ?? id}
+                    attributes={metadata?.attributes}
+                />
+            ),
+        },
+    ];
 
     return (
         <div className="voice-lab-page">
@@ -150,173 +287,35 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
                 Voices
             </button>
 
-            {/* Header */}
-            <div className="voice-lab-page__header">
-                {/* Avatar */}
-                <div className="voice-lab-page__avatar">
-                    {iconUrl ? (
-                        <img
-                            src={iconUrl}
-                            alt={`${metadata?.name || 'Voice'} icon`}
-                            style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
-                        />
-                    ) : (
-                        <User size={24} />
-                    )}
-                </div>
-
-                {/* Name + pills + description */}
-                <div className="voice-lab-page__header-body">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                        <h1 className="voice-lab-page__name">
-                            {metadata?.name ?? '…'}
-                        </h1>
-                        <button
-                            type="button"
-                            onClick={() => setMetadataEditorOpen(true)}
-                            className="btn-ghost voice-lab-page__edit-meta-btn"
-                            aria-label="Edit metadata"
-                        >
-                            <Pencil size={13} />
-                            Edit metadata
-                        </button>
-                    </div>
-
-                    {pills.length > 0 && (
-                        <div style={{ marginTop: '4px' }}>
-                            <VoicePillRow pills={pills} max={isMobile ? 6 : 0} />
-                        </div>
-                    )}
-
-                    {metadata?.description && (
-                        <p className="voice-lab-page__description">{metadata.description}</p>
-                    )}
-                </div>
-            </div>
+            <VoiceDetailHeader
+                voiceId={id}
+                metadata={metadata}
+                iconUrl={iconUrl}
+                pills={pills}
+                isMobile={isMobile}
+                profiles={profiles}
+                onSetDefault={handleSetDefault}
+                onExport={handleExport}
+                onPublish={() => setPublishModalOpen(true)}
+                onDelete={() => {
+                    if (window.confirm(
+                        `Delete voice '${metadata?.name ?? id}' and all ${profiles.length} variant${profiles.length !== 1 ? 's' : ''}? This cannot be undone.`
+                    )) {
+                        handleDelete();
+                    }
+                }}
+            />
 
             {/* Phase stepper */}
             <div className="voice-lab-page__stepper-row">
                 <PhaseStepper phase={phase} />
             </div>
 
-            <div className="voice-lab-page__sections">
-                {/* Icon controls — builder internals (upload/replace icon,
-                    copy prompt), relocated out of the identity header
-                    (HIG review item 4b) alongside the rest of the build/edit
-                    controls rather than mixed into name/pills/description. */}
-                <div className="voice-lab-section">
-                    <div className="voice-lab-section__header">
-                        <span className="voice-lab-section-label">Voice Icon</span>
-                    </div>
-                    <div className="voice-lab-section__body">
-                        <VoiceIconControls
-                            voiceId={id}
-                            metadata={metadata}
-                            onIconUploaded={(imagePath) => {
-                                // Update local metadata to refresh avatar
-                                setVoiceMetadataList(prev =>
-                                    prev.map(m => m.id === id ? { ...m, image: imagePath } : m)
-                                );
-                            }}
-                        />
-                    </div>
-                </div>
-
-                {/* Samples section — T6 */}
-                <React.Suspense fallback={<SectionFallback />}>
-                    <SamplesSection
-                        profiles={profiles}
-                        onRefresh={onRefresh}
-                    />
-                </React.Suspense>
-
-                {/* Variants section — T6 */}
-                <React.Suspense fallback={<SectionFallback />}>
-                    <VariantsSection
-                        speakerName={metadata?.name ?? ''}
-                        profiles={profiles}
-                        engines={engines}
-                        buildingProfiles={{}}
-                        testProgress={testProgress}
-                        onRefresh={onRefresh}
-                        onBuildNow={async () => false}
-                        requestConfirm={() => undefined}
-                    />
-                </React.Suspense>
-
-                {/* Test section — T8 */}
-                <React.Suspense fallback={<SectionFallback />}>
-                    <TestSection
-                        profiles={profiles}
-                        engines={engines}
-                        testProgress={testProgress}
-                        jobs={jobs}
-                        onTest={async (name: string) => {
-                            await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}/test`, { method: 'POST' });
-                            onRefresh();
-                        }}
-                        onRefresh={onRefresh}
-                    />
-                </React.Suspense>
-
-                {/* Export + Delete row */}
-                <div className="voice-lab-page__footer-actions">
-                    <div className="voice-lab-page__footer-group">
-                        <span className="voice-lab-section-label">Export</span>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <button
-                                type="button"
-                                onClick={handleExport}
-                                disabled={!metadata?.name}
-                                className="btn-glass"
-                                style={{ height: '36px', padding: '0 16px', fontSize: '0.85rem', borderRadius: '10px' }}
-                            >
-                                Export bundle (.zip)
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setPublishModalOpen(true)}
-                                disabled={!metadata?.name}
-                                className="btn-glass"
-                                style={{ height: '36px', padding: '0 16px', fontSize: '0.85rem', borderRadius: '10px' }}
-                            >
-                                Publish to Hugging Face
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="voice-lab-page__footer-group voice-lab-page__footer-group--danger">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (window.confirm(
-                                    `Delete voice '${metadata?.name ?? id}' and all ${profiles.length} variant${profiles.length !== 1 ? 's' : ''}? This cannot be undone.`
-                                )) {
-                                    handleDelete();
-                                }
-                            }}
-                            className="btn-ghost"
-                            style={{
-                                color: 'var(--error)',
-                                height: '36px',
-                                padding: '0 16px',
-                                fontSize: '0.85rem',
-                                borderRadius: '10px',
-                                border: '1px solid var(--error)',
-                            }}
-                        >
-                            Delete voice
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Metadata editor modal */}
-            <MetadataEditorModal
-                isOpen={metadataEditorOpen}
-                voice={metadata ?? (id ? { id, name: id, is_untagged: true } : null)}
-                onClose={() => setMetadataEditorOpen(false)}
-                onSaved={handleMetadataSaved}
+            <VoiceDetailTabs
+                tabs={detailTabs}
+                ariaLabel="Voice management"
+                activeTabId={activeTabId}
+                onTabChange={setActiveTabId}
             />
 
             {/* Publish to Hugging Face modal */}
@@ -325,6 +324,17 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
                 voiceId={id}
                 voiceName={metadata?.name ?? id}
                 onClose={() => setPublishModalOpen(false)}
+            />
+
+            {/* Confirm dialog -- backs the Variants tab's requestConfirm (task 004) */}
+            <ConfirmModal
+                isOpen={!!confirmConfig}
+                title={confirmConfig?.title || ''}
+                message={confirmConfig?.message || ''}
+                onConfirm={() => { confirmConfig?.onConfirm(); setConfirmConfig(null); }}
+                onCancel={() => setConfirmConfig(null)}
+                isDestructive={confirmConfig?.isDestructive}
+                isAlert={confirmConfig?.isAlert}
             />
         </div>
     );

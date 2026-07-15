@@ -1,9 +1,9 @@
 /**
  * VoicesTabContent.test.tsx
- * Confirms VoicesTabContent forwards callbacks through to VoiceCatalogCard,
- * notably `onEditTestText` — the entry point that opens the Script Editor
- * drawer (was previously accepted in props but never destructured/forwarded,
- * making "Suggest from voice qualities" unreachable from the catalog UI).
+ * Confirms VoicesTabContent forwards callbacks through to the rendered VoiceCatalogCard's
+ * simplified action surface (Set Default direct action; Rename/Export/Delete overflow menu —
+ * task 006, voice-card-consolidation plan). Edit Metadata/Edit Recording Script/Voice Settings
+ * were relocated to the voice detail page and are no longer reachable from this catalog card.
  */
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -82,28 +82,44 @@ describe('VoicesTabContent', () => {
         setExpandedVoiceId: vi.fn(),
         engines: [readyEngine],
         onCreateClick: vi.fn(),
-        onEditTestText: vi.fn(),
-        onEditVoiceSettings: vi.fn(),
         voiceMetadataMap: new Map(),
         onEditMetadata: vi.fn(),
         onNavigateToLab: vi.fn(),
     };
 
-    it('forwards onEditTestText to the rendered VoiceCatalogCard, wired to "Edit Recording Script"', () => {
-        render(<VoicesTabContent {...baseProps} />);
+    it('forwards onSetDefault to the rendered VoiceCatalogCard\'s direct "Set Default" action', () => {
+        const nonDefaultProfile = { ...readyProfile, is_default: false };
+        const nonDefaultVoice = { ...voice, profiles: [nonDefaultProfile] };
+        render(<VoicesTabContent {...baseProps} voices={[nonDefaultVoice]} filteredVoices={[nonDefaultVoice]} />);
 
-        fireEvent.click(screen.getByRole('button', { name: /more actions/i }));
-        fireEvent.click(screen.getByText('Edit Recording Script'));
+        fireEvent.click(screen.getByRole('button', { name: /set as default/i }));
 
-        expect(baseProps.onEditTestText).toHaveBeenCalledWith(readyProfile);
+        expect(baseProps.onSetDefault).toHaveBeenCalledWith(nonDefaultProfile.name);
     });
 
-    it('forwards onEditVoiceSettings to the rendered VoiceCatalogCard, wired to "Voice Settings"', () => {
+    it('forwards onRename to the rendered VoiceCatalogCard\'s slimmed overflow menu', () => {
         render(<VoicesTabContent {...baseProps} />);
 
         fireEvent.click(screen.getByRole('button', { name: /more actions/i }));
-        fireEvent.click(screen.getByText('Voice Settings'));
+        fireEvent.click(screen.getByText('Rename Voice'));
 
-        expect(baseProps.onEditVoiceSettings).toHaveBeenCalledWith(readyProfile);
+        expect(baseProps.onRename).toHaveBeenCalled();
+    });
+
+    it('forwards onExportVoice to the rendered VoiceCatalogCard\'s slimmed overflow menu', () => {
+        render(<VoicesTabContent {...baseProps} />);
+
+        fireEvent.click(screen.getByRole('button', { name: /more actions/i }));
+        fireEvent.click(screen.getByText('Export Voice Bundle'));
+
+        expect(baseProps.onExportVoice).toHaveBeenCalledWith('Clara Bell');
+    });
+
+    it('forwards onNavigateToLab to the rendered VoiceCatalogCard (card body click)', () => {
+        render(<VoicesTabContent {...baseProps} />);
+
+        fireEvent.click(screen.getByTestId('voice-catalog-card-body'));
+
+        expect(baseProps.onNavigateToLab).toHaveBeenCalledWith('sp-1');
     });
 });

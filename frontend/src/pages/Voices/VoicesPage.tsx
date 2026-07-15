@@ -146,13 +146,6 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         setMetadataEditorVoice(meta);
     }, [voiceMetadataMap, voiceMetadataList]);
 
-    // See resolveEditingVoiceMetadata above — drives ScriptEditor's "Suggest from voice
-    // qualities" button (INV-4).
-    const editingVoiceMetadata = useMemo<VoiceMetadata | undefined>(
-        () => resolveEditingVoiceMetadata(state.editingProfile, [...data.activeVoices, ...data.disabledVoices], voiceMetadataMap, voiceMetadataList),
-        [state.editingProfile, data.activeVoices, data.disabledVoices, voiceMetadataMap, voiceMetadataList]
-    );
-
     const handleMetadataSaved = useCallback((updated: VoiceMetadata) => {
         setVoiceMetadataList(prev =>
             prev.some(m => m.id === updated.id)
@@ -236,14 +229,6 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                     setExpandedVoiceId={state.setExpandedVoiceId}
                     engines={engines}
                     onCreateClick={() => state.setIsCreateModalOpen(true)}
-                    onEditTestText={(profile) => {
-                        state.setEditSurface('script');
-                        state.setEditingProfile(profile);
-                    }}
-                    onEditVoiceSettings={(profile) => {
-                        state.setEditSurface('settings');
-                        state.setEditingProfile(profile);
-                    }}
                     voiceMetadataMap={voiceMetadataMap}
                     onEditMetadata={handleEditMetadata}
                     onNavigateToLab={(id) => navigate(`/voices/${id}`)}
@@ -299,26 +284,6 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 handleMoveVariant={actions.handleMoveVariant}
                 showGuide={state.showGuide}
                 setShowGuide={state.setShowGuide}
-                editingProfile={state.editingProfile}
-                setEditingProfile={state.setEditingProfile}
-                variantName={state.variantName}
-                setVariantName={state.setVariantName}
-                editingEngine={state.editingEngine}
-                setEditingEngine={state.setEditingEngine}
-                testText={state.testText}
-                setTestText={state.setTestText}
-                referenceSample={state.referenceSample}
-                setReferenceSample={state.setReferenceSample}
-                engineVoiceId={state.engineVoiceId}
-                setEngineVoiceId={state.setEngineVoiceId}
-                editingSettings={state.editingSettings}
-                setEditingSettings={state.setEditingSettings}
-                editSurface={state.editSurface}
-                setEditSurface={state.setEditSurface}
-                isSavingText={state.isSavingText}
-                handleResetTestText={actions.handleResetTestText}
-                handleSaveTestText={actions.handleSaveTestText}
-                editingVoiceMetadata={editingVoiceMetadata}
                 confirmConfig={state.confirmConfig}
                 setConfirmConfig={state.setConfirmConfig}
                 exportVoiceName={state.exportVoiceName}

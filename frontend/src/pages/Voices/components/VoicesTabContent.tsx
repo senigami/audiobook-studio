@@ -30,10 +30,6 @@ interface VoicesTabContentProps {
     setExpandedVoiceId: (id: string | null) => void;
     engines: TtsEngine[];
     onCreateClick: () => void;
-    onEditTestText: (profile: SpeakerProfile) => void;
-    /** Opens the standalone Voice Settings drawer (per-voice plugin controls) — separate from
-     * the Script Editor drawer opened by `onEditTestText`. */
-    onEditVoiceSettings?: (profile: SpeakerProfile) => void;
     voiceMetadataMap?: Map<string, VoiceMetadata>;
     onEditMetadata?: (voiceGroupId: string, voiceName: string) => void;
     /** Navigate to Voice Lab for the given voice id */
@@ -54,8 +50,6 @@ export const VoicesTabContent: React.FC<VoicesTabContentProps> = ({
     onExportVoice,
     engines,
     onCreateClick,
-    onEditTestText,
-    onEditVoiceSettings,
     voiceMetadataMap,
     onEditMetadata,
     onNavigateToLab,
@@ -136,8 +130,6 @@ export const VoicesTabContent: React.FC<VoicesTabContentProps> = ({
                                     onExportVoice={onExportVoice}
                                     requestConfirm={handleRequestConfirm}
                                     onEditMetadata={() => onEditMetadata?.(voice.id, voice.name)}
-                                    onEditTestText={onEditTestText}
-                                    onEditVoiceSettings={onEditVoiceSettings}
                                     onRefresh={onRefresh}
                                 />
                             );

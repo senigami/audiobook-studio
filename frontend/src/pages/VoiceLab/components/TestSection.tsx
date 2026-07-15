@@ -3,7 +3,7 @@
  * Engine + reference sample pickers, script text, generate test,
  * PredictiveProgressBar-style progress, playback, edit preview script link.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { SpeakerProfile, TtsEngine, Job } from '@/types';
 import { Play, Pause, RefreshCw } from 'lucide-react';
 import { formatVoiceEngineLabel, getVoiceProfileEngine } from '@/utils/voiceProfiles';
@@ -17,6 +17,9 @@ export interface TestSectionProps {
     onTest: (name: string) => Promise<void>;
     onRefresh: () => void;
     onEditTestText?: (profile: SpeakerProfile) => void;
+    /** Notifies the parent (e.g. TestTab) which variant is currently selected in the
+     * "Variant" dropdown, so folded-in script-editing UI can stay in sync with it. */
+    onActiveProfileChange?: (profile: SpeakerProfile | undefined) => void;
 }
 
 export const TestSection: React.FC<TestSectionProps> = ({
@@ -25,6 +28,7 @@ export const TestSection: React.FC<TestSectionProps> = ({
     testProgress,
     onTest,
     onEditTestText,
+    onActiveProfileChange,
 }) => {
     const defaultProfile = profiles.find(p => p.is_default) ?? profiles[0];
     const [selectedProfileName, setSelectedProfileName] = useState(defaultProfile?.name ?? '');
@@ -34,6 +38,11 @@ export const TestSection: React.FC<TestSectionProps> = ({
     const playerBus = usePlayerBus();
 
     const activeProfile = profiles.find(p => p.name === selectedProfileName) ?? defaultProfile;
+
+    useEffect(() => {
+        onActiveProfileChange?.(activeProfile);
+    }, [activeProfile?.name]);
+
     // Single-owner playback (ADR-0010): preview plays through the global player bus,
     // never a local <audio>/new Audio() element.
     const isPlaying = playerBus.scope === 'preview'

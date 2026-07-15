@@ -115,8 +115,6 @@ const baseProps = {
     onExportVoice: vi.fn(),
     requestConfirm: vi.fn(),
     onEditMetadata: vi.fn(),
-    onEditTestText: vi.fn(),
-    onEditVoiceSettings: vi.fn(),
     onRefresh: vi.fn(),
 };
 
@@ -232,25 +230,59 @@ describe('VoiceCatalogCard', () => {
     });
 
     // ---------------------------------------------------------------------------
-    // Action menu items
+    // Set Default — direct card action (task 006)
     // ---------------------------------------------------------------------------
 
-    it('action menu contains all 8 expected items, including Open in Voice Lab', () => {
-        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
-        expect(screen.getByTestId('menu-item-Set as Default')).toBeInTheDocument();
-        expect(screen.getByTestId('menu-item-Open in Voice Lab')).toBeInTheDocument();
-        expect(screen.getByTestId('menu-item-Edit Metadata')).toBeInTheDocument();
-        expect(screen.getByTestId('menu-item-Edit Recording Script')).toBeInTheDocument();
-        expect(screen.getByTestId('menu-item-Voice Settings')).toBeInTheDocument();
-        expect(screen.getByTestId('menu-item-Rename Voice')).toBeInTheDocument();
-        expect(screen.getByTestId('menu-item-Export Voice Bundle')).toBeInTheDocument();
-        expect(screen.getByTestId('menu-item-Delete Voice (all variants)')).toBeInTheDocument();
+    it('renders "Set Default" as a direct card action (not inside the overflow menu)', () => {
+        render(<VoiceCatalogCard {...baseProps} profiles={[{ ...readyProfile, is_default: false }]} />);
+        expect(screen.getByRole('button', { name: /set as default/i })).toBeInTheDocument();
+        expect(screen.queryByTestId('menu-item-Set as Default')).not.toBeInTheDocument();
     });
 
-    it('Open in Voice Lab menu item fires onNavigateToLab', () => {
+    it('clicking "Set Default" calls onSetDefaultClick with the default profile name', () => {
+        const profiles = [{ ...readyProfile, is_default: false }];
+        render(<VoiceCatalogCard {...baseProps} profiles={profiles} />);
+        fireEvent.click(screen.getByRole('button', { name: /set as default/i }));
+        expect(baseProps.onSetDefaultClick).toHaveBeenCalledWith(profiles[0].name);
+    });
+
+    it('disables "Set Default" when the profile is already the default', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
-        fireEvent.click(screen.getByTestId('menu-item-Open in Voice Lab'));
-        expect(baseProps.onNavigateToLab).toHaveBeenCalledWith('sp-1');
+        expect(screen.getByRole('button', { name: /set as default/i })).toBeDisabled();
+    });
+
+    // ---------------------------------------------------------------------------
+    // Delete — direct card action (task 006, corrected per persona findings)
+    // ---------------------------------------------------------------------------
+
+    it('renders "Delete" as a direct card action (not inside the overflow menu)', () => {
+        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
+        expect(screen.getByRole('button', { name: /delete voice/i })).toBeInTheDocument();
+        expect(screen.queryByTestId('menu-item-Delete Voice (all variants)')).not.toBeInTheDocument();
+    });
+
+    it('clicking "Delete" fires requestConfirm', () => {
+        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
+        fireEvent.click(screen.getByRole('button', { name: /delete voice/i }));
+        expect(baseProps.requestConfirm).toHaveBeenCalledWith(expect.objectContaining({
+            isDestructive: true,
+        }));
+    });
+
+    // ---------------------------------------------------------------------------
+    // Overflow menu — slimmed to Rename/Export only (task 006)
+    // ---------------------------------------------------------------------------
+
+    it('action menu contains only Rename/Export — Open in Voice Lab/Edit Metadata/Edit Recording Script/Voice Settings/Set as Default/Delete removed', () => {
+        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
+        expect(screen.getByTestId('menu-item-Rename Voice')).toBeInTheDocument();
+        expect(screen.getByTestId('menu-item-Export Voice Bundle')).toBeInTheDocument();
+        expect(screen.queryByTestId('menu-item-Delete Voice (all variants)')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('menu-item-Set as Default')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('menu-item-Open in Voice Lab')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('menu-item-Edit Metadata')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('menu-item-Edit Recording Script')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('menu-item-Voice Settings')).not.toBeInTheDocument();
     });
 
     it('clicking the card body (name/avatar area) navigates to Voice Lab', () => {
@@ -259,27 +291,16 @@ describe('VoiceCatalogCard', () => {
         expect(baseProps.onNavigateToLab).toHaveBeenCalledWith('sp-1');
     });
 
-    it('Edit Recording Script fires onEditTestText with the default profile', () => {
-        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
-        fireEvent.click(screen.getByTestId('menu-item-Edit Recording Script'));
-        expect(baseProps.onEditTestText).toHaveBeenCalledWith(readyProfile);
-    });
-
-    it('Voice Settings fires onEditVoiceSettings with the default profile (relocated out of the Script popup)', () => {
-        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
-        fireEvent.click(screen.getByTestId('menu-item-Voice Settings'));
-        expect(baseProps.onEditVoiceSettings).toHaveBeenCalledWith(readyProfile);
-    });
-
     it('Rename Voice fires onRenameClick', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
         fireEvent.click(screen.getByTestId('menu-item-Rename Voice'));
         expect(baseProps.onRenameClick).toHaveBeenCalledWith(speaker);
     });
 
-    it('Edit Metadata fires onEditMetadata', () => {
-        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
-        fireEvent.click(screen.getByTestId('menu-item-Edit Metadata'));
+    it('shows UntaggedBadge that still fires onEditMetadata (Edit Metadata itself moved to the detail page, but the untagged-badge affordance stays)', () => {
+        const untaggedMeta: VoiceMetadata = { ...metadata, is_untagged: true, attributes: undefined, tags: [] };
+        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} metadata={untaggedMeta} />);
+        fireEvent.click(screen.getByRole('button', { name: /missing attributes/i }));
         expect(baseProps.onEditMetadata).toHaveBeenCalled();
     });
 
@@ -287,14 +308,6 @@ describe('VoiceCatalogCard', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
         fireEvent.click(screen.getByTestId('menu-item-Export Voice Bundle'));
         expect(baseProps.onExportVoice).toHaveBeenCalledWith('Clara Bell');
-    });
-
-    it('Delete Voice fires requestConfirm', () => {
-        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
-        fireEvent.click(screen.getByTestId('menu-item-Delete Voice (all variants)'));
-        expect(baseProps.requestConfirm).toHaveBeenCalledWith(expect.objectContaining({
-            isDestructive: true,
-        }));
     });
 
     // ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import type { Speaker, SpeakerProfile, VoiceEngine, TtsEngine } from '@/types';
-import { getVariantDisplayName, isVoiceProfileSelectable } from '@/utils/voiceProfiles';
+import { isVoiceProfileSelectable } from '@/utils/voiceProfiles';
 
 
 export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfiles: SpeakerProfile[], engines: TtsEngine[] }) {
@@ -22,41 +22,8 @@ export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfile
     );
 
     // --- Component Local State ---
-    const [editingProfile, setEditingProfile] = useState<SpeakerProfile | null>(null);
-    const [testText, setTestText] = useState('');
-    const [variantName, setVariantName] = useState('');
     const firstReadyEngine = useMemo(() => engines.find(e => e.enabled && e.status === 'ready')?.engine_id || engines?.[0]?.engine_id || '', [engines]);
-    const [editingEngine, setEditingEngine] = useState<VoiceEngine>(firstReadyEngine);
-    const [referenceSample, setReferenceSample] = useState('');
-    const [engineVoiceId, setEngineVoiceId] = useState('');
-    const [editingSettings, setEditingSettings] = useState<Record<string, any>>({});
-    // Which drawer the current editing session (editingProfile) is displayed in — the Script
-    // Editor (test-text/engine/reference sample) or the standalone Voice Settings panel
-    // (per-voice plugin controls, relocated out of the Script popup). `null` means no drawer
-    // should be considered "current" (editingProfile itself still gates visibility).
-    const [editSurface, setEditSurface] = useState<'script' | 'settings' | null>(null);
-    const [isSavingText, setIsSavingText] = useState(false);
     const [showGuide, setShowGuide] = useState(false);
-
-    // Sync state with editing profile
-    useEffect(() => {
-        if (editingProfile) {
-            setTestText(editingProfile.test_text || '');
-            setVariantName(getVariantDisplayName(editingProfile));
-            setEditingEngine(editingProfile.engine || '');
-            setReferenceSample(editingProfile.reference_sample || '');
-            setEngineVoiceId(editingProfile.voice_asset_id || '');
-            setEditingSettings(editingProfile.settings || {});
-        } else {
-            setTestText('');
-            setVariantName('');
-            setEditingEngine(firstReadyEngine);
-            setReferenceSample('');
-            setEngineVoiceId('');
-            setEditingSettings({});
-            setEditSurface(null);
-        }
-    }, [editingProfile, speakerProfiles, firstReadyEngine]);
 
     // --- Voice Management Modals State ---
     const [searchQuery, setSearchQuery] = useState('');
@@ -111,15 +78,6 @@ export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfile
     return {
         confirmConfig, setConfirmConfig,
         activeSpeakerProfiles, disabledSpeakerProfiles,
-        editingProfile, setEditingProfile,
-        testText, setTestText,
-        variantName, setVariantName,
-        editingEngine, setEditingEngine,
-        referenceSample, setReferenceSample,
-        engineVoiceId, setEngineVoiceId,
-        editingSettings, setEditingSettings,
-        editSurface, setEditSurface,
-        isSavingText, setIsSavingText,
         showGuide, setShowGuide,
         searchQuery, setSearchQuery,
         isCreateModalOpen, setIsCreateModalOpen,

@@ -77,14 +77,10 @@ describe('VoicesTab', () => {
         expect(buildBtn).toBeInTheDocument()
     })
 
-    it('shows delete option in ActionMenu', async () => {
+    it('shows a direct Delete card action (task 006: moved out of the overflow menu)', async () => {
         render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
-
-        // VoiceCatalogCard renders ActionMenu with aria-label="More actions"
-        const actionMenus = await screen.findAllByRole('button', { name: /more actions/i })
-        fireEvent.click(actionMenus[0])
-
-        expect(screen.getByText('Delete Voice (all variants)')).toBeInTheDocument()
+        const deleteButtons = await screen.findAllByRole('button', { name: /delete voice/i })
+        expect(deleteButtons.length).toBeGreaterThan(0)
     })
 
     it('refreshes the full voice state after renaming an unassigned voice', async () => {
@@ -266,38 +262,30 @@ describe('VoicesTab', () => {
         expect(onRefresh).toHaveBeenCalled()
     })
 
-    it('wires the catalog card "Edit Recording Script" action to open the Script Editor drawer', async () => {
-        // Regression: onEditTestText was declared in VoicesTabContentProps but never
-        // destructured/forwarded to VoiceCatalogCard, and VoiceCatalogCard had no menu
-        // item to trigger it — making the Script Editor drawer unreachable from the
-        // live Voices catalog. This exercises the full path: catalog card action menu
-        // → state.setEditingProfile → VoicesModals → ScriptEditor drawer.
+    it('no longer exposes Edit Recording Script/Voice Settings/Edit Metadata/Open in Voice Lab on the catalog card overflow menu (task 006 — relocated to the voice detail page)', async () => {
         await act(async () => {
             render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
         })
 
         const actionMenus = await screen.findAllByRole('button', { name: /more actions/i })
         fireEvent.click(actionMenus[0])
-        fireEvent.click(await screen.findByText('Edit Recording Script'))
 
-        expect(await screen.findByText('Suggest from voice qualities')).toBeInTheDocument()
+        expect(screen.queryByText('Edit Recording Script')).not.toBeInTheDocument()
+        expect(screen.queryByText('Voice Settings')).not.toBeInTheDocument()
+        expect(screen.queryByText('Edit Metadata')).not.toBeInTheDocument()
+        expect(screen.queryByText('Open in Voice Lab')).not.toBeInTheDocument()
+        expect(screen.queryByText('Delete Voice (all variants)')).not.toBeInTheDocument()
+        expect(screen.getByText('Rename Voice')).toBeInTheDocument()
+        expect(screen.getByText('Export Voice Bundle')).toBeInTheDocument()
     })
 
-    it('wires the catalog card "Voice Settings" action to open the standalone Voice Settings drawer (not the Script Editor)', async () => {
-        // Phase 12 backlog: per-voice plugin settings were relocated out of the Script
-        // Editor drawer into their own drawer, reached via a distinct "Voice Settings"
-        // action menu item. This exercises the full path: catalog card action menu
-        // → state.setEditingProfile/setIsVoiceSettingsOpen → VoicesModals → VoiceSettingsPanel drawer.
+    it('exposes Set Default and Delete as direct card actions, not in the overflow menu', async () => {
         await act(async () => {
             render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
         })
 
-        const actionMenus = await screen.findAllByRole('button', { name: /more actions/i })
-        fireEvent.click(actionMenus[0])
-        fireEvent.click(await screen.findByText('Voice Settings'))
-
-        expect(await screen.findByText(/Voice Settings:/)).toBeInTheDocument()
-        expect(screen.queryByText('Suggest from voice qualities')).not.toBeInTheDocument()
+        expect(await screen.findAllByRole('button', { name: /set as default/i })).not.toHaveLength(0)
+        expect(await screen.findAllByRole('button', { name: /delete voice/i })).not.toHaveLength(0)
     })
 
     it('filters voices by engine', async () => {
