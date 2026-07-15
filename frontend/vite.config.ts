@@ -6,6 +6,10 @@ import path from 'path'
 const backendTarget = process.env.VITE_BACKEND_URL || 'http://127.0.0.1:8123'
 const backendWsTarget = process.env.VITE_BACKEND_WS_URL || backendTarget.replace(/^http/, 'ws')
 const frontendPort = Number(process.env.VITE_FRONTEND_PORT || 5173)
+// Matches run.sh/run.ps1's default: reachable from other machines on your network via
+// this machine's LAN IP, while still serving http://127.0.0.1:<port> locally. Set
+// VITE_FRONTEND_HOST=127.0.0.1 to restrict this machine only.
+const frontendHost = process.env.VITE_FRONTEND_HOST || '0.0.0.0'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -28,7 +32,7 @@ export default defineConfig({
     },
   },
   server: {
-    host: '127.0.0.1',
+    host: frontendHost,
     port: frontendPort,
     proxy: {
       '/api': {

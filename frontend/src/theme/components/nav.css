@@ -326,7 +326,12 @@
   text-transform: uppercase;
 }
 
-.nav-rail--collapsed .nav-rail__group-label {
+/* Scoped to the non-overlay panel only (`> .nav-rail__panel:not(--overlay)`,
+   not a bare descendant selector): the hover-preview overlay renders a full
+   expanded copy of this content *nested inside the same* `.nav-rail--collapsed`
+   <nav>, so an unscoped descendant selector here would hide labels in the
+   overlay too and defeat the hover-expand preview. */
+.nav-rail--collapsed > .nav-rail__panel:not(.nav-rail__panel--overlay) .nav-rail__group-label {
   display: none;
 }
 
@@ -361,7 +366,7 @@
   color: var(--accent);
 }
 
-.nav-rail--collapsed .nav-rail__item {
+.nav-rail--collapsed > .nav-rail__panel:not(.nav-rail__panel--overlay) .nav-rail__item {
   justify-content: center;
   padding: 0.5rem 0;
 }
@@ -381,7 +386,7 @@
   text-overflow: ellipsis;
 }
 
-.nav-rail--collapsed .nav-rail__label {
+.nav-rail--collapsed > .nav-rail__panel:not(.nav-rail__panel--overlay) .nav-rail__label {
   display: none;
 }
 
@@ -507,6 +512,15 @@
   margin-top: 0.25rem;
 }
 
+/* Same collapse as .player-btn svg (player.css): lucide icons carry
+   width/height as presentation attributes, not real CSS sizing, so inside a
+   tight inline-flex button the flex algorithm's automatic minimum size can
+   shrink their main axis to 0 — rendering a blank button with no visible
+   icon at all. Pin them to their intrinsic size. */
+.nav-rail__bottom-button--icon svg {
+  flex-shrink: 0;
+}
+
 .nav-rail__bottom-label {
   flex: 1 1 auto;
   min-width: 0;
@@ -522,6 +536,27 @@
   background: var(--surface);
   border-right: 1px solid var(--border);
   box-shadow: var(--shadow-lg);
+  /* Mounted only after the JS dwell delay (NavRail.tsx), so this animates
+     every time it appears rather than gating on a class toggle. */
+  animation: nav-rail-overlay-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: left center;
+}
+
+@keyframes nav-rail-overlay-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-rail__overlay {
+    animation: none;
+  }
 }
 
 .nav-rail__panel--overlay {
@@ -668,6 +703,21 @@
   background: transparent;
   color: inherit;
   cursor: pointer;
+}
+
+/* Icon-only brand mark at phone width: the full "Audiobook Studio" wordmark
+   plus the hamburger, breadcrumb, and queue button together overflow a
+   375px top bar even with the breadcrumb squeezed to 0 (confirmed via
+   layout measurement: ~403px of fixed-width chrome). Dropping the wordmark
+   text is the standard compact-nav-bar pattern and the single biggest
+   space win (~140px) — the icon alone still identifies "home". */
+@media (max-width: 480px) {
+  /* !important is required here: BrandLogo sets display:flex via an inline
+     style attribute, which always outranks a stylesheet rule regardless of
+     selector specificity. */
+  .top-bar__brand-btn .as-wordmark > div:last-child {
+    display: none !important;
+  }
 }
 
 /* Vertical pipe divider between the brand and the breadcrumb (matches the mock). */

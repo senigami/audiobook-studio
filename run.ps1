@@ -1,7 +1,11 @@
 param(
     [switch]$SetupOnly,
     [switch]$NoReload,
-    [int]$Port = $(if ($env:AUDIOBOOK_STUDIO_PORT) { [int]$env:AUDIOBOOK_STUDIO_PORT } else { 8123 })
+    [int]$Port = $(if ($env:AUDIOBOOK_STUDIO_PORT) { [int]$env:AUDIOBOOK_STUDIO_PORT } else { 8123 }),
+    # Interface to bind (default: 0.0.0.0 — reachable from other machines on your network
+    # via this PC's LAN IP, while still serving http://127.0.0.1:$Port locally). Windows
+    # Firewall may prompt to allow this. Pass -BindHost 127.0.0.1 to restrict this PC only.
+    [string]$BindHost = $(if ($env:AUDIOBOOK_STUDIO_HOST) { $env:AUDIOBOOK_STUDIO_HOST } else { "0.0.0.0" })
 )
 
 $ErrorActionPreference = "Stop"
@@ -517,13 +521,17 @@ if (-not (Test-Path $UvicornExe)) {
     Fail "uvicorn not found in the app environment: $UvicornExe"
 }
 
-Write-Step "Starting Audiobook Studio on http://127.0.0.1:$Port"
+if ($BindHost -eq "0.0.0.0") {
+    Write-Step "Starting Audiobook Studio on http://127.0.0.1:$Port (also reachable via this machine's LAN IP)"
+} else {
+    Write-Step "Starting Audiobook Studio on http://${BindHost}:$Port"
+}
 Push-Location $Root
 try {
     if ($NoReload) {
-        & $UvicornExe "run:app" "--port" "$Port"
+        & $UvicornExe "run:app" "--host" "$BindHost" "--port" "$Port"
     } else {
-        & $UvicornExe "run:app" "--reload" "--port" "$Port"
+        & $UvicornExe "run:app" "--reload" "--host" "$BindHost" "--port" "$Port"
     }
     exit $LASTEXITCODE
 } finally {

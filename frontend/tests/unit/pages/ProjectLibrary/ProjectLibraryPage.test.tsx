@@ -60,7 +60,7 @@ describe('ProjectLibrary', () => {
         })
     })
 
-    it('shows created and updated dates in the default grid view', async () => {
+    it('shows only the updated date in the default grid view (Created dropped, item 4 of the 2026-07-14 HIG review)', async () => {
         render(
             <MemoryRouter>
                 <ProjectLibrary onSelectProject={vi.fn()} />
@@ -69,11 +69,12 @@ describe('ProjectLibrary', () => {
 
         await screen.findByText('Test Project')
 
-        // Ties the displayed text to the actual formatted values of the fixture's
-        // created_at/updated_at unix timestamps, so a broken formatDate call (e.g.
-        // wrong field, missing *1000) would be caught rather than just checking labels exist.
-        expect(screen.getByText('Created Mar 9, 2024')).toBeTruthy()
+        // Ties the displayed text to the actual formatted value of the fixture's
+        // updated_at unix timestamp, so a broken formatDate call (e.g. wrong
+        // field, missing *1000) would be caught rather than just checking the
+        // label exists. Grid cards show one date (Updated), not both.
         expect(screen.getByText('Updated Apr 15, 2024')).toBeTruthy()
+        expect(screen.queryByText(/^Created /)).toBeNull()
     })
 
     it('opens create modal', async () => {
@@ -156,15 +157,18 @@ describe('ProjectLibrary library-wide bookmarks panel', () => {
         expect(screen.getAllByText('Ashes of Meridian').length).toBeGreaterThan(0)
     })
 
-    it('shows an empty-state message when there are no bookmarks anywhere', async () => {
+    it('collapses the bookmarks panel entirely when there are no bookmarks anywhere (item 6, 2026-07-14 HIG review)', async () => {
         render(
             <MemoryRouter>
                 <ProjectLibrary onSelectProject={vi.fn()} />
             </MemoryRouter>
         )
 
-        await screen.findByText(/no bookmarks yet/i)
-        expect(screen.getByText(/no bookmarks yet/i)).toBeInTheDocument()
+        // Wait for the library to finish loading before asserting an absence.
+        await screen.findByText(/Good (morning|afternoon|evening)/i)
+
+        expect(screen.queryByText(/bookmarks/i)).toBeNull()
+        expect(screen.queryByText(/no bookmarks yet/i)).toBeNull()
     })
 
     it('navigates to the bookmarked book/chapter when a row is clicked', async () => {

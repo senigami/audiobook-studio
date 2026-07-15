@@ -236,16 +236,21 @@ def update_engine_settings(
         schema = {}
     if not schema and getattr(plugin, "settings_schema", None):
         schema = plugin.settings_schema
-    if not schema:
-        raise HTTPException(
-            status_code=500,
-            detail="Could not retrieve settings schema: engine provides no settings_schema",
-        )
 
     current = load_settings(plugin.plugin_dir)
 
     # Filter out 'enabled' which is handled at the registry level, not engine settings level
     settings_to_merge = {k: v for k, v in body.settings.items() if k != "enabled"}
+
+    # Engines with no configurable settings (e.g. delegation-only orchestrators
+    # like "mixed") legitimately have no schema — only fail if there are
+    # actual schema-governed fields to validate against.
+    if settings_to_merge and not schema:
+        raise HTTPException(
+            status_code=500,
+            detail="Could not retrieve settings schema: engine provides no settings_schema",
+        )
+
     merged, errors = merge_settings(current, settings_to_merge, schema)
 
     # Re-inject 'enabled' so can_enable_engine sees it

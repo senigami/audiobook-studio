@@ -512,6 +512,8 @@ export interface GlobalState {
     startup_ready?: boolean;
     startup_message?: string;
     startup_detail?: string;
+    local_url?: string;
+    network_url?: string | null;
   };
 }
 

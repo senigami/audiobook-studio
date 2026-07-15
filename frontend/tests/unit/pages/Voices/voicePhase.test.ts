@@ -161,9 +161,9 @@ describe('getVoicePhase', () => {
         expect(getVoicePhase([hasBuildMaterial], engines, building)).toBe('build');
     });
 
-    it('returns "build" for BUILDING... profile', () => {
+    it('returns "building" for BUILDING... profile (distinct in-flight phase, not the idle "build" phase)', () => {
         const b = { 'Voice - Default': true };
-        expect(getVoicePhase([hasBuildMaterial], engines, b)).toBe('build');
+        expect(getVoicePhase([hasBuildMaterial], engines, b)).toBe('building');
     });
 
     it('returns "test" for PREVIEW STALE profile', () => {
@@ -200,6 +200,12 @@ describe('getPrimaryCta', () => {
     it('returns "Build voice" for build phase', () => {
         const cta = getPrimaryCta('build');
         expect(cta.label).toBe('Build voice');
+        expect(cta.intent).toBe('build');
+    });
+
+    it('returns "Building…" for the in-flight building phase', () => {
+        const cta = getPrimaryCta('building');
+        expect(cta.label).toBe('Building…');
         expect(cta.intent).toBe('build');
     });
 

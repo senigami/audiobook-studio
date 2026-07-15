@@ -8,17 +8,21 @@ export interface NavigationNode {
   href?: string;
 }
 
-export type RouteKind = 
-  | 'library' 
-  | 'project-overview' 
+export type RouteKind =
+  | 'welcome'
+  | 'library'
+  | 'project-overview'
   | 'project-chapters' 
   | 'project-queue' 
   | 'project-export' 
   | 'project-settings' 
   | 'chapter-editor' 
-  | 'queue' 
-  | 'voices' 
-  | 'settings' 
+  | 'queue'
+  | 'voices'
+  | 'settings'
+  | 'activity'
+  | 'engines'
+  | 'integrations'
   | 'unknown';
 
 export interface NavigationState {

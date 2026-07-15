@@ -116,6 +116,48 @@ describe('TopBar', () => {
     expect(within(breadcrumb).getByText('Studio')).toBeTruthy();
   });
 
+  it.each([
+    ['/activity', 'Activity'],
+    ['/engines', 'Engines'],
+    ['/integrations', 'Integrations'],
+    ['/settings', 'Settings'],
+  ])('shows the correct breadcrumb label for %s', (pathname, expectedLabel) => {
+    const shellState = createStudioShellState({
+      pathname,
+      loading: false,
+      connected: true,
+      isReconnecting: false,
+    });
+
+    render(
+      <MemoryRouter initialEntries={[pathname]}>
+        <TopBar shellState={shellState} />
+      </MemoryRouter>,
+    );
+
+    const breadcrumb = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    expect(within(breadcrumb).getByText(expectedLabel)).toBeTruthy();
+    expect(within(breadcrumb).queryByText('Library')).toBeNull();
+  });
+
+  it('does not render a trailing caret with nothing after it on a single-level breadcrumb', () => {
+    const shellState = createStudioShellState({
+      pathname: '/voices',
+      loading: false,
+      connected: true,
+      isReconnecting: false,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/voices']}>
+        <TopBar shellState={shellState} />
+      </MemoryRouter>,
+    );
+
+    const breadcrumb = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    expect(breadcrumb.querySelector('.top-bar__breadcrumb-caret')).toBeNull();
+  });
+
   it('navigates home when the brand button is clicked', () => {
     render(
       <MemoryRouter initialEntries={['/voices']}>

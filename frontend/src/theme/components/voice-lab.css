@@ -117,6 +117,14 @@
 .voice-lab-page__back {
   display: inline-flex;
   align-items: center;
+  /* HIG back-navigation convention: leading-edge aligned, not centered.
+     The global `button` reset (theme/base.css) sets justify-content:center
+     and this button is a flex child of the column-flex .voice-lab-page,
+     which stretches it to the container's full width by default
+     (align-items: stretch) -- centering the icon+label inside that
+     stretched width. Pin both axes to the leading edge. */
+  justify-content: flex-start;
+  align-self: flex-start;
   gap: 5px;
   font-size: 0.72rem;
   color: var(--accent);
@@ -648,11 +656,6 @@
   white-space: nowrap;
 }
 
-.sample-manager__format-label {
-  color: var(--text-muted);
-  font-size: 0.65rem;
-}
-
 .sample-manager__empty {
   padding: 20px;
   text-align: center;
@@ -852,6 +855,13 @@
   align-items: center;
   gap: var(--space-3);
   flex: 1;
+}
+
+.variant-editor__variant-label {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  flex-shrink: 0;
 }
 
 .variant-editor__play-btn-wrap {
@@ -1170,4 +1180,75 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+}
+
+/* ---------------------------------------------------------------------------
+ * Mobile HIG pass (375px / iPhone-width) — Voices + VoiceLab
+ * Targeted a11y/layout fixes only; no visual/theme changes above 768px.
+ * --------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  /* Facet chip rows (CLASS/GENDER/AGE + engine filter): wrapping mixed the
+     group label into the middle of the previous group's wrapped line,
+     stranding "GENDER"/"AGE" away from their own chips (Gestalt proximity).
+     Horizontal scroll per row is the standard mobile chip pattern and also
+     recovers most of the vertical space the always-open filter panel was
+     costing before any voice card was visible. */
+  .voice-chip-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+    /* No existing fade-edge scroll utility in this theme (checked
+       theme/ and pages/Voices/) -- clipping a chip mid-glyph with no
+       visual cue that more content scrolls off-edge reads as a dead
+       end. A mask-image fade signals the scrollable overflow without
+       an extra wrapper element. */
+    -webkit-mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 12px), transparent);
+    mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 12px), transparent);
+  }
+
+  .voice-chip-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .voice-chip-row > * {
+    flex-shrink: 0;
+  }
+
+  /* Back link: 23px-tall hit area on a primary navigation control falls
+     below the WCAG 2.5.8 24px floor and well under the HIG 44pt guidance
+     for a control this important. Grow the tappable area without changing
+     the visual label. */
+  .voice-lab-page__back {
+    min-height: 44px;
+    padding: 10px 4px;
+    margin-bottom: 2px;
+  }
+
+  /* Edit metadata pill: 24px sits right at the WCAG floor for a standalone
+     button (not inline text) — give it real headroom. */
+  .voice-lab-page__edit-meta-btn {
+    height: 32px;
+    padding: 4px 10px;
+  }
+
+  /* Voice catalog card actions: Play + the primary "Build voice"/"Edit
+     voice" CTA were 26px tall, below Apple's 44pt touch-target guidance
+     for primary actions. */
+  .voice-catalog-card__preview-btn,
+  .voice-catalog-card__cta-btn {
+    height: 36px;
+    font-size: 0.75rem;
+  }
+
+  /* Variant editor controls row: play button + speed pill + engine badge +
+     Script + Rebuild/Generate all sat in one non-wrapping flex row wider
+     than a 375px viewport, clipping the Script and Rebuild/Generate
+     buttons off-screen with no scroll affordance — those controls were
+     completely unreachable on a phone. Wrap instead of clipping. */
+  .variant-editor__controls-row {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+  }
 }

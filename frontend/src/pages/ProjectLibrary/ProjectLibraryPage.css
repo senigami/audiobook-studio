@@ -92,6 +92,7 @@
 
 .project-library-header-cta {
   padding: 0.6rem 1.25rem;
+  min-height: 44px;
   font-size: 0.9rem;
   display: flex;
   align-items: center;

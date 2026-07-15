@@ -14,6 +14,7 @@ import { buildQueueItemDebugPayload } from '@/utils/queueItemDebugPayload';
 import { useSegmentInventory } from '@/hooks/useSegmentInventory';
 import { isPeekStripDismissed, setPeekStripDismissed } from '@/utils/segmentPeekStripState';
 import { ACTIVE_STATUSES } from '@/utils/jobStatus';
+import { isTerminalStatus } from '@/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers';
 
 // W-PAR task 011 (moved to per-row scope by task 015): the auto-appear
 // threshold for the Level-2 peek strip — a job with fewer than this many
@@ -563,8 +564,8 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                         <h4 style={{ fontWeight: 700, fontSize: compact ? '0.95rem' : '1.1rem', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {formatJobTitle(displayJob)}
                         </h4>
-                        <div style={{ fontSize: compact ? '0.75rem' : '0.85rem', color: 'var(--text-secondary)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={!job.project_name ? { color: 'var(--accent)', fontWeight: 700, fontSize: compact ? '0.65rem' : '0.75rem', textTransform: 'uppercase' } : undefined}>
+                        <div style={{ fontSize: compact ? '0.75rem' : '0.85rem', color: 'var(--text-secondary)', fontWeight: 500, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', rowGap: '2px' }}>
+                            <span style={{ ...(!job.project_name ? { color: 'var(--accent)', fontWeight: 700, fontSize: compact ? '0.65rem' : '0.75rem', textTransform: 'uppercase' as const } : {}), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
                                 {formatQueueContext(displayJob as any, engines)}
                             </span>
                             {started && (
@@ -607,7 +608,15 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     updatedAt={derivedUpdatedAt}
                     persistenceKey={activeSegmentId ? `${job.id}:${activeSegmentId}` : job.id}
                     status={displayStatus}
-                    label={displayStatus === 'preparing' ? "Preparing..." : (displayStatus === 'finalizing' ? "Finalizing..." : "Processing...")}
+                    label={
+                        // Terminal jobs (done/failed/cancelled) already show their state on
+                        // the right side of this row via terminalStatusText ("Complete" /
+                        // "Failed" / "Cancelled") — labeling the left side "Processing..."
+                        // at the same time is a contradictory display (design-review fix).
+                        isTerminalStatus(displayStatus)
+                            ? ""
+                            : displayStatus === 'preparing' ? "Preparing..." : (displayStatus === 'finalizing' ? "Finalizing..." : "Processing...")
+                    }
                     predictive={true}
                     allowBackwardProgress={false}
                     onDebugSnapshot={handleDebugSnapshot}

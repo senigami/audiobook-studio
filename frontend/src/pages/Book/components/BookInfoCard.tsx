@@ -4,7 +4,6 @@ import { InlineEdit } from '@/components/forms/InlineEdit';
 import { ContinueListeningCard } from '@/pages/Book/components/ContinueListeningCard';
 import { useDragDropHighlight } from '@/hooks/useDragDropHighlight';
 import { CoverImageModal } from '@/pages/ProjectDetail/components/ProjectModals';
-import { formatLength } from '@/utils/format';
 import type { Audiobook, Chapter, Project } from '@/types';
 
 interface BookInfoCardProps {
@@ -21,8 +20,6 @@ interface BookInfoCardProps {
 export function BookInfoCard({
   project,
   chapters = [],
-  totalRuntime,
-  totalPredicted,
   hasRendered,
   hasUnrendered,
   audiobooks = [],
@@ -127,11 +124,11 @@ export function BookInfoCard({
   };
 
   const { isDragging, dragDropProps } = useDragDropHighlight((files) => handleCoverChange(files[0]));
+  // Runtime/Predicted are already shown persistently in the app-shell breadcrumb
+  // (BookIdentityLine, frontend/src/app/layout/BookIdentityLine.tsx) across every
+  // stage tab, so this card only surfaces status/date to avoid showing the same
+  // numbers twice on one screen.
   const metadataPills = [
-    hasRendered ? { label: `Runtime ${formatLength(totalRuntime)}`, tone: 'success' as const } : null,
-    hasUnrendered && totalPredicted !== null
-      ? { label: `Predicted ${formatLength(totalPredicted)}`, tone: 'info' as const }
-      : null,
     !hasRendered && hasUnrendered
       ? { label: 'No segments yet', tone: 'muted' as const }
       : null,
@@ -290,17 +287,31 @@ export function BookInfoCard({
               placeholder="Add series"
               onSave={(value) => updateField('series', value.trim())}
               className={`book-info-card__metadata-read book-info-card__metadata-read--series ${project.series ? '' : 'book-info-card__metadata-read--empty'}`}
-              style={{
-                padding: 0,
-                borderRadius: 0,
-                background: 'transparent',
-                minHeight: 'auto',
-                ...(project.series ? undefined : { color: 'var(--text-muted)', fontStyle: 'italic' }),
-              }}
+              style={
+                project.series
+                  ? {
+                      padding: 0,
+                      borderRadius: 0,
+                      background: 'transparent',
+                      minHeight: 'auto',
+                    }
+                  : {
+                      minHeight: '24px',
+                      padding: '0.2rem 0.55rem',
+                      borderRadius: '999px',
+                      background: 'var(--surface-alt)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text-muted)',
+                      fontStyle: 'italic',
+                    }
+              }
               inputStyle={{ ...metadataInlineTextInputStyle, ...seriesTypography }}
               inputAriaLabel="Series name"
               inputSize={getInlineInputSize(project.series || 'Series', 8)}
             />
+            {!project.series && !hasSeriesPosition && !isSeriesNumberEditing ? (
+              <span className="book-info-card__series-separator" aria-hidden="true">·</span>
+            ) : null}
             {hasSeriesPosition || isSeriesNumberEditing ? (
               <>
                 <span className="book-info-card__series-book-label">Book</span>
@@ -361,7 +372,14 @@ export function BookInfoCard({
         <InlineEdit
           value={project.description || ''}
           placeholder="Add a description to give readers and listeners a sense of the story before they dive in."
-          className="book-info-card__description"
+          className={`book-info-card__description ${project.description ? '' : 'book-info-card__description--empty'}`}
+          style={{
+            padding: 0,
+            borderRadius: 0,
+            background: 'transparent',
+            minHeight: 'auto',
+            ...(project.description ? undefined : { color: 'var(--text-muted)', fontStyle: 'italic' }),
+          }}
           multiline
           onSave={updateDescription}
           inputAriaLabel="Book description"

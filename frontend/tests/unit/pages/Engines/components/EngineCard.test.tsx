@@ -387,7 +387,7 @@ describe('EngineCard dependency installation', () => {
     expect(calibrationIndex).toBeLessThan(settingsIndex);
   });
 
-  it('renders confidence-sensitive subtle color treatment when confidence is present', () => {
+  it('renders flat, bordered (non-glass) confidence treatment, still tone-differentiated by confidence', () => {
     // Low confidence (< 70)
     const lowConfEngine = {
       ...voxtralEngine,
@@ -411,7 +411,10 @@ describe('EngineCard dependency installation', () => {
       calibration_since: Date.UTC(2026, 4, 30, 16, 0, 0) / 1000,
     };
     rerender(<EngineCard engine={highConfEngine} onUpdate={vi.fn()} />);
-    expect(blockContainer?.getAttribute('style')).toContain('var(--accent-focus-ring)');
+    // Flat/bordered treatment (not the previous accent-tinted glass panel) —
+    // glass is reserved for floating surfaces per the Quiet Studio direction.
+    expect(blockContainer?.getAttribute('style')).toContain('var(--border)');
+    expect(blockContainer?.getAttribute('style')).toContain('var(--surface)');
   });
 
   it('proves helper text appears only when calibration_confidence_percent is below 70', () => {
@@ -523,12 +526,20 @@ describe('EngineCard collapsed-header calibration chip (R5-T10)', () => {
     });
   });
 
-  it('header chips show ON pill label from ToggleButton and READY/VERIFIED status chips', () => {
+  it('header shows a single merged READY status/verification chip for a ready, verified engine', () => {
     render(<EngineCard engine={voxtralEngine} onUpdate={vi.fn()} />);
-    // ToggleButton renders "ON" / "OFF" visually — the accessible role is a button
-    // Status chips are rendered as spans; assert their text content
+    // Status and verification collapse into one badge (READY implies verified
+    // here) so the header carries at most one status chip alongside the
+    // ToggleButton switch, instead of two redundant pills.
     expect(screen.getByText('READY')).toBeInTheDocument();
-    expect(screen.getByText('VERIFIED')).toBeInTheDocument();
+    expect(screen.queryByText('VERIFIED')).not.toBeInTheDocument();
+  });
+
+  it('header shows a single merged UNVERIFIED chip instead of doubling up with NOT READY', () => {
+    const unverifiedEngine = { ...voxtralEngine, status: 'unverified', verified: false };
+    render(<EngineCard engine={unverifiedEngine} onUpdate={vi.fn()} />);
+    expect(screen.getByText('UNVERIFIED')).toBeInTheDocument();
+    expect(screen.queryByText('NOT READY')).not.toBeInTheDocument();
   });
 
   it('dev row is hidden when dev mode is off', () => {
@@ -536,5 +547,22 @@ describe('EngineCard collapsed-header calibration chip (R5-T10)', () => {
     render(<EngineCard engine={noDevEngine} onUpdate={vi.fn()} />);
     expect(screen.queryByText('Engine Developer Panel')).not.toBeInTheDocument();
     expect(screen.queryByText('DEV')).not.toBeInTheDocument();
+  });
+});
+
+describe('EngineCard scanning-anchor icon', () => {
+  it('renders the branded logo image when the engine declares logo_url', () => {
+    const engineWithLogo = { ...voxtralEngine, logo_url: '/api/engines/voxtral/assets/logo.svg' };
+    render(<EngineCard engine={engineWithLogo} onUpdate={vi.fn()} />);
+
+    expect(screen.getByAltText('Voxtral (Mistral AI) logo')).toBeInTheDocument();
+  });
+
+  it('renders a generic fallback icon when the engine has no logo_url (e.g. Mixed Synthesis)', () => {
+    const mixedEngine = { ...voxtralEngine, engine_id: 'mixed', display_name: 'Mixed Synthesis', logo_url: undefined };
+    render(<EngineCard engine={mixedEngine} onUpdate={vi.fn()} />);
+
+    expect(screen.queryByAltText('Mixed Synthesis logo')).not.toBeInTheDocument();
+    expect(screen.getByTestId('engine-card-fallback-icon')).toBeInTheDocument();
   });
 });

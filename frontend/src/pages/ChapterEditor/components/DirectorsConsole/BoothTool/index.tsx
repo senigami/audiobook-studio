@@ -35,9 +35,6 @@ const BoothToolBody: React.FC = () => {
   // Polite live-region text, updated only on segment-boundary changes (see
   // the announcement effect below) — not on every playback tick.
   const [announcement, setAnnouncement] = useState('');
-  // One-shot auto-play acknowledgment: the segment to pulse, cleared once the
-  // pulse animation finishes (or immediately under prefers-reduced-motion).
-  const [pulseSegmentId, setPulseSegmentId] = useState<string | null>(null);
   // Manual-scroll smarts (chapter-editor-modes.md §6): suspends the
   // auto-follow scroll while the user is actively scrolling the column
   // themselves.
@@ -58,9 +55,6 @@ const BoothToolBody: React.FC = () => {
   const isAutoScrollingRef = useRef(false);
   const userScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAnnouncedOrdinalRef = useRef<number | null>(null);
-  // Set once, right when autoplay fires on mode entry; consumed by the pulse
-  // effect below the first time an active segment resolves.
-  const autoplayPulseRef = useRef(false);
 
   // The "X / N" indicator MUST count render GROUPS (the rendered audio pieces),
   // not raw text segments — showing the segment count misleads the user into
@@ -171,17 +165,6 @@ const BoothToolBody: React.FC = () => {
     return -1;
   }, [activeSegmentId, groupNumberBySegmentId]);
 
-  // Auto-play acknowledgment: the first time an active segment resolves
-  // after autoplay fired on mode entry, pulse it once so entry doesn't feel
-  // silent. The pulse itself is a CSS animation gated behind
-  // prefers-reduced-motion (theme/components/misc.css).
-  useEffect(() => {
-    if (autoplayPulseRef.current && activeSegmentId) {
-      setPulseSegmentId(activeSegmentId);
-      autoplayPulseRef.current = false;
-    }
-  }, [activeSegmentId]);
-
   // Polite live-region announcement — fires only when the derived render-group
   // ordinal actually changes (segment-boundary changes), not on every
   // playback-position tick, so it doesn't spam assistive tech.
@@ -196,8 +179,10 @@ const BoothToolBody: React.FC = () => {
   /**
    * Booth mode has no rendered chapter switcher of its own — `ChapterWorkspaceHeader`
    * already syncs the route/`?chapter=` param this component reads. Entering Booth
-   * mode for a chapter that already has rendered audio is now the sole playback
-   * trigger, replacing ReviewStage's rail-click-to-play (there is no rail here).
+   * mode for a chapter that already has rendered audio LOADS that render onto the
+   * player bus so it's ready-to-play — it must NOT start playback itself (Apple
+   * HIG: no audio starts without an explicit user-initiated play action). The
+   * user presses Play in the persistent PlayerBar to actually start listening.
    */
   useEffect(() => {
     if (!selectedChapter || !bookId) return;
@@ -213,8 +198,7 @@ const BoothToolBody: React.FC = () => {
     // loaded on the player bus (e.g. re-entering Booth mode after switching
     // to another tool and back) — reloading would reset playback to 0:00.
     if (loadedAudioUrl === audioUrl) return;
-    playChapter(audioUrl, selectedChapter.title);
-    autoplayPulseRef.current = true;
+    playChapter(audioUrl, selectedChapter.title, /* autoplay */ false);
     // Re-trigger only when the resolved chapter actually changes.
 
   }, [selectedChapter?.id, bookId]);
@@ -256,11 +240,9 @@ const BoothToolBody: React.FC = () => {
           ) : (
             segments.map((seg) => {
               const isActive = seg.id === activeSegmentId;
-              const isPulsing = seg.id === pulseSegmentId;
               const classNames = [
                 'review-text-view__segment',
                 isActive ? 'review-text-view__segment--active' : '',
-                isPulsing ? 'review-text-view__segment--pulse' : '',
               ].filter(Boolean).join(' ');
               return (
                 <div
@@ -276,9 +258,6 @@ const BoothToolBody: React.FC = () => {
                       e.preventDefault();
                       seekToSegment(seg.id);
                     }
-                  }}
-                  onAnimationEnd={() => {
-                    if (isPulsing) setPulseSegmentId(null);
                   }}
                   aria-current={isActive ? 'true' : undefined}
                   className={classNames}

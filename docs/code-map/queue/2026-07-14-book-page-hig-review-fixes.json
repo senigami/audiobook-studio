@@ -1,0 +1,27 @@
+{
+  "date": "2026-07-14",
+  "author": "claude",
+  "summary": "Fixes from an Apple-HIG design review of the Book page (frontend/src/pages/Book/): (1) 'Add series'/'Add book number' placeholders now render as ghost-pill buttons with a 24px min hit area plus a '·' separator, fixing a WCAG 2.2 SC 2.5.8 target-size violation and the run-on 'Add series Add book number' string; (2) below 640px the cover now caps at 30vh/200px and lays out as a horizontal row with the 'Change cover' utility so title/description/Resume+Continue-Listening fit the first mobile screen instead of a full-bleed cover pushing them past the fold; (3) Download is now hidden (with an inline 'Assemble in Publish to download' hint) instead of shown disabled with no explanation when no assembled audiobook exists; (4) the resume label template changed from 'Resume: Chapter N: <title>' to 'Resume · Chapter N — \"<title>\"', dropping the quoted title entirely when it's just a restatement of the ordinal (matches /^chapter\\s+\\d+$/i); (5) empty description placeholder is now explicitly muted/italic with padding zeroed to remove a stray indent; (6) the card's Runtime/Predicted chips were removed (kept Rendered/No-segments-yet status + Created date) since those numbers are already shown persistently in the app-shell breadcrumb (BookIdentityLine).",
+  "files": [
+    {
+      "path": "frontend/src/pages/Book/components/BookInfoCard.tsx",
+      "change": "Dropped totalRuntime/totalPredicted from the destructured props (kept in the prop interface) and removed the Runtime/Predicted entries from metadataPills. Series InlineEdit gets pill-shaped inline style (24px min-height, padding, pill bg/border) only in the empty/placeholder state; added a '·' separator span between the series field and the book-number control when both are still placeholders. Description InlineEdit now gets an explicit zeroed-padding style plus muted/italic color when project.description is empty."
+    },
+    {
+      "path": "frontend/src/pages/Book/components/ContinueListeningCard.tsx",
+      "change": "Added resumeOrdinal/isRestatedOrdinal/resumeLabel to build the new 'Resume · Chapter N — \"Title\"' string (dropping the quoted part when the chapter title just restates its ordinal). Download button is now conditionally rendered only when latest?.url is truthy; otherwise renders a '.continue-listening-card__download-hint' explanatory span. Same fix applied to the empty-queue branch's Download button."
+    },
+    {
+      "path": "frontend/src/theme/components/publish.css",
+      "change": "Restyled .book-info-card__series-number-add as a ghost pill (24px min-height, pill bg/border); added .book-info-card__series-separator. Added .continue-listening-card__download-hint. Extended the existing 640px media query: .book-info-card switches to a single grid column and .book-info-card__cover/.book-info-card__cover-button switch to a compact horizontal row capped at 30vh/200px."
+    },
+    {
+      "path": "frontend/tests/unit/pages/Book/BookInfoCard.test.tsx",
+      "change": "Replaced the three Runtime/Predicted chip assertions with assertions for the Rendered/No-segments-yet status chip (Runtime/Predicted no longer rendered on the card)."
+    },
+    {
+      "path": "frontend/tests/unit/pages/Book/components/ContinueListeningCard.test.tsx",
+      "change": "Updated the disabled-Download test to assert the button is absent and the 'Assemble in Publish to download' hint is shown instead."
+    }
+  ]
+}

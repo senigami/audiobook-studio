@@ -55,6 +55,19 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
 
+    // Mobile tag-pill wall fix (HIG review item 4a): at narrow widths, an
+    // untruncated attribute pill row could wrap into ~8 rows. Cap it with
+    // VoicePillRow's existing "+N more" expandable toggle below the same
+    // 640px breakpoint already used elsewhere in this theme (book.css,
+    // publish.css) — desktop layout is untouched.
+    const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 640 : false));
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth <= 640);
+        window.addEventListener('resize', handleResize);
+        handleResize();
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     // Metadata list — hydrated from the metadata endpoint
     const [voiceMetadataList, setVoiceMetadataList] = useState<VoiceMetadata[]>([]);
     const [metadataEditorOpen, setMetadataEditorOpen] = useState(false);
@@ -171,25 +184,13 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
 
                     {pills.length > 0 && (
                         <div style={{ marginTop: '4px' }}>
-                            <VoicePillRow pills={pills} />
+                            <VoicePillRow pills={pills} max={isMobile ? 6 : 0} />
                         </div>
                     )}
 
                     {metadata?.description && (
                         <p className="voice-lab-page__description">{metadata.description}</p>
                     )}
-
-                    {/* Icon controls — upload + copy prompt */}
-                    <VoiceIconControls
-                        voiceId={id}
-                        metadata={metadata}
-                        onIconUploaded={(imagePath) => {
-                            // Update local metadata to refresh avatar
-                            setVoiceMetadataList(prev =>
-                                prev.map(m => m.id === id ? { ...m, image: imagePath } : m)
-                            );
-                        }}
-                    />
                 </div>
             </div>
 
@@ -199,6 +200,28 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
             </div>
 
             <div className="voice-lab-page__sections">
+                {/* Icon controls — builder internals (upload/replace icon,
+                    copy prompt), relocated out of the identity header
+                    (HIG review item 4b) alongside the rest of the build/edit
+                    controls rather than mixed into name/pills/description. */}
+                <div className="voice-lab-section">
+                    <div className="voice-lab-section__header">
+                        <span className="voice-lab-section-label">Voice Icon</span>
+                    </div>
+                    <div className="voice-lab-section__body">
+                        <VoiceIconControls
+                            voiceId={id}
+                            metadata={metadata}
+                            onIconUploaded={(imagePath) => {
+                                // Update local metadata to refresh avatar
+                                setVoiceMetadataList(prev =>
+                                    prev.map(m => m.id === id ? { ...m, image: imagePath } : m)
+                                );
+                            }}
+                        />
+                    </div>
+                </div>
+
                 {/* Samples section — T6 */}
                 <React.Suspense fallback={<SectionFallback />}>
                     <SamplesSection

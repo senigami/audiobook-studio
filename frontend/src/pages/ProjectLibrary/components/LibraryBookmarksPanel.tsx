@@ -22,6 +22,14 @@ export function LibraryBookmarksPanel({ projects }: { projects: Project[] }) {
 
   const projectNameById = new Map(projects.map((p) => [p.id, p.name]));
 
+  // Collapse entirely when there are no bookmarks anywhere — an empty panel
+  // with only italic placeholder copy would otherwise occupy the page's top
+  // slot above "Continue", ahead of anything with actual value (item 6,
+  // 2026-07-14 HIG review of the library page).
+  if (bookmarks.length === 0) {
+    return null;
+  }
+
   return (
     <div className="bookmarks-panel project-library-bookmarks-panel">
       <button

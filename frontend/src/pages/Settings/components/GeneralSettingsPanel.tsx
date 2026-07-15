@@ -132,13 +132,13 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
           lineHeight: 1.5,
         }}
       >
-        Engines &amp; Integrations live under <strong style={{ color: 'var(--accent)' }}>Platform</strong> — Settings is intentionally thin.
+        Engines and integrations are managed under <strong style={{ color: 'var(--accent)' }}>Platform</strong>.
       </div>
 
       {/* Appearance section */}
       <section>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <h3 style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+          <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
             Appearance
           </h3>
         </div>
@@ -175,7 +175,7 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
       {/* Developer section */}
       <section>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <h3 style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+          <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
             Developer
           </h3>
         </div>
@@ -197,7 +197,7 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
 
       <section>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-        <h3 style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+        <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
           Core Synthesis Defaults
         </h3>
         <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontWeight: 700 }}>
@@ -237,11 +237,19 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
                   minWidth: '140px',
                 }}
               >
-                {engines.map(eng => (
-                  <option key={eng.engine_id} value={eng.engine_id}>
-                    {eng.display_name} {eng.cloud ? '(Cloud)' : eng.local ? '(Local)' : ''}
-                  </option>
-                ))}
+                {engines.map(eng => {
+                  // Some plugin manifests (e.g. XTTS) already bake a "(Local)"/
+                  // "(Cloud)" suffix into display_name; don't double it up for
+                  // those while still labeling engines whose manifest doesn't.
+                  const suffix = eng.cloud ? '(Cloud)' : eng.local ? '(Local)' : '';
+                  const hasSuffix = suffix && eng.display_name?.trim().endsWith(suffix);
+                  const label = suffix && !hasSuffix ? `${eng.display_name} ${suffix}` : eng.display_name;
+                  return (
+                    <option key={eng.engine_id} value={eng.engine_id}>
+                      {label}
+                    </option>
+                  );
+                })}
                 {engines.length === 0 && (
                   <option value="">(No engines loaded)</option>
                 )}
@@ -309,7 +317,7 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
       {/* Publishing section */}
       <section>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <h3 style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+          <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
             Publishing
           </h3>
         </div>

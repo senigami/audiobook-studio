@@ -1,0 +1,15 @@
+{
+  "date": "2026-07-14",
+  "author": "claude",
+  "summary": "Mixed Synthesis chapter renders no longer write a render_performance_samples row under engine=\"mixed\" (which never synthesizes anything itself, ADR-0004). plugins/tts_mixed/handler.py's render_one_group times each group's real _render_segment call and emits [SEGMENT_ENGINE_SAMPLE] {segment_id} {engine} {chars} {duration_seconds} after INV-3 artifact validation passes. app/orchestration/scheduler/orchestrator_helpers.py parses that marker into timing['mixed_segment_samples'] (in-memory, consumed within the same dispatch) and, at the sample-recording call site, loops over it to call record_render_sample once per group under the group's real engine instead of the job-level 'mixed' label; if no per-group samples were captured it records nothing (no fallback to the old single-mixed row). Non-mixed jobs are unaffected.",
+  "files": [
+    {
+      "path": "plugins/tts_mixed/handler.py",
+      "change": "render_one_group captures time.monotonic() before _render_segment and, after the group's INV-3 artifact validation passes (same point as the existing [SEGMENT_SAVED] marker), emits a new [SEGMENT_ENGINE_SAMPLE] {segment_id} {engine} {chars} {duration_seconds} marker via on_output. Never emitted for a failed/cancelled group."
+    },
+    {
+      "path": "app/orchestration/scheduler/orchestrator_helpers.py",
+      "change": "timing dict gains 'mixed_segment_samples': [] (in _dispatch_segment init). New marker-parse branch (sibling to the [SEGMENT_SAVED] branch) appends parsed {segment_id, engine, chars, duration_seconds} dicts to timing['mixed_segment_samples']; drops the marker if the task was cancelled. _record_render_stats_inner's sample-recording call site now branches on engine_id == 'mixed': loops mixed_segment_samples calling record_render_sample once per real engine (skipping entirely, with a warning log, if the list is empty) instead of the old single record_render_sample(engine='mixed', ...) call. Non-mixed path unchanged."
+    }
+  ]
+}

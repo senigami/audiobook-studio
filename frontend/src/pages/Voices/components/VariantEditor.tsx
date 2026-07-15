@@ -8,7 +8,7 @@ import { motion } from 'framer-motion';
 import { SpeedPopover } from '@/pages/Voices/components/VoiceUtils';
 import { useVariantActions } from '@/hooks/useVariantActions';
 import { SampleManager } from '@/pages/Voices/components/SampleManager';
-import { formatVoiceEngineLabel, getVoiceProfileEngine } from '@/utils/voiceProfiles';
+import { formatVoiceEngineLabel, getVariantDisplayName, getVoiceProfileEngine } from '@/utils/voiceProfiles';
 
 interface VariantEditorProps {
     profile: SpeakerProfile;
@@ -136,6 +136,11 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
         <div className={showControlsInline ? "" : "glass-panel animate-in variant-editor__shell"}>
             <div className="variant-editor__header">
                 <div className="variant-editor__controls-row">
+                    {/* Variant name — rows are otherwise indistinguishable
+                        (play/speed/engine badge/Script/Rebuild are identical
+                        across every variant of the same voice). */}
+                    <span className="variant-editor__variant-label">{getVariantDisplayName(profile)}</span>
+
                     <div className="variant-editor__play-btn-wrap">
                         <button
                             onClick={handlePlayClick}

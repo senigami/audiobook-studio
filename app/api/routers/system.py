@@ -29,6 +29,24 @@ _SECRET_FIELDS = {"tts_api_key", "huggingface_token"}
 _REDACTED = "***"
 
 
+def _detect_lan_ip() -> Optional[str]:
+    """Best-effort local network IP for this machine.
+
+    Opens a UDP socket toward a public address without sending any packets
+    (UDP ``connect`` only asks the OS to pick an outbound route) purely to
+    read back which local interface/IP the OS would use — the standard
+    dependency-free trick for "what's my LAN IP".
+    """
+    import socket
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("8.8.8.8", 80))
+            return sock.getsockname()[0]
+    except OSError:
+        return None
+
+
 def _redact_settings(settings: dict) -> dict:
     """Return a copy of *settings* with all secret fields redacted.
 
@@ -142,6 +160,8 @@ def api_home(
     else:
         backend_mode = "Managed Subprocess (Starting/Initializing)"
 
+    lan_ip = _detect_lan_ip()
+
     startup_ready = bool(watchdog and watchdog.is_healthy())
     if not watchdog:
         startup_message = "Starting Audiobook Studio Services"
@@ -175,6 +195,8 @@ def api_home(
             "startup_ready": startup_ready,
             "startup_message": startup_message,
             "startup_detail": startup_detail,
+            "local_url": f"http://127.0.0.1:{request.url.port}" if request.url.port else "http://127.0.0.1",
+            "network_url": f"http://{lan_ip}:{request.url.port}" if (lan_ip and request.url.port) else None,
         },
         "runtime_services": _build_runtime_services(request),
         "narrator_ok": any(

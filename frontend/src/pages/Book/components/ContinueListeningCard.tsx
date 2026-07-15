@@ -37,8 +37,8 @@ export function ContinueListeningCard({
     return (
       <div className="continue-listening-card continue-listening-card--empty" aria-label="Continue listening">
         <p>Nothing rendered yet — head to Contents to start casting and rendering.</p>
-        {latest && (
-          <button type="button" className="btn-ghost" onClick={handleDownload} disabled={!latest.url}>
+        {latest?.url && (
+          <button type="button" className="btn-ghost" onClick={handleDownload}>
             <Download size={16} aria-hidden="true" /> Download
           </button>
         )}
@@ -50,6 +50,13 @@ export function ContinueListeningCard({
   const bookmarkedIndex = queue.findIndex((entry) => entry.chapterId === resumeBookmark?.chapterId);
   const resumeIndex = bookmarkedIndex !== -1 ? bookmarkedIndex : 0;
   const resumeChapter = queue[resumeIndex];
+  const resumeOrdinal = `Chapter ${resumeIndex + 1}`;
+  // Chapter titles that just restate their own ordinal (e.g. "Chapter 1") add
+  // nothing when quoted alongside "Chapter 1" — drop the redundant part.
+  const isRestatedOrdinal = /^chapter\s+\d+$/i.test(resumeChapter.title.trim());
+  const resumeLabel = isRestatedOrdinal
+    ? `Resume · ${resumeOrdinal}`
+    : `Resume · ${resumeOrdinal} — "${resumeChapter.title}"`;
 
   const handlePlay = () => {
     playBookContinuous(bookId, bookTitle, queue);
@@ -75,17 +82,21 @@ export function ContinueListeningCard({
         )}
       </div>
       <div className="continue-listening-card__body">
-        <strong className="continue-listening-card__title">
-          Resume: Chapter {resumeIndex + 1}: {resumeChapter.title}
-        </strong>
+        <strong className="continue-listening-card__title">{resumeLabel}</strong>
         {metaParts.length > 0 && <p className="continue-listening-card__meta">{metaParts.join(' · ')}</p>}
         <div className="continue-listening-card__actions">
           <button type="button" className="btn-primary" onClick={handlePlay}>
             <Play size={16} aria-hidden="true" /> Continue Listening
           </button>
-          <button type="button" className="btn-ghost" onClick={handleDownload} disabled={!latest?.url}>
-            <Download size={16} aria-hidden="true" /> Download
-          </button>
+          {latest?.url ? (
+            <button type="button" className="btn-ghost" onClick={handleDownload}>
+              <Download size={16} aria-hidden="true" /> Download
+            </button>
+          ) : (
+            <span className="continue-listening-card__download-hint">
+              Assemble in Publish to download
+            </span>
+          )}
         </div>
       </div>
     </div>

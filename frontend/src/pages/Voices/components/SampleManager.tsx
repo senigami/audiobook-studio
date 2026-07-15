@@ -173,7 +173,6 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                                                 </span>
                                             </div>
                                             <div className="sample-manager__icon-row">
-                                                <span className="sample-manager__format-label">WAV</span>
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();

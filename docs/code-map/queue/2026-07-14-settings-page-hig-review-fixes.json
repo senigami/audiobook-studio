@@ -1,0 +1,39 @@
+{
+  "date": "2026-07-14",
+  "author": "claude",
+  "summary": "Fixes from an Apple-HIG design review of the Settings page (General + About). Fixed the duplicated '(Local) (Local)' suffix on the Default Engine select (XTTS's manifest already bakes '(Local)' into display_name; only append a suffix when the manifest doesn't already have one). Converted the shared ToggleButton from a filled 'ON'/'OFF' pill to an Apple-style switch (role=switch, aria-checked, track+knob, accent only when on) -- shared with the Engines page's parallel fix, coordinated by making the change generic rather than Settings-specific. Gated About's internals rows (Frontend Client, Orchestrator, Backend Runtime, Backend API) behind Developer Mode; kept Studio Version/Engine Plugins/Production Tally/Local Access/Network Access/TTS Server always visible. Fixed the About status-card row from an auto-fit grid (left Production Tally orphaned at half-width on wide viewports) to an explicit 3-column grid stacking to 1 column at 640px. Removed StatusCard's purely-decorative bottom accent bar. Bumped NumberStepper segments to 44px at <=640px for touch targets. Rewrote two internals-voiced copy strings (General subtitle, About footer) to user-facing language. Toned down a few fontWeight:900 instances toward the documented type-weight scale (700/600).",
+  "files": [
+    {
+      "path": "frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx",
+      "change": "Default Engine option label no longer double-appends '(Local)'/'(Cloud)' when display_name already ends with that suffix. Rewrote the 'Settings is intentionally thin' banner copy. Toned down section-heading fontWeight from 900 to 600."
+    },
+    {
+      "path": "frontend/src/pages/Settings/components/SettingsComponents.tsx",
+      "change": "ToggleButton reimplemented as an Apple-style switch (role=switch, aria-checked, track+knob) instead of a filled ON/OFF pill -- shared with Engines page. StatusCard's decorative bottom accent bar removed (tone/getBadgeStyles props kept for back-compat, no longer render anything). NumberStepper segments/input given className hooks (number-stepper-segment/-input) for a new mobile breakpoint stylesheet."
+    },
+    {
+      "path": "frontend/src/pages/Settings/components/SettingsComponents.css",
+      "change": "New file: bumps NumberStepper segments/input to 44px at <=640px viewport widths."
+    },
+    {
+      "path": "frontend/src/pages/Settings/components/AboutSettingsPanel.tsx",
+      "change": "Status-card row switched from an inline auto-fit grid to the new about-status-grid CSS class (explicit 3 columns, stacks at 640px). Frontend Client/Backend Runtime/Orchestrator rows and the runtime_services 'Backend API' entry now gated behind Developer Mode (useDevMode). Rewrote the diagnostic-dump footer paragraph to plain user language. Toned down two fontWeight:900 instances to 700/600."
+    },
+    {
+      "path": "frontend/src/pages/Settings/components/AboutSettingsPanel.css",
+      "change": "New file: about-status-grid explicit 3-column layout with a 640px single-column breakpoint."
+    },
+    {
+      "path": "frontend/src/pages/Settings/settingsRouteConfig.ts",
+      "change": "General tab subtitle rewritten to match what's actually on the tab (no longer promises 'maintenance actions')."
+    },
+    {
+      "path": "frontend/tests/unit/pages/Settings/components/GeneralSettingsPanelDevMode.test.tsx",
+      "change": "Assertions updated from ToggleButton textContent ('ON'/'OFF') to aria-checked, matching the new switch control."
+    },
+    {
+      "path": "frontend/tests/unit/pages/Settings/SettingsRoute.test.tsx",
+      "change": "About-tab test updated: Backend API/Orchestrator rows are now asserted absent by default (Developer Mode off) instead of present."
+    }
+  ]
+}

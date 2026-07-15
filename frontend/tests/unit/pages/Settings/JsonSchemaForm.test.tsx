@@ -174,9 +174,11 @@ describe('JsonSchemaForm', () => {
         />,
       );
 
-      // Click the "Normalize Quotes" toggle button (first ToggleButton rendered)
-      const toggleButtons = screen.getAllByRole('button');
-      fireEvent.click(toggleButtons[0]);
+      // Click the "Normalize Quotes" toggle (first ToggleButton rendered) — it's
+      // an ARIA switch (role="switch"), not a plain button, now that it renders
+      // as a track/knob control instead of an "ON"/"OFF" pill.
+      const toggleSwitches = screen.getAllByRole('switch');
+      fireEvent.click(toggleSwitches[0]);
 
       // The Save Settings button should now appear (values changed)
       const saveBtn = await screen.findByRole('button', { name: /save settings/i });

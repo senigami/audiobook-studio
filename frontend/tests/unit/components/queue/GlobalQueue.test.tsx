@@ -277,7 +277,9 @@ describe('GlobalQueue', () => {
         expect(await screen.findByText('Building voice for Dark Fantasy: Default')).toBeTruthy();
         expect(screen.getByText('Voice Preview')).toBeTruthy();
         expect(screen.getByText('26.4s')).toBeTruthy();
-        expect(screen.getByText('400 chars • 1 segments')).toBeTruthy();
+        // Singular: produced_segment_count is 1, so the label must read
+        // "1 segment" not "1 segments" (pluralization fix).
+        expect(screen.getByText('400 chars • 1 segment')).toBeTruthy();
     })
 
     it('calls clear completed from ActionMenu', async () => {

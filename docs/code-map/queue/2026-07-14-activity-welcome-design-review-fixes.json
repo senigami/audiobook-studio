@@ -1,0 +1,47 @@
+{
+  "date": "2026-07-14",
+  "author": "claude",
+  "summary": "Design-review fixes on the Activity page and Welcome page: engine-calibration row overlap at desktop widths (container query, not just the pre-existing mobile viewport query), five dead Welcome-page controls wired to real handbook URLs, the History filter chip row relocated next to the History section it filters, a contradictory 'Processing...' label removed from terminal-status queue rows and excluded from the 'Processing Now' count, an empty-queue state plus a disabled Pause All Jobs button when nothing is running/queued, a distinct 'welcome' route kind so the root route no longer shows the 'Library' breadcrumb, and a task-oriented Welcome hero rewrite.",
+  "files": [
+    {
+      "path": "frontend/src/theme/components/activity.css",
+      "change": "Added container-type/container-name to .activity-page__stats-panel and a new @container activity-stats (max-width: 380px) block duplicating the existing @media (max-width: 480px) stacked-layout rules for .engine-calibration-row, since the stats rail is ~330px even at a 1280px viewport (2fr/1fr page split) so the viewport query never fired there."
+    },
+    {
+      "path": "frontend/src/pages/Activity/components/EngineCalibrationCard.tsx",
+      "change": "Swapped the hand-rolled uppercase label span for the existing .activity-page__stats-title class (reuse, no new styles)."
+    },
+    {
+      "path": "frontend/src/pages/Activity/ActivityPage.tsx",
+      "change": "Moved the History filter chip row (All/Renders/Samples/API) out of the top of the page and into a `historyFilterControls` node passed to GlobalQueue, rendered directly above the 'Completed / Failed History' header it filters. Relabeled its heading from 'History' to 'Filter' now that it sits inside the History section."
+    },
+    {
+      "path": "frontend/src/components/queue/GlobalQueue.tsx",
+      "change": "Added `historyFilterControls` prop rendered above the History section header. Added `trulyProcessingCount` (running/preparing/finalizing only, excluding retained just-completed rows) and use it for the 'Processing Now (N)' count instead of activeJobs.length. Added a 'No active renders' empty state when there's nothing active or queued. Disabled/greyed 'Pause All Jobs' (with a title tooltip) when there is nothing to pause instead of only when the whole queue is empty."
+    },
+    {
+      "path": "frontend/src/components/queue/QueueItem.tsx",
+      "change": "PredictiveProgressBar's `label` prop is now blank for terminal (done/failed/cancelled) displayStatus instead of always falling through to 'Processing...' -- the right-side terminalStatusText ('Complete'/'Failed'/'Cancelled') is the only status text shown for finished jobs, removing the contradictory 'Processing...' + green Complete bar combination."
+    },
+    {
+      "path": "frontend/src/pages/Welcome/WelcomePage.tsx",
+      "change": "DocCard now takes a real `href` (target=_blank, rel=noopener) instead of href='#'; all 4 Learn More cards wired to real https://senigami.github.io/audiobook-studio/handbook/ URLs (per README's published GH Pages site -- docs/ is not mounted by the local app server). 'View Documentation' changed from an inert <button> to a real external <a>. Hero subtitle/badges rewritten from marketing copy to task-oriented first-run copy per voice-tone.md; Getting Started steps left unchanged."
+    },
+    {
+      "path": "frontend/src/pages/Welcome/WelcomePage.css",
+      "change": "welcome-cta-secondary gets text-decoration:none (now an anchor). welcome-doc-card__label switched from nowrap+ellipsis to overflow-wrap:break-word so labels wrap instead of truncating mid-word at 1280px."
+    },
+    {
+      "path": "frontend/src/app/navigation/model.ts",
+      "change": "Added 'welcome' to the RouteKind union, distinct from 'library'."
+    },
+    {
+      "path": "frontend/src/app/layout/StudioShell.tsx",
+      "change": "deriveNavigationState now maps pathname === '/' to routeKind 'welcome' instead of 'library', so the Welcome splash and the /library route are no longer conflated for breadcrumb purposes."
+    },
+    {
+      "path": "frontend/tests/unit/pages/Welcome/WelcomePage.test.tsx",
+      "change": "Updated the CTA-treatment test: 'View Documentation' is now asserted as a real <a> (href/target/rel) rather than an inert <button>, matching the intentional behavior change."
+    }
+  ]
+}

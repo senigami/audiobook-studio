@@ -3,6 +3,7 @@ import { Trash2, ExternalLink, Calendar, User, BookOpen } from 'lucide-react';
 import type { Project } from '@/types';
 import { ActionMenu } from '@/components/ui/ActionMenu';
 import { ProjectStatusPill } from '@/components/ui/ProjectStatusPill';
+import './ProjectListView.css';
 
 interface ProjectListViewProps {
     projects: Project[];
@@ -12,6 +13,15 @@ interface ProjectListViewProps {
     formatDate: (timestamp: number) => string;
 }
 
+const columnHeaderStyle: React.CSSProperties = {
+    padding: '1rem 1.5rem',
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    color: 'var(--text-muted)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em'
+};
+
 export const ProjectListView: React.FC<ProjectListViewProps> = ({
     projects,
     onSelect,
@@ -20,12 +30,12 @@ export const ProjectListView: React.FC<ProjectListViewProps> = ({
     formatDate
 }) => {
     return (
-        <div 
+        <div
             role="list"
             className="project-list-view"
-            style={{ 
-                background: 'var(--surface)', 
-                borderRadius: '16px', 
+            style={{
+                background: 'var(--surface)',
+                borderRadius: '16px',
                 border: '1px solid var(--border)',
                 overflow: 'hidden'
             }}
@@ -33,19 +43,19 @@ export const ProjectListView: React.FC<ProjectListViewProps> = ({
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                     <tr style={{ background: 'var(--bg-alt)', borderBottom: '1px solid var(--border)' }}>
-                        <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Project</th>
-                        <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
-                        <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Series</th>
-                        <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Created</th>
-                        <th style={{ padding: '1rem 1.5rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Updated</th>
-                        <th style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>Actions</th>
+                        <th style={columnHeaderStyle}>Project</th>
+                        <th style={columnHeaderStyle}>Status</th>
+                        <th style={columnHeaderStyle}>Series</th>
+                        <th style={columnHeaderStyle}>Created</th>
+                        <th style={columnHeaderStyle}>Updated</th>
+                        <th style={{ ...columnHeaderStyle, textAlign: 'right' }}>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {projects.map((project, index) => (
-                        <tr 
+                        <tr
                             key={project.id}
-                            style={{ 
+                            style={{
                                 borderBottom: index === projects.length - 1 ? 'none' : '1px solid var(--border)',
                                 transition: 'background 0.2s ease',
                                 cursor: 'pointer'
@@ -53,20 +63,20 @@ export const ProjectListView: React.FC<ProjectListViewProps> = ({
                             className="list-row-hover"
                             onClick={() => onSelect(project.id)}
                         >
-                            <td style={{ padding: '1rem 1.5rem' }}>
+                            <td className="list-cell-project" style={{ padding: '1rem 1.5rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                    <div style={{ 
-                                        width: '40px', 
-                                        height: '54px', 
-                                        borderRadius: '4px', 
-                                        overflow: 'hidden', 
+                                    <div style={{
+                                        width: '40px',
+                                        height: '54px',
+                                        borderRadius: '4px',
+                                        overflow: 'hidden',
                                         background: 'var(--bg-alt)',
                                         flexShrink: 0,
                                         border: '1px solid var(--border)'
                                     }}>
                                         {project.cover_image_path ? (
-                                            <img 
-                                                src={project.cover_image_path} 
+                                            <img
+                                                src={project.cover_image_path}
                                                 alt={project.name}
                                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                             />
@@ -76,19 +86,28 @@ export const ProjectListView: React.FC<ProjectListViewProps> = ({
                                             </div>
                                         )}
                                     </div>
-                                    <div>
-                                        <h3 style={{ fontSize: '0.95rem', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>{project.name}</h3>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                                            <User size={12} color="var(--text-muted)" />
-                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{project.author || 'Unknown Author'}</span>
+                                    <div style={{ minWidth: 0, flex: 1 }}>
+                                        <div className="list-cell-title-row">
+                                            <h3 style={{ fontSize: '0.95rem', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>{project.name}</h3>
+                                            {project.status && (
+                                                <span className="list-cell-status-mobile">
+                                                    <ProjectStatusPill status={project.status} />
+                                                </span>
+                                            )}
                                         </div>
+                                        {project.author && (
+                                            <div className="list-cell-meta" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                                                <User size={12} color="var(--text-muted)" />
+                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{project.author}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </td>
-                            <td style={{ padding: '1rem 1.5rem' }}>
+                            <td className="list-cell-status-desktop" style={{ padding: '1rem 1.5rem' }}>
                                 {project.status && <ProjectStatusPill status={project.status} />}
                             </td>
-                            <td style={{ padding: '1rem 1.5rem' }}>
+                            <td className="list-cell-series" style={{ padding: '1rem 1.5rem' }}>
                                 <span style={{
                                     fontSize: '0.85rem',
                                     color: project.series ? 'var(--text-primary)' : 'var(--text-muted)',
@@ -97,7 +116,7 @@ export const ProjectListView: React.FC<ProjectListViewProps> = ({
                                     {project.series || 'No series'}
                                 </span>
                             </td>
-                            <td style={{ padding: '1rem 1.5rem' }}>
+                            <td className="list-cell-created" style={{ padding: '1rem 1.5rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                                     <Calendar size={14} />
                                     {formatDate(project.created_at)}
@@ -109,9 +128,9 @@ export const ProjectListView: React.FC<ProjectListViewProps> = ({
                                     {formatDate(project.updated_at)}
                                 </div>
                             </td>
-                            <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
+                            <td className="list-cell-actions" style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
                                 <div style={{ display: 'flex', justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
-                                    <ActionMenu 
+                                    <ActionMenu
                                         onDelete={() => onDelete(project.id, project.name)}
                                         items={[
                                             { label: 'Project Details', icon: BookOpen, onClick: () => onOpenDetails(project.id) },

@@ -1,0 +1,31 @@
+{
+  "date": "2026-07-14",
+  "author": "claude",
+  "summary": "Fixes for a HIG design review of the Project Library page (/library, blockers + should-fix items). ProjectListView now collapses to stacked mobile rows (title+status, secondary meta, absolutely-positioned overflow-menu actions) below 640px instead of clipping table columns. ProjectCard title switched from single-line ellipsis to a 2-line -webkit-line-clamp. The 'ADD COVER' empty-cover placeholder changed from a bright accent/info-tint gradient to a flat dashed var(--surface-alt) placeholder matching other empty states. Grid cards no longer render a 'No author specified' placeholder line (author line omitted entirely when absent) and now show only 'Updated' (dropped 'Created') to reduce bookkeeping noise; list view rows do the same for the missing-author case (previously showed 'Unknown Author', now omits the line, for copy consistency with the grid). LibraryBookmarksPanel now returns null when there are zero bookmarks, so it no longer occupies the page's top slot above Continue. The redundant 'Recent' quick-filter chip (duplicated the sort dropdown's default 'Recently Updated' option) was removed from LibraryControls; A-Z and In Progress chips remain. The Actions column header in ProjectListView now has visible text styled like its sibling headers (previously empty, inheriting bold/title-case/white browser defaults). The grid/list view-toggle fade was rescoped from a full-page effect to a small AnimatePresence-wrapped container transition (0.15s) that also respects prefers-reduced-motion via framer-motion's useReducedMotion. Added a visible 'Card size' label next to the cover-size slider (previously aria-label only).",
+  "files": [
+    {
+      "path": "frontend/src/pages/ProjectDetail/components/ProjectCard.tsx",
+      "change": "2-line title clamp (was nowrap+ellipsis); flat dashed var(--surface-alt) 'Add cover' placeholder (was bright accent gradient); omit author line when absent (was 'No author specified'); dropped Created line, kept only Updated."
+    },
+    {
+      "path": "frontend/src/pages/ProjectLibrary/components/ProjectListView.tsx",
+      "change": "Added classNames (list-cell-project/title-row/status-mobile/status-desktop/series/created/actions) consumed by new ProjectListView.css for a <640px stacked mobile layout; omit author line instead of 'Unknown Author' when absent; Actions <th> now has visible text with the same style as sibling headers."
+    },
+    {
+      "path": "frontend/src/pages/ProjectLibrary/components/ProjectListView.css",
+      "change": "New file: @media (max-width: 640px) rules collapsing the table to stacked cards (title+status row, meta row, absolutely-positioned actions overflow menu)."
+    },
+    {
+      "path": "frontend/src/pages/ProjectLibrary/components/LibraryBookmarksPanel.tsx",
+      "change": "Returns null when bookmarks.length === 0 instead of rendering a collapsed-but-present empty-state panel above Continue."
+    },
+    {
+      "path": "frontend/src/pages/ProjectLibrary/components/LibraryControls.tsx",
+      "change": "Removed the 'Recent' quick-filter chip (duplicated the sort dropdown's 'Recently Updated' default); kept A-Z and In Progress. Added a visible 'Card size' text label next to the cover-size range input."
+    },
+    {
+      "path": "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx",
+      "change": "Wrapped the grid/list conditional render in AnimatePresence + per-branch motion.div (key='grid'|'list') with a 0.15s opacity transition scoped to that container only, gated by framer-motion's useReducedMotion() (instant swap, no fade, when the user prefers reduced motion). Previously the per-card ProjectCard entrance animations replaying on every full remount read as a whole-page fade."
+    }
+  ]
+}

@@ -34,6 +34,12 @@
   border-radius: var(--radius-panel);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
+  /* The stats rail (~330px) is narrow even at 1280px desktop viewport because
+     .activity-page__columns splits into a 2fr/1fr flex layout — so a viewport
+     media query never fires here even though the engine-calibration row
+     overlaps at this container width. Query the container itself instead. */
+  container-type: inline-size;
+  container-name: activity-stats;
 }
 
 .activity-page__stats-title {
@@ -123,5 +129,58 @@
   height: 100%;
   border-radius: inherit;
   transition: width 0.6s ease-out, background-color 0.3s ease-out;
+}
+
+/* Engine calibration row: at phone widths the 3-column grid (name / speed /
+   confidence) squeezes the name column until it wraps to two lines, and
+   because the row height grows to fit that wrap while the other two cells
+   stay vertically centered, the speed text lands visually on top of the
+   wrapped name text. Stack name above a speed+confidence line instead.
+   The trigger is the STATS-RAIL container width, not the viewport — the
+   rail is ~330px even at a 1280px desktop viewport (main/stats split the
+   page 2fr/1fr), so a viewport media query never fires there. Use a
+   container query against .activity-page__stats-panel (below) for the
+   real fix; keep the viewport query as a fallback for very narrow windows
+   where no container context applies (e.g. the row rendered standalone). */
+@media (max-width: 480px) {
+  .engine-calibration-row {
+    grid-template-columns: 1fr 1fr !important;
+    row-gap: 0.35rem !important;
+  }
+
+  .engine-calibration-row__name {
+    grid-column: 1 / -1;
+  }
+
+  .engine-calibration-row__speed {
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .engine-calibration-row__confidence {
+    grid-column: 2;
+    justify-self: end;
+  }
+}
+
+@container activity-stats (max-width: 380px) {
+  .engine-calibration-row {
+    grid-template-columns: 1fr 1fr !important;
+    row-gap: 0.35rem !important;
+  }
+
+  .engine-calibration-row__name {
+    grid-column: 1 / -1;
+  }
+
+  .engine-calibration-row__speed {
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .engine-calibration-row__confidence {
+    grid-column: 2;
+    justify-self: end;
+  }
 }
 

@@ -176,7 +176,7 @@ describe('ProjectLibrary Controls', () => {
         expect(screen.getByText('Project Zulu')).toBeInTheDocument()
     })
 
-    it('Recent and A–Z quick-filter chips map onto the existing sort logic', async () => {
+    it('the A-Z quick-filter chip maps onto the existing sort logic, and the sort dropdown remains the single mechanism for "recent" (item 7, 2026-07-14 HIG review: the redundant "Recent" chip was removed since it duplicated the dropdown\'s "Recently Updated" entry)', async () => {
         render(
             <MemoryRouter>
                 <ProjectLibrary onSelectProject={vi.fn()} />
@@ -185,17 +185,21 @@ describe('ProjectLibrary Controls', () => {
 
         await waitFor(() => screen.getByText('Project Alpha'))
 
+        // No standalone "Recent" chip anymore.
+        expect(screen.queryByRole('button', { name: 'Recent' })).toBeNull()
+
         fireEvent.click(screen.getByRole('button', { name: 'A–Z' }))
         let projectNames = screen.getAllByRole('heading', { level: 3 }).map(h => h.textContent)
         expect(projectNames[0]).toBe('Project Alpha')
         expect(projectNames[1]).toBe('Project Zulu')
         expect(screen.getByRole('button', { name: 'A–Z' })).toHaveAttribute('aria-pressed', 'true')
 
-        fireEvent.click(screen.getByRole('button', { name: 'Recent' }))
+        // Restoring "recent" order goes through the one remaining sort
+        // control (the dropdown), not a duplicate chip.
+        fireEvent.change(screen.getByLabelText(/Sort Projects/i), { target: { value: 'updated-desc' } })
         projectNames = screen.getAllByRole('heading', { level: 3 }).map(h => h.textContent)
         expect(projectNames[0]).toBe('Project Zulu')
         expect(projectNames[1]).toBe('Project Alpha')
-        expect(screen.getByRole('button', { name: 'Recent' })).toHaveAttribute('aria-pressed', 'true')
     })
 
     it('shows the cover-size slider in grid view only', async () => {

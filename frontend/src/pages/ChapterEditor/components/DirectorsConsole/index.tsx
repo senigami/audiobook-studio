@@ -80,34 +80,33 @@ export const DirectorsConsole: React.FC<DirectorsConsoleProps> = ({ initialToolI
           flexShrink: 0
         }}
       >
-        {tools.map((tool) => {
+        {tools.map((tool, index) => {
           const Icon = tool.icon;
+          // Exactly one tab is ever active — activeTool is derived from a
+          // single activeToolId, so this is the sole source of truth for
+          // "selected" (no other condition can also make a tab read active).
           const isActive = tool.id === activeTool?.id;
+          const group = tool.group ?? 'mode';
+          const prevGroup = index > 0 ? (tools[index - 1].group ?? 'mode') : group;
+          const isFirstOfGroup = group !== prevGroup;
           return (
-            <button
-              key={tool.id}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              aria-label={tool.label}
-              title={tool.description ?? tool.label}
-              onClick={() => handleToolClick(tool.id)}
-              className={isActive ? 'btn-primary' : 'btn-ghost'}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '0.2rem',
-                padding: '0.6rem',
-                borderRadius: '10px',
-                fontSize: '0.7rem',
-                fontWeight: 700,
-                minWidth: '64px'
-              }}
-            >
-              <Icon size={18} aria-hidden="true" />
-              <span>{tool.label}</span>
-            </button>
+            <React.Fragment key={tool.id}>
+              {isFirstOfGroup && (
+                <div className="directors-console__rail-divider" role="separator" aria-orientation="horizontal" />
+              )}
+              <button
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                aria-label={tool.label}
+                title={tool.description ?? tool.label}
+                onClick={() => handleToolClick(tool.id)}
+                className={`directors-console__rail-tab${isActive ? ' directors-console__rail-tab--active' : ''}`}
+              >
+                <Icon size={18} aria-hidden="true" />
+                <span>{tool.label}</span>
+              </button>
+            </React.Fragment>
           );
         })}
       </div>

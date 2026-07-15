@@ -128,7 +128,7 @@ describe('Voices Tab Components', () => {
             );
 
             expect(screen.getByText('Speaker One')).toBeInTheDocument();
-            expect(screen.getByText('Default')).toBeInTheDocument();
+            expect(screen.getAllByText('Default').length).toBeGreaterThan(0);
             expect(screen.getAllByText('XTTS').length).toBeGreaterThan(0);
         });
 

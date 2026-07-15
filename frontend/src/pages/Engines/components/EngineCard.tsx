@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronRight, Cloud, Play, ShieldCheck, Download, Trash2, ShieldAlert, Loader2 } from 'lucide-react';
+import { ChevronRight, Cloud, Play, ShieldCheck, Download, Trash2, ShieldAlert, Loader2, Blend } from 'lucide-react';
 import type { TtsEngine, Settings } from '@/types';
 import { api } from '@/api';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
@@ -32,6 +32,7 @@ export const EngineCard: React.FC<{
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [verifyElapsedSec, setVerifyElapsedSec] = useState(0);
   const [installing, setInstalling] = useState(false);
   const [testResult, setTestResult] = useState(engine.last_test);
   const [removing, setRemoving] = useState(false);
@@ -64,6 +65,18 @@ export const EngineCard: React.FC<{
   }, [engine.last_test, engine.engine_id]);
 
   useEffect(() => {
+    if (!verifying) {
+      setVerifyElapsedSec(0);
+      return;
+    }
+    const startedAt = performance.now();
+    const tick = () => setVerifyElapsedSec(Math.floor((performance.now() - startedAt) / 1000));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [verifying]);
+
+  useEffect(() => {
     setEngineCapInput(currentEngineCap != null ? String(currentEngineCap) : '');
   }, [currentEngineCap, engine.engine_id]);
 
@@ -72,15 +85,25 @@ export const EngineCard: React.FC<{
     : engine;
 
   const uiMetadata = displayEngine.settings_schema?.['x-ui'];
+  // Single merged status/verification badge — status and verification used to
+  // render as two separate pills that doubled up on the same signal for the
+  // common case (e.g. status "unverified" already means "not ready because
+  // unverified", so a second "UNVERIFIED" pill next to "NOT READY" repeated
+  // it). One badge is now the single source of truth for this card's
+  // readiness, keeping the header to at most 2 indicators (badge + optional
+  // cloud glyph) at any viewport width.
   const tone = displayEngine.status === 'ready'
-    ? 'blue'
+    ? (displayEngine.verified ? 'blue' : 'yellow')
     : displayEngine.status === 'needs_setup' || displayEngine.status === 'unverified'
       ? 'yellow'
       : displayEngine.status === 'invalid_config'
         ? 'red'
         : 'gray';
-  const statusLabel = getEngineStatusLabel(displayEngine.status);
-  const verificationLabel = displayEngine.verified ? 'VERIFIED' : (displayEngine.status === 'not_loaded' ? 'NOT LOADED' : 'UNVERIFIED');
+  const statusLabel = displayEngine.status === 'ready' && !displayEngine.verified
+    ? 'READY · UNVERIFIED'
+    : displayEngine.status === 'unverified'
+      ? 'UNVERIFIED'
+      : getEngineStatusLabel(displayEngine.status);
   const canEnable = displayEngine.can_enable ?? (displayEngine.status === 'ready' || displayEngine.enabled);
   const missingDependencies = Array.isArray(displayEngine.missing_dependencies)
     ? displayEngine.missing_dependencies.filter((dep): dep is string => Boolean(dep && String(dep).trim()))
@@ -192,7 +215,7 @@ export const EngineCard: React.FC<{
       <summary className="engine-card__header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
           <ChevronRight size={17} color="var(--text-muted)" className="details-chevron" />
-          {engine.logo_url && (
+          {engine.logo_url ? (
             <div className="engine-card__logo">
               <img
                 src={engine.logo_url}
@@ -202,6 +225,13 @@ export const EngineCard: React.FC<{
                    (e.target as HTMLImageElement).style.display = 'none';
                 }}
               />
+            </div>
+          ) : (
+            // No manifest-declared logo (e.g. a composite/orchestrator engine like
+            // Mixed Synthesis that isn't tied to any real vendor's branding) —
+            // render a generic icon so the row still has a scanning anchor.
+            <div className="engine-card__logo engine-card__logo--fallback" data-testid="engine-card-fallback-icon">
+              <Blend size={20} aria-hidden="true" />
             </div>
           )}
           <div>
@@ -224,7 +254,7 @@ export const EngineCard: React.FC<{
             />
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', justifyContent: 'flex-end', rowGap: '0.5rem' }}>
           {displayEngine.cloud && <Cloud size={15} color="var(--warning-text)" />}
           <div style={{ marginRight: '0.5rem' }}>
             <ToggleButton
@@ -260,12 +290,6 @@ export const EngineCard: React.FC<{
             style={getBadgeStyles(tone)}
           >
             {statusLabel}
-          </span>
-          <span
-            className="engine-status-badge"
-            style={getBadgeStyles(displayEngine.verified ? 'blue' : 'gray')}
-          >
-            {verificationLabel}
           </span>
         </div>
 
@@ -342,6 +366,10 @@ export const EngineCard: React.FC<{
 
         <EngineTestSample engine={displayEngine} testResult={testResult} />
 
+        {/* Delegation-only orchestrators (declared via behavior.features) dispatch
+            each segment to a real sub-engine rather than rendering themselves, so
+            a per-engine concurrency cap has no meaning for them. */}
+        {!(Array.isArray(displayEngine.behavior?.features) && displayEngine.behavior.features.includes('segment_orchestration')) && (
         <div
           style={{
             display: 'flex',
@@ -380,6 +408,7 @@ export const EngineCard: React.FC<{
             onInputBlur={(raw) => handleSaveEngineCap(raw)}
           />
         </div>
+        )}
 
         <div className="engine-card__footer">
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -414,7 +443,9 @@ export const EngineCard: React.FC<{
             <button
               type="button"
               className="btn-glass engine-icon-btn"
-              title="Verify this engine using the Studio default voice reference sample. A cold engine may take up to a minute to load its model."
+              title={verifying
+                ? `Verifying… ${verifyElapsedSec}s elapsed. A cold engine may take up to a minute to load its model.`
+                : 'Verify this engine using the Studio default voice reference sample. A cold engine may take up to a minute to load its model.'}
               disabled={saving || verifying || displayEngine.verified}
               onClick={async () => {
                 if (activeScenario) {
@@ -442,7 +473,7 @@ export const EngineCard: React.FC<{
               }}
               style={{ opacity: (displayEngine.verified || verifying) ? 0.7 : 1 }}
             >
-              {verifying ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />} {verifying ? 'Verifying…' : (displayEngine.verified ? 'Verified' : 'Verify')}
+              {verifying ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />} {verifying ? `Verifying… ${verifyElapsedSec}s` : (displayEngine.verified ? 'Verified' : 'Verify')}
             </button>
             {needsDependencyInstall && (
               <button

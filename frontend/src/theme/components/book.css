@@ -21,7 +21,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.25rem;
+  min-height: 2.75rem; /* 44px — HIG minimum tap target for tab/nav items */
   padding: 0.45rem 0.8rem;
   border-radius: var(--radius-button);
   color: var(--text-secondary);
@@ -225,6 +225,84 @@
 .chapter-workspace-header__nav-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+.chapter-workspace-header__nav-btn--active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+
+/* Small corner count badge on the bookmarks-list toggle — replaces an
+   inline "Bookmarks" text label that collided/wrapped against its icon at
+   1280px (design-critique HIG finding); the button is icon-only like its
+   row neighbors, with the count as a compact badge instead. */
+.chapter-workspace-header__nav-btn--badged {
+  position: relative;
+  overflow: visible;
+}
+
+.chapter-workspace-header__nav-btn-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 14px;
+  padding: 0 3px;
+  border-radius: var(--radius-round);
+  background: var(--accent);
+  color: var(--on-action);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+}
+
+/* Trailing dockable-panel toggle(s) (e.g. Lexicon), folded into the same
+   toolbar row as the rest of the header — see rightSlot prop. */
+.chapter-workspace-header__right-slot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.chapter-workspace-header__panel-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: var(--type-caption);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color var(--dur-fast) var(--ease-standard),
+              border-color var(--dur-fast) var(--ease-standard),
+              background var(--dur-fast) var(--ease-standard);
+}
+
+.chapter-workspace-header__panel-toggle:hover,
+.chapter-workspace-header__panel-toggle[data-active] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+
+/* Mobile: HIG touch-target minimum (44x44pt) for the workspace header's
+   icon-only controls, which are sized for desktop density (28px) above. */
+@media (max-width: 640px) {
+  .chapter-workspace-header__nav-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .chapter-workspace-header__switcher-trigger,
+  .chapter-workspace-header__back {
+    min-height: 44px;
+  }
 }
 
 /* ─── End Chapter Workspace ─────────────────────────────────────── */
@@ -913,6 +991,16 @@
   cursor: pointer;
 }
 
+/* Mobile: HIG touch-target minimum for the compact chapter action bar. */
+@media (max-width: 640px) {
+  .studio-header-actions__commit,
+  .studio-header-actions__nav-btn,
+  .studio-header-actions__export-trigger,
+  .studio-header-actions__debug {
+    min-height: 44px;
+  }
+}
+
 /* ─── ResyncPreviewModal ────────────────────────────────────────── */
 
 .resync-modal-overlay {
@@ -1464,6 +1552,13 @@
   font-family: inherit;
   font-size: var(--type-micro);
   font-weight: 600;
+}
+
+/* Mobile: HIG touch-target minimum for the cast palette's compact add button. */
+@media (max-width: 640px) {
+  .cast-palette__empty-add-btn {
+    min-height: 44px;
+  }
 }
 
 .cast-palette__temp-wrap {

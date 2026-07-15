@@ -78,7 +78,7 @@ describe('GeneralSettingsPanel Developer Mode toggle', () => {
       </MemoryRouter>
     );
 
-    expect(getDevModeToggleBtn().textContent).toBe('OFF');
+    expect(getDevModeToggleBtn().getAttribute('aria-checked')).toBe('false');
 
     // Developer nav link should not be visible
     expect(screen.queryByRole('link', { name: /Developer/i })).toBeNull();
@@ -114,9 +114,9 @@ describe('GeneralSettingsPanel Developer Mode toggle', () => {
     // Dev nav link is visible
     expect(screen.getByRole('link', { name: /Developer/i })).toBeTruthy();
 
-    // The toggle shows ON; click to turn off
+    // The toggle shows ON (checked); click to turn off
     const toggleBtn = getDevModeToggleBtn();
-    expect(toggleBtn.textContent).toBe('ON');
+    expect(toggleBtn.getAttribute('aria-checked')).toBe('true');
     fireEvent.click(toggleBtn);
 
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();

@@ -45,8 +45,8 @@ export const EngineCalibrationCard: React.FC<EngineCalibrationCardProps> = ({ en
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
-          <span style={{ fontSize: '0.82rem', fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span className="activity-page__stats-title" style={{ margin: 0 }}>
             Engine calibration
           </span>
         </div>
@@ -67,6 +67,7 @@ export const EngineCalibrationCard: React.FC<EngineCalibrationCardProps> = ({ en
           return (
             <div
               key={engine.engine_id}
+              className="engine-calibration-row"
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'minmax(0, 1fr) auto auto',
@@ -78,17 +79,17 @@ export const EngineCalibrationCard: React.FC<EngineCalibrationCardProps> = ({ en
                 background: 'var(--background)',
               }}
             >
-              <div style={{ minWidth: 0 }}>
+              <div className="engine-calibration-row__name" style={{ minWidth: 0 }}>
                 <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                   {engine.display_name}
                 </div>
               </div>
 
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+              <div className="engine-calibration-row__speed" style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                 {speed}
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', justifyContent: 'flex-end', whiteSpace: 'nowrap' }}>
+              <div className="engine-calibration-row__confidence" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', justifyContent: 'flex-end', whiteSpace: 'nowrap' }}>
                 <span
                   data-testid={`engine-calibration-confidence-${engine.engine_id}`}
                   data-confidence-state={confidenceState}

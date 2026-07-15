@@ -27,18 +27,24 @@ describe('WelcomePage', () => {
     expect(ctaIndex).toBeLessThan(gettingStartedIndex);
   });
 
-  it('renders both CTAs as buttons with distinct primary/secondary treatment', () => {
+  it('renders distinct primary/secondary CTA treatments, secondary as a real external link', () => {
     render(
       <MemoryRouter>
         <WelcomePage />
       </MemoryRouter>,
     );
 
+    // "View Documentation" links out to the published handbook (the local app
+    // server doesn't mount docs/) — it's a real <a target="_blank"> now, not a
+    // decorative button with no onClick (design-review fix for dead controls).
     const primary = screen.getByRole('button', { name: /enter library/i });
-    const secondary = screen.getByRole('button', { name: /view documentation/i });
+    const secondary = screen.getByRole('link', { name: /view documentation/i });
 
     expect(primary.tagName).toBe('BUTTON');
-    expect(secondary.tagName).toBe('BUTTON');
+    expect(secondary.tagName).toBe('A');
+    expect(secondary).toHaveAttribute('href', expect.stringContaining('https://'));
+    expect(secondary).toHaveAttribute('target', '_blank');
+    expect(secondary).toHaveAttribute('rel', expect.stringContaining('noopener'));
     expect(primary.className).not.toBe(secondary.className);
     expect(primary.className).toContain('welcome-cta-primary');
     expect(secondary.className).toContain('welcome-cta-secondary');

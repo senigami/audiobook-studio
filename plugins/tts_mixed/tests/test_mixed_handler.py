@@ -874,3 +874,134 @@ def test_handle_mixed_job_wav_only_even_when_make_mp3_true(clean_db, tmp_path):
     done_calls = [c for c in mock_update.call_args_list if c.kwargs.get("status") == "done"]
     assert done_calls and "output_mp3" not in done_calls[-1].kwargs
     assert done_calls[-1].kwargs.get("output_wav", "").endswith(".wav")
+
+
+def test_handle_mixed_job_emits_segment_engine_sample_marker_per_group(clean_db, tmp_path):
+    """render_one_group must emit [SEGMENT_ENGINE_SAMPLE] {segment_id} {engine}
+    {chars} {duration_seconds} for each rendered group, carrying the group's REAL
+    resolved engine (never "mixed") and its own text length — this is the only
+    fact the orchestrator has to attribute a mixed job's calibration sample to
+    the real engine that did the work, instead of "mixed" (which never
+    synthesizes anything itself, ADR-0004).
+    """
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world. Goodbye world.")
+    sync_chapter_segments(cid, "Hello world. Goodbye world.")
+    segs = get_chapter_segments(cid)
+    update_segment(segs[0]["id"], speaker_profile_name="XTTS Voice")
+    update_segment(segs[1]["id"], speaker_profile_name="Voxtral Voice")
+
+    job = Job(
+        id="mixed-engine-sample-job",
+        engine="mixed",
+        chapter_file=f"{cid}_0.txt",
+        status="queued",
+        created_at=time.time(),
+        project_id=pid,
+        chapter_id=cid,
+        speaker_profile="XTTS Voice",
+    )
+
+    tmp_path = tmp_path / "audio"
+    tmp_path.mkdir()
+
+    def fake_generate_via_bridge(**kwargs):
+        Path(kwargs["out_wav"]).write_text("audio")
+        return 0
+
+    def fake_stitch(_pdir, _segments, out_wav, _on_output, _cancel_check):
+        Path(out_wav).write_text("stitched")
+        return 0
+
+    output_lines: list[str] = []
+
+    with timeout_after(5, "mixed segment-engine-sample marker test should not hang"), \
+         patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, _fallback=None: "voxtral" if name == "Voxtral Voice" else "xtts"), \
+         patch("plugins.tts_mixed.handler.get_speaker_settings", side_effect=lambda name: {"speed": 1.0, "voxtral_voice_id": "v"} if name == "Voxtral Voice" else {"speed": 1.0}), \
+         patch("plugins.tts_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.tts_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("plugins.tts_mixed.handler.update_job"):
+        result, _ = handle_mixed_job(
+            "mixed-engine-sample-job", job, time.time(), output_lines.append, lambda: False
+        )
+
+    assert result == "done"
+
+    sample_lines = [line for line in output_lines if "[SEGMENT_ENGINE_SAMPLE]" in line]
+    assert len(sample_lines) == 2, f"expected one marker per group, got: {output_lines}"
+
+    parsed = []
+    for line in sample_lines:
+        tokens = line.split("[SEGMENT_ENGINE_SAMPLE]")[1].strip().split()
+        assert len(tokens) == 4, f"expected 4 whitespace tokens, got: {tokens}"
+        seg_id, engine, chars, duration = tokens
+        parsed.append((seg_id, engine, int(chars), float(duration)))
+
+    engines_by_seg = {seg_id: engine for seg_id, engine, _, _ in parsed}
+    assert engines_by_seg[segs[0]["id"]] == "xtts"
+    assert engines_by_seg[segs[1]["id"]] == "voxtral"
+
+    # Never attribute a group's sample to the "mixed" container label itself.
+    assert all(engine != "mixed" for _, engine, _, _ in parsed)
+    # Each group's char count is its own text, not the whole chapter's.
+    assert all(chars > 0 for _, _, chars, _ in parsed)
+    assert all(duration >= 0.0 for _, _, _, duration in parsed)
+
+
+def test_handle_mixed_job_does_not_emit_segment_engine_sample_for_failed_group(clean_db, tmp_path):
+    """A failed group must not emit [SEGMENT_ENGINE_SAMPLE] — only a genuinely
+    completed, INV-3-validated render may attribute time to the real engine.
+    """
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
+
+    pid = create_project("P1")
+    cid = create_chapter(pid, "C1", "Hello world.")
+    sync_chapter_segments(cid, "Hello world.")
+    segs = get_chapter_segments(cid)
+    update_segment(segs[0]["id"], speaker_profile_name="XTTS Voice")
+
+    job = Job(
+        id="mixed-engine-sample-failed-job",
+        engine="mixed",
+        chapter_file=f"{cid}_0.txt",
+        status="queued",
+        created_at=time.time(),
+        project_id=pid,
+        chapter_id=cid,
+        speaker_profile="XTTS Voice",
+    )
+
+    tmp_path = tmp_path / "audio"
+    tmp_path.mkdir()
+
+    def fake_generate_via_bridge(**kwargs):
+        # Simulate an engine failure: no output file written, non-zero rc.
+        return 1
+
+    output_lines: list[str] = []
+
+    with timeout_after(5, "mixed segment-engine-sample failed-group test should not hang"), \
+         patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=tmp_path), \
+         patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
+         patch("app.domain.chunk_groups.resolve_profile_engine", return_value="xtts"), \
+         patch("plugins.tts_mixed.handler.get_speaker_settings", return_value={"speed": 1.0}), \
+         patch("plugins.tts_mixed.handler.get_speaker_wavs", return_value="ref.wav"), \
+         patch("plugins.tts_mixed.handler.get_voice_profile_dir", return_value=tmp_path / "voice"), \
+         patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+         patch("plugins.tts_mixed.handler.update_job"):
+        result, _ = handle_mixed_job(
+            "mixed-engine-sample-failed-job", job, time.time(), output_lines.append, lambda: False
+        )
+
+    assert result == "failed"
+    assert not any("[SEGMENT_ENGINE_SAMPLE]" in line for line in output_lines)

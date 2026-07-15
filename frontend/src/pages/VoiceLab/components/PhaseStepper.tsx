@@ -19,6 +19,10 @@ const STEPS: { phase: VoicePhase; label: string }[] = [
 const PHASE_INDEX: Record<VoicePhase, number> = {
     samples: 0,
     build: 1,
+    // In-flight build: same step as idle "build" — there's no separate
+    // stepper step for it, and highlighting "Build" as active/current
+    // while a build is running is correct.
+    building: 1,
     test: 2,
     ready: 3,
 };

@@ -41,39 +41,46 @@ const ActivityPage: React.FC<ActivityPageProps> = ({
     return 'connected';
   }, [connected, isReconnecting]);
 
+  // History filter chip row (All/Renders/Samples/API). Rendered by GlobalQueue
+  // directly above the "Completed / Failed History" section it filters —
+  // design-review fix: it previously sat at the top of the page, above the
+  // "Global Queue" title, disconnected from the section it controls.
+  const historyFilterControls = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: 'var(--space-4)' }}>
+      <span style={{ fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+        Filter
+      </span>
+      {HISTORY_FILTERS.map((filter) => {
+        const active = historyFilter === filter;
+        return (
+          <button
+            key={filter}
+            type="button"
+            aria-pressed={active}
+            onClick={() => setHistoryFilter(filter)}
+            style={{
+              padding: '0.45rem 0.8rem',
+              borderRadius: '9999px',
+              border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+              background: active ? 'var(--accent-glow)' : 'var(--surface)',
+              color: active ? 'var(--accent)' : 'var(--text-secondary)',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: active ? 'var(--shadow-sm)' : 'none',
+            }}
+          >
+            {filter}
+          </button>
+        );
+      })}
+    </div>
+  );
+
   return (
     <div className="activity-page" data-connection-state={connectionState}>
       <div className="activity-page__columns">
         <div className="activity-page__main">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-              History
-            </span>
-            {HISTORY_FILTERS.map((filter) => {
-              const active = historyFilter === filter;
-              return (
-                <button
-                  key={filter}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => setHistoryFilter(filter)}
-                  style={{
-                    padding: '0.45rem 0.8rem',
-                    borderRadius: '9999px',
-                    border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
-                    background: active ? 'var(--accent-glow)' : 'var(--surface)',
-                    color: active ? 'var(--accent)' : 'var(--text-secondary)',
-                    fontSize: '0.8rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    boxShadow: active ? 'var(--shadow-sm)' : 'none',
-                  }}
-                >
-                  {filter}
-                </button>
-              );
-            })}
-          </div>
           {/*
             W-PAR task 015: per-job segment peek strip / render monitor now
             mount inside QueueItem.tsx (one instance per concurrently-active
@@ -91,6 +98,7 @@ const ActivityPage: React.FC<ActivityPageProps> = ({
             onRefresh={onRefresh}
             compact={false}
             historyFilter={historyFilter}
+            historyFilterControls={historyFilterControls}
             engineCaps={engineCaps}
           />
         </div>

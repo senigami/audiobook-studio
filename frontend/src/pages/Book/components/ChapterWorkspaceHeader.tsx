@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bookmark, BookMarked, ChevronDown, ChevronLeft, ChevronRight, SkipForward } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { ArrowLeft, Bookmark, BookMarked, ChevronDown, ChevronLeft, ChevronRight, Library, SkipForward } from 'lucide-react';
 import type { Chapter, Job } from '@/types';
 import { setLastChapter } from '@/pages/Book/lib/stages';
 import { StatusOrb } from '@/components/ui/StatusOrb';
@@ -13,6 +14,14 @@ interface ChapterWorkspaceHeaderProps {
   chapters: Chapter[];
   activeChapterId: string;
   jobs?: Record<string, Job>;
+  /**
+   * Extra trailing action(s) rendered in the same toolbar row (e.g.
+   * BookLayout's Lexicon panel toggle). Consolidating these into one row
+   * avoids an orphaned button floating alone in its own dead vertical band
+   * below the header (design-critique HIG finding) — reclaiming that space
+   * for the manuscript.
+   */
+  rightSlot?: ReactNode;
 }
 
 // ---------------------------------------------------------------------------
@@ -126,6 +135,7 @@ export function ChapterWorkspaceHeader({
   chapters,
   activeChapterId,
   jobs = {},
+  rightSlot,
 }: ChapterWorkspaceHeaderProps) {
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -307,42 +317,23 @@ export function ChapterWorkspaceHeader({
       >
         <button
           type="button"
-          className={`chapter-workspace-header__nav-btn${bookmarksOpen ? ' chapter-workspace-header__nav-btn--active' : ''}`}
+          className={`chapter-workspace-header__nav-btn${bookmarksOpen ? ' chapter-workspace-header__nav-btn--active' : ''}${allBookmarks.length > 0 ? ' chapter-workspace-header__nav-btn--badged' : ''}`}
           onClick={() => setBookmarksOpen((o) => !o)}
           aria-haspopup="menu"
           aria-expanded={bookmarksOpen}
           aria-label="Show bookmarks"
           title="Show bookmarks"
         >
-          <span
-            style={{
-              fontSize: 'var(--type-micro)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 3,
-            }}
-          >
-            Bookmarks
-            {allBookmarks.length > 0 && (
-              <span
-                aria-label={`${allBookmarks.length} bookmarks`}
-                style={{
-                  fontSize: 'var(--type-micro)',
-                  fontWeight: 700,
-                  padding: '0 4px',
-                  borderRadius: 'var(--radius-round)',
-                  background: 'var(--accent-tint-bg)',
-                  border: '1px solid var(--accent-tint-border)',
-                  color: 'var(--accent)',
-                  lineHeight: 1.6,
-                  minWidth: 16,
-                  textAlign: 'center',
-                }}
-              >
-                {allBookmarks.length}
-              </span>
-            )}
-          </span>
+          {/* Icon-only (matching the rest of the row's icon buttons) —
+              a "Bookmarks" text label next to the icon collided/wrapped at
+              1280px (design-critique HIG finding). Count is a small corner
+              badge rather than inline text. */}
+          <Library size={14} strokeWidth={2.2} aria-hidden="true" />
+          {allBookmarks.length > 0 && (
+            <span className="chapter-workspace-header__nav-btn-badge" aria-hidden="true">
+              {allBookmarks.length > 99 ? '99+' : allBookmarks.length}
+            </span>
+          )}
         </button>
 
         {bookmarksOpen && (
@@ -370,6 +361,10 @@ export function ChapterWorkspaceHeader({
           </div>
         )}
       </div>
+
+      {rightSlot && (
+        <div className="chapter-workspace-header__right-slot">{rightSlot}</div>
+      )}
     </div>
   );
 }

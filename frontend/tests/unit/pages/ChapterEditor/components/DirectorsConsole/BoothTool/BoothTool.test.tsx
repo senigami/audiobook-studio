@@ -172,16 +172,21 @@ describe('BoothTool', () => {
     expect(screen.getByText('Longer segment text here')).toBeInTheDocument();
   });
 
-  it('automatically starts playback when Booth mode is entered for a chapter with audio', async () => {
+  it('loads (but does NOT auto-play) the chapter render when Booth mode is entered for a chapter with audio', async () => {
     renderBoothTool();
 
     await screen.findByText('Short segment');
 
+    // Booth mode must load the render onto the player bus so it's
+    // ready-to-play, but must NEVER start playback itself (Apple HIG: no
+    // audio starts without an explicit user-initiated play action) — the
+    // user presses Play in the persistent PlayerBar themselves.
     expect(playerBus.loadAndPlay).toHaveBeenCalledWith(
       expect.objectContaining({
         scope: 'chapter',
         audioUrl: expect.stringContaining('chap1.mp3'),
         title: 'Chapter 1',
+        autoplay: false,
       }),
     );
   });

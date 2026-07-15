@@ -7,6 +7,55 @@
    design-docs/plans/active/directors_console_activation/tasks/007-cleanup-and-green-gate.md.
    ========================================================================== */
 
+/* ── DirectorsConsole rail: mode/tool tabs ────────────────────────────────
+   The rail used to reuse `.btn-primary`/`.btn-ghost` for selected/unselected
+   tabs — the same solid-fill treatment `.btn-primary` uses for real
+   primary-action buttons elsewhere, which read as ambiguous ("is this
+   selected, or is it a button to press?"), and `.btn-ghost`'s hover state
+   (accent-glow tint) looked close enough to a selected tab to be mistaken
+   for a second simultaneously-active item (design-critique HIG finding).
+   This gives "selected" its own distinct, non-button-shaped treatment. */
+.directors-console__rail-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.6rem 0.6rem 0.6rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 700;
+  min-width: 64px;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-standard),
+              background var(--dur-fast) var(--ease-standard),
+              border-color var(--dur-fast) var(--ease-standard);
+}
+
+.directors-console__rail-tab:hover:not(.directors-console__rail-tab--active) {
+  background: var(--surface-alt);
+  color: var(--text-primary);
+}
+
+.directors-console__rail-tab--active {
+  background: var(--accent-tint-bg, var(--accent-glow));
+  border-left-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Divider between the mode-switching items (Cast/Booth/Revise/Write) and
+   the tool/utility items (Casting Call/Script Supervisor/Plugin) — the rail
+   used to read as one undifferentiated stack (design-critique HIG finding). */
+.directors-console__rail-divider {
+  height: 1px;
+  margin: 0.35rem 0.4rem;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
 /* ── Main area: topbar + body ─────────────────────────────────────────────── */
 .review-main {
   flex: 1;

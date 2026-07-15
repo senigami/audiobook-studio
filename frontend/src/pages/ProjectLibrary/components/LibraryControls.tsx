@@ -19,9 +19,11 @@ interface LibraryControlsProps {
 // Quick-filter chips are shortcuts onto the existing sort dropdown, not a
 // separate filtering mechanism — see design-docs/plans/active/
 // north_star_screen_parity/tasks/004-library-all-books-header-and-filters.md.
-// They supplement the dropdown rather than replace it (default per that task
-// when the demo's exact replace-vs-supplement intent was ambiguous).
-const RECENT_SORT: SortOption = 'updated-desc';
+// The "Recent" chip was removed (2026-07-14 HIG review, item 7): it set the
+// exact same sortOption ('updated-desc') as the dropdown's default
+// "Recently Updated" entry, so the two controls expressed the same intent
+// twice. A–Z stays as the one quick shortcut worth keeping at a glance;
+// the dropdown remains the single source of truth for sort order.
 const AZ_SORT: SortOption = 'title-asc';
 
 export const LibraryControls: React.FC<LibraryControlsProps> = ({
@@ -58,29 +60,11 @@ export const LibraryControls: React.FC<LibraryControlsProps> = ({
                 <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }} role="group" aria-label="Quick filters">
                     <button
                         type="button"
-                        onClick={() => onSortOptionChange(RECENT_SORT)}
-                        className="btn-chip"
-                        aria-pressed={sortOption === RECENT_SORT}
-                        style={{
-                            padding: '0.3rem 0.7rem',
-                            borderRadius: '999px',
-                            border: sortOption === RECENT_SORT ? '1px solid var(--accent)' : '1px solid var(--border)',
-                            background: sortOption === RECENT_SORT ? 'var(--accent-glow)' : 'transparent',
-                            color: sortOption === RECENT_SORT ? 'var(--accent)' : 'var(--text-muted)',
-                            fontSize: '0.8rem',
-                            fontWeight: 500,
-                            cursor: 'pointer'
-                        }}
-                    >
-                        Recent
-                    </button>
-                    <button
-                        type="button"
                         onClick={() => onSortOptionChange(AZ_SORT)}
                         className="btn-chip"
                         aria-pressed={sortOption === AZ_SORT}
                         style={{
-                            padding: '0.3rem 0.7rem',
+                            padding: '0.45rem 0.75rem',
                             borderRadius: '999px',
                             border: sortOption === AZ_SORT ? '1px solid var(--accent)' : '1px solid var(--border)',
                             background: sortOption === AZ_SORT ? 'var(--accent-glow)' : 'transparent',
@@ -101,7 +85,7 @@ export const LibraryControls: React.FC<LibraryControlsProps> = ({
                         className="btn-chip"
                         aria-pressed={statusFilter === 'in-progress'}
                         style={{
-                            padding: '0.3rem 0.7rem',
+                            padding: '0.45rem 0.75rem',
                             borderRadius: '999px',
                             border: statusFilter === 'in-progress' ? '1px solid var(--accent)' : '1px solid var(--border)',
                             background: statusFilter === 'in-progress' ? 'var(--accent-glow)' : 'transparent',
@@ -117,6 +101,12 @@ export const LibraryControls: React.FC<LibraryControlsProps> = ({
 
                 {viewMode === 'grid' && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '8px' }}>
+                        <span
+                            aria-hidden="true"
+                            style={{ fontSize: '0.7rem', color: 'var(--text-muted)', opacity: 0.7 }}
+                        >
+                            Card size
+                        </span>
                         <span
                             aria-hidden="true"
                             style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--text-muted)', opacity: 0.5 }}
@@ -154,7 +144,7 @@ export const LibraryControls: React.FC<LibraryControlsProps> = ({
                         aria-label="Grid View"
                         title="Grid View"
                         style={{
-                            padding: '6px',
+                            padding: '12px',
                             background: viewMode === 'grid' ? 'var(--surface)' : 'transparent',
                             borderRadius: '6px',
                             border: 'none',
@@ -174,7 +164,7 @@ export const LibraryControls: React.FC<LibraryControlsProps> = ({
                         aria-label="List View"
                         title="List View"
                         style={{
-                            padding: '6px',
+                            padding: '12px',
                             background: viewMode === 'list' ? 'var(--surface)' : 'transparent',
                             borderRadius: '6px',
                             border: 'none',

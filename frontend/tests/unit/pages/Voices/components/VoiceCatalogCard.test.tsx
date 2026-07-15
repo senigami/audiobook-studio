@@ -14,6 +14,11 @@ vi.mock('@/store/playerBus', () => ({
     pause: vi.fn(),
 }));
 
+// Mock the toast boundary (a DOM CustomEvent dispatcher, not the unit under test)
+vi.mock('@/utils/toast', () => ({
+    emitToast: vi.fn(),
+}));
+
 // Mock ActionMenu so we can test items without portal/DOM complexity
 vi.mock('@/components/ui/ActionMenu', () => ({
     ActionMenu: ({ items }: { items: Array<{ label?: string; onClick?: () => void; isDestructive?: boolean }> }) => (
@@ -34,6 +39,7 @@ vi.mock('@/components/ui/ActionMenu', () => ({
 
 import { VoiceCatalogCard } from '@/pages/Voices/components/VoiceCatalogCard';
 import { usePlayerBus, loadAndPlay, pause as pauseBusMock } from '@/store/playerBus';
+import { emitToast } from '@/utils/toast';
 import type { Speaker, SpeakerProfile, TtsEngine, VoiceMetadata } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -178,6 +184,43 @@ describe('VoiceCatalogCard', () => {
         expect(screen.getByRole('button', { name: 'Build voice' })).toBeInTheDocument();
     });
 
+    it('shows a disabled, spinning "Building…" CTA when the profile is in buildingProfiles', () => {
+        const profiles = [{ ...readyProfile, preview_url: null, wav_count: 3 }];
+        render(
+            <VoiceCatalogCard
+                {...baseProps}
+                profiles={profiles}
+                buildingProfiles={{ [profiles[0].name]: true }}
+            />
+        );
+        const btn = screen.getByRole('button', { name: /Building/ });
+        expect(btn).toBeDisabled();
+    });
+
+    it('clicking "Build voice" does not re-trigger onBuildNow while already building', () => {
+        const profiles = [{ ...readyProfile, preview_url: null, wav_count: 3 }];
+        render(
+            <VoiceCatalogCard
+                {...baseProps}
+                profiles={profiles}
+                buildingProfiles={{ [profiles[0].name]: true }}
+            />
+        );
+        fireEvent.click(screen.getByRole('button', { name: /Building/ }));
+        expect(baseProps.onBuildNow).not.toHaveBeenCalled();
+    });
+
+    it('clicking "Build voice" calls onBuildNow and, on success, emits a "Queued build" toast', async () => {
+        const profiles = [{ ...readyProfile, preview_url: null, wav_count: 3 }];
+        render(<VoiceCatalogCard {...baseProps} profiles={profiles} />);
+        fireEvent.click(screen.getByRole('button', { name: 'Build voice' }));
+        expect(baseProps.onBuildNow).toHaveBeenCalledWith(
+            profiles[0].name, [], 'sp-1', profiles[0].variant_name || undefined
+        );
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(emitToast).toHaveBeenCalledWith(expect.stringContaining('Clara Bell'));
+    });
+
     // ---------------------------------------------------------------------------
     // CTA actions
     // ---------------------------------------------------------------------------
@@ -192,15 +235,28 @@ describe('VoiceCatalogCard', () => {
     // Action menu items
     // ---------------------------------------------------------------------------
 
-    it('action menu contains all 7 expected items', () => {
+    it('action menu contains all 8 expected items, including Open in Voice Lab', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
         expect(screen.getByTestId('menu-item-Set as Default')).toBeInTheDocument();
+        expect(screen.getByTestId('menu-item-Open in Voice Lab')).toBeInTheDocument();
         expect(screen.getByTestId('menu-item-Edit Metadata')).toBeInTheDocument();
         expect(screen.getByTestId('menu-item-Edit Recording Script')).toBeInTheDocument();
         expect(screen.getByTestId('menu-item-Voice Settings')).toBeInTheDocument();
         expect(screen.getByTestId('menu-item-Rename Voice')).toBeInTheDocument();
         expect(screen.getByTestId('menu-item-Export Voice Bundle')).toBeInTheDocument();
         expect(screen.getByTestId('menu-item-Delete Voice (all variants)')).toBeInTheDocument();
+    });
+
+    it('Open in Voice Lab menu item fires onNavigateToLab', () => {
+        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
+        fireEvent.click(screen.getByTestId('menu-item-Open in Voice Lab'));
+        expect(baseProps.onNavigateToLab).toHaveBeenCalledWith('sp-1');
+    });
+
+    it('clicking the card body (name/avatar area) navigates to Voice Lab', () => {
+        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
+        fireEvent.click(screen.getByTestId('voice-catalog-card-body'));
+        expect(baseProps.onNavigateToLab).toHaveBeenCalledWith('sp-1');
     });
 
     it('Edit Recording Script fires onEditTestText with the default profile', () => {

@@ -74,9 +74,16 @@ const StepCard: React.FC<{
 
 // ---------------------------------------------------------------------------
 // DocCard — muted link-style card
+//
+// The handbook (design-docs cross-ref: docs/handbook/) is a static GitHub
+// Pages site, not served by the local app server (app/api/web.py only mounts
+// /assets, /demo, /api/v1/tts) — so these are real external links, opened in
+// a new tab, not in-app routes.
 
-const DocCard: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, label }) => (
-  <a href="#" aria-label={label} className="welcome-doc-card">
+const HANDBOOK_BASE = 'https://senigami.github.io/audiobook-studio/handbook/';
+
+const DocCard: React.FC<{ icon: React.ReactNode; label: string; href: string }> = ({ icon, label, href }) => (
+  <a href={href} target="_blank" rel="noopener noreferrer" aria-label={label} className="welcome-doc-card">
     <span className="welcome-doc-card__icon">{icon}</span>
     <span className="welcome-doc-card__label">{label}</span>
     <ExternalLink size={11} strokeWidth={1.8} className="welcome-doc-card__external-icon" />
@@ -109,16 +116,16 @@ export const WelcomePage: React.FC = () => {
               <span className="text-accent">Studio</span>
             </h1>
             <p className="welcome-hero__subtitle">
-              Professional AI voice generation for creators and authors. Local-first,
-              plugin-powered, and built for the long run.
+              Everything runs on this machine. Add a voice, import a manuscript, and
+              start rendering — the three steps below get you there.
             </p>
           </div>
 
           {/* Status chips */}
           <div className="welcome-hero__chips">
-            <StatusChip variant="success">Ready</StatusChip>
-            <StatusChip variant="accent">Plugin-powered TTS</StatusChip>
-            <StatusChip variant="neutral">Local-first</StatusChip>
+            <StatusChip variant="success">Ready to go</StatusChip>
+            <StatusChip variant="accent">Your engines, your rules</StatusChip>
+            <StatusChip variant="neutral">Nothing leaves this machine</StatusChip>
           </div>
         </div>
 
@@ -128,9 +135,14 @@ export const WelcomePage: React.FC = () => {
             Enter Library
             <span className="welcome-cta-primary__arrow">→</span>
           </button>
-          <button type="button" className="welcome-cta-secondary">
+          <a
+            href={HANDBOOK_BASE}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="welcome-cta-secondary"
+          >
             View Documentation
-          </button>
+          </a>
         </div>
 
         {/* ── Getting started ── */}
@@ -162,10 +174,26 @@ export const WelcomePage: React.FC = () => {
         <div className="welcome-section">
           <SectionLabel>Learn more</SectionLabel>
           <div className="welcome-docs">
-            <DocCard icon={<FileText size={14} strokeWidth={1.8} />} label="Getting Started Guide" />
-            <DocCard icon={<Mic size={14} strokeWidth={1.8} />} label="How voice cloning works" />
-            <DocCard icon={<Puzzle size={14} strokeWidth={1.8} />} label="Plugins and engines" />
-            <DocCard icon={<BookOpen size={14} strokeWidth={1.8} />} label="Read the docs" />
+            <DocCard
+              icon={<FileText size={14} strokeWidth={1.8} />}
+              label="Getting Started Guide"
+              href={`${HANDBOOK_BASE}#getting-started/quick-tour`}
+            />
+            <DocCard
+              icon={<Mic size={14} strokeWidth={1.8} />}
+              label="How voice cloning works"
+              href={`${HANDBOOK_BASE}#concepts/voices`}
+            />
+            <DocCard
+              icon={<Puzzle size={14} strokeWidth={1.8} />}
+              label="Plugins and engines"
+              href={`${HANDBOOK_BASE}#plugin-sdk/overview`}
+            />
+            <DocCard
+              icon={<BookOpen size={14} strokeWidth={1.8} />}
+              label="Read the docs"
+              href={HANDBOOK_BASE}
+            />
           </div>
         </div>
       </div>

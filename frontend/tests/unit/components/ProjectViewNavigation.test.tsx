@@ -74,7 +74,8 @@ vi.mock('framer-motion', () => ({
   Reorder: {
       Group: ({ children, ...props }: any) => <div data-testid="reorder-group" {...stripMotionProps(props)}>{children}</div>,
       Item: ({ children, ...props }: any) => <div data-testid="reorder-item" {...stripMotionProps(props)}>{children}</div>,
-  }
+  },
+  useDragControls: () => ({ start: () => {} }),
 }));
 
 describe('ProjectView - Navigation', () => {

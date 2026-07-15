@@ -98,9 +98,7 @@
   font-size: var(--type-caption);
   color: var(--text-secondary);
   font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: break-word;
 }
 
 .welcome-doc-card__external-icon {
@@ -244,4 +242,35 @@
   font-family: inherit;
   cursor: pointer;
   line-height: 1.4;
+  text-decoration: none;
+}
+
+/* ── Mobile layout ──
+   Step cards and doc cards are laid out as a flex row with wrap, which at
+   phone widths (<=520px) produces 2-3 clipped columns each too narrow for
+   their own heading text (HIG: content must not be silently truncated).
+   Stack them into a single column instead. */
+@media (max-width: 520px) {
+  .welcome-steps {
+    flex-direction: column;
+  }
+
+  .welcome-step-card {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .welcome-docs {
+    flex-direction: column;
+  }
+
+  .welcome-doc-card {
+    width: 100%;
+  }
+
+  .welcome-cta-primary,
+  .welcome-cta-secondary {
+    width: 100%;
+    justify-content: center;
+  }
 }

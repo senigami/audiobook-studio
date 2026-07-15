@@ -1,7 +1,7 @@
 # SP9 — System Architecture Spec
 
 ```
-spec_version: 1.7.1
+spec_version: 1.7.2
 status: active
 created: 2026-06-10
 updated: 2026-07-14
@@ -19,6 +19,7 @@ sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
 ## Changelog
 
 | Version | Date       | Summary                                                    |
+| 1.7.2   | 2026-07-14 | Mixed-handler marker set gains `[SEGMENT_ENGINE_SAMPLE] {segment_id} {engine} {chars} {duration_seconds}`, emitted per group after INV-3 artifact validation, so the orchestrator can attribute render-performance samples to the group's real engine instead of the `"mixed"` container label. Full contract in `queue-jobs.md` §Changelog 1.12.2. |
 |---------|------------|------------------------------------------------------------|
 | 1.7.1   | 2026-07-14 | **XTTS manifest ceiling raised `2 → 8` (owner directive).** `plugins/tts_xtts/manifest.json`'s `behavior.max_concurrent_workers` moved from 2 to 8, matching the `MAX_GLOBAL_CONCURRENT_SYNTHESIS` backstop and the Settings → General "Parallel Segment Rendering" slider's max. Rationale: the manifest ceiling was silently clamping the user-facing `tts_parallel_cap` setting (`effective_cap = min(requested, manifest_max)`) with no error/warning surfaced in the UI — the owner's own hardware (VRAM headroom) should be the deciding factor for how many concurrent XTTS warm workers to run, not an author-set ceiling baked into the plugin. The global backstop (env-overridable via `MAX_GLOBAL_CONCURRENT_SYNTHESIS`) remains the only enforced safety limit; each additional concurrent XTTS warm worker loads its own model copy into VRAM (~`resource.vram_mb` per worker, declared 4000 MB), so raising `tts_parallel_cap` above what the GPU can hold risks OOM — this is now the user's own tradeoff to explore, not a hard-blocked one. Dynamic VRAM/CPU-aware auto-throttling (drop concurrency live if VRAM pressure rises) was discussed and explicitly deferred as future scope, not implemented here. Voxtral/Mixed remain pinned to `max_concurrent_workers: 1` in their own manifests — unchanged, since those engines' sequential constraint is not the same class of "arbitrary ceiling" (Voxtral is a remote API, Mixed's worker is not verified concurrency-safe). |
 | 1.7.0   | 2026-07-11 | **W-PAR task 014 — live per-engine cap admission (§3.1b) + `GET`/`PUT /api/engines/{engine_id}/concurrency`.** `ResourceClaim.cap` now means the manifest ceiling everywhere (structural, grown only via `ensure_min_cap`); a new `manifest_max` field carries the same value alongside it. `EngineClassSemaphore.try_acquire` gained an optional `limit` parameter — the *live*, settings-driven admission limit, resolved fresh via `cap_settings.resolve_effective_cap` on every `reserve_task_resources` call (not baked into the claim at task-construction time as before). This closes the gap where changing `tts_parallel_cap`/`tts_engine_caps` had no effect on already-queued/in-flight work until a restart: a shrink now blocks new admissions within one retry cycle (~1s orchestrator loop / ~0.5s per-child segment loop) without evicting in-flight tasks (`release()` never consulted cap, unchanged); a raise takes effect on the very next admission attempt. `ensure_min_cap`'s grow-only behavior is untouched — it only ever sees the stable manifest ceiling now, never a live value, so there is nothing for it to regrow. New `GET /api/engines/concurrency` (global cap + per-engine manifest/requested/effective/active snapshot) and `PUT /api/engines/{engine_id}/concurrency` (`{"cap": <int>|null}`, 422 on out-of-range) in `app/api/routers/engines.py`; writes go through a new single-key-merge `state_settings.set_engine_cap` (avoids two engines' overrides clobbering each other via a whole-`tts_engine_caps`-object replace). Per-child segment dispatch (`segment_synthesis.py`'s `SegmentSynthesisTask.run()`) already calls `reserve_task_resources` individually per child — traced and confirmed this session — so the live-limit mechanism reaches already-fanned-out chapter segments, not just the top-level orchestrator submit path. |
@@ -387,6 +388,14 @@ manifest markers, via `app/engines/behavior.match_timing_marker` /
 the engine from data + manifest, not a hardcoded `if engine_id == ...` branch, so
 the no-branch rule holds. The watchdog and VoiceBridge remain ignorant of
 model-load semantics — no new ownership boundary is introduced.
+
+Same principle applies to render-performance attribution: `render_one_group`
+also emits `[SEGMENT_ENGINE_SAMPLE] {segment_id} {engine} {chars}
+{duration_seconds}` (four whitespace-separated tokens, after the group's
+INV-3 artifact validation passes) so the orchestrator can attribute each
+group's render time to its own real, manifest-declared engine instead of the
+job-level `"mixed"` container label. See `queue-jobs.md` §Changelog 1.12.2
+for the full contract — "mixed" itself never records a calibration sample.
 
 ---
 

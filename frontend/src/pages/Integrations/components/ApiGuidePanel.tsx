@@ -1,6 +1,7 @@
 import React from 'react';
 import { Server, ShieldAlert, BookOpen } from 'lucide-react';
 import { apiExampleStyle } from '@/pages/Settings/settingsRouteHelpers';
+import '@/pages/Integrations/components/ApiGuidePanel.css';
 
 export const ApiGuidePanel: React.FC = () => {
   return (
@@ -47,15 +48,15 @@ export const ApiGuidePanel: React.FC = () => {
             1. Engine Discovery
           </h3>
           <div style={{ padding: '1.25rem', borderRadius: '16px', border: '1px solid var(--border)', background: 'var(--surface-light)' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
-              <div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 800, marginBottom: '0.4rem' }}>GET /api/v1/tts/engines</div>
+            <div className="api-endpoint-grid" style={{ marginBottom: '1.25rem' }}>
+              <div style={{ minWidth: 0 }}>
+                <div className="api-endpoint-chip" style={{ fontSize: '0.85rem', fontWeight: 800, marginBottom: '0.4rem' }}>GET /api/v1/tts/engines</div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
                   Lists registered TTS engines with status, verification state, and capabilities.
                 </div>
               </div>
-              <div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 800, marginBottom: '0.4rem' }}>GET /api/v1/tts/engines/{'{engine_id}'}</div>
+              <div style={{ minWidth: 0 }}>
+                <div className="api-endpoint-chip" style={{ fontSize: '0.85rem', fontWeight: 800, marginBottom: '0.4rem' }}>GET /api/v1/tts/engines/{'{engine_id}'}</div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
                   Returns detailed metadata for a single engine.
                 </div>
@@ -84,20 +85,20 @@ export const ApiGuidePanel: React.FC = () => {
               <code> job_id</code> to poll.
             </p>
             <div style={{ display: 'grid', gap: '1rem', marginBottom: '1.25rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', borderRadius: '10px', background: 'var(--background)', border: '1px solid var(--border)' }}>
-                <code style={{ fontWeight: 800 }}>POST /api/v1/tts/synthesize</code>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '0.4rem', padding: '0.75rem', borderRadius: '10px', background: 'var(--background)', border: '1px solid var(--border)' }}>
+                <code style={{ fontWeight: 800, overflowWrap: 'anywhere', minWidth: 0 }}>POST /api/v1/tts/synthesize</code>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Inline (&lt;500 chars) or queued</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', borderRadius: '10px', background: 'var(--background)', border: '1px solid var(--border)' }}>
-                <code style={{ fontWeight: 800 }}>POST /api/v1/tts/preview</code>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '0.4rem', padding: '0.75rem', borderRadius: '10px', background: 'var(--background)', border: '1px solid var(--border)' }}>
+                <code style={{ fontWeight: 800, overflowWrap: 'anywhere', minWidth: 0 }}>POST /api/v1/tts/preview</code>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Always inline, capped at 500 chars</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', borderRadius: '10px', background: 'var(--background)', border: '1px solid var(--border)' }}>
-                <code style={{ fontWeight: 800 }}>GET /api/v1/tts/jobs/{'{job_id}'}</code>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '0.4rem', padding: '0.75rem', borderRadius: '10px', background: 'var(--background)', border: '1px solid var(--border)' }}>
+                <code style={{ fontWeight: 800, overflowWrap: 'anywhere', minWidth: 0 }}>GET /api/v1/tts/jobs/{'{job_id}'}</code>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Poll queued job status</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', borderRadius: '10px', background: 'var(--background)', border: '1px solid var(--border)' }}>
-                <code style={{ fontWeight: 800 }}>GET /api/v1/tts/jobs/{'{job_id}'}/audio</code>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '0.4rem', padding: '0.75rem', borderRadius: '10px', background: 'var(--background)', border: '1px solid var(--border)' }}>
+                <code style={{ fontWeight: 800, overflowWrap: 'anywhere', minWidth: 0 }}>GET /api/v1/tts/jobs/{'{job_id}'}/audio</code>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Download completed audio</span>
               </div>
             </div>

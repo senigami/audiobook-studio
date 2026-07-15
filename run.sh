@@ -6,6 +6,7 @@ APP_VENV="$DIR/venv"
 TTS_ENV_DIR="${XTTS_ENV_DIR:-${TTS_ENV_DIR:-$HOME/xtts-env}}"
 FRONTEND_DIR="$DIR/frontend"
 APP_PORT="${AUDIOBOOK_STUDIO_PORT:-8123}"
+APP_HOST="${AUDIOBOOK_STUDIO_HOST:-0.0.0.0}"
 DEMO_ZIP="${AUDIOBOOK_STUDIO_DEMO_ZIP:-$DIR/demo/demo.zip}"
 BOOTSTRAP_PYTHON_ENV="$DIR/.pinokio-python311"
 RELOAD=1
@@ -39,12 +40,17 @@ usage() {
 Audiobook Studio bootstrap and startup script
 
 Usage:
-  ./run.sh [--setup-only] [--no-reload] [--port <port>] [--help]
+  ./run.sh [--setup-only] [--no-reload] [--port <port>] [--host <host>] [--help]
 
 Options:
   --setup-only   Install/update dependencies and build the frontend, but do not start the server
   --no-reload    Start uvicorn without --reload
   --port <port>  Override the default port (default: ${APP_PORT})
+  --host <host>  Interface to bind (default: 0.0.0.0 — reachable from other machines on
+                 your network via this Mac's LAN IP, e.g. http://192.168.x.x:${APP_PORT},
+                 while still serving http://127.0.0.1:${APP_PORT} locally). macOS may
+                 prompt to allow incoming network connections the first time. Pass
+                 --host 127.0.0.1 to restrict this machine only.
   --help         Show this help text
 EOF
 }
@@ -62,6 +68,11 @@ while [[ $# -gt 0 ]]; do
     --port)
       [[ $# -ge 2 ]] || die "--port requires a value"
       APP_PORT="$2"
+      shift 2
+      ;;
+    --host)
+      [[ $# -ge 2 ]] || die "--host requires a value"
+      APP_HOST="$2"
       shift 2
       ;;
     --help|-h)
@@ -313,11 +324,15 @@ if [[ "$SETUP_ONLY" -eq 1 ]]; then
   exit 0
 fi
 
-log "Starting Audiobook Studio on http://127.0.0.1:${APP_PORT}"
+if [[ "$APP_HOST" == "0.0.0.0" ]]; then
+  log "Starting Audiobook Studio on http://127.0.0.1:${APP_PORT} (also reachable via this machine's LAN IP)"
+else
+  log "Starting Audiobook Studio on http://${APP_HOST}:${APP_PORT}"
+fi
 cd "$DIR"
 
 if [[ "$RELOAD" -eq 1 ]]; then
-  exec "$APP_VENV/bin/uvicorn" run:app --reload --port "$APP_PORT"
+  exec "$APP_VENV/bin/uvicorn" run:app --reload --host "$APP_HOST" --port "$APP_PORT"
 else
-  exec "$APP_VENV/bin/uvicorn" run:app --port "$APP_PORT"
+  exec "$APP_VENV/bin/uvicorn" run:app --host "$APP_HOST" --port "$APP_PORT"
 fi

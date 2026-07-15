@@ -7,7 +7,7 @@
  * - Unknown id redirects to /voices
  * - Edit-metadata opens the modal (focus-trap dialog present)
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -98,8 +98,8 @@ const mockEngines: TtsEngine[] = [
 // Helper: render at a given path
 // ---------------------------------------------------------------------------
 
-function renderAtPath(path: string, id: string = VOICE_ID) {
-    (api.listVoicesWithMetadata as ReturnType<typeof vi.fn>).mockResolvedValue([mockMetadata]);
+function renderAtPath(path: string, id: string = VOICE_ID, metadataList: VoiceMetadata[] = [mockMetadata]) {
+    (api.listVoicesWithMetadata as ReturnType<typeof vi.fn>).mockResolvedValue(metadataList);
 
     return render(
         <MemoryRouter initialEntries={[path]}>
@@ -236,6 +236,45 @@ describe('VoiceLabPage', () => {
             expect(screen.getByTestId('samples-section')).toBeInTheDocument();
             expect(screen.getByTestId('variants-section')).toBeInTheDocument();
             expect(screen.getByTestId('test-section')).toBeInTheDocument();
+        });
+    });
+
+    // ---------------------------------------------------------------------------
+    // Mobile tag-pill wall — HIG review item 4a
+    // ---------------------------------------------------------------------------
+    describe('attribute pill row at mobile width', () => {
+        const manyTagsMetadata: VoiceMetadata = {
+            ...mockMetadata,
+            tags: ['warm', 'bright', 'calm', 'clear', 'soft', 'deep', 'raspy', 'gentle', 'crisp', 'smooth'],
+        };
+
+        function setWindowWidth(width: number) {
+            Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: width });
+            window.dispatchEvent(new Event('resize'));
+        }
+
+        afterEach(() => {
+            setWindowWidth(1024);
+        });
+
+        it('caps the pill row with a "+N" expandable toggle at mobile width (375px)', async () => {
+            setWindowWidth(375);
+            renderAtPath(`/voices/${VOICE_ID}`, VOICE_ID, [manyTagsMetadata]);
+            await waitFor(() => {
+                expect(screen.getByText('Aria Nova')).toBeInTheDocument();
+            });
+            await waitFor(() => {
+                expect(screen.getByRole('button', { name: /Show \d+ more attributes/ })).toBeInTheDocument();
+            });
+        });
+
+        it('does not cap the pill row on desktop width', async () => {
+            setWindowWidth(1200);
+            renderAtPath(`/voices/${VOICE_ID}`, VOICE_ID, [manyTagsMetadata]);
+            await waitFor(() => {
+                expect(screen.getByText('Aria Nova')).toBeInTheDocument();
+            });
+            expect(screen.queryByRole('button', { name: /Show \d+ more attributes/ })).not.toBeInTheDocument();
         });
     });
 });

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Book, ImageIcon, Loader2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useProjectLibrary } from '@/hooks/useProjectLibrary';
 import { ProjectCard } from '@/pages/ProjectDetail/components/ProjectCard';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
@@ -56,6 +56,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
         existingSeries
     } = useProjectLibrary(onSelectProject);
 
+    const prefersReducedMotion = useReducedMotion();
     const [coverSizeIdx, setCoverSizeIdxState] = useState(getStoredCoverSizeIdx);
     const setCoverSizeIdx = (idx: number) => {
         setCoverSizeIdxState(idx);
@@ -246,33 +247,52 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                 onCoverSizeIdxChange={setCoverSizeIdx}
             />
 
-            {viewMode === 'grid' ? (
-                <div
-                    className="project-library-grid"
-                    style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverColumnWidth}px, 1fr))` }}
-                >
-                    {filteredProjects.map(project => (
-                        <ProjectCard
-                            key={project.id}
-                            project={project}
-                            isHovered={hoveredProjectId === project.id}
-                            onHover={setHoveredProjectId}
-                            onClick={(id) => onSelectProject?.(id)}
+            {/* Grid/List swap fades only this container (not the header/controls
+                above it) and is a quick 0.15s crossfade rather than the ~1s
+                whole-page dim flagged in the 2026-07-14 HIG review (item 10).
+                Reduced-motion users get an instant swap, no fade. */}
+            <AnimatePresence initial={false}>
+                {viewMode === 'grid' ? (
+                    <motion.div
+                        key="grid"
+                        initial={prefersReducedMotion ? false : { opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={prefersReducedMotion ? undefined : { opacity: 0 }}
+                        transition={{ duration: prefersReducedMotion ? 0 : 0.15 }}
+                        className="project-library-grid"
+                        style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverColumnWidth}px, 1fr))` }}
+                    >
+                        {filteredProjects.map(project => (
+                            <ProjectCard
+                                key={project.id}
+                                project={project}
+                                isHovered={hoveredProjectId === project.id}
+                                onHover={setHoveredProjectId}
+                                onClick={(id) => onSelectProject?.(id)}
+                                onOpenDetails={handleOpenProjectDetails}
+                                onDelete={handleDeleteClick}
+                                formatDate={formatDate}
+                            />
+                        ))}
+                    </motion.div>
+                ) : (
+                    <motion.div
+                        key="list"
+                        initial={prefersReducedMotion ? false : { opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={prefersReducedMotion ? undefined : { opacity: 0 }}
+                        transition={{ duration: prefersReducedMotion ? 0 : 0.15 }}
+                    >
+                        <ProjectListView
+                            projects={filteredProjects}
+                            onSelect={(id) => onSelectProject?.(id)}
                             onOpenDetails={handleOpenProjectDetails}
                             onDelete={handleDeleteClick}
                             formatDate={formatDate}
                         />
-                    ))}
-                </div>
-            ) : (
-                <ProjectListView
-                    projects={filteredProjects}
-                    onSelect={(id) => onSelectProject?.(id)}
-                    onOpenDetails={handleOpenProjectDetails}
-                    onDelete={handleDeleteClick}
-                    formatDate={formatDate}
-                />
-            )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Create Project Modal */}
             <AnimatePresence>

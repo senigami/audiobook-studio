@@ -229,41 +229,23 @@ function ChapterWorkspace({ bookId, chapterId }: { bookId: string; chapterId: st
         chapters={chapters}
         activeChapterId={chapterId}
         jobs={jobs}
+        // Dockable panel toggle(s), folded into the header's single toolbar
+        // row (design-critique HIG finding: this used to float alone in its
+        // own row below the header, an orphaned control in a dead vertical
+        // band — reclaiming ~150px for the manuscript).
+        rightSlot={
+          <button
+            type="button"
+            className="chapter-workspace-header__panel-toggle"
+            onClick={() => setLexiconOpen((v) => !v)}
+            aria-pressed={lexiconOpen}
+            data-active={lexiconOpen || undefined}
+          >
+            <BookOpen size={13} aria-hidden="true" />
+            Lexicon
+          </button>
+        }
       />
-
-      {/* Toolbar row: workspace panel toggles */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--space-2)',
-          flexWrap: 'wrap',
-        }}
-      >
-        {/* Dockable panel toggles */}
-        <button
-          type="button"
-          onClick={() => setLexiconOpen((v) => !v)}
-          aria-pressed={lexiconOpen}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 'var(--space-1)',
-            padding: '0.3rem 0.6rem',
-            border: `1px solid ${lexiconOpen ? 'var(--accent)' : 'var(--border)'}`,
-            borderRadius: 'var(--radius-button)',
-            background: lexiconOpen ? 'var(--accent-glow)' : 'var(--surface)',
-            color: lexiconOpen ? 'var(--accent)' : 'var(--text-secondary)',
-            fontSize: 'var(--type-caption)',
-            fontWeight: 600,
-            cursor: 'pointer',
-            fontFamily: 'inherit',
-          }}
-        >
-          <BookOpen size={13} aria-hidden="true" />
-          Lexicon
-        </button>
-      </div>
 
       {/* Sub-view body + optional docked side panels */}
       <div

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Book, Calendar, Clock, User, FolderOpen, Trash2, Play, Pause } from 'lucide-react';
+import { Book, Clock, User, FolderOpen, Trash2, Play, Pause } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ActionMenu } from '@/components/ui/ActionMenu';
 import { ProjectStatusPill } from '@/components/ui/ProjectStatusPill';
@@ -152,26 +152,22 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                         </div>
                     </>
                 ) : (
-                    <div style={{ 
-                        width: '100%', 
-                        height: '100%', 
-                        display: 'flex', 
+                    <div style={{
+                        width: '100%',
+                        height: 'calc(100% - 16px)',
+                        margin: '8px',
+                        display: 'flex',
                         flexDirection: 'column',
-                        alignItems: 'center', 
+                        alignItems: 'center',
                         justifyContent: 'center',
                         gap: '12px',
-                        background: 'linear-gradient(135deg, var(--as-info-tint) 0%, var(--surface) 100%)'
+                        background: 'var(--surface-alt)',
+                        border: '1px dashed var(--border)',
+                        borderRadius: '6px'
                     }}>
-                        <div style={{
-                            position: 'absolute',
-                            inset: 0,
-                            opacity: 0.08,
-                            background: `repeating-linear-gradient(45deg, var(--accent) 0, var(--accent) 1px, transparent 0, transparent 4px)`,
-                            backgroundSize: '8px 8px'
-                        }} />
-                        <Book size={48} color="var(--accent)" style={{ opacity: 0.25, position: 'relative', zIndex: 1 }} />
-                        <div style={{ position: 'relative', zIndex: 1, fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 700, opacity: 0.6, letterSpacing: '0.05em' }}>
-                            ADD COVER
+                        <Book size={40} color="var(--text-muted)" style={{ opacity: 0.4 }} />
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, opacity: 0.7, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                            Add cover
                         </div>
                     </div>
                 )}
@@ -250,25 +246,32 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                 </motion.div>
             </div>
             <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '4px', background: 'var(--surface)', zIndex: 11 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <h3 style={{ flex: 1, minWidth: 0, fontSize: '1rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)' }} title={project.name}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', rowGap: '0.35rem' }}>
+                    <h3
+                        style={{
+                            flex: '1 1 auto',
+                            minWidth: '80px',
+                            fontSize: '1rem',
+                            fontWeight: 700,
+                            overflow: 'hidden',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            lineHeight: 1.3,
+                            color: 'var(--text-primary)'
+                        }}
+                        title={project.name}
+                    >
                         {project.name}
                     </h3>
                     {project.status && <ProjectStatusPill status={project.status} />}
                 </div>
-                {project.author ? (
+                {project.author && (
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500 }}>
                         <User size={14} opacity={0.7} /> {project.author}
                     </p>
-                ) : (
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        No author specified
-                    </p>
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500 }}>
-                        <Calendar size={14} opacity={0.7} /> Created {formatDate(project.created_at)}
-                    </p>
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500 }}>
                         <Clock size={14} opacity={0.7} /> Updated {formatDate(project.updated_at)}
                     </p>

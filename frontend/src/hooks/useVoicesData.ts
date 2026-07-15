@@ -116,14 +116,18 @@ export function useVoicesData({
         const disabledCount = disabledSpeakerProfiles.length;
 
         return [
-            { key: 'all' as const, label: `All (${activeSpeakerProfiles.length})` },
+            // "All" mirrors the grid, which renders one card per voice group
+            // (speaker), not one per variant profile — count activeVoices,
+            // not the flat profile list, or this chip overcounts whenever a
+            // voice has more than one variant.
+            { key: 'all' as const, label: `All (${activeVoices.length})` },
             ...engines.filter(e => e.enabled && e.status === 'ready').map(e => ({
                 key: e.engine_id as VoiceEngine,
                 label: `${e.display_name || formatVoiceEngineLabel(e.engine_id)} (${engineCounts[e.engine_id as VoiceEngine] || 0})`
             })),
             ...(disabledCount > 0 ? [{ key: 'disabled' as const, label: `Disabled (${disabledCount})` }] : [])
         ];
-    }, [activeSpeakerProfiles, disabledSpeakerProfiles, engines]);
+    }, [activeVoices, activeSpeakerProfiles, disabledSpeakerProfiles, engines]);
 
     return {
         activeVoices,

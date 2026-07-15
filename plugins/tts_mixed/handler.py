@@ -406,6 +406,7 @@ def render_one_group(
         except Exception:
             logger.warning("Failed to broadcast segment update for chapter %s", chapter_id, exc_info=True)
 
+    render_started_monotonic = time.monotonic()
     try:
         on_output(f"[ENGINE_ACTIVITY_STARTED] {segment_id}\n")
         # Forward engine output (including [PROGRESS] lines) untouched; the
@@ -425,6 +426,19 @@ def render_one_group(
     # the completed weight. The path matches the task script's save_path
     # (str(seg_out.absolute()) built from the same chapter dir + leader id).
     on_output(f"[SEGMENT_SAVED] {seg_out.absolute()}\n")
+
+    # "Mixed" is a job-level container label, never a real synthesizing
+    # engine (ADR-0004): the orchestrator must attribute this group's render
+    # time to the REAL engine that did the work, not to "mixed", so xtts/
+    # voxtral calibration baselines absorb it correctly (INV-6 keeps the
+    # orchestrator the sole render-performance-sample writer — this marker
+    # only supplies the per-group facts it needs to do that attribution).
+    # Four whitespace-separated tokens after the marker, matching the
+    # existing simple-marker parsing convention (see [SEGMENT_SAVED] above).
+    segment_render_seconds = max(0.0, time.monotonic() - render_started_monotonic)
+    on_output(
+        f"[SEGMENT_ENGINE_SAMPLE] {segment_id} {engine} {len(chunk_text)} {segment_render_seconds:.3f}\n"
+    )
 
     generated_at = time.time()
     group_sids = [gs["id"] for gs in group["segments"]]

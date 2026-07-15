@@ -4,10 +4,13 @@ import type { TtsEngine, RenderStats, RuntimeService } from '@/types';
 import { api } from '@/api';
 import { StatusCard, DiagnosticRow, RuntimeServiceRow } from '@/pages/Settings/components/SettingsComponents';
 import { getBadgeStyles } from '@/pages/Settings/settingsRouteHelpers';
+import { useDevMode } from '@/utils/devMode';
+import './AboutSettingsPanel.css';
 
 export const AboutSettingsPanel: React.FC<{ onRefresh?: () => void | Promise<void> }> = ({ onRefresh }) => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const devMode = useDevMode();
 
   useEffect(() => {
     const loadStatus = async () => {
@@ -33,7 +36,13 @@ export const AboutSettingsPanel: React.FC<{ onRefresh?: () => void | Promise<voi
   }
 
   const renderStats: RenderStats = data?.render_stats || {};
-  const runtimeServices: RuntimeService[] = data?.runtime_services || [];
+  // "Backend API" is an internal service row (the studio process itself);
+  // it carries no user-actionable information, so gate it behind Developer
+  // Mode along with the other internals rows below. "TTS Server" stays
+  // always visible — its health + Restart control is genuinely useful.
+  const runtimeServices: RuntimeService[] = (data?.runtime_services || []).filter(
+    (service: RuntimeService) => devMode || service.label !== 'Backend API'
+  );
   const engineList: TtsEngine[] = data?.engines || [];
   const audioDurationSeconds = typeof renderStats.audio_duration_seconds === 'number' ? renderStats.audio_duration_seconds : 0;
   const renderWordCount = typeof renderStats.word_count === 'number' ? renderStats.word_count : 0;
@@ -60,7 +69,7 @@ export const AboutSettingsPanel: React.FC<{ onRefresh?: () => void | Promise<voi
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
+      <div className="about-status-grid">
         <StatusCard
           icon={BadgeInfo}
           label="Studio Version"
@@ -95,14 +104,14 @@ export const AboutSettingsPanel: React.FC<{ onRefresh?: () => void | Promise<voi
                   console.error('Failed to reset render stats', err);
                 }
               }}
-              style={{ padding: '0.35rem 0.6rem', borderRadius: '8px', border: '1px solid var(--border)', fontWeight: 800, fontSize: '0.72rem' }}
+              style={{ padding: '0.5rem 0.75rem', minHeight: 44, borderRadius: '8px', border: '1px solid var(--border)', fontWeight: 800, fontSize: '0.72rem' }}
             >
               Reset
             </button>
           </div>
           <div style={{ position: 'relative', zIndex: 2 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem' }}>
-               <span style={{ fontSize: '2.25rem', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>{formatDurationSmart(audioDurationSeconds)}</span>
+               <span style={{ fontSize: '2.25rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>{formatDurationSmart(audioDurationSeconds)}</span>
                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Audio</span>
             </div>
             <div style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
@@ -127,27 +136,45 @@ export const AboutSettingsPanel: React.FC<{ onRefresh?: () => void | Promise<voi
       </div>
 
       <div style={{ background: 'var(--surface-light)', border: '1px solid var(--border)', borderRadius: '16px', padding: '1.25rem' }}>
-        <h3 style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', fontWeight: 900, color: 'var(--text-muted)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+        <h3 style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
           Runtime Diagnostics
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
           <DiagnosticRow
             icon={Globe}
-            label="Frontend Client"
-            value={typeof window !== 'undefined' ? window.location.origin : 'Browser session'}
-            subvalue={typeof window !== 'undefined' && navigator.onLine ? 'online' : 'offline'}
+            label="Local Access"
+            value={data?.system_info?.local_url || 'Unavailable'}
+            subvalue="This machine only"
           />
           <DiagnosticRow
-            icon={Cpu}
-            label="Backend Runtime"
-            value={data?.system_info?.backend_mode || 'Single-Process (Legacy)'}
-            subvalue="Service Bridge"
+            icon={Globe}
+            label="Network Access"
+            value={data?.system_info?.network_url || 'Unavailable'}
+            subvalue={data?.system_info?.network_url ? 'Other devices on your network' : 'Could not detect a LAN IP'}
           />
-          <DiagnosticRow
-            icon={Layers}
-            label="Orchestrator"
-            value={data?.system_info?.orchestrator || 'Studio 2.0'}
-          />
+          {devMode && (
+            <DiagnosticRow
+              icon={Globe}
+              label="Frontend Client"
+              value={typeof window !== 'undefined' ? window.location.origin : 'Browser session'}
+              subvalue={typeof window !== 'undefined' && navigator.onLine ? 'online' : 'offline'}
+            />
+          )}
+          {devMode && (
+            <DiagnosticRow
+              icon={Cpu}
+              label="Backend Runtime"
+              value={data?.system_info?.backend_mode || 'Single-Process (Legacy)'}
+              subvalue="Service Bridge"
+            />
+          )}
+          {devMode && (
+            <DiagnosticRow
+              icon={Layers}
+              label="Orchestrator"
+              value={data?.system_info?.orchestrator || 'Studio 2.0'}
+            />
+          )}
           {runtimeServices.map((service) => (
             <RuntimeServiceRow
               key={service.id}
@@ -164,9 +191,8 @@ export const AboutSettingsPanel: React.FC<{ onRefresh?: () => void | Promise<voi
 
       <div style={{ padding: '1rem', borderRadius: '14px', border: '1px dashed var(--border)', background: 'var(--background)', color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6 }}>
         <p style={{ margin: 0 }}>
-          Audiobook Studio 2.0 is a modular platform powered by a decoupled TTS Server and plugin architecture. 
-          The "About" tab provides diagnostic visibility into the service bridge, production efficiency, and runtime health.
-          For detailed logs, refer to the global logs at the bottom of the TTS Engines tab or the <code>logs/</code> directory in your Studio root.
+          This tab shows your Studio version, loaded engines, and how much audio you've produced.
+          For detailed logs, check the TTS Engines tab or the <code>logs/</code> directory in your Studio root.
         </p>
       </div>
     </div>

@@ -25,4 +25,13 @@ export interface DirectorsTool {
   component: ComponentType;
   shortcut?: string;
   demoPlaceholder?: boolean;
+  /**
+   * Which rail section this entry belongs to: `'mode'` (Cast/Booth/Revise/
+   * Write — switches the whole console body) vs `'tool'` (Casting Call/
+   * Script Supervisor/Plugin — utility slots). Defaults to `'mode'` when
+   * omitted. The rail renders a divider between the two groups so it reads
+   * as two distinct sections rather than one undifferentiated stack
+   * (design-critique HIG finding).
+   */
+  group?: 'mode' | 'tool';
 }

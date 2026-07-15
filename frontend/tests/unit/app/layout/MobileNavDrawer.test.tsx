@@ -27,7 +27,7 @@ describe('MobileNavDrawer', () => {
       </MemoryRouter>,
     );
 
-    const nav = screen.getByRole('complementary', { name: 'Mobile navigation' });
+    const nav = screen.getByRole('dialog', { name: 'Mobile navigation' });
     expect(within(nav).getByText('CREATE')).toBeTruthy();
     expect(within(nav).getByText('MONITOR')).toBeTruthy();
     expect(within(nav).getByText('PLATFORM')).toBeTruthy();
@@ -41,6 +41,17 @@ describe('MobileNavDrawer', () => {
     expect(within(nav).getByRole('button', { name: 'Settings' })).toBeTruthy();
   });
 
+  it('announces itself as a modal dialog to assistive tech', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <MobileNavDrawer open={true} onClose={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    const nav = screen.getByRole('dialog', { name: 'Mobile navigation' });
+    expect(nav).toHaveAttribute('aria-modal', 'true');
+  });
+
   it('returns no markup when closed', () => {
     render(
       <MemoryRouter>
@@ -48,7 +59,7 @@ describe('MobileNavDrawer', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.queryByRole('complementary', { name: 'Mobile navigation' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Mobile navigation' })).toBeNull();
     expect(document.querySelector('.mobile-nav-backdrop')).toBeNull();
   });
 
@@ -127,7 +138,7 @@ describe('MobileNavDrawer', () => {
       </MemoryRouter>,
     );
 
-    const nav = screen.getByRole('complementary', { name: 'Mobile navigation' });
+    const nav = screen.getByRole('dialog', { name: 'Mobile navigation' });
     const buttons = within(nav).getAllByRole('button');
     const first = buttons[0];
     const last = buttons[buttons.length - 1];
@@ -151,7 +162,7 @@ describe('MobileNavDrawer', () => {
       </MemoryRouter>,
     );
 
-    const nav = screen.getByRole('complementary', { name: 'Mobile navigation' });
+    const nav = screen.getByRole('dialog', { name: 'Mobile navigation' });
     fireEvent.keyDown(nav, { key: 'Escape' });
 
     expect(onClose).toHaveBeenCalledTimes(1);

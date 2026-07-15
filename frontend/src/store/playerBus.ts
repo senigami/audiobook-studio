@@ -53,6 +53,14 @@ export interface LoadAndPlayOptions {
    * file is small enough that the bootstrap window is harmless).
    */
   initialDuration?: number;
+  /**
+   * Whether playback should start immediately once loaded. Defaults to
+   * `true` (existing behavior for every other caller). Booth mode passes
+   * `false` — entering a mode must never auto-start playback on its own
+   * (Apple HIG: no unsolicited audio); the track loads ready-to-play and the
+   * user presses Play in the persistent PlayerBar themselves.
+   */
+  autoplay?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -116,7 +124,7 @@ export function loadAndPlay(opts: LoadAndPlayOptions): void {
     title: opts.title,
     subtitle: opts.subtitle,
     audioUrl: opts.audioUrl,
-    playing: true,
+    playing: opts.autoplay ?? true,
     position: 0,
     duration: opts.initialDuration ?? 0,
     queue: {
@@ -156,6 +164,7 @@ export function reportTime(position: number, duration: number): void {
 }
 
 export function notifyEnded(): void {
+  setState({ playing: false });
   callbacks.onEnded?.();
 }
 

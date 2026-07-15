@@ -40,6 +40,14 @@
   object-fit: cover;
 }
 
+.engine-card__logo--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: var(--surface-dim);
+}
+
 .engine-card__title {
   margin: 0;
   font-size: 1rem;
@@ -137,11 +145,16 @@
 
 /* Shared between EngineCalibrationSection.tsx's calibration summary panel
    and EngineSettingsForm.tsx's settings panel — margin/padding still vary
-   per usage and stay inline. */
+   per usage and stay inline.
+   Flat, bordered treatment matching sibling sub-cards (concurrency-cap
+   panel, test-sample panel) in this same expanded card body — the
+   tinted/glass gradient this used previously put it in a different visual
+   family from its neighbors. Glass/tint is reserved for floating surfaces
+   (Quiet Studio direction); this is a static, embedded sub-section. */
 .engine-highlight-panel {
   border-radius: 16px;
-  border: 1px solid var(--accent-tint-border);
-  background: linear-gradient(180deg, var(--surface-tinted-light), var(--surface));
+  border: 1px solid var(--border);
+  background: var(--surface-dim);
 }
 
 /* Shared uppercase micro-label, used by EngineCalibrationSection.tsx and

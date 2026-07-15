@@ -1,0 +1,11 @@
+{
+  "date": "2026-07-14",
+  "author": "claude",
+  "summary": "Fixes two collapsed-NavRail bugs, both pure CSS in frontend/src/theme/components/nav.css. (1) Hover-preview overlay was rendering the full expanded content (labels, group headers) but three collapse-only rules used bare descendant selectors from `.nav-rail--collapsed` (`.nav-rail__group-label`, `.nav-rail__item`, `.nav-rail__label`), which also matched the overlay's nested expanded copy -- since the overlay panel lives inside the same `<nav class=\"nav-rail nav-rail--collapsed\">` element as a grandchild. Rescoped all three to `.nav-rail--collapsed > .nav-rail__panel:not(.nav-rail__panel--overlay) ...` so they only hit the non-overlay panel. (2) The bottom theme-toggle/collapse-chevron icon buttons rendered as fully blank (0-width) when collapsed -- the same known lucide-icons-in-flexbox shrink-to-0 bug already fixed elsewhere in this file (.player-btn svg, .chapter-workspace-header__nav-btn svg) via flex-shrink:0, but missing for .nav-rail__bottom-button--icon svg. Added the same flex-shrink:0 rule.",
+  "files": [
+    {
+      "path": "frontend/src/theme/components/nav.css",
+      "change": "Rescoped .nav-rail--collapsed .nav-rail__group-label / .nav-rail__item / .nav-rail__label to `.nav-rail--collapsed > .nav-rail__panel:not(.nav-rail__panel--overlay) ...` (fixes hover-preview showing collapsed content instead of full expanded content). Added `.nav-rail__bottom-button--icon svg { flex-shrink: 0; }` (fixes theme-toggle + collapse-chevron icons rendering as blank/0-width buttons when the rail is collapsed)."
+    }
+  ]
+}

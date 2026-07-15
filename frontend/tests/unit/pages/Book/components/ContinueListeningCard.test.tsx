@@ -156,9 +156,10 @@ describe('ContinueListeningCard', () => {
     createElementSpy.mockRestore();
   });
 
-  it('disables Download when there is no assembled audiobook, independent of the queue', () => {
+  it('hides Download and shows an explanatory hint when there is no assembled audiobook', () => {
     renderCard({ audiobooks: [{ ...baseAudiobook, url: undefined }] });
 
-    expect(screen.getByRole('button', { name: /Download/i })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /Download/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/Assemble in Publish to download/i)).toBeInTheDocument();
   });
 });

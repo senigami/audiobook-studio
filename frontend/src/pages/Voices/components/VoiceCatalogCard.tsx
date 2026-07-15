@@ -12,12 +12,13 @@
  * - ⋯ ActionMenu: Set as default / Edit Metadata / Edit Recording Script / Voice Settings / Rename Voice / Export Voice Bundle / Delete Voice
  */
 import React from 'react';
-import { User, Star, Download, FileEdit, Trash2, Tag, Play, Pause, Mic, SlidersHorizontal } from 'lucide-react';
+import { User, Star, Download, FileEdit, Trash2, Tag, Play, Pause, Mic, SlidersHorizontal, Loader2, ExternalLink } from 'lucide-react';
 import type { Speaker, SpeakerProfile, TtsEngine, VoiceMetadata } from '@/types';
 import { ActionMenu } from '@/components/ui/ActionMenu';
 import { VoicePillRow, UntaggedBadge, voicePillsFromMetadata } from '@/pages/Voices/components/VoicePills';
 import { getVoicePhase, getPrimaryCta } from '@/pages/Voices/voicePhase';
 import { usePlayerBus, loadAndPlay, pause as pauseBus } from '@/store/playerBus';
+import { emitToast } from '@/utils/toast';
 import { formatVoiceEngineLabel, getVoiceProfileEngine, isVoiceProfileSelectable } from '@/utils/voiceProfiles';
 
 // ---------------------------------------------------------------------------
@@ -77,6 +78,7 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
 
     const phase = getVoicePhase(profiles, engines, buildingProfiles);
     const cta = getPrimaryCta(phase);
+    const isBuilding = phase === 'building';
 
     const pills = metadata ? voicePillsFromMetadata(metadata) : [];
     const isUntagged = metadata?.is_untagged ?? (!metadata);
@@ -123,8 +125,12 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
 
     // CTA handler
     const handleCta = () => {
+        if (isBuilding) return; // already in flight — the button is disabled, but guard direct calls too
         if (cta.intent === 'build' && defaultProfile) {
-            onBuildNow(defaultProfile.name, [], speaker.id || undefined, defaultProfile.variant_name || undefined);
+            onBuildNow(defaultProfile.name, [], speaker.id || undefined, defaultProfile.variant_name || undefined)
+                .then(ok => {
+                    if (ok) emitToast(`Queued build for ${speaker.name}`);
+                });
         } else {
             onNavigateToLab(speaker.id);
         }
@@ -159,50 +165,72 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
                 </span>
             )}
 
-            {/* Avatar */}
-            <div className="voice-catalog-card__avatar">
-                {iconUrl ? (
-                    <img src={iconUrl} alt={`${speaker.name} icon`} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                ) : (
-                    <User size={20} />
+            {/*
+              * Card body — name/avatar area is an explicit affordance for
+              * opening Voice Lab (blocker 3), independent of the primary
+              * CTA's phase-driven label/intent. Keyboard-accessible via
+              * role="button" + Enter/Space, mirroring onNavigateToLab used
+              * elsewhere on this card.
+              */}
+            <div
+                data-testid="voice-catalog-card-body"
+                role="button"
+                tabIndex={0}
+                aria-label={`Open ${speaker.name} in Voice Lab`}
+                onClick={() => onNavigateToLab(speaker.id)}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onNavigateToLab(speaker.id);
+                    }
+                }}
+                style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', width: '100%' }}
+            >
+                {/* Avatar */}
+                <div className="voice-catalog-card__avatar">
+                    {iconUrl ? (
+                        <img src={iconUrl} alt={`${speaker.name} icon`} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                    ) : (
+                        <User size={20} />
+                    )}
+                </div>
+
+                {/* Name */}
+                <div className="voice-catalog-card__name">{speaker.name}</div>
+
+                {/* Engine badge */}
+                {activeEngine && (
+                    <span style={{
+                        fontSize: '0.6rem',
+                        padding: '1px 6px',
+                        borderRadius: 'var(--radius-round)',
+                        background: engineBadgeBg,
+                        color: engineBadgeColor,
+                        fontWeight: 700,
+                        letterSpacing: '0.02em',
+                        marginBottom: '4px',
+                        display: 'inline-block',
+                    }}>
+                        {engineBadgeLabel}
+                    </span>
+                )}
+
+                {/* Pills */}
+                {pills.length > 0 ? (
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        <VoicePillRow pills={pills} max={3} />
+                    </div>
+                ) : isUntagged ? (
+                    <div style={{ display: 'flex', justifyContent: 'center' }} onClick={(e) => e.stopPropagation()}>
+                        <UntaggedBadge onClick={onEditMetadata} />
+                    </div>
+                ) : null}
+
+                {/* Description */}
+                {metadata?.description && (
+                    <p className="voice-catalog-card__description">{metadata.description}</p>
                 )}
             </div>
-
-            {/* Name */}
-            <div className="voice-catalog-card__name">{speaker.name}</div>
-
-            {/* Engine badge */}
-            {activeEngine && (
-                <span style={{
-                    fontSize: '0.6rem',
-                    padding: '1px 6px',
-                    borderRadius: 'var(--radius-round)',
-                    background: engineBadgeBg,
-                    color: engineBadgeColor,
-                    fontWeight: 700,
-                    letterSpacing: '0.02em',
-                    marginBottom: '4px',
-                    display: 'inline-block',
-                }}>
-                    {engineBadgeLabel}
-                </span>
-            )}
-
-            {/* Pills */}
-            {pills.length > 0 ? (
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <VoicePillRow pills={pills} max={3} />
-                </div>
-            ) : isUntagged ? (
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <UntaggedBadge onClick={onEditMetadata} />
-                </div>
-            ) : null}
-
-            {/* Description */}
-            {metadata?.description && (
-                <p className="voice-catalog-card__description">{metadata.description}</p>
-            )}
 
             {/* Actions row */}
             <div className="voice-catalog-card__actions">
@@ -222,8 +250,10 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
                 <button
                     type="button"
                     onClick={handleCta}
+                    disabled={isBuilding}
                     className="btn-primary voice-catalog-card__cta-btn"
                 >
+                    {isBuilding && <Loader2 size={12} className="animate-spin" />}
                     {cta.label}
                 </button>
 
@@ -235,6 +265,11 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
                             icon: Star,
                             disabled: hasDefaultProfile && profiles.find(p => p.is_default)?.name === defaultProfile?.name,
                             onClick: () => defaultProfile && onSetDefaultClick(defaultProfile.name),
+                        },
+                        {
+                            label: 'Open in Voice Lab',
+                            icon: ExternalLink,
+                            onClick: () => onNavigateToLab(speaker.id),
                         },
                         {
                             label: 'Edit Metadata',
