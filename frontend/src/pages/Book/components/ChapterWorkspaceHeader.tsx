@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { ArrowLeft, Bookmark, BookMarked, ChevronDown, ChevronLeft, ChevronRight, Library, SkipForward } from 'lucide-react';
@@ -78,33 +78,51 @@ function ChapterDropdown({
   chapters,
   activeChapterId,
   jobs = {},
+  focusedIndex,
+  optionRefs,
+  listboxRef,
+  onKeyDown,
   onSelect,
   onClose,
 }: {
   chapters: Chapter[];
   activeChapterId: string;
   jobs?: Record<string, Job>;
+  focusedIndex: number;
+  optionRefs: React.MutableRefObject<(HTMLDivElement | null)[]>;
+  listboxRef: React.RefObject<HTMLDivElement | null>;
+  onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   onSelect: (chapterId: string) => void;
   onClose: () => void;
 }) {
   return (
-    <div className="workspace-chapter-dropdown" role="menu" aria-label="Switch chapter">
+    <div
+      ref={listboxRef}
+      className="workspace-chapter-dropdown"
+      role="listbox"
+      aria-label="Switch chapter"
+      onKeyDown={onKeyDown}
+    >
       {chapters.map((ch, idx) => {
         const isActive = ch.id === activeChapterId;
+        const isFocused = idx === focusedIndex;
         const activeJob = pickChapterJob(ch, jobs);
         const queuePending = !activeJob && ch.audio_status === 'processing';
         return (
-          <button
+          <div
             key={ch.id}
-            type="button"
-            role="menuitem"
+            ref={(el) => {
+              optionRefs.current[idx] = el;
+            }}
+            role="option"
+            aria-selected={isActive}
+            tabIndex={isFocused ? 0 : -1}
             className={`workspace-chapter-dropdown__item${isActive ? ' workspace-chapter-dropdown__item--active' : ''}`}
             onClick={(e) => {
               e.stopPropagation();
               onSelect(ch.id);
               onClose();
             }}
-            aria-current={isActive ? 'true' : undefined}
           >
             <span className="workspace-chapter-dropdown__num" aria-hidden="true">
               {idx + 1}
@@ -118,7 +136,7 @@ function ChapterDropdown({
               size={16}
             />
             <span className="workspace-chapter-dropdown__title">{ch.title}</span>
-          </button>
+          </div>
         );
       })}
     </div>
@@ -142,6 +160,13 @@ export function ChapterWorkspaceHeader({
   const [bookmarksOpen, setBookmarksOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const bookmarksRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listboxRef = useRef<HTMLDivElement>(null);
+  const optionRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const closingRef = useRef(false);
+  const [focusedIndex, setFocusedIndex] = useState(0);
+  const [liveMessage, setLiveMessage] = useState('');
+  const prevStatusesRef = useRef<Record<string, string>>({});
 
   // All bookmarks (across books) for the panel list
   const allBookmarks = useBookmarks();
@@ -157,6 +182,130 @@ export function ChapterWorkspaceHeader({
   const nextUnrenderedId = findNextUnrenderedChapterId(chapters, activeChapterId);
   const allRendered = nextUnrenderedId === null;
 
+  // Single authoritative close path: both the Escape-keydown handler and the
+  // wrapper-blur fallback route through here. `closingRef` makes it idempotent
+  // so a blur/keydown race can't produce a second, conflicting close (gap 2 /
+  // INV-NAV-3b / round-4 addition 6) — whichever fires first wins, the other
+  // is a no-op.
+  const closeDropdown = (returnFocusToTrigger: boolean) => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    setDropdownOpen(false);
+    if (returnFocusToTrigger) {
+      triggerRef.current?.focus();
+    }
+  };
+
+  const handleToggleDropdown = () => {
+    setDropdownOpen((open) => !open);
+  };
+
+  // Close chapter dropdown when focus leaves the wrapper entirely. This is a
+  // fallback for pointer-driven "click elsewhere" dismissal only — the
+  // Escape key uses `closeDropdown` directly, and `closingRef` prevents this
+  // from double-firing the close path when both happen in the same tick.
+  const handleDropdownWrapperBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (!dropdownRef.current?.contains(e.relatedTarget as Node)) {
+      closeDropdown(false);
+    }
+  };
+
+  // Initial-focus-on-open (gap 1): move real DOM focus onto the active
+  // chapter's option (or the first option if none is active) as soon as the
+  // listbox opens, and reset the race-guard for the new open session.
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    closingRef.current = false;
+    const initialIndex = activeIndex >= 0 ? activeIndex : 0;
+    setFocusedIndex(initialIndex);
+    // Reset the status baseline for the live-region diff below so opening
+    // the dropdown never itself announces a "change".
+    const baseline: Record<string, string> = {};
+    chapters.forEach((ch) => {
+      const activeJob = pickChapterJob(ch, jobs);
+      baseline[ch.id] = activeJob?.status ?? ch.audio_status;
+    });
+    prevStatusesRef.current = baseline;
+    setLiveMessage('');
+    // Deliberately only re-runs on open/close, not on every chapters/jobs
+    // change — the cross-book reset effect below handles chapters-identity
+    // changes while already open.
+  }, [dropdownOpen]);
+
+  // Round-4 addition 3 / INV-NAV-3c: every focusedIndex change (initial focus
+  // or arrow-key nav) moves real DOM focus and scrolls the option into view —
+  // never just a state/visual update.
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const el = optionRefs.current[focusedIndex];
+    if (el) {
+      el.focus();
+      el.scrollIntoView({ block: 'nearest' });
+    }
+  }, [dropdownOpen, focusedIndex]);
+
+  // Round-4 addition 8: if `chapters` changes identity while the dropdown is
+  // open (e.g. the user switched to a different, shorter book), clamp
+  // focusedIndex back into range rather than leaving it pointing past the end
+  // or at a stale ref.
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    setFocusedIndex((idx) => {
+      if (chapters.length === 0) return 0;
+      return Math.min(idx, chapters.length - 1);
+    });
+  }, [chapters]);
+
+  // Scoped aria-live announcement: if a visible row's status changes while
+  // the dropdown is open, announce it (not a general app-wide live region).
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const prev = prevStatusesRef.current;
+    const next: Record<string, string> = {};
+    let changedMessage: string | null = null;
+    chapters.forEach((ch) => {
+      const activeJob = pickChapterJob(ch, jobs);
+      const status = activeJob?.status ?? ch.audio_status;
+      next[ch.id] = status;
+      if (prev[ch.id] !== undefined && prev[ch.id] !== status) {
+        changedMessage = `${ch.title} status: ${status}`;
+      }
+    });
+    prevStatusesRef.current = next;
+    if (changedMessage) setLiveMessage(changedMessage);
+  }, [dropdownOpen, chapters, jobs]);
+
+  const handleListboxKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (chapters.length === 0) return;
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setFocusedIndex((idx) => (idx + 1) % chapters.length);
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setFocusedIndex((idx) => (idx - 1 + chapters.length) % chapters.length);
+        break;
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        {
+          const ch = chapters[focusedIndex];
+          if (ch) {
+            goToChapter(ch.id);
+            closeDropdown(false);
+          }
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        closeDropdown(true);
+        break;
+      default:
+        break;
+    }
+  };
+
   const goToChapter = (chapterId: string) => {
     setLastChapter(bookId, chapterId);
     navigate(`/book/${bookId}/chapter/${chapterId}`);
@@ -164,21 +313,6 @@ export function ChapterWorkspaceHeader({
 
   const handleBack = () => {
     navigate(`/book/${bookId}/contents`);
-  };
-
-  const handleToggleDropdown = () => {
-    setDropdownOpen((open) => !open);
-  };
-
-  const handleCloseDropdown = () => {
-    setDropdownOpen(false);
-  };
-
-  // Close chapter dropdown when clicking outside
-  const handleDropdownWrapperBlur = (e: React.FocusEvent<HTMLDivElement>) => {
-    if (!dropdownRef.current?.contains(e.relatedTarget as Node)) {
-      setDropdownOpen(false);
-    }
   };
 
   // Close bookmarks panel when clicking outside
@@ -235,10 +369,11 @@ export function ChapterWorkspaceHeader({
           onBlur={handleDropdownWrapperBlur}
         >
           <button
+            ref={triggerRef}
             type="button"
             className={`chapter-workspace-header__switcher-trigger${dropdownOpen ? ' chapter-workspace-header__switcher-trigger--open' : ''}`}
             onClick={handleToggleDropdown}
-            aria-haspopup="menu"
+            aria-haspopup="listbox"
             aria-expanded={dropdownOpen}
             aria-label="Switch chapter"
           >
@@ -251,9 +386,21 @@ export function ChapterWorkspaceHeader({
               chapters={chapters}
               activeChapterId={activeChapterId}
               jobs={jobs}
+              focusedIndex={focusedIndex}
+              optionRefs={optionRefs}
+              listboxRef={listboxRef}
+              onKeyDown={handleListboxKeyDown}
               onSelect={goToChapter}
-              onClose={handleCloseDropdown}
+              onClose={() => closeDropdown(false)}
             />
+          )}
+
+          {/* Scoped aria-live announcement for in-place chapter status changes
+              while the dropdown is open (not a general app-wide live region). */}
+          {dropdownOpen && (
+            <div className="sr-only" aria-live="polite" role="status">
+              {liveMessage}
+            </div>
           )}
         </div>
       )}

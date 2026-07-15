@@ -1,14 +1,9 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MemoryRouter, useLocation } from 'react-router-dom';
+import { act, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { RailBookBlock } from '@/app/layout/RailBookBlock';
 import { setBookIdentity } from '@/app/layout/bookIdentityStore';
 import type { Chapter, Job } from '@/types';
-
-function LocationProbe() {
-  const location = useLocation();
-  return <div data-testid="location">{`${location.pathname}${location.search}`}</div>;
-}
 
 const chapter: Chapter = {
   id: 'chapter-1',
@@ -30,6 +25,13 @@ const chapter: Chapter = {
   done_segments_count: 1,
 };
 
+const secondChapter: Chapter = {
+  ...chapter,
+  id: 'chapter-2',
+  title: 'Second Chapter',
+  sort_order: 1,
+};
+
 const job: Job = {
   id: 'job-1',
   engine: 'tts',
@@ -44,6 +46,35 @@ const job: Job = {
   warning_count: 0,
 };
 
+function setIdentity(chapters: Chapter[], jobs: Record<string, Job> = {}) {
+  act(() => {
+    setBookIdentity({
+      id: 'book-1',
+      title: 'Book One',
+      author: null,
+      series: null,
+      coverUrl: null,
+      runtimeSeconds: 0,
+      predictedSeconds: null,
+      chapters,
+      jobs,
+      actions: {},
+    });
+  });
+}
+
+function expectNoChapterList() {
+  // No chapter titles, no chapter-shaped rows/progress bars, no chapter list
+  // container should ever render from RailBookBlock — it's a pure duplicate
+  // of ChapterTable.tsx now removed from the rail entirely.
+  expect(screen.queryByText('Opening Chapter')).toBeNull();
+  expect(screen.queryByText('Second Chapter')).toBeNull();
+  expect(screen.queryByTestId('rail-book-row-chapter-1')).toBeNull();
+  expect(screen.queryByTestId('rail-book-progress-chapter-1')).toBeNull();
+  expect(document.querySelector('.rail-book-block__chapters')).toBeNull();
+  expect(document.querySelector('.rail-book-block__chapter')).toBeNull();
+}
+
 describe('RailBookBlock', () => {
   afterEach(() => {
     act(() => {
@@ -51,153 +82,86 @@ describe('RailBookBlock', () => {
     });
   });
 
-  it('renders active stage links, chapter rows with StatusOrb, and chapter action callbacks', async () => {
-    const onQueueChapter = vi.fn();
-    const onResetAudio = vi.fn();
-    const onDeleteChapter = vi.fn();
+  it('renders only title/cover header + fixed stage links, no chapter list, on the Contents route', () => {
+    setIdentity([chapter], { 'job-1': job });
 
-    act(() => {
-      setBookIdentity({
-        id: 'book-1',
-        title: 'Book One',
-        author: null,
-        series: null,
-        coverUrl: null,
-        runtimeSeconds: 0,
-        predictedSeconds: null,
-        chapters: [chapter],
-        jobs: { 'job-1': job },
-        actions: {
-          onQueueChapter,
-          onResetAudio,
-          onDeleteChapter,
-        },
-      });
-    });
-
-    // Chapter workspace route — chapters expand in the rail under 'contents'
     render(
-      <MemoryRouter initialEntries={['/book/book-1/chapter/chapter-1']}>
-        <LocationProbe />
+      <MemoryRouter initialEntries={['/book/book-1/contents']}>
         <RailBookBlock />
       </MemoryRouter>,
     );
 
-    // Rail renders the 4 book-level tabs; 'Contents' is the first one
+    expect(screen.getByText('Book One')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Contents' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Cast' })).toHaveAttribute('href', '/book/book-1/cast');
-    const row = screen.getByTestId('rail-book-row-chapter-1');
-    expect(row).toHaveClass('rail-book-block__chapter-wrap--active');
-
-    const main = row.querySelector('.rail-book-block__chapter-main');
-    expect(main).not.toBeNull();
-    expect(main?.children[0]).toHaveAttribute('aria-label', expect.stringContaining('Rendering'));
-    expect(main?.children[1]).toHaveTextContent('1.');
-    expect(main?.children[2]).toHaveTextContent('Opening Chapter');
-
-    expect(screen.getByText('Opening Chapter')).toBeInTheDocument();
-    expect(screen.getByLabelText(/Rendering/i)).toBeInTheDocument();
-    expect(screen.getByTestId('rail-book-progress-chapter-1')).toBeInTheDocument();
-
-    // Clicking a chapter row navigates to the chapter workspace
-    fireEvent.click(screen.getByRole('button', { name: /Opening Chapter/i }));
-    expect(screen.getByTestId('location')).toHaveTextContent('/book/book-1/chapter/chapter-1');
-
-    fireEvent.click(within(row).getByRole('button', { name: 'More actions' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Queue' }));
-    expect(onQueueChapter).toHaveBeenCalledWith(chapter);
-
-    fireEvent.click(within(row).getByRole('button', { name: 'More actions' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Reset audio' }));
-    expect(onResetAudio).toHaveBeenCalledWith('chapter-1');
-
-    fireEvent.click(within(row).getByRole('button', { name: 'More actions' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
-    expect(onDeleteChapter).toHaveBeenCalledWith('chapter-1');
+    expectNoChapterList();
   });
 
-  it('does NOT render loading label when status is running with stale LOADING_MODEL reason_code', () => {
-    // A job that transitions from preparing→running but whose reason_code was never cleared.
-    // The rail must NOT show "loading voice model…" for a running job.
-    const runningJobWithStaleCode: Job = {
-      ...job,
-      status: 'running',
-      reason_code: 'LOADING_MODEL',
-      progress: 25,
-    };
-    act(() => {
-      setBookIdentity({
-        id: 'book-1',
-        title: 'Book One',
-        author: null,
-        series: null,
-        coverUrl: null,
-        runtimeSeconds: 0,
-        predictedSeconds: null,
-        chapters: [chapter],
-        jobs: { 'job-1': runningJobWithStaleCode },
-        actions: {},
-      });
-    });
+  it('renders no chapter list inside the chapter workspace route either', () => {
+    setIdentity([chapter], { 'job-1': job });
 
-    // Contents stage — chapters expand in the rail
+    render(
+      <MemoryRouter initialEntries={['/book/book-1/chapter/chapter-1']}>
+        <RailBookBlock />
+      </MemoryRouter>,
+    );
+
+    expectNoChapterList();
+  });
+
+  it('stays free of a chapter list after a prop change (stage switch + chapter-count change)', () => {
+    setIdentity([chapter], { 'job-1': job });
+
     render(
       <MemoryRouter initialEntries={['/book/book-1/contents']}>
         <RailBookBlock />
       </MemoryRouter>,
     );
+    expectNoChapterList();
 
-    expect(screen.queryByText('loading voice model…')).toBeNull();
-    expect(screen.getByText('running')).toBeInTheDocument();
+    // Simulate a re-render with changed props: chapter count grows and the
+    // active job set changes, while still on the Contents-shaped route.
+    setIdentity([chapter, secondChapter], { 'job-1': job });
+    expectNoChapterList();
   });
 
-  it('renders loading label when status is preparing AND reason_code is LOADING_MODEL', () => {
-    const preparingJob: Job = {
-      ...job,
-      status: 'preparing',
-      reason_code: 'LOADING_MODEL',
-      progress: 0,
-    };
-    act(() => {
-      setBookIdentity({
-        id: 'book-1',
-        title: 'Book One',
-        author: null,
-        series: null,
-        coverUrl: null,
-        runtimeSeconds: 0,
-        predictedSeconds: null,
-        chapters: [chapter],
-        jobs: { 'job-1': preparingJob },
-        actions: {},
-      });
-    });
+  it('stays free of a chapter list after a simulated route change within the same book', () => {
+    setIdentity([chapter], { 'job-1': job });
 
-    // Contents stage — chapters expand in the rail
-    render(
+    function TestHarness() {
+      return (
+        <Routes>
+          <Route path="/book/:bookId/contents" element={<RailBookBlock />} />
+          <Route path="/book/:bookId/chapter/:chapterId" element={<RailBookBlock />} />
+          <Route path="/book/:bookId/cast" element={<RailBookBlock />} />
+        </Routes>
+      );
+    }
+
+    const { rerender } = render(
       <MemoryRouter initialEntries={['/book/book-1/contents']}>
-        <RailBookBlock />
+        <TestHarness />
       </MemoryRouter>,
     );
+    expectNoChapterList();
 
-    expect(screen.getByText('loading voice model…')).toBeInTheDocument();
+    rerender(
+      <MemoryRouter initialEntries={['/book/book-1/chapter/chapter-1']}>
+        <TestHarness />
+      </MemoryRouter>,
+    );
+    expectNoChapterList();
+
+    rerender(
+      <MemoryRouter initialEntries={['/book/book-1/cast']}>
+        <TestHarness />
+      </MemoryRouter>,
+    );
+    expectNoChapterList();
   });
 
-  it('hides chapter rows outside the Contents stage and chapter workspace', () => {
-    act(() => {
-      setBookIdentity({
-        id: 'book-1',
-        title: 'Book One',
-        author: null,
-        series: null,
-        coverUrl: null,
-        runtimeSeconds: 0,
-        predictedSeconds: null,
-        chapters: [chapter],
-        jobs: {},
-        actions: {},
-      });
-    });
+  it('renders the same fixed stage-link set regardless of chapter/job state', () => {
+    setIdentity([], {});
 
     render(
       <MemoryRouter initialEntries={['/book/book-1/cast']}>
@@ -205,6 +169,8 @@ describe('RailBookBlock', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.queryByText('Opening Chapter')).toBeNull();
+    expect(screen.getByRole('link', { name: 'Contents' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Cast' })).toBeInTheDocument();
+    expectNoChapterList();
   });
 });

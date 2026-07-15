@@ -115,6 +115,7 @@
   align-items: center;
   gap: 0.25rem;
   padding: 0.3rem 0.6rem;
+  min-height: 44px;
   border: 1px solid var(--border);
   background: var(--surface);
   border-radius: var(--radius-button);
@@ -150,6 +151,8 @@
 
 .workspace-chapter-dropdown__item {
   width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
   border: 0;
   background: transparent;
   font-family: inherit;
@@ -157,7 +160,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-3);
   cursor: pointer;
   color: var(--text-primary);
   font-size: var(--type-caption);
@@ -172,6 +175,19 @@
   background: var(--accent-glow);
   color: var(--accent);
   font-weight: 700;
+}
+
+/* Focus-visible ring (INV-NAV-7 / round-4 addition 5): converting rows from
+   native <button> to role="option" divs drops the browser's default focus
+   ring, so this is now explicit. Kept visually distinct from the
+   active/selected state above (outline ring + surface-alt fill vs. the
+   active state's accent-glow fill + bold accent text) and holds a >=3:1
+   contrast boundary against the row background via the solid --accent
+   outline (WCAG 1.4.11). */
+.workspace-chapter-dropdown__item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--surface-alt);
 }
 
 .workspace-chapter-dropdown__num {
@@ -199,8 +215,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  /* INV-NAV-6 / round-4 addition 4: 44x44px effective hit area — the visual
+     icon (14px) stays the same size, only the button's own box grows. */
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--border);
   background: var(--surface);
   border-radius: var(--radius-button);
@@ -292,14 +310,11 @@
 }
 
 /* Mobile: HIG touch-target minimum (44x44pt) for the workspace header's
-   icon-only controls, which are sized for desktop density (28px) above. */
+   icon-only controls. `.chapter-workspace-header__nav-btn` and the switcher
+   trigger are already 44x44px / min-height:44px at all sizes (see above) —
+   only `.chapter-workspace-header__back` (out of scope for this hardening
+   pass) still needs the mobile-only bump. */
 @media (max-width: 640px) {
-  .chapter-workspace-header__nav-btn {
-    width: 44px;
-    height: 44px;
-  }
-
-  .chapter-workspace-header__switcher-trigger,
   .chapter-workspace-header__back {
     min-height: 44px;
   }

@@ -116,8 +116,8 @@ describe('Chapter dropdown status orb (task 008)', () => {
     const trigger = await screen.findByRole('button', { name: 'Switch chapter' });
     fireEvent.click(trigger);
 
-    const menu = await screen.findByRole('menu', { name: 'Switch chapter' });
-    const rows = within(menu).getAllByRole('menuitem');
+    const menu = await screen.findByRole('listbox', { name: 'Switch chapter' });
+    const rows = within(menu).getAllByRole('option');
     expect(rows).toHaveLength(3);
 
     rows.forEach((row) => {
@@ -133,9 +133,9 @@ describe('Chapter dropdown status orb (task 008)', () => {
     const trigger = await screen.findByRole('button', { name: 'Switch chapter' });
     fireEvent.click(trigger);
 
-    const menu = await screen.findByRole('menu', { name: 'Switch chapter' });
-    const doneRow = within(menu).getByRole('menuitem', { name: /Done Chapter/ });
-    const unrenderedRow = within(menu).getByRole('menuitem', { name: /Unrendered Chapter/ });
+    const menu = await screen.findByRole('listbox', { name: 'Switch chapter' });
+    const doneRow = within(menu).getByRole('option', { name: /Done Chapter/ });
+    const unrenderedRow = within(menu).getByRole('option', { name: /Unrendered Chapter/ });
 
     const doneOrb = within(doneRow).getByRole('img');
     const unrenderedOrb = within(unrenderedRow).getByRole('img');

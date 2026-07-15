@@ -22,3 +22,12 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
     dispatchEvent: vi.fn(),
   }));
 }
+
+// JSDOM does not implement Element.prototype.scrollIntoView. Default to a
+// no-op so any component calling it during render/effects (e.g. keyboard-nav
+// listboxes that scroll the focused option into view) doesn't crash in tests
+// that don't care about scroll behavior. Tests that DO care (e.g. the
+// ChapterDropdown scroll-containment fixture) spy on this directly.
+if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = vi.fn();
+}
