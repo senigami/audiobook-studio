@@ -163,6 +163,18 @@ describe('VoiceCatalogCard', () => {
         expect(screen.getByText('A clear, bright female narrator voice.')).toBeInTheDocument();
     });
 
+    it('renders the avatar image via the /api/voices/{id}/icon endpoint, not the raw metadata.image value', () => {
+        const metaWithImage: VoiceMetadata = { ...metadata, image: 'projects/1/voices/sp-1/icon.png' };
+        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} metadata={metaWithImage} />);
+        const img = screen.getByAltText('Clara Bell icon');
+        expect(img).toHaveAttribute('src', '/api/voices/sp-1/icon');
+    });
+
+    it('falls back to the User icon when metadata.image is absent', () => {
+        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
+        expect(screen.queryByAltText('Clara Bell icon')).not.toBeInTheDocument();
+    });
+
     // ---------------------------------------------------------------------------
     // CTA labels by phase
     // ---------------------------------------------------------------------------

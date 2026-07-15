@@ -155,7 +155,7 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
     };
 
     // Voice icon
-    const iconUrl = metadata?.image ?? null;
+    const iconUrl = metadata?.image ? `/api/voices/${encodeURIComponent(speaker.id)}/icon` : null;
 
     return (
         <div className="voice-catalog-card">
