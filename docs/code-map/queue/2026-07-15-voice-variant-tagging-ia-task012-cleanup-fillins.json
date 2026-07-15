@@ -1,0 +1,33 @@
+{
+  "date": "2026-07-15",
+  "author": "claude",
+  "summary": "Voice-variant tagging + IA redesign plan, final task (012 of 13): four small cleanup fixes bundled together -- a reduced-motion guard on the play-pulse animation, an icon-reuse fix (Move Variant no longer shares Rebuild's icon), a new shared EngineBadge component consolidating three near-duplicate hand-rolled engine badges (and fixing a real pre-existing bug where one badge's border color was invalid CSS, silently rendering borderless), and the Add-variant button's sizing routed through a real CSS class instead of one-off inline styles. This closes out the plan -- all 13 tasks (DC-001 through DC-014, minus DC-010 explicitly deferred) are now implemented and verified.",
+  "files": [
+    {
+      "path": "frontend/src/components/ui/EngineBadge.tsx",
+      "change": "New shared component. Consolidates VariantEditor's, VoiceCatalogCard's, and the disabled/unselectable-tone engine badge into one component that only composes token-based colors. Fixes a genuine pre-existing bug: VariantEditor's old badge built its border as `1px solid ${engineBadge.color}33` where color was already a CSS var() reference -- appending '33' onto that produces invalid CSS the browser silently drops, so that badge rendered borderless. The new --accent-tint-border/--cloud-tint-border tokens make the intended border actually render.",
+      "contract_changed": true
+    },
+    {
+      "path": "frontend/src/pages/Voices/components/VariantEditor.tsx",
+      "change": "Added a useReducedMotion() guard on the play-pulse animation (no-op animate/transition under a reduced-motion preference). Move Variant's icon changed from RefreshCw (shared with Rebuild, misleading) to ArrowRightLeft. Engine badge now renders via the new EngineBadge component instead of hand-rolled inline styles."
+    },
+    {
+      "path": "frontend/src/pages/Voices/components/VoiceCatalogCard.tsx",
+      "change": "Engine badge now renders via the new EngineBadge component (size='sm', matching its prior compact styling) instead of a separate hand-rolled span."
+    },
+    {
+      "path": "frontend/src/pages/VoiceLab/components/VariantsSection.tsx",
+      "change": "Add-variant button's sizing moved from one-off inline styles to a new .voice-lab-section__add-variant-btn CSS class matching this file's established compact-ghost-button convention."
+    },
+    {
+      "path": "frontend/src/theme/tokens.css",
+      "change": "Added --cloud-tint-border (light + dark) so EngineBadge's cloud tone has a real border token to reference, matching the existing --accent-tint-border convention."
+    },
+    {
+      "path": "frontend/src/theme/components/voice-lab.css",
+      "change": "Added .voice-lab-section__add-variant-btn rule."
+    }
+  ],
+  "flow_impact": "voice-variant-tagging-and-ia plan complete: all 13 tasks (backend performance_tags + default-variant write paths, TagAutocompleteInput, the count-based VariantSwitcher with its default-star, the VariantsSection master-detail rewrite, the filter bar, the catalog-card relabel/bug-fix, the restored icon-prompt affordance, Script/recording-guide preservation, and this cleanup bundle) are implemented and verified. Full backend + frontend test suites green."
+}

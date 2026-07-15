@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { SpeakerProfile, TtsEngine } from '@/types';
 import {
     Trash2, Play, Loader2, RefreshCw, FileEdit,
-    Pause, Sliders, MoreVertical
+    Pause, Sliders, MoreVertical, ArrowRightLeft
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { SpeedPopover } from '@/pages/Voices/components/VoiceUtils';
 import { useVariantActions } from '@/hooks/useVariantActions';
 import { SampleManager } from '@/pages/Voices/components/SampleManager';
@@ -12,6 +12,7 @@ import { VersionHistoryPanel } from '@/pages/Voices/components/VersionHistoryPan
 import { formatVoiceEngineLabel, getVariantDisplayName, getVoiceProfileEngine } from '@/utils/voiceProfiles';
 import { TagAutocompleteInput } from '@/pages/Voices/components/metadata/TagAutocompleteInput';
 import { ActionMenu, type ActionMenuItem } from '@/components/ui/ActionMenu';
+import { EngineBadge } from '@/components/ui/EngineBadge';
 
 const PERFORMANCE_TAG_STARTER_VOCABULARY = ['happy', 'sad', 'angry', 'calm', 'slow', 'fast', 'measured'];
 
@@ -76,11 +77,8 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
     const speedPillRef = useRef<HTMLButtonElement>(null);
     const speed = localSpeed ?? profile.speed;
     const playIconColor = isPlaying ? 'var(--surface)' : 'var(--text-primary)';
-    const engineBadge = {
-        label: activeEngine?.display_name || formatVoiceEngineLabel(engine),
-        bg: isCloudEngine ? 'var(--cloud-tint-bg)' : 'var(--accent-tint-bg)',
-        color: isCloudEngine ? 'var(--cloud-color)' : 'var(--accent)'
-    };
+    const shouldReduceMotion = useReducedMotion();
+    const engineBadgeLabel = activeEngine?.display_name || formatVoiceEngineLabel(engine);
 
     useEffect(() => {
         if (profile.preview_url) {
@@ -152,7 +150,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
         { isDivider: true },
         {
             label: 'Move Variant',
-            icon: RefreshCw,
+            icon: ArrowRightLeft,
             onClick: () => onMoveVariant(profile),
         },
         {
@@ -241,8 +239,8 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                                     layoutId="playing-pulse"
                                     className="variant-editor__play-pulse"
                                     style={{ border: `2px solid ${playIconColor}` }}
-                                    animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0, 0.3] }}
-                                    transition={{ duration: 2, repeat: Infinity }}
+                                    animate={shouldReduceMotion ? {} : { scale: [1, 1.2, 1], opacity: [0.3, 0, 0.3] }}
+                                    transition={shouldReduceMotion ? { duration: 0 } : { duration: 2, repeat: Infinity }}
                                 />
                             )}
                         </button>
@@ -275,12 +273,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                         </>
                     )}
 
-                    <span
-                        className="variant-editor__engine-badge"
-                        style={{ background: engineBadge.bg, color: engineBadge.color, border: `1px solid ${engineBadge.color}33` }}
-                    >
-                        {engineBadge.label}
-                    </span>
+                    <EngineBadge label={engineBadgeLabel} tone={isCloudEngine ? 'cloud' : 'accent'} />
 
                     <ActionMenu
                         items={actionMenuItems}

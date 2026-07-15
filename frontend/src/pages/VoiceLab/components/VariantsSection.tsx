@@ -106,18 +106,7 @@ export const VariantsSection: React.FC<VariantsSectionProps> = ({
                 <button
                     type="button"
                     onClick={onAddVariant}
-                    className="btn-ghost"
-                    style={{
-                        height: '26px',
-                        padding: '0 10px',
-                        fontSize: '0.72rem',
-                        borderRadius: 'var(--radius-round)',
-                        border: '1px dashed var(--accent)',
-                        color: 'var(--accent)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                    }}
+                    className="btn-ghost voice-lab-section__add-variant-btn"
                 >
                     <Plus size={12} />
                     Add variant

@@ -21,6 +21,7 @@ import React from 'react';
 import { User, Star, Download, FileEdit, Trash2, Play, Pause, Loader2 } from 'lucide-react';
 import type { Speaker, SpeakerProfile, TtsEngine, VoiceMetadata } from '@/types';
 import { ActionMenu } from '@/components/ui/ActionMenu';
+import { EngineBadge } from '@/components/ui/EngineBadge';
 import { VoicePillRow, UntaggedBadge, voicePillsFromMetadata } from '@/pages/Voices/components/VoicePills';
 import { getVoicePhase, getPrimaryCta } from '@/pages/Voices/voicePhase';
 import { usePlayerBus, loadAndPlay, pause as pauseBus } from '@/store/playerBus';
@@ -120,16 +121,7 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
     const activeEngineSelectable = defaultProfile ? isVoiceProfileSelectable(defaultProfile, engines) : false;
     const isCloudEngine = activeEngineInfo?.cloud === true;
 
-    const engineBadgeBg = !activeEngineSelectable
-        ? 'var(--accent-focus-ring)'
-        : isCloudEngine
-            ? 'var(--cloud-tint-bg)'
-            : 'var(--accent-tint-bg)';
-    const engineBadgeColor = !activeEngineSelectable
-        ? 'var(--text-muted)'
-        : isCloudEngine
-            ? 'var(--cloud-color)'
-            : 'var(--accent)';
+    const engineBadgeTone = !activeEngineSelectable ? 'muted' : isCloudEngine ? 'cloud' : 'accent';
     const engineBadgeLabel = activeEngineInfo?.display_name || formatVoiceEngineLabel(activeEngine || '');
 
     // CTA handler
@@ -231,19 +223,12 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
 
                 {/* Engine badge */}
                 {activeEngine && (
-                    <span style={{
-                        fontSize: '0.6rem',
-                        padding: '1px 6px',
-                        borderRadius: 'var(--radius-round)',
-                        background: engineBadgeBg,
-                        color: engineBadgeColor,
-                        fontWeight: 700,
-                        letterSpacing: '0.02em',
-                        marginBottom: '4px',
-                        display: 'inline-block',
-                    }}>
-                        {engineBadgeLabel}
-                    </span>
+                    <EngineBadge
+                        label={engineBadgeLabel}
+                        tone={engineBadgeTone}
+                        size="sm"
+                        style={{ marginBottom: '4px' }}
+                    />
                 )}
 
                 {/* Pills */}

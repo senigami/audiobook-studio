@@ -17,6 +17,7 @@ vi.mock('framer-motion', () => ({
         span: ({ children, ...props }: any) => <span {...props}>{children}</span>,
     },
     AnimatePresence: ({ children }: any) => <>{children}</>,
+    useReducedMotion: () => false,
 }))
 
 describe('VoicesTab', () => {

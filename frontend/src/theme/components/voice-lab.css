@@ -368,6 +368,21 @@
   padding: 12px 14px;
 }
 
+/* Matches the established compact-ghost-button sizing convention used
+ * elsewhere in this file (e.g. .script-editor-btn-compact) rather than
+ * one-off inline height/padding/font-size values (DC-009). */
+.voice-lab-section__add-variant-btn {
+  height: 28px;
+  padding: 0 var(--space-2);
+  font-size: 0.7rem; /* no matching --type-* token — token gap */
+  border-radius: var(--radius-round);
+  border: 1px dashed var(--accent);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
 /* ---------------------------------------------------------------------------
  * ScriptEditor — ST-3 conversion (task 012, see design-docs/plans/active/
  * simplification/styling_separation_execution/tasks/012-st3-scripteditor.md)

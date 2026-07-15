@@ -48,7 +48,38 @@ vi.mock('@/components/ui/ActionMenu', () => ({
     ),
 }));
 
+// framer-motion's real useReducedMotion() lazily initializes a module-level
+// singleton (motion-dom's `prefersReducedMotion`) from `window.matchMedia` on
+// first call and never re-reads it — so stubbing `window.matchMedia` per test
+// (as PlayerBar.test.tsx does for its own single fixed value) can't drive a
+// per-test true/false toggle here. Instead we mock `useReducedMotion` directly
+// (a third-party hook — outside the VariantEditor unit under test per R2) so
+// each test can control it independently. `motion.div` is stubbed only as a
+// thin prop-capturing pass-through (no animation logic reimplemented) so the
+// actual `animate`/`transition` values VariantEditor computes and passes down
+// are directly inspectable.
+vi.mock('framer-motion', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('framer-motion')>();
+    return {
+        ...actual,
+        useReducedMotion: vi.fn(),
+        motion: {
+            ...actual.motion,
+            div: ({ layoutId: _layoutId, animate, transition, ...rest }: any) => (
+                <div
+                    data-testid="play-pulse-probe"
+                    data-animate={JSON.stringify(animate)}
+                    data-transition={JSON.stringify(transition)}
+                    {...rest}
+                />
+            ),
+        },
+    };
+});
+
 import { VariantEditor } from '@/pages/Voices/components/VariantEditor';
+import { useVariantActions } from '@/hooks/useVariantActions';
+import { useReducedMotion } from 'framer-motion';
 
 const softProfile: SpeakerProfile = {
     name: 'Aria Nova - Soft',
@@ -84,6 +115,52 @@ describe('VariantEditor', () => {
     it('shows the variant\'s display name so multiple variants are distinguishable', () => {
         render(<VariantEditor {...baseProps} profile={softProfile} />);
         expect(screen.getByText('Soft')).toBeInTheDocument();
+    });
+
+    describe('play-pulse reduced-motion guard (DC-004)', () => {
+        it('animates the play-pulse when the user has no motion preference', () => {
+            vi.mocked(useReducedMotion).mockReturnValue(false);
+            vi.mocked(useVariantActions).mockReturnValueOnce({
+                localSpeed: null,
+                setLocalSpeed: vi.fn(),
+                isPlaying: true,
+                playingSample: null,
+                setCacheBuster: vi.fn(),
+                handlePlayClick: vi.fn(),
+                handleGeneratePreview: vi.fn(),
+                handlePlaySample: vi.fn(),
+                handleSpeedChange: vi.fn(),
+                handleDeleteSample: vi.fn(),
+                uploadFiles: vi.fn(),
+            } as ReturnType<typeof useVariantActions>);
+
+            render(<VariantEditor {...baseProps} profile={softProfile} />);
+            const pulse = screen.getByTestId('play-pulse-probe');
+            expect(JSON.parse(pulse.dataset.animate!)).toEqual({ scale: [1, 1.2, 1], opacity: [0.3, 0, 0.3] });
+            expect(JSON.parse(pulse.dataset.transition!)).toEqual({ duration: 2, repeat: null });
+        });
+
+        it('disables the play-pulse animation when the user prefers reduced motion', () => {
+            vi.mocked(useReducedMotion).mockReturnValue(true);
+            vi.mocked(useVariantActions).mockReturnValueOnce({
+                localSpeed: null,
+                setLocalSpeed: vi.fn(),
+                isPlaying: true,
+                playingSample: null,
+                setCacheBuster: vi.fn(),
+                handlePlayClick: vi.fn(),
+                handleGeneratePreview: vi.fn(),
+                handlePlaySample: vi.fn(),
+                handleSpeedChange: vi.fn(),
+                handleDeleteSample: vi.fn(),
+                uploadFiles: vi.fn(),
+            } as ReturnType<typeof useVariantActions>);
+
+            render(<VariantEditor {...baseProps} profile={softProfile} />);
+            const pulse = screen.getByTestId('play-pulse-probe');
+            expect(JSON.parse(pulse.dataset.animate!)).toEqual({});
+            expect(JSON.parse(pulse.dataset.transition!)).toEqual({ duration: 0 });
+        });
     });
 
     describe('performance_tags', () => {
