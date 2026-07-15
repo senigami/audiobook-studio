@@ -441,6 +441,7 @@
         "frontend/src/hooks/useVoiceManagement.ts"
       ],
       "notes": [
+        "2026-07-14: Added exported ToastAction interface ({label, onClick}) and TOAST_VISIBLE_MS=4000 constant (single source of truth, reused by useToast.ts and the 4 delete-flow call sites). emitToast(message, action?: ToastAction) now includes action in the dispatched CustomEvent detail.",
         "added 2026-07-08. App.tsx is the sole listener, forwarding to its own useToast()-backed showToast; decouples toast-emitting utility/validation code (import validation, series-position validation) from needing the hook directly."
       ],
       "calls_inferred": []
@@ -549,6 +550,24 @@
       "flows": [],
       "notes": [
         "2026-07-12 (Phase 3 task 015): extracted so QueueItem.tsx's per-row segment-monitor gate and ActivityPage.tsx use the identical status set."
+      ]
+    },
+    "frontend/src/utils/audio/qualityCheck.ts": {
+      "purpose": "New. checkSampleQuality(audioBuffer) returns { ok, durationSeconds, hasClipping, isSilent, message? }: duration floor (1s), peak-amplitude clipping check (>=0.98 full scale), RMS-based silence check (",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 New. checkSampleQuality(audioBuffer) returns { ok, durationSeconds, hasClipping, isSilent, message? }: duration floor (1s), peak-amplitude clipping check (>=0.98 full scale), RMS-based silence check (<0.02 RMS)."
+      ]
+    },
+    "frontend/src/utils/audio/transcodeToWav.ts": {
+      "purpose": "New. Decodes a captured Blob via OfflineAudioContext.decodeAudioData, then hand-rolls a 44-byte RIFF/WAVE header + interleaved 16-bit PCM data (no new dependency; wavesurfer.js is playback-only, not a",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 New. Decodes a captured Blob via OfflineAudioContext.decodeAudioData, then hand-rolls a 44-byte RIFF/WAVE header + interleaved 16-bit PCM data (no new dependency; wavesurfer.js is playback-only, not an encoder)."
       ]
     }
   }

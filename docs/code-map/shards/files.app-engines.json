@@ -599,6 +599,7 @@
         "plugins/tts_xtts/plugin/studio/app_adapter.py"
       ],
       "notes": [
+        "2026-07-14: FOLLOW-UP (same session, after owner reported the fix only reduced 18s to 11.34s): resolve_tts_engine_for_profiles() had the identical N+1 bug at a second call site -- its generator expression called resolve_profile_engine(profile_name, fallback) once per item in profile_names *before* the surrounding set comprehension deduped the results, so all ~1000 segments still triggered the disk-I/O-heavy resolve call. Now builds `distinct_profiles = set(profile_names)` first and iterates that instead.",
         "thread-local recursion guard for describe_registry()",
         "_LAST_GOOD_MANIFESTS cache serves stale-but-valid data on transient failure"
       ],

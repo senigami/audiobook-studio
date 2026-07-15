@@ -1,90 +1,91 @@
 {
- "files": {
-  "plugins/tts_mixed/__init__.py": {
-   "purpose": "Package marker for mixed synthesis plugin",
-   "exports": [],
-   "calls": [],
-   "called_by": [],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "plugins/tts_mixed/engine.py": {
-   "purpose": "MixedPlugin orchestrator class implementing StudioTTSEngine contract",
-   "exports": [
-    {
-     "name": "MixedPlugin",
-     "kind": "class",
-     "contract": "delegation-only; synthesis in handler.py; synthesize() raises NotImplementedError"
+  "files": {
+    "plugins/tts_mixed/__init__.py": {
+      "purpose": "Package marker for mixed synthesis plugin",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "plugins/tts_mixed/engine.py": {
+      "purpose": "MixedPlugin orchestrator class implementing StudioTTSEngine contract",
+      "exports": [
+        {
+          "name": "MixedPlugin",
+          "kind": "class",
+          "contract": "delegation-only; synthesis in handler.py; synthesize() raises NotImplementedError"
+        }
+      ],
+      "calls": [
+        "app/engines/voice/base.py#StudioTTSEngine",
+        "app/engines/voice/sdk.py#*"
+      ],
+      "called_by": [],
+      "notes": [
+        "no model, no local synthesis"
+      ],
+      "calls_inferred": []
+    },
+    "plugins/tts_mixed/handler.py": {
+      "purpose": "Multi-group segment orchestration handler: renders groups via sub-engines, stitches outputs",
+      "exports": [
+        {
+          "name": "handle_mixed_job",
+          "kind": "function",
+          "contract": "renders groups sequentially via sub-engines, publishes markers, stitches chapter WAV"
+        },
+        {
+          "name": "_get_ctx, set_ctx",
+          "kind": "function"
+        },
+        {
+          "name": "render_one_group",
+          "kind": "function",
+          "contract": "R1 extraction of the per-group loop body: markers, render, artifact-validate, [SEGMENT_SAVED], per-group DB update. Zero chapter-terminal writes/stitch/DB rebuild \u2014 safe to call once per concurrent child."
+        },
+        {
+          "name": "_is_valid_segment_artifact, _validated_wav_duration_seconds",
+          "kind": "function",
+          "contract": "PL-2 (2026-07-04): moved to app/studio_plugin_sdk/context.py; re-exported here under original names (imported directly by tests/orchestration/test_correctness_invariants.py). artifact validation gate: exists+non-zero size; WAV header duration must be 0<d<=3600s when parseable (stdlib wave, no ffprobe)"
+        }
+      ],
+      "calls": [
+        "app/api/ws.py",
+        "app/core/config.py",
+        "app/db/__init__.py",
+        "app/db/chapters.py",
+        "app/db/lexicon.py",
+        "app/db/speakers.py#*",
+        "app/db/state.py",
+        "app/domain/chunk_groups.py#build_chunk_groups,load_chunk_segments",
+        "app/engines/audio_ops.py#stitch_segments,get_audio_duration",
+        "app/engines/behavior.py",
+        "app/engines/errors.py",
+        "app/jobs/handlers/bridge_helpers.py#generate_via_bridge",
+        "app/jobs/worker_metrics.py#record_engine_sample",
+        "app/studio_plugin_sdk/__init__.py",
+        "app/studio_plugin_sdk/context.py#group_needs_render,_is_valid_segment_artifact,_validated_wav_duration_seconds",
+        "app/utils/text/lexicon.py",
+        "app/utils/text/textops.py"
+      ],
+      "called_by": [
+        "app/api/routers/generation.py",
+        "app/orchestration/scheduler/orchestrator.py"
+      ],
+      "notes": [
+        "2026-07-14: render_one_group captures time.monotonic() before _render_segment and, after the group's INV-3 artifact validation passes (same point as the existing [SEGMENT_SAVED] marker), emits a new [SEGMENT_ENGINE_SAMPLE] {segment_id} {engine} {chars} {duration_seconds} marker via on_output. Never emitted for a failed/cancelled group.",
+        "marker protocol: START_SEGMENT/ENGINE_ACTIVITY_STARTED/PROGRESS/SEGMENT_SAVED drives weighted chapter progress across heterogeneous engines",
+        "INV-6: orchestrator owns performance-sample writing, handler never records metrics",
+        "handle_mixed_job unchanged in behavior: sequential loop now delegates per-group work to render_one_group but retains chapter-terminal ownership (stitch, _persist_mixed_chapter_output, final update_job)",
+        "never marks a segment done on exit code alone: rc!=0 or not _is_valid_segment_artifact(seg_out) gates completion",
+        "PL-1 (2026-07-04): _get_ctx delegates to the shared get_plugin_ctx('mixed') factory; set_ctx()/_ctx_instance injection override (from app/orchestration/tasks/synthesis.py) kept separate and unchanged",
+        "PL-2 (2026-07-04): _group_needs_render is now a thin wrapper delegating to ctx.group_needs_render (its _chunk_output_path mkdir side effect on segments/ is preserved explicitly since the shared SDK method doesn't create directories); MAX_SEGMENT_DURATION_SECONDS/_is_valid_segment_artifact/_validated_wav_duration_seconds moved to context.py and re-exported under original names"
+      ],
+      "calls_inferred": [
+        "app/studio_plugin_sdk#StudioPluginContext",
+        "app/studio_plugin_sdk/plugin_utils.py#get_plugin_ctx"
+      ]
     }
-   ],
-   "calls": [
-    "app/engines/voice/base.py#StudioTTSEngine",
-    "app/engines/voice/sdk.py#*"
-   ],
-   "called_by": [],
-   "notes": [
-    "no model, no local synthesis"
-   ],
-   "calls_inferred": []
-  },
-  "plugins/tts_mixed/handler.py": {
-   "purpose": "Multi-group segment orchestration handler: renders groups via sub-engines, stitches outputs",
-   "exports": [
-    {
-     "name": "handle_mixed_job",
-     "kind": "function",
-     "contract": "renders groups sequentially via sub-engines, publishes markers, stitches chapter WAV"
-    },
-    {
-     "name": "_get_ctx, set_ctx",
-     "kind": "function"
-    },
-    {
-     "name": "render_one_group",
-     "kind": "function",
-     "contract": "R1 extraction of the per-group loop body: markers, render, artifact-validate, [SEGMENT_SAVED], per-group DB update. Zero chapter-terminal writes/stitch/DB rebuild — safe to call once per concurrent child."
-    },
-    {
-     "name": "_is_valid_segment_artifact, _validated_wav_duration_seconds",
-     "kind": "function",
-     "contract": "PL-2 (2026-07-04): moved to app/studio_plugin_sdk/context.py; re-exported here under original names (imported directly by tests/orchestration/test_correctness_invariants.py). artifact validation gate: exists+non-zero size; WAV header duration must be 0<d<=3600s when parseable (stdlib wave, no ffprobe)"
-    }
-   ],
-   "calls": [
-    "app/api/ws.py",
-    "app/core/config.py",
-    "app/db/__init__.py",
-    "app/db/chapters.py",
-    "app/db/lexicon.py",
-    "app/db/speakers.py#*",
-    "app/db/state.py",
-    "app/domain/chunk_groups.py#build_chunk_groups,load_chunk_segments",
-    "app/engines/audio_ops.py#stitch_segments,get_audio_duration",
-    "app/engines/behavior.py",
-    "app/engines/errors.py",
-    "app/jobs/handlers/bridge_helpers.py#generate_via_bridge",
-    "app/jobs/worker_metrics.py#record_engine_sample",
-    "app/studio_plugin_sdk/__init__.py",
-    "app/studio_plugin_sdk/context.py#group_needs_render,_is_valid_segment_artifact,_validated_wav_duration_seconds",
-    "app/utils/text/lexicon.py",
-    "app/utils/text/textops.py"
-   ],
-   "called_by": [
-    "app/api/routers/generation.py",
-    "app/orchestration/scheduler/orchestrator.py"
-   ],
-   "notes": [
-    "marker protocol: START_SEGMENT/ENGINE_ACTIVITY_STARTED/PROGRESS/SEGMENT_SAVED drives weighted chapter progress across heterogeneous engines",
-    "INV-6: orchestrator owns performance-sample writing, handler never records metrics",
-    "handle_mixed_job unchanged in behavior: sequential loop now delegates per-group work to render_one_group but retains chapter-terminal ownership (stitch, _persist_mixed_chapter_output, final update_job)",
-    "never marks a segment done on exit code alone: rc!=0 or not _is_valid_segment_artifact(seg_out) gates completion",
-    "PL-1 (2026-07-04): _get_ctx delegates to the shared get_plugin_ctx('mixed') factory; set_ctx()/_ctx_instance injection override (from app/orchestration/tasks/synthesis.py) kept separate and unchanged",
-    "PL-2 (2026-07-04): _group_needs_render is now a thin wrapper delegating to ctx.group_needs_render (its _chunk_output_path mkdir side effect on segments/ is preserved explicitly since the shared SDK method doesn't create directories); MAX_SEGMENT_DURATION_SECONDS/_is_valid_segment_artifact/_validated_wav_duration_seconds moved to context.py and re-exported under original names"
-   ],
-   "calls_inferred": [
-    "app/studio_plugin_sdk#StudioPluginContext",
-    "app/studio_plugin_sdk/plugin_utils.py#get_plugin_ctx"
-   ]
   }
- }
 }

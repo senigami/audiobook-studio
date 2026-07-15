@@ -296,7 +296,9 @@
       "called_by": [
         "frontend/src/components/queue/GlobalQueue.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-14: handleRemove(id) no longer calls api.cancelChapterGeneration/api.removeProcessingQueue immediately; it schedules the request via setTimeout(TOAST_VISIBLE_MS) tracked in a pendingRemovesRef keyed by job id, and emits a 'Removed \"<title>\" from queue.' toast with an Undo action that clearTimeouts the pending request (same pattern as useProjectActions.handleDeleteChapter / useVoiceManagement.handleDelete). Deviation from the task doc's literal 'exact files' list: the actual removal request lives in this hook, not GlobalQueue.tsx/QueueItem.tsx directly, so the hook needed the edit (see task file's Deviation note)."
+      ],
       "calls_inferred": [
         "frontend/src/api#api.toggleQueuePause,reorderProcessingQueue,cancelChapterGeneration,removeProcessingQueue"
       ]
@@ -434,6 +436,7 @@
         "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
       ],
       "notes": [
+        "2026-07-14: handleDeleteChapter(chapterId) defers api.deleteChapter + onDataRefresh behind the same setTimeout/pendingChapterDeletesRef pattern; emits 'Chapter deleted.' with Undo. Returns true immediately (callers never used the previous resolved boolean).",
         "2026-07-08: handleUpdateProject's data param gained optional series_position?: number|null, forwarded to api.updateProject as series_position ?? null.",
         "2026-07-09 (Task 004): handleUpdateProject()'s parameter type gained `description?: string`, forwarded in the same call to api.updateProject(...).",
         "2026-07-09: handleCreateChapter's catch block now also calls emitToast(\"Couldn't create chapter. Please try again.\") in addition to console.error, so any caller of this hook (ContentsStage, ManuscriptStage, ProjectDetailPage) gets user-visible feedback on API failure."
@@ -460,6 +463,7 @@
         "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx"
       ],
       "notes": [
+        "2026-07-14: confirmDelete() closes the delete modal immediately but defers api.deleteProject + loadProjects behind setTimeout/pendingProjectDeleteRef; emits 'Project deleted.' with Undo.",
         "2026-07-08: existingSeries (deduped, sorted project.series list) and suggestedSeriesPosition (max existing series_position + 1, falling back to a numeric suffix parsed from an existing title in the same series) auto-fill the new seriesPosition field until the user edits it directly (seriesPositionTouched); sortOption gained 'series-asc' (series name asc, then series_position asc, then title asc, blanks last); handleCreateProject validates seriesPosition via parseSeriesPositionInput and emitToast()s on a parse error instead of submitting; new handleOpenProjectDetails(projectId) navigates to /project/:id/details.",
         "2026-07-11 (task 005): added statusFilter state ('all'|'in-progress', default 'all') and filteredProjects (sortedProjects filtered to status 'drafting'|'casting' when statusFilter is 'in-progress'); both returned alongside sortedProjects."
       ],
@@ -624,6 +628,7 @@
       "calls": [],
       "called_by": [],
       "notes": [
+        "2026-07-14: ToastState.action and showToast's action param now use the shared ToastAction type imported from utils/toast.ts instead of an inline duplicate; TOAST_VISIBLE_MS also now imported from there rather than locally defined.",
         "LF-5 (2026-07-05): extracted verbatim from App.tsx"
       ],
       "calls_inferred": []
@@ -665,6 +670,7 @@
         "frontend/src/pages/Voices/VoicesPage.tsx"
       ],
       "notes": [
+        "2026-07-14: handleDelete(name) no longer calls DELETE /api/speaker-profiles/{name} immediately; it schedules the request via setTimeout(TOAST_VISIBLE_MS) tracked in a pendingDeletesRef keyed by name, and emits a 'Deleted voice \"name\".' toast with an Undo action that clearTimeouts the pending request.",
         "2026-07-10: profile-settings save failure path now emits a user-visible toast (emitToast) in addition to console.error, on both non-ok response and thrown error. (Uncovered drift \u2014 no queue entry named this file; found via direct diff scan against synced_commit.)"
       ],
       "calls_inferred": [
@@ -686,7 +692,9 @@
       "called_by": [
         "frontend/src/pages/Voices/VoicesPage.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-14: engineFilterOptions' 'all' chip label now uses activeVoices.length instead of activeSpeakerProfiles.length."
+      ],
       "calls_inferred": [
         "frontend/src/utils/voiceProfiles#*"
       ]
@@ -707,7 +715,9 @@
       "called_by": [
         "frontend/src/pages/Voices/VoicesPage.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-15: Removed handleSaveTestText/handleResetTestText (only caller was the removed VoicesModals drawers) and now-unused imports/destructures."
+      ],
       "calls_inferred": [
         "frontend/src/api#api.exportVoiceBundleUrl,importVoiceBundle"
       ]
@@ -728,6 +738,7 @@
         "frontend/src/pages/Voices/VoicesPage.tsx"
       ],
       "notes": [
+        "2026-07-15: Removed editingProfile/testText/variantName/editingEngine/referenceSample/engineVoiceId/editingSettings/editSurface/isSavingText state and its sync effect -- only consumer was the removed drawer wiring.",
         "2026-07-09: Added `isVoiceSettingsOpen`/`setIsVoiceSettingsOpen` state, reset to false whenever `editingProfile` is cleared. Determines whether the shared editing session (editingProfile + its loaded testText/engine/settings/etc.) surfaces as the Script Editor drawer or the new Voice Settings drawer."
       ],
       "calls_inferred": [
@@ -766,6 +777,7 @@
         "frontend/src/components/queue/QueueItem.tsx"
       ],
       "notes": [
+        "2026-07-13: isDone check corrected from span.status === 'done' to span.status === 'rendered'; doc comment updated to explain the backend contract (audio_status='done' -> span.status='rendered').",
         "Task 008 (2026-07-11): new hook closing the fixture-fed gap in SegmentRenderMonitor's real-data hydration.",
         "Task 010 (2026-07-11): maps ActiveSegmentMapEntry.reason_code -> SegmentRenderMonitorSegment.reasonCode, and prefers liveEntry.engine_id (task 008 field) over the job-level engine as the per-segment engineId when present.",
         "2026-07-12 (task 016, fetch dedupe): split the single combined effect into a fetch effect keyed only on [chapterId] (stores raw spans in baseSpans) + a useMemo([baseSpans, activeSegmentsMap, engineId]) that runs the merge -- api.fetchScriptView calls dropped from ~once-per-progress-tick to once-per-chapterId. Public {segments, loading} contract unchanged. Now instantiated per-row by QueueItem.tsx (task 015) instead of once at ActivityPage.tsx."
@@ -791,6 +803,38 @@
       "flows": [],
       "notes": [
         "2026-07-12: stateless REST poll, no backend history storage -- sparkline history lives entirely client-side in this hook's buffer."
+      ]
+    },
+    "frontend/src/hooks/useEngineConcurrency.ts": {
+      "purpose": "New hook. Polls GET /api/engines/concurrency every 5s, exposes engine_id -> effective_cap. Keeps the previous map on a fetch failure (never clears it to empty).",
+      "exports": [
+        {
+          "name": "useEngineConcurrency",
+          "kind": "unknown"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-12: NEW FILE \u2014 New hook. Polls GET /api/engines/concurrency every 5s, exposes engine_id -> effective_cap. Keeps the previous map on a fetch failure (never clears it to empty)."
+      ]
+    },
+    "frontend/src/hooks/useMediaQuery.ts": {
+      "purpose": "New hook: useMediaQuery(query: string): boolean, subscribes to window.matchMedia(query) change events via useSyncExternalStore, same pattern as useDevMode.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New hook: useMediaQuery(query: string): boolean, subscribes to window.matchMedia(query) change events via useSyncExternalStore, same pattern as useDevMode."
+      ]
+    },
+    "frontend/src/hooks/useMicRecorder.ts": {
+      "purpose": "New hook. getUserMedia request -> MediaRecorder lifecycle -> AudioContext/AnalyserNode level metering (RMS over time-domain samples, converted to dBFS, floored at -60dB) -> running elapsedMs timer. st",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 New hook. getUserMedia request -> MediaRecorder lifecycle -> AudioContext/AnalyserNode level metering (RMS over time-domain samples, converted to dBFS, floored at -60dB) -> running elapsedMs timer. start()/stop()/reset() plus full teardown (stream tracks stopped, AudioContext closed, intervals cleared) on unmount."
       ]
     }
   }

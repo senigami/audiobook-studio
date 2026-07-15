@@ -1,562 +1,615 @@
 {
- "files": {
-  "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx": {
-   "purpose": "Main chapter editor page container orchestrating segment/character/temp-voice/emotion editing",
-   "exports": [
-    {
-     "name": "ChapterEditor",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/components/overlays/ConfirmModal.tsx",
-    "frontend/src/pages/Book/studio/useStudioChapter.ts#useStudioChapter",
-    "frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx",
-    "frontend/src/pages/ChapterEditor/components/CharacterSidebar.tsx",
-    "frontend/src/pages/ChapterEditor/components/EditTab.tsx",
-    "frontend/src/pages/ChapterEditor/components/EditorTabs.tsx",
-    "frontend/src/pages/ChapterEditor/components/PlaybackControls.tsx",
-    "frontend/src/pages/ChapterEditor/components/QueueNotice.tsx",
-    "frontend/src/pages/ChapterEditor/components/ResyncPreviewModal.tsx",
-    "frontend/src/pages/ChapterEditor/components/ScriptView.tsx",
-    "frontend/src/pages/ChapterEditor/components/ScriptViewFallback.tsx",
-    "frontend/src/types/index.ts"
-   ],
-   "called_by": [
-    "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
-   ],
-   "notes": [
-    "merges Script editing + Edit tab; resync preview modal gates source-text save",
-    "2026-07-07: ScriptView's pendingSpanIds prop switched from the raw effectivePendingSegmentIds (never done-aware) to the new done-excluding chapterRenderPendingSegmentIds; added liveDoneSpanIds={chapterRenderDoneSegmentIds}."
-   ],
-   "calls_inferred": [
-    "frontend/src/pages/ChapterEditor/components/*"
-   ]
-  },
-  "frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx": {
-   "purpose": "Chapter header bar with title input, navigation, export, live segment progress bar",
-   "exports": [
-    {
-     "name": "useChapterStatus",
-     "kind": "hook"
+  "files": {
+    "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx": {
+      "purpose": "Main chapter editor page container orchestrating segment/character/temp-voice/emotion editing",
+      "exports": [
+        {
+          "name": "ChapterEditor",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/overlays/ConfirmModal.tsx",
+        "frontend/src/pages/Book/studio/useStudioChapter.ts#useStudioChapter",
+        "frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx",
+        "frontend/src/pages/ChapterEditor/components/CharacterSidebar.tsx",
+        "frontend/src/pages/ChapterEditor/components/EditTab.tsx",
+        "frontend/src/pages/ChapterEditor/components/EditorTabs.tsx",
+        "frontend/src/pages/ChapterEditor/components/PlaybackControls.tsx",
+        "frontend/src/pages/ChapterEditor/components/QueueNotice.tsx",
+        "frontend/src/pages/ChapterEditor/components/ResyncPreviewModal.tsx",
+        "frontend/src/pages/ChapterEditor/components/ScriptView.tsx",
+        "frontend/src/pages/ChapterEditor/components/ScriptViewFallback.tsx",
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
+      ],
+      "notes": [
+        "merges Script editing + Edit tab; resync preview modal gates source-text save",
+        "2026-07-07: ScriptView's pendingSpanIds prop switched from the raw effectivePendingSegmentIds (never done-aware) to the new done-excluding chapterRenderPendingSegmentIds; added liveDoneSpanIds={chapterRenderDoneSegmentIds}."
+      ],
+      "calls_inferred": [
+        "frontend/src/pages/ChapterEditor/components/*"
+      ]
     },
-    {
-     "name": "ChapterTopBar, ChapterScriptToolbar",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx#PredictiveProgressBar",
-    "frontend/src/components/progress/progressBarContracts.ts",
-    "frontend/src/hooks/useQueueStatusHoldTimer.ts#*",
-    "frontend/src/hooks/useSegmentHandoffQueue.ts#*",
-    "frontend/src/store/playerBus.ts#usePlayerBus",
-    "frontend/src/types/index.ts",
-    "frontend/src/utils/devMode.ts",
-    "frontend/src/utils/segmentProgressSelection.ts"
-   ],
-   "called_by": [
-    "frontend/src/pages/Book/studio/RenderControlsStrip.tsx",
-    "frontend/src/pages/Book/studio/useStudioChapter.ts",
-    "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx"
-   ],
-   "notes": [
-    "useChapterStatus centralizes queue logic + handoff bridge",
-    "the pre-first-segment queue-status pill (shown when !liveSegmentProgressJob, before PredictiveProgressBar mounts) now carries the shared .is-running/calm-pulse class while queueStatus === 'Preparing' (2026-07-06 fix) — previously sat fully static for the whole cold-start/model-load window"
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/pages/ChapterEditor/components/CharacterSidebar.tsx": {
-   "purpose": "Right sidebar with character list, voice profile selector, chapter metadata",
-   "exports": [
-    {
-     "name": "CharacterSidebar",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/components/forms/ColorSwatchPicker.tsx#ColorSwatchPicker",
-    "frontend/src/pages/ChapterEditor/components/VoiceProfileSelect.tsx#VoiceProfileSelect",
-    "frontend/src/types/index.ts",
-    "frontend/src/utils/voiceProfiles.ts#*"
-   ],
-   "called_by": [
-    "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx"
-   ],
-   "notes": [
-    "'CLEAR_ASSIGNMENT' sentinel for bulk-clear"
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/AnnotationsPanel.tsx": {
-   "purpose": "Booth mode's flag/notes side panel (list existing, save new, click-to-seek). Ported verbatim from the deleted ReviewStage/AnnotationsPanel.tsx.",
-   "exports": [
-    {
-     "name": "AnnotationsPanel",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/store/annotations.ts"
-   ],
-   "called_by": [
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/index.tsx"
-   ],
-   "notes": [
-    "localStorage-only, no backend persistence — known, pre-existing limitation, unchanged by the port.",
-    "2026-07-10: Booth mode's flag/notes side panel (list existing, save new, click-to-seek). Ported verbatim from the deleted ReviewStage/AnnotationsPanel.tsx.",
-    "2026-07-10: CRITICAL #1 (note self-wipe): added a `notingSegmentId` pin, separate from the playback-driven `activeSegmentId`. Pin is set on textarea focus (or first keystroke as a fallback); while pinned, the sync-from-storage effect no longer overwrites `noteText` when the active segment changes underneath it. Save persists against the pinned segment, not whatever is active at save time. Pin releases on Save, on a new Cancel button, or on blur when the note is empty. The active-segment/'note for' label shows which segment is pinned. CRITICAL #2 (raw ids): added a required `groupNumberBySegmentId: Map<string, number>` prop (same derivation `FollowAlongPanel`/`useRenderGroups` already produce) and replaced every raw-id render ('Active Segment: {activeSegmentId}', 'Segment: {anno.segmentId}') with the human-readable render-group ordinal ('Active Segment: N' / 'Segment N'). Warning #10: replaced the inert empty-state copy ('No notes for this chapter yet.') with action-teaching copy ('Notes you leave while listening appear here. Click a line to jump there, then jot a note.')."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/FollowAlongPanel.tsx": {
-   "purpose": "Booth mode's segment-counter ('N / total render groups') + regenerate-segment button panel. Ported verbatim from the deleted ReviewStage/FollowAlongPanel.tsx.",
-   "exports": [
-    {
-     "name": "FollowAlongPanel",
-     "kind": "component"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/index.tsx"
-   ],
-   "notes": [
-    "2026-07-10: Booth mode's segment-counter ('N / total render groups') + regenerate-segment button panel. Ported verbatim from the deleted ReviewStage/FollowAlongPanel.tsx.",
-    "2026-07-10: Warning #9: dropped the `chapterTitle` prop and the redundant 'Chapter: {title}' line — the chapter title already renders in the workspace header and the global player bar. Warning #5: de-emphasized the Regenerate button from a full-width, bold, --text-primary-on-surface button to a small inline-flex ghost button (--text-muted, transparent background, 400 weight, auto width) so it no longer reads as the hero of the card."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/index.tsx": {
-   "purpose": "Booth mode tool body — karaoke highlight, click-to-seek, segment regenerate, annotations toggle. Zero-prop faithful port of the deleted ReviewStage.tsx, minus its redundant chapter-picker rail (replaced by an auto-play-on-entry effect).",
-   "exports": [
-    {
-     "name": "BoothTool",
-     "kind": "const (DirectorsTool)"
-    }
-   ],
-   "calls": [
-    "frontend/src/pages/Book/BookDataContext.tsx",
-    "frontend/src/api/index.ts",
-    "frontend/src/hooks/useRenderGroups.ts",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/useBoothPlayback.ts",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/FollowAlongPanel.tsx",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/AnnotationsPanel.tsx",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/types.ts"
-   ],
-   "called_by": [
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/registry.ts"
-   ],
-   "notes": [
-    "2026-07-10: replaces the deleted frontend/src/pages/Book/stages/ReviewStage.tsx (+ its ReviewStage/ folder, also deleted) — directors_console_activation task 004.",
-    "The old rail's chapter-selection logic (click-to-play) became an internal useEffect keyed on the resolved chapter id: Booth auto-plays a chapter's rendered audio on entry instead. ChapterWorkspaceHeader remains the sole chapter switcher.",
-    "Reuses .review-main/.review-text-view* CSS classes verbatim (kept in components.css on purpose — not dead).",
-    "2026-07-10: Booth mode tool body — karaoke highlight, click-to-seek, segment regenerate, annotations toggle. Zero-prop faithful port of the deleted ReviewStage.tsx, minus its redundant chapter-picker rail (replaced by an auto-play-on-entry effect).",
-    "2026-07-10: CRITICAL #3 (keyboard reachability): each manuscript line now has `role=\"button\"`, `tabIndex={0}`, an `onKeyDown` handler firing the same `seekToSegment` as click on Enter/Space, and `aria-current=\"true\"` on the active segment. Added a `.sr-only` `role=\"status\" aria-live=\"polite\"` region announcing 'Segment N of M' only when the derived render-group ordinal actually changes (tracked via a ref), not on every playback tick. Warning #7 (silent autoplay): a `pulseSegmentId` state + `autoplayPulseRef` apply a one-shot CSS pulse class to the first segment that resolves active after the mode-entry `playChapter` call; the animation is gated by `prefers-reduced-motion` in CSS. Warning #8 (auto-scroll fights manual scroll): a scroll listener on the reading column sets a `suspendAutoScroll` flag with a 4s grace timeout on user-initiated scroll (distinguished from our own programmatic `scrollIntoView` via an `isAutoScrollingRef` guard); the karaoke auto-follow effect skips while suspended. Stopped passing the now-removed `chapterTitle` prop to `FollowAlongPanel`; passes the new `groupNumberBySegmentId` map to `AnnotationsPanel`."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/useBoothPlayback.ts": {
-   "purpose": "Booth mode's karaoke active-segment/playback hook — percent-based timestamp→segment mapping. Renamed port of the deleted ReviewStage/useReviewPlayback.ts (same options/return shape).",
-   "exports": [
-    {
-     "name": "useBoothPlayback",
-     "kind": "hook"
-    }
-   ],
-   "calls": [
-    "frontend/src/store/playerBus.ts"
-   ],
-   "called_by": [
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/index.tsx"
-   ],
-   "notes": [
-    "2026-07-10: Booth mode's karaoke active-segment/playback hook — percent-based timestamp→segment mapping. Renamed port of the deleted ReviewStage/useReviewPlayback.ts (same options/return shape)."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx": {
-   "purpose": "Cast mode tool body — voice/speaker paint assignment (swatch select, span click/drag assign, cast sidebar, render controls). Zero-prop faithful port of the deleted StudioStage.tsx.",
-   "exports": [
-    {
-     "name": "CastTool",
-     "kind": "const (DirectorsTool)"
-    }
-   ],
-   "calls": [
-    "frontend/src/components/overlays/ConfirmModal.tsx",
-    "frontend/src/components/forms/InlineEdit.tsx",
-    "frontend/src/pages/Book/BookDataContext.tsx",
-    "frontend/src/pages/Book/lib/chapterJobs.ts",
-    "frontend/src/pages/Book/studio/AnalysisStrip.tsx",
-    "frontend/src/pages/Book/studio/CastPalette.tsx",
-    "frontend/src/pages/Book/studio/StudioHeaderActions.tsx",
-    "frontend/src/pages/Book/studio/RenderControlsStrip.tsx",
-    "frontend/src/pages/Book/studio/useStudioChapter.ts",
-    "frontend/src/pages/Book/studio/TempCharacterModal.tsx",
-    "frontend/src/pages/ChapterEditor/components/QueueNotice.tsx",
-    "frontend/src/pages/ChapterEditor/components/ResyncPreviewModal.tsx",
-    "frontend/src/pages/ChapterEditor/components/ScriptView.tsx",
-    "frontend/src/pages/ChapterEditor/components/ScriptViewFallback.tsx",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/types.ts"
-   ],
-   "called_by": [
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/registry.ts"
-   ],
-   "notes": [
-    "2026-07-10: replaces the deleted frontend/src/pages/Book/stages/StudioStage.tsx (directors_console_activation task 003) — same sub-components reused as-is, resolves chapter/book context internally via useSearchParams()+useBookDataContext() (zero-prop DirectorsTool contract).",
-    "Deliberately deferred (not ported): brush-size selector, variation toggle, Match Voice, Stage Direction/Performance Cue, mutation-batching — StudioStage didn't have these either; tracked in TASKS.md.",
-    "2026-07-10: Cast mode tool body — voice/speaker paint assignment (swatch select, span click/drag assign, cast sidebar, render controls). Zero-prop faithful port of the deleted StudioStage.tsx.",
-    "2026-07-10: CRITICAL: replaced the 🖌 emoji in the floating 'painting: X' / 'clearing' chip with a lucide `Brush` icon; also dropped the word 'painting' from the visible copy ('Selected: X — click sentences to assign'). WARNING (#6, partial): registers Cast's existing `hasUnsavedChanges` (title/text edit) signal with `useDirtyGuard()` from DirtyGuardContext.tsx, mirroring WriteTool's pattern exactly, so DirectorsConsole's own rail-tab switching now prompts before discarding an unsaved chapter text edit made while in Cast mode. This does NOT cover `ChapterWorkspaceHeader`'s separate prev/next chapter-nav arrows (outside Director's Console, navigates without saving) — see flow_impact."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/pages/ChapterEditor/components/DirectorsConsole/DirtyGuardContext.tsx": {
-   "purpose": "Dirty-exit guard context for Director's Console tool bodies. useDirtyGuard() lets a tool body report unsaved-work state (setDirty(isDirty, message?)); DirectorsConsole owns the actual flag/useState and gates rail-tab switches on it. DirtyGuardProvider is a stateless pass-through.",
-   "exports": [
-    {
-     "name": "DirtyGuardContextValue",
-     "kind": "interface"
+    "frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx": {
+      "purpose": "Chapter header bar with title input, navigation, export, live segment progress bar",
+      "exports": [
+        {
+          "name": "useChapterStatus",
+          "kind": "hook"
+        },
+        {
+          "name": "ChapterTopBar, ChapterScriptToolbar",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx#PredictiveProgressBar",
+        "frontend/src/components/progress/progressBarContracts.ts",
+        "frontend/src/hooks/useQueueStatusHoldTimer.ts#*",
+        "frontend/src/hooks/useSegmentHandoffQueue.ts#*",
+        "frontend/src/store/playerBus.ts#usePlayerBus",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/devMode.ts",
+        "frontend/src/utils/segmentProgressSelection.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Book/studio/RenderControlsStrip.tsx",
+        "frontend/src/pages/Book/studio/useStudioChapter.ts",
+        "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx"
+      ],
+      "notes": [
+        "2026-07-14: Reduced from 622 lines to a 6-line barrel re-exporting useChapterStatus, ChapterTopBar, ChapterScriptToolbar from their new sibling files.",
+        "useChapterStatus centralizes queue logic + handoff bridge",
+        "the pre-first-segment queue-status pill (shown when !liveSegmentProgressJob, before PredictiveProgressBar mounts) now carries the shared .is-running/calm-pulse class while queueStatus === 'Preparing' (2026-07-06 fix) \u2014 previously sat fully static for the whole cold-start/model-load window"
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "useDirtyGuard",
-     "kind": "hook"
+    "frontend/src/pages/ChapterEditor/components/CharacterSidebar.tsx": {
+      "purpose": "Right sidebar with character list, voice profile selector, chapter metadata",
+      "exports": [
+        {
+          "name": "CharacterSidebar",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/forms/ColorSwatchPicker.tsx#ColorSwatchPicker",
+        "frontend/src/pages/ChapterEditor/components/VoiceProfileSelect.tsx#VoiceProfileSelect",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/voiceProfiles.ts#*"
+      ],
+      "called_by": [
+        "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx"
+      ],
+      "notes": [
+        "'CLEAR_ASSIGNMENT' sentinel for bulk-clear"
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "DirtyGuardProvider",
-     "kind": "component"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/index.tsx",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/WriteTool/index.tsx",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/ReviseTool/index.tsx",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx"
-   ],
-   "notes": [
-    "2026-07-10: New context module — fixes silent data loss on rail-tab switch (WriteTool/ReviseTool uncommitted edits); tool bodies stay zero-prop (INV-1)."
-   ]
-  },
-  "frontend/src/pages/ChapterEditor/components/DirectorsConsole/ReviseTool/SegmentSplitter.ts": {
-   "purpose": "Pure balanced-split algorithm for Revise mode's segment-overflow case: splits at the nearest sentence boundary to the midpoint, both halves above an 80-char floor, no split if no clean boundary exists.",
-   "exports": [
-    {
-     "name": "splitSegmentText",
-     "kind": "fn"
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/AnnotationsPanel.tsx": {
+      "purpose": "Booth mode's flag/notes side panel (list existing, save new, click-to-seek). Ported verbatim from the deleted ReviewStage/AnnotationsPanel.tsx.",
+      "exports": [
+        {
+          "name": "AnnotationsPanel",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/store/annotations.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/index.tsx"
+      ],
+      "notes": [
+        "localStorage-only, no backend persistence \u2014 known, pre-existing limitation, unchanged by the port.",
+        "2026-07-10: Booth mode's flag/notes side panel (list existing, save new, click-to-seek). Ported verbatim from the deleted ReviewStage/AnnotationsPanel.tsx.",
+        "2026-07-10: CRITICAL #1 (note self-wipe): added a `notingSegmentId` pin, separate from the playback-driven `activeSegmentId`. Pin is set on textarea focus (or first keystroke as a fallback); while pinned, the sync-from-storage effect no longer overwrites `noteText` when the active segment changes underneath it. Save persists against the pinned segment, not whatever is active at save time. Pin releases on Save, on a new Cancel button, or on blur when the note is empty. The active-segment/'note for' label shows which segment is pinned. CRITICAL #2 (raw ids): added a required `groupNumberBySegmentId: Map<string, number>` prop (same derivation `FollowAlongPanel`/`useRenderGroups` already produce) and replaced every raw-id render ('Active Segment: {activeSegmentId}', 'Segment: {anno.segmentId}') with the human-readable render-group ordinal ('Active Segment: N' / 'Segment N'). Warning #10: replaced the inert empty-state copy ('No notes for this chapter yet.') with action-teaching copy ('Notes you leave while listening appear here. Click a line to jump there, then jot a note.')."
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "DEFAULT_MIN_FLOOR",
-     "kind": "const"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/ReviseTool/index.tsx"
-   ],
-   "notes": [
-    "Computed on the edit-commit path but not yet wired to an actual two-segment persist — see ReviseTool/index.tsx notes.",
-    "2026-07-10: Pure balanced-split algorithm for Revise mode's segment-overflow case: splits at the nearest sentence boundary to the midpoint, both halves above an 80-char floor, no split if no clean boundary exists."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/pages/ChapterEditor/components/DirectorsConsole/ReviseTool/index.tsx": {
-   "purpose": "Revise mode tool body — click a segment, edit its text inline, commit re-renders only that segment. Genuinely new logic (no prior UI existed); backend already supports it via update_segment's untyped text_content field.",
-   "exports": [
-    {
-     "name": "ReviseTool",
-     "kind": "const (DirectorsTool)"
-    }
-   ],
-   "calls": [
-    "frontend/src/pages/Book/BookDataContext.tsx",
-    "frontend/src/api/index.ts",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/ReviseTool/SegmentSplitter.ts",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/types.ts"
-   ],
-   "called_by": [
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/registry.ts"
-   ],
-   "notes": [
-    "2026-07-10 (directors_console_activation task 005). Paragraph→segment mapping confirmed NOT 1:1 (app/domain/chapters/operations.py::get_script_view_payload can group multiple segments into one paragraph) — v1 scope is segment-level editing, same unit BoothTool uses.",
-    "A true two-way split on overflow is NOT wired: no backend endpoint exists to insert a new segment row (only update_segment/update_segments_bulk) — SegmentSplitter.ts's algorithm is built+tested but the commit path always persists as one (possibly long) segment with a passive overflow indicator. Real two-segment split needs a new backend endpoint — tracked follow-up.",
-    "2026-07-10: Revise mode tool body — click a segment, edit its text inline, commit re-renders only that segment. Genuinely new logic (no prior UI existed); backend already supports it via update_segment's untyped text_content field.",
-    "2026-07-10: Calls `useDirtyGuard()`. A new effect reports `setDirty(true, 'Uncommitted segment edit')` whenever `editingId` is set and `draftText` differs from that segment's saved `text_content`, and `setDirty(false)` whenever there's no active edit (covers mount, commit, cancel, and chapter switches, all of which already reset `editingId` to null).",
-    "2026-07-10: CRITICAL #1 (keyboard activation): added `handleSegmentKeyDown` firing `handleStartEdit` on Enter or Space (`preventDefault` on Space to stop page scroll), wired via `onKeyDown` on the segment div; added a descriptive `aria-label` (`getSegmentAriaLabel` — 'Edit: {first ~8 words}…') so screen readers get more than a bare 'button'. CRITICAL #2 (icon cue): added a `PenLine` icon (`revise-text-view__edit-icon`) inside each segment, shown via CSS on `:hover`/`:focus-within` so keyboard focus gets the same non-color cue as mouse hover (WCAG 1.4.1). Warning #4 (focus-into-textarea): added a `textareaRef` + a `useEffect` keyed on `editingId` that focuses the textarea and places the caret at the end of the text as soon as an edit starts. Warning #5 (Escape/Cmd+Enter): added `handleTextareaKeyDown` — Escape calls the same `handleCancelEdit` the Cancel button uses; Cmd+Enter/Ctrl+Enter calls `handleCommit` (mirroring the Save button's disabled guard: no-op while saving or when the draft is empty). Warning #7 (persistent hint): topbar now renders a quiet `revise-tool__hint` caption ('Click any passage to edit — saving re-renders that segment.') in place of the editing banner while not editing."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/pages/ChapterEditor/components/DirectorsConsole/WriteTool/index.tsx": {
-   "purpose": "Write mode tool body — full chapter source editor. Thin wrapper around the pre-existing, unmodified ChapterTextPanel/useChapterText (same one Contents uses), giving Write mode identical produced-chapter lock/warning/resync-preview behavior.",
-   "exports": [
-    {
-     "name": "WriteTool",
-     "kind": "const (DirectorsTool)"
-    }
-   ],
-   "calls": [
-    "frontend/src/pages/Book/BookDataContext.tsx",
-    "frontend/src/pages/Book/components/ChapterTextPanel.tsx",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/types.ts"
-   ],
-   "called_by": [
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/registry.ts"
-   ],
-   "notes": [
-    "2026-07-10 (directors_console_activation task 006) — new folder; Write mode had no scaffold at all before this (not even a placeholder) despite design-docs/workflows/chapter-editor-modes.md §7b/§13 specifying it as first-class v1.",
-    "2026-07-09: WriteToolBody now wraps `ChapterTextPanel` in a `.write-tool` container with a muted one-line subtitle ('Full-chapter editor · commits re-sync voice assignments') and passes `variant=\"immediate\"`. Added `description: 'Write — rewrite the whole chapter (voices re-synced on commit)'` to the exported `WriteTool` registration for the rail tooltip. `onSaved`/`onDirtyChange` wiring to DirtyGuardContext is unchanged.",
-    "2026-07-10: Write mode tool body — full chapter source editor. Thin wrapper around the pre-existing, unmodified ChapterTextPanel/useChapterText (same one Contents uses), giving Write mode identical produced-chapter lock/warning/resync-preview behavior.",
-    "2026-07-10: Calls `useDirtyGuard()` and forwards `ChapterTextPanel`'s new `onDirtyChange` to `setDirty(dirty, 'Uncommitted chapter text edit')`, wiring the console's dirty-exit guard to the produced-chapter unlock-and-rewrite flow described in the bug report."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/pages/ChapterEditor/components/DirectorsConsole/index.tsx": {
-   "purpose": "Director's Console left-rail router: tool registry -> icon rail + active tool body. Mounted into BookLayout.tsx's ChapterWorkspace 2026-07-10, replacing the studio|review toggle.",
-   "exports": [
-    {
-     "name": "DirectorsConsole",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/registry.ts"
-   ],
-   "called_by": [
-    "frontend/src/pages/Book/BookLayout.tsx"
-   ],
-   "notes": [
-    "registry.ts holds the ordered tool list; adding a tool means adding a registry entry, not touching the Console.",
-    "Naming collision with the demo's own DirectorsConsole (frontend/src/demo/stages/siteMockup/panes/directorsConsole.tsx) RESOLVED 2026-07-10: demo export renamed to DirectorsConsolePane (directors_console_activation task 001). This (real) component is the only remaining `DirectorsConsole` export in the codebase.",
-    "All four tools (Cast/Booth/Revise/Write) are real as of 2026-07-10; Casting Call/Script Supervisor/Plugin remain demoPlaceholder stubs.",
-    "2026-07-09: Rail button `title` now reads `tool.description ?? tool.label` (richer tooltip copy); `aria-label` stays `tool.label` (short accessible name, unchanged) so screen readers aren't forced to read a full sentence on every focus.",
-    "2026-07-10: Added `dirty`/`pendingToolId` state. Rail button clicks now go through `handleToolClick`, which stages the target tool id in `pendingToolId` and opens a `ConfirmModal` (\"Unsaved changes... Switch tabs anyway? Your changes will be lost.\", including the dirty tool's optional `message`) instead of switching immediately whenever `dirty.isDirty` is true; confirming switches tabs and resets the dirty flag, canceling leaves the current tab active. The active tool body is now rendered inside `<DirtyGuardProvider onDirtyChange={...}>` so it can report dirty state via `useDirtyGuard()`. `ActiveToolBody` itself is still rendered with zero props (INV-1 preserved)."
-   ],
-   "calls_inferred": [
-    "./registry.ts#directorsConsoleTools (CastTool/BoothTool/ReviseTool/WriteTool/placeholders.tsx via ./types.ts#DirectorsTool)"
-   ]
-  },
-  "frontend/src/pages/ChapterEditor/components/DirectorsConsole/registry.ts": {
-   "purpose": "Director's Console tool registry — ordered directorsConsoleTools[] (Cast/Booth/Revise/Write + 3 future placeholders) the Console renders as its icon rail",
-   "exports": [
-    {
-     "name": "directorsConsoleTools",
-     "kind": "const"
-    }
-   ],
-   "calls": [
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/index.tsx",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/ReviseTool/index.tsx",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/WriteTool/index.tsx",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/placeholders.tsx",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/types.ts"
-   ],
-   "called_by": [
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/index.tsx"
-   ],
-   "notes": [
-    "Write added 2026-07-10 (directors_console_activation task 006), placed after ReviseTool and before the 3 placeholder/future entries — Write is first-class v1, not a placeholder.",
-    "2026-07-09: Adds Revise's tooltip description via `{ ...ReviseTool, description: 'Revise — fix one segment (other audio untouched)' }` in the registry array — deliberately done here rather than editing ReviseTool/index.tsx, which is out of scope per the task's do-not-touch list.",
-    "2026-07-10: Director's Console tool registry — ordered directorsConsoleTools[] (Cast/Booth/Revise/Write + 3 future placeholders) the Console renders as its icon rail"
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/pages/ChapterEditor/components/DirectorsConsole/types.ts": {
-   "purpose": "Director's Console tool registration contract — DirectorsTool interface (id/label/description/icon/component/shortcut/demoPlaceholder) that each tool module's index.tsx exports one of; the registry (registry.ts) is built from these.",
-   "exports": [
-    {
-     "name": "DirectorsTool",
-     "kind": "interface"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/registry.ts",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/index.tsx"
-   ],
-   "notes": [
-    "2026-07-09: Added optional `description?: string` to `DirectorsTool` — richer rail-tooltip copy, falls back to `label` when omitted."
-   ]
-  },
-  "frontend/src/pages/ChapterEditor/components/EditTab.tsx": {
-   "purpose": "Source text editor with analysis stats and long-sentence detection",
-   "exports": [
-    {
-     "name": "EditTab",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/types/index.ts"
-   ],
-   "called_by": [
-    "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx"
-   ],
-   "notes": [
-    "sourceTextMode gates text editability"
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/pages/ChapterEditor/components/EditorTabs.tsx": {
-   "purpose": "Tab switcher between Script and Source Text modes",
-   "exports": [
-    {
-     "name": "EditorTabs",
-     "kind": "component"
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/FollowAlongPanel.tsx": {
+      "purpose": "Booth mode's segment-counter ('N / total render groups') + regenerate-segment button panel. Ported verbatim from the deleted ReviewStage/FollowAlongPanel.tsx.",
+      "exports": [
+        {
+          "name": "FollowAlongPanel",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/index.tsx"
+      ],
+      "notes": [
+        "2026-07-10: Booth mode's segment-counter ('N / total render groups') + regenerate-segment button panel. Ported verbatim from the deleted ReviewStage/FollowAlongPanel.tsx.",
+        "2026-07-10: Warning #9: dropped the `chapterTitle` prop and the redundant 'Chapter: {title}' line \u2014 the chapter title already renders in the workspace header and the global player bar. Warning #5: de-emphasized the Regenerate button from a full-width, bold, --text-primary-on-surface button to a small inline-flex ghost button (--text-muted, transparent background, 400 weight, auto width) so it no longer reads as the hero of the card."
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "ChapterEditorTab",
-     "kind": "type"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/pages/Book/studio/useStudioChapter.ts",
-    "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/pages/ChapterEditor/components/PlaybackControls.tsx": {
-   "purpose": "Chapter audio playback transport controls with time display",
-   "exports": [
-    {
-     "name": "PlaybackControls",
-     "kind": "component"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx"
-   ],
-   "notes": [
-    "skim triggered on pointer-down, released on pointer-up/leave/cancel"
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/pages/ChapterEditor/components/QueueNotice.tsx": {
-   "purpose": "Toast-style queued notification bottom-right",
-   "exports": [
-    {
-     "name": "QueueNotice",
-     "kind": "component"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/pages/ChapterEditor/components/ResyncPreviewModal.tsx": {
-   "purpose": "Modal preview of source-text resync impact",
-   "exports": [
-    {
-     "name": "ResyncPreviewModal, ResyncPreviewData",
-     "kind": "component/type"
-    }
-   ],
-   "calls": [
-    "frontend/src/hooks/useFocusTrap.ts#useFocusTrap"
-   ],
-   "called_by": [
-    "frontend/src/pages/Book/components/ChapterTextPanel.tsx",
-    "frontend/src/pages/Book/lib/useChapterText.ts",
-    "frontend/src/pages/Book/studio/useStudioChapter.ts",
-    "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx"
-   ],
-   "notes": [
-    "warns of destructive changes (lost assignments)",
-    "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/pages/ChapterEditor/components/ScriptView.tsx": {
-   "purpose": "Rich script/book-mode span editor with live render progress, character assignment, batch generation",
-   "exports": [
-    {
-     "name": "ScriptView",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/pages/ChapterEditor/components/ScriptView.css",
-    "frontend/src/pages/ChapterEditor/components/VoiceProfileSelect.tsx#*",
-    "frontend/src/pages/ChapterEditor/scriptViewProgress.ts#*",
-    "frontend/src/types/index.ts",
-    "frontend/src/utils/voiceProfiles.ts"
-   ],
-   "called_by": [
-    "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx"
-   ],
-   "notes": [
-    "ScriptSpanItem memo'd to avoid progress-frame cascades",
-    "F14 (2026-07-04): renderBook()/renderScript() now guard data?.paragraphs/data?.spans and return null instead of throwing when handed a malformed/partial script-view payload",
-    "2026-07-07: new optional prop liveDoneSpanIds (Set<string>, default empty) -- isReady per-span also becomes true when liveDoneSpanIds.has(span.id), the live signal that keeps a just-finished segment's text lit ahead of the next DB refetch. renderSpan also now suppresses isPending/isQueued for live-done spans (fable-review fix, same day) -- otherwise the later-in-stylesheet -pending/-queued classes at equal specificity kept the span visually dim even with the -ready class present. canPlay intentionally stays DB-backed-only (out of scope). Note: renderSpan defaults to mode='book' even inside the script-line view, so this view actually applies the -book-* class variants."
-   ],
-   "calls_inferred": []
-  },
-  "frontend/src/pages/ChapterEditor/components/ScriptViewFallback.tsx": {
-   "purpose": "Fallback UI when script view loading/unavailable",
-   "exports": [
-    {
-     "name": "ScriptViewFallback",
-     "kind": "component"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx",
-    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/pages/ChapterEditor/components/VoiceProfileSelect.tsx": {
-   "purpose": "Reusable voice profile dropdown with grouping and disabled-state handling",
-   "exports": [
-    {
-     "name": "VoiceProfileSelect",
-     "kind": "component"
-    }
-   ],
-   "calls": [
-    "frontend/src/utils/voiceProfiles.ts"
-   ],
-   "called_by": [
-    "frontend/src/components/CharactersTab.tsx",
-    "frontend/src/pages/Book/stages/CastingStage.tsx",
-    "frontend/src/pages/Book/studio/CastPalette.tsx",
-    "frontend/src/pages/Book/studio/TempCharacterModal.tsx",
-    "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "frontend/src/pages/ChapterEditor/scriptViewProgress.ts": {
-   "purpose": "Pure rendering-progress helpers for ScriptView",
-   "exports": [
-    {
-     "name": "computeSpanRenderProgress, batchEngineStatus",
-     "kind": "function"
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/index.tsx": {
+      "purpose": "Booth mode tool body \u2014 karaoke highlight, click-to-seek, segment regenerate, annotations toggle. Zero-prop faithful port of the deleted ReviewStage.tsx, minus its redundant chapter-picker rail (replaced by an auto-play-on-entry effect).",
+      "exports": [
+        {
+          "name": "BoothTool",
+          "kind": "const (DirectorsTool)"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/Book/BookDataContext.tsx",
+        "frontend/src/api/index.ts",
+        "frontend/src/hooks/useRenderGroups.ts",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/useBoothPlayback.ts",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/FollowAlongPanel.tsx",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/AnnotationsPanel.tsx",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/types.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/registry.ts"
+      ],
+      "notes": [
+        "2026-07-14: Mode-entry effect now calls playChapter(..., false) \u2014 loads ready-to-play, never auto-starts. Removed the now-meaningless autoplay-pulse mechanism (autoplayPulseRef, pulseSegmentId state, the pulse CSS class hookup) that existed solely to acknowledge the removed autoplay.",
+        "2026-07-10: replaces the deleted frontend/src/pages/Book/stages/ReviewStage.tsx (+ its ReviewStage/ folder, also deleted) \u2014 directors_console_activation task 004.",
+        "The old rail's chapter-selection logic (click-to-play) became an internal useEffect keyed on the resolved chapter id: Booth auto-plays a chapter's rendered audio on entry instead. ChapterWorkspaceHeader remains the sole chapter switcher.",
+        "Reuses .review-main/.review-text-view* CSS classes verbatim (kept in components.css on purpose \u2014 not dead).",
+        "2026-07-10: Booth mode tool body \u2014 karaoke highlight, click-to-seek, segment regenerate, annotations toggle. Zero-prop faithful port of the deleted ReviewStage.tsx, minus its redundant chapter-picker rail (replaced by an auto-play-on-entry effect).",
+        "2026-07-10: CRITICAL #3 (keyboard reachability): each manuscript line now has `role=\"button\"`, `tabIndex={0}`, an `onKeyDown` handler firing the same `seekToSegment` as click on Enter/Space, and `aria-current=\"true\"` on the active segment. Added a `.sr-only` `role=\"status\" aria-live=\"polite\"` region announcing 'Segment N of M' only when the derived render-group ordinal actually changes (tracked via a ref), not on every playback tick. Warning #7 (silent autoplay): a `pulseSegmentId` state + `autoplayPulseRef` apply a one-shot CSS pulse class to the first segment that resolves active after the mode-entry `playChapter` call; the animation is gated by `prefers-reduced-motion` in CSS. Warning #8 (auto-scroll fights manual scroll): a scroll listener on the reading column sets a `suspendAutoScroll` flag with a 4s grace timeout on user-initiated scroll (distinguished from our own programmatic `scrollIntoView` via an `isAutoScrollingRef` guard); the karaoke auto-follow effect skips while suspended. Stopped passing the now-removed `chapterTitle` prop to `FollowAlongPanel`; passes the new `groupNumberBySegmentId` map to `AnnotationsPanel`."
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "BatchEngineStatusResult",
-     "kind": "type"
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/useBoothPlayback.ts": {
+      "purpose": "Booth mode's karaoke active-segment/playback hook \u2014 percent-based timestamp\u2192segment mapping. Renamed port of the deleted ReviewStage/useReviewPlayback.ts (same options/return shape).",
+      "exports": [
+        {
+          "name": "useBoothPlayback",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/store/playerBus.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/index.tsx"
+      ],
+      "notes": [
+        "2026-07-14: playChapter(audioUrl, title, autoplay = true) now forwards autoplay to loadAndPlay.",
+        "2026-07-10: Booth mode's karaoke active-segment/playback hook \u2014 percent-based timestamp\u2192segment mapping. Renamed port of the deleted ReviewStage/useReviewPlayback.ts (same options/return shape)."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx": {
+      "purpose": "Cast mode tool body \u2014 voice/speaker paint assignment (swatch select, span click/drag assign, cast sidebar, render controls). Zero-prop faithful port of the deleted StudioStage.tsx.",
+      "exports": [
+        {
+          "name": "CastTool",
+          "kind": "const (DirectorsTool)"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/overlays/ConfirmModal.tsx",
+        "frontend/src/components/forms/InlineEdit.tsx",
+        "frontend/src/pages/Book/BookDataContext.tsx",
+        "frontend/src/pages/Book/lib/chapterJobs.ts",
+        "frontend/src/pages/Book/studio/AnalysisStrip.tsx",
+        "frontend/src/pages/Book/studio/CastPalette.tsx",
+        "frontend/src/pages/Book/studio/StudioHeaderActions.tsx",
+        "frontend/src/pages/Book/studio/RenderControlsStrip.tsx",
+        "frontend/src/pages/Book/studio/useStudioChapter.ts",
+        "frontend/src/pages/Book/studio/TempCharacterModal.tsx",
+        "frontend/src/pages/ChapterEditor/components/QueueNotice.tsx",
+        "frontend/src/pages/ChapterEditor/components/ResyncPreviewModal.tsx",
+        "frontend/src/pages/ChapterEditor/components/ScriptView.tsx",
+        "frontend/src/pages/ChapterEditor/components/ScriptViewFallback.tsx",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/types.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/registry.ts"
+      ],
+      "notes": [
+        "2026-07-10: replaces the deleted frontend/src/pages/Book/stages/StudioStage.tsx (directors_console_activation task 003) \u2014 same sub-components reused as-is, resolves chapter/book context internally via useSearchParams()+useBookDataContext() (zero-prop DirectorsTool contract).",
+        "Deliberately deferred (not ported): brush-size selector, variation toggle, Match Voice, Stage Direction/Performance Cue, mutation-batching \u2014 StudioStage didn't have these either; tracked in TASKS.md.",
+        "2026-07-10: Cast mode tool body \u2014 voice/speaker paint assignment (swatch select, span click/drag assign, cast sidebar, render controls). Zero-prop faithful port of the deleted StudioStage.tsx.",
+        "2026-07-10: CRITICAL: replaced the \ud83d\udd8c emoji in the floating 'painting: X' / 'clearing' chip with a lucide `Brush` icon; also dropped the word 'painting' from the visible copy ('Selected: X \u2014 click sentences to assign'). WARNING (#6, partial): registers Cast's existing `hasUnsavedChanges` (title/text edit) signal with `useDirtyGuard()` from DirtyGuardContext.tsx, mirroring WriteTool's pattern exactly, so DirectorsConsole's own rail-tab switching now prompts before discarding an unsaved chapter text edit made while in Cast mode. This does NOT cover `ChapterWorkspaceHeader`'s separate prev/next chapter-nav arrows (outside Director's Console, navigates without saving) \u2014 see flow_impact."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/DirtyGuardContext.tsx": {
+      "purpose": "Dirty-exit guard context for Director's Console tool bodies. useDirtyGuard() lets a tool body report unsaved-work state (setDirty(isDirty, message?)); DirectorsConsole owns the actual flag/useState and gates rail-tab switches on it. DirtyGuardProvider is a stateless pass-through.",
+      "exports": [
+        {
+          "name": "DirtyGuardContextValue",
+          "kind": "interface"
+        },
+        {
+          "name": "useDirtyGuard",
+          "kind": "hook"
+        },
+        {
+          "name": "DirtyGuardProvider",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/index.tsx",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/WriteTool/index.tsx",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/ReviseTool/index.tsx",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx"
+      ],
+      "notes": [
+        "2026-07-10: New context module \u2014 fixes silent data loss on rail-tab switch (WriteTool/ReviseTool uncommitted edits); tool bodies stay zero-prop (INV-1)."
+      ]
+    },
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/ReviseTool/SegmentSplitter.ts": {
+      "purpose": "Pure balanced-split algorithm for Revise mode's segment-overflow case: splits at the nearest sentence boundary to the midpoint, both halves above an 80-char floor, no split if no clean boundary exists.",
+      "exports": [
+        {
+          "name": "splitSegmentText",
+          "kind": "fn"
+        },
+        {
+          "name": "DEFAULT_MIN_FLOOR",
+          "kind": "const"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/ReviseTool/index.tsx"
+      ],
+      "notes": [
+        "Computed on the edit-commit path but not yet wired to an actual two-segment persist \u2014 see ReviseTool/index.tsx notes.",
+        "2026-07-10: Pure balanced-split algorithm for Revise mode's segment-overflow case: splits at the nearest sentence boundary to the midpoint, both halves above an 80-char floor, no split if no clean boundary exists."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/ReviseTool/index.tsx": {
+      "purpose": "Revise mode tool body \u2014 click a segment, edit its text inline, commit re-renders only that segment. Genuinely new logic (no prior UI existed); backend already supports it via update_segment's untyped text_content field.",
+      "exports": [
+        {
+          "name": "ReviseTool",
+          "kind": "const (DirectorsTool)"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/Book/BookDataContext.tsx",
+        "frontend/src/api/index.ts",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/ReviseTool/SegmentSplitter.ts",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/types.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/registry.ts"
+      ],
+      "notes": [
+        "2026-07-14: Removed the redundant `<h2>{selectedChapter?.title}</h2>` in the topbar (ChapterWorkspaceHeader already shows the title); removed the now-unused selectedChapter memo.",
+        "2026-07-10 (directors_console_activation task 005). Paragraph\u2192segment mapping confirmed NOT 1:1 (app/domain/chapters/operations.py::get_script_view_payload can group multiple segments into one paragraph) \u2014 v1 scope is segment-level editing, same unit BoothTool uses.",
+        "A true two-way split on overflow is NOT wired: no backend endpoint exists to insert a new segment row (only update_segment/update_segments_bulk) \u2014 SegmentSplitter.ts's algorithm is built+tested but the commit path always persists as one (possibly long) segment with a passive overflow indicator. Real two-segment split needs a new backend endpoint \u2014 tracked follow-up.",
+        "2026-07-10: Revise mode tool body \u2014 click a segment, edit its text inline, commit re-renders only that segment. Genuinely new logic (no prior UI existed); backend already supports it via update_segment's untyped text_content field.",
+        "2026-07-10: Calls `useDirtyGuard()`. A new effect reports `setDirty(true, 'Uncommitted segment edit')` whenever `editingId` is set and `draftText` differs from that segment's saved `text_content`, and `setDirty(false)` whenever there's no active edit (covers mount, commit, cancel, and chapter switches, all of which already reset `editingId` to null).",
+        "2026-07-10: CRITICAL #1 (keyboard activation): added `handleSegmentKeyDown` firing `handleStartEdit` on Enter or Space (`preventDefault` on Space to stop page scroll), wired via `onKeyDown` on the segment div; added a descriptive `aria-label` (`getSegmentAriaLabel` \u2014 'Edit: {first ~8 words}\u2026') so screen readers get more than a bare 'button'. CRITICAL #2 (icon cue): added a `PenLine` icon (`revise-text-view__edit-icon`) inside each segment, shown via CSS on `:hover`/`:focus-within` so keyboard focus gets the same non-color cue as mouse hover (WCAG 1.4.1). Warning #4 (focus-into-textarea): added a `textareaRef` + a `useEffect` keyed on `editingId` that focuses the textarea and places the caret at the end of the text as soon as an edit starts. Warning #5 (Escape/Cmd+Enter): added `handleTextareaKeyDown` \u2014 Escape calls the same `handleCancelEdit` the Cancel button uses; Cmd+Enter/Ctrl+Enter calls `handleCommit` (mirroring the Save button's disabled guard: no-op while saving or when the draft is empty). Warning #7 (persistent hint): topbar now renders a quiet `revise-tool__hint` caption ('Click any passage to edit \u2014 saving re-renders that segment.') in place of the editing banner while not editing."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/WriteTool/index.tsx": {
+      "purpose": "Write mode tool body \u2014 full chapter source editor. Thin wrapper around the pre-existing, unmodified ChapterTextPanel/useChapterText (same one Contents uses), giving Write mode identical produced-chapter lock/warning/resync-preview behavior.",
+      "exports": [
+        {
+          "name": "WriteTool",
+          "kind": "const (DirectorsTool)"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/Book/BookDataContext.tsx",
+        "frontend/src/pages/Book/components/ChapterTextPanel.tsx",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/types.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/registry.ts"
+      ],
+      "notes": [
+        "2026-07-14: Passes showTitle={false} to ChapterTextPanel (ChapterWorkspaceHeader already shows the title in this context).",
+        "2026-07-10 (directors_console_activation task 006) \u2014 new folder; Write mode had no scaffold at all before this (not even a placeholder) despite design-docs/workflows/chapter-editor-modes.md \u00a77b/\u00a713 specifying it as first-class v1.",
+        "2026-07-09: WriteToolBody now wraps `ChapterTextPanel` in a `.write-tool` container with a muted one-line subtitle ('Full-chapter editor \u00b7 commits re-sync voice assignments') and passes `variant=\"immediate\"`. Added `description: 'Write \u2014 rewrite the whole chapter (voices re-synced on commit)'` to the exported `WriteTool` registration for the rail tooltip. `onSaved`/`onDirtyChange` wiring to DirtyGuardContext is unchanged.",
+        "2026-07-10: Write mode tool body \u2014 full chapter source editor. Thin wrapper around the pre-existing, unmodified ChapterTextPanel/useChapterText (same one Contents uses), giving Write mode identical produced-chapter lock/warning/resync-preview behavior.",
+        "2026-07-10: Calls `useDirtyGuard()` and forwards `ChapterTextPanel`'s new `onDirtyChange` to `setDirty(dirty, 'Uncommitted chapter text edit')`, wiring the console's dirty-exit guard to the produced-chapter unlock-and-rewrite flow described in the bug report."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/index.tsx": {
+      "purpose": "Director's Console left-rail router: tool registry -> icon rail + active tool body. Mounted into BookLayout.tsx's ChapterWorkspace 2026-07-10, replacing the studio|review toggle.",
+      "exports": [
+        {
+          "name": "DirectorsConsole",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/registry.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Book/BookLayout.tsx"
+      ],
+      "notes": [
+        "2026-07-14: Added useMediaQuery('(max-width: 640px)') + MOBILE_ELIGIBLE_TOOL_IDS (currently {'booth'}); conditional render of MobileModeSwitcher (mobile) vs the existing desktop rail (unchanged); added a useEffect that redirects activeToolId to the first mobile-eligible tool when the viewport is mobile and the active tool isn't mobile-eligible.",
+        "2026-07-14: Rail tabs now use `.directors-console__rail-tab`/`--active` (left-border + tint) instead of reusing `.btn-primary`/`.btn-ghost`; renders a `.directors-console__rail-divider` between consecutive tools whose `group` differs.",
+        "registry.ts holds the ordered tool list; adding a tool means adding a registry entry, not touching the Console.",
+        "Naming collision with the demo's own DirectorsConsole (frontend/src/demo/stages/siteMockup/panes/directorsConsole.tsx) RESOLVED 2026-07-10: demo export renamed to DirectorsConsolePane (directors_console_activation task 001). This (real) component is the only remaining `DirectorsConsole` export in the codebase.",
+        "All four tools (Cast/Booth/Revise/Write) are real as of 2026-07-10; Casting Call/Script Supervisor/Plugin remain demoPlaceholder stubs.",
+        "2026-07-09: Rail button `title` now reads `tool.description ?? tool.label` (richer tooltip copy); `aria-label` stays `tool.label` (short accessible name, unchanged) so screen readers aren't forced to read a full sentence on every focus.",
+        "2026-07-10: Added `dirty`/`pendingToolId` state. Rail button clicks now go through `handleToolClick`, which stages the target tool id in `pendingToolId` and opens a `ConfirmModal` (\"Unsaved changes... Switch tabs anyway? Your changes will be lost.\", including the dirty tool's optional `message`) instead of switching immediately whenever `dirty.isDirty` is true; confirming switches tabs and resets the dirty flag, canceling leaves the current tab active. The active tool body is now rendered inside `<DirtyGuardProvider onDirtyChange={...}>` so it can report dirty state via `useDirtyGuard()`. `ActiveToolBody` itself is still rendered with zero props (INV-1 preserved)."
+      ],
+      "calls_inferred": [
+        "./registry.ts#directorsConsoleTools (CastTool/BoothTool/ReviseTool/WriteTool/placeholders.tsx via ./types.ts#DirectorsTool)"
+      ]
+    },
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/registry.ts": {
+      "purpose": "Director's Console tool registry \u2014 ordered directorsConsoleTools[] (Cast/Booth/Revise/Write + 3 future placeholders) the Console renders as its icon rail",
+      "exports": [
+        {
+          "name": "directorsConsoleTools",
+          "kind": "const"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/index.tsx",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/ReviseTool/index.tsx",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/WriteTool/index.tsx",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/placeholders.tsx",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/types.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/index.tsx"
+      ],
+      "notes": [
+        "Write added 2026-07-10 (directors_console_activation task 006), placed after ReviseTool and before the 3 placeholder/future entries \u2014 Write is first-class v1, not a placeholder.",
+        "2026-07-09: Adds Revise's tooltip description via `{ ...ReviseTool, description: 'Revise \u2014 fix one segment (other audio untouched)' }` in the registry array \u2014 deliberately done here rather than editing ReviseTool/index.tsx, which is out of scope per the task's do-not-touch list.",
+        "2026-07-10: Director's Console tool registry \u2014 ordered directorsConsoleTools[] (Cast/Booth/Revise/Write + 3 future placeholders) the Console renders as its icon rail"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/types.ts": {
+      "purpose": "Director's Console tool registration contract \u2014 DirectorsTool interface (id/label/description/icon/component/shortcut/demoPlaceholder) that each tool module's index.tsx exports one of; the registry (registry.ts) is built from these.",
+      "exports": [
+        {
+          "name": "DirectorsTool",
+          "kind": "interface"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/registry.ts",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/index.tsx"
+      ],
+      "notes": [
+        "2026-07-14: Added optional `group?: 'mode' | 'tool'` field to DirectorsTool (defaults to 'mode').",
+        "2026-07-09: Added optional `description?: string` to `DirectorsTool` \u2014 richer rail-tooltip copy, falls back to `label` when omitted."
+      ]
+    },
+    "frontend/src/pages/ChapterEditor/components/EditTab.tsx": {
+      "purpose": "Source text editor with analysis stats and long-sentence detection",
+      "exports": [
+        {
+          "name": "EditTab",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx"
+      ],
+      "notes": [
+        "sourceTextMode gates text editability"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/ChapterEditor/components/EditorTabs.tsx": {
+      "purpose": "Tab switcher between Script and Source Text modes",
+      "exports": [
+        {
+          "name": "EditorTabs",
+          "kind": "component"
+        },
+        {
+          "name": "ChapterEditorTab",
+          "kind": "type"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Book/studio/useStudioChapter.ts",
+        "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/ChapterEditor/components/PlaybackControls.tsx": {
+      "purpose": "Chapter audio playback transport controls with time display",
+      "exports": [
+        {
+          "name": "PlaybackControls",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx"
+      ],
+      "notes": [
+        "skim triggered on pointer-down, released on pointer-up/leave/cancel"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/ChapterEditor/components/QueueNotice.tsx": {
+      "purpose": "Toast-style queued notification bottom-right",
+      "exports": [
+        {
+          "name": "QueueNotice",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/ChapterEditor/components/ResyncPreviewModal.tsx": {
+      "purpose": "Modal preview of source-text resync impact",
+      "exports": [
+        {
+          "name": "ResyncPreviewModal, ResyncPreviewData",
+          "kind": "component/type"
+        }
+      ],
+      "calls": [
+        "frontend/src/hooks/useFocusTrap.ts#useFocusTrap"
+      ],
+      "called_by": [
+        "frontend/src/pages/Book/components/ChapterTextPanel.tsx",
+        "frontend/src/pages/Book/lib/useChapterText.ts",
+        "frontend/src/pages/Book/studio/useStudioChapter.ts",
+        "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx"
+      ],
+      "notes": [
+        "warns of destructive changes (lost assignments)",
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/ChapterEditor/components/ScriptView.tsx": {
+      "purpose": "Rich script/book-mode span editor with live render progress, character assignment, batch generation",
+      "exports": [
+        {
+          "name": "ScriptView",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/ChapterEditor/components/ScriptView.css",
+        "frontend/src/pages/ChapterEditor/components/VoiceProfileSelect.tsx#*",
+        "frontend/src/pages/ChapterEditor/scriptViewProgress.ts#*",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/voiceProfiles.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx"
+      ],
+      "notes": [
+        "ScriptSpanItem memo'd to avoid progress-frame cascades",
+        "F14 (2026-07-04): renderBook()/renderScript() now guard data?.paragraphs/data?.spans and return null instead of throwing when handed a malformed/partial script-view payload",
+        "2026-07-07: new optional prop liveDoneSpanIds (Set<string>, default empty) -- isReady per-span also becomes true when liveDoneSpanIds.has(span.id), the live signal that keeps a just-finished segment's text lit ahead of the next DB refetch. renderSpan also now suppresses isPending/isQueued for live-done spans (fable-review fix, same day) -- otherwise the later-in-stylesheet -pending/-queued classes at equal specificity kept the span visually dim even with the -ready class present. canPlay intentionally stays DB-backed-only (out of scope). Note: renderSpan defaults to mode='book' even inside the script-line view, so this view actually applies the -book-* class variants."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/ChapterEditor/components/ScriptViewFallback.tsx": {
+      "purpose": "Fallback UI when script view loading/unavailable",
+      "exports": [
+        {
+          "name": "ScriptViewFallback",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/ChapterEditor/ChapterEditorPage.tsx",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/ChapterEditor/components/VoiceProfileSelect.tsx": {
+      "purpose": "Reusable voice profile dropdown with grouping and disabled-state handling",
+      "exports": [
+        {
+          "name": "VoiceProfileSelect",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/utils/voiceProfiles.ts"
+      ],
+      "called_by": [
+        "frontend/src/components/CharactersTab.tsx",
+        "frontend/src/pages/Book/stages/CastingStage.tsx",
+        "frontend/src/pages/Book/studio/CastPalette.tsx",
+        "frontend/src/pages/Book/studio/TempCharacterModal.tsx",
+        "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/ChapterEditor/scriptViewProgress.ts": {
+      "purpose": "Pure rendering-progress helpers for ScriptView",
+      "exports": [
+        {
+          "name": "computeSpanRenderProgress, batchEngineStatus",
+          "kind": "function"
+        },
+        {
+          "name": "BatchEngineStatusResult",
+          "kind": "type"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [],
+      "notes": [
+        "extracted for unit-testability"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/placeholders.tsx": {
+      "purpose": "CastingCallPlaceholder/ScriptSupervisorPlaceholder/PluginPlaceholder now declare group: 'tool'.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 CastingCallPlaceholder/ScriptSupervisorPlaceholder/PluginPlaceholder now declare group: 'tool'."
+      ]
+    },
+    "frontend/src/pages/ChapterEditor/components/useChapterStatus.ts": {
+      "purpose": "New file (194 lines): the pure status hook extracted from ChapterHeader.tsx, no JSX.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New file (194 lines): the pure status hook extracted from ChapterHeader.tsx, no JSX."
+      ]
+    },
+    "frontend/src/pages/ChapterEditor/components/ChapterTopBar.tsx": {
+      "purpose": "New file (120 lines): title/breadcrumb/nav/export-menu component extracted from ChapterHeader.tsx.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New file (120 lines): title/breadcrumb/nav/export-menu component extracted from ChapterHeader.tsx."
+      ]
+    },
+    "frontend/src/pages/ChapterEditor/components/ChapterScriptToolbar.tsx": {
+      "purpose": "New file (314 lines): toolbar buttons + audio playback + progress bar wiring extracted from ChapterHeader.tsx, including its local BarMountInstrumentation helper.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New file (314 lines): toolbar buttons + audio playback + progress bar wiring extracted from ChapterHeader.tsx, including its local BarMountInstrumentation helper."
+      ]
+    },
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/MobileModeSwitcher.tsx": {
+      "purpose": "New presentational component: MobileModeSwitcherProps { tools: Array<{ id, label, icon: LucideIcon }>, activeToolId, onSelect }. Renders one role=\"tab\" button per tools entry inside a role=\"tablist\" c",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New presentational component: MobileModeSwitcherProps { tools: Array<{ id, label, icon: LucideIcon }>, activeToolId, onSelect }. Renders one role=\"tab\" button per tools entry inside a role=\"tablist\" container, aria-current/aria-selected reflecting activeToolId, onSelect(id) on click."
+      ]
     }
-   ],
-   "calls": [
-    "frontend/src/types/index.ts"
-   ],
-   "called_by": [],
-   "notes": [
-    "extracted for unit-testability"
-   ],
-   "calls_inferred": []
   }
- }
 }

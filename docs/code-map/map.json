@@ -1,30 +1,30 @@
 {
   "meta": {
-    "synced_commit": "59cbaf76f1d0790852e2cf87051fb0e0895c6577",
+    "synced_commit": "f81ab004693ed8d47c23833770e82233cdceae4e",
     "shards": [
       {
         "prefix": "frontend/src/pages/ChapterEditor/",
         "path": "shards/files.frontend-src-pages-ChapterEditor.json",
-        "files": 24,
-        "bytes": 31948
+        "files": 29,
+        "bytes": 38212
       },
       {
         "prefix": "frontend/src/pages/Voices/",
         "path": "shards/files.frontend-src-pages-Voices.json",
-        "files": 26,
-        "bytes": 23140
+        "files": 28,
+        "bytes": 29430
       },
       {
         "prefix": "frontend/src/components/",
         "path": "shards/files.frontend-src-components.json",
         "files": 36,
-        "bytes": 34105
+        "bytes": 37006
       },
       {
         "prefix": "frontend/src/pages/Book/",
         "path": "shards/files.frontend-src-pages-Book.json",
         "files": 32,
-        "bytes": 50180
+        "bytes": 53432
       },
       {
         "prefix": "app/studio_plugin_sdk/",
@@ -41,38 +41,38 @@
       {
         "prefix": "frontend/src/hooks/",
         "path": "shards/files.frontend-src-hooks.json",
-        "files": 37,
-        "bytes": 31534
+        "files": 40,
+        "bytes": 35788
       },
       {
         "prefix": "frontend/src/pages/",
         "path": "shards/files.frontend-src-pages.json",
-        "files": 69,
-        "bytes": 60822
+        "files": 83,
+        "bytes": 84370
       },
       {
         "prefix": "frontend/src/store/",
         "path": "shards/files.frontend-src-store.json",
         "files": 9,
-        "bytes": 11496
+        "bytes": 11666
       },
       {
         "prefix": "frontend/src/theme/",
         "path": "shards/files.frontend-src-theme.json",
-        "files": 13,
-        "bytes": 19231
+        "files": 14,
+        "bytes": 24452
       },
       {
         "prefix": "frontend/src/utils/",
         "path": "shards/files.frontend-src-utils.json",
-        "files": 25,
-        "bytes": 20460
+        "files": 27,
+        "bytes": 21988
       },
       {
         "prefix": "app/orchestration/",
         "path": "shards/files.app-orchestration.json",
         "files": 27,
-        "bytes": 42549
+        "bytes": 43191
       },
       {
         "prefix": "frontend/src/demo/",
@@ -84,19 +84,19 @@
         "prefix": "plugins/tts_mixed/",
         "path": "shards/files.plugins-tts_mixed.json",
         "files": 3,
-        "bytes": 4037
+        "bytes": 4710
       },
       {
         "prefix": "frontend/src/api/",
         "path": "shards/files.frontend-src-api.json",
         "files": 9,
-        "bytes": 11886
+        "bytes": 12195
       },
       {
         "prefix": "frontend/src/app/",
         "path": "shards/files.frontend-src-app.json",
-        "files": 22,
-        "bytes": 27845
+        "files": 26,
+        "bytes": 31645
       },
       {
         "prefix": "plugins/tts_xtts/",
@@ -114,7 +114,7 @@
         "prefix": "app/engines/",
         "path": "shards/files.app-engines.json",
         "files": 21,
-        "bytes": 24106
+        "bytes": 24626
       },
       {
         "prefix": "app/storage/",
@@ -125,8 +125,8 @@
       {
         "prefix": "app/domain/",
         "path": "shards/files.app-domain.json",
-        "files": 50,
-        "bytes": 28202
+        "files": 51,
+        "bytes": 33718
       },
       {
         "prefix": "app/utils/",
@@ -149,20 +149,20 @@
       {
         "prefix": "app/api/",
         "path": "shards/files.app-api.json",
-        "files": 33,
-        "bytes": 41521
+        "files": 41,
+        "bytes": 50781
       },
       {
         "prefix": "app/db/",
         "path": "shards/files.app-db.json",
-        "files": 26,
-        "bytes": 59657
+        "files": 30,
+        "bytes": 63783
       },
       {
         "prefix": "",
         "path": "shards/files._misc.json",
-        "files": 14,
-        "bytes": 16010
+        "files": 62,
+        "bytes": 47424
       }
     ],
     "unmapped": [
@@ -314,7 +314,7 @@
     {
       "id": "parallel-segment-fanout",
       "path": [
-        "app/api/routers/generation.py#_build_chapter_synthesis_task",
+        "app/api/routers/generation_shared.py#_build_chapter_synthesis_task",
         "app/orchestration/tasks/segment_synthesis.py#ChapterSynthesisTask.run",
         "app/orchestration/scheduler/orchestrator_helpers.py#_dispatch (is_chapter_fanout branch -> task.run() directly)",
         "app/orchestration/tasks/segment_synthesis.py#make_dispatch_segment_bridge_call -> _SyntheticSegmentTask (skip_registry_dispatch=True)",

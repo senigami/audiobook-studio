@@ -23,6 +23,8 @@
         "frontend/src/pages/Activity/index.ts"
       ],
       "notes": [
+        "2026-07-14: Moved the History filter chip row (All/Renders/Samples/API) out of the top of the page and into a `historyFilterControls` node passed to GlobalQueue, rendered directly above the 'Completed / Failed History' header it filters. Relabeled its heading from 'History' to 'Filter' now that it sits inside the History section.",
+        "2026-07-12: Calls useEngineConcurrency() and passes engineCaps down to GlobalQueue.",
         "history filter state All/Renders/Samples/API",
         "Task 008 (2026-07-11): replaced DEV_FIXTURE_RENDER_MONITOR_JOB with a real active-job selection (first job in an active status with a chapter_id) fed through useSegmentInventory; SegmentRenderMonitor now renders real segments when devMode is on and an active job exists (still dev-gated). devSegmentRenderMonitorFixture.ts is no longer imported here but intentionally left on disk pending verification. cap is a documented best-effort constant (1) pending a real per-job cap field.",
         "Task 010 (2026-07-11): wires SegmentRenderMonitor's onRetry prop to api.generateSegments([segmentId]) -- the same per-segment (re)generation endpoint ScriptView/BoothTool/ReviseTool already use; there is no server-side 'retry' verb, so this IS the real per-segment retry granularity available today. Calls onRefresh() after a successful requeue.",
@@ -51,6 +53,7 @@
         "frontend/src/pages/Activity/ActivityPage.tsx"
       ],
       "notes": [
+        "2026-07-14: Swapped the hand-rolled uppercase label span for the existing .activity-page__stats-title class (reuse, no new styles).",
         "confidence color: success>=70%, warning>=30%, muted<30%"
       ],
       "calls_inferred": []
@@ -285,6 +288,7 @@
       ],
       "called_by": [],
       "notes": [
+        "2026-07-14: New verifyElapsedSec state plus a useEffect keyed on `verifying` that starts a 1s setInterval computing elapsed time from performance.now() and resets to 0 when verifying goes false. The Verify button's label and title attribute now interpolate this value while verifying is true.",
         "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change.",
         "Task 012 (2026-07-11): new optional settings?: Settings prop. Adds a per-engine 'Concurrent Renders' override control reading/writing tts_engine_caps[engine.engine_id], clamped client-side to engine.behavior.max_concurrent_workers (falls back to DEFAULT_ENGINE_CAP_CEILING=8). handleSaveEngineCap posts raw JSON to POST /api/settings with {tts_engine_caps: {...existing, [engine_id]: clamped}}, merging with (not clobbering) other engines' overrides -- a separate write path from api.updateEngineSettings. UI copy notes the change takes effect on next app restart (WarmWorkerManager cap-freeze caching, out of scope per task 014)."
       ],
@@ -765,6 +769,7 @@
         "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx"
       ],
       "notes": [
+        "2026-07-14: 2-line title clamp (was nowrap+ellipsis); flat dashed var(--surface-alt) 'Add cover' placeholder (was bright accent gradient); omit author line when absent (was 'No author specified'); dropped Created line, kept only Updated.",
         "2026-07-08: new onOpenDetails(id) prop renders a 'Details' button (stopPropagation'd) that routes to the project details view, alongside the existing whole-card click-to-open behavior.",
         "2026-07-11 (task 003): ActionMenu call switched from legacy onDelete-only mode to items=[Open, Delete]. Added a hover-lazy api.fetchProjectAudiobooks(project.id) call and a centered hover-reveal play/pause overlay on the cover, wired to the global playerBus (loadAndPlay/play/pause, scope 'book'); disabled with a 'Nothing rendered yet' tooltip when no assembled audiobook exists (adversarial-review constraint: never redirects to Publish). Details button unchanged (INV-1).",
         "2026-07-11 (task 005): renders <ProjectStatusPill status={project.status} /> next to the project title when project.status is present.",
@@ -886,6 +891,8 @@
         "frontend/src/app/App.tsx"
       ],
       "notes": [
+        "2026-07-14: Wrapped the grid/list conditional render in AnimatePresence + per-branch motion.div (key='grid'|'list') with a 0.15s opacity transition scoped to that container only, gated by framer-motion's useReducedMotion() (instant swap, no fade, when the user prefers reduced motion). Previously the per-card ProjectCard entrance animations replaying on every full remount read as a whole-page fade.",
+        "2026-07-14: Adopted useFocusTrap for the shared Create-Project modal (two mutually-exclusive render sites -- empty vs populated library state -- driven by one showModal boolean, wired to one shared ref/trap call).",
         "2026-07-08: create-project form gained a series <datalist> (id=project-series-suggestions, populated from the hook's existingSeries) attached to both the grid-view and list-view series inputs, plus a 'Series position' input seeded with the hook's suggestion placeholder. ProjectCard/ProjectListView now receive onOpenDetails={handleOpenProjectDetails}, routing to /project/:id/details.",
         "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change.",
         "2026-07-11 (tasks 004+007): deleted the unreachable second 'projects.length === 0' branch (dead 'No projects found' state, already handled by an earlier early return). Added coverSizeIdx state (persisted via lib/coverSize.ts) threaded into the grid's gridTemplateColumns.",
@@ -913,6 +920,7 @@
         "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx"
       ],
       "notes": [
+        "2026-07-14: Removed the 'Recent' quick-filter chip (duplicated the sort dropdown's 'Recently Updated' default); kept A-Z and In Progress. Added a visible 'Card size' text label next to the cover-size range input.",
         "2026-07-08: sortOption/onSortOptionChange types and the sort <select> gained a 'series-asc' ('Series A-Z') option alongside updated-desc/created-desc/title-asc/title-desc.",
         "2026-07-11 (tasks 004+007): added an 'All Books' section-header row: Recent/A-Z quick-filter chips (call the existing onSortOptionChange, supplement rather than replace the sort dropdown) and a cover-size range input (grid view only, via lib/coverSize.ts). LibraryControlsProps changed.",
         "2026-07-11 (task 005): the previously-hidden 'In Progress' quick-filter chip is now rendered and wired: LibraryControlsProps gained statusFilter/onStatusFilterChange (StatusFilter = 'all' | 'in-progress'); toggles statusFilter, aria-pressed reflects state."
@@ -936,6 +944,7 @@
         "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx"
       ],
       "notes": [
+        "2026-07-14: Added classNames (list-cell-project/title-row/status-mobile/status-desktop/series/created/actions) consumed by new ProjectListView.css for a <640px stacked mobile layout; omit author line instead of 'Unknown Author' when absent; Actions <th> now has visible text with the same style as sibling headers.",
         "2026-07-08: new onOpenDetails(projectId) prop adds a 'Project Details' entry to each row's ActionMenu, ahead of 'Open Project'/'Delete Project'.",
         "2026-07-11 (task 005): added a Status column (header + per-row <ProjectStatusPill>) between Project and Series columns."
       ],
@@ -1009,7 +1018,9 @@
       "called_by": [
         "frontend/src/pages/Settings/SettingsRoute.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-14: Status-card row switched from an inline auto-fit grid to the new about-status-grid CSS class (explicit 3 columns, stacks at 640px). Frontend Client/Backend Runtime/Orchestrator rows and the runtime_services 'Backend API' entry now gated behind Developer Mode (useDevMode). Rewrote the diagnostic-dump footer paragraph to plain user language. Toned down two fontWeight:900 instances to 700/600."
+      ],
       "calls_inferred": [
         "frontend/src/api#api.fetchHome,api.resetRenderStats"
       ]
@@ -1050,6 +1061,8 @@
         "frontend/src/pages/Settings/SettingsRoute.tsx"
       ],
       "notes": [
+        "2026-07-14: Default Engine option label no longer double-appends '(Local)'/'(Cloud)' when display_name already ends with that suffix. Rewrote the 'Settings is intentionally thin' banner copy. Toned down section-heading fontWeight from 900 to 600.",
+        "2026-07-12: New 'Publishing' section: a Hugging Face access token field (password input + Save/Clear button) posting to POST /api/settings, matching the existing _SECRET_FIELDS redaction pattern (real value never round-trips; a 'Configured' badge shown when settings.huggingface_token === '***').",
         "gained a 'Parallel Segment Rendering' toggle (2026-07-06) posting {tts_parallel_cap: 1|2} as JSON to /api/settings via a dedicated updateParallelCap() helper \u2014 the form-encoded updateBooleanSetting/updateStringSetting helpers can't carry this field, since app/api/routers/system.py only parses tts_parallel_cap from the JSON body branch, not the form branch",
         "Task 012 (2026-07-11): replaces the binary 1/2 tts_parallel_cap ToggleButton with a real numeric stepper input (1-8, MAX_GLOBAL_PARALLEL_CAP matching MAX_GLOBAL_CONCURRENT_SYNTHESIS in app/orchestration/scheduler/resources.py), client-side clamped before calling the existing updateParallelCap() write (unchanged POST /api/settings {tts_parallel_cap} shape)."
       ],
@@ -1096,7 +1109,9 @@
         "frontend/src/pages/Settings/SettingsRoute.tsx",
         "frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-14: ToggleButton reimplemented as an Apple-style switch (role=switch, aria-checked, track+knob) instead of a filled ON/OFF pill -- shared with Engines page. StatusCard's decorative bottom accent bar removed (tone/getBadgeStyles props kept for back-compat, no longer render anything). NumberStepper segments/input given className hooks (number-stepper-segment/-input) for a new mobile breakpoint stylesheet."
+      ],
       "calls_inferred": [
         "frontend/src/api#api.restartTtsServer"
       ]
@@ -1130,7 +1145,9 @@
       "called_by": [
         "frontend/src/pages/Settings/components/SettingsComponents.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-14: General tab subtitle rewritten to match what's actually on the tab (no longer promises 'maintenance actions')."
+      ],
       "calls_inferred": []
     },
     "frontend/src/pages/Settings/settingsRouteHelpers.ts": {
@@ -1174,6 +1191,13 @@
         "frontend/src/app/App.tsx"
       ],
       "notes": [
+        "2026-07-15: Wires VariantsTab as the Variants tabpanel's content. Adds real requestConfirm/confirmConfig state + a rendered ConfirmModal, and calls useVoiceManagement(onRefresh, profiles, requestConfirm, jobs) for real buildingProfiles/handleBuildNow/handleUpdateSettings instead of carrying forward the pre-task-001 stub props. Derives the default variant (getDefaultVoiceProfileName) for the promoted Voice Settings panel and threads its settings/isSaving/onSave state. `jobs` prop is now read directly (previously renamed `_jobs` and unused pre-task-004).",
+        "2026-07-15: Lifted activeTabId state, passed as VoiceDetailTabs' controlled activeTabId/onTabChange. Wired TestTab as the Test tabpanel (profiles/engines/testProgress/jobs/onTest/onRefresh/voiceName/attributes). Wired VariantsTab's onEditTestText={() => setActiveTabId('test')}. Replaced remaining _testProgress-underscore stub with the real testProgress/jobs props (now read by TestTab).",
+        "2026-07-15: Imports SamplesTab and wires it as the Samples tabpanel's `content` in the `detailTabs` array (replacing the placeholder paragraph), passing the same `profiles`/`onRefresh` the page already had in scope. Updated the surrounding placeholder-tabs comment to reflect that Samples is no longer a placeholder (Overview/Variants/Test still are, per tasks 002/004/005).",
+        "2026-07-15: Removed MetadataEditorModal import/usage and the metadataEditorOpen state; wires OverviewTab (with the same untagged-voice metadata fallback the modal used) as the Overview tabpanel's content, passing handleMetadataSaved as onSaved. Removed the onEditMetadata prop passed to VoiceDetailHeader.",
+        "2026-07-15: Replaced the returned JSX (previously :141-330) with <VoiceDetailHeader> + <VoiceDetailTabs> (4 empty placeholder tabpanels: Overview/Samples/Variants/Test). Added an inline handleSetDefault (POST /api/settings/default-speaker, mirrors hooks/useVoiceManagement.ts) since this page doesn't receive that hook as a prop and this task's scope doesn't add new props. Removed the lazy SamplesSection/VariantsSection/TestSection imports and the VoiceIconControls render (no longer rendered directly -- deferred to tasks 002-005 per the task's explicit out-of-scope note); jobs/testProgress props are kept in VoiceLabPageProps (unread here, renamed to _jobs/_testProgress) so those tasks can wire them without another prop-plumbing pass.",
+        "2026-07-14: Added isMobile (window.innerWidth<=640) state to cap the header VoicePillRow at max=6 on mobile; moved VoiceIconControls out of the header into a new 'Voice Icon' section in voice-lab-page__sections.",
+        "2026-07-12: Replaced the disabled/decorative 'Publish to Hugging Face ... planned' pill with a real button opening PublishToHuggingFaceModal. The backend (POST /api/voices/huggingface/upload) and frontend API client (api.uploadHfVoice) already existed and worked -- only the UI trigger was missing.",
         "sections lazy-loaded with Suspense"
       ],
       "calls_inferred": [
@@ -1197,7 +1221,9 @@
       "called_by": [
         "frontend/src/pages/VoiceLab/VoiceLabPage.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-14: PHASE_INDEX now maps 'building' to the same index as 'build' (required by the VoicePhase union change)."
+      ],
       "calls_inferred": [
         "pages/Voices/voicePhase"
       ]
@@ -1218,7 +1244,9 @@
       "called_by": [
         "frontend/src/pages/VoiceLab/VoiceLabPage.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-12: Added a stable module-level EMPTY_PROFILE placeholder; useVariantActions is now called with `profile ?? EMPTY_PROFILE` instead of a possibly-undefined `profile`, since hooks can't be called conditionally. The real `profile` variable still drives the existing '!profile -> No profile found' empty-state branch, unchanged."
+      ],
       "calls_inferred": [
         "pages/Voices/components/SampleManager"
       ]
@@ -1239,7 +1267,9 @@
       "called_by": [
         "frontend/src/pages/VoiceLab/VoiceLabPage.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-15: Added optional onActiveProfileChange?: (profile) => void prop, fired via useEffect keyed on the selected variant's name -- lets TestTab keep its folded-in ScriptEditor fields in sync with whichever variant the 'Variant' dropdown has selected. No change to existing behavior/props otherwise."
+      ],
       "calls_inferred": [
         "store/playerBus#*",
         "utils/voiceProfiles#*"
@@ -1354,6 +1384,7 @@
       "calls": [],
       "called_by": [],
       "notes": [
+        "2026-07-14: welcome-cta-secondary gets text-decoration:none (now an anchor). welcome-doc-card__label switched from nowrap+ellipsis to overflow-wrap:break-word so labels wrap instead of truncating mid-word at 1280px.",
         "2026-07-11 (task 002): .welcome-cta-secondary dropped text-decoration:none (no longer an anchor) and gained font-family:inherit (buttons don't inherit font by default)."
       ],
       "calls_inferred": []
@@ -1371,6 +1402,7 @@
         "frontend/src/app/App.tsx"
       ],
       "notes": [
+        "2026-07-14: DocCard now takes a real `href` (target=_blank, rel=noopener) instead of href='#'; all 4 Learn More cards wired to real https://senigami.github.io/audiobook-studio/handbook/ URLs (per README's published GH Pages site -- docs/ is not mounted by the local app server). 'View Documentation' changed from an inert <button> to a real external <a>. Hero subtitle/badges rewritten from marketing copy to task-oriented first-run copy per voice-tone.md; Getting Started steps left unchanged.",
         "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change.",
         "2026-07-11 (North Star task 002): CTA row (primary 'Enter Library' + secondary 'View Documentation') moved to directly follow the hero's status chips (before 'Getting started'), matching the demo's splash.tsx layout. Secondary CTA converted from <a href=\"#\"> to <button type=\"button\" className=\"welcome-cta-secondary\">."
       ],
@@ -1409,6 +1441,7 @@
         "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx"
       ],
       "notes": [
+        "2026-07-14: Returns null when bookmarks.length === 0 instead of rendering a collapsed-but-present empty-state panel above Continue.",
         "2026-07-11 (task 010 Gate 2, owner sign-off): uses useBookmarks() (all bookmarks, no bookId filter) and the shared BookmarkList, with each row's secondary text set to the owning book's Project.name (looked up from the `projects` prop). Row click calls setLastChapter(bookId, chapterId) + navigate via react-router's useNavigate; remove calls removeBookmark directly.",
         "2026-07-12: filters out kind==='auto' bookmarks locally (useBookmarks() is raw/unfiltered by design) so the new continue-listening resume marker (store/bookmarks.ts) never appears in this user-facing list."
       ],
@@ -1447,6 +1480,18 @@
           "name": "SystemResourceStrip",
           "kind": "component",
           "contract": "props: samples: SystemResourceSample[], hasVram: boolean, loading?: boolean. Renders CPU+RAM rows always, VRAM row only when hasVram (absent from DOM, not CSS-hidden). No-data placeholder shows '--'. High-pressure (pct>=90 sustained 2+ samples) turns that row's dot+value amber, row-scoped only. Sparkline svg is aria-hidden; each row has a visually-hidden accessible text span; no aria-live anywhere (a value updating every 2s must not spam screen readers)."
+        },
+        {
+          "name": "pressureTier (internal)",
+          "kind": "unknown"
+        },
+        {
+          "name": "scaleY (internal)",
+          "kind": "unknown"
+        },
+        {
+          "name": "buildSparklineAreaPath (internal)",
+          "kind": "unknown"
         }
       ],
       "calls": [],
@@ -1456,7 +1501,142 @@
       ],
       "flows": [],
       "notes": [
+        "2026-07-12: Added buildSparklineAreaPath() (baseline-anchored fill path, closes at SPARK_HEIGHT), a scaleY() helper factored out of the existing point-scaling math, and pressureTier() (3-tier: normal <70 / elevated >=70 current-value / hot sustained>=90 for 2 samples, reusing existing isSustainedHighPressure). ResourceRow now renders a dashed threshold reference line at the 90% mark, a semi-transparent tier-colored area fill under the line, and colors the polyline/dot/value text by tier instead of only swapping the trailing dot between two colors. Follow-up in the same file: each row now also renders a `system-resource-strip__meter-row` below the sparkline -- a thin horizontal bar (`system-resource-strip__meter`) whose fill width tracks the current pct and whose CSS `transition: width` (in activity.css) animates smoothly between the ~2s polling ticks instead of snapping.",
         "2026-07-12: designed via the designer agent against Quiet Studio tokens (no new colors -- var(--color-wave)/var(--accent)/var(--warning-text-strong) only). Sparkline uses viewBox+preserveAspectRatio to stretch to the row's full width rather than a fixed pixel size (fixed same day after a layout-space complaint)."
+      ]
+    },
+    "frontend/src/pages/VoiceLab/components/PublishToHuggingFaceModal.tsx": {
+      "purpose": "New 'generating' result state (spinner + message + Cancel). On receiving it, auto-retries the publish call every 4s (GENERATING_RETRY_MS), bounded at 20 attempts (~80s, GENERATING_MAX_ATTEMPTS) before",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-12: New component. Repo-id input -> api.uploadHfVoice -> success state (Hub link + commit id) or error state (422/502 message surfaced verbatim, e.g. 'no token configured').",
+        "2026-07-12: NEW FILE \u2014 New 'generating' result state (spinner + message + Cancel). On receiving it, auto-retries the publish call every 4s (GENERATING_RETRY_MS), bounded at 20 attempts (~80s, GENERATING_MAX_ATTEMPTS) before surfacing a 'taking longer than expected' error. Retry timer is cleared on modal close/unmount so it can never keep polling after the user navigates away."
+      ]
+    },
+    "frontend/src/pages/ProjectLibrary/components/ProjectListView.css": {
+      "purpose": "New file: @media (max-width: 640px) rules collapsing the table to stacked cards (title+status row, meta row, absolutely-positioned actions overflow menu).",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New file: @media (max-width: 640px) rules collapsing the table to stacked cards (title+status row, meta row, absolutely-positioned actions overflow menu)."
+      ]
+    },
+    "frontend/src/pages/Settings/components/SettingsComponents.css": {
+      "purpose": "New file: bumps NumberStepper segments/input to 44px at <=640px viewport widths.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New file: bumps NumberStepper segments/input to 44px at <=640px viewport widths."
+      ]
+    },
+    "frontend/src/pages/Settings/components/AboutSettingsPanel.css": {
+      "purpose": "New file: about-status-grid explicit 3-column layout with a 640px single-column breakpoint.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New file: about-status-grid explicit 3-column layout with a 640px single-column breakpoint."
+      ]
+    },
+    "frontend/src/pages/VoiceLab/components/record/ArchetypePicker.tsx": {
+      "purpose": "New component. Reduced picker exposing ONLY class/gender/age/pace (OneSelect) and tone/timbre (ManySelect) -- the 6 fields scoreArchetype() actually uses -- reusing the existing OneSelect/ManySelect c",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 New component. Reduced picker exposing ONLY class/gender/age/pace (OneSelect) and tone/timbre (ManySelect) -- the 6 fields scoreArchetype() actually uses -- reusing the existing OneSelect/ManySelect components and getSection() lookup from Voices/components/metadata/taxonomy.ts. Includes a Skip button (onSkip callback)."
+      ]
+    },
+    "frontend/src/pages/VoiceLab/components/record/RecordingCueCard.tsx": {
+      "purpose": "New component. Calls suggestRecordingPrompt(attrs) unmodified. Since suggestRecordingPrompt() returns null for the true zero-selection case (hasMeaningfulAttrs gate) -- distinct from composeFallback()",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 New component. Calls suggestRecordingPrompt(attrs) unmodified. Since suggestRecordingPrompt() returns null for the true zero-selection case (hasMeaningfulAttrs gate) -- distinct from composeFallback(), which only runs once some attrs are set but none score a close match, and always returns a real prompt -- this component supplies its own GENERIC_SKIP_PROMPT/GENERIC_SKIP_DIRECTION strings for that null case so the card never renders empty."
+      ]
+    },
+    "frontend/src/pages/VoiceLab/components/SamplesTab.tsx": {
+      "purpose": "Added an Upload | Record mode toggle (role=tablist). Upload mode is unchanged (renders SamplesSection). Record mode renders ArchetypePicker (state-lifted ArchetypeAttrs) + RecordingCueCard, with a Ski",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: New thin wrapper component: renders a `samples-tab` div containing a comment marking the future Record-mode toggle insertion point, then `<SamplesSection {...props} />`. Props are exactly `SamplesSectionProps` (profiles, onRefresh), unchanged.",
+        "2026-07-15: Swaps the bare <RecordControls /> for <TakeManager onFinalize={uploadFiles} />, wiring the existing useVariantActions uploadFiles sink (unchanged) as the finalize callback.",
+        "2026-07-15: Mounts <RecordControls /> below RecordingCueCard in Record mode. Adds a Space-key handler on the record-mode container that clicks the record/stop button via a data-record-toggle-btn selector (covers the container beyond the button's own native Space handling, e.g. right after using the archetype picker); ignored when focus is on a form control. Enter=keep/R=retake are left for task 009 to add to this same keydown surface.",
+        "2026-07-15: NEW FILE \u2014 Added an Upload | Record mode toggle (role=tablist). Upload mode is unchanged (renders SamplesSection). Record mode renders ArchetypePicker (state-lifted ArchetypeAttrs) + RecordingCueCard, with a Skip flag that switches the cue card to the zero-selection generic prompt path. Leaves a comment marking where task 008's capture UI (record/stop/level-meter) will mount below the cue card."
+      ]
+    },
+    "frontend/src/pages/VoiceLab/components/record/RecordControls.tsx": {
+      "purpose": "New component wrapping useMicRecorder. Record/stop button's accessible name (aria-label) changes with state (not just visual icon). Explicit one-shot aria-live announcements for 'Recording started' / ",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: Adds the captured-state UI on top of task 008's record/stop primitive: decodes the captured blob and runs checkSampleQuality, shows the verdict (pass/fail + reason), a 'Play back' control, and the Keep/Retake button group that now actually calls onKeep(blob)/onRetake() (previously accepted-but-unused props) then rec.reset(). Implements this task's two owned INV-REC-4 focus transitions: stopped->playback (focus moves to the Play back button on activation) and playback->keep/retake (focus lands on the Keep button on audio onEnded/onPause).",
+        "2026-07-15: NEW FILE \u2014 New component wrapping useMicRecorder. Record/stop button's accessible name (aria-label) changes with state (not just visual icon). Explicit one-shot aria-live announcements for 'Recording started' / 'Recording stopped, N seconds captured' / permission-denied, plus a SEPARATE throttled (2.5s) aria-live channel driven by its own polling interval (not an effect keyed on levelDb, since a sustained near-constant level wouldn't retrigger a value-change effect) that does real silence detection over a rolling window of recent level readings vs a floor threshold. Explicit 'why we need this' explanation rendered before any getUserMedia call (visible in idle/permission-denied). Focus returns to the record button on the record->stopped transition (this task's slice of INV-REC-4 -- task 009 owns the other two transitions, stopped->playback and playback->keep/retake). onKeep/onRetake are accepted per the task's target shape but intentionally unused here (task 009's scope)."
+      ]
+    },
+    "frontend/src/pages/VoiceLab/components/record/TakeManager.tsx": {
+      "purpose": "New. Wraps RecordControls; onKeep appends a take (never replaces in place), onRetake is a no-op at this layer (RecordControls already reset itself, no prior take touched), per-take Discard button remo",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 New. Wraps RecordControls; onKeep appends a take (never replaces in place), onRetake is a no-op at this layer (RecordControls already reset itself, no prior take touched), per-take Discard button removes only that take. Enter (keep)/R (retake) keyboard shortcuts wired at the container level, deferring to the actual Keep/Retake buttons so the quality gate is respected. Finalize transcodes every kept take to WAV and assigns each a unique filename (timestamp + index + random suffix) before calling the existing uploadFiles sink unchanged."
+      ]
+    },
+    "frontend/src/pages/VoiceLab/components/VoiceDetailTabs.tsx": {
+      "purpose": "New generic ARIA tabs primitive. No existing tabs primitive was found under components/ui/ (re-checked, none). Relies on this repo's existing global keyboard-focus-visible ring (theme/base.css button:",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: Added optional controlled-mode props (activeTabId, onTabChange), backward-compatible with the existing fully-uncontrolled mode (no existing callers/tests pass these, all continue to pass). Lets VoiceLabPage switch tabs programmatically from outside the tablist.",
+        "2026-07-15: NEW FILE \u2014 New generic ARIA tabs primitive. No existing tabs primitive was found under components/ui/ (re-checked, none). Relies on this repo's existing global keyboard-focus-visible ring (theme/base.css button:focus-visible/[tabindex]:focus-visible) rather than inventing a new focus-ring convention -- confirmed no local CSS suppresses it for the new .voice-detail-tabs__tab class."
+      ]
+    },
+    "frontend/src/pages/VoiceLab/components/VoiceDetailHeader.tsx": {
+      "purpose": "New header component: avatar/name/edit-metadata/pills/description (relocated unchanged from VoiceLabPage.tsx), primary actions row (Play preview + Set as default -- new, self-contained, mirroring Voic",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: Removed the onEditMetadata prop and the 'Edit metadata' button (Pencil icon) -- metadata is now always editable inline in the Overview tab, so there is nothing left for the header trigger to open. Documented in the file's header comment.",
+        "2026-07-15: NEW FILE \u2014 New header component: avatar/name/edit-metadata/pills/description (relocated unchanged from VoiceLabPage.tsx), primary actions row (Play preview + Set as default -- new, self-contained, mirroring VoiceCatalogCard.tsx/useVoiceManagement.ts's existing patterns; Export bundle/Publish to Hugging Face/Delete voice -- relocated unchanged from the old footer), and a new persistent status strip (INV-VC-4) built from SpeakerProfile.is_ready/is_rebuild_required/preview_url only -- no timestamp is shown since SpeakerProfile has no persisted last-test-timestamp field (checked api/types.ts) and fabricating one was rejected."
+      ]
+    },
+    "frontend/src/pages/VoiceLab/components/OverviewTab.tsx": {
+      "purpose": "New component: same state shape/handlers as MetadataEditorModal (attrs, tags, description, languages, iconPath, saving, error, iconError), same handleSave -> api.patchVoiceMetadata(voice.id, patch), s",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 New component: same state shape/handlers as MetadataEditorModal (attrs, tags, description, languages, iconPath, saving, error, iconError), same handleSave -> api.patchVoiceMetadata(voice.id, patch), same requiredMissing gating. Renders IconUpload, description textarea, languages input, OneSelect x5, ManySelect x6, TagsInput, error banner, and an explicit Save button -- no dialog chrome, no useFocusTrap, no Escape handling. Explicit-Save (not autosave-on-change) was chosen and documented in the file's header comment: no debounce infra exists, autosave-per-field-change would spam PATCH calls, and would lose the single commit point needed to surface 422 errors cleanly."
+      ]
+    },
+    "frontend/src/pages/VoiceLab/components/TestTab.tsx": {
+      "purpose": "New: composes TestSection (unchanged, relocated) with ScriptEditor (reused directly, no Drawer wrapper) sharing the same 'active profile' via TestSection's new onActiveProfileChange callback. Implemen",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 New: composes TestSection (unchanged, relocated) with ScriptEditor (reused directly, no Drawer wrapper) sharing the same 'active profile' via TestSection's new onActiveProfileChange callback. Implements its own save/reset handlers (POST /api/speaker-profiles/{name}/settings, /reset-test-text, /variant-name, /rename) mirroring useVoicesTabActions.ts's handleSaveTestText/handleResetTestText exactly, since VoiceLabPage doesn't share that hook (scoped to the legacy VoicesPage catalog tab)."
+      ]
+    },
+    "frontend/src/pages/VoiceLab/components/VariantsTab.tsx": {
+      "purpose": "Un-omitted onEditTestText from VariantsTabProps (previously Omit<VariantsSectionProps, 'onEditTestText'> with a TODO(task 005) comment left by task 004) so it now passes through to VariantsSection/Var",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: New composition wrapper: renders VariantsSection plus a promoted VoiceSettingsPanel (edits the voice group's default variant's settings, filtered to the active engine's declared synthesis_settings on save).",
+        "2026-07-15: NEW FILE \u2014 Un-omitted onEditTestText from VariantsTabProps (previously Omit<VariantsSectionProps, 'onEditTestText'> with a TODO(task 005) comment left by task 004) so it now passes through to VariantsSection/VariantEditor's 'Script' button."
       ]
     }
   }

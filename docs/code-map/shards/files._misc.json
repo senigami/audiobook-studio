@@ -204,8 +204,8 @@
       "called_by": [],
       "notes": [
         "importing this module never creates an instance or loads a catalog (modular_architecture.md no-import-side-effects)",
-        "useTranslation.ts (sibling file) wraps getI18n() with a pure passthrough (raw key or explicit default) when uninitialized — never throws",
-        "one sample catalog only (locales/en-US/welcome.json, WelcomePage strings) — full string-extraction is future work"
+        "useTranslation.ts (sibling file) wraps getI18n() with a pure passthrough (raw key or explicit default) when uninitialized \u2014 never throws",
+        "one sample catalog only (locales/en-US/welcome.json, WelcomePage strings) \u2014 full string-extraction is future work"
       ],
       "calls_inferred": []
     },
@@ -355,6 +355,7 @@
         "frontend/src/utils/voiceProfiles.ts"
       ],
       "notes": [
+        "2026-07-12: Settings gains huggingface_token?: string (redacted sentinel, documented as such).",
         "no internal deps, pure type definitions",
         "voice taxonomy per design-docs/specs/voice-taxonomy.json v1.0",
         "Settings gained optional tts_parallel_cap?: number and tts_engine_caps?: Record<string, number> (2026-07-06)",
@@ -365,6 +366,443 @@
         "2026-07-11 (task 008): ActiveSegmentMapEntry.phase gains 'failed'; new optional char_count/engine_id fields, matching the backend active_segments_map entry shape (live-events.md 1.9.6)."
       ],
       "calls_inferred": []
+    },
+    "design-docs/reference/voice-archetypes/voice_archetypes.json": {
+      "purpose": "New 'sample_text' field added to headers_key/headers_original and every archetype record, inserted right after recording_prompt. Single source of truth both recordingArchetypes.ts and the new Python m",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-12: NEW FILE \u2014 New 'sample_text' field added to headers_key/headers_original and every archetype record, inserted right after recording_prompt. Single source of truth both recordingArchetypes.ts and the new Python matcher module read from (well, the TS file is statically generated from it, not read at runtime; the Python module reads it directly)."
+      ]
+    },
+    "design-docs/reference/voice-archetypes/voice_archetypes.csv": {
+      "purpose": "Regenerated from the updated JSON with the new column in the same position.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-12: NEW FILE \u2014 Regenerated from the updated JSON with the new column in the same position."
+      ]
+    },
+    "run.sh": {
+      "purpose": "maybe_restore_demo_bundle(): both `python -m app.demo_bundle status ...` and `... restore ...` invocations corrected to `python -m app.domain.demo_bundle`.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-12: NEW FILE \u2014 maybe_restore_demo_bundle(): both `python -m app.demo_bundle status ...` and `... restore ...` invocations corrected to `python -m app.domain.demo_bundle`."
+      ]
+    },
+    "run.ps1": {
+      "purpose": "Same fix in the PowerShell demo-restore block: both status and restore invocations corrected to app.domain.demo_bundle.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-12: NEW FILE \u2014 Same fix in the PowerShell demo-restore block: both status and restore invocations corrected to app.domain.demo_bundle."
+      ]
+    },
+    "tests/domain/test_demo_bundle.py": {
+      "purpose": "New parametrized test test_launcher_invokes_the_module_at_its_real_import_path (run.sh, run.ps1) -- greps each launcher's source text for the real module path and asserts the stale app.demo_bundle str",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-12: NEW FILE \u2014 New parametrized test test_launcher_invokes_the_module_at_its_real_import_path (run.sh, run.ps1) -- greps each launcher's source text for the real module path and asserts the stale app.demo_bundle string is absent, so this specific drift can't silently recur."
+      ]
+    },
+    "tests/api/test_api_voices_huggingface.py": {
+      "purpose": "_make_voice_root fixture rewritten to build the REAL on-disk layout (variant subdirectory with profile.json + sample.mp3, optional latent.pth) instead of a voice-root-level samples/preview.mp3 that no",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-12: NEW FILE \u2014 _make_voice_root fixture rewritten to build the REAL on-disk layout (variant subdirectory with profile.json + sample.mp3, optional latent.pth) instead of a voice-root-level samples/preview.mp3 that no real voice has -- the old fixture shape was itself hiding the bug this change fixes. 5 new tests: real variant sample bytes actually end up in the export, same-variant engine asset included under assets/<engine_id>/, README names the generating model, no assets/ entry when the variant has no engine asset, and state.json's default_variant is honored over alphabetical fallback (two variants, non-alphabetically-first one wins)."
+      ]
+    },
+    "design-docs/specs/voice-bundles.md": {
+      "purpose": "spec_version 1.5.1 -> 1.6.0. Documents the GET route fix and the crop-UI addition; confirms PNG remains the correct icon format.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-12: NEW FILE \u2014 spec_version 1.5.1 -> 1.6.0. Documents the GET route fix and the crop-UI addition; confirms PNG remains the correct icon format."
+      ]
+    },
+    "design-docs/specs/README.md": {
+      "purpose": "voice-bundles.md version bumped to 1.6.0 in the spec index.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-12: NEW FILE \u2014 voice-bundles.md version bumped to 1.6.0 in the spec index."
+      ]
+    },
+    "frontend/tests/unit/pages/Book/studio/useStudioChapter.test.tsx": {
+      "purpose": "Added a hoisted mutable `segments` override on the useChapterEditor mock (mirroring the existing scriptViewData override pattern) and a new regression test reproducing the exact resume scenario: job.s",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-13: NEW FILE \u2014 Added a hoisted mutable `segments` override on the useChapterEditor mock (mirroring the existing scriptViewData override pattern) and a new regression test reproducing the exact resume scenario: job.segment_ids null, two persisted-done segments outside the live map's window, one genuinely rendering, one genuinely still queued."
+      ]
+    },
+    "tests/db/test_state_jobs_broadcast.py": {
+      "purpose": "Added test_put_job_announces_a_brand_new_job_via_jobs_lifecycle: mocks app.api.ws.manager, calls put_job for a brand-new job, asserts a jobs.lifecycle topic message is broadcast.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-13: NEW FILE \u2014 Added test_put_job_announces_a_brand_new_job_via_jobs_lifecycle: mocks app.api.ws.manager, calls put_job for a brand-new job, asserts a jobs.lifecycle topic message is broadcast."
+      ]
+    },
+    "tests/api/test_websocket_broadcast.py": {
+      "purpose": "test_put_job_broadcasts_job_lifecycle_on_queued previously asserted updates['status_changed'] is False for a brand-new queued job -- that assertion WAS the bug, encoded as expected behavior. Corrected",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-13: NEW FILE \u2014 test_put_job_broadcasts_job_lifecycle_on_queued previously asserted updates['status_changed'] is False for a brand-new queued job -- that assertion WAS the bug, encoded as expected behavior. Corrected to assert True, with a comment explaining why."
+      ]
+    },
+    "frontend/tests/unit/hooks/useSegmentInventory.test.tsx": {
+      "purpose": "Fixture spans' status values corrected to the real backend contract strings ('rendered'/'draft'/'rendering' instead of 'done'/'unprocessed'/'processing') so the existing merge test actually exercises ",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-13: NEW FILE \u2014 Fixture spans' status values corrected to the real backend contract strings ('rendered'/'draft'/'rendering' instead of 'done'/'unprocessed'/'processing') so the existing merge test actually exercises the real contract instead of silently matching the bug's wrong assumption."
+      ]
+    },
+    "frontend/tests/unit/pages/Welcome/WelcomePage.test.tsx": {
+      "purpose": "Updated the CTA-treatment test: 'View Documentation' is now asserted as a real <a> (href/target/rel) rather than an inert <button>, matching the intentional behavior change.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 Updated the CTA-treatment test: 'View Documentation' is now asserted as a real <a> (href/target/rel) rather than an inert <button>, matching the intentional behavior change."
+      ]
+    },
+    "tests/api/test_api_generation.py": {
+      "purpose": "Retargeted ~50 unittest.mock.patch/monkeypatch.setattr calls from app.api.routers.generation.<name> to the correct owning sub-module (generation_chapters/generation_queue/generation_segments/generatio",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: Added test_engines_for_profiles_resolves_each_distinct_profile_once: 1000 profile names all the same value, asserts resolve_profile_engine is called exactly once.",
+        "2026-07-14: NEW FILE \u2014 Retargeted ~50 unittest.mock.patch/monkeypatch.setattr calls from app.api.routers.generation.<name> to the correct owning sub-module (generation_chapters/generation_queue/generation_segments/generation_shared); also added a matching patch of generation_shared.create_orchestrator alongside generation_chapters.create_orchestrator in 4 integration tests, since the child ChapterSynthesisTask's bridge dispatch is built inside generation_shared's own create_orchestrator() call."
+      ]
+    },
+    "tests/api/test_api_engines.py": {
+      "purpose": "Retargeted app.api.routers.engines.create_voice_bridge patches to engines_registry/engines_plugins/engines_test as appropriate; one test (settings+refresh) now patches both engines_registry and engine",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 Retargeted app.api.routers.engines.create_voice_bridge patches to engines_registry/engines_plugins/engines_test as appropriate; one test (settings+refresh) now patches both engines_registry and engines_plugins since it exercises routes in both modules."
+      ]
+    },
+    "tests/api/test_api.py": {
+      "purpose": "Retargeted one app.api.routers.generation.resolve_profile_engine patch to app.api.routers.generation_shared.resolve_profile_engine.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 Retargeted one app.api.routers.generation.resolve_profile_engine patch to app.api.routers.generation_shared.resolve_profile_engine."
+      ]
+    },
+    "tests/domain/test_segment_variation_synthesis.py": {
+      "purpose": "Retargeted one app.api.routers.generation.build_chunk_groups patch to app.api.routers.generation_shared.build_chunk_groups.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 Retargeted one app.api.routers.generation.build_chunk_groups patch to app.api.routers.generation_shared.build_chunk_groups."
+      ]
+    },
+    "frontend/tests/unit/pages/Book/BookInfoCard.test.tsx": {
+      "purpose": "Replaced the three Runtime/Predicted chip assertions with assertions for the Rendered/No-segments-yet status chip (Runtime/Predicted no longer rendered on the card).",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 Replaced the three Runtime/Predicted chip assertions with assertions for the Rendered/No-segments-yet status chip (Runtime/Predicted no longer rendered on the card)."
+      ]
+    },
+    "frontend/tests/unit/pages/Book/components/ContinueListeningCard.test.tsx": {
+      "purpose": "Updated the disabled-Download test to assert the button is absent and the 'Assemble in Publish to download' hint is shown instead.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 Updated the disabled-Download test to assert the button is absent and the 'Assemble in Publish to download' hint is shown instead."
+      ]
+    },
+    "frontend/tests/unit/pages/ChapterEditor/components/DirectorsConsole/DirectorsConsole.mobile.test.tsx": {
+      "purpose": "New test file (mocks useMediaQuery, CastTool, BoothTool) covering: mobile-only Booth rendering with Cast/Revise/Write/placeholders absent from the DOM, unchanged desktop rail, correct tablist containe",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New test file (mocks useMediaQuery, CastTool, BoothTool) covering: mobile-only Booth rendering with Cast/Revise/Write/placeholders absent from the DOM, unchanged desktop rail, correct tablist container per breakpoint, auto-redirect off a desktop-only default tool at mobile width, and state preservation across a live desktop->mobile resize."
+      ]
+    },
+    "frontend/tests/unit/components/queue/GlobalQueue.test.tsx": {
+      "purpose": "Updated assertion from '400 chars \u2022 1 segments' to '400 chars \u2022 1 segment' to match the pluralization fix.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: 'calls removeProcessingQueue when a queued job is cancelled' updated to advance fake timers past TOAST_VISIBLE_MS before asserting the API call, matching the new deferred-removal behavior.",
+        "2026-07-14: NEW FILE \u2014 Updated assertion from '400 chars \u2022 1 segments' to '400 chars \u2022 1 segment' to match the pluralization fix."
+      ]
+    },
+    "frontend/tests/unit/pages/ChapterEditor/components/DirectorsConsole/MobileModeSwitcher.test.tsx": {
+      "purpose": "New test file: renders one tab per tool, aria-current/aria-selected reflect activeToolId, click calls onSelect with the right id, tablist has the expected accessible name.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New test file: renders one tab per tool, aria-current/aria-selected reflect activeToolId, click calls onSelect with the right id, tablist has the expected accessible name."
+      ]
+    },
+    "tests/engines/test_engines_registry.py": {
+      "purpose": "Added test_resolve_tts_engine_for_profiles_resolves_each_distinct_profile_once: 1000 profile names all the same value, asserts resolve_profile_engine is called at most twice (once for default_profile'",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 Added test_resolve_tts_engine_for_profiles_resolves_each_distinct_profile_once: 1000 profile names all the same value, asserts resolve_profile_engine is called at most twice (once for default_profile's fallback resolution, once for the distinct profile)."
+      ]
+    },
+    "frontend/tests/unit/hooks/useGlobalQueue.test.tsx": {
+      "purpose": "'handles removal' test rewritten for the deferred-remove + Undo-toast shape (asserts api.removeProcessingQueue is not called until TOAST_VISIBLE_MS elapses, and the toast carries an Undo action); new ",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 'handles removal' test rewritten for the deferred-remove + Undo-toast shape (asserts api.removeProcessingQueue is not called until TOAST_VISIBLE_MS elapses, and the toast carries an Undo action); new test for Undo cancelling the pending removal."
+      ]
+    },
+    "frontend/tests/unit/components/queue/QueueItemRetryToast.test.tsx": {
+      "purpose": "New: a failed api.generateSegments retry request surfaces a toast mentioning retry; a successful retry does not surface a toast.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New: a failed api.generateSegments retry request surfaces a toast mentioning retry; a successful retry does not surface a toast."
+      ]
+    },
+    "frontend/tests/unit/pages/Settings/components/GeneralSettingsPanelDevMode.test.tsx": {
+      "purpose": "Assertions updated from ToggleButton textContent ('ON'/'OFF') to aria-checked, matching the new switch control.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 Assertions updated from ToggleButton textContent ('ON'/'OFF') to aria-checked, matching the new switch control."
+      ]
+    },
+    "frontend/tests/unit/pages/Settings/SettingsRoute.test.tsx": {
+      "purpose": "About-tab test updated: Backend API/Orchestrator rows are now asserted absent by default (Developer Mode off) instead of present.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 About-tab test updated: Backend API/Orchestrator rows are now asserted absent by default (Developer Mode off) instead of present."
+      ]
+    },
+    "frontend/tests/unit/utils/toast.test.ts": {
+      "purpose": "New: emitToast dispatches {message, action} on the studio-toast event; action is optional/undefined by default.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New: emitToast dispatches {message, action} on the studio-toast event; action is optional/undefined by default."
+      ]
+    },
+    "frontend/tests/unit/hooks/useToast.test.tsx": {
+      "purpose": "New: showToast carries an action through to toast state, action.onClick is invocable, dismissToast clears both.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New: showToast carries an action through to toast state, action.onClick is invocable, dismissToast clears both."
+      ]
+    },
+    "frontend/tests/unit/hooks/useVoiceManagement.test.tsx": {
+      "purpose": "handleDelete test rewritten to assert the DELETE fetch is deferred (not called until TOAST_VISIBLE_MS elapses) and the toast carries an Undo action; new test for Undo cancelling the pending delete.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 handleDelete test rewritten to assert the DELETE fetch is deferred (not called until TOAST_VISIBLE_MS elapses) and the toast carries an Undo action; new test for Undo cancelling the pending delete."
+      ]
+    },
+    "frontend/tests/unit/hooks/useProjectActions.test.tsx": {
+      "purpose": "handleDeleteChapter test rewritten for the deferred-delete + Undo-toast shape; new test for Undo cancelling the pending delete.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 handleDeleteChapter test rewritten for the deferred-delete + Undo-toast shape; new test for Undo cancelling the pending delete."
+      ]
+    },
+    "frontend/tests/unit/hooks/useProjectLibrary.test.tsx": {
+      "purpose": "confirmDelete test rewritten for the deferred-delete + Undo-toast shape (scoped vi.useFakeTimers/useRealTimers around just this test to avoid affecting the file's other waitFor-based tests); new test ",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 confirmDelete test rewritten for the deferred-delete + Undo-toast shape (scoped vi.useFakeTimers/useRealTimers around just this test to avoid affecting the file's other waitFor-based tests); new test for Undo cancelling the pending delete."
+      ]
+    },
+    "frontend/tests/unit/components/CharactersTab.test.tsx": {
+      "purpose": "Replaced the single delete-failure test (which asserted on immediate api.deleteCharacter rejection) with three tests reflecting the deferred design: undo toast fires immediately without removing the r",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 Replaced the single delete-failure test (which asserted on immediate api.deleteCharacter rejection) with three tests reflecting the deferred design: undo toast fires immediately without removing the row or calling the API; Undo cancels the pending delete; letting the timer elapse commits the delete and surfaces the failure toast on rejection. Mock of '@/utils/toast' extended to export TOAST_VISIBLE_MS."
+      ]
+    },
+    "frontend/tests/unit/hooks/useMediaQuery.test.ts": {
+      "purpose": "New test file: matchMedia mock that dispatches real 'change' events, covers match-true, match-false, and re-render-on-change.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New test file: matchMedia mock that dispatches real 'change' events, covers match-true, match-false, and re-render-on-change."
+      ]
+    },
+    "frontend/tests/unit/pages/VoiceLab/components/record/ArchetypePicker.test.tsx": {
+      "purpose": "New tests: picker renders exactly the 6 matcher-relevant field labels and not the other 5 taxonomy sections; Skip button fires onSkip; selecting a value (Class=Human) updates a connected RecordingCueC",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 New tests: picker renders exactly the 6 matcher-relevant field labels and not the other 5 taxonomy sections; Skip button fires onSkip; selecting a value (Class=Human) updates a connected RecordingCueCard's rendered prompt away from the generic skip prompt."
+      ]
+    },
+    "frontend/tests/unit/pages/VoiceLab/components/record/RecordingCueCard.test.tsx": {
+      "purpose": "New tests covering all three suggestRecordingPrompt confidence tiers (exact archetype match via recordingArchetypes[0]'s own attrs, composed fallback via a partial attrs set with no close match) plus ",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 New tests covering all three suggestRecordingPrompt confidence tiers (exact archetype match via recordingArchetypes[0]'s own attrs, composed fallback via a partial attrs set with no close match) plus the true zero-selection Skip case, asserting a real generic prompt is rendered (not empty/null) and that it differs from composeFallback's untagged-voice text."
+      ]
+    },
+    "frontend/tests/setup/vitest.setup.ts": {
+      "purpose": "Added a no-op Element.prototype.scrollIntoView polyfill (jsdom doesn't implement it), matching the existing window.matchMedia polyfill pattern, so components calling it during render/effects don't cra",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 Added a no-op Element.prototype.scrollIntoView polyfill (jsdom doesn't implement it), matching the existing window.matchMedia polyfill pattern, so components calling it during render/effects don't crash tests that don't care about scroll behavior."
+      ]
+    },
+    "frontend/tests/unit/pages/Book/ChapterWorkspaceHeaderListbox.test.tsx": {
+      "purpose": "New test file (18 tests): listbox semantics, initial-focus-on-open, arrow-key nav with real document.activeElement + scrollIntoView assertions, a blur/Escape race test, scoped aria-live announcements,",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 New test file (18 tests): listbox semantics, initial-focus-on-open, arrow-key nav with real document.activeElement + scrollIntoView assertions, a blur/Escape race test, scoped aria-live announcements, a 120-chapter scrollIntoView-spy scale test, and a chapters-prop-identity-swap reset test plus empty/single-chapter edge cases. Revert-checked: 15/18 fail against the pre-hardening component."
+      ]
+    },
+    "frontend/tests/unit/pages/Book/ChapterWorkspaceHeaderStatusOrb.test.tsx": {
+      "purpose": "Updated role queries from menu/menuitem to listbox/option to match the converted semantics; no behavioral change to the test's assertions.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 Updated role queries from menu/menuitem to listbox/option to match the converted semantics; no behavioral change to the test's assertions."
+      ]
+    },
+    "frontend/tests/unit/pages/Book/ChapterWorkspace.test.tsx": {
+      "purpose": "Updated the two 'Contents dropdown' tests' role queries from menuitem to option to match the converted semantics; no behavioral change to the test's assertions.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 Updated the two 'Contents dropdown' tests' role queries from menuitem to option to match the converted semantics; no behavioral change to the test's assertions."
+      ]
+    },
+    "frontend/tests/unit/app/layout/RailBookBlock.test.tsx": {
+      "purpose": "Replaced positive chapter-row assertions with negative assertions (no chapter titles/rows/progress bars/list container) verified on initial mount at the Contents route and the chapter-workspace route,",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 Replaced positive chapter-row assertions with negative assertions (no chapter titles/rows/progress bars/list container) verified on initial mount at the Contents route and the chapter-workspace route, after a re-render with changed props (chapter count + job set), and after simulated route changes within the same book via MemoryRouter + Routes. Also asserts the stage-link set (Contents/Cast, etc.) renders regardless of chapter/job state."
+      ]
+    },
+    "frontend/tests/unit/pages/Voices/components/VoiceCatalogCard.test.tsx": {
+      "purpose": "Removed assertions on the deleted menu items; added coverage for Set Default as a direct action (enabled/disabled state) and the slimmed 3-item overflow menu; kept an UntaggedBadge->onEditMetadata reg",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 Removed assertions on the deleted menu items; added coverage for Set Default as a direct action (enabled/disabled state) and the slimmed 3-item overflow menu; kept an UntaggedBadge->onEditMetadata regression test."
+      ]
+    },
+    "frontend/tests/unit/pages/Voices/components/VoicesTabContent.test.tsx": {
+      "purpose": "Replaced onEditTestText/onEditVoiceSettings forwarding tests with coverage for the surviving Set Default/Rename/Export/onNavigateToLab forwarding.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 Replaced onEditTestText/onEditVoiceSettings forwarding tests with coverage for the surviving Set Default/Rename/Export/onNavigateToLab forwarding."
+      ]
+    },
+    "frontend/tests/unit/pages/Voices/VoicesPage.test.tsx": {
+      "purpose": "Replaced the two ScriptEditor/VoiceSettingsPanel drawer-reachability tests with tests asserting those items (and Edit Metadata/Open in Voice Lab) are absent from the catalog card overflow menu, and th",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 Replaced the two ScriptEditor/VoiceSettingsPanel drawer-reachability tests with tests asserting those items (and Edit Metadata/Open in Voice Lab) are absent from the catalog card overflow menu, and that Set Default is directly reachable."
+      ]
+    },
+    "frontend/tests/unit/hooks/useVoicesTabActions.test.tsx": {
+      "purpose": "Deleted -- its sole subject (handleSaveTestText) was removed as dead code.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 Deleted -- its sole subject (handleSaveTestText) was removed as dead code."
+      ]
+    },
+    "frontend/tests/unit/pages/VoiceLab/components/VoiceDetailTabs.test.tsx": {
+      "purpose": "New test file (8 tests): full ARIA structure assertions, real ArrowRight/ArrowLeft/Home/End fireEvent.keyDown on rendered tab buttons asserting document.activeElement/tabIndex/aria-selected (including",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 New test file (8 tests): full ARIA structure assertions, real ArrowRight/ArrowLeft/Home/End fireEvent.keyDown on rendered tab buttons asserting document.activeElement/tabIndex/aria-selected (including wrap-around), click activation, and the aria-live announcement text on tab change."
+      ]
+    },
+    "frontend/tests/unit/pages/VoiceLab/VoiceLabPage.test.tsx": {
+      "purpose": "Removed the now-obsolete SamplesSection/VariantsSection/TestSection mocks and the test asserting their data-testids render (that behavior moved out of scope for this task). Added a test asserting the ",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: Scoped the 'keeps the status strip visible after switching tabs' assertion to the header's .voice-detail-header__status-strip element instead of screen-wide getByText('Default'), since the Variants tab now renders real VariantEditor rows (which also show a 'Default' variant label) instead of a placeholder.",
+        "2026-07-15: Added two tests: (1) Test tab renders TestSection's variant picker plus the folded-in ScriptEditor content (variant-name helper text, 'Suggest from voice qualities' button) and no longer shows a separate 'Edit preview script' link; (2) clicking the Variants tab's 'Script' button switches the active tab to Test (no dialog opens). R1 revert-check performed manually (temporarily reverted the Test-tabpanel wiring/onEditTestText prop back to the task-004 placeholder state) -- both new tests failed for the right reason, then passed again after restoring.",
+        "2026-07-15: Replaced the 'opens MetadataEditorModal when Edit metadata is clicked' test with one asserting the Overview tab's fields (description, Save button) are visible inline by default and that no 'Edit metadata' button or dialog exists. Updated the tabs-placeholder-content test to assert the Overview description field instead of the retired 'Overview content coming soon.' text. Added api.patchVoiceMetadata to the module's api mock.",
+        "2026-07-15: NEW FILE \u2014 Removed the now-obsolete SamplesSection/VariantsSection/TestSection mocks and the test asserting their data-testids render (that behavior moved out of scope for this task). Added a test asserting the new tablist/placeholder tab content renders, and a test asserting the status strip stays visible after switching tabs (INV-VC-4). All other existing tests (voice name render, back nav, phase-stepper 'Ready' step, unknown-id redirect, edit-metadata modal, publish modal, mobile pill-row) pass unmodified against the new shell."
+      ]
+    },
+    "frontend/tests/unit/pages/VoiceLab/VariantsTabRebuild.test.tsx": {
+      "purpose": "New test: exercises VoiceLabPage's real VariantsTab call site (fetch mocked, hook not mocked) and asserts an observable real effect for R3 -- clicking Rebuild fires POST /api/speaker-profiles/:name/bu",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 New test: exercises VoiceLabPage's real VariantsTab call site (fetch mocked, hook not mocked) and asserts an observable real effect for R3 -- clicking Rebuild fires POST /api/speaker-profiles/:name/build with the correct speaker_id/variant_name form fields, and the button transitions to a real 'Rebuilding...' state driven by buildingProfiles. R1 revert-check performed manually (git stash was unsafe mid-session due to a stale unrelated stash entry): temporarily reintroduced the exact pre-fix stub props at the VoiceLabPage.tsx call site, confirmed both new assertions failed for the right reason (no fetch call observed; button never left 'Rebuild'), then restored the real wiring and confirmed both pass."
+      ]
     }
   }
 }

@@ -145,6 +145,7 @@
         "frontend/src/pages/Book/components/ContinueListeningCard.tsx"
       ],
       "notes": [
+        "2026-07-14: Added optional `autoplay` field to LoadAndPlayOptions (default true); loadAndPlay now sets `playing: opts.autoplay ?? true` instead of always true.",
         "requestId increments on loadAndPlay",
         "W1 (2026-07-03): AltScope type, altScope field, and switchScope() removed entirely -- scope is now purely informational, drives no bus behavior",
         "2026-07-09T21:03Z: PlayerScope extended with 'book' (Task 001 of book_tab_front_door) so ContinueListeningCard.tsx can loadAndPlay() an assembled audiobook into the existing global player bar.",

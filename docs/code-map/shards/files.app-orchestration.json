@@ -315,6 +315,7 @@
       ],
       "called_by": [],
       "notes": [
+        "2026-07-14: timing dict gains 'mixed_segment_samples': [] (in _dispatch_segment init). New marker-parse branch (sibling to the [SEGMENT_SAVED] branch) appends parsed {segment_id, engine, chars, duration_seconds} dicts to timing['mixed_segment_samples']; drops the marker if the task was cancelled. _record_render_stats_inner's sample-recording call site now branches on engine_id == 'mixed': loops mixed_segment_samples calling record_render_sample once per real engine (skipping entirely, with a warning log, if the list is empty) instead of the old single record_render_sample(engine='mixed', ...) call. Non-mixed path unchanged.",
         "_dispatch is now a 2-line thin fan-out driver delegating to _dispatch_segment (keystone INV-6, per-segment isolation for concurrency)",
         "one-line is_chapter_fanout branch: if getattr(task, 'is_chapter_fanout', False): return task.run() \u2014 bypasses _dispatch_segment entirely for chapter-fan-out parents",
         "_EMIT_ACTIVE_SEGMENTS_MAP module flag gates active_segments_map emission; flipped True once genuine multi-entry aggregation exists (W-PAR 008) \u2014 previously caused a cold-start regression (stale preparing-phase entries leaking into the frontend overlay at cap=1) before being gated off, then re-enabled once true multi-entry semantics existed",

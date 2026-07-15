@@ -45,6 +45,7 @@
         "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
       ],
       "notes": [
+        "2026-07-14: handleDelete's ConfirmModal onConfirm now defers api.deleteCharacter + the setCharacters filter (row removal) behind setTimeout/pendingDeletesRef keyed by character id; emits 'Deleted \"name\".' with Undo. The failure toast ('Failed to delete character.') still fires from the deferred callback if the delete rejects.",
         "2026-07-09: handleAdd/handleUpdateName/handleUpdateVoice/handleUpdateColor/handleDelete now emitToast() on failure in addition to console.error. handleUpdateName now does the same optimistic-update + loadCharacters()-revert-on-failure pattern as handleUpdateVoice/handleUpdateColor (previously neither optimistic-revert nor a toast existed for a failed rename); rename <input> now keyed by `${char.id}-${char.name}` so a revert forces a remount to the server value (uncontrolled input via defaultValue), and carries aria-label=`Character name: ${char.name}`. New handlePromote(id) wires the pre-existing api.promoteCharacter(id) (app/db/characters.py#promote_character, POST /api/characters/{id}/promote, already covered by backend tests) with optimistic chapter_id:null + revert-on-failure, exposed via a new '\\''Promote'\\'' button shown next to the '\\''temp'\\'' badge only when char.chapter_id is set."
       ],
       "calls_inferred": [
@@ -129,6 +130,7 @@
         "frontend/src/pages/Voices/VoicesPage.tsx"
       ],
       "notes": [
+        "2026-07-15: Removed the ScriptEditor and VoiceSettingsPanel Drawer instances (unreachable once the catalog card menu items were removed) and the associated props from VoicesModalsProps.",
         "2026-07-10: gained editingVoiceMetadata?: VoiceMetadata prop, threaded to ScriptEditor's new attributes prop.",
         "2026-07-09: Added `isVoiceSettingsOpen`/`setIsVoiceSettingsOpen` props. The existing Script Editor Drawer now only opens when `editingProfile` is set AND `isVoiceSettingsOpen` is false; a new Drawer ('Voice Settings: {variantName}') renders VoiceSettingsPanel when `isVoiceSettingsOpen` is true, wired to the same editingEngine/editingSettings/handleSaveTestText/isSavingText as before \u2014 no new API calls.",
         "2026-07-10: Modal container for voice creation, rename, variant management, export"
@@ -502,7 +504,9 @@
       "exports": [],
       "calls": [],
       "called_by": [],
-      "notes": [],
+      "notes": [
+        "2026-07-14: Added .queue-history-remove-btn:focus-visible rule matching the hover-reveal state, and .queue-history-title with a max-width:480px 2-line clamp for mobile."
+      ],
       "calls_inferred": []
     },
     "frontend/src/components/queue/GlobalQueue.tsx": {
@@ -529,6 +533,9 @@
         "frontend/src/pages/Activity/ActivityPage.tsx"
       ],
       "notes": [
+        "2026-07-14: History row: Boolean()-guarded the audio-length/char-count && renders (was rendering literal '0'); added isDone/isCancelled/statusTint/statusColor/StatusIcon (Ban icon, muted color) three-way status styling instead of binary done/error; singular/plural segment count; wrapped bullet+content pairs in a single inline-flex span so they wrap as a unit; replaced 0.65/0.7/0.72rem literals with var(--type-caption); remove button resting opacity 0.4->0.7; header h2 'Global Queue' now only renders when !compact (Drawer already supplies the title); Pause All button disabled/dimmed when chapterJobs.length === 0.",
+        "2026-07-14: Added `historyFilterControls` prop rendered above the History section header. Added `trulyProcessingCount` (running/preparing/finalizing only, excluding retained just-completed rows) and use it for the 'Processing Now (N)' count instead of activeJobs.length. Added a 'No active renders' empty state when there's nothing active or queued. Disabled/greyed 'Pause All Jobs' (with a title tooltip) when there is nothing to pause instead of only when the whole queue is empty.",
+        "2026-07-12: Added engineCaps prop, threaded to QueueItem in the active-jobs render loop.",
         "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change.",
         "2026-07-12 (Phase 3 task 015): passes onRefresh through to each QueueItem so its per-row segment-retry handler can trigger a queue refresh after a successful requeue."
       ],
@@ -565,6 +572,9 @@
         "frontend/src/components/queue/GlobalQueue.tsx"
       ],
       "notes": [
+        "2026-07-14: handleSegmentRetry's failure catch now also calls emitToast(\"Couldn't retry that segment...\") in addition to the existing console.error, so a failed segment retry surfaces a user-facing, actionable message instead of a silent error (U6 guided failure recovery).",
+        "2026-07-14: PredictiveProgressBar's `label` prop is now blank for terminal (done/failed/cancelled) displayStatus instead of always falling through to 'Processing...' -- the right-side terminalStatusText ('Complete'/'Failed'/'Cancelled') is the only status text shown for finished jobs, removing the contradictory 'Processing...' + green Complete bar combination.",
+        "2026-07-12: Added engineCaps prop. SegmentRenderMonitor's cap prop is now engineCaps?.[engineType] ?? SEGMENT_MONITOR_CAP -- the constant is now explicitly a fallback (used only when the job's engine has no live entry yet), not the primary value. Updated its comment accordingly.",
         "2026-07-12 (Phase 3 task 015): each row now hydrates its own useSegmentInventory(liveJob) + peek/expand/dismiss state + segment-retry handler, gated on ACTIVE_STATUSES.has(status) && chapterId -- moved from ActivityPage.tsx's page-level singleton so N concurrently-active jobs each get an independent strip. SEGMENT_MONITOR_CAP=1 caption is a carried-over hardcoded constant, now stale since task 014 shipped live per-engine caps -- flagged, not fixed."
       ],
       "calls_inferred": [

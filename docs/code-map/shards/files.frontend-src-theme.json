@@ -6,6 +6,8 @@
       "calls": [],
       "called_by": [],
       "notes": [
+        "2026-07-14: Added container-type/container-name to .activity-page__stats-panel and a new @container activity-stats (max-width: 380px) block duplicating the existing @media (max-width: 480px) stacked-layout rules for .engine-calibration-row, since the stats rail is ~330px even at a 1280px viewport (2fr/1fr page split) so the viewport query never fired there.",
+        "2026-07-12: Fixed .system-resource-strip__spark height (20px -> 18px) to match the component's SPARK_HEIGHT/viewBox constant of 18 -- the mismatch was the root cause of the sparkline appearing vertically off from its intended baseline. Follow-up: added .system-resource-strip__meter-row/__meter/__meter-fill/__label-spacer/__value-spacer rules for the new below-graph meter bar, including the width/background-color transition.",
         "2026-07-12: added .system-resource-strip* rules (SystemResourceStrip.tsx) -- tokens only, no new hex/px (repo's hardcoded-style CI guard)."
       ],
       "calls_inferred": []
@@ -24,6 +26,8 @@
       "calls": [],
       "called_by": [],
       "notes": [
+        "2026-07-15: Bumped .chapter-workspace-header__switcher-trigger to min-height:44px, .chapter-workspace-header__nav-btn from 28x28 to 44x44 (removed the now-redundant mobile-only override), .workspace-chapter-dropdown__item to min-height:44px with increased padding, and added an explicit :focus-visible outline+background state on dropdown options distinct from the active/selected indicator.",
+        "2026-07-14: Added .chapter-workspace-header__nav-btn--active (was referenced but previously unstyled), --nav-btn-badge, --right-slot, and .chapter-workspace-header__panel-toggle rules.",
         "2026-07-10 (chapter-lifecycle Stale/Error + pill contrast fix): added .chapter-table__pill--stale (background var(--warning-tint-bg), color var(--warning-text)) and .chapter-table__pill--error (background var(--error-tint-bg), color var(--error-text)) for ChapterTable'\\''s two new lifecycle pill states. In the same change, .chapter-table__pill--rendered'\\''s text color switched from the bare var(--success) to var(--success-text), matching the -text token pattern the new stale/error pills use (contrast fix \u2014 bare --success/--error are not guaranteed readable on the tint backgrounds).",
         "2026-07-09: Added `.chapter-text-panel__info-banner` (calm accent-tint banner for Write mode's persistent entry notice, distinct from the warning-tint `.chapter-text-panel__unlock-strip`). Changed `.chapter-text-panel__footer` from `justify-content: space-between` to `flex-end` with a tighter gap now that Discard+Commit Changes form one paired action group. Added `.write-tool`/`.write-tool__hint` (mirrors the existing `.revise-tool`/`.revise-tool__hint` pattern) so the new WriteTool subtitle wrapper lays out and sizes correctly.",
         "2026-07-10: Added '.chapter-workspace-header__nav-btn svg { flex-shrink: 0; }' mirroring the existing documented fix for .player-btn svg, pinning lucide icons to their intrinsic size instead of letting the inline-flex main-axis algorithm collapse them to 0 width.",
@@ -59,7 +63,10 @@
       "exports": [],
       "calls": [],
       "called_by": [],
-      "notes": [],
+      "notes": [
+        "2026-07-15: Removed the now-dead .rail-book-block__chapters/__chapter/__chapter-wrap/__chapter-main/__chapter-index/__chapter-title/__chapter-actions/__progress selector block backing the deleted rail chapter markup; updated a stale comment reference to the removed __chapter-wrap--active class.",
+        "2026-07-14: Rescoped .nav-rail--collapsed .nav-rail__group-label / .nav-rail__item / .nav-rail__label to `.nav-rail--collapsed > .nav-rail__panel:not(.nav-rail__panel--overlay) ...` (fixes hover-preview showing collapsed content instead of full expanded content). Added `.nav-rail__bottom-button--icon svg { flex-shrink: 0; }` (fixes theme-toggle + collapse-chevron icons rendering as blank/0-width buttons when the rail is collapsed)."
+      ],
       "calls_inferred": []
     },
     "frontend/src/theme/components/player.css": {
@@ -79,6 +86,7 @@
       "calls": [],
       "called_by": [],
       "notes": [
+        "2026-07-14: Restyled .book-info-card__series-number-add as a ghost pill (24px min-height, pill bg/border); added .book-info-card__series-separator. Added .continue-listening-card__download-hint. Extended the existing 640px media query: .book-info-card switches to a single grid column and .book-info-card__cover/.book-info-card__cover-button switch to a compact horizontal row capped at 30vh/200px.",
         "book_tab_front_door session (2026-07-09) changes: .book-info-card__* placeholder colors switched var(--text-subtle)->var(--text-muted) with opacity:0.8 removed (WCAG contrast fix); .book-info-card__stepper grown 1.12rem->1.5rem (WCAG target-size fix); new .book-identity-strip* rules (compact flex row, 3rem cover, text on --text-primary/--text-secondary); new .continue-listening-card* rules (cover thumbnail, body, title, meta line on --text-muted, actions row); .book-stage__notes given display:flex/column/gap (later made moot -- see below); .book-stage__panel p renamed to .book-stage__panel .book-stage__description (later made moot); final hero-layout-restructure (Task 008) added .book-info-card__description (var(--text-secondary), 46rem max-width), a `.book-info-card__content .continue-listening-card` override stripping the nested card's own border/shadow/padding and hiding its cover thumbnail (renders as part of one bordered .book-info-card region, not a second card), demoted `.book-info-card__chips`/`.book-info-card__chip` to a quiet uniform var(--text-muted) footer line with a '.' separator (::after) instead of colored pill backgrounds, and removed the now-dead `.book-stage__primary`/`.book-stage__notes`/`.book-stage__panel` rules (their only consumer, the old BookStage.tsx aside markup, no longer exists). Pre-existing unrelated dead `.book-stage__hero*`/`.book-stage__eyebrow`/`.book-stage__title`/`.book-stage__subtitle` rules were left untouched (out of scope for this session).",
         "2026-07-10: Component-level CSS rules (as opposed to tokens.css's design-token custom properties) -- one stylesheet covering most page-owned component classes across the app (e.g. .book-info-card__*, .book-identity-strip*, .continue-listening-card*, .book-stage__*)."
       ],
@@ -90,6 +98,9 @@
       "calls": [],
       "called_by": [],
       "notes": [
+        "2026-07-14: New .mobile-mode-switcher* rule set: sticky bottom bar with env(safe-area-inset-bottom) padding, flex items with 44x44px min touch targets, active-state tint matching .directors-console__rail-tab--active.",
+        "2026-07-14: Added .directors-console__rail-tab / --active / --hover and .directors-console__rail-divider rules.",
+        "2026-07-14: Added a `@media (max-width: 640px)` block (matching the ChapterList.css/GlobalQueue.css/book.css breakpoint convention): stacks .review-main__topbar and .review-main__body vertically, overrides the .follow-along-panel/.review-annotations-drawer components' inline fixed widths with `!important` so they fill the narrow viewport instead of causing horizontal scroll, and sets min-height/min-width: 44px on the unclassed <button> elements inside those two panels.",
         "2026-07-10: removed dead .book-stage-review and .review-chapter-rail* rules (the rail they styled no longer renders, BoothTool doesn't port it). .review-main/.review-main__*/.review-text-view* kept \u2014 BoothTool/index.tsx still uses them as-is.",
         "2026-07-10: Warning #4 (reading surface): `.review-text-view` now uses `var(--font-reading)` + `var(--surface-reading)`; `.review-text-view__segment` uses `var(--type-reading)`/`var(--leading-reading)` instead of a flat 0.75rem UI-font size. Warning #6 (low-contrast active highlight): added a non-color `border-left: 3px solid var(--accent)` gutter bar to `.review-text-view__segment--active` alongside the existing tint/weight change. Added `.review-text-view__segment--pulse` + `@keyframes booth-autoplay-pulse` for the one-shot autoplay acknowledgment, with a `prefers-reduced-motion: reduce` override disabling the animation (matching the existing `.switch__knob` convention in this file).",
         "2026-07-10: CRITICAL #2 (resting-state/touch affordance): `.revise-text-view__segment` gained a persistent `border-left: 2px solid var(--border-muted)` so extent/clickability is visible before any interaction; `:hover`/`:focus-within` now also intensify `border-color`/`border-left-color` to `var(--border)` (previously background-wash only) and reveal the new `.revise-text-view__edit-icon` (opacity 0\u21921, transition-based, not color-only). Warning #3 (segment vs. paragraph boundaries): reduced `.revise-text-view`'s inter-segment `gap` from 8px to 3px so consecutive same-paragraph segments read less like separate paragraphs, while the border-left tick keeps individual segment extents legible. Warning #6 (token pairing): `.revise-text-view__save-btn` now pairs `color: var(--on-action)` with `background: var(--accent)`, matching `.btn-primary`'s `--action-primary`/`--on-action` convention (was incorrectly paired with `var(--surface)`). Added `.revise-tool__hint` (quiet caption style, `var(--text-muted)`, 0.7rem) for the new topbar hint."
@@ -112,6 +123,10 @@
       "calls": [],
       "called_by": [],
       "notes": [
+        "2026-07-15: Added .voice-detail-header/__identity/__actions/__delete-btn/__status-strip/__status-item(--muted)/__status-variant/__status-detail/__status-icon--success/--warning and .voice-detail-tabs/__list/__tab(--active)/__panel/__placeholder classes, following this file's existing voice-lab-* BEM-ish convention. No custom :focus-visible rule added -- relies on the existing global button:focus-visible ring.",
+        "2026-07-15: Added .voice-catalog-card__set-default-btn styling to match the existing preview/CTA button sizing, including the touch-target media query bump.",
+        "2026-07-15: Added minimal styling for the new samples-tab__mode-toggle, samples-tab__record-mode, archetype-picker, archetype-picker__skip-btn, and recording-cue-card(__prompt/__direction) classes, following the existing metadata-editor class conventions in this file.",
+        "2026-07-14: Removed dead .sample-manager__format-label; added .variant-editor__variant-label; fixed .voice-lab-page__back centering (justify-content/align-self flex-start); added mask-image fade-edge to .voice-chip-row's mobile breakpoint.",
         "2026-07-10 ST-3 styling-separation: Voices-tab component classes added (VoiceModals/ScriptEditor/MetadataEditorModal/VoicesTabHeader/SampleManager) plus the .variant-editor__* BEM class family for VariantEditor."
       ],
       "calls_inferred": []
@@ -149,6 +164,15 @@
         "2026-07-10: Added `--z-drawer: 400` to the light/root token block (value matches the existing var(--z-drawer, 400) fallback already used by .mobile-nav-drawer in components.css), slotted between the ~300 dropdown tier and the ~1000+ modal/toast tier."
       ],
       "calls_inferred": []
+    },
+    "frontend/src/theme/base.css": {
+      "purpose": "Added a .route-transition { transition: none !important; animation: none !important; } rule under the existing prefers-reduced-motion media block, as a CSS-only backstop alongside the JS-side matchMed",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 Added a .route-transition { transition: none !important; animation: none !important; } rule under the existing prefers-reduced-motion media block, as a CSS-only backstop alongside the JS-side matchMedia check in App.tsx (Framer Motion drives the actual animation via JS, not CSS transitions)."
+      ]
     }
   }
 }

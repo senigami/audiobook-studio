@@ -222,6 +222,8 @@
         "frontend/src/pages/Voices/components/metadata/IconUpload.tsx"
       ],
       "notes": [
+        "2026-07-12: Added fetchEngineConcurrency() + EngineConcurrencyEntry/EngineConcurrencyResponse types wrapping GET /api/engines/concurrency.",
+        "2026-07-12: uploadHfVoice's return type widened to a discriminated union: {status:'ok', hub_id, commit_id} | {status:'generating', job_id, message}.",
         "script-view endpoints use cache:'no-store'",
         "409 responses carry expected_base_revision_id",
         "2026-07-08: createProject/updateProject data param gained series_position?: number|null; updateProject appends an explicit '' when the value is null (clearing) rather than omitting the field, so the clear round-trips through FormData instead of being silently dropped (createProject only appends the field when defined/non-null, matching optional-create semantics).",

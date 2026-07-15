@@ -58,6 +58,7 @@
         "frontend/src/pages/Book/index.ts"
       ],
       "notes": [
+        "2026-07-14: Removed the standalone toolbar row that held only the Lexicon toggle (an orphaned button in its own dead vertical band); the toggle now renders via ChapterWorkspaceHeader's rightSlot, in the same row as the rest of the header.",
         "2026-07-09: new 'book' entry added to BOOK_STAGES ahead of 'contents'; StageContent renders <BookStage/> (imported as BookInfoStage) for stage==='book'. The book-level tab bar (BOOK_STAGES.map) now shows a leading 'Book' tab.",
         "2026-07-10: ChapterWorkspace's studio|review toggle replaced by <DirectorsConsole/> (directors_console_activation task 002); StudioStage.tsx/ReviewStage.tsx deleted.",
         "2026-07-10: Root layout for Book page; wraps stages with BookDataProvider, manages stage nav and chapter workspace routing",
@@ -87,6 +88,7 @@
         "frontend/src/pages/ProjectDetail/components/ProjectModals.tsx"
       ],
       "notes": [
+        "2026-07-14: Added dialogRef + useFocusTrap + role=dialog/aria-modal (was previously untrapped).",
         "2026-07-08: file input now only accepts .txt (was .txt/.docx/.epub); handleFileChange rejects an unsupported selection via isSupportedChapterImportFile, toasts getChapterImportError(file), clears the input, and leaves file unset instead of silently accepting it.",
         "2026-07-10: added a trimmedTitle derivation \u2014 the submit handler now no-ops on a whitespace-only title, the Add Chapter button'\\''s disabled state uses the trimmed value, and onSubmit is called with the trimmed title (not the raw untrimmed input), so a chapter can no longer be created with a blank-looking name."
       ],
@@ -150,6 +152,7 @@
       ],
       "called_by": [],
       "notes": [
+        "2026-07-14: Dropped totalRuntime/totalPredicted from the destructured props (kept in the prop interface) and removed the Runtime/Predicted entries from metadataPills. Series InlineEdit gets pill-shaped inline style (24px min-height, padding, pill bg/border) only in the empty/placeholder state; added a '\u00b7' separator span between the series field and the book-number control when both are still placeholders. Description InlineEdit now gets an explicit zeroed-padding style plus muted/italic color when project.description is empty.",
         "2026-07-09 rewrite: title, author, and series are all edited via InlineEdit's native click-to-edit (no separate boxed 'edit mode') rather than the earlier custom text-field toggles; empty author/series placeholders ('Add author'/'Add series') use var(--text-muted) with no opacity override (fixed 2026-07-09T14:55Z: the prior var(--text-subtle)+opacity:0.8 combo was a WCAG SC 1.4.3 contrast failure and violated design-system.md's rule that --text-subtle must not carry body text) so unset optional fields still recede without competing with populated metadata.",
         "Series-position stepper block (an explicit -/input/+ control reading 'Book N') only renders once hasSeriesPosition is true or the user starts editing (isSeriesNumberEditing); otherwise a quiet 'Add book number' ghost button is shown. Stepper buttons grew to 1.5rem (24px) to meet WCAG SC 2.5.8 target size (fixed 2026-07-09T14:55Z, was 1.12rem/17.9px).",
         "2026-07-09T22:30Z (Task 008, hero-layout-restructure): folded the description InlineEdit (multiline, bound to project.description, saved via new updateDescription handler using the same 'spread current fields, override one' convention as updateField) and <ContinueListeningCard audiobooks coverImagePath> into this component's own .book-info-card__content column, replacing what used to be two separate bordered sibling boxes rendered by BookStage.tsx below this card. .book-info-card__content children now order as title-block -> description -> ContinueListeningCard -> metadata chips.",
@@ -233,6 +236,7 @@
         "frontend/src/pages/ChapterEditor/components/DirectorsConsole/WriteTool/index.tsx"
       ],
       "notes": [
+        "2026-07-14: Added optional `showTitle` prop (default true) gating the panel's own `<h2>` title heading.",
         "autosave 1500ms debounce",
         "2026-07-09: Added a `variant?: 'gated' | 'immediate'` prop (default `'gated'`, preserving Contents/Manuscript-stage behavior unchanged). `'immediate'` (used only by WriteTool) makes the textarea editable the instant a produced chapter mounts \u2014 no 'Edit Text'/'Edit Anyway' click-through \u2014 and swaps the produced-chapter strip for a new calm `chapter-text-panel__info-banner` ('Editing the full source. Committing re-syncs voice assignments \u2014 you'll preview what's kept before anything changes.') instead of the alarming warning-tint strip. Added a Discard button beside Commit Changes in the footer (`handleDiscard` resets text to `chapterText.chapter.text_content` and, for the gated variant, re-locks back to read-only); both buttons disabled when there are no uncommitted changes or a resync/commit is in flight. Added `eyebrowLabel()` mapping the raw `ChapterLifecycle` enum to consequence-aware wording for this surface only (Rendered->'Audio rendered', Cast->'Audio in progress' [Cast is actually the in-progress/partial state per deriveChapterLifecycle], Stale->'Needs re-render', Error->'Render error', Draft/Ready unchanged) \u2014 ChapterTable's status pill keeps the raw enum, untouched. Copy sweep (voice-tone.md): 'Edit text'/'Edit anyway'/'Commit changes' -> Title Case; 'saving...'/'Start typing...' -> '\u2026'; 'editing - autosaved' -> em dash; 'autosave failed' -> sentence case; spaced-hyphen in the warning copy -> em dash; renamed the misleading 'Assignment-safe edit mode' strip to 'Changes aren't saved until you commit them.' (kept for the gated variant only).",
         "2026-07-10: Added optional `onDirtyChange?: (dirty: boolean) => void` prop. A new effect calls it whenever `chapterText.isProduced && chapterText.hasTextChanges` changes \u2014 the existing `useChapterText` signal for \"produced chapter has an uncommitted edit not yet pushed through the resync/commit flow\" (non-produced chapters autosave, so they never report dirty here). No new state was added; this just surfaces an existing derived value."
@@ -260,6 +264,8 @@
         "frontend/src/pages/Book/BookLayout.tsx"
       ],
       "notes": [
+        "2026-07-15: ChapterDropdown converted from role=menu/menuitem <button> rows to role=listbox/option <div> rows with aria-selected + roving tabindex. Parent gained focusedIndex state, optionRefs/listboxRef/triggerRef, a closingRef-guarded closeDropdown() as the single close path (Escape keydown + wrapper-blur fallback both route through it), effects for initial-focus-on-open, focus+scrollIntoView on every focusedIndex change, chapters-identity clamping while open, and a scoped aria-live 'polite' status-change announcement. Trigger's aria-haspopup changed from 'menu' to 'listbox'.",
+        "2026-07-14: Added `rightSlot` prop for trailing toolbar actions (e.g. BookLayout's Lexicon toggle). Bookmarks list-toggle button changed from a text+icon label (collided/wrapped at 1280px) to icon-only (Library icon) with a small corner count badge; accessible name unchanged ('Show bookmarks').",
         "2026-07-11 (task 008): ChapterDropdown rows now render each chapter's StatusOrb (reused from ChapterTable.tsx, INV-3), fed by a `jobs?: Record<string, Job>` prop threaded from BookLayout.tsx's useBookDataContext(); added a local pickChapterJob helper mirroring ChapterTable.tsx's.",
         "2026-07-11 (bookmark-dropdown-theming-fix): deleted the bespoke local BookmarksPanel/.workspace-bookmarks-panel* implementation (rendered unstyled/no dark-mode background) and reused the shared, already-themed BookmarkList component, wrapped in a role=menu container.",
         "2026-07-11 (adversarial-review-fixes): bookmarks dropdown entries now carry a 'secondary: Other book' marker when a bookmark's bookId differs from the current book, so identically-labeled bookmarks from different books are distinguishable."
@@ -282,6 +288,7 @@
       ],
       "called_by": [],
       "notes": [
+        "2026-07-14: Added resumeOrdinal/isRestatedOrdinal/resumeLabel to build the new 'Resume \u00b7 Chapter N \u2014 \"Title\"' string (dropping the quoted part when the chapter title just restates its ordinal). Download button is now conditionally rendered only when latest?.url is truthy; otherwise renders a '.continue-listening-card__download-hint' explanatory span. Same fix applied to the empty-queue branch's Download button.",
         "added 2026-07-09T22:05Z (Task 006, DC-003); folded into BookInfoCard.tsx's own content column by Task 008 (2026-07-09T22:30Z hero-layout-restructure) -- no longer a BookStage.tsx sibling.",
         "Cover thumbnail comes from the caller-supplied coverImagePath prop, not Audiobook.cover_url (this endpoint always returns that field null).",
         "Play button calls playerBus.loadAndPlay({scope: 'book', title, subtitle: 'Full audiobook', audioUrl}) -- the 'book' PlayerScope added in Task 001 (playerBus.ts, 2026-07-09T21:03Z) exists specifically for this caller.",
@@ -454,6 +461,7 @@
         "frontend/src/pages/Book/components/ChapterTextPanel.tsx"
       ],
       "notes": [
+        "2026-07-14: confirmResync now calls api.addProcessingQueue(project_id, chapter_id, 0, speaker_profile_name, force=true) after a successful api.updateChapter save; queue failure is caught/logged and does not fail the resync.",
         "2026-07-10 (Stale/Error lifecycle fix): isProduced (gates silent autosave vs. the explicit resync-preview flow) is now also true for '\\''Stale'\\'' and '\\''Error'\\'' lifecycles, not just '\\''Cast'\\''/'\\''Rendered'\\'' \u2014 a chapter that already has or attempted a production run must go through resync, matching the pre-existing intent.",
         "2026-07-10: Passes chapter.project_id to api.fetchChapter."
       ],
@@ -747,7 +755,9 @@
       "called_by": [
         "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-14: Same focus-trap adoption as AddChapterModal.tsx."
+      ],
       "calls_inferred": []
     },
     "frontend/src/pages/Book/studio/useStudioChapter.ts": {
@@ -779,6 +789,8 @@
         "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx"
       ],
       "notes": [
+        "2026-07-14: handleConfirmResync now calls the existing executeQueue(effectiveSelectedVoice, onBlocked, onSuccess, force=true) after a successful handleSave, using the same onBlocked/onSuccess pattern as handleQueue.",
+        "2026-07-13: Added persistedDoneSegmentIds, derived from the segments prop's own audio_status/audio_file_path (same check style already used by chapterRenderPendingSegmentIds). chapterRenderDoneSegmentIds now unions this persisted set with the live active_segments_map's done-phase entries, instead of being sourced from the live map alone.",
         "handoff pattern defers refetches while animation in flight",
         "generalized the single chapterRenderActiveSegmentId (scalar) into chapterRenderActiveSegmentsMap/RenderingSegmentIds/PreparingSegmentIds/RenderingBatchProgressById (Set/map-based, W-PAR 006); falls back byte-identically to the scalar path when the map is absent (INV-1); map branches expand each entry to render-batch siblings (expandToBatchSpanIds) and exclude done-phase entries from the rendering set",
         "gained a segmentProgress prop + fallbackActiveSegmentsMap (2026-07-05 escaped-defect fix): when the backend hasn't supplied its own active_segments_map at ALL (undefined, not an explicit {}), derives one from the already-flowing per-segment segmentProgress stream so the map-branch highlighting works even before the backend delivery leg existed; an explicit backend {} ('nothing rendering') still always wins",

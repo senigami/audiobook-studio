@@ -42,6 +42,8 @@
         "frontend/src/main.tsx"
       ],
       "notes": [
+        "2026-07-14: The studio-toast window-event listener now destructures detail.action (typed via ToastAction) and forwards it to showToast(message, action) -- previously the action was silently dropped even though useToast/the toast JSX already supported it.",
+        "2026-07-14: Reduced to router shell + composition. Delegates queue-drawer state to useQueueDrawer()/QueueDrawerHost, toast/confirm-modal state to useNotifications()/NotificationsHost, the startup overlay to StartupGate, and dev-route registration to getDevRoutes(). Wrapped the <Routes> block in AnimatePresence + a motion.div keyed by location.pathname for route transitions; computes a one-off prefersReducedMotion via window.matchMedia to collapse the transition to instant/static rather than adding a new reactive hook.",
         "redirect logic: /project/:id -> /book/:id/:stage",
         "queue drawer syncs back to previous path",
         "F15 (2026-07-04): surfaces useInitialData's new `error` state as a retryable startup banner (role=alert, 'Retry now' button) in place of the silent spinner while a fetch is failing; only claims 'retrying automatically' when !initialData (true startup phase, where the poll loop actually retries) -- a later post-startup refetch failure doesn't re-arm that loop",
@@ -207,7 +209,9 @@
       "called_by": [
         "frontend/src/app/layout/NavRail.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-15: Deleted the chapter-list branch (getActiveStage/pickChapterJob helpers, showChapters/isChapterWorkspace/activeChapterId computation, and the nested per-chapter StatusOrb/ActionMenu/PredictiveProgressBar markup). Non-compact render is now just the title/cover header button plus a flat BOOK_STAGES.map(...) of NavLinks; compact/collapsed branch is unchanged."
+      ],
       "calls_inferred": [
         "frontend/src/app/layout/bookIdentityStore#*",
         "frontend/src/components/ui/StatusOrb#*",
@@ -232,7 +236,9 @@
         "frontend/src/pages/ProjectDetail/ProjectViewRoute.tsx",
         "frontend/src/pages/Queue/QueueRoute.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-14: deriveNavigationState now maps pathname === '/' to routeKind 'welcome' instead of 'library', so the Welcome splash and the /library route are no longer conflated for breadcrumb purposes."
+      ],
       "calls_inferred": [
         "frontend/src/app/navigation/breadcrumbs#*",
         "frontend/src/app/navigation/model#GLOBAL_NAVIGATION_NODES",
@@ -525,7 +531,9 @@
         "frontend/src/pages/ProjectDetail/ProjectViewRoute.tsx",
         "frontend/src/pages/Queue/QueueRoute.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-14: Added 'welcome' to the RouteKind union, distinct from 'library'."
+      ],
       "calls_inferred": []
     },
     "frontend/src/app/navigation/project-subnav.ts": {
@@ -564,6 +572,42 @@
         "frontend/src/api/client#createApiClient",
         "frontend/src/api/hydration/index#createHydrationCoordinator",
         "frontend/src/store/notifications#createNotificationsStore"
+      ]
+    },
+    "frontend/src/app/QueueDrawerHost.tsx": {
+      "purpose": "New file. useQueueDrawer() hook owns isQueueDrawerOpen state and the /queue-route-redirect effect (open drawer + navigate back); QueueDrawerHost renders the Drawer + compact GlobalQueue.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New file. useQueueDrawer() hook owns isQueueDrawerOpen state and the /queue-route-redirect effect (open drawer + navigate back); QueueDrawerHost renders the Drawer + compact GlobalQueue."
+      ]
+    },
+    "frontend/src/app/NotificationsHost.tsx": {
+      "purpose": "New file. useNotifications() hook owns confirmConfig state + the APP_TOAST_EVENT window listener wired to useToast(); NotificationsHost renders ConfirmModal, the aria-live toast region, and the animat",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New file. useNotifications() hook owns confirmConfig state + the APP_TOAST_EVENT window listener wired to useToast(); NotificationsHost renders ConfirmModal, the aria-live toast region, and the animated toast."
+      ]
+    },
+    "frontend/src/app/StartupGate.tsx": {
+      "purpose": "New file. Owns useStartupOverlay() and renders the full-screen startup/error overlay (returns null once loading clears); behavior/markup unchanged from the inline block it replaced.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New file. Owns useStartupOverlay() and renders the full-screen startup/error overlay (returns null once loading clears); behavior/markup unchanged from the inline block it replaced."
+      ]
+    },
+    "frontend/src/app/runtimeDebug.ts": {
+      "purpose": "New file. getDevRoutes() returns [] unless import.meta.env.DEV, otherwise returns the lazy-loaded /progress-test and /event-stream route configs for App.tsx to spread into <Routes>.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New file. getDevRoutes() returns [] unless import.meta.env.DEV, otherwise returns the lazy-loaded /progress-test and /event-stream route configs for App.tsx to spread into <Routes>."
       ]
     }
   }

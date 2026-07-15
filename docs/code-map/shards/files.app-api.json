@@ -272,6 +272,7 @@
       ],
       "called_by": [],
       "notes": [
+        "2026-07-14: Reduced from 704 lines to a 56-line facade: builds the /api/engines-prefixed router by including engines_registry/engines_plugins/engines_test sub-routers (each carrying its own /api/engines prefix to satisfy FastAPI's empty-path-on-include_router check for the bare GET \"\" route) and re-exports their route functions plus engines_shared's helpers.",
         "_PLUGIN_FOLDER_RE: tts_[a-z][a-z0-9]{1,14}",
         "_ENGINE_ID_RE: [a-z][a-z0-9_-]{0,63}",
         "Task 014 (2026-07-11): new GET /api/engines/concurrency (global_cap + per-engine [engine_id, engine_class, manifest_max, requested_cap, effective_cap, active_count] snapshot, all in-process reads) and PUT /api/engines/{engine_id}/concurrency (body {cap: int|null}; validates 1<=cap<=manifest_max server-side, HTTP 422 with manifest_max on violation rather than silent clamping; null clears the override; writes via db.state.set_engine_cap). An alternative, validating write path to task 012's raw POST /api/settings route (additive; that path keeps working unchanged)."
@@ -319,6 +320,8 @@
       ],
       "called_by": [],
       "notes": [
+        "2026-07-14: _engines_for_profiles() now dedupes on profile_name (seen_profiles) before calling resolve_profile_engine, in addition to the existing dedupe on engine_id (seen_engines) for the returned engine list. Collapses ~1000 calls down to the number of distinct profiles actually used.",
+        "2026-07-14: Reduced from 859 lines to a 42-line facade: builds the /api-prefixed router by including generation_chapters/generation_queue/generation_segments sub-routers and re-exports their route functions plus generation_shared's helpers for backward-compatible direct imports.",
         "engine selection validated via _ensure_engines_enabled",
         "BE-5 (2026-07-04): _resolved_segment_profiles resolved once per request in api_add_to_queue/api_bake_chapter/api_generate_segments and threaded through _validate_generation_engines/resolve_tts_engine_for_profiles/_engines_for_profiles instead of being re-queried per call"
       ],
@@ -627,7 +630,10 @@
         "app/utils/__init__.py"
       ],
       "called_by": [],
-      "notes": [],
+      "notes": [
+        "2026-07-15: Upload endpoint (:271-306): adds a narrow existence-check collision guard immediately before the write -- on collision, auto-suffixes the target filename (_1, _2, ...) rather than rejecting, so a retry-free upload flow keeps working. This is the pre-approved, narrow exception to the 'no backend changes' rule (client-side unique naming alone isn't sufficient at the persistence layer).",
+        "2026-07-12: test_speaker_profile is now a thin wrapper calling submit_sample_test_job -- behavior-preserving refactor, verified by the existing (unmodified) test_api_voices_actions.py suite passing unchanged. Dropped the now-unused SampleTestTask import."
+      ],
       "calls_inferred": [
         "app/api/routers/voices_helpers.py",
         "app/core/config.py#canonical_voice_name",
@@ -708,6 +714,8 @@
         "app/api/routers/voices_huggingface.py"
       ],
       "notes": [
+        "2026-07-12: New submit_sample_test_job(name, background_tasks) -> dict. Extracted verbatim from voices_actions.py's POST /{name}/test (engine-configured check, engine-active check, generation-material check, SampleTestTask submission via the orchestrator) so both the Test button and the HF publish flow share one implementation instead of duplicating it. Returns {ok: True, job_id, audio_url} or {ok: False, status_code, message}.",
+        "2026-07-12: submit_sample_test_job (shared by POST /{name}/test and the HF publish flow) now checks profile_has_custom_test_text before building the sample job; if never customized, loads the voice manifest's attributes (checking both pdir and pdir.parent, since pdir is either the voice root or a variant subdirectory depending on layout) and calls suggest_sample_text. On a match, persists it via update_speaker_settings and re-fetches settings before the job is built, so both the synthesized sample and the Script Editor's displayed test_text reflect the suggestion afterward.",
         "SAFE_PROFILE_NAME_RE: alphanumeric+dot/underscore/space/dash"
       ],
       "calls_inferred": []
@@ -733,6 +741,10 @@
       ],
       "called_by": [],
       "notes": [
+        "2026-07-12: export_hub_voice reads icon.png (contained_path-checked) when present and passes icon_bytes through. upload_hub_voice no longer builds a flattened loose_files list -- passes extract_dir straight to upload_voice_to_hub.",
+        "2026-07-12: Added _SAFE_ENGINE_ID_RE (^[A-Za-z0-9][A-Za-z0-9_-]*$); export_hub_voice now rejects (skips engine assets + README note, with a warning log) any variant-manifest engine id that fails it, per backend-paths 'reject, never fix'. upload_hub_voice now shutil.rmtree's the per-voice extract dir before extracting the fresh bundle.",
+        "2026-07-12: export_hub_voice gained a background_tasks: BackgroundTasks param. When the resolved variant's sample.mp3 is missing, it calls submit_sample_test_job with that variant's profile name (new _publish_profile_name helper, matching bundles.py:337's naming convention) and returns {status: 'generating', job_id, message} instead of proceeding with an empty sample. upload_hub_voice (which calls export_hub_voice internally) now checks for status=='generating' and propagates it rather than trying to build/upload a bundle that doesn't exist.",
+        "2026-07-12: New _resolve_publish_variant(voice_dir) helper: picks the variant to publish using the same default-variant fallback chain as bundles.export_voice_bundle (state.json default_variant -> directory named 'Default' -> first alphabetically). export_hub_voice rewritten to resolve one variant_dir via this helper, read sample.mp3 from it (replacing the old voice-root lookup), read the variant's engine id from its profile.json, and collect any present MODEL_ASSET_NAMES files from that same variant into engine_assets keyed by engine_id. Passes engine_assets and sample_engine_id through to export_hf_voice_bundle.",
         "import is synchronous (search->inspect->consent->download->register); not behind verify_api_key/rate_limit (that's the separate /api/v1/tts gateway) -- internal Studio feature",
         "app is localhost-only by default (uvicorn binds 127.0.0.1, no --host flag in run.sh) -- security review treated the DoS-shaped findings (no timeout, no byte-size cap) as hardening nice-to-haves given this posture, not merge blockers"
       ],
@@ -792,6 +804,7 @@
       ],
       "called_by": [],
       "notes": [
+        "2026-07-12: Added GET /{voice_id}/icon (find_secure_file-contained, 404 if voice or icon missing, serves the saved icon.png). This route never existed -- only the upload POST did.",
         "patch_voice_metadata accepts+persists provenance (whole-block replace, not merge \u2014 see voice-bundles.md sec8.1); RuntimeError from update_voice_metadata -> 500",
         "GET /api/voices/search gained ?language=/?style= query params (Phase G, 2026-07-04)"
       ],
@@ -965,6 +978,78 @@
         "broadcast_job_updated now extracts eta_updated_at from ProgressService.enrich()'s payload and threads it into build_chapter_progress_event(...) (2026-07-06 fix) -- enrich()'s own \u00a74A dedupe logic computed this field correctly, but it was previously dropped before reaching build_chapter_progress_event, whose own default (time.time() when omitted) fired on every map-only tick and defeated the dedupe at the wire even though the internal computation was right."
       ],
       "calls_inferred": []
+    },
+    "app/api/routers/generation_shared.py": {
+      "purpose": "New file (349L). Non-route helpers extracted from generation.py: engine-usability/validation checks (_engine_usable_error, _ensure_engines_enabled, _validate_generation_engines), segment-profile resol",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New file (349L). Non-route helpers extracted from generation.py: engine-usability/validation checks (_engine_usable_error, _ensure_engines_enabled, _validate_generation_engines), segment-profile resolution (_resolved_segment_profiles, _engines_for_profiles), and chapter script/task construction (_build_script_for_chapter, _build_chapter_synthesis_task)."
+      ]
+    },
+    "app/api/routers/generation_chapters.py": {
+      "purpose": "New file (353L). Chapter-level render submission routes: POST /api/processing_queue (api_add_to_queue) and POST /api/generation/bake/{chapter_id} (api_bake_chapter).",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New file (353L). Chapter-level render submission routes: POST /api/processing_queue (api_add_to_queue) and POST /api/generation/bake/{chapter_id} (api_bake_chapter)."
+      ]
+    },
+    "app/api/routers/generation_queue.py": {
+      "purpose": "New file (61L). Queue-level controls: POST /api/generation/pause, /resume, /cancel-all, and POST /api/chapters/{chapter_id}/cancel.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New file (61L). Queue-level controls: POST /api/generation/pause, /resume, /cancel-all, and POST /api/chapters/{chapter_id}/cancel."
+      ]
+    },
+    "app/api/routers/generation_segments.py": {
+      "purpose": "New file (168L). Segment-level render submission: POST /api/segments/generate (api_generate_segments).",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New file (168L). Segment-level render submission: POST /api/segments/generate (api_generate_segments)."
+      ]
+    },
+    "app/api/routers/engines_shared.py": {
+      "purpose": "New file (109L). Non-route helpers extracted from engines.py: GithubPreviewRequest/ConcurrencyUpdateRequest pydantic models, _check_engine_id, _is_generated_sample_name, _resolve_plugin_dir, _safe_res",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New file (109L). Non-route helpers extracted from engines.py: GithubPreviewRequest/ConcurrencyUpdateRequest pydantic models, _check_engine_id, _is_generated_sample_name, _resolve_plugin_dir, _safe_resolve_plugin_dir."
+      ]
+    },
+    "app/api/routers/engines_registry.py": {
+      "purpose": "New file (224L). Registry/discovery/settings/concurrency/calibration routes: list_engines, get_official_registry_list, get_engine_concurrency, update_engine_concurrency, update_engine_settings, clear_",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New file (224L). Registry/discovery/settings/concurrency/calibration routes: list_engines, get_official_registry_list, get_engine_concurrency, update_engine_concurrency, update_engine_settings, clear_engine_setting, get_engine_requirements, remove_engine_plugin, get_engine_logs, reset_engine_calibration."
+      ]
+    },
+    "app/api/routers/engines_plugins.py": {
+      "purpose": "New file (192L). Plugin install/import/staging management routes: refresh_plugins, install_engine_dependencies, import_engine_plugin, preview_engine_plugin, preview_github_plugin, confirm_engine_plugi",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New file (192L). Plugin install/import/staging management routes: refresh_plugins, install_engine_dependencies, import_engine_plugin, preview_engine_plugin, preview_github_plugin, confirm_engine_plugin, cancel_engine_plugin_staging."
+      ]
+    },
+    "app/api/routers/engines_test.py": {
+      "purpose": "New file (219L). Engine verify/self-test/dev-scenario/asset routes: verify_engine, get_test_audio, test_engine, get_engine_scenarios, get_engine_asset.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New file (219L). Engine verify/self-test/dev-scenario/asset routes: verify_engine, get_test_audio, test_engine, get_engine_scenarios, get_engine_asset."
+      ]
     }
   }
 }
