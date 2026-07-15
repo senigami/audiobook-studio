@@ -297,6 +297,19 @@ async def upload_speaker_samples(
             if not target_path.startswith(resolved_pdir + os.sep):
                  return JSONResponse({"status": "error", "message": "Invalid sample path"}, status_code=403)
 
+            # Collision guard: a colliding filename must never silently
+            # overwrite an existing sample (client-side unique naming alone
+            # isn't sufficient — two sessions, a reload resetting a counter,
+            # or a coincidental match against a manually-uploaded sample
+            # could still collide at this layer). Auto-suffix on collision
+            # rather than rejecting, so a retry-free upload flow keeps working.
+            if os.path.exists(target_path):
+                stem, ext = os.path.splitext(sample_filename)
+                suffix = 1
+                while os.path.exists(target_path):
+                    target_path = os.path.normpath(os.path.join(resolved_pdir, f"{stem}_{suffix}{ext}"))
+                    suffix += 1
+
             with open(target_path, "wb") as f_out:
                 f_out.write(content)
 

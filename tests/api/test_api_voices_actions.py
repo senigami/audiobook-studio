@@ -265,6 +265,36 @@ def test_upload_samples_security_and_failure(clean_db, voices_root, client):
         assert response.status_code == 500
 
 
+def test_upload_samples_collision_guard_auto_suffixes(clean_db, voices_root, client):
+    """Regression: two uploads with the same filename must never overwrite
+    one another (task 009, INV-REC-2 at the persistence layer). Before the
+    fix, `open(target_path, "wb")` had no existence check, so this second
+    upload would silently clobber the first sample's bytes.
+    """
+    voices_dir = voices_root
+    profile_root = voices_dir / "SpeakerCollide"
+    profile_root.mkdir(parents=True, exist_ok=True)
+    (profile_root / "voice.json").write_text(json.dumps({"version": 2, "name": "SpeakerCollide"}))
+    profile_dir = profile_root / "Default"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "profile.json").write_text(json.dumps({"variant_name": "Default"}))
+
+    files = {"files": ("take.wav", io.BytesIO(b"first-take-bytes"), "audio/wav")}
+    response = client.post("/api/speaker-profiles/SpeakerCollide/samples/upload", files=files)
+    assert response.status_code == 200
+
+    files = {"files": ("take.wav", io.BytesIO(b"second-take-bytes"), "audio/wav")}
+    response = client.post("/api/speaker-profiles/SpeakerCollide/samples/upload", files=files)
+    assert response.status_code == 200
+
+    wav_files = sorted(p.name for p in profile_dir.glob("*.wav"))
+    assert len(wav_files) == 2
+
+    contents = {p.name: p.read_bytes() for p in profile_dir.glob("*.wav")}
+    assert b"first-take-bytes" in contents.values()
+    assert b"second-take-bytes" in contents.values()
+
+
 def test_delete_sample_errors(clean_db, voices_root, client):
     voices_dir = voices_root
     voices_dir.mkdir(exist_ok=True)

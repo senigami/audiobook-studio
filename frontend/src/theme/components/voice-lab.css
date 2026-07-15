@@ -1385,3 +1385,52 @@
     row-gap: var(--space-2);
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * SamplesTab mode toggle + ArchetypePicker/RecordingCueCard (task 007,
+ * voice-card-consolidation P7)
+ * --------------------------------------------------------------------------- */
+
+.samples-tab__mode-toggle {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.samples-tab__record-mode {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.archetype-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.archetype-picker__skip-btn {
+  align-self: flex-start;
+  height: 36px;
+  padding: 0 14px;
+  font-size: 0.8rem;
+}
+
+.recording-cue-card {
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--surface-dim);
+}
+
+.recording-cue-card__prompt {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 var(--space-2);
+}
+
+.recording-cue-card__direction {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+}
