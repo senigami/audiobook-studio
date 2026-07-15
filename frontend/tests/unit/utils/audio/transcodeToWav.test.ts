@@ -8,6 +8,7 @@
  * by reading the resulting `Blob`'s actual bytes.
  */
 import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest';
+import { Blob as NodeBlob } from 'node:buffer';
 import { transcodeToWav } from '@/utils/audio/transcodeToWav';
 
 // jsdom's own `Blob` doesn't implement `.arrayBuffer()` (confirmed: only
@@ -15,7 +16,6 @@ import { transcodeToWav } from '@/utils/audio/transcodeToWav';
 // `Blob` for the duration of these tests — a boundary substitution for a
 // jsdom gap, not a mock of the encoder under test.
 const jsdomBlob = globalThis.Blob;
-const NodeBlob = require('buffer').Blob;
 
 function makeMockAudioBuffer(channelSamples: number[][], sampleRate = 44100): AudioBuffer {
     return {
