@@ -691,6 +691,28 @@ above). Two backend items were genuinely undocumented:
   flagged as pre-built future work with no landing spot yet. **Owner: is this still wanted (a
   video-preview feature for voices), and if so what UI/route should call it?**
 
+## Declined / deferred with rationale *(not doing now — recorded so it isn't re-investigated cold)*
+
+- [x] **Voice catalog grid virtualization — declined, 2026-07-15.** A Large Catalog Curator persona
+  review flagged `frontend/src/pages/Voices/components/VoicesTabContent.tsx`'s catalog grid (plain
+  `.map()`, every `VoiceCatalogCard` stays mounted regardless of scroll visibility) as a risk at
+  40-100+ voices. Investigated fresh: the "40-100+" premise traces to
+  `design-docs/personas/41-large-catalog-curator.md`, which is entirely about the **projects** list
+  (a publisher's "2,000 titles") — it never discusses a large *voice* roster, and nothing else in
+  `design-docs/` (specs, task docs, fixtures) supports real voice rosters at that scale; voice
+  creation is a manual per-voice cloning workflow that self-limits count far more than a project
+  list ever would. Per-card cost is also genuinely cheap, not theoretical-but-real: `usePlayerBus()`
+  is one small `useSyncExternalStore` subscription with no polling/timers, and
+  `getVoicePhase`/`getPrimaryCta` are pure synchronous functions over already-fetched props.
+  **Decision: defer.** No virtualization library is a dependency today, and the grid is fluid
+  (`grid-template-columns: repeat(auto-fill, minmax(220px, 1fr))`), which breaks `react-window`'s
+  fixed-cell-size assumption — adopting it would need `react-virtualized-auto-sizer` + a
+  resize-observer column-count recompute, or a hand-rolled `IntersectionObserver` mount-near-viewport
+  approach, plus rework of keyboard nav and two existing test files that assume every card is in the
+  DOM. **Revisit trigger:** a real workspace reporting 150+ voices with observed Voices-page jank —
+  profile first (a `React.memo` on `VoiceCatalogCard` may be sufficient) before reaching for full
+  windowing.
+
 ## Deferred / post-v2.0
 
 - [ ] **012** — Localization + sub-sentence assignment — [task file](master_fix_plan/tasks/012-deferred-and-open-questions.md)

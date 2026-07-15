@@ -8,7 +8,7 @@
  * ALL existing controls and their handlers are preserved (R-C).
  */
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Info, Upload, Download } from 'lucide-react';
+import { Search, Plus, Info, Upload, Download, CheckSquare } from 'lucide-react';
 import { GlassInput } from '@/components/forms/GlassInput';
 import { GhostButton } from '@/components/ui/GhostButton';
 import type { VoiceEngine } from '@/types';
@@ -44,6 +44,9 @@ interface VoicesTabHeaderProps {
     /** Active tab; defaults to 'local' if not provided */
     activeTab?: VoicesTab;
     onTabChange?: (tab: VoicesTab) => void;
+    /** Multi-select mode toggle (bulk delete/export) — omit to hide the control entirely. */
+    selectMode?: boolean;
+    onToggleSelectMode?: () => void;
 }
 
 // Active chip styles per facet category — re-use pill tint tokens from R5-T1
@@ -77,6 +80,8 @@ export const VoicesTabHeader: React.FC<VoicesTabHeaderProps> = ({
     onGuideClick,
     activeTab = 'local',
     onTabChange,
+    selectMode = false,
+    onToggleSelectMode,
 }) => {
     const [windowWidth, setWindowWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1200));
     const isCompactToolbar = windowWidth < COMPACT_TOOLBAR_WIDTH;
@@ -154,6 +159,16 @@ export const VoicesTabHeader: React.FC<VoicesTabHeaderProps> = ({
                         ariaLabel="New Voice"
                         title="New Voice"
                     />
+                    {onToggleSelectMode && activeTab === 'local' && (
+                        <GhostButton
+                            onClick={onToggleSelectMode}
+                            icon={CheckSquare}
+                            label={isCompactToolbar ? undefined : (selectMode ? 'Cancel Select' : 'Select')}
+                            ariaLabel={selectMode ? 'Cancel voice selection' : 'Select voices'}
+                            title={selectMode ? 'Cancel voice selection' : 'Select voices'}
+                            isActive={selectMode}
+                        />
+                    )}
                     <div className="mobile-hide voices-toolbar-divider" />
                     <GhostButton
                         onClick={onGuideClick}

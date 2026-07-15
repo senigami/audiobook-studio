@@ -1,8 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import React, { useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CastPalette } from '@/pages/Book/studio/CastPalette';
+import { resetPlayerBusForTests } from '@/store/playerBus';
 import type { ChapterSegment, Character, Speaker, SpeakerProfile, TtsEngine } from '@/types';
+
+afterEach(() => {
+  resetPlayerBusForTests();
+});
 
 vi.mock('@/components/forms/ColorSwatchPicker', () => ({
   ColorSwatchPicker: ({ value }: { value: string }) => <div data-testid={`swatch-${value}`} />,
@@ -119,6 +124,60 @@ describe('CastPalette', () => {
     // (no separate "variants" toggle).
     expect(screen.getByRole('button', { name: /^a$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^b$/i })).toBeInTheDocument();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Inline audition — persona fast-follow (Casting Director): a play/pause
+  // button per candidate variant so voices can be compared without leaving
+  // the chapter. Uses the real playerBus store (not mocked) since it's a
+  // plain state container, not the audio boundary itself.
+  // ---------------------------------------------------------------------------
+
+  it('renders a disabled play button per variant when no preview_url is set', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: /M Maren/i }));
+
+    expect(screen.getByRole('button', { name: /play a preview/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /play b preview/i })).toBeDisabled();
+  });
+
+  it('clicking a variant play button loads it via playerBus and toggles to Pause', () => {
+    const profilesWithPreview: SpeakerProfile[] = mockProfiles.map((p) =>
+      p.name === 'Maren A' ? { ...p, preview_url: '/preview/maren-a.mp3' } : p
+    );
+
+    function HarnessWithPreview() {
+      const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
+      const [selectedProfileName, setSelectedProfileName] = useState<string | null>(null);
+      const [expandedCharacterId, setExpandedCharacterId] = useState<string | null>(null);
+      return (
+        <CastPalette
+          characters={mockCharacters}
+          segments={mockSegments}
+          speakers={mockSpeakers}
+          speakerProfiles={profilesWithPreview}
+          engines={mockEngines}
+          selectedCharacterId={selectedCharacterId}
+          setSelectedCharacterId={setSelectedCharacterId}
+          selectedProfileName={selectedProfileName}
+          setSelectedProfileName={setSelectedProfileName}
+          expandedCharacterId={expandedCharacterId}
+          setExpandedCharacterId={setExpandedCharacterId}
+          onUpdateCharacterColor={vi.fn()}
+        />
+      );
+    }
+
+    render(<HarnessWithPreview />);
+    fireEvent.click(screen.getByRole('button', { name: /M Maren/i }));
+
+    const playBtnA = screen.getByRole('button', { name: /play a preview/i });
+    expect(playBtnA).not.toBeDisabled();
+    fireEvent.click(playBtnA);
+
+    // playerBus is a real store here — loading candidate A flips this same
+    // button to its Pause state.
+    expect(screen.getByRole('button', { name: /pause a preview/i })).toBeInTheDocument();
   });
 });
 

@@ -1437,9 +1437,16 @@
   margin-top: var(--space-1);
 }
 
-.cast-palette__variant-btn {
-  width: 100%;
+.cast-palette__variant-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin-top: var(--space-1);
+}
+
+.cast-palette__variant-btn {
+  flex: 1;
+  min-width: 0;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -1449,7 +1456,31 @@
   text-align: left;
   cursor: pointer;
   transition: all 0.2s;
-  min-width: 0;
+}
+
+.cast-palette__variant-play-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.cast-palette__variant-play-btn:hover:not(:disabled) {
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.cast-palette__variant-play-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 .cast-palette__variant-dot {

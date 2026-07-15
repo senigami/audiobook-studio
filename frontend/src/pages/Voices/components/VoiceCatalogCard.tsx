@@ -49,6 +49,10 @@ export interface VoiceCatalogCardProps {
      * longer a menu item (relocated to the VoiceLabPage Overview tab, task 006). */
     onEditMetadata?: () => void;
     onRefresh: () => void;
+    /** Multi-select (bulk delete/export) — omit to render the card in its normal single-voice mode. */
+    selectable?: boolean;
+    selected?: boolean;
+    onToggleSelect?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -69,6 +73,9 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
     requestConfirm,
     onEditMetadata,
     onRefresh,
+    selectable = false,
+    selected = false,
+    onToggleSelect,
 }) => {
     const playerBus = usePlayerBus();
 
@@ -160,6 +167,23 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
 
     return (
         <div className="voice-catalog-card">
+            {/* Selection checkbox — top-left, mirrors the default-badge's top-right corner
+                placement. Only rendered in bulk-select mode (persona fast-follow: Large
+                Catalog Curator, one-card-at-a-time destructive/organizational actions). */}
+            {selectable && (
+                <label
+                    className="voice-catalog-card__select-checkbox"
+                    aria-label={`Select ${speaker.name} checkbox`}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => onToggleSelect?.()}
+                    />
+                </label>
+            )}
+
             {/* Default badge */}
             {hasDefaultProfile && (
                 <span className="voice-catalog-card__default-badge" aria-label="Default voice">
@@ -173,17 +197,22 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
               * CTA's phase-driven label/intent. Keyboard-accessible via
               * role="button" + Enter/Space, mirroring onNavigateToLab used
               * elsewhere on this card.
+              *
+              * In select mode, the body toggles selection instead of
+              * navigating away — clicking a card while curating a bulk
+              * action shouldn't leave the page.
               */}
             <div
                 data-testid="voice-catalog-card-body"
                 role="button"
                 tabIndex={0}
-                aria-label={`Open ${speaker.name} in Voice Lab`}
-                onClick={() => onNavigateToLab(speaker.id)}
+                aria-label={selectable ? `Select ${speaker.name}` : `Open ${speaker.name} in Voice Lab`}
+                onClick={() => (selectable ? onToggleSelect?.() : onNavigateToLab(speaker.id))}
                 onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        onNavigateToLab(speaker.id);
+                        if (selectable) onToggleSelect?.();
+                        else onNavigateToLab(speaker.id);
                     }
                 }}
                 style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', width: '100%' }}

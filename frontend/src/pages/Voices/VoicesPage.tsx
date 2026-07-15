@@ -13,6 +13,7 @@ import { HuggingFaceDiscover } from '@/pages/Voices/components/HuggingFaceDiscov
 import { MetadataEditorModal } from '@/pages/Voices/components/MetadataEditorModal';
 import { getDefaultEngineId, isVoiceProfileSelectable } from '@/utils/voiceProfiles';
 import { api } from '@/api';
+import { emitToast, TOAST_VISIBLE_MS } from '@/utils/toast';
 
 // ---------------------------------------------------------------------------
 // Taxonomy facet options for class/gender/age (subset used as filter pills)
@@ -84,6 +85,30 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     const [voicesTab, setVoicesTab] = useState<VoicesTabId>('local');
 
     // ---------------------------------------------------------------------------
+    // Bulk select mode — persona fast-follow (Large Catalog Curator): every
+    // destructive/organizational action was previously one-card-at-a-time via
+    // each card's overflow menu. Selection is a Set of voice-group ids (the
+    // same id space as VoicesTabContent's `voice.id`).
+    // ---------------------------------------------------------------------------
+    const [selectMode, setSelectMode] = useState(false);
+    const [selectedVoiceIds, setSelectedVoiceIds] = useState<Set<string>>(new Set());
+    const pendingBulkDeletesRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handleToggleSelectMode = useCallback(() => {
+        setSelectMode(prev => !prev);
+        setSelectedVoiceIds(new Set());
+    }, []);
+
+    const handleToggleVoiceSelect = useCallback((voiceId: string) => {
+        setSelectedVoiceIds(prev => {
+            const next = new Set(prev);
+            if (next.has(voiceId)) next.delete(voiceId);
+            else next.add(voiceId);
+            return next;
+        });
+    }, []);
+
+    // ---------------------------------------------------------------------------
     // Voice metadata — fetched from GET /api/voices/ (Phase C endpoint)
     // ---------------------------------------------------------------------------
     const [voiceMetadataList, setVoiceMetadataList] = useState<VoiceMetadata[]>([]);
@@ -128,6 +153,70 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         genderFilter: state.genderFilter,
         ageFilter: state.ageFilter,
     });
+
+    // Bulk delete/export operate on the same (id, name, profiles.length) shape
+    // VoicesTabContent already derives per-voice; look it up from the active list.
+    const findSelectedVoice = useCallback(
+        (id: string) => data.allVoices.find(v => v.id === id),
+        [data.allVoices]
+    );
+
+    const handleBulkExport = useCallback(() => {
+        const ids = Array.from(selectedVoiceIds);
+        const names = ids.map(id => findSelectedVoice(id)?.name).filter((n): n is string => Boolean(n));
+        // One tab per voice, staggered slightly so browsers don't treat the
+        // burst as a popup-blocker-worthy flood — mirrors the existing
+        // single-voice export flow (handleConfirmExportVoice), just fanned out
+        // client-side since no batch export endpoint exists yet.
+        names.forEach((name, i) => {
+            setTimeout(() => window.open(api.exportVoiceBundleUrl(name, false), '_blank'), i * 150);
+        });
+    }, [selectedVoiceIds, findSelectedVoice]);
+
+    const handleBulkDelete = useCallback(() => {
+        const ids = Array.from(selectedVoiceIds);
+        const targets = ids
+            .map(id => findSelectedVoice(id))
+            .filter((v): v is { id: string; name: string; profiles: SpeakerProfile[] } => Boolean(v));
+        if (targets.length === 0) return;
+
+        state.handleRequestConfirm({
+            title: 'Delete voices?',
+            message: `Delete ${targets.length} voice${targets.length !== 1 ? 's' : ''} and all their variants? This cannot be undone.`,
+            isDestructive: true,
+            onConfirm: () => {
+                // Deferred delete + one aggregate "Undo" toast (mirrors the
+                // single-voice pattern in useVoiceManagement.handleDelete) —
+                // the actual DELETE calls fire only once the toast's undo
+                // window elapses.
+                if (pendingBulkDeletesRef.current) clearTimeout(pendingBulkDeletesRef.current);
+                pendingBulkDeletesRef.current = setTimeout(async () => {
+                    pendingBulkDeletesRef.current = null;
+                    await Promise.all(targets.map(v => {
+                        const deleteUrl = v.id
+                            ? `/api/speakers/${v.id}`
+                            : `/api/speaker-profiles/${encodeURIComponent(v.profiles[0]?.name || '')}`;
+                        return fetch(deleteUrl, { method: 'DELETE' }).catch(err => {
+                            console.error('Failed to delete voice', v.name, err);
+                        });
+                    }));
+                    onRefresh();
+                }, TOAST_VISIBLE_MS);
+
+                emitToast(`Deleted ${targets.length} voice${targets.length !== 1 ? 's' : ''}.`, {
+                    label: 'Undo',
+                    onClick: () => {
+                        if (pendingBulkDeletesRef.current) {
+                            clearTimeout(pendingBulkDeletesRef.current);
+                            pendingBulkDeletesRef.current = null;
+                        }
+                    },
+                });
+                setSelectedVoiceIds(new Set());
+                setSelectMode(false);
+            },
+        });
+    }, [selectedVoiceIds, findSelectedVoice, state, onRefresh]);
 
     const actions = useVoicesTabActions({
         state,
@@ -187,6 +276,8 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 onGuideClick={() => state.setShowGuide(true)}
                 activeTab={voicesTab}
                 onTabChange={setVoicesTab}
+                selectMode={selectMode}
+                onToggleSelectMode={handleToggleSelectMode}
             />
 
             {voicesTab === 'local' ? (
@@ -232,6 +323,11 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                     voiceMetadataMap={voiceMetadataMap}
                     onEditMetadata={handleEditMetadata}
                     onNavigateToLab={(id) => navigate(`/voices/${id}`)}
+                    selectMode={selectMode}
+                    selectedIds={selectedVoiceIds}
+                    onToggleSelect={handleToggleVoiceSelect}
+                    onBulkDelete={handleBulkDelete}
+                    onBulkExport={handleBulkExport}
                 />
             ) : (
                 <div style={{ flex: 1, overflowY: 'auto', padding: '2rem' }}>

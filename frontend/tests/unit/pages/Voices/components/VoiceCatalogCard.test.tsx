@@ -291,6 +291,51 @@ describe('VoiceCatalogCard', () => {
         expect(baseProps.onNavigateToLab).toHaveBeenCalledWith('sp-1');
     });
 
+    // ---------------------------------------------------------------------------
+    // Bulk-select mode (persona fast-follow: Large Catalog Curator)
+    // ---------------------------------------------------------------------------
+
+    it('does not render a selection checkbox when selectable is not set', () => {
+        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
+        expect(screen.queryByLabelText('Select Clara Bell checkbox')).not.toBeInTheDocument();
+    });
+
+    it('renders a selection checkbox reflecting `selected` when selectable is true', () => {
+        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} selectable selected />);
+        const checkbox = screen.getByLabelText('Select Clara Bell checkbox').querySelector('input');
+        expect(checkbox).toBeChecked();
+    });
+
+    it('clicking the checkbox fires onToggleSelect and does not navigate', () => {
+        const onToggleSelect = vi.fn();
+        render(
+            <VoiceCatalogCard
+                {...baseProps}
+                profiles={[readyProfile]}
+                selectable
+                onToggleSelect={onToggleSelect}
+            />
+        );
+        fireEvent.click(screen.getByLabelText('Select Clara Bell checkbox').querySelector('input')!);
+        expect(onToggleSelect).toHaveBeenCalledTimes(1);
+        expect(baseProps.onNavigateToLab).not.toHaveBeenCalled();
+    });
+
+    it('clicking the card body toggles selection instead of navigating when selectable', () => {
+        const onToggleSelect = vi.fn();
+        render(
+            <VoiceCatalogCard
+                {...baseProps}
+                profiles={[readyProfile]}
+                selectable
+                onToggleSelect={onToggleSelect}
+            />
+        );
+        fireEvent.click(screen.getByTestId('voice-catalog-card-body'));
+        expect(onToggleSelect).toHaveBeenCalledTimes(1);
+        expect(baseProps.onNavigateToLab).not.toHaveBeenCalled();
+    });
+
     it('Rename Voice fires onRenameClick', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
         fireEvent.click(screen.getByTestId('menu-item-Rename Voice'));

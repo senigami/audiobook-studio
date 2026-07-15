@@ -122,4 +122,58 @@ describe('VoicesTabContent', () => {
 
         expect(baseProps.onNavigateToLab).toHaveBeenCalledWith('sp-1');
     });
+
+    // ---------------------------------------------------------------------------
+    // Bulk-select toolbar (persona fast-follow: Large Catalog Curator)
+    // ---------------------------------------------------------------------------
+
+    it('does not render the bulk toolbar when selectMode is off', () => {
+        render(<VoicesTabContent {...baseProps} />);
+        expect(screen.queryByRole('toolbar', { name: /bulk voice actions/i })).not.toBeInTheDocument();
+    });
+
+    it('does not render the bulk toolbar when selectMode is on but nothing is selected', () => {
+        render(<VoicesTabContent {...baseProps} selectMode selectedIds={new Set()} />);
+        expect(screen.queryByRole('toolbar', { name: /bulk voice actions/i })).not.toBeInTheDocument();
+    });
+
+    it('renders the bulk toolbar with the selected count once >=1 voice is selected', () => {
+        render(<VoicesTabContent {...baseProps} selectMode selectedIds={new Set(['sp-1'])} />);
+        expect(screen.getByRole('toolbar', { name: /bulk voice actions/i })).toBeInTheDocument();
+        expect(screen.getByText('1 selected')).toBeInTheDocument();
+    });
+
+    it('fires onBulkDelete/onBulkExport from the toolbar buttons', () => {
+        const onBulkDelete = vi.fn();
+        const onBulkExport = vi.fn();
+        render(
+            <VoicesTabContent
+                {...baseProps}
+                selectMode
+                selectedIds={new Set(['sp-1'])}
+                onBulkDelete={onBulkDelete}
+                onBulkExport={onBulkExport}
+            />
+        );
+        fireEvent.click(screen.getByRole('button', { name: /delete 1/i }));
+        expect(onBulkDelete).toHaveBeenCalledTimes(1);
+        fireEvent.click(screen.getByRole('button', { name: /export 1/i }));
+        expect(onBulkExport).toHaveBeenCalledTimes(1);
+    });
+
+    it('passes selectable/selected/onToggleSelect through to the rendered card', () => {
+        const onToggleSelect = vi.fn();
+        render(
+            <VoicesTabContent
+                {...baseProps}
+                selectMode
+                selectedIds={new Set(['sp-1'])}
+                onToggleSelect={onToggleSelect}
+            />
+        );
+        const checkbox = screen.getByLabelText('Select Clara Bell checkbox').querySelector('input');
+        expect(checkbox).toBeChecked();
+        fireEvent.click(checkbox!);
+        expect(onToggleSelect).toHaveBeenCalledWith('sp-1');
+    });
 });
