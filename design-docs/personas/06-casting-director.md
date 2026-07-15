@@ -1,4 +1,4 @@
-# 06 · "Alex Reyes" — Casting Director  ☆ INFERRED
+# 06 · Casting Director  ☆ INFERRED
 
 **Identity:** "Casting is a permanent decision that touches everything. I need to see the full map before I change a single voice."
 
@@ -25,10 +25,10 @@
 - **Cast approval:** Signs off on the full cast map with a locked state — no AI or auto-assignment should touch it after approval
 
 ## Top friction points *(INFERRED)*
-- **F1 — No book-level casting map:** Alex can see one chapter's assignments at a time, but never the whole cast across all chapters simultaneously. Duplicate voices and near-matches don't surface until the first full render.
+- **F1 — No book-level casting map:** The Casting Director can see one chapter's assignments at a time, but never the whole cast across all chapters simultaneously. Duplicate voices and near-matches don't surface until the first full render.
 - **F2 — Audition requires navigation:** Comparing two voice samples for a role means leaving the casting panel, going to the voices library, playing previews there, then navigating back. There is no inline audition mode.
-- **F3 — Reassignment blast radius is invisible:** When Alex reassigns a voice to a new character, the app doesn't show how many chapters, scenes, and already-rendered segments will be invalidated.
-- **F4 — No director's notes on characters:** The character profile has no field for casting guidance. Notes like "sounds ordinary, not menacing" live in Alex's head or a separate document outside the app.
+- **F3 — Reassignment blast radius is invisible:** When the Casting Director reassigns a voice to a new character, the app doesn't show how many chapters, scenes, and already-rendered segments will be invalidated.
+- **F4 — No director's notes on characters:** The character profile has no field for casting guidance. Notes like "sounds ordinary, not menacing" live in the Casting Director's head or a separate document outside the app.
 - **F5 — Voice similarity goes undetected:** Two characters who both got assigned similar-sounding voices are only discovered by ear, never surfaced by the app.
 
 ## What they need from the studio

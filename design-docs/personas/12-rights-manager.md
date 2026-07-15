@@ -1,6 +1,6 @@
-# 12 · "Helen Novak" — Rights Manager  ☆ INFERRED
+# 12 · Rights Manager  ☆ INFERRED
 
-**Identity:** "Helen manages rights clearance for a publisher with multi-source licensed content — she needs the system to enforce which parts of a project can be exported and when, without relying on her remembering to check every time."
+**Identity:** "I manage rights clearance for a publisher with multi-source licensed content — I need the system to enforce which parts of a project can be exported and when, without relying on me remembering to check every time."
 
 ## Goals
 - Mark individual chapters or segments as cleared, restricted, or territory-limited
@@ -24,17 +24,17 @@
 - **Clearance record export:** Downloads a rights clearance summary for the release approval package — which chapters, which rights holder, clearance date, territory scope
 
 ## Top friction points *(INFERRED)*
-- **F1 — No rights or clearance status field:** The data model has no concept of clearance status; Helen's only option is to use a chapter title prefix or a note field as a workaround, which the export process ignores entirely
-- **F2 — Export does not respect any status gate:** Even if Helen marks something as restricted using an available workaround, the export function includes everything that is rendered; there is no mechanism to exclude content by status
-- **F3 — No territory scope on content:** Rights are not just cleared/restricted — they are often territory-specific (a chapter may be cleared for the US but not the EU); the app has no field for territory scope, so Helen must track this entirely outside the system
-- **F4 — No expiration tracking:** Some clearances have a time limit; Helen currently maintains an external calendar reminder because the app has no concept of a clearance expiry date that would auto-restrict content when it lapses
-- **F5 — No audit trail for clearance changes:** If a rights status changes after production has started, there is no log of who changed it and when; Helen has no way to demonstrate to a rights holder that restricted content was withheld from a specific export run
+- **F1 — No rights or clearance status field:** The data model has no concept of clearance status; the Rights Manager's only option is to use a chapter title prefix or a note field as a workaround, which the export process ignores entirely
+- **F2 — Export does not respect any status gate:** Even if they mark something as restricted using an available workaround, the export function includes everything that is rendered; there is no mechanism to exclude content by status
+- **F3 — No territory scope on content:** Rights are not just cleared/restricted — they are often territory-specific (a chapter may be cleared for the US but not the EU); the app has no field for territory scope, so they must track this entirely outside the system
+- **F4 — No expiration tracking:** Some clearances have a time limit; they currently maintain an external calendar reminder because the app has no concept of a clearance expiry date that would auto-restrict content when it lapses
+- **F5 — No audit trail for clearance changes:** If a rights status changes after production has started, there is no log of who changed it and when; they have no way to demonstrate to a rights holder that restricted content was withheld from a specific export run
 
 ## What they need from the studio
 - A per-chapter (and optionally per-segment) clearance status field: cleared, pending, restricted, territory-limited
 - Export enforcement: content not in "cleared" status is excluded from export, not just flagged — this must be automatic, not a manual pre-export checklist step
 - Territory scope per clearance: which markets/territories a chapter is cleared for, visible on the chapter record and enforced on territory-specific exports
-- Clearance expiry date: a field that auto-downgrades clearance status when the date passes, with a notification to Helen
+- Clearance expiry date: a field that auto-downgrades clearance status when the date passes, with a notification to the Rights Manager
 - A rights summary export: PDF or CSV listing every chapter, its rights holder, clearance status, territory scope, and clearance date — suitable for inclusion in a release approval package
 
 ## Review lens — questions they ask of any screen
@@ -49,7 +49,7 @@
 - Export includes a chapter she marked as restricted, with no warning
 - There is no clearance status field anywhere in the chapter or project view
 - The app has no concept of territory scope; she has no way to encode NA-only clearances
-- Nothing prevents the producer from exporting a project without running it by Helen first
+- Nothing prevents the producer from exporting a project without running it by the Rights Manager first
 - There is no audit log; if a disputed export goes to a rights holder, she cannot show what was included and when
 
 **Evidence basis:** INFERRED. Interview rights managers at mid-size publishers or content licensing agencies who manage multi-source audiobook catalogs to validate which clearance failures actually reach distribution and how they currently track territory-specific restrictions across active titles.

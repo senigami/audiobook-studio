@@ -1,4 +1,4 @@
-# 26 · "Nadia Fischer" — Release Doc Maintainer  ☆ INFERRED
+# 26 · Release Doc Maintainer  ☆ INFERRED
 
 **Identity:** "A specs and changelog maintainer who ensures that every shipped behavior change has a corresponding contract document — because a feature without a discoverable spec is a liability waiting to become a regression."
 

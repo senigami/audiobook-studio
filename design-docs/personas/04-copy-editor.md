@@ -1,4 +1,4 @@
-# 04 · "Priya Nair" — Copy Editor  ☆ INFERRED
+# 04 · Copy Editor  ☆ INFERRED
 
 **Identity:** "I read every line as if I'm about to say it aloud, and when I see 'she would wound the clock each morning,' I already know the TTS engine is going to pick the wrong pronunciation — I need to fix it before it ever hits the queue."
 
@@ -22,10 +22,10 @@
 - **Segmentation check:** Reads segment break points to confirm they don't split a sentence mid-clause in a way that disrupts prosodic flow
 
 ## Top friction points *(INFERRED)*
-- **F1 — No inline text editing in context:** To fix a typo in a segment, Priya must click into the segment editor, make the change, save, and return to the list — there is no inline editing in the flat chapter view that would let her move efficiently from line to line
+- **F1 — No inline text editing in context:** To fix a typo in a segment, the Copy Editor must click into the segment editor, make the change, save, and return to the list — there is no inline editing in the flat chapter view that would let her move efficiently from line to line
 - **F2 — No phonetic annotation layer:** There is nowhere in the app to attach a phonetic hint or TTS override to a specific word without modifying the manuscript text itself, which would introduce discrepancies with the author's canonical document
 - **F3 — Preview latency breaks the flow:** Running a single-segment preview requires waiting for the TTS engine to spin up and render, which breaks the read-aloud rhythm she uses to catch spoken awkwardness
-- **F4 — Formatting artifacts are invisible:** Import normalizes some punctuation silently; Priya has no way to see what was changed during import or confirm whether her smart quotes and em-dashes survived intact
+- **F4 — Formatting artifacts are invisible:** Import normalizes some punctuation silently; the Copy Editor has no way to see what was changed during import or confirm whether her smart quotes and em-dashes survived intact
 - **F5 — No flag-and-defer workflow:** She can't mark a segment "needs phonetic review" and come back to it — there's no annotation or flag system in the segment editor
 
 ## What they need from the studio

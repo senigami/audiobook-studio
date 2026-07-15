@@ -1,4 +1,4 @@
-# 22 · "Fatima Al-Rashid" — Privacy & Security Reviewer  ☆ INFERRED
+# 22 · Privacy & Security Reviewer  ☆ INFERRED
 
 **Identity:** "A security engineer who treats every user-supplied input — plugin archives, manuscript text, character names, repo URLs — as adversarial by default, and will not approve a release until the trust boundary between untrusted input and the local filesystem is explicit, tested, and enforced by the CI pipeline."
 

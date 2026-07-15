@@ -1,4 +1,4 @@
-# 24 · "Aiko Yamamoto" — Observability Debugger  ☆ INFERRED
+# 24 · Observability Debugger  ☆ INFERRED
 
 **Identity:** "A diagnostics analyst who investigates intermittent progress display bugs by tracing WebSocket events back to their backend emitters — and who needs tools that distinguish 'event was broadcast' from 'UI actually processed it once.'"
 
@@ -25,7 +25,7 @@
 - **F1 — Mixed source/classification fields:** Progress frames sometimes carry source values that name the broadcast helper rather than the originating orchestrator module, making it impossible to trace back to the actual emitter without reading call stacks
 - **F2 — Stale debug timelines:** The app's internal event log is append-only but is not cleared between renders; when investigating a frozen bar, the relevant frames are buried under noise from previous runs
 - **F3 — No single-event delivery proof:** There is no built-in mechanism to confirm that a given frame was delivered to exactly one active WebSocket subscriber and that the subscriber processed it — "broadcast" and "received" are conflated in logs
-- **F4 — Progress threshold gating hides causality:** The orchestrator only broadcasts when progress advances ≥ 1%; this is correct behavior, but it means a frame Aiko expects to see may legitimately be missing, and distinguishing "not emitted" from "emitted but dropped" requires log correlation that is not currently automated
+- **F4 — Progress threshold gating hides causality:** The orchestrator only broadcasts when progress advances ≥ 1%; this is correct behavior, but it means a frame the Observability Debugger expects to see may legitimately be missing, and distinguishing "not emitted" from "emitted but dropped" requires log correlation that is not currently automated
 
 ## What they need from the studio
 - A frame-level trace that records the call site (module + function) that triggered each `broadcast_*` call, not just the helper name

@@ -1,4 +1,4 @@
-# 21 · "Marcus Webb" — QA Engineer  ☆ INFERRED
+# 21 · QA Engineer  ☆ INFERRED
 
 **Identity:** "A regression-focused QA engineer who believes a fix is only a fix when it handles the exact failure mode — not just the happy path — and who will not mark a bug closed until he has a test that is red before the fix and green after."
 
@@ -24,7 +24,7 @@
 - **Isolation audit:** Runs the full suite twice in a row without clearing state between runs; any test that passes on the second run but not the first (or vice versa) is an isolation bug
 
 ## Top friction points *(INFERRED)*
-- **F1 — Segment/DB divergence is hard to set up:** The failure mode where a WAV file exists on disk but the DB says the segment is not rendered (or vice versa) requires reaching into internal state that is not exposed via any test helper. Marcus ends up calling private functions or writing to the DB directly, which is fragile across refactors.
+- **F1 — Segment/DB divergence is hard to set up:** The failure mode where a WAV file exists on disk but the DB says the segment is not rendered (or vice versa) requires reaching into internal state that is not exposed via any test helper. The QA Engineer ends up calling private functions or writing to the DB directly, which is fragile across refactors.
 - **F2 — WebSocket reconnect has no test fixture:** The conftest provides a WebSocket client but no helper that simulates a mid-stream disconnect and reconnect. Tests for reconnect behavior are either absent or use real `asyncio.sleep` delays, violating R4.
 - **F3 — Clear state is incomplete:** `clear_all_jobs` resets in-memory job state but does not clear on-disk segment WAVs written during the test. A test that checks "segment has no audio" can fail if a prior test wrote audio to the same temp path and the GC hasn't run yet.
 - **F4 — Contract-shaped frames not always enforced:** Some frontend tests build raw socket frame literals instead of using `publishStudioSocketMessage` and the typed contracts in `liveEvents.ts`. When the contract changes, those tests stay green by accident rather than catching the regression.

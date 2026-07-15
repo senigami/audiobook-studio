@@ -1,6 +1,6 @@
-# 09 · "Sandra Liu" — Publisher Ops  ☆ INFERRED
+# 09 · Publisher Ops  ☆ INFERRED
 
-**Identity:** "Sandra is the release gate for a small publisher — she needs a checklist that tells her exactly what's complete, what's missing, and what will ship if she approves right now."
+**Identity:** "The Publisher Ops role is the release gate for a small publisher — they need a checklist that tells them exactly what's complete, what's missing, and what will ship if they approve right now."
 
 ## Goals
 - See a clear completion checklist before any project leaves the system for distribution
@@ -12,7 +12,7 @@
 ## Context & environment *(INFERRED)*
 - Windows laptop, office environment; not an audio person or a tech person
 - Manages 4–8 active audiobook titles at a time, each at a different stage
-- Was handed Audiobook Studio by a producer who already set up the projects; Sandra approves and exports
+- Was handed Audiobook Studio by a producer who already set up the projects; the Publisher Ops role approves and exports
 - Checks in on projects intermittently — daily progress reviews, not continuous sessions
 - Does not render audio herself; she reviews what production has built and decides if it's releasable
 
@@ -24,11 +24,11 @@
 - **Deliverable tracking:** After export, needs a record: what was exported, when, to what format — something she can reference in a release log
 
 ## Top friction points *(INFERRED)*
-- **F1 — No high-level completeness view:** The project list shows titles and render status but not a release-readiness signal; Sandra has to open each project and manually check chapters, metadata, and files to decide if it's shippable
-- **F2 — No approval/version gate:** Export is available as soon as rendering finishes; there is no "mark as approved" step that separates production-complete from release-approved, so Sandra has no place to put her sign-off
+- **F1 — No high-level completeness view:** The project list shows titles and render status but not a release-readiness signal; the Publisher Ops role has to open each project and manually check chapters, metadata, and files to decide if it's shippable
+- **F2 — No approval/version gate:** Export is available as soon as rendering finishes; there is no "mark as approved" step that separates production-complete from release-approved, so they have no place to put their sign-off
 - **F3 — Missing metadata is invisible until export:** Cover art or narrator metadata fields that are empty don't surface as blockers until the export either fails or produces an incomplete package
-- **F4 — No export record:** After a project is exported, there is no log of what was included, when, or by whom; Sandra has no audit trail for her release records
-- **F5 — Late content swaps are silent:** If a producer re-renders a chapter after Sandra reviewed it, she has no notification and no render timestamp visible at the chapter level
+- **F4 — No export record:** After a project is exported, there is no log of what was included, when, or by whom; the Publisher Ops role has no audit trail for their release records
+- **F5 — Late content swaps are silent:** If a producer re-renders a chapter after the Publisher Ops role reviewed it, they have no notification and no render timestamp visible at the chapter level
 
 ## What they need from the studio
 - A per-project release checklist: metadata complete, cover present, all chapters rendered, no failed segments, no pending re-renders

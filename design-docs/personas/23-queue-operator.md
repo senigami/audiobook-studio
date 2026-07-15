@@ -1,4 +1,4 @@
-# 23 · "Carlos Rivera" — Queue Operations Specialist  ☆ INFERRED
+# 23 · Queue Operations Specialist  ☆ INFERRED
 
 **Identity:** "A render-queue triage specialist who needs to know at a glance which job is actually running, who owns it, and what the fastest recovery path is — without losing any completed work."
 
@@ -7,11 +7,11 @@
 - Inspect live queue metadata (ETA, segment count, child jobs) without digging into state.json manually
 - Recover a stuck or stale job without re-running completed segments
 - Surface hidden "zombie" jobs — entries that appear finished but still hold child work
-- Distinguish a real failure from a stale terminal state so he doesn't kill a job that is silently recovering
+- Distinguish a real failure from a stale terminal state so they don't kill a job that is silently recovering
 
 ## Context & environment *(INFERRED)*
 - Mid-range workstation running Windows; accesses the app at localhost:8123 from a browser tab kept permanently pinned
-- Came to Audiobook Studio when the studio scaled past what one producer could monitor; Carlos was assigned the queue
+- Came to Audiobook Studio when the studio scaled past what one producer could monitor; the Queue Operations Specialist was assigned the queue
 - Typical pattern: arrives after something breaks; does not typically initiate renders but is called in when producers report a stuck bar or frozen ETA
 
 ## Key workflow moments
@@ -19,13 +19,13 @@
 - **ETA drift check:** After a queue update or restart, verifies that ETA values are recalculated from current state, not carried over from a pre-restart snapshot
 - **Child-work inspection:** For a job that claims completion, confirms no child segments or assembly tasks are still pending
 - **Cancel and requeue:** When a job is stuck, cancels it cleanly and requeues from the last completed segment checkpoint — not from scratch
-- **Handoff documentation:** Records what state the queue was in, what action he took, and what the job is doing now
+- **Handoff documentation:** Records what state the queue was in, what action they took, and what the job is doing now
 
 ## Top friction points *(INFERRED)*
 - **F1 — Stale terminal states:** A job shows "completed" in the UI while the orchestrator still holds an active child task; there is no UI surface that exposes child job ownership
 - **F2 — ETA drift after restart:** After recovery.py restores tasks, displayed ETAs reflect pre-restart estimates rather than fresh calculations, making it impossible to know how long is actually left
 - **F3 — No single "active job" indicator:** The queue panel shows all jobs by recency, but the one job currently consuming the GPU is not visually distinguished from queued or paused ones
-- **F4 — Silent recovery ambiguity:** When the orchestrator auto-recovers a task, there is no event or status change visible in the queue panel — the job just starts moving again, leaving Carlos uncertain whether his manual action worked or something else resolved it
+- **F4 — Silent recovery ambiguity:** When the orchestrator auto-recovers a task, there is no event or status change visible in the queue panel — the job just starts moving again, leaving the Queue Operations Specialist uncertain whether their manual action worked or something else resolved it
 
 ## What they need from the studio
 - A persistent "currently active" indicator that reflects orchestrator state, not UI inference

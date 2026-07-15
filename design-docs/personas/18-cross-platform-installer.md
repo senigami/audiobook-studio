@@ -1,4 +1,4 @@
-# 18 · "Yuki Tanaka" — Cross-Platform Installer  ☆ INFERRED
+# 18 · Cross-Platform Installer  ☆ INFERRED
 
 **Identity:** "A QA contractor who validates that installation actually works on the machines real users have — not just the dev's MacBook — and will not ship until every platform has a clean, recoverable setup story."
 

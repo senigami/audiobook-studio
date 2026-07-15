@@ -1,4 +1,4 @@
-# 03 · "Claire Whitmore" — Series Editor  ☆ INFERRED
+# 03 · Series Editor  ☆ INFERRED
 
 **Identity:** "I'm the person who catches the fact that 'Edris' became 'Aldric' in book three and nobody updated books four through seven — and I need to catch it before a single recording session happens, not after."
 
@@ -22,10 +22,10 @@
 - **Status control:** Sets per-chapter status flags (draft / reviewed / approved / locked) to communicate to the narrator and producer what's safe to record
 
 ## Top friction points *(INFERRED)*
-- **F1 — No cross-chapter name search:** The app has no global find-across-chapters feature; Claire must open every chapter individually to hunt for legacy character name variants
+- **F1 — No cross-chapter name search:** The app has no global find-across-chapters feature; the Series Editor must open every chapter individually to hunt for legacy character name variants
 - **F2 — Silent cast drift:** When a chapter is re-imported with a revised manuscript, existing cast assignments don't update or warn — a renamed character silently gets a new uncast entry while the old voice profile becomes an orphan
 - **F3 — No draft versioning:** The app stores the current segment text but doesn't retain the previous version, so comparing "what we recorded last week" against "what the author just revised" requires external tools
-- **F4 — Status flags are missing:** There's no per-chapter approval state — everything looks equally "in progress" or "not started," giving Claire no way to communicate readiness to the narrator or producer without out-of-band messages
+- **F4 — Status flags are missing:** There's no per-chapter approval state — everything looks equally "in progress" or "not started," giving them no way to communicate readiness to the narrator or producer without out-of-band messages
 
 ## What they need from the studio
 - A global find-and-replace or search-across-project tool that scans all chapters for a name or phrase and shows matches in context

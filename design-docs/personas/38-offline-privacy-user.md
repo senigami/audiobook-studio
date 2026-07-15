@@ -1,4 +1,4 @@
-# 38 · "Nathan Holt" — Offline Privacy User  ☆ INFERRED
+# 38 · Offline Privacy User  ☆ INFERRED
 
 **Identity:** "A journalist writing a sensitive memoir who chose local-first explicitly and needs the app to be honest and specific about exactly what data leaves his machine — and when a plugin changes that."
 
@@ -24,9 +24,9 @@
 - **Offline render:** Starts a full render with his machine in airplane mode; expects the render to complete without error — no silent failures because a plugin tried and failed to reach a remote service
 
 ## Top friction points *(INFERRED)*
-- **F1 — "Cloud voices" appear in the voice library without a clear boundary:** Nathan sees cloud-hosted voices mixed into the same list as local voices with no distinct visual treatment. The label is small and easy to miss. He cannot tell at a glance whether installing one would send his manuscript text off-device.
-- **F2 — A plugin checks for updates on startup without disclosure:** One plugin makes an outbound call at launch. This is not disclosed in the manifest or plugin detail screen. Nathan's firewall blocked it silently, but he only found out by reviewing firewall logs — not from the app.
-- **F3 — API endpoint setting has no explanation:** A settings field labeled "TTS API endpoint" with a pre-filled URL appears in the app. Nathan doesn't know whether this is used by default, whether it is a local loopback address, or whether it points to an external service. There is no tooltip or inline explanation.
+- **F1 — "Cloud voices" appear in the voice library without a clear boundary:** the Offline Privacy User sees cloud-hosted voices mixed into the same list as local voices with no distinct visual treatment. The label is small and easy to miss. They cannot tell at a glance whether installing one would send his manuscript text off-device.
+- **F2 — A plugin checks for updates on startup without disclosure:** One plugin makes an outbound call at launch. This is not disclosed in the manifest or plugin detail screen. their firewall blocked it silently, but they only found out by reviewing firewall logs — not from the app.
+- **F3 — API endpoint setting has no explanation:** A settings field labeled "TTS API endpoint" with a pre-filled URL appears in the app. the Offline Privacy User doesn't know whether this is used by default, whether it is a local loopback address, or whether it points to an external service. There is no tooltip or inline explanation.
 - **F4 — "Local-first" is a marketing claim, not a specification:** The homepage and README say "local-first" but don't define what that means precisely: does it mean no data leaves by default, no data leaves ever, or just that the app can run without cloud services?
 
 ## What they need from the studio

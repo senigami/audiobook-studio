@@ -1,4 +1,4 @@
-# 19 · "Ryan Chen" — Automation User  ☆ INFERRED
+# 19 · Automation User  ☆ INFERRED
 
 **Identity:** "A publisher-side engineer who treats Audiobook Studio as a headless API and needs every endpoint to behave predictably enough to build an unattended, idempotent production pipeline around it."
 

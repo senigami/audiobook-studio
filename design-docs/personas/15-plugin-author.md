@@ -1,6 +1,6 @@
-# 15 · "Sam Torres" — Plugin Author  ☆ INFERRED
+# 15 · Plugin Author  ☆ INFERRED
 
-**Identity:** "Sam needs to implement the exact contract Studio expects, declare the right capabilities in his manifest, and be confident his plugin will behave identically in production as it does in his local dev fixture — before he submits."
+**Identity:** "I need to implement the exact contract Studio expects, declare the right capabilities in my manifest, and be confident my plugin will behave identically in production as it does in my local dev fixture — before I submit."
 
 ## Goals
 - Understand the full `StudioTTSEngine` interface contract: which methods are required, what each must return, and what Studio does when a method is absent or returns an unexpected shape
@@ -20,14 +20,14 @@
 - **Declaring manifest capabilities:** Sets `text_chunk_limit`, `progress_pattern`, and resource requirements — needs to know exactly which fields are required versus optional, and what Studio does when an optional field is absent versus wrong
 - **Running plugin validation:** Wants a single command that runs `plugin_loader.py`'s validation path against his plugin directory and reports every contract violation before the TTS server boots, not after
 - **Writing plugin-local tests:** Uses `plugins/tts_<name>/tests/` collected by pytest; needs guidance on which parts of the Studio test infrastructure are safe to import versus which are internal-only
-- **Dev mode vs. production parity:** Some test fixtures bypass the real HTTP synthesis path; Sam needs to know exactly where the fixture boundary is so he does not write tests that pass only because they skip the code he is shipping
+- **Dev mode vs. production parity:** Some test fixtures bypass the real HTTP synthesis path; the Plugin Author needs to know exactly where the fixture boundary is so they do not write tests that pass only because they skip the code they are shipping
 
 ## Top friction points *(INFERRED)*
-- **F1 — Required method list is implicit:** The `StudioTTSEngine` interface contract is defined in code; there is no single spec file that enumerates every required method, its expected signature, and its expected return shape — Sam assembles this by reading multiple files
-- **F2 — Manifest schema drift:** The manifest JSON schema in `docs/plugin-sdk/` and the schema validated by `plugin_loader.py` can get out of sync; Sam writes a manifest that passes the docs but fails loader validation, or vice versa
+- **F1 — Required method list is implicit:** The `StudioTTSEngine` interface contract is defined in code; there is no single spec file that enumerates every required method, its expected signature, and its expected return shape — they assemble this by reading multiple files
+- **F2 — Manifest schema drift:** The manifest JSON schema in `docs/plugin-sdk/` and the schema validated by `plugin_loader.py` can get out of sync; the Plugin Author writes a manifest that passes the docs but fails loader validation, or vice versa
 - **F3 — Silent acceptance of bad contracts:** `plugin_loader.py` may accept a plugin with a missing or mistyped field and defer the failure to synthesis time — the plugin loads cleanly, appears in `GET /engines`, and fails only when the first real job runs
-- **F4 — Dev fixtures hide production failures:** The test suite for `tts_mixed` (and similar) uses fixtures that mock at the HTTP boundary; Sam copies the pattern, his tests pass, but his plugin fails in the real TTS server because the fixture masked a response shape error
-- **F5 — Concurrency assumptions untested:** Sam's plugin works correctly for one request at a time but has a shared state bug (e.g., a class-level dict) that only surfaces under the TTS server's concurrent dispatch — no standard guidance exists for testing this locally
+- **F4 — Dev fixtures hide production failures:** The test suite for `tts_mixed` (and similar) uses fixtures that mock at the HTTP boundary; they copy the pattern, their tests pass, but their plugin fails in the real TTS server because the fixture masked a response shape error
+- **F5 — Concurrency assumptions untested:** The Plugin Author's plugin works correctly for one request at a time but has a shared state bug (e.g., a class-level dict) that only surfaces under the TTS server's concurrent dispatch — no standard guidance exists for testing this locally
 
 ## What they need from the studio
 - A single authoritative file (or generated spec) listing every required `StudioTTSEngine` method, its signature, and its expected return type — linked from the plugin guide

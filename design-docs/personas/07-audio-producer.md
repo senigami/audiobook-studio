@@ -1,4 +1,4 @@
-# 07 · "Marta Sokolowski" — Audio Producer  ☆ INFERRED
+# 07 · Audio Producer  ☆ INFERRED
 
 **Identity:** "My job is to know before anyone else whether a render is actually releasable — and I can't do that if the queue shows green on a job that finished with three silent segments and a corrupted WAV nobody caught."
 
@@ -23,7 +23,7 @@
 
 ## Top friction points *(INFERRED)*
 - **F1 — Green status on partial failures:** A chapter job completes and shows as "done" in the queue even when individual segments failed silently — WAV files exist but some are zero-length or clipped; the queue panel offers no per-segment quality signal
-- **F2 — No cross-project queue view:** The queue panel is scoped to one project at a time; Marta has to switch projects to check each one, making it impossible to get a production-wide status at a glance
+- **F2 — No cross-project queue view:** The queue panel is scoped to one project at a time; the Audio Producer has to switch projects to check each one, making it impossible to get a production-wide status at a glance
 - **F3 — Retake tracking is manual:** There's no first-class "retake" workflow — she flags a segment, it re-enters the queue as an ordinary job, and she has no way to distinguish retake jobs from first-run renders or confirm which retakes have been resolved
 - **F4 — Error messages lack actionability:** When a job fails, the queue shows an error string from the TTS engine that describes what broke technically but doesn't indicate whether it's a transient engine error (retry safe) or a content error (needs human intervention)
 - **F5 — Assembly lacks a pre-flight check:** Triggering final assembly doesn't require or surface a segment-completeness check; she has to verify manually that every segment is present and rendered before committing to assembly
