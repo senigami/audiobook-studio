@@ -26,7 +26,7 @@ export const taxonomy: { sections: TaxonomySection[] } = {
             values: [
                 { id: 'feminine', label: 'Feminine' }, { id: 'masculine', label: 'Masculine' },
                 { id: 'neutral', label: 'Neutral / Androgynous' }, { id: 'ambiguous', label: 'Ambiguous' },
-                { id: 'not-applicable', label: 'Not applicable' },
+                { id: 'not-applicable', label: 'Not applicable (non-human)' },
             ],
         },
         {

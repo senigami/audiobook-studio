@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { VoicesTab, resolveEditingVoiceMetadata } from '@/pages/Voices/VoicesPage'
+import { VoicesTab, resolveEditingVoiceMetadata, CLASS_OPTIONS, GENDER_OPTIONS, AGE_OPTIONS } from '@/pages/Voices/VoicesPage'
+import rawVoiceTaxonomy from '../../../../../design-docs/specs/voice-taxonomy.json'
 import { NarratorCard } from '@/pages/Voices/components/NarratorCard'
 import { ScriptEditor } from '@/pages/Voices/components/ScriptEditor'
 import { describe, it, expect, vi } from 'vitest'
@@ -78,10 +79,11 @@ describe('VoicesTab', () => {
         expect(buildBtn).toBeInTheDocument()
     })
 
-    it('shows a direct Delete card action (task 006: moved out of the overflow menu)', async () => {
+    it('exposes Delete as a reachable overflow-menu item (task 002: consolidated into the kebab)', async () => {
         render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
-        const deleteButtons = await screen.findAllByRole('button', { name: /delete voice/i })
-        expect(deleteButtons.length).toBeGreaterThan(0)
+        const menuTriggers = await screen.findAllByRole('button', { name: /more actions/i })
+        fireEvent.click(menuTriggers[0])
+        expect(await screen.findByText('Delete')).toBeInTheDocument()
     })
 
     it('refreshes the full voice state after renaming an unassigned voice', async () => {
@@ -283,13 +285,15 @@ describe('VoicesTab', () => {
         expect(screen.getByText('Export Voice Bundle')).toBeInTheDocument()
     })
 
-    it('exposes Set as App Default and Delete as direct card actions, not in the overflow menu', async () => {
+    it('exposes Set as App Default and Delete as overflow-menu items (task 002: consolidated into the kebab, not direct card actions)', async () => {
         await act(async () => {
             render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
         })
 
-        expect(await screen.findAllByRole('button', { name: /set as app default/i })).not.toHaveLength(0)
-        expect(await screen.findAllByRole('button', { name: /delete voice/i })).not.toHaveLength(0)
+        const menuTriggers = await screen.findAllByRole('button', { name: /more actions/i })
+        fireEvent.click(menuTriggers[0])
+        expect(await screen.findByText('Set as App Default')).toBeInTheDocument()
+        expect(await screen.findByText('Delete')).toBeInTheDocument()
     })
 
     it('filters voices by engine', async () => {
@@ -439,5 +443,27 @@ describe('resolveEditingVoiceMetadata', () => {
         expect(
             resolveEditingVoiceMetadata(editingProfile, [group], new Map(), [taggedMetadata])
         ).toEqual(taggedMetadata)
+    })
+})
+
+// ---------------------------------------------------------------------------
+// CLASS/GENDER/AGE filter options — task 005: sourced from
+// design-docs/specs/voice-taxonomy.json, not the old hand-duplicated subset
+// (which was missing the `not-applicable` gender value and had drifted labels).
+// ---------------------------------------------------------------------------
+describe('CLASS/GENDER/AGE facet options (taxonomy-sourced)', () => {
+    const jsonSection = (key: string) => (rawVoiceTaxonomy as any).sections.find((s: any) => s.key === key)
+
+    it('CLASS options match voice-taxonomy.json\'s class section exactly', () => {
+        expect(CLASS_OPTIONS).toEqual(jsonSection('class').values)
+    })
+
+    it('GENDER options match voice-taxonomy.json\'s gender section exactly, including not-applicable', () => {
+        expect(GENDER_OPTIONS).toEqual(jsonSection('gender').values)
+        expect(GENDER_OPTIONS).toContainEqual({ id: 'not-applicable', label: 'Not applicable (non-human)' })
+    })
+
+    it('AGE options match voice-taxonomy.json\'s age section exactly', () => {
+        expect(AGE_OPTIONS).toEqual(jsonSection('age').values)
     })
 })

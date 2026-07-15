@@ -11,9 +11,10 @@ interface UseVoicesDataProps {
     engineFilter: 'all' | 'disabled' | VoiceEngine;
     exportVoiceName: string | null;
     voiceMetadataMap?: Map<string, VoiceMetadata>;
-    classFilter?: string;
-    genderFilter?: string;
-    ageFilter?: string;
+    classFilter?: string[];
+    genderFilter?: string[];
+    ageFilter?: string[];
+    tagFilter?: string[];
 }
 
 export function useVoicesData({
@@ -25,9 +26,10 @@ export function useVoicesData({
     engineFilter,
     exportVoiceName,
     voiceMetadataMap,
-    classFilter = '',
-    genderFilter = '',
-    ageFilter = '',
+    classFilter = [],
+    genderFilter = [],
+    ageFilter = [],
+    tagFilter = [],
 }: UseVoicesDataProps) {
     const buildVoiceGroups = useCallback((profiles: SpeakerProfile[]) => {
         const groupedVoices = (speakers || []).map(speaker => {
@@ -99,12 +101,15 @@ export function useVoicesData({
             );
             const matchesEngine = engineFilter === 'all' || engineFilter === 'disabled' || v.profiles.some((p: SpeakerProfile) => getVoiceProfileEngine(p) === engineFilter);
             const attrs = meta?.attributes;
-            const matchesClass = !classFilter || attrs?.class === classFilter;
-            const matchesGender = !genderFilter || attrs?.gender === genderFilter;
-            const matchesAge = !ageFilter || attrs?.age === ageFilter;
-            return matchesSearch && matchesEngine && matchesClass && matchesGender && matchesAge;
+            // OR-within-facet (any selected value in a facet matches), AND-across-facets
+            // (search/engine/class/gender/age/tags must all match) — task 005.
+            const matchesClass = classFilter.length === 0 || (attrs?.class ? classFilter.includes(attrs.class) : false);
+            const matchesGender = genderFilter.length === 0 || (attrs?.gender ? genderFilter.includes(attrs.gender) : false);
+            const matchesAge = ageFilter.length === 0 || (attrs?.age ? ageFilter.includes(attrs.age) : false);
+            const matchesTags = tagFilter.length === 0 || (meta?.tags?.some(t => tagFilter.includes(t)) ?? false);
+            return matchesSearch && matchesEngine && matchesClass && matchesGender && matchesAge && matchesTags;
         }).sort((a, b) => a.name.localeCompare(b.name));
-    }, [voices, searchQuery, engineFilter, voiceMetadataMap, classFilter, genderFilter, ageFilter]);
+    }, [voices, searchQuery, engineFilter, voiceMetadataMap, classFilter, genderFilter, ageFilter, tagFilter]);
 
     const engineFilterOptions = useMemo(() => {
         const engineCounts = activeSpeakerProfiles.reduce((acc, profile) => {

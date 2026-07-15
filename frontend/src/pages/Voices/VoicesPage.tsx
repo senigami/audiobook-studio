@@ -14,32 +14,19 @@ import { MetadataEditorModal } from '@/pages/Voices/components/MetadataEditorMod
 import { getDefaultEngineId, isVoiceProfileSelectable } from '@/utils/voiceProfiles';
 import { api } from '@/api';
 import { emitToast, TOAST_VISIBLE_MS } from '@/utils/toast';
+import { getSection } from '@/pages/Voices/components/metadata/taxonomy';
 
 // ---------------------------------------------------------------------------
-// Taxonomy facet options for class/gender/age (subset used as filter pills)
+// Taxonomy facet options for class/gender/age — sourced from
+// design-docs/specs/voice-taxonomy.json (via the bundled metadata/taxonomy.ts
+// mirror; a direct JSON import isn't reachable here — the file lives outside
+// frontend/'s tsconfig `include` root, so `tsc -b` fails to resolve it) rather
+// than a hand-duplicated subset, so additions/renames in the taxonomy (e.g.
+// the `not-applicable` gender value) show up here automatically.
 // ---------------------------------------------------------------------------
-const CLASS_OPTIONS = [
-    { id: 'human', label: 'Human' },
-    { id: 'synthetic', label: 'Synthetic' },
-    { id: 'creature', label: 'Creature' },
-    { id: 'character', label: 'Character' },
-    { id: 'deity', label: 'Deity' },
-];
-const GENDER_OPTIONS = [
-    { id: 'feminine', label: 'Feminine' },
-    { id: 'masculine', label: 'Masculine' },
-    { id: 'neutral', label: 'Neutral' },
-    { id: 'ambiguous', label: 'Ambiguous' },
-];
-const AGE_OPTIONS = [
-    { id: 'child', label: 'Child' },
-    { id: 'teen', label: 'Teen' },
-    { id: 'young-adult', label: 'Young adult' },
-    { id: 'adult', label: 'Adult' },
-    { id: 'middle-aged', label: 'Middle-aged' },
-    { id: 'senior', label: 'Senior' },
-    { id: 'ageless', label: 'Ageless' },
-];
+export const CLASS_OPTIONS = getSection('class')?.values ?? [];
+export const GENDER_OPTIONS = getSection('gender')?.values ?? [];
+export const AGE_OPTIONS = getSection('age')?.values ?? [];
 
 /**
  * Resolve the VoiceMetadata for `editingProfile` — reuses the exact id-first/name-fallback
@@ -133,6 +120,15 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         [voiceMetadataList]
     );
 
+    // Free-form tag filter options — derived from live voice metadata (not the
+    // fixed taxonomy vocabulary), same pattern as VariantFilterBar's
+    // performance_tags chip derivation: dedupe + sort whatever tags currently
+    // exist across the catalog.
+    const tagFilterOptions = useMemo(() => {
+        const allTags = Array.from(new Set(voiceMetadataList.flatMap(m => m.tags ?? []))).sort();
+        return allTags.map(tag => ({ id: tag, label: tag }));
+    }, [voiceMetadataList]);
+
     const management = useVoiceManagement(
         onRefresh,
         state.activeSpeakerProfiles,
@@ -152,6 +148,7 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         classFilter: state.classFilter,
         genderFilter: state.genderFilter,
         ageFilter: state.ageFilter,
+        tagFilter: state.tagFilter,
     });
 
     // Bulk delete/export operate on the same (id, name, profiles.length) shape
@@ -263,6 +260,9 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 ageFilter={state.ageFilter}
                 setAgeFilter={state.setAgeFilter}
                 ageOptions={AGE_OPTIONS}
+                tagFilter={state.tagFilter}
+                setTagFilter={state.setTagFilter}
+                tagOptions={tagFilterOptions}
                 isImportingVoice={state.isImportingVoice}
                 exportVoiceDisabled={data.exportVoiceOptions.length === 0}
                 importInputRef={state.importInputRef}

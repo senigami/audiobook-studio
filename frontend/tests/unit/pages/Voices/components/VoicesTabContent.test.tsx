@@ -87,12 +87,13 @@ describe('VoicesTabContent', () => {
         onNavigateToLab: vi.fn(),
     };
 
-    it('forwards onSetDefault to the rendered VoiceCatalogCard\'s direct "Set as App Default" action', () => {
+    it('forwards onSetDefault to the rendered VoiceCatalogCard\'s "Set as App Default" overflow-menu item', () => {
         const nonDefaultProfile = { ...readyProfile, is_default: false };
         const nonDefaultVoice = { ...voice, profiles: [nonDefaultProfile] };
         render(<VoicesTabContent {...baseProps} voices={[nonDefaultVoice]} filteredVoices={[nonDefaultVoice]} />);
 
-        fireEvent.click(screen.getByRole('button', { name: /set as app default/i }));
+        fireEvent.click(screen.getByRole('button', { name: /more actions/i }));
+        fireEvent.click(screen.getByText('Set as App Default'));
 
         expect(baseProps.onSetDefault).toHaveBeenCalledWith(nonDefaultProfile.name);
     });
