@@ -5,8 +5,17 @@
  * currently selected variant, instead of stacking one `VariantEditor` per
  * profile. Owns `selectedVariantName` state (INV-SELECT-1: never zero when
  * variants exist, never more than one mounted).
+ *
+ * Optionally controllable (voices-variants-round2 task 008, "retire tabs"):
+ * `VoiceLabPage` now renders this section directly below the Overview
+ * disclosure (no tab shell), so a parent-level action -- the Variants tab's
+ * "Script" button, which used to switch to the retired Test tab -- can drive
+ * this section's selection via `selectedVariantName`/`onSelectedVariantChange`
+ * instead. Omitting both props keeps the original uncontrolled behavior. The
+ * default-variant-first sort feeding `VariantSwitcher` (below) is also new in
+ * this task; `VariantSwitcher` itself is unchanged (INV-SWITCHER-UNCHANGED).
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { SpeakerProfile, TtsEngine } from '@/types';
 import { Plus } from 'lucide-react';
 import { VariantEditor } from '@/pages/Voices/components/VariantEditor';
@@ -29,6 +38,16 @@ export interface VariantsSectionProps {
     onAddVariant?: () => void;
     onMoveVariant?: (profile: SpeakerProfile) => void;
     onEditTestText?: (profile: SpeakerProfile) => void;
+    /**
+     * Optional controlled selection (task 008, retire-tabs) — lets a parent
+     * (`VoiceLabPage`) drive which variant's panel is shown without a tab
+     * switch, e.g. wiring `onEditTestText` straight into this section's own
+     * selection instead of the retired tab shell. Omit either prop for the
+     * original fully-uncontrolled behavior (internal state + the
+     * default-variant-then-first-profile fallback below).
+     */
+    selectedVariantName?: string;
+    onSelectedVariantChange?: (name: string) => void;
 }
 
 export const VariantsSection: React.FC<VariantsSectionProps> = ({
@@ -43,10 +62,18 @@ export const VariantsSection: React.FC<VariantsSectionProps> = ({
     onAddVariant,
     onMoveVariant,
     onEditTestText,
+    selectedVariantName: controlledSelectedVariantName,
+    onSelectedVariantChange,
 }) => {
-    const [selectedVariantName, setSelectedVariantName] = useState(
+    const isControlled = controlledSelectedVariantName !== undefined;
+    const [internalSelectedVariantName, setInternalSelectedVariantName] = useState(
         () => profiles.find(p => p.is_variant_default)?.name || profiles[0]?.name || ''
     );
+    const selectedVariantName = isControlled ? controlledSelectedVariantName! : internalSelectedVariantName;
+    const setSelectedVariantName = useCallback((name: string) => {
+        if (isControlled) onSelectedVariantChange?.(name);
+        else setInternalSelectedVariantName(name);
+    }, [isControlled, onSelectedVariantChange]);
     const [activeFilters, setActiveFilters] = useState<string[]>([]);
 
     const isStrip = profiles.length <= STRIP_THRESHOLD;
@@ -123,6 +150,14 @@ export const VariantsSection: React.FC<VariantsSectionProps> = ({
                             visibleProfiles.find(p => p.name === selectedVariantName)
                             || profiles.find(p => p.name === selectedVariantName)
                             || profiles[0];
+                        // Default-first ordering (task 008): the is_variant_default profile
+                        // sorts to the front of the switcher's visual order, matching it
+                        // also being the initial selection above. A stable sort (doesn't
+                        // mutate visibleProfiles/profiles) -- VariantSwitcher itself is
+                        // unchanged and just renders whatever order it's given.
+                        const orderedVisibleProfiles = visibleProfiles
+                            .slice()
+                            .sort((a, b) => (b.is_variant_default ? 1 : 0) - (a.is_variant_default ? 1 : 0));
                         return (
                             <>
                                 {!isStrip && (
@@ -133,7 +168,7 @@ export const VariantsSection: React.FC<VariantsSectionProps> = ({
                                     />
                                 )}
                                 <VariantSwitcher
-                                    profiles={visibleProfiles}
+                                    profiles={orderedVisibleProfiles}
                                     selectedVariantName={selectedProfile.name}
                                     onSelect={setSelectedVariantName}
                                     onSetDefault={handleSetDefault}

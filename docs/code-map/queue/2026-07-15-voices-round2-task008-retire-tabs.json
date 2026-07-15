@@ -1,0 +1,34 @@
+{
+  "date": "2026-07-15",
+  "author": "claude",
+  "summary": "Task 008 of the voices-variants-round2 plan: removes the Samples/Variants/Test tab shell (VoiceDetailTabs) from the Voice Lab page entirely. VariantsTab (VariantsSection + the promoted Voice Settings panel) is now the sole navigation surface rendered directly below the Overview disclosure (task 007). Also adds a default-variant-first sort feeding VariantSwitcher (VariantSwitcher itself unchanged, INV-SWITCHER-UNCHANGED). Samples/Test tabpanel content (SamplesTab/TestTab) is now orphaned -- expected per this task's scope; task 009 gives it a new home.",
+  "files": [
+    {
+      "path": "frontend/src/pages/VoiceLab/VoiceLabPage.tsx",
+      "change": "Removed activeTabId/preselectedTestVariant state, the detailTabs array, and the <VoiceDetailTabs> mount. Replaced with a lifted selectedVariantName state (initial '' lets VariantsSection's own default-to-is_variant_default logic pick the initial selection) passed into <VariantsTab> as controlled selectedVariantName/onSelectedVariantChange props; onEditTestText now calls setSelectedVariantName(profile.name) instead of switching to the retired Test tab. Dropped the now-unused VoiceDetailTabs/SamplesTab/TestTab imports.",
+      "contract_changed": true
+    },
+    {
+      "path": "frontend/src/pages/VoiceLab/components/VariantsSection.tsx",
+      "change": "Added optional controlled-selection props (selectedVariantName/onSelectedVariantChange) alongside the existing uncontrolled internal state -- omitting both preserves the original fully-uncontrolled default-to-is_variant_default-then-first-profile behavior (all existing VariantsSection.test.tsx cases pass unmodified). Added a stable, non-mutating sort (is_variant_default first) applied to the profiles array right before it's passed to <VariantSwitcher> -- VariantSwitcher.tsx itself untouched."
+    },
+    {
+      "path": "frontend/src/pages/VoiceLab/components/VoiceDetailTabs.tsx",
+      "change": "Deleted -- confirmed VoiceLabPage.tsx was its only real importer (other repo hits were comment-only mentions in VoiceCatalogCard.tsx/VariantSwitcher.tsx/TestSection.tsx, none of which import it)."
+    },
+    {
+      "path": "frontend/tests/unit/pages/VoiceLab/components/VoiceDetailTabs.test.tsx",
+      "change": "Deleted alongside its component."
+    },
+    {
+      "path": "frontend/tests/unit/pages/VoiceLab/VoiceLabPage.test.tsx",
+      "change": "Reworked tests that asserted the retired tab shell: the tab-list-presence test now asserts absence of the 'Voice management'-labeled tablist (VariantSwitcher's own, unrelated 'variants'-labeled tablist is left alone and explicitly noted). Tests that exercised Test-tab content (folded-in ScriptEditor, INV-WRITE-1 sibling-text isolation, task-013 preselect-on-Script) are removed -- that content has no reachable home until task 009, per this task's explicit out-of-scope note; replaced with tests asserting Script no longer opens a dialog/switches tabs and that the switcher's active selection survives activating Script. Added a default-on-load selection test."
+    },
+    {
+      "path": "frontend/tests/unit/pages/VoiceLab/VariantsTabRebuild.test.tsx",
+      "change": "Removed the now-unnecessary 'click the Variants tab' step from all three tests -- VariantsTab is unconditionally rendered, no tab switch needed to reach it."
+    }
+  ],
+  "flow_impact": "Fifth task landed in the voices-variants-round2 plan. Unblocks task 009 (moving engine-config/test-text editing into VariantEditor), which will give SamplesTab/TestTab's orphaned content a real new home.",
+  "flagged_pre_existing_issue": "SamplesTab.tsx and TestTab.tsx (and TestSection.tsx, which TestTab wraps) are no longer imported by anything in frontend/src as of this task -- an expected intermediate state per this task's explicit scope (task 009's job to relocate their content, not this task's), not something fixed here."
+}

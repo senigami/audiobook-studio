@@ -257,84 +257,75 @@ describe('VoiceLabPage', () => {
         expect(screen.getByLabelText('Hugging Face repo')).toBeInTheDocument();
     });
 
-    it('renders the voice detail tabs (Samples/Variants/Test) plus the Overview disclosure', async () => {
+    it('renders VariantsSection directly below the Overview disclosure -- no tab shell (task 008)', async () => {
         renderAtPath(`/voices/${VOICE_ID}`);
         await waitFor(() => {
-            expect(screen.getByRole('tablist', { name: 'Voice management' })).toBeInTheDocument();
+            expect(screen.getByText('Aria Nova')).toBeInTheDocument();
         });
-        // Overview was pulled out of the tab shell by task 007 into its own
-        // "Voice details" disclosure, expanded by default -- it's no longer a tab.
+        // The Samples/Variants/Test tab shell (VoiceDetailTabs) is retired --
+        // its "Voice management"-labeled tablist no longer exists. (Note:
+        // VariantSwitcher below renders its own, unrelated and unchanged,
+        // "<voice> variants"-labeled tablist -- INV-SWITCHER-UNCHANGED.)
+        expect(screen.queryByRole('tablist', { name: 'Voice management' })).not.toBeInTheDocument();
         expect(screen.queryByRole('tab', { name: 'Overview' })).not.toBeInTheDocument();
-        expect(screen.getByRole('tab', { name: 'Samples' })).toHaveAttribute('aria-selected', 'true');
-        expect(screen.getByRole('tab', { name: 'Variants' })).toBeInTheDocument();
-        expect(screen.getByRole('tab', { name: 'Test' })).toBeInTheDocument();
+        expect(screen.queryByRole('tab', { name: 'Samples' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('tab', { name: /^Variants$/ })).not.toBeInTheDocument();
+        expect(screen.queryByRole('tab', { name: 'Test' })).not.toBeInTheDocument();
         // Overview is real, inline metadata content as of task 002 (no more
         // "coming soon" placeholder) -- assert its description field instead.
         expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
+        // Variants section renders directly below, with its own switcher tab
+        // for the fixture's one profile ("Default").
+        expect(screen.getByText('Variants')).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: /Default/ })).toBeInTheDocument();
     });
 
-    it('keeps the status strip visible after switching tabs (INV-VC-4)', async () => {
-        const user = userEvent.setup();
+    it('keeps the status strip visible alongside the Variants section (INV-VC-4)', async () => {
         const { container } = renderAtPath(`/voices/${VOICE_ID}`);
         await waitFor(() => {
             expect(screen.getByText('Aria Nova')).toBeInTheDocument();
         });
 
         // Status strip shows the fixture's one variant ("Default"). Scoped to the
-        // header's status strip (not `screen`) since task 004's real Variants tab
-        // content also renders a "Default" variant row once that tab is active.
+        // header's status strip (not `screen`) since the Variants section below
+        // also renders a "Default" variant row.
         const statusStrip = container.querySelector('.voice-detail-header__status-strip');
         expect(statusStrip).not.toBeNull();
         expect(statusStrip).toHaveTextContent('Default');
 
-        await user.click(screen.getByRole('tab', { name: 'Variants' }));
-
-        expect(screen.getByRole('tab', { name: 'Variants' })).toHaveAttribute('aria-selected', 'true');
-        // Status strip content is still present -- it lives in the header, not a tabpanel
+        // Status strip content lives in the header, unaffected by anything
+        // rendered below it (there's no tab to switch to anymore).
+        expect(screen.getByText('Variants')).toBeInTheDocument();
         expect(statusStrip).toHaveTextContent('Default');
     });
 
     // ---------------------------------------------------------------------------
-    // Test tab — task 005 (TestSection relocated, ScriptEditor folded in)
+    // Script action — task 008 (retire tabs): routes selection instead of
+    // switching tabs (the old Test tab it used to switch to is retired; its
+    // content has no new home yet -- that's task 009's job).
     // ---------------------------------------------------------------------------
-    it('renders TestSection + the folded-in ScriptEditor content under the Test tab', async () => {
+    it('does not open a drawer or switch to any tab when the Variants section\'s "Script" action is used', async () => {
         const user = userEvent.setup();
         renderAtPath(`/voices/${VOICE_ID}`);
         await waitFor(() => {
             expect(screen.getByText('Aria Nova')).toBeInTheDocument();
         });
 
-        await user.click(screen.getByRole('tab', { name: 'Test' }));
-
-        // TestSection content (variant/generate-test controls)
-        expect(screen.getByLabelText('Test variant')).toBeInTheDocument();
-        // Folded-in ScriptEditor content (was previously only reachable via a
-        // separate drawer) -- variant name field + "Suggest from voice qualities".
-        expect(screen.getByText(/Changing the variant label updates/i)).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: /Suggest from voice qualities/i })).toBeInTheDocument();
-        // No more separate "Edit preview script" link now that it's inline.
-        expect(screen.queryByText(/Edit preview script/i)).not.toBeInTheDocument();
-    });
-
-    it('switches to the Test tab when the Variants tab\'s "Script" button is clicked, instead of opening a drawer', async () => {
-        const user = userEvent.setup();
-        renderAtPath(`/voices/${VOICE_ID}`);
-        await waitFor(() => {
-            expect(screen.getByText('Aria Nova')).toBeInTheDocument();
-        });
-
-        await user.click(screen.getByRole('tab', { name: 'Variants' }));
-        // Script is now consolidated into the per-variant ActionMenu overflow
+        // Script is consolidated into the per-variant ActionMenu overflow
         // (task 009 chrome demotion) — open it first, then click the item.
         await user.click(await screen.findByTitle('More actions'));
         await user.click(screen.getByRole('button', { name: /^Script$/i }));
 
-        expect(screen.getByRole('tab', { name: 'Test' })).toHaveAttribute('aria-selected', 'true');
-        expect(screen.getByRole('button', { name: /Suggest from voice qualities/i })).toBeInTheDocument();
+        // No dead click: no drawer/dialog opens, and no page-level tab shell
+        // exists to switch to.
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        expect(screen.queryByRole('tablist', { name: 'Voice management' })).not.toBeInTheDocument();
+        // The variant's own editor panel (identified by its still-findable
+        // "More actions" trigger) remains mounted -- selection stayed put.
+        expect(screen.getByTitle('More actions')).toBeInTheDocument();
     });
 
-    it('operates on the selected variant\'s own test text, not a sibling\'s (INV-WRITE-1)', async () => {
+    it('keeps the switcher\'s active variant selected when Script is activated from it (no reset to the default)', async () => {
         const variantB: SpeakerProfile = {
             ...mockReadyProfile,
             name: 'Aria Nova - Angry',
@@ -349,62 +340,21 @@ describe('VoiceLabPage', () => {
         await waitFor(() => {
             expect(screen.getByText('Aria Nova')).toBeInTheDocument();
         });
-
-        await user.click(screen.getByRole('tab', { name: 'Test' }));
-
-        // Defaults to variant A's own test text, shown in the folded-in
-        // ScriptEditor's "preview text script" textarea (scoped by class since
-        // TestSection's own separate "Test script" input shares the same seed
-        // value and would otherwise create an ambiguous match).
-        const getScriptEditorTextarea = () =>
-            document.querySelector('.script-editor-textarea') as HTMLTextAreaElement;
-        expect(getScriptEditorTextarea()).toHaveValue('Default variant script');
-
-        // Selecting variant B in the "Test variant" dropdown switches the folded-in
-        // ScriptEditor to variant B's own test text -- not A's, and not a blend.
-        await user.selectOptions(screen.getByLabelText('Test variant'), variantB.name);
-
-        expect(getScriptEditorTextarea()).toHaveValue('Angry variant script');
-    });
-
-    // ---------------------------------------------------------------------------
-    // Test tab preselects the switcher's active variant — task 013
-    // ---------------------------------------------------------------------------
-    it('preselects the variant that was active in the switcher when Script is activated', async () => {
-        const variantB: SpeakerProfile = {
-            ...mockReadyProfile,
-            name: 'Aria Nova - Angry',
-            variant_name: 'Angry',
-            is_default: false,
-            test_text: 'Angry variant script',
-        };
-        const variantAWithText: SpeakerProfile = { ...mockReadyProfile, test_text: 'Default variant script' };
-
-        const user = userEvent.setup();
-        renderAtPath(`/voices/${VOICE_ID}`, VOICE_ID, [mockMetadata], [variantAWithText, variantB]);
-        await waitFor(() => {
-            expect(screen.getByText('Aria Nova')).toBeInTheDocument();
-        });
-
-        await user.click(screen.getByRole('tab', { name: 'Variants' }));
 
         // Select variant B ("Angry") in the switcher before activating Script.
         await user.click(await screen.findByRole('tab', { name: /Angry/ }));
+        expect(screen.getByRole('tab', { name: /Angry/ })).toHaveAttribute('aria-selected', 'true');
 
         // Script is consolidated into the per-variant ActionMenu overflow (task 009).
         await user.click(await screen.findByTitle('More actions'));
         await user.click(screen.getByRole('button', { name: /^Script$/i }));
 
-        expect(screen.getByRole('tab', { name: 'Test' })).toHaveAttribute('aria-selected', 'true');
-
-        const getScriptEditorTextarea = () =>
-            document.querySelector('.script-editor-textarea') as HTMLTextAreaElement;
-        // Lands on variant B's own test text, not A's (and not a default/first variant).
-        expect(getScriptEditorTextarea()).toHaveValue('Angry variant script');
-        expect(screen.getByLabelText('Test variant')).toHaveValue(variantB.name);
+        // Still on variant B -- Script routed selection (a no-op here since B
+        // was already selected), not a tab switch back to some other default.
+        expect(screen.getByRole('tab', { name: /Angry/ })).toHaveAttribute('aria-selected', 'true');
     });
 
-    it('defaults the Test tab to the default variant when reached directly (not via Script) — no regression', async () => {
+    it('defaults the Variants section to the default variant on load (not via Script) — no regression', async () => {
         const variantB: SpeakerProfile = {
             ...mockReadyProfile,
             name: 'Aria Nova - Angry',
@@ -412,21 +362,22 @@ describe('VoiceLabPage', () => {
             is_default: false,
             test_text: 'Angry variant script',
         };
-        const variantAWithText: SpeakerProfile = { ...mockReadyProfile, test_text: 'Default variant script' };
+        const variantAWithText: SpeakerProfile = {
+            ...mockReadyProfile,
+            test_text: 'Default variant script',
+            is_variant_default: true,
+        };
 
-        const user = userEvent.setup();
         renderAtPath(`/voices/${VOICE_ID}`, VOICE_ID, [mockMetadata], [variantAWithText, variantB]);
         await waitFor(() => {
             expect(screen.getByText('Aria Nova')).toBeInTheDocument();
         });
 
-        // Clicking Test directly (never touching the Variants tab/switcher/Script).
-        await user.click(screen.getByRole('tab', { name: 'Test' }));
-
-        const getScriptEditorTextarea = () =>
-            document.querySelector('.script-editor-textarea') as HTMLTextAreaElement;
-        expect(getScriptEditorTextarea()).toHaveValue('Default variant script');
-        expect(screen.getByLabelText('Test variant')).toHaveValue(variantAWithText.name);
+        // The default variant ("Default") is selected on load, without ever
+        // touching the switcher or the Script action.
+        await waitFor(() => {
+            expect(screen.getByRole('tab', { name: /Default/ })).toHaveAttribute('aria-selected', 'true');
+        });
     });
 
     // ---------------------------------------------------------------------------

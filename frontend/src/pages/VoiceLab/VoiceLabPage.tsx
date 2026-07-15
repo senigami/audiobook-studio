@@ -21,11 +21,8 @@ import { getVoicePhase } from '@/pages/Voices/voicePhase';
 import { PhaseStepper } from '@/pages/VoiceLab/components/PhaseStepper';
 import { PublishToHuggingFaceModal } from '@/pages/VoiceLab/components/PublishToHuggingFaceModal';
 import { VoiceDetailHeader } from '@/pages/VoiceLab/components/VoiceDetailHeader';
-import { VoiceDetailTabs, type VoiceDetailTabDef } from '@/pages/VoiceLab/components/VoiceDetailTabs';
 import { OverviewTab } from '@/pages/VoiceLab/components/OverviewTab';
-import { SamplesTab } from '@/pages/VoiceLab/components/SamplesTab';
 import { VariantsTab } from '@/pages/VoiceLab/components/VariantsTab';
-import { TestTab } from '@/pages/VoiceLab/components/TestTab';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { useVoiceManagement } from '@/hooks/useVoiceManagement';
 import { getDefaultVoiceProfileName } from '@/utils/voiceProfiles';
@@ -37,6 +34,15 @@ import { getDefaultVoiceProfileName } from '@/utils/voiceProfiles';
 // tabpanel by task 004 (via VariantsTab); TestSection + ScriptEditor's
 // test-text editing UI were relocated/folded into the Test tabpanel by task
 // 005 (via TestTab) -- the old ScriptEditor drawer is retired.
+//
+// voices-variants-round2 task 008 ("retire tabs"): the Samples/Variants/Test
+// tab shell -- the generic ARIA-tabs primitive this page used to mount -- is
+// removed entirely. `VariantsTab` (which composes `VariantsSection` + the
+// promoted Voice Settings panel) is now the only navigation surface rendered
+// below the Overview disclosure (task 007). The Samples/Test tabpanels'
+// former content is no longer mounted here; it has no new home yet (that's
+// voices-variants-round2 task 009's job, not this one) -- an expected,
+// temporary intermediate state within this plan's execution.
 
 export interface VoiceLabPageProps {
     speakerProfiles: SpeakerProfile[];
@@ -53,13 +59,13 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
     testProgress,
     onRefresh,
 }) => {
-    // Controlled active tab (task 005) -- lets the Variants tab's "Script"
-    // button (VariantEditor) switch straight to the Test tab instead of
-    // opening the retired ScriptEditor drawer.
-    const [activeTabId, setActiveTabId] = useState('samples');
-    // Preselects the Test tab's active variant when Script is activated from the Variants tab's
-    // switcher (task 013) -- otherwise the Test tab falls back to its own default-variant logic.
-    const [preselectedTestVariant, setPreselectedTestVariant] = useState<string | null>(null);
+    // Controlled variant selection (task 008, replaces the retired
+    // active-tab-id/preselected-test-variant tab-switch state pair) -- lifted
+    // up so the Variants tab's "Script" action can drive VariantsSection's
+    // own selection directly instead of switching tabs. Empty string lets
+    // VariantsSection's existing default-to-`is_variant_default` logic pick
+    // the initial selection on mount (see VariantsSection.tsx).
+    const [selectedVariantName, setSelectedVariantName] = useState('');
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
 
@@ -225,62 +231,12 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
 
     // Overview was relocated by task 002 (inline metadata editing, no modal),
     // then pulled out of the tab shell entirely by task 007 into a standalone
-    // disclosure panel (below, above this tab list) -- it's no longer one of
-    // `detailTabs`. Samples by task 003; Variants (+ Voice Settings, promoted
-    // from the old card's overflow menu) by task 004; Test (+ ScriptEditor's
-    // test-text editing UI, folded in) by task 005.
-    const detailTabs: VoiceDetailTabDef[] = [
-        {
-            id: 'samples',
-            label: 'Samples',
-            content: <SamplesTab profiles={profiles} onRefresh={onRefresh} />,
-        },
-        {
-            id: 'variants',
-            label: 'Variants',
-            content: (
-                <VariantsTab
-                    speakerName={metadata?.name ?? ''}
-                    profiles={profiles}
-                    engines={engines}
-                    buildingProfiles={buildingProfiles}
-                    testProgress={testProgress}
-                    onRefresh={onRefresh}
-                    onBuildNow={handleBuildNow}
-                    requestConfirm={requestConfirm}
-                    onEditTestText={(profile) => {
-                        setPreselectedTestVariant(profile.name);
-                        setActiveTabId('test');
-                    }}
-                    settingsProfile={settingsProfile}
-                    settings={editingSettings}
-                    onSettingsChange={setEditingSettings}
-                    isSavingSettings={isSavingSettings}
-                    onSaveSettings={handleSaveVoiceSettings}
-                />
-            ),
-        },
-        {
-            id: 'test',
-            label: 'Test',
-            content: (
-                <TestTab
-                    profiles={profiles}
-                    engines={engines}
-                    testProgress={testProgress}
-                    jobs={jobs}
-                    onTest={async (name) => {
-                        await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}/test`, { method: 'POST' });
-                        onRefresh();
-                    }}
-                    onRefresh={onRefresh}
-                    voiceName={metadata?.name ?? id}
-                    attributes={metadata?.attributes}
-                    preselectedVariantName={preselectedTestVariant}
-                />
-            ),
-        },
-    ];
+    // disclosure panel (below, above the Variants section) -- Samples by task
+    // 003; Variants (+ Voice Settings, promoted from the old card's overflow
+    // menu) by task 004; Test (+ ScriptEditor's test-text editing UI, folded
+    // in) by task 005. Task 008 (voices-variants-round2) then removed the
+    // Samples/Variants/Test tab shell entirely -- VariantsTab is now the only
+    // navigation surface rendered directly below the disclosure.
 
     return (
         <div className="voice-lab-page">
@@ -321,8 +277,7 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
             {/* Voice-level fields (description, languages, class/gender/age,
                 many-value fields, free tags) -- pulled out of the tab shell by
                 task 007 into a standalone disclosure, expanded by default, so
-                they're visible alongside whichever tab (Samples/Variants/Test)
-                is active below. */}
+                they're visible alongside Variants below. */}
             <details className="voice-lab-page__overview-disclosure" open>
                 <summary className="voice-lab-page__overview-summary">
                     <ChevronDown size={16} />
@@ -333,11 +288,31 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
                 </div>
             </details>
 
-            <VoiceDetailTabs
-                tabs={detailTabs}
-                ariaLabel="Voice management"
-                activeTabId={activeTabId}
-                onTabChange={setActiveTabId}
+            {/* Task 008 (voices-variants-round2): the Samples/Variants/Test tab
+                shell is retired -- VariantsTab (VariantsSection + the promoted
+                Voice Settings panel) is the sole navigation surface below the
+                disclosure above. `selectedVariantName` is lifted here so the
+                Variants tab's "Script" action can route selection directly
+                into VariantsSection instead of switching tabs (no dead click)
+                -- see VariantsSection.tsx's optional controlled-selection
+                support. */}
+            <VariantsTab
+                speakerName={metadata?.name ?? ''}
+                profiles={profiles}
+                engines={engines}
+                buildingProfiles={buildingProfiles}
+                testProgress={testProgress}
+                onRefresh={onRefresh}
+                onBuildNow={handleBuildNow}
+                requestConfirm={requestConfirm}
+                selectedVariantName={selectedVariantName}
+                onSelectedVariantChange={setSelectedVariantName}
+                onEditTestText={(profile) => setSelectedVariantName(profile.name)}
+                settingsProfile={settingsProfile}
+                settings={editingSettings}
+                onSettingsChange={setEditingSettings}
+                isSavingSettings={isSavingSettings}
+                onSaveSettings={handleSaveVoiceSettings}
             />
 
             {/* Publish to Hugging Face modal */}

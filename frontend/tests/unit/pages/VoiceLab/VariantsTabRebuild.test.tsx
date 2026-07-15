@@ -135,10 +135,10 @@ describe('VoiceLabPage Variants tab — real rebuild wiring (R3)', () => {
             expect(screen.getByText('Aria Nova')).toBeInTheDocument();
         });
 
-        await user.click(screen.getByRole('tab', { name: 'Variants' }));
-
         // Rebuild is now consolidated into the per-variant ActionMenu overflow
-        // (task 009 chrome demotion) — open it first, then click the item.
+        // (task 009 chrome demotion) — open it first, then click the item. The
+        // Variants section is the page's only navigation surface below the
+        // Overview disclosure now (task 008, no tab switch needed to reach it).
         await user.click(await screen.findByTitle('More actions'));
         const rebuildBtn = await screen.findByRole('button', { name: 'Rebuild' });
         await user.click(rebuildBtn);
@@ -204,10 +204,8 @@ describe('VoiceLabPage Variants tab — real rebuild wiring (R3)', () => {
             expect(screen.getByText('Aria Nova')).toBeInTheDocument();
         });
 
-        // Reachable directly -- no overflow/action menu click required, just
-        // the Variants tab itself.
-        await user.click(screen.getByRole('tab', { name: 'Variants' }));
-
+        // Reachable directly -- no overflow/action menu click, and (as of
+        // task 008) no tab switch either; the Variants section is always rendered.
         expect(screen.getByText('Voice Settings')).toBeInTheDocument();
         const saveBtn = screen.getByRole('button', { name: /save voice settings/i });
         expect(saveBtn).toBeInTheDocument();
@@ -231,8 +229,6 @@ describe('VoiceLabPage Variants tab — real rebuild wiring (R3)', () => {
         await waitFor(() => {
             expect(screen.getByText('Aria Nova')).toBeInTheDocument();
         });
-
-        await user.click(screen.getByRole('tab', { name: 'Variants' }));
 
         // Rebuild is now consolidated into the per-variant ActionMenu overflow
         // (task 009 chrome demotion) — open it first, then click the item.
