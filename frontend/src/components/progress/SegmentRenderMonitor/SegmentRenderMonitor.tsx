@@ -324,7 +324,9 @@ export const SegmentRenderMonitor: React.FC<SegmentRenderMonitorProps> = ({ segm
 
   const total = segments.length;
   const doneCount = segments.filter((s) => s.phase === 'done').length;
-  const activeCount = segments.filter((s) => s.phase === 'preparing' || s.phase === 'rendering' || s.phase === 'failed').length;
+  // Only segments actually in-flight right now count as "rendering in
+  // parallel" — 'preparing' means not-yet-started (queued), not concurrent.
+  const activeCount = segments.filter((s) => s.phase === 'rendering').length;
   const failedCount = segments.filter((s) => s.phase === 'failed').length;
   const complete = total > 0 && doneCount === total;
   const pct = Math.round(charWeightedProgress(segments) * 100);

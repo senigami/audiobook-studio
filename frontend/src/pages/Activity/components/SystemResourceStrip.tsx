@@ -188,7 +188,8 @@ export const SystemResourceStrip: React.FC<SystemResourceStripProps> = ({ sample
   const lastSample = samples[samples.length - 1];
 
   const cpuValueText = lastSample ? `${Math.round(lastSample.cpuPct)}%` : '—';
-  const ramValueText = lastSample ? `${lastSample.ramUsedGB.toFixed(1)}/${lastSample.ramTotalGB.toFixed(0)} GB` : '—';
+  const hasRamData = !!lastSample && typeof lastSample.ramUsedGB === 'number' && typeof lastSample.ramTotalGB === 'number';
+  const ramValueText = hasRamData ? `${lastSample.ramUsedGB.toFixed(1)}/${lastSample.ramTotalGB.toFixed(0)} GB` : '—';
   const vramValueText = vramPcts.length > 0 ? `${Math.round(vramPcts[vramPcts.length - 1])}%` : '—';
 
   return (
@@ -207,7 +208,7 @@ export const SystemResourceStrip: React.FC<SystemResourceStripProps> = ({ sample
           pcts={ramPcts}
           valueText={ramValueText}
           accessibleText={
-            lastSample
+            hasRamData
               ? `RAM: ${lastSample.ramUsedGB.toFixed(1)} of ${lastSample.ramTotalGB.toFixed(0)} gigabytes`
               : 'RAM: no data yet'
           }

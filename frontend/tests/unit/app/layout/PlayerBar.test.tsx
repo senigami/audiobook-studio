@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PlayerBar, TAPE_DURATION_CAP_SEC } from '@/app/layout/PlayerBar';
 import * as playerBus from '@/store/playerBus';
 import { DURATION_BOOTSTRAP } from '@/app/layout/playerRepresentation';
+import { CURRENT_SIDECAR_VERSION } from '@/api/contracts/peaksSidecar';
 
 // Mock wavesurfer.js so it doesn't try to decode real audio in jsdom
 vi.mock('wavesurfer.js', () => ({
@@ -530,7 +531,7 @@ describe('PlayerBar', () => {
         ok: true,
         json: () =>
           Promise.resolve({
-            version: 1,
+            version: CURRENT_SIDECAR_VERSION,
             peaks: [0, 0.5, 1],
             duration_sec: 700,
             sample_rate: 44100,
