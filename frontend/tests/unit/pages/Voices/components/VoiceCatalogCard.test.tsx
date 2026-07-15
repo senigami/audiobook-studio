@@ -21,18 +21,23 @@ vi.mock('@/utils/toast', () => ({
 
 // Mock ActionMenu so we can test items without portal/DOM complexity
 vi.mock('@/components/ui/ActionMenu', () => ({
-    ActionMenu: ({ items }: { items: Array<{ label?: string; onClick?: () => void; isDestructive?: boolean }> }) => (
+    ActionMenu: ({ items }: { items: Array<{ label?: string; onClick?: () => void; isDestructive?: boolean; disabled?: boolean; isDivider?: boolean }> }) => (
         <div data-testid="action-menu">
-            {items?.map((item, i) => (
-                <button
-                    key={i}
-                    data-testid={`menu-item-${item.label}`}
-                    onClick={item.onClick}
-                    data-destructive={item.isDestructive ? 'true' : undefined}
-                >
-                    {item.label}
-                </button>
-            ))}
+            {items?.map((item, i) =>
+                item.isDivider ? (
+                    <hr key={i} data-testid="menu-divider" />
+                ) : (
+                    <button
+                        key={i}
+                        data-testid={`menu-item-${item.label}`}
+                        onClick={item.onClick}
+                        disabled={item.disabled}
+                        data-destructive={item.isDestructive ? 'true' : undefined}
+                    >
+                        {item.label}
+                    </button>
+                )
+            )}
         </div>
     ),
 }));
@@ -140,10 +145,9 @@ describe('VoiceCatalogCard', () => {
         expect(screen.getByText('feminine')).toBeInTheDocument();
     });
 
-    it('shows "App default" badge when voice has a default profile', () => {
+    it('shows an "App default voice" star when voice has a default profile', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
         expect(screen.getByLabelText('App default voice')).toBeInTheDocument();
-        expect(screen.getByText('App default')).toBeInTheDocument();
     });
 
     it('does NOT show default badge when no profile is default', () => {
@@ -243,26 +247,27 @@ describe('VoiceCatalogCard', () => {
     });
 
     // ---------------------------------------------------------------------------
-    // Set as App Default — direct card action (task 006; relabeled + disabled-logic
-    // fix, task 011)
+    // Set as App Default — moved into the top-right kebab (task 002 consolidation;
+    // originally a direct card action per task 006/011, disabled-logic fix preserved)
     // ---------------------------------------------------------------------------
 
-    it('renders "Set as App Default" as a direct card action (not inside the overflow menu)', () => {
+    it('renders "Set as App Default" inside the overflow menu (not as a standalone direct action)', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[{ ...readyProfile, is_default: false }]} />);
-        expect(screen.getByRole('button', { name: 'Set as App Default' })).toBeInTheDocument();
-        expect(screen.queryByTestId('menu-item-Set as Default')).not.toBeInTheDocument();
+        const menuItem = screen.getByTestId('menu-item-Set as App Default');
+        expect(menuItem).toBeInTheDocument();
+        expect(screen.getByTestId('action-menu')).toContainElement(menuItem);
     });
 
-    it('clicking "Set as App Default" calls onSetDefaultClick with the default profile name', () => {
+    it('clicking "Set as App Default" (menu item) calls onSetDefaultClick with the default profile name', () => {
         const profiles = [{ ...readyProfile, is_default: false }];
         render(<VoiceCatalogCard {...baseProps} profiles={profiles} />);
-        fireEvent.click(screen.getByRole('button', { name: 'Set as App Default' }));
+        fireEvent.click(screen.getByTestId('menu-item-Set as App Default'));
         expect(baseProps.onSetDefaultClick).toHaveBeenCalledWith(profiles[0].name);
     });
 
-    it('disables "Set as App Default" when the profile is already the default', () => {
+    it('disables "Set as App Default" (menu item) when the profile is already the default', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
-        expect(screen.getByRole('button', { name: 'Set as App Default' })).toBeDisabled();
+        expect(screen.getByTestId('menu-item-Set as App Default')).toBeDisabled();
     });
 
     // Regression test for the task 011 disabled-logic fix.
@@ -291,48 +296,50 @@ describe('VoiceCatalogCard', () => {
     // `disabled={hasDefaultProfile}` closes this: once ANY of this card's own profiles
     // holds default status, the button stays disabled regardless of that profile's
     // current selectability.
-    it('disables "Set as App Default" when this card already holds default status via an unselectable profile, even though a sibling profile in the same card is selectable', () => {
+    it('disables "Set as App Default" (menu item) when this card already holds default status via an unselectable profile, even though a sibling profile in the same card is selectable', () => {
         const profiles = [
             { ...readyProfile, name: 'Clara Bell - A', is_default: true, engine: 'nonexistent-engine' },
             { ...readyProfile, name: 'Clara Bell - B', is_default: false, engine: 'xtts' },
         ];
         render(<VoiceCatalogCard {...baseProps} profiles={profiles} />);
-        expect(screen.getByRole('button', { name: 'Set as App Default' })).toBeDisabled();
+        expect(screen.getByTestId('menu-item-Set as App Default')).toBeDisabled();
     });
 
-    it('a different card whose own voice does not currently hold default status shows its button enabled', () => {
+    it('a different card whose own voice does not currently hold default status shows its menu item enabled', () => {
         const profiles = [{ ...readyProfile, name: 'Other Voice', is_default: false }];
         render(<VoiceCatalogCard {...baseProps} profiles={profiles} />);
-        expect(screen.getByRole('button', { name: 'Set as App Default' })).not.toBeDisabled();
+        expect(screen.getByTestId('menu-item-Set as App Default')).not.toBeDisabled();
     });
 
     // ---------------------------------------------------------------------------
-    // Delete — direct card action (task 006, corrected per persona findings)
+    // Delete — moved into the top-right kebab (task 002 consolidation; originally a
+    // direct card action per task 006, corrected per persona findings)
     // ---------------------------------------------------------------------------
 
-    it('renders "Delete" as a direct card action (not inside the overflow menu)', () => {
+    it('renders "Delete" inside the overflow menu (not as a standalone direct action)', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
-        expect(screen.getByRole('button', { name: /delete voice/i })).toBeInTheDocument();
-        expect(screen.queryByTestId('menu-item-Delete Voice (all variants)')).not.toBeInTheDocument();
+        expect(screen.getByTestId('menu-item-Delete')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /delete voice/i })).not.toBeInTheDocument();
     });
 
-    it('clicking "Delete" fires requestConfirm', () => {
+    it('clicking "Delete" (menu item) fires requestConfirm', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
-        fireEvent.click(screen.getByRole('button', { name: /delete voice/i }));
+        fireEvent.click(screen.getByTestId('menu-item-Delete'));
         expect(baseProps.requestConfirm).toHaveBeenCalledWith(expect.objectContaining({
             isDestructive: true,
         }));
     });
 
     // ---------------------------------------------------------------------------
-    // Overflow menu — slimmed to Rename/Export only (task 006)
+    // Overflow menu — Rename/Export/Set-as-App-Default/Delete (task 002 consolidation)
     // ---------------------------------------------------------------------------
 
-    it('action menu contains only Rename/Export — Open in Voice Lab/Edit Metadata/Edit Recording Script/Voice Settings/Set as Default/Delete removed', () => {
+    it('action menu contains Rename/Export/Set-as-App-Default/Delete — Open in Voice Lab/Edit Metadata/Edit Recording Script/Voice Settings remain removed', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
         expect(screen.getByTestId('menu-item-Rename Voice')).toBeInTheDocument();
         expect(screen.getByTestId('menu-item-Export Voice Bundle')).toBeInTheDocument();
-        expect(screen.queryByTestId('menu-item-Delete Voice (all variants)')).not.toBeInTheDocument();
+        expect(screen.getByTestId('menu-item-Set as App Default')).toBeInTheDocument();
+        expect(screen.getByTestId('menu-item-Delete')).toBeInTheDocument();
         expect(screen.queryByTestId('menu-item-Set as Default')).not.toBeInTheDocument();
         expect(screen.queryByTestId('menu-item-Open in Voice Lab')).not.toBeInTheDocument();
         expect(screen.queryByTestId('menu-item-Edit Metadata')).not.toBeInTheDocument();
@@ -439,5 +446,27 @@ describe('VoiceCatalogCard', () => {
         const btn = screen.getByRole('button', { name: 'Pause preview' });
         fireEvent.click(btn);
         expect(pauseBusMock).toHaveBeenCalled();
+    });
+
+    // ---------------------------------------------------------------------------
+    // INV-FOCUS — the avatar play overlay must be keyboard/touch reachable, never
+    // hover-only (task 002)
+    // ---------------------------------------------------------------------------
+
+    it('the avatar play overlay is present and focusable without any prior hover/mouseover event', () => {
+        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
+        const btn = screen.getByRole('button', { name: 'Play preview' });
+        // No hover/mouseEnter fired anywhere above — getByRole finding it in the
+        // accessibility tree already proves it's not display:none/hidden-gated.
+        expect(btn).toBeInTheDocument();
+        expect(btn).not.toHaveAttribute('tabindex', '-1');
+        btn.focus();
+        expect(btn).toHaveFocus();
+    });
+
+    it('activating the avatar play overlay via click does not also trigger card-body navigation', () => {
+        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
+        fireEvent.click(screen.getByRole('button', { name: 'Play preview' }));
+        expect(baseProps.onNavigateToLab).not.toHaveBeenCalled();
     });
 });

@@ -1,21 +1,28 @@
 /**
- * VoiceCatalogCard.tsx — R5-T3
+ * VoiceCatalogCard.tsx — R5-T3 (actions consolidated, task 002 voice-variants-round2)
  *
  * Grid card for the Voices catalog. Displays:
- * - Circular avatar (uploaded icon if available, else User lucide on accent tint)
- * - default badge (top-right) and untagged badge
+ * - Circular avatar (uploaded icon if available, else User lucide on accent tint), with a
+ *   Play/Pause preview control revealed as a hover/focus overlay (never hover-only — see
+ *   INV-FOCUS below)
+ * - Default-voice star badge (top-left) and untagged badge
  * - Voice name
  * - VoicePillRow (max 3, overflow collapses)
  * - One-line description
- * - Preview (Play) button (routes through playerBus)
- * - Phase-appropriate primary CTA (from getPrimaryCta/getVoicePhase)
- * - Set as App Default direct action
- * - Slim ⋯ ActionMenu: Rename Voice / Export Voice Bundle / Delete Voice
+ * - Build (or phase-appropriate primary CTA, from getPrimaryCta/getVoicePhase) — the sole
+ *   always-visible action button
+ * - ⋯ ActionMenu (top-right): Rename Voice / Export Voice Bundle / Set as App Default / Delete
  *
  * "Open in Voice Lab" (redundant with the card body/CTA, which already navigate there),
  * "Edit Metadata" (→ VoiceLabPage Overview tab), "Edit Recording Script" (→ Test tab), and
  * "Voice Settings" (→ Variants tab) were relocated to the consolidated voice detail page
  * (task 006, voice-card-consolidation plan) — see VoiceDetailTabs/VoiceLabPage.
+ *
+ * INV-FOCUS (design-system.md §8.1 focus-visible rule): the avatar's Play/Pause overlay is
+ * a real, always-in-DOM, always-tabbable `<button>` — visibility is gated by CSS `opacity`
+ * (0 at rest, 1 on `.voice-catalog-card__avatar:hover` or the button's own `:focus-visible`),
+ * never by `display: none`/`visibility: hidden`, so it stays reachable via Tab and touch
+ * regardless of hover state.
  */
 import React from 'react';
 import { User, Star, Download, FileEdit, Trash2, Play, Pause, Loader2 } from 'lucide-react';
@@ -176,12 +183,47 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
                 </label>
             )}
 
-            {/* Default badge */}
+            {/* Default status — star badge, top-left (freeing the top-right corner for the
+                kebab). Status indicator only, not a button: setting default is an action,
+                done via the kebab's "Set as App Default" item. */}
             {hasDefaultProfile && (
-                <span className="voice-catalog-card__default-badge" aria-label="App default voice">
-                    App default
+                <span className="voice-catalog-card__default-star" aria-label="App default voice" title="App default voice">
+                    <Star size={12} fill="currentColor" />
                 </span>
             )}
+
+            {/* Overflow menu — top-right. Rename / Export / Set as App Default / Delete
+                (task 002: consolidated out of the always-visible actions row). */}
+            <div className="voice-catalog-card__menu">
+                <ActionMenu
+                    items={[
+                        {
+                            label: 'Rename Voice',
+                            icon: FileEdit,
+                            onClick: () => onRenameClick(speaker),
+                        },
+                        {
+                            label: 'Export Voice Bundle',
+                            icon: Download,
+                            onClick: () => onExportVoice?.(speaker.name),
+                        },
+                        { isDivider: true },
+                        {
+                            label: 'Set as App Default',
+                            icon: Star,
+                            disabled: hasDefaultProfile,
+                            onClick: () => defaultProfile && onSetDefaultClick(defaultProfile.name),
+                        },
+                        { isDivider: true },
+                        {
+                            label: 'Delete',
+                            icon: Trash2,
+                            isDestructive: true,
+                            onClick: handleDelete,
+                        },
+                    ]}
+                />
+            </div>
 
             {/*
               * Card body — name/avatar area is an explicit affordance for
@@ -209,13 +251,32 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
                 }}
                 style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', width: '100%' }}
             >
-                {/* Avatar */}
+                {/* Avatar — hosts the Play/Pause preview overlay (INV-FOCUS, see file header) */}
                 <div className="voice-catalog-card__avatar">
                     {iconUrl ? (
                         <img src={iconUrl} alt={`${speaker.name} icon`} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                     ) : (
                         <User size={20} />
                     )}
+                    <button
+                        type="button"
+                        aria-label={isPlaying ? 'Pause preview' : 'Play preview'}
+                        disabled={!previewUrl}
+                        tabIndex={0}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handlePreview();
+                        }}
+                        onKeyDown={(e) => {
+                            // Stop Enter/Space from bubbling to the card body's own
+                            // navigate-on-Enter/Space handler — the button already
+                            // handles its own activation natively.
+                            e.stopPropagation();
+                        }}
+                        className="voice-catalog-card__avatar-play-btn"
+                    >
+                        {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+                    </button>
                 </div>
 
                 {/* Name */}
@@ -248,21 +309,11 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
                 )}
             </div>
 
-            {/* Actions row */}
+            {/* Actions row — Build (or phase-appropriate CTA) is the sole always-visible
+                action (OD-4). Play moved to a hover/focus overlay on the avatar; Rename,
+                Export, Set as App Default, and Delete moved into the top-right kebab
+                (task 002, INV-VC-2: all remain reachable). */}
             <div className="voice-catalog-card__actions">
-                {/* Preview */}
-                <button
-                    type="button"
-                    aria-label={isPlaying ? 'Pause preview' : 'Play preview'}
-                    disabled={!previewUrl}
-                    onClick={handlePreview}
-                    className="btn-glass voice-catalog-card__preview-btn"
-                >
-                    {isPlaying ? <Pause size={12} /> : <Play size={12} />}
-                    {isPlaying ? 'Pause' : 'Play'}
-                </button>
-
-                {/* Primary CTA */}
                 <button
                     type="button"
                     onClick={handleCta}
@@ -272,49 +323,6 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
                     {isBuilding && <Loader2 size={12} className="animate-spin" />}
                     {cta.label}
                 </button>
-
-                {/* Set as App Default — direct card action (not in the overflow menu) */}
-                <button
-                    type="button"
-                    aria-label="Set as App Default"
-                    title="Used app-wide when no voice is specified"
-                    disabled={hasDefaultProfile}
-                    onClick={() => defaultProfile && onSetDefaultClick(defaultProfile.name)}
-                    className="btn-glass voice-catalog-card__set-default-btn"
-                >
-                    <Star size={12} />
-                    Set as App Default
-                </button>
-
-                {/* Delete — direct card action (not in the overflow menu), per the Power User
-                    and Large Catalog Curator persona findings: destructive actions used
-                    one-card-at-a-time while scanning many tiles must not require an extra
-                    menu-open click. */}
-                <button
-                    type="button"
-                    aria-label="Delete voice"
-                    onClick={handleDelete}
-                    className="btn-glass hover-bg-destructive voice-catalog-card__delete-btn"
-                >
-                    <Trash2 size={12} />
-                    Delete
-                </button>
-
-                {/* Overflow menu — slimmed to Rename/Export only (task 006, corrected) */}
-                <ActionMenu
-                    items={[
-                        {
-                            label: 'Rename Voice',
-                            icon: FileEdit,
-                            onClick: () => onRenameClick(speaker),
-                        },
-                        {
-                            label: 'Export Voice Bundle',
-                            icon: Download,
-                            onClick: () => onExportVoice?.(speaker.name),
-                        },
-                    ]}
-                />
             </div>
         </div>
     );
