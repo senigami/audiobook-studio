@@ -5,6 +5,7 @@ now a thin facade). Owns ``profile.json`` metadata: reading/writing settings,
 inferring/normalizing the target engine, and the base-profile normalization
 sweep.
 """
+import re
 import time
 import logging
 import json
@@ -204,7 +205,11 @@ def update_speaker_settings(profile_name: str, **updates) -> bool:
     if "performance_tags" in updates and updates["performance_tags"] is not None:
         normalized_tags = []
         for tag in updates["performance_tags"]:
-            normalized = str(tag).strip().lower().replace(" ", "-")
+            # INV-TAG-1: normalization MUST match TagAutocompleteInput.tsx's
+            # `raw.trim().toLowerCase().replace(/\s+/g, '-')` exactly — collapse
+            # any run of whitespace (spaces, tabs) to a single dash, not just a
+            # single space, so a direct-API tag matches its UI-entered twin.
+            normalized = re.sub(r"\s+", "-", str(tag).strip().lower())
             if normalized and normalized not in normalized_tags:
                 normalized_tags.append(normalized)
         updates["performance_tags"] = normalized_tags

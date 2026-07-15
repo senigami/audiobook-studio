@@ -33,6 +33,23 @@ def test_settings_endpoint_accepts_and_normalizes_performance_tags(clean_db, voi
     assert meta["performance_tags"] == ["sad", "slow"]
 
 
+def test_performance_tags_whitespace_runs_match_frontend_normalization(clean_db, voices_root, client):
+    """INV-TAG-1: a multi-space or tab-separated tag submitted directly to the API
+    must normalize to the SAME value TagAutocompleteInput.tsx would produce
+    (`replace(/\\s+/g, '-')` collapses runs), not "epic--battle"/"epic\\tbattle"."""
+    voices_root.mkdir(parents=True, exist_ok=True)
+    profile_dir = _make_variant(voices_root, "SpeakerA", "Default")
+
+    response = client.post(
+        "/api/speaker-profiles/SpeakerA/settings",
+        json={"performance_tags": ["Epic  Battle", "war\tcry"]},
+    )
+    assert response.status_code == 200
+
+    meta = json.loads((profile_dir / "profile.json").read_text())
+    assert meta["performance_tags"] == ["epic-battle", "war-cry"]
+
+
 def test_performance_tags_visible_on_both_read_surfaces(clean_db, voices_root, client):
     """Connection 2 check: get_speaker_settings and list_speaker_profiles must agree."""
     voices_root.mkdir(parents=True, exist_ok=True)
