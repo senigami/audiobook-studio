@@ -437,6 +437,29 @@
   gap: 14px;
 }
 
+/* Avatar + upload/replace + copy-prompt controls, folded onto the header's
+ * avatar directly (task 003, voice-variants round 2) instead of a separate
+ * IconUpload section in the Overview tab. */
+.voice-detail-header__avatar-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.voice-detail-header__icon-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.voice-detail-header__icon-btn {
+  height: 28px;
+  padding: 0 var(--space-2);
+  font-size: 0.7rem;
+}
+
 .voice-detail-header__actions {
   display: flex;
   align-items: center;

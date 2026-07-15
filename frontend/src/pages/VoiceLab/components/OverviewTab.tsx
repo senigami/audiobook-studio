@@ -34,7 +34,6 @@ import { OneSelect } from '@/pages/Voices/components/metadata/OneSelect';
 import { ManySelect } from '@/pages/Voices/components/metadata/ManySelect';
 import SearchableSelect from '@/components/forms/SearchableSelect';
 import { TagsInput } from '@/pages/Voices/components/metadata/TagsInput';
-import { IconUpload } from '@/pages/Voices/components/metadata/IconUpload';
 
 export interface OverviewTabProps {
     voice: VoiceMetadata;
@@ -47,10 +46,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ voice, onSaved }) => {
     const [tags, setTags] = useState<string[]>(voice?.tags || []);
     const [description, setDescription] = useState(voice?.description || '');
     const [languages, setLanguages] = useState<string>((voice?.languages || []).join(', '));
-    const [iconPath, setIconPath] = useState(voice?.image);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [iconError, setIconError] = useState<string | null>(null);
 
     // Sync when voice prop changes (different voice opened)
     React.useEffect(() => {
@@ -58,9 +55,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ voice, onSaved }) => {
         setTags(voice?.tags || []);
         setDescription(voice?.description || '');
         setLanguages((voice?.languages || []).join(', '));
-        setIconPath(voice?.image);
         setError(null);
-        setIconError(null);
     }, [voice?.id]);
 
     const setAttr = useCallback((key: keyof VoiceAttributes, val: any) => {
@@ -102,21 +97,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ voice, onSaved }) => {
 
     return (
         <div className="overview-tab">
-            {/* Icon upload */}
-            <IconUpload
-                voiceId={voice.id}
-                currentImagePath={iconPath}
-                metadata={voice}
-                onSuccess={(img) => setIconPath(img)}
-                onError={(msg) => setIconError(msg)}
-            />
-            {iconError && (
-                <div className="metadata-editor-modal__icon-error">
-                    <AlertCircle size={16} />
-                    {iconError}
-                </div>
-            )}
-
             {/* Description */}
             <div className="metadata-field">
                 <label htmlFor="voice-description" className="metadata-field-label">

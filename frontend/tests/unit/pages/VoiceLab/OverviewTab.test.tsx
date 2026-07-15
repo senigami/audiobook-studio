@@ -1,13 +1,12 @@
 /**
  * OverviewTab.test.tsx
  *
- * Regression-prevention test for DC-013: the icon-only "copy icon prompt"
- * button must be mounted in the Overview tab's render tree. This feature
- * was built once (VoiceIconControls.tsx) then silently unmounted during a
- * tab-consolidation rework -- this test exists so a future rework can't
- * orphan it again without a failing test.
+ * The icon upload section (and its DC-013 "copy icon prompt" regression
+ * test) moved off this tab and onto the avatar in VoiceDetailHeader.tsx by
+ * task 003 (voice-variants round 2, icon-upload consolidation) -- see
+ * VoiceDetailHeader.test.tsx for that coverage now.
  *
- * Also covers task 006 (voice-variants round 2): class/gender/age are
+ * This file covers task 006 (voice-variants round 2): class/gender/age are
  * rendered as SearchableSelect comboboxes (not OneSelect chip rows), and
  * the required-field save-blocking behavior for those three attributes
  * still holds.
@@ -34,14 +33,6 @@ const mockVoice: VoiceMetadata = {
 };
 
 describe('OverviewTab', () => {
-    it('mounts the icon-only copy-icon-prompt button beside the icon upload control', () => {
-        render(<OverviewTab voice={mockVoice} onSaved={vi.fn()} />);
-
-        expect(
-            screen.getByRole('button', { name: 'Copy icon generation prompt' })
-        ).toBeInTheDocument();
-    });
-
     it('renders class/gender/age as searchable-select comboboxes showing the current value', () => {
         render(<OverviewTab voice={mockVoice} onSaved={vi.fn()} />);
 

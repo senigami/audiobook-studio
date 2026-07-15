@@ -28,11 +28,14 @@
  * editable inline in the Overview tabpanel, so there is nothing left for
  * a header button to open.
  */
-import React from 'react';
-import { User, Play, Pause, Star, Download, UploadCloud, Trash2, CheckCircle2, AlertTriangle, Circle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { User, Play, Pause, Star, Download, UploadCloud, Trash2, CheckCircle2, AlertTriangle, Circle, ClipboardCopy, AlertCircle } from 'lucide-react';
 import type { SpeakerProfile, VoiceMetadata } from '@/types';
 import { VoicePillRow, type PillSpec } from '@/pages/Voices/components/VoicePills';
 import { usePlayerBus, loadAndPlay, pause as pauseBus } from '@/store/playerBus';
+import { useIconUpload } from '@/pages/Voices/components/metadata/IconUpload';
+import { IconCropModal } from '@/pages/Voices/components/metadata/IconCropModal';
+import { buildIconPrompt } from '@/pages/VoiceLab/iconPrompt';
 
 export interface VoiceDetailHeaderProps {
     voiceId: string;
@@ -48,6 +51,7 @@ export interface VoiceDetailHeaderProps {
 }
 
 export const VoiceDetailHeader: React.FC<VoiceDetailHeaderProps> = ({
+    voiceId,
     metadata,
     iconUrl,
     pills,
@@ -59,6 +63,43 @@ export const VoiceDetailHeader: React.FC<VoiceDetailHeaderProps> = ({
     onDelete,
 }) => {
     const playerBus = usePlayerBus();
+
+    // Icon upload -- folded onto the avatar directly (task 003, voice-variants
+    // round 2) instead of the standalone IconUpload section that used to live
+    // in OverviewTab. `iconOverride` mirrors the local-state pattern the old
+    // OverviewTab used (`setIconPath`) so the avatar reflects a just-uploaded
+    // image immediately, without needing a new callback prop back to
+    // VoiceLabPage -- same non-propagating behavior as before, just relocated.
+    const [iconOverride, setIconOverride] = useState<string | null>(null);
+    const [iconUploadError, setIconUploadError] = useState<string | null>(null);
+    useEffect(() => {
+        setIconOverride(null);
+        setIconUploadError(null);
+    }, [voiceId]);
+
+    const {
+        uploading: iconUploading,
+        cropFile,
+        setCropFile,
+        isDragging,
+        copyError,
+        inputRef: iconInputRef,
+        handleCopyPrompt,
+        handleInputChange: handleIconInputChange,
+        handleDragOver: handleIconDragOver,
+        handleDragLeave: handleIconDragLeave,
+        handleDrop: handleIconDrop,
+        handleCropped,
+    } = useIconUpload({
+        voiceId,
+        metadata,
+        onSuccess: (image) => setIconOverride(image),
+        onError: (msg) => setIconUploadError(msg),
+    });
+
+    const effectiveIconUrl = iconOverride
+        ? `/api/voices/${encodeURIComponent(voiceId)}/icon`
+        : iconUrl;
 
     const defaultProfile = profiles.find(p => p.is_default) ?? profiles[0] ?? null;
     const previewUrl = defaultProfile?.preview_url ?? null;
@@ -89,15 +130,71 @@ export const VoiceDetailHeader: React.FC<VoiceDetailHeaderProps> = ({
     return (
         <header className="voice-detail-header">
             <div className="voice-detail-header__identity">
-                <div className="voice-lab-page__avatar">
-                    {iconUrl ? (
-                        <img
-                            src={iconUrl}
-                            alt={`${metadata?.name || 'Voice'} icon`}
-                            style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+                <div className="voice-detail-header__avatar-block">
+                    <div
+                        className="voice-lab-page__avatar"
+                        onDragOver={handleIconDragOver}
+                        onDragLeave={handleIconDragLeave}
+                        onDrop={handleIconDrop}
+                        style={isDragging ? { border: '2px dashed var(--accent)', background: 'var(--accent-glow)' } : undefined}
+                    >
+                        {effectiveIconUrl ? (
+                            <img
+                                src={effectiveIconUrl}
+                                alt={`${metadata?.name || 'Voice'} icon`}
+                                style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+                            />
+                        ) : (
+                            <User size={24} />
+                        )}
+                    </div>
+                    <div className="voice-detail-header__icon-actions">
+                        <button
+                            type="button"
+                            disabled={iconUploading}
+                            onClick={() => iconInputRef.current?.click()}
+                            className="btn-glass metadata-icon-upload__btn voice-detail-header__icon-btn"
+                        >
+                            {iconUploading ? 'Uploading…' : (effectiveIconUrl ? 'Replace icon' : 'Upload icon')}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleCopyPrompt}
+                            className="btn-glass metadata-icon-upload__prompt-btn"
+                            aria-label="Copy icon generation prompt"
+                            title={buildIconPrompt(metadata ?? null)}
+                        >
+                            <ClipboardCopy size={14} />
+                        </button>
+                    </div>
+                    {isDragging && (
+                        <p className="metadata-field-hint">Drop to upload</p>
+                    )}
+                    {copyError && (
+                        <span role="alert" className="metadata-icon-upload__copy-error">
+                            {copyError}
+                        </span>
+                    )}
+                    {iconUploadError && (
+                        <div className="metadata-editor-modal__icon-error" role="alert">
+                            <AlertCircle size={14} />
+                            {iconUploadError}
+                        </div>
+                    )}
+                    <input
+                        ref={iconInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        aria-label="Upload voice icon"
+                        style={{ display: 'none' }}
+                        onChange={handleIconInputChange}
+                    />
+                    {cropFile && (
+                        <IconCropModal
+                            file={cropFile}
+                            onCancel={() => setCropFile(null)}
+                            onCropped={handleCropped}
                         />
-                    ) : (
-                        <User size={24} />
                     )}
                 </div>
 

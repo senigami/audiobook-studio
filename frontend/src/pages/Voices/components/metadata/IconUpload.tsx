@@ -23,17 +23,19 @@ function readImageDimensions(file: File): Promise<{ w: number; h: number }> {
 }
 
 // ---------------------------------------------------------------------------
-// IconUpload
+// useIconUpload — the upload/drag-drop/copy-prompt mechanics, lifted out of
+// the standalone IconUpload component (voice-variants round 2, task 003) so
+// VoiceDetailHeader can wire the same behavior directly onto its avatar
+// instead of mounting a separate section. IconUpload below is now just this
+// hook plus its original standalone chrome, kept for its own test coverage.
 // ---------------------------------------------------------------------------
-export function IconUpload({
+export function useIconUpload({
     voiceId,
-    currentImagePath,
     metadata,
     onSuccess,
     onError,
 }: {
     voiceId: string;
-    currentImagePath: string | undefined;
     metadata?: VoiceMetadata | null;
     onSuccess: (image: string) => void;
     onError: (msg: string) => void;
@@ -91,6 +93,13 @@ export function IconUpload({
         await handleFile(file);
     };
 
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        if (!uploading) setIsDragging(true);
+    };
+
+    const handleDragLeave = () => setIsDragging(false);
+
     // Reuses this repo's established drag-drop interaction pattern
     // (dashed-border highlight while dragging, e.g. VoiceDropzone.tsx) —
     // there's no shared hook for it yet, so the handlers are local here too.
@@ -111,6 +120,55 @@ export function IconUpload({
         await doUpload(croppedFile);
     };
 
+    return {
+        uploading,
+        cropFile,
+        setCropFile,
+        isDragging,
+        copyError,
+        inputRef,
+        handleCopyPrompt,
+        handleInputChange,
+        handleDragOver,
+        handleDragLeave,
+        handleDrop,
+        handleCropped,
+    };
+}
+
+// ---------------------------------------------------------------------------
+// IconUpload — standalone upload section (drag-drop zone + preview + button).
+// No longer mounted in the app (folded onto VoiceDetailHeader's avatar by
+// task 003), kept as the direct home of this behavior's unit tests.
+// ---------------------------------------------------------------------------
+export function IconUpload({
+    voiceId,
+    currentImagePath,
+    metadata,
+    onSuccess,
+    onError,
+}: {
+    voiceId: string;
+    currentImagePath: string | undefined;
+    metadata?: VoiceMetadata | null;
+    onSuccess: (image: string) => void;
+    onError: (msg: string) => void;
+}) {
+    const {
+        uploading,
+        cropFile,
+        setCropFile,
+        isDragging,
+        copyError,
+        inputRef,
+        handleCopyPrompt,
+        handleInputChange,
+        handleDragOver,
+        handleDragLeave,
+        handleDrop,
+        handleCropped,
+    } = useIconUpload({ voiceId, metadata, onSuccess, onError });
+
     const iconUrl = currentImagePath
         ? `/api/voices/${encodeURIComponent(voiceId)}/icon`
         : null;
@@ -122,8 +180,8 @@ export function IconUpload({
             </label>
             <div
                 className="metadata-icon-upload__row"
-                onDragOver={(e) => { e.preventDefault(); if (!uploading) setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 style={{
                     borderRadius: 'var(--radius-card)',
