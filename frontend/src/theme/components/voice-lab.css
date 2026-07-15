@@ -21,18 +21,27 @@
   box-shadow: var(--shadow-sm);
 }
 
-.voice-catalog-card__default-badge {
+/* Default-status star — top-left edge (task 002: replaces the text pill; the kebab now
+   owns the top-right corner exclusively). Offset past the select-checkbox's 22px footprint
+   (top:6px/left:6px) so the two never overlap in bulk-select mode. Status indicator only
+   (no click handler) — setting default is an action, done via the kebab. */
+.voice-catalog-card__default-star {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  font-size: 0.55rem;
-  font-weight: 700;
+  top: 8px;
+  left: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--as-amber);
-  background: var(--as-amber-tint-bg);
-  border: 1px solid var(--as-amber-tint-border);
-  border-radius: var(--radius-card);
-  padding: 1px 5px;
   pointer-events: none;
+}
+
+/* Overflow-menu (kebab) wrapper — top-right corner, exclusive of the default star. */
+.voice-catalog-card__menu {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
 }
 
 .voices-bulk-toolbar {
@@ -78,6 +87,7 @@
 }
 
 .voice-catalog-card__avatar {
+  position: relative;
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -90,6 +100,38 @@
   overflow: hidden;
   flex-shrink: 0;
   margin-bottom: 2px;
+}
+
+/* Play/Pause preview overlay — hover/focus-reveal on the avatar (task 002). Visibility is
+   opacity-gated, never display:none/visibility:hidden (INV-FOCUS, design-system.md §8.1):
+   the button stays in the DOM and tabbable at all times, so Tab reaches it and touch taps
+   land on it even when no hover event has ever fired. */
+.voice-catalog-card__avatar-play-btn {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.voice-catalog-card__avatar:hover .voice-catalog-card__avatar-play-btn,
+.voice-catalog-card__avatar-play-btn:focus-visible {
+  opacity: 1;
+}
+
+.voice-catalog-card__avatar-play-btn:disabled {
+  cursor: not-allowed;
 }
 
 .voice-catalog-card__name {
@@ -119,32 +161,11 @@
   justify-content: center;
 }
 
-.voice-catalog-card__preview-btn {
-  height: 26px;
-  padding: 0 8px;
-  font-size: 0.65rem;
-  border-radius: var(--radius-round);
-  display: flex;
-  align-items: center;
-  gap: 3px;
-}
-
 .voice-catalog-card__cta-btn {
   height: 26px;
   padding: 0 10px;
   font-size: 0.65rem;
   border-radius: var(--radius-round);
-}
-
-.voice-catalog-card__set-default-btn,
-.voice-catalog-card__delete-btn {
-  height: 26px;
-  padding: 0 8px;
-  font-size: 0.65rem;
-  border-radius: var(--radius-round);
-  display: flex;
-  align-items: center;
-  gap: 3px;
 }
 
 /* Voices catalog grid wrapper — R5-T3 */
@@ -1436,15 +1457,19 @@
     padding: 4px 10px;
   }
 
-  /* Voice catalog card actions: Play + the primary "Build voice"/"Edit
-     voice" CTA were 26px tall, below Apple's 44pt touch-target guidance
-     for primary actions. */
-  .voice-catalog-card__preview-btn,
-  .voice-catalog-card__cta-btn,
-  .voice-catalog-card__set-default-btn,
-  .voice-catalog-card__delete-btn {
+  /* Voice catalog card actions: the primary "Build voice"/"Edit voice" CTA was 26px
+     tall, below Apple's 44pt touch-target guidance for primary actions. */
+  .voice-catalog-card__cta-btn {
     height: 36px;
     font-size: 0.75rem;
+  }
+
+  /* Play overlay: grow the tappable circle on touch viewports (task 002) — it's
+     reachable via tap regardless of hover per INV-FOCUS, so touch users need a real
+     target, not just the desktop hover-reveal size. */
+  .voice-catalog-card__avatar-play-btn {
+    width: 30px;
+    height: 30px;
   }
 
   /* Variant editor controls row: play button + speed pill + engine badge +
