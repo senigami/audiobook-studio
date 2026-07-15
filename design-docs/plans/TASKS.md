@@ -713,6 +713,30 @@ above). Two backend items were genuinely undocumented:
   profile first (a `React.memo` on `VoiceCatalogCard` may be sufficient) before reaching for full
   windowing.
 
+## Voice-variant version history *(fast-follow, planned 2026-07-15 — not yet built)*
+
+Voice-Clone-Trainer persona finding (`design-docs/personas/42-voice-clone-trainer.md`):
+rebuilding a voice variant (`POST /api/speaker-profiles/{name}/build`) destroys the previous
+sample set and `profile.json` state in place, with no recovery and no in-app A/B between clone
+attempts. Deliberately scoped out of the voice-card/Voice-Lab consolidation redesign as a
+fast-follow.
+
+Full plan (map, roadmap, 9 task files): `~/.claude/plans/audiobook-factory/voice-variant-version-history/`.
+Filesystem-based `versions/` schema per variant (no DB table), non-destructive rebuild (snapshot
+before delete + snapshot after build), a promote-to-active endpoint (file copy only, no
+re-synthesis), and an A/B panel reusing `SampleTestTask` unmodified. No backfill for pre-existing
+voices — history starts at the first rebuild after this ships.
+
+- [ ] **001** — Variant versions schema module (`app/domain/voices/variant_versions.py`)
+- [ ] **002** — Snapshot before delete in the build endpoint (`voices_actions.py`)
+- [ ] **003** — Record new version after a successful rebuild (`sample_build.py`)
+- [ ] **004** — Versions router: list + promote (`voices_versions.py`, new)
+- [ ] **005** — Versions router: A/B test endpoint (same file)
+- [ ] **006** — Frontend: `SpeakerProfile` type + API client methods
+- [ ] **007** — Version history list + promote UI (`VariantEditor.tsx`)
+- [ ] **008** — A/B playback panel
+- [ ] **009** — This TASKS.md entry stays current as 001-008 land
+
 ## Deferred / post-v2.0
 
 - [ ] **012** — Localization + sub-sentence assignment — [task file](master_fix_plan/tasks/012-deferred-and-open-questions.md)
