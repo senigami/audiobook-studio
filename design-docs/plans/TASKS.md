@@ -740,6 +740,36 @@ voices — history starts at the first rebuild after this ships.
 - [x] **011** — Review fix: A/B job-mode completion signal was wrong (watched `has_artifact`, could silently serve stale/wrong audio) — replaced with real job-status polling + new `/out/voice-ab-test/{job_id}/render.mp3` static route
 - [x] **012** — Fable sign-off fix: stale in-flight A/B poll tick could overwrite a fresh comparison run's result with an old job's audio — fixed with a generation-counter guard
 
+## Voice variant tagging + IA redesign *(fast-follow, built 2026-07-15)*
+
+Owner finding: variants of a character had no way to carry their own performance tags (tone,
+pace) distinct from the character-level taxonomy, and the stacked-full-card variant list didn't
+scale. Preceded by a 5-lens design critique, two rounds of adversarial technical review, and two
+rounds of design review, all in `docs/design-critique/voices-variants/`.
+
+Full plan (map, roadmap, 13 task files, archived after completion):
+`~/.claude/plans/audiobook-factory/archive/voice-variant-tagging-and-ia/`. Adds per-variant
+user-extensible `performance_tags`; replaces the stacked variant list with a count-based switcher
+(horizontal tab strip for a few variants, filterable vertical rail for more) sharing one detail
+editor; adds a default-variant star with a new backend write path (none existed before); restores
+a previously-shipped-then-orphaned icon image-generation-prompt feature; and consolidates
+secondary variant chrome into one overflow menu per variant.
+
+- [x] **001** — Restore icon image-generation-prompt affordance
+- [x] **002** — Verify Script/recording-guide reachability
+- [x] **003** — Pill primitive token hygiene
+- [x] **004** — Backend: `performance_tags` read/write path
+- [x] **005** — Backend: default-variant write endpoint
+- [x] **006** — `TagAutocompleteInput` component
+- [x] **007** — Wire `performance_tags` into `VariantEditor`
+- [x] **008** — `VariantSwitcher` component (count-based strip/rail + default-star)
+- [x] **009** — `VariantsSection` master-detail rewrite
+- [x] **010** — Performance-tag filter bar
+- [x] **011** — Catalog-card "Set as App Default" relabel + bug fix
+- [x] **012** — Cleanup fill-ins (reduced-motion guard, icon fix, shared `EngineBadge`, button sizing)
+- [x] **013** — Test tab preselects the active variant
+- [x] **014** — Adversarial review fix: `performance_tags` whitespace normalization now matches the frontend exactly
+
 ## Deferred / post-v2.0
 
 - [ ] **012** — Localization + sub-sentence assignment — [task file](master_fix_plan/tasks/012-deferred-and-open-questions.md)
