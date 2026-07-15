@@ -47,6 +47,10 @@ vi.mock('@/hooks/useChapterPlayback', () => ({
 }));
 
 const chapterEditorState = vi.hoisted(() => ({ scriptViewData: null as unknown, segments: [] as unknown[] }));
+const chapterEditorMocks = vi.hoisted(() => ({
+  handleSave: vi.fn().mockResolvedValue(true),
+  executeQueue: vi.fn(),
+}));
 
 vi.mock('@/hooks/useChapterEditor', () => ({
   useChapterEditor: () => ({
@@ -83,14 +87,14 @@ vi.mock('@/hooks/useChapterEditor', () => ({
     loadChapter: vi.fn(),
     generatingSegmentJob: null,
     liveSegmentJobIds: new Set<string>(),
-    handleSave: vi.fn().mockResolvedValue(true),
+    handleSave: chapterEditorMocks.handleSave,
     handleVoiceChange: vi.fn(),
     hasRenderedOutput: false,
     handleScriptAssign: vi.fn(),
     handleScriptAssignRange: vi.fn(),
     handleUpdateCharacterColor: vi.fn(),
     handleGenerate: vi.fn(),
-    executeQueue: vi.fn(),
+    executeQueue: chapterEditorMocks.executeQueue,
   }),
 }));
 
@@ -149,6 +153,46 @@ describe('useStudioChapter', () => {
     expect(result.current.isPreviewingResync).toBe(true);
     expect(result.current.isResyncing).toBe(true);
     expect(result.current.exportingFormat).toBe('wav');
+  });
+
+  describe('handleConfirmResync', () => {
+    it('re-queues the chapter (forced rebuild) after a successful resync save', async () => {
+      const { result } = renderHook(() =>
+        useStudioChapter({
+          chapterId: 'chapter-1',
+          projectId: 'project-1',
+          speakerProfiles: [],
+          speakers: [],
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleConfirmResync();
+      });
+
+      expect(chapterEditorMocks.handleSave).toHaveBeenCalledWith('Chapter 1', 'One. Two.');
+      expect(chapterEditorMocks.executeQueue).toHaveBeenCalledWith('', expect.any(Function), expect.any(Function), true);
+      expect(result.current.isPreviewingResync).toBe(false);
+    });
+
+    it('does NOT re-queue when the resync save fails', async () => {
+      chapterEditorMocks.handleSave.mockResolvedValueOnce(false);
+
+      const { result } = renderHook(() =>
+        useStudioChapter({
+          chapterId: 'chapter-1',
+          projectId: 'project-1',
+          speakerProfiles: [],
+          speakers: [],
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleConfirmResync();
+      });
+
+      expect(chapterEditorMocks.executeQueue).not.toHaveBeenCalled();
+    });
   });
 
   describe('chapterRenderPreparingSegmentIds', () => {

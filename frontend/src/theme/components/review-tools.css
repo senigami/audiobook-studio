@@ -56,6 +56,62 @@
   flex-shrink: 0;
 }
 
+/* ── DirectorsConsole mobile mode switcher: persistent bottom tab bar ────
+   Mobile-only alternative to the desktop rail above, switching between
+   ChapterEditor's mobile-eligible modes (Booth, Book view). A persistent
+   bar, not a modal overlay — no focus trap, unlike MobileNavDrawer.
+   `env(safe-area-inset-bottom)` keeps it clear of the iOS home indicator. */
+.mobile-mode-switcher {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-around;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem calc(0.25rem + env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  position: sticky;
+  bottom: 0;
+  flex-shrink: 0;
+}
+
+.mobile-mode-switcher__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  flex: 1 1 0;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.4rem;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-standard),
+              background var(--dur-fast) var(--ease-standard);
+}
+
+.mobile-mode-switcher__item:hover:not(.mobile-mode-switcher__item--active) {
+  background: var(--surface-alt);
+  color: var(--text-primary);
+}
+
+.mobile-mode-switcher__item--active {
+  background: var(--accent-tint-bg, var(--accent-glow));
+  color: var(--accent);
+}
+
+.mobile-mode-switcher__label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ── Main area: topbar + body ─────────────────────────────────────────────── */
 .review-main {
   flex: 1;
@@ -177,6 +233,60 @@
 @media (prefers-reduced-motion: reduce) {
   .review-text-view__segment--pulse {
     animation: none;
+  }
+}
+
+/* ── Booth tool: mobile layout (≤640px) ───────────────────────────────────
+   BoothTool has no responsive handling by default — the side-by-side
+   text-view + annotations-drawer body and the fixed-width panels
+   (`.follow-along-panel` min-width, `.review-annotations-drawer` width,
+   both set inline by their components) overflow horizontally on narrow
+   viewports. Stack everything vertically and widen touch targets instead. */
+@media (max-width: 640px) {
+  .review-main__topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .review-main__annotations-toggle {
+    justify-content: center;
+    align-self: stretch;
+    min-height: 44px;
+  }
+
+  /* Overrides the components' inline `minWidth: '260px'` / `width: '280px'`
+     so the panels fill the narrow viewport instead of forcing horizontal
+     scroll. */
+  .follow-along-panel {
+    min-width: 0 !important;
+    width: 100%;
+  }
+
+  .review-main__body {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .review-text-view {
+    flex: 1 1 auto;
+    min-height: 200px;
+  }
+
+  .review-annotations-drawer {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 45vh;
+    flex-shrink: 0;
+  }
+
+  /* Touch targets: the follow-along/annotations buttons are plain
+     unclassed <button>s sized inline (e.g. `padding: '3px 8px'`) for the
+     desktop density — widen the hit area at mobile widths without
+     touching their desktop sizing. */
+  .follow-along-panel button,
+  .review-annotations-drawer button {
+    min-height: 44px;
+    min-width: 44px;
   }
 }
 

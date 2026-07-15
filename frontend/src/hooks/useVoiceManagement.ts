@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Speaker, SpeakerProfile, Job, VoiceEngine } from '@/types';
-import { emitToast } from '@/utils/toast';
+import { emitToast, TOAST_VISIBLE_MS } from '@/utils/toast';
 
 export function useVoiceManagement(
     onRefresh: () => void, 
@@ -18,6 +18,9 @@ export function useVoiceManagement(
     // Map of profileName -> jobId for in-flight build jobs
     const [buildingProfiles, setBuildingProfiles] = useState<Record<string, string | true>>({});
     const hasSeenJobSnapshot = useRef(false);
+    // Pending, undoable profile deletes keyed by profile name — the actual
+    // DELETE request is deferred until the toast's undo window elapses.
+    const pendingDeletesRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
     // Keep the local "building" map in sync with the authoritative jobs snapshot.
     // We preserve optimistic local entries until the server confirms completion,
@@ -206,14 +209,34 @@ export function useVoiceManagement(
     }, [fetchSpeakers, requestConfirm]);
 
     const handleDelete = async (name: string) => {
-        try {
-            const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}`, {
-                method: 'DELETE',
-            });
-            if (resp.ok) onRefresh();
-        } catch (err) {
-            console.error('Failed to delete profile', err);
-        }
+        // Deleting a voice profile has no undo endpoint on the backend, so the
+        // actual DELETE is deferred until the toast's undo window elapses —
+        // clicking "Undo" just cancels the pending request.
+        const existingPending = pendingDeletesRef.current[name];
+        if (existingPending) clearTimeout(existingPending);
+
+        pendingDeletesRef.current[name] = setTimeout(async () => {
+            delete pendingDeletesRef.current[name];
+            try {
+                const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}`, {
+                    method: 'DELETE',
+                });
+                if (resp.ok) onRefresh();
+            } catch (err) {
+                console.error('Failed to delete profile', err);
+            }
+        }, TOAST_VISIBLE_MS);
+
+        emitToast(`Deleted voice "${name}".`, {
+            label: 'Undo',
+            onClick: () => {
+                const pending = pendingDeletesRef.current[name];
+                if (pending) {
+                    clearTimeout(pending);
+                    delete pendingDeletesRef.current[name];
+                }
+            }
+        });
     };
 
     const handleUpdateEngine = useCallback(async (name: string, engine: VoiceEngine) => {

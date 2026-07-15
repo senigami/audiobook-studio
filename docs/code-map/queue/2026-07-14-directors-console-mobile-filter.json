@@ -1,0 +1,15 @@
+{
+  "date": "2026-07-14",
+  "author": "claude",
+  "summary": "Wires mobile-width tool filtering into DirectorsConsole (task 007): at <=640px the console renders MobileModeSwitcher with a data-level filtered tool list instead of the desktop rail, so Cast/Revise/Write/placeholder tools are excluded from the DOM (not just CSS-hidden) per INV-MAP-4. Also redirects away from a desktop-only active tool if the viewport shrinks into mobile while one is active. Deviation flagged: the task described the mobile-eligible set as 'Booth + Book-view', but no 'book-view' tool id exists in directorsConsoleTools (Book View is the separate pages/Book/BookLayout.tsx page, not a console tool) -- so the mobile-eligible set implemented is Booth-only, with a code comment noting how to extend it once/if a book-view tool is registered.",
+  "files": [
+    {
+      "path": "frontend/src/pages/ChapterEditor/components/DirectorsConsole/index.tsx",
+      "change": "Added useMediaQuery('(max-width: 640px)') + MOBILE_ELIGIBLE_TOOL_IDS (currently {'booth'}); conditional render of MobileModeSwitcher (mobile) vs the existing desktop rail (unchanged); added a useEffect that redirects activeToolId to the first mobile-eligible tool when the viewport is mobile and the active tool isn't mobile-eligible."
+    },
+    {
+      "path": "frontend/tests/unit/pages/ChapterEditor/components/DirectorsConsole/DirectorsConsole.mobile.test.tsx",
+      "change": "New test file (mocks useMediaQuery, CastTool, BoothTool) covering: mobile-only Booth rendering with Cast/Revise/Write/placeholders absent from the DOM, unchanged desktop rail, correct tablist container per breakpoint, auto-redirect off a desktop-only default tool at mobile width, and state preservation across a live desktop->mobile resize."
+    }
+  ]
+}

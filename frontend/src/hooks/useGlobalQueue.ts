@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '@/api';
+import { emitToast, TOAST_VISIBLE_MS } from '@/utils/toast';
 import type { ProcessingQueueItem } from '@/types';
 
 export const useGlobalQueue = (initialQueue: ProcessingQueueItem[], paused: boolean, onRefresh?: () => void) => {
@@ -17,6 +18,11 @@ export const useGlobalQueue = (initialQueue: ProcessingQueueItem[], paused: bool
 
     const isDraggingRef = useRef(false);
     const dragTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    // Pending, undoable queue-item removals keyed by job id — the actual
+    // cancel/remove request is deferred until the toast's undo window
+    // elapses, matching the deferred-delete pattern used elsewhere
+    // (useProjectActions/useVoiceManagement/CharactersTab).
+    const pendingRemovesRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
     // Sync local queue state with the incoming merged queue from the sync hook,
     // but ONLY when not dragging.
@@ -29,6 +35,7 @@ export const useGlobalQueue = (initialQueue: ProcessingQueueItem[], paused: bool
     useEffect(() => {
         return () => {
             if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
+            Object.values(pendingRemovesRef.current).forEach(clearTimeout);
         };
     }, []);
 
@@ -108,21 +115,45 @@ export const useGlobalQueue = (initialQueue: ProcessingQueueItem[], paused: bool
         }
     }, [queue, onRefresh]);
 
-    const handleRemove = useCallback(async (id: string) => {
-        try {
-            const job = queue.find(q => q.id === id);
-            if (job?.chapter_id && job.status !== 'done' && job.status !== 'failed' && job.status !== 'cancelled') {
-                try {
-                    await api.cancelChapterGeneration(job.chapter_id);
-                } catch (e) {
-                    console.warn('Could not cancel chapter job, removing from queue anyway', e);
+    const handleRemove = useCallback((id: string) => {
+        // Removing a queue item is a real cancel/remove request against the
+        // backend — defer it until the toast's undo window elapses so
+        // "Undo" can cancel it before it ever happens (same pattern as
+        // useProjectActions.handleDeleteChapter / useVoiceManagement.handleDelete).
+        const existingPending = pendingRemovesRef.current[id];
+        if (existingPending) clearTimeout(existingPending);
+
+        const job = queue.find(q => q.id === id);
+        const title = job?.custom_title || job?.chapter_title || 'Job';
+
+        pendingRemovesRef.current[id] = setTimeout(async () => {
+            delete pendingRemovesRef.current[id];
+            try {
+                const currentJob = queue.find(q => q.id === id);
+                if (currentJob?.chapter_id && currentJob.status !== 'done' && currentJob.status !== 'failed' && currentJob.status !== 'cancelled') {
+                    try {
+                        await api.cancelChapterGeneration(currentJob.chapter_id);
+                    } catch (e) {
+                        console.warn('Could not cancel chapter job, removing from queue anyway', e);
+                    }
+                }
+                await api.removeProcessingQueue(id);
+                if (onRefresh) onRefresh();
+            } catch (e) {
+                console.error(e);
+            }
+        }, TOAST_VISIBLE_MS);
+
+        emitToast(`Removed "${title}" from queue.`, {
+            label: 'Undo',
+            onClick: () => {
+                const pending = pendingRemovesRef.current[id];
+                if (pending) {
+                    clearTimeout(pending);
+                    delete pendingRemovesRef.current[id];
                 }
             }
-            await api.removeProcessingQueue(id);
-            if (onRefresh) onRefresh();
-        } catch (e) {
-            console.error(e);
-        }
+        });
     }, [queue, onRefresh]);
 
     const handleClearCompleted = async () => {

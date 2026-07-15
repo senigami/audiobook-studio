@@ -15,6 +15,7 @@ import { useSegmentInventory } from '@/hooks/useSegmentInventory';
 import { isPeekStripDismissed, setPeekStripDismissed } from '@/utils/segmentPeekStripState';
 import { ACTIVE_STATUSES } from '@/utils/jobStatus';
 import { isTerminalStatus } from '@/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers';
+import { emitToast } from '@/utils/toast';
 
 // W-PAR task 011 (moved to per-row scope by task 015): the auto-appear
 // threshold for the Level-2 peek strip — a job with fewer than this many
@@ -111,13 +112,17 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     // ReviseTool for single-segment re-render) is the only per-segment
     // (re)generation entry point this repo has; there is no server-side
     // "retry" verb, so re-queuing generation for the same segment id IS the
-    // retry. Errors are surfaced via console.error only, matching this
-    // page's existing lack of a toast/snackbar mechanism — onRefresh()
-    // re-pulls job state so the queue reflects the requeue.
+    // retry. Task 011 (U6 guided failure recovery): a failed retry request
+    // now also surfaces an explanatory toast (instead of a silent
+    // console.error) so the failure isn't just a dead-end red state —
+    // onRefresh() re-pulls job state so the queue reflects the requeue.
     const handleSegmentRetry = React.useCallback((segmentId: string) => {
         api.generateSegments([segmentId])
             .then(() => onRefresh?.())
-            .catch((e) => console.error('Segment retry failed', e));
+            .catch((e) => {
+                console.error('Segment retry failed', e);
+                emitToast("Couldn't retry that segment. Check the segment's status and try again.");
+            });
     }, [onRefresh]);
     const rawStarted = job.started_at ?? liveJob?.started_at;
     const preferLiveEta = (isTrulyActive && typeof liveJob?.eta_seconds === 'number' && liveJob.eta_seconds > 0);

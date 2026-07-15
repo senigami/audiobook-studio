@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
+import { useState, useCallback, useMemo, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import { AppShell } from '@/app/layout/AppShell';
 import { ProjectLibrary } from '@/pages/ProjectLibrary/ProjectLibraryPage';
@@ -8,17 +8,16 @@ import { useJobs } from '@/hooks/useJobs';
 import { useQueueSync } from '@/hooks/useQueueSync';
 import { useStudioSocketTransport } from '@/hooks/useStudioSocketTransport';
 import { useInitialData } from '@/hooks/useInitialData';
-import { useToast } from '@/hooks/useToast';
-import { APP_TOAST_EVENT } from '@/utils/toast';
-import { useStartupOverlay } from '@/hooks/useStartupOverlay';
 import { useChapterRedirect } from '@/hooks/useChapterRedirect';
-import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { createStudioShellState } from '@/app/layout/StudioShell';
 import { QueueRoute } from '@/pages/Queue/QueueRoute';
 import { ProjectViewRoute } from '@/pages/ProjectDetail/ProjectViewRoute';
 import type { Chapter } from '@/types';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Drawer } from '@/pages/Voices/components/VoiceUtils';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useQueueDrawer, QueueDrawerHost } from '@/app/QueueDrawerHost';
+import { useNotifications, NotificationsHost } from '@/app/NotificationsHost';
+import { StartupGate } from '@/app/StartupGate';
+import { getDevRoutes } from '@/app/runtimeDebug';
 
 const VoicesTab = lazy(() => import('@/pages/Voices/VoicesPage').then(m => ({ default: m.VoicesTab })));
 const VoiceLabPage = lazy(() => import('@/pages/VoiceLab/VoiceLabPage').then(m => ({ default: m.VoiceLabPage })));
@@ -29,8 +28,6 @@ const EnginesPage = lazy(() => import('@/pages/Engines').then(m => ({ default: m
 const IntegrationsPage = lazy(() => import('@/pages/Integrations').then(m => ({ default: m.IntegrationsPage })));
 const ActivityPage = lazy(() => import('@/pages/Activity/ActivityPage'));
 const SettingsRoute = lazy(() => import('@/pages/Settings').then(m => ({ default: m.SettingsRoute })));
-const ProgressBarTestPage = lazy(() => import('@/pages/DevProgressBar/DevProgressBarPage').then(m => ({ default: m.ProgressBarTestPage })));
-const LiveOutputPage = lazy(() => import('@/pages/LiveOutput/LiveOutputPage').then(m => ({ default: m.LiveOutputPage })));
 
 function RouteFallback() {
   return (
@@ -185,39 +182,8 @@ function App() {
     handleChapterUpdate
   );
 
-  const [confirmConfig, setConfirmConfig] = useState<{
-    title: string;
-    message: string;
-    onConfirm: () => void;
-    isDestructive?: boolean;
-    confirmText?: string;
-  } | null>(null);
-
-  const { toast, showToast, dismissToast } = useToast();
-
-  const [isQueueDrawerOpen, setIsQueueDrawerOpen] = useState(false);
-  const prevPathRef = useRef(location.pathname);
-
-  useEffect(() => {
-    if (location.pathname === '/queue') {
-      setIsQueueDrawerOpen(true);
-      const target = prevPathRef.current === '/queue' ? '/' : prevPathRef.current;
-      navigate(target, { replace: true });
-    } else {
-      prevPathRef.current = location.pathname;
-    }
-  }, [location.pathname, navigate]);
-
-  useEffect(() => {
-    const handler = (event: Event) => {
-      const detail = (event as CustomEvent<{ message?: string }>).detail;
-      if (detail?.message) {
-        showToast(detail.message);
-      }
-    };
-    window.addEventListener(APP_TOAST_EVENT, handler);
-    return () => window.removeEventListener(APP_TOAST_EVENT, handler);
-  }, [showToast]);
+  const notifications = useNotifications();
+  const queueDrawer = useQueueDrawer();
 
   const handleRefresh = async () => {
     setRefreshingSource('refresh');
@@ -239,15 +205,30 @@ function App() {
   }, [location.pathname, initialLoading, queueLoading, connected, isReconnecting, activeSource, refreshingSource]);
   const startupMessage = initialData?.system_info?.startup_message || 'Starting Audiobook Studio Services...';
   const startupDetail = initialData?.system_info?.startup_detail;
-  const showStartupCopy = useStartupOverlay(initialLoading);
+  const devRoutes = getDevRoutes();
+  // Framer Motion drives this transition via JS (requestAnimationFrame), not a
+  // CSS transition/animation, so the blanket prefers-reduced-motion CSS guard
+  // in theme/base.css can't neutralize it on its own — read the same media
+  // query directly (a one-off page-load check, not the reactive useMediaQuery
+  // hook) so the motion values collapse to an instant, static transition too.
+  const prefersReducedMotion = typeof window !== 'undefined'
+    && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const routeTransition = prefersReducedMotion
+    ? { initial: false as const, animate: { opacity: 1, y: 0 }, exit: { opacity: 1, y: 0 }, transition: { duration: 0 } }
+    : {
+      initial: { opacity: 0, y: 8 },
+      animate: { opacity: 1, y: 0 },
+      exit: { opacity: 0, y: -8 },
+      transition: { duration: 0.16, ease: 'easeOut' as const },
+    };
 
   return (
     <div className="app-container">
       <AppShell
         queueCount={queueCount}
         shellState={shellState}
-        onToggleQueue={() => setIsQueueDrawerOpen(!isQueueDrawerOpen)}
-        isQueueOpen={isQueueDrawerOpen}
+        onToggleQueue={queueDrawer.toggle}
+        isQueueOpen={queueDrawer.isOpen}
       >
         <div style={{
           flex: 1,
@@ -259,7 +240,13 @@ function App() {
         }}>
           <div style={{ flex: 1 }}>
             <Suspense fallback={<RouteFallback />}>
-            <Routes>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={location.pathname}
+                className="route-transition"
+                {...routeTransition}
+              >
+                <Routes location={location}>
               <Route path="/" element={<WelcomePage />} />
               <Route path="/library" element={<ProjectLibrary onSelectProject={(id) => navigate(`/project/${id}`)} />} />
               <Route path="/book/:bookId" element={<BookIndexRedirect />} />
@@ -274,7 +261,7 @@ function App() {
                   refreshTrigger={queueRefreshTrigger}
                   segmentUpdate={segmentUpdate}
                   chapterUpdate={chapterUpdate}
-                  onOpenQueue={() => setIsQueueDrawerOpen(true)}
+                  onOpenQueue={queueDrawer.open}
                 />
               } />
               <Route path="/book/:bookId/chapter/:chapterId" element={
@@ -288,7 +275,7 @@ function App() {
                   refreshTrigger={queueRefreshTrigger}
                   segmentUpdate={segmentUpdate}
                   chapterUpdate={chapterUpdate}
-                  onOpenQueue={() => setIsQueueDrawerOpen(true)}
+                  onOpenQueue={queueDrawer.open}
                 />
               } />
               <Route path="/project/:projectId" element={<ProjectRedirectRoute />} />
@@ -311,7 +298,7 @@ function App() {
                       segmentUpdate={segmentUpdate}
                       chapterUpdate={chapterUpdate}
                       shellState={shellState}
-                      onOpenQueue={() => setIsQueueDrawerOpen(true)}
+                      onOpenQueue={queueDrawer.open}
                     />
                   )}
                 </ProjectViewRoute>
@@ -358,7 +345,7 @@ function App() {
                 <EnginesPage
                   startupReady={initialData?.system_info?.startup_ready !== false}
                   onRefresh={handleRefresh}
-                  onShowNotification={showToast}
+                  onShowNotification={notifications.showToast}
                   settings={initialData?.settings}
                 />
               } />
@@ -390,208 +377,47 @@ function App() {
                   engines={initialData?.engines || []}
                   startupReady={initialData?.system_info?.startup_ready !== false}
                   onRefresh={handleRefresh}
-                  onShowNotification={showToast}
+                  onShowNotification={notifications.showToast}
                 />
               } />
-              <Route path="/progress-test" element={<ProgressBarTestPage />} />
-              <Route path="/event-stream" element={<LiveOutputPage />} />
+              {devRoutes.map((route) => (
+                <Route key={route.path} path={route.path} element={route.element} />
+              ))}
               <Route path="*" element={<Navigate to="/library" replace />} />
-            </Routes>
+                </Routes>
+              </motion.div>
+            </AnimatePresence>
             </Suspense>
           </div>
 
           </div>
       </AppShell>
 
-      {initialLoading && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 2000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'var(--glass-surface-light)',
-            backdropFilter: 'blur(10px)',
-          }}
-        >
-          <div
-            style={{
-              padding: '1.25rem 1.5rem',
-              borderRadius: '16px',
-              border: '1px solid var(--border)',
-              background: 'var(--surface)',
-              boxShadow: 'var(--shadow-lg)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.9rem',
-              color: 'var(--text-primary)',
-              fontWeight: 700,
-            }}
-          >
-            {initialError ? (
-              <div
-                role="alert"
-                aria-live="assertive"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}
-              >
-                <div
-                  data-testid="startup-error-indicator"
-                  style={{
-                    width: 18,
-                    height: 18,
-                    borderRadius: '50%',
-                    border: '2px solid var(--danger, #d64545)',
-                    flexShrink: 0,
-                  }}
-                />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-                  <span>Couldn't reach Audiobook Studio</span>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                    {/* The 1s startup poll only retries automatically before the first
-                        successful load (!initialData) - a later refetch failure (e.g. after
-                        a job-complete event) does not re-arm it, so that copy is omitted then.
-                        Note: the em dash/ellipsis below must stay inside a JS string literal
-                        (not bare JSX text) for the \uXXXX escapes to actually decode - see F15's
-                        original bug where a bare-JSX-text escape rendered literally. */}
-                    {initialError}{!initialData ? ' \u2014 retrying automatically\u2026' : ''}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => refetchHome()}
-                  data-testid="startup-retry-button"
-                  style={{
-                    marginLeft: '0.5rem',
-                    padding: '0.4rem 0.75rem',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border)',
-                    background: 'var(--surface-hover, transparent)',
-                    color: 'var(--text-primary)',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Retry now
-                </button>
-              </div>
-            ) : (
-              <>
-                <div
-                  className="animate-spin"
-                  style={{
-                    width: 18,
-                    height: 18,
-                    borderRadius: '50%',
-                    border: '2px solid var(--accent-glow)',
-                    borderTopColor: 'var(--accent)',
-                  }}
-                />
-                {showStartupCopy && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', minHeight: '2.1rem' }}>
-                    <span>{startupMessage}</span>
-                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', minHeight: '1.1rem' }}>
-                      {startupDetail || '\u00A0'}
-                    </span>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-
-
-      <Drawer
-        isOpen={isQueueDrawerOpen}
-        onClose={() => setIsQueueDrawerOpen(false)}
-        title="Processing Queue"
-      >
-        <GlobalQueue
-          paused={initialData?.paused || false}
-          jobs={jobs}
-          queue={mergedQueue}
-          loading={queueLoading}
-          onRefresh={() => refreshQueue('refresh')}
-          compact={true}
-        />
-      </Drawer>
-
-      <ConfirmModal
-        isOpen={!!confirmConfig}
-        title={confirmConfig?.title || ''}
-        message={confirmConfig?.message || ''}
-        onConfirm={() => {
-          confirmConfig?.onConfirm();
-          setConfirmConfig(null);
-        }}
-        onCancel={() => setConfirmConfig(null)}
-        isDestructive={confirmConfig?.isDestructive}
-        confirmText={confirmConfig?.confirmText}
+      <StartupGate
+        loading={initialLoading}
+        error={initialError}
+        hasInitialData={!!initialData}
+        startupMessage={startupMessage}
+        startupDetail={startupDetail}
+        onRetry={() => refetchHome()}
       />
 
-      {/* Simple Toast — always-mounted live region so AT announces the message */}
-      <div
-        aria-live="polite"
-        aria-atomic="true"
-        style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 9999, pointerEvents: 'none' }}
-      >
-        <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
-          {toast?.visible ? toast.message : ''}
-        </span>
-      </div>
-      <AnimatePresence>
-        {toast?.visible && (
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            style={{
-              position: 'fixed',
-              bottom: '24px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              zIndex: 9999,
-              background: 'var(--as-ink)',
-              color: 'var(--text-on-accent)',
-              padding: '12px 20px',
-              borderRadius: '12px',
-              boxShadow: 'var(--shadow-lg)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              fontSize: '0.9rem',
-              fontWeight: 600,
-              minWidth: '300px',
-              justifyContent: 'space-between',
-              border: '1px solid var(--glass-border)'
-            }}
-          >
-            <span>{toast.message}</span>
-            {toast.action && (
-              <button
-                onClick={() => {
-                  toast.action?.onClick();
-                  dismissToast();
-                }}
-                style={{
-                  background: 'var(--accent)',
-                  color: 'var(--text-on-accent)',
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  fontSize: '0.75rem',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                {toast.action.label}
-              </button>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <QueueDrawerHost
+        isOpen={queueDrawer.isOpen}
+        onClose={queueDrawer.close}
+        paused={initialData?.paused || false}
+        jobs={jobs}
+        queue={mergedQueue}
+        loading={queueLoading}
+        onRefresh={() => refreshQueue('refresh')}
+      />
+
+      <NotificationsHost
+        confirmConfig={notifications.confirmConfig}
+        onDismissConfirm={() => notifications.setConfirmConfig(null)}
+        toast={notifications.toast}
+        onDismissToast={notifications.dismissToast}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useGlobalQueue } from '@/hooks/useGlobalQueue';
 import { api } from '@/api';
+import { APP_TOAST_EVENT } from '@/utils/toast';
 import type { ProcessingQueueItem } from '@/types';
 
 vi.mock('@/api', () => ({
@@ -121,16 +122,64 @@ describe('useGlobalQueue', () => {
     expect(onRefresh).toHaveBeenCalled();
   });
 
-  it('handles removal', async () => {
+  it('handles removal — defers the actual remove behind an undo toast', async () => {
     const onRefresh = vi.fn();
+    const toastHandler = vi.fn();
+    window.addEventListener(APP_TOAST_EVENT, toastHandler);
+
     const { result } = renderHook(() => useGlobalQueue(mockQueue, false, onRefresh));
 
-    await act(async () => {
-      await result.current.handleRemove('job1');
+    vi.useFakeTimers();
+    act(() => {
+      result.current.handleRemove('job1');
     });
+
+    // Not removed yet — the request is deferred behind the toast's undo window.
+    expect(api.removeProcessingQueue).not.toHaveBeenCalled();
+    expect(toastHandler).toHaveBeenCalledTimes(1);
+    const detail = (toastHandler.mock.calls[0][0] as CustomEvent).detail;
+    expect(detail.message).toMatch(/removed "chapter 1" from queue/i);
+    expect(detail.action).toEqual({ label: 'Undo', onClick: expect.any(Function) });
+
+    await act(async () => {
+      vi.advanceTimersByTime(4000);
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
 
     expect(api.removeProcessingQueue).toHaveBeenCalledWith('job1');
     expect(onRefresh).toHaveBeenCalled();
+
+    window.removeEventListener(APP_TOAST_EVENT, toastHandler);
+  });
+
+  it('cancels the deferred removal when Undo is clicked', async () => {
+    const onRefresh = vi.fn();
+    const toastHandler = vi.fn();
+    window.addEventListener(APP_TOAST_EVENT, toastHandler);
+
+    const { result } = renderHook(() => useGlobalQueue(mockQueue, false, onRefresh));
+
+    vi.useFakeTimers();
+    act(() => {
+      result.current.handleRemove('job1');
+    });
+
+    const detail = (toastHandler.mock.calls[0][0] as CustomEvent).detail;
+    act(() => {
+      detail.action.onClick();
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(4000);
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
+
+    expect(api.removeProcessingQueue).not.toHaveBeenCalled();
+    expect(onRefresh).not.toHaveBeenCalled();
+
+    window.removeEventListener(APP_TOAST_EVENT, toastHandler);
   });
 
   it('handles clear all with confirmation', async () => {

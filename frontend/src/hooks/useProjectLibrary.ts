@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Project } from '@/types';
 import { api } from '@/api';
-import { emitToast } from '@/utils/toast';
+import { emitToast, TOAST_VISIBLE_MS } from '@/utils/toast';
 import { parseSeriesPositionInput } from '@/utils/seriesPosition';
 
 export const useProjectLibrary = (onSelectProject?: (projectId: string) => void) => {
@@ -22,6 +22,11 @@ export const useProjectLibrary = (onSelectProject?: (projectId: string) => void)
     const [submitting, setSubmitting] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    // Pending, undoable project deletes keyed by project id — the actual
+    // delete request is deferred until the toast's undo window elapses.
+    // Keyed per-id (not a single slot) so deleting two projects in quick
+    // succession doesn't have the second cancel the first's pending delete.
+    const pendingProjectDeletesRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
     // View and Sort state
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -205,14 +210,36 @@ export const useProjectLibrary = (onSelectProject?: (projectId: string) => void)
 
     const confirmDelete = async () => {
         if (!deleteModal.projectId) return;
-        try {
-            await api.deleteProject(deleteModal.projectId);
-            loadProjects();
-        } catch (err) {
-            console.error("Delete failed", err);
-        } finally {
-            setDeleteModal({ isOpen: false, projectId: null, projectName: null });
-        }
+        const projectId = deleteModal.projectId;
+
+        // Deleting a project is a real, unrecoverable backend delete — defer
+        // the actual request until the toast's undo window elapses so "Undo"
+        // can cancel it before it ever happens.
+        const existingPending = pendingProjectDeletesRef.current[projectId];
+        if (existingPending) clearTimeout(existingPending);
+
+        pendingProjectDeletesRef.current[projectId] = setTimeout(async () => {
+            delete pendingProjectDeletesRef.current[projectId];
+            try {
+                await api.deleteProject(projectId);
+                loadProjects();
+            } catch (err) {
+                console.error("Delete failed", err);
+            }
+        }, TOAST_VISIBLE_MS);
+
+        emitToast('Project deleted.', {
+            label: 'Undo',
+            onClick: () => {
+                const pending = pendingProjectDeletesRef.current[projectId];
+                if (pending) {
+                    clearTimeout(pending);
+                    delete pendingProjectDeletesRef.current[projectId];
+                }
+            }
+        });
+
+        setDeleteModal({ isOpen: false, projectId: null, projectName: null });
     };
 
     return {

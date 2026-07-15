@@ -56,7 +56,7 @@ def test_list_engines_returns_registry_payload(clean_db, client):
     bridge = MagicMock()
     bridge.describe_registry.return_value = engine_payload
 
-    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge):
+    with patch("app.api.routers.engines_registry.create_voice_bridge", return_value=bridge):
         response = client.get("/api/engines")
 
     assert response.status_code == 200
@@ -81,7 +81,7 @@ def test_preview_github_plugin_delegates_to_bridge(clean_db, client):
         "staging_token": "some-token"
     }
 
-    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge):
+    with patch("app.api.routers.engines_plugins.create_voice_bridge", return_value=bridge):
         response = client.post(
             "/api/engines/preview_github",
             json={"git_url": "https://github.com/audiobook-studio/tts-xtts.git"}
@@ -102,7 +102,7 @@ def test_preview_github_plugin_preserves_validation_status(clean_db, client):
         detail="Plugin manifest failed validation.",
     )
 
-    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge):
+    with patch("app.api.routers.engines_plugins.create_voice_bridge", return_value=bridge):
         response = client.post(
             "/api/engines/preview_github",
             json={"git_url": "https://github.com/audiobook-studio/bad-plugin.git"}
@@ -118,7 +118,7 @@ def test_list_engines_no_longer_falls_back_during_tts_server_startup(clean_db, c
     bridge = MagicMock()
     bridge.describe_registry.side_effect = EngineUnavailableError("TTS Server is starting up...")
 
-    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge):
+    with patch("app.api.routers.engines_registry.create_voice_bridge", return_value=bridge):
         response = client.get("/api/engines")
 
     assert response.status_code == 503
@@ -131,7 +131,8 @@ def test_update_engine_settings_and_refresh_delegate_to_bridge(clean_db, client)
     bridge.clear_engine_setting.return_value = {"status": "ok", "engine_id": "xtts-local", "setting": "computer_speed_multiplier", "cleared": True}
     bridge.refresh_plugins.return_value = {"status": "ok", "loaded_count": 2}
 
-    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge):
+    with patch("app.api.routers.engines_registry.create_voice_bridge", return_value=bridge), \
+         patch("app.api.routers.engines_plugins.create_voice_bridge", return_value=bridge):
         update_response = client.put(
             "/api/engines/xtts-local/settings",
             json={"temperature": 0.8, "speaker_name": "Narrator"},
@@ -162,7 +163,7 @@ def test_install_engine_dependencies_delegates_to_bridge(clean_db, client):
     bridge = MagicMock()
     bridge.install_dependencies.return_value = {"ok": True, "message": "Installed"}
 
-    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge):
+    with patch("app.api.routers.engines_plugins.create_voice_bridge", return_value=bridge):
         response = client.post("/api/engines/mock-engine/install")
 
     assert response.status_code == 200
@@ -178,7 +179,7 @@ def test_install_engine_dependencies_returns_tts_server_error(clean_db, client):
         "TTS Server returned 500 for install: Dependency installation failed: pip exited 1"
     )
 
-    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge):
+    with patch("app.api.routers.engines_plugins.create_voice_bridge", return_value=bridge):
         response = client.post("/api/engines/mock-engine/install")
 
     assert response.status_code == 500
@@ -205,7 +206,7 @@ def test_engine_test_endpoint_delegates_run_test(clean_db, client, tmp_path):
     output_path = assets_dir / "test_output.wav"
     output_path.write_bytes(b"wav content")
 
-    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge), \
+    with patch("app.api.routers.engines_test.create_voice_bridge", return_value=bridge), \
          patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
          patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
 
@@ -234,7 +235,7 @@ def test_engine_test_endpoint_handles_tts_server_registry_shape(clean_db, client
     assets_dir.mkdir(parents=True)
     (assets_dir / "test_output.wav").write_bytes(b"wav content")
 
-    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge), \
+    with patch("app.api.routers.engines_test.create_voice_bridge", return_value=bridge), \
          patch("app.engines.registry.load_engine_registry", return_value={"xtts": registration}), \
          patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
         response = client.post("/api/engines/xtts/test")
@@ -500,7 +501,7 @@ def test_exception_in_handler_returns_generic_message(client, monkeypatch):
     bridge = MagicMock()
     bridge.run_test.side_effect = RuntimeError("internal detail that must not leak")
 
-    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge):
+    with patch("app.api.routers.engines_test.create_voice_bridge", return_value=bridge):
         response = client.post("/api/engines/mock-engine/test")
 
     assert response.status_code == 500
@@ -521,7 +522,7 @@ def test_unavailable_error_returns_generic_message_not_exception_text(client):
         "internal server address 10.0.0.1:5555 unreachable"
     )
 
-    with patch("app.api.routers.engines.create_voice_bridge", return_value=bridge):
+    with patch("app.api.routers.engines_registry.create_voice_bridge", return_value=bridge):
         response = client.get("/api/engines")
 
     assert response.status_code == 503

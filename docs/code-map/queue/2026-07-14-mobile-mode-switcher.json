@@ -1,0 +1,19 @@
+{
+  "date": "2026-07-14",
+  "author": "claude",
+  "summary": "Adds MobileModeSwitcher, a presentational persistent bottom tab bar for switching between ChapterEditor's mobile-eligible modes (Booth, Book view). Mirrors MobileNavDrawer's active-state signaling convention (aria-current on the active item, icon+label buttons) and DirectorsConsole's desktop rail role=\"tablist\"/role=\"tab\" semantics, but is a persistent bar rather than a modal overlay so it does not use useFocusTrap. Not yet wired into DirectorsConsole's render tree -- that is a later task, which will also do the mobile-eligible tool filtering and call useMediaQuery to decide when to render this instead of the desktop rail.",
+  "files": [
+    {
+      "path": "frontend/src/pages/ChapterEditor/components/DirectorsConsole/MobileModeSwitcher.tsx",
+      "change": "New presentational component: MobileModeSwitcherProps { tools: Array<{ id, label, icon: LucideIcon }>, activeToolId, onSelect }. Renders one role=\"tab\" button per tools entry inside a role=\"tablist\" container, aria-current/aria-selected reflecting activeToolId, onSelect(id) on click."
+    },
+    {
+      "path": "frontend/src/theme/components/review-tools.css",
+      "change": "New .mobile-mode-switcher* rule set: sticky bottom bar with env(safe-area-inset-bottom) padding, flex items with 44x44px min touch targets, active-state tint matching .directors-console__rail-tab--active."
+    },
+    {
+      "path": "frontend/tests/unit/pages/ChapterEditor/components/DirectorsConsole/MobileModeSwitcher.test.tsx",
+      "change": "New test file: renders one tab per tool, aria-current/aria-selected reflect activeToolId, click calls onSelect with the right id, tablist has the expected accessible name."
+    }
+  ]
+}

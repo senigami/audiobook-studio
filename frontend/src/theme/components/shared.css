@@ -135,21 +135,6 @@
   box-shadow: 0 0 0 2px var(--accent-glow);
 }
 
-.input-field {
-  background: var(--surface-light);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-button);
-  color: var(--text-primary);
-  padding: 0.5rem 0.75rem;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-}
-
-.input-field:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-glow);
-}
-
 .popover-panel {
   background: var(--surface);
   border: 1px solid var(--border);

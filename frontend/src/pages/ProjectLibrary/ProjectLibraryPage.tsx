@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Plus, Book, ImageIcon, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useProjectLibrary } from '@/hooks/useProjectLibrary';
 import { ProjectCard } from '@/pages/ProjectDetail/components/ProjectCard';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { LibraryControls } from './components/LibraryControls';
 import { ProjectListView } from './components/ProjectListView';
 import { LibraryBookmarksPanel } from './components/LibraryBookmarksPanel';
@@ -64,6 +65,11 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
     };
     const coverColumnWidth = COVER_SIZES[coverSizeIdx]?.col ?? COVER_SIZES[0].col;
 
+    // Both "Create Project" render sites below (empty-state and populated-state)
+    // share this single state/ref pair since they're mutually exclusive.
+    const createProjectDialogRef = useRef<HTMLDivElement>(null);
+    useFocusTrap(createProjectDialogRef, showModal);
+
     const formatDate = (timestamp: number) => {
         return new Date(timestamp * 1000).toLocaleDateString(undefined, {
             year: 'numeric', month: 'short', day: 'numeric'
@@ -107,6 +113,9 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                 {showModal && (
                     <div className="project-library-modal-backdrop">
                         <motion.div
+                            ref={createProjectDialogRef}
+                            role="dialog"
+                            aria-modal="true"
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
@@ -304,6 +313,9 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                     className="project-library-modal-backdrop"
                 >
                     <motion.div
+                        ref={createProjectDialogRef}
+                        role="dialog"
+                        aria-modal="true"
                         initial={{ opacity: 0, scale: 0.95, y: 10 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}

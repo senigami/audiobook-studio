@@ -1,0 +1,59 @@
+{
+  "date": "2026-07-14",
+  "author": "claude",
+  "summary": "Adds an undo action to the shared toast mechanism and wires it into 4 non-queue delete flows (task 009). emitToast(message, action?) now dispatches { message, action } on the studio-toast CustomEvent; useToast/App.tsx already rendered toast.action, so App.tsx's listener now forwards detail.action through to showToast. Each of the 4 call sites has no backend undo-delete endpoint, so all defer the actual destructive request (fetch/api call) behind a setTimeout keyed to TOAST_VISIBLE_MS (4000ms, exported from utils/toast.ts) -- clicking the toast's Undo button just clearTimeouts the pending request; letting it expire lets the real delete run. QueueItem.tsx/GlobalQueue.tsx intentionally untouched (task 011).",
+  "files": [
+    {
+      "path": "frontend/src/utils/toast.ts",
+      "change": "Added exported ToastAction interface ({label, onClick}) and TOAST_VISIBLE_MS=4000 constant (single source of truth, reused by useToast.ts and the 4 delete-flow call sites). emitToast(message, action?: ToastAction) now includes action in the dispatched CustomEvent detail."
+    },
+    {
+      "path": "frontend/src/hooks/useToast.ts",
+      "change": "ToastState.action and showToast's action param now use the shared ToastAction type imported from utils/toast.ts instead of an inline duplicate; TOAST_VISIBLE_MS also now imported from there rather than locally defined."
+    },
+    {
+      "path": "frontend/src/app/App.tsx",
+      "change": "The studio-toast window-event listener now destructures detail.action (typed via ToastAction) and forwards it to showToast(message, action) -- previously the action was silently dropped even though useToast/the toast JSX already supported it."
+    },
+    {
+      "path": "frontend/src/hooks/useVoiceManagement.ts",
+      "change": "handleDelete(name) no longer calls DELETE /api/speaker-profiles/{name} immediately; it schedules the request via setTimeout(TOAST_VISIBLE_MS) tracked in a pendingDeletesRef keyed by name, and emits a 'Deleted voice \"name\".' toast with an Undo action that clearTimeouts the pending request."
+    },
+    {
+      "path": "frontend/src/hooks/useProjectActions.ts",
+      "change": "handleDeleteChapter(chapterId) defers api.deleteChapter + onDataRefresh behind the same setTimeout/pendingChapterDeletesRef pattern; emits 'Chapter deleted.' with Undo. Returns true immediately (callers never used the previous resolved boolean)."
+    },
+    {
+      "path": "frontend/src/hooks/useProjectLibrary.ts",
+      "change": "confirmDelete() closes the delete modal immediately but defers api.deleteProject + loadProjects behind setTimeout/pendingProjectDeleteRef; emits 'Project deleted.' with Undo."
+    },
+    {
+      "path": "frontend/src/components/CharactersTab.tsx",
+      "change": "handleDelete's ConfirmModal onConfirm now defers api.deleteCharacter + the setCharacters filter (row removal) behind setTimeout/pendingDeletesRef keyed by character id; emits 'Deleted \"name\".' with Undo. The failure toast ('Failed to delete character.') still fires from the deferred callback if the delete rejects."
+    },
+    {
+      "path": "frontend/tests/unit/utils/toast.test.ts",
+      "change": "New: emitToast dispatches {message, action} on the studio-toast event; action is optional/undefined by default."
+    },
+    {
+      "path": "frontend/tests/unit/hooks/useToast.test.tsx",
+      "change": "New: showToast carries an action through to toast state, action.onClick is invocable, dismissToast clears both."
+    },
+    {
+      "path": "frontend/tests/unit/hooks/useVoiceManagement.test.tsx",
+      "change": "handleDelete test rewritten to assert the DELETE fetch is deferred (not called until TOAST_VISIBLE_MS elapses) and the toast carries an Undo action; new test for Undo cancelling the pending delete."
+    },
+    {
+      "path": "frontend/tests/unit/hooks/useProjectActions.test.tsx",
+      "change": "handleDeleteChapter test rewritten for the deferred-delete + Undo-toast shape; new test for Undo cancelling the pending delete."
+    },
+    {
+      "path": "frontend/tests/unit/hooks/useProjectLibrary.test.tsx",
+      "change": "confirmDelete test rewritten for the deferred-delete + Undo-toast shape (scoped vi.useFakeTimers/useRealTimers around just this test to avoid affecting the file's other waitFor-based tests); new test for Undo cancelling the pending delete."
+    },
+    {
+      "path": "frontend/tests/unit/components/CharactersTab.test.tsx",
+      "change": "Replaced the single delete-failure test (which asserted on immediate api.deleteCharacter rejection) with three tests reflecting the deferred design: undo toast fires immediately without removing the row or calling the API; Undo cancels the pending delete; letting the timer elapse commits the delete and surfaces the failure toast on rejection. Mock of '@/utils/toast' extended to export TOAST_VISIBLE_MS."
+    }
+  ]
+}

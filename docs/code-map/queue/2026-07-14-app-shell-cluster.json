@@ -1,0 +1,31 @@
+{
+  "date": "2026-07-14",
+  "author": "claude",
+  "summary": "Task 013 (app-shell-cluster): split the 599-line frontend/src/app/App.tsx into a router shell plus 4 composed pieces (QueueDrawerHost, NotificationsHost, StartupGate, runtimeDebug), gated the /progress-test and /event-stream dev routes behind import.meta.env.DEV, and added AnimatePresence-based route transitions (U14) respecting prefers-reduced-motion. No route paths or rendered route components changed.",
+  "files": [
+    {
+      "path": "frontend/src/app/App.tsx",
+      "change": "Reduced to router shell + composition. Delegates queue-drawer state to useQueueDrawer()/QueueDrawerHost, toast/confirm-modal state to useNotifications()/NotificationsHost, the startup overlay to StartupGate, and dev-route registration to getDevRoutes(). Wrapped the <Routes> block in AnimatePresence + a motion.div keyed by location.pathname for route transitions; computes a one-off prefersReducedMotion via window.matchMedia to collapse the transition to instant/static rather than adding a new reactive hook."
+    },
+    {
+      "path": "frontend/src/app/QueueDrawerHost.tsx",
+      "change": "New file. useQueueDrawer() hook owns isQueueDrawerOpen state and the /queue-route-redirect effect (open drawer + navigate back); QueueDrawerHost renders the Drawer + compact GlobalQueue."
+    },
+    {
+      "path": "frontend/src/app/NotificationsHost.tsx",
+      "change": "New file. useNotifications() hook owns confirmConfig state + the APP_TOAST_EVENT window listener wired to useToast(); NotificationsHost renders ConfirmModal, the aria-live toast region, and the animated toast."
+    },
+    {
+      "path": "frontend/src/app/StartupGate.tsx",
+      "change": "New file. Owns useStartupOverlay() and renders the full-screen startup/error overlay (returns null once loading clears); behavior/markup unchanged from the inline block it replaced."
+    },
+    {
+      "path": "frontend/src/app/runtimeDebug.ts",
+      "change": "New file. getDevRoutes() returns [] unless import.meta.env.DEV, otherwise returns the lazy-loaded /progress-test and /event-stream route configs for App.tsx to spread into <Routes>."
+    },
+    {
+      "path": "frontend/src/theme/base.css",
+      "change": "Added a .route-transition { transition: none !important; animation: none !important; } rule under the existing prefers-reduced-motion media block, as a CSS-only backstop alongside the JS-side matchMedia check in App.tsx (Framer Motion drives the actual animation via JS, not CSS transitions)."
+    }
+  ]
+}

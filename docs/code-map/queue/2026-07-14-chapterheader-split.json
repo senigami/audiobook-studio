@@ -1,0 +1,23 @@
+{
+  "date": "2026-07-14",
+  "author": "claude",
+  "summary": "Split ChapterHeader.tsx (622 lines) into 3 focused files per its confirmed-independent seams (task 004 of the backlog-batch-mobile-mode-and-cleanup plan): useChapterStatus (pure hook, no JSX), ChapterTopBar (title/nav/export-menu), ChapterScriptToolbar (toolbar buttons, audio playback, progress bar wiring). ChapterHeader.tsx itself becomes a 6-line barrel re-exporting all three named exports -- the original file never had a composed default/ChapterHeader component to preserve, only these 3 named exports, confirmed via grep across all import sites. Zero import-site changes needed anywhere in the codebase.",
+  "files": [
+    {
+      "path": "frontend/src/pages/ChapterEditor/components/ChapterHeader.tsx",
+      "change": "Reduced from 622 lines to a 6-line barrel re-exporting useChapterStatus, ChapterTopBar, ChapterScriptToolbar from their new sibling files."
+    },
+    {
+      "path": "frontend/src/pages/ChapterEditor/components/useChapterStatus.ts",
+      "change": "New file (194 lines): the pure status hook extracted from ChapterHeader.tsx, no JSX."
+    },
+    {
+      "path": "frontend/src/pages/ChapterEditor/components/ChapterTopBar.tsx",
+      "change": "New file (120 lines): title/breadcrumb/nav/export-menu component extracted from ChapterHeader.tsx."
+    },
+    {
+      "path": "frontend/src/pages/ChapterEditor/components/ChapterScriptToolbar.tsx",
+      "change": "New file (314 lines): toolbar buttons + audio playback + progress bar wiring extracted from ChapterHeader.tsx, including its local BarMountInstrumentation helper."
+    }
+  ]
+}

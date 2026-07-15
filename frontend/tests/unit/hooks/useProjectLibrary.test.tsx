@@ -96,9 +96,10 @@ describe('useProjectLibrary', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('handles delete click and confirmation', async () => {
+  it('handles delete click and confirmation — defers the actual delete behind an undo toast', async () => {
     (api.fetchProjects as any).mockResolvedValue([{ id: '1', name: 'Project 1' }]);
     (api.deleteProject as any).mockResolvedValue({ status: 'success' });
+    const toastSpy = vi.spyOn(toast, 'emitToast').mockImplementation(() => undefined);
 
     const { result } = renderHook(() => useProjectLibrary(), { wrapper });
 
@@ -115,14 +116,58 @@ describe('useProjectLibrary', () => {
       projectName: 'Project 1',
     });
 
-    // Test confirmDelete
+    // Test confirmDelete — closes the modal immediately, but defers the
+    // actual delete request behind an undo toast.
+    vi.useFakeTimers();
     await act(async () => {
       await result.current.confirmDelete();
     });
 
+    expect(result.current.deleteModal.isOpen).toBe(false);
+    expect(api.deleteProject).not.toHaveBeenCalled();
+    expect(toastSpy).toHaveBeenCalledWith(
+      'Project deleted.',
+      expect.objectContaining({ label: 'Undo', onClick: expect.any(Function) })
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(4000);
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
+
     expect(api.deleteProject).toHaveBeenCalledWith('1');
     expect(api.fetchProjects).toHaveBeenCalledTimes(2); // Initial + after delete
-    expect(result.current.deleteModal.isOpen).toBe(false);
+  });
+
+  it('cancels the deferred project delete when Undo is clicked', async () => {
+    (api.fetchProjects as any).mockResolvedValue([{ id: '1', name: 'Project 1' }]);
+    (api.deleteProject as any).mockResolvedValue({ status: 'success' });
+    const toastSpy = vi.spyOn(toast, 'emitToast').mockImplementation(() => undefined);
+
+    const { result } = renderHook(() => useProjectLibrary(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      result.current.handleDeleteClick('1', 'Project 1');
+    });
+
+    vi.useFakeTimers();
+    await act(async () => {
+      await result.current.confirmDelete();
+    });
+
+    const [, action] = toastSpy.mock.calls[toastSpy.mock.calls.length - 1];
+    (action as any).onClick();
+
+    await act(async () => {
+      vi.advanceTimersByTime(4000);
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
+
+    expect(api.deleteProject).not.toHaveBeenCalled();
+    expect(api.fetchProjects).toHaveBeenCalledTimes(1); // Initial load only
   });
 
   it('handles file selection and preview', async () => {

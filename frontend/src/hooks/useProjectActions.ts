@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { api } from '@/api';
-import { emitToast } from '@/utils/toast';
+import { emitToast, TOAST_VISIBLE_MS } from '@/utils/toast';
 import type { Chapter } from '@/types';
 
 export function useProjectActions(
@@ -11,6 +11,9 @@ export function useProjectActions(
 ) {
   const [submitting, setSubmitting] = useState(false);
   const reorderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Pending, undoable chapter deletes keyed by chapter id — the actual delete
+  // request is deferred until the toast's undo window elapses.
+  const pendingChapterDeletesRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const handleCreateChapter = async (title: string, text: string, file: File | null, sortOrder: number) => {
     setSubmitting(true);
@@ -54,14 +57,34 @@ export function useProjectActions(
   };
 
   const handleDeleteChapter = async (chapterId: string) => {
-    try {
-      await api.deleteChapter(chapterId);
-      await onDataRefresh();
-      return true;
-    } catch (e) {
-      console.error("Delete failed", e);
-      return false;
-    }
+    // Deleting a chapter is a real, unrecoverable backend delete — defer the
+    // actual request until the toast's undo window elapses so "Undo" can
+    // cancel it before it ever happens.
+    const existingPending = pendingChapterDeletesRef.current[chapterId];
+    if (existingPending) clearTimeout(existingPending);
+
+    pendingChapterDeletesRef.current[chapterId] = setTimeout(async () => {
+      delete pendingChapterDeletesRef.current[chapterId];
+      try {
+        await api.deleteChapter(chapterId);
+        await onDataRefresh();
+      } catch (e) {
+        console.error("Delete failed", e);
+      }
+    }, TOAST_VISIBLE_MS);
+
+    emitToast('Chapter deleted.', {
+      label: 'Undo',
+      onClick: () => {
+        const pending = pendingChapterDeletesRef.current[chapterId];
+        if (pending) {
+          clearTimeout(pending);
+          delete pendingChapterDeletesRef.current[chapterId];
+        }
+      }
+    });
+
+    return true;
   };
 
   const handleReorderChapters = async (reorderedChapters: Chapter[]) => {

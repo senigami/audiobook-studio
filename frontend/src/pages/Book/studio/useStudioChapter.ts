@@ -610,11 +610,25 @@ export function useStudioChapter({
     setIsResyncing(true);
     try {
       const success = await handleSave(title, text);
-      if (success) setIsPreviewingResync(false);
+      if (success) {
+        setIsPreviewingResync(false);
+        // Resyncing an already-produced chapter's text invalidates its
+        // existing render, so the confirm action also re-queues the
+        // chapter (force=true, mirroring the "Rebuild Audio" path) —
+        // matching useChapterQueue's established queue-submission call.
+        const onBlocked = (msg: string) => setConfirmConfig({
+          title: 'Queue Blocked',
+          message: msg,
+          onConfirm: () => {},
+          confirmText: 'OK',
+        });
+        const onSuccess = (msg: string) => setQueueNotice(msg);
+        await executeQueue(effectiveSelectedVoice, onBlocked, onSuccess, true);
+      }
     } finally {
       setIsResyncing(false);
     }
-  }, [handleSave, text, title]);
+  }, [effectiveSelectedVoice, executeQueue, handleSave, setConfirmConfig, setQueueNotice, text, title]);
 
   const handleExportAudio = useCallback(async (format: 'wav' | 'mp3') => {
     setExportingFormat(format);

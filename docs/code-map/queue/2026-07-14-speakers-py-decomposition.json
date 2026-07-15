@@ -1,0 +1,27 @@
+{
+  "date": "2026-07-14",
+  "author": "claude",
+  "summary": "Decomposed app/db/speakers.py (695 lines, over the 600-line modular_architecture.md threshold) into a facade + 4 focused modules, mirroring the existing app/db/state.py facade pattern (state_helpers/state_settings/state_performance/state_jobs). Zero import-site changes needed outside app/db/ -- speakers.py is now a thin re-export facade. Three functions (update_speaker_settings, get_profile_engine, normalize_base_profiles) needed a facade-aware getattr lookup (mirroring the app.db.state_jobs precedent at state_jobs.py:471-476) for a handful of names that existing tests monkeypatch on the app.db.speakers facade (_existing_profile_dir, _profile_name_or_error, find_secure_file, get_connection) so those patches keep taking effect after the functions moved to a different module than the patched name's owner.",
+  "files": [
+    {
+      "path": "app/db/speakers.py",
+      "change": "Reduced from 695 lines to a ~73-line facade re-exporting every public/private name used externally (verified via AST scan of all `from ...db.speakers import ...` sites plus a `speakers.<attr>` grep) from the 4 new modules below."
+    },
+    {
+      "path": "app/db/speakers_paths.py",
+      "change": "New module. Owns V2 nested-storage directory resolution: _looks_like_uuid, _existing_profile_dir, _new_profile_dir, _resolve_existing_profile_name, get_profile_dir, get_profile_wavs, SAFE_PROFILE_NAME_RE. _resolve_existing_profile_name calls into speakers_crud (get_speaker/list_speakers) via a facade-attribute-first lookup with a direct-import fallback."
+    },
+    {
+      "path": "app/db/speakers_settings.py",
+      "change": "New module. Owns profile.json metadata: DEFAULT_SPEAKER_TEST_TEXT, _infer_profile_engine, get_profile_engine, profile_has_custom_test_text, get_speaker_settings, update_speaker_settings, _get_minimal_save_metadata, normalize_profile_metadata, normalize_base_profiles. Imports speakers_paths (paths -> settings is the one-directional dependency)."
+    },
+    {
+      "path": "app/db/speakers_crud.py",
+      "change": "New module. Owns speakers-table CRUD: create_speaker, get_speaker, list_speakers, update_speaker, delete_speaker. No dependency on the other 3 new modules."
+    },
+    {
+      "path": "app/db/speakers_sync.py",
+      "change": "New module. Owns on-disk/DB reconciliation: sync_speakers_from_profiles, update_voice_profile_references. Imports speakers_settings (normalize_profile_metadata) and speakers_crud (create_speaker/get_speaker/update_speaker) and speakers_paths (SAFE_PROFILE_NAME_RE, _looks_like_uuid) -- the one intentional sync -> settings/crud/paths import direction called out as acceptable in the task's coupling warning; no circular imports between the 4 modules."
+    }
+  ]
+}

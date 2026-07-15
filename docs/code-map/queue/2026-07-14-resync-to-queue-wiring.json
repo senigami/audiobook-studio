@@ -1,0 +1,15 @@
+{
+  "date": "2026-07-14",
+  "author": "claude-implementer",
+  "summary": "Task 012: confirmed ResyncPreviewModal's confirm action only saved text (no queue submission) in both call chains; wired both to re-queue the chapter (forced rebuild) on successful resync save, mirroring the repo's established queue-submission call (useProjectActions.handleQueueChapter / useChapterQueue.executeQueue).",
+  "files": [
+    {
+      "path": "frontend/src/pages/Book/lib/useChapterText.ts",
+      "change": "confirmResync now calls api.addProcessingQueue(project_id, chapter_id, 0, speaker_profile_name, force=true) after a successful api.updateChapter save; queue failure is caught/logged and does not fail the resync."
+    },
+    {
+      "path": "frontend/src/pages/Book/studio/useStudioChapter.ts",
+      "change": "handleConfirmResync now calls the existing executeQueue(effectiveSelectedVoice, onBlocked, onSuccess, force=true) after a successful handleSave, using the same onBlocked/onSuccess pattern as handleQueue."
+    }
+  ]
+}

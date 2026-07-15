@@ -205,7 +205,7 @@ def test_build_script_for_chapter_uses_variant_voice_profile_dir(tmp_path):
 
     profile_dirs = {"Aria": default_dir, "Aria - Whisper": whisper_dir}
 
-    with patch("app.api.routers.generation.build_chunk_groups", side_effect=fake_build_chunk_groups), \
+    with patch("app.api.routers.generation_shared.build_chunk_groups", side_effect=fake_build_chunk_groups), \
          patch("app.db.segments.get_chapter_segments", return_value=segments), \
          patch("app.db.speakers.get_profile_wavs", return_value=None), \
          patch("app.db.speakers.get_profile_dir", side_effect=lambda name: profile_dirs.get(name, tmp_path / name)), \

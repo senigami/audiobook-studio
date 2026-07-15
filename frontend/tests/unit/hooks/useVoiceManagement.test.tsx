@@ -157,16 +157,64 @@ describe('useVoiceManagement', () => {
     window.removeEventListener(APP_TOAST_EVENT, toastHandler);
   });
 
-  it('handles handleDelete', async () => {
+  it('handles handleDelete — defers the actual delete behind an undo toast', async () => {
+    const toastHandler = vi.fn();
+    window.addEventListener(APP_TOAST_EVENT, toastHandler);
+
     const { result } = renderHook(() => useVoiceManagement(onRefresh, speakerProfiles, requestConfirm));
 
+    vi.useFakeTimers();
     await act(async () => {
       await result.current.handleDelete('Voice 1');
     });
+
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/speaker-profiles/Voice%201', {
+      method: 'DELETE',
+    });
+    expect(toastHandler).toHaveBeenCalledTimes(1);
+    const detail = (toastHandler.mock.calls[0][0] as CustomEvent).detail;
+    expect(detail.message).toMatch(/deleted voice "voice 1"/i);
+    expect(detail.action).toEqual({ label: 'Undo', onClick: expect.any(Function) });
+
+    await act(async () => {
+      vi.advanceTimersByTime(4000);
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
 
     expect(global.fetch).toHaveBeenCalledWith('/api/speaker-profiles/Voice%201', {
       method: 'DELETE',
     });
     expect(onRefresh).toHaveBeenCalled();
+
+    window.removeEventListener(APP_TOAST_EVENT, toastHandler);
+  });
+
+  it('cancels the deferred voice delete when Undo is clicked', async () => {
+    const toastHandler = vi.fn();
+    window.addEventListener(APP_TOAST_EVENT, toastHandler);
+
+    const { result } = renderHook(() => useVoiceManagement(onRefresh, speakerProfiles, requestConfirm));
+
+    vi.useFakeTimers();
+    await act(async () => {
+      await result.current.handleDelete('Voice 1');
+    });
+
+    const detail = (toastHandler.mock.calls[0][0] as CustomEvent).detail;
+    detail.action.onClick();
+
+    await act(async () => {
+      vi.advanceTimersByTime(4000);
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
+
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/speaker-profiles/Voice%201', {
+      method: 'DELETE',
+    });
+    expect(onRefresh).not.toHaveBeenCalled();
+
+    window.removeEventListener(APP_TOAST_EVENT, toastHandler);
   });
 });
