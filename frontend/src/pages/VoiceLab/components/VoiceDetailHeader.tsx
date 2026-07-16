@@ -209,47 +209,56 @@ export const VoiceDetailHeader: React.FC<VoiceDetailHeaderProps> = ({
                         <p className="voice-lab-page__description">{metadata.description}</p>
                     )}
                 </div>
-            </div>
 
-            {/* Primary actions -- consolidated into a single overflow menu
-                (H-2): Set default/Export/Publish/Delete no longer render as
-                5 equal-weight buttons. Delete is grouped behind a divider as
-                the destructive item, matching VoiceCatalogCard's ActionMenu
-                ordering convention. "Play preview" was dropped entirely
-                (H-3 partial) rather than folded in here -- the variant
-                switcher's per-row play control and the selected
-                VariantEditor's play/generate button already cover
-                per-variant audition. */}
-            <div className="voice-detail-header__actions">
-                <ActionMenu
-                    items={[
-                        {
-                            label: defaultProfile?.is_default ? 'App default' : 'Set as App Default',
-                            icon: Star,
-                            disabled: !defaultProfile || defaultProfile.is_default,
-                            onClick: handleSetDefault,
-                        },
-                        {
-                            label: 'Export bundle (.zip)',
-                            icon: Download,
-                            disabled: !metadata?.name,
-                            onClick: onExport,
-                        },
-                        {
-                            label: 'Publish to Hugging Face',
-                            icon: UploadCloud,
-                            disabled: !metadata?.name,
-                            onClick: onPublish,
-                        },
-                        { isDivider: true },
-                        {
-                            label: 'Delete voice',
-                            icon: Trash2,
-                            isDestructive: true,
-                            onClick: onDelete,
-                        },
-                    ]}
-                />
+                {/* Primary actions -- consolidated into a single overflow menu
+                    (H-2): Set default/Export/Publish/Delete no longer render as
+                    5 equal-weight buttons. Delete is grouped behind a divider as
+                    the destructive item, matching VoiceCatalogCard's ActionMenu
+                    ordering convention. "Play preview" was dropped entirely
+                    (H-3 partial) rather than folded in here -- the variant
+                    switcher's per-row play control and the selected
+                    VariantEditor's play/generate button already cover
+                    per-variant audition.
+
+                    User-reported (2026-07-16): this used to be a sibling of
+                    .voice-detail-header__identity, stacking BELOW the whole
+                    avatar/name/pills/description block in normal flow --
+                    "floating below the description," not pinned top-right.
+                    Moved inside .identity's flex row (align-items: flex-start)
+                    with margin-left: auto so it sits at the row's top-right,
+                    matching the catalog card's kebab convention, without
+                    needing absolute positioning against a taller header. */}
+                <div className="voice-detail-header__actions">
+                    <ActionMenu
+                        items={[
+                            {
+                                label: defaultProfile?.is_default ? 'App default' : 'Set as App Default',
+                                icon: Star,
+                                disabled: !defaultProfile || defaultProfile.is_default,
+                                onClick: handleSetDefault,
+                            },
+                            {
+                                label: 'Export bundle (.zip)',
+                                icon: Download,
+                                disabled: !metadata?.name,
+                                onClick: onExport,
+                            },
+                            {
+                                label: 'Publish to Hugging Face',
+                                icon: UploadCloud,
+                                disabled: !metadata?.name,
+                                onClick: onPublish,
+                            },
+                            { isDivider: true },
+                            {
+                                label: 'Delete voice',
+                                icon: Trash2,
+                                isDestructive: true,
+                                onClick: onDelete,
+                            },
+                        ]}
+                    />
+                </div>
             </div>
 
             {/* Persistent status strip (INV-VC-4): stays visible regardless of

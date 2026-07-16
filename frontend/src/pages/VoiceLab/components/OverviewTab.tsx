@@ -146,7 +146,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ voice, onSaved }) => {
                 ATTRIBUTES <span style={{ color: 'var(--error)' }}>*</span> required fields
             </p>
 
-            {/* Single-value required fields (class/gender/age) — searchable combobox */}
+            {/* Single-value required fields (class/gender/age) — searchable combobox,
+                laid out side by side (user-reported, 2026-07-16: these read as
+                unnecessarily wide stacked full-width). */}
+            <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
             {comboboxFields.map(key => {
                 const section = getSection(key);
                 if (!section) return null;
@@ -155,7 +158,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ voice, onSaved }) => {
                 // corresponding summary pill above.
                 const category = categoryForAttributeKey(section.key);
                 return (
-                    <div className="metadata-field" key={key}>
+                    <div className="metadata-field" key={key} style={{ flex: '1 1 140px', minWidth: '140px' }}>
                         <label className="metadata-field-label" style={{ color: `var(--pill-${category}-text)` }}>
                             {section.label.toUpperCase()}
                             <span style={{ color: 'var(--error)', marginLeft: '2px' }}>*</span>
@@ -170,6 +173,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ voice, onSaved }) => {
                     </div>
                 );
             })}
+            </div>
 
             {/* One-value fields */}
             {oneFields.map(key => {

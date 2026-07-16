@@ -500,8 +500,14 @@
   flex-shrink: 0;
 }
 
+/* User-reported (2026-07-16): the icon read as "not quite far left" because
+   this row (Upload/Replace + the copy-prompt button, side by side) was wider
+   than the avatar circle above it, and the avatar-block column centers on
+   its widest child. Stacking the copy-prompt button below instead of beside
+   keeps this row's width bounded by the Upload/Replace button alone. */
 .voice-detail-header__icon-actions {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: var(--space-1);
 }
@@ -512,11 +518,18 @@
   font-size: 0.7rem;
 }
 
+/* Pinned top-right of the identity row (user-reported, 2026-07-16: this used
+   to stack below the whole avatar/name/pills/description block). margin-left:
+   auto pushes it to the row's far edge; align-self keeps it at the row's top
+   even though the identity row is align-items: flex-start by default. */
 .voice-detail-header__actions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
+  margin-left: auto;
+  align-self: flex-start;
+  flex-shrink: 0;
 }
 
 .voice-detail-header__actions .btn-glass,
