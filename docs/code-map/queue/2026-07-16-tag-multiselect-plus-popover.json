@@ -1,0 +1,16 @@
+{
+  "date": "2026-07-16",
+  "author": "claude",
+  "summary": "Owner-requested (MUI-style redesign): TagAutocompleteInput no longer keeps a text box permanently open next to its pills. It now shows a label + pills + a small '+' trigger; clicking '+' opens a compact search popover with the full suggestion list already visible (no typing required), and picking a suggestion or typing free text both commit and close the popover immediately -- no lingering empty input. Used by VariantEditor (performance_tags, tone, timbre) and OverviewTab (style/use_case/quality many-value fields).",
+  "files": [
+    {
+      "path": "frontend/src/pages/Voices/components/metadata/TagAutocompleteInput.tsx",
+      "change": "Rewrote from an always-open pill+textbox row to a plus-trigger + popover: state gained `open`, click-outside-to-close and open-focuses-input effects; suggestions render unfiltered until the user types (was previously hidden until a non-empty draft); commitValue() now also closes the popover. Button aria-label stays 'Add {field}' (e.g. 'Add tone'), the popover's search input is 'Search {field}'."
+    },
+    {
+      "path": "frontend/src/theme/components/voice-lab.css",
+      "change": "Added .tag-multiselect__row/__control/__add-btn/__popover/__search/__options/__option/__empty rules for the new trigger + popover; left the pre-existing .metadata-tags-input__* rules in place (still used elsewhere)."
+    }
+  ],
+  "flow_impact": "Visual/interaction redesign only -- no change to onChange/tags contract, so VariantEditor and OverviewTab callers were untouched. Tests across TagAutocompleteInput.test.tsx, VariantEditor.test.tsx, and OverviewTab.test.tsx updated to open the popover ('Add tag'/'Add tone'/'Add style') before interacting with the search input ('Search tag'/'Search tone'/'Search style')."
+}

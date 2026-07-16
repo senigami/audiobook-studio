@@ -179,7 +179,8 @@ describe('VariantEditor', () => {
             const taggedProfile = { ...softProfile, performance_tags: ['sad'] };
             render(<VariantEditor {...baseProps} onRefresh={onRefresh} profile={taggedProfile} />);
 
-            const input = screen.getByLabelText('Add tag');
+            fireEvent.click(screen.getByLabelText('Add tag'));
+            const input = screen.getByLabelText('Search tag');
             fireEvent.change(input, { target: { value: 'happy' } });
             fireEvent.keyDown(input, { key: 'Enter' });
 
@@ -214,8 +215,8 @@ describe('VariantEditor', () => {
             const taggedProfile = { ...softProfile, performance_tags: [] };
             render(<VariantEditor {...baseProps} profile={taggedProfile} tagSuggestions={['gravelly']} />);
 
-            const input = screen.getByLabelText('Add tag');
-            fireEvent.focus(input);
+            fireEvent.click(screen.getByLabelText('Add tag'));
+            const input = screen.getByLabelText('Search tag');
             fireEvent.change(input, { target: { value: 'grav' } });
             expect(screen.getByText('gravelly')).toBeInTheDocument();
 
@@ -245,7 +246,8 @@ describe('VariantEditor', () => {
             const profile = { ...softProfile, tone: ['warm'] };
             render(<VariantEditor {...baseProps} onRefresh={onRefresh} profile={profile} />);
 
-            const input = screen.getByLabelText('Add tone');
+            fireEvent.click(screen.getByLabelText('Add tone'));
+            const input = screen.getByLabelText('Search tone');
             fireEvent.change(input, { target: { value: 'calm' } });
             fireEvent.keyDown(input, { key: 'Enter' });
 

@@ -1,14 +1,16 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { chip } from './chip';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Plus } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { VoicePillRow, type PillSpec } from '../VoicePills';
 
 // ---------------------------------------------------------------------------
-// TagAutocompleteInput — free-text tag entry with a suggestions dropdown.
-//
-// Merges TagsInput.tsx's commit/normalize/backspace mechanics with
-// ManySelect.tsx's suggestion-chip styling. Selecting a suggestion or typing
-// something new both commit through the same commitValue() path. User-
-// extensible — suggestions are a hint, not a closed list.
+// TagAutocompleteInput — label + pills + a "+" trigger that opens a compact
+// search popover (owner-requested, 2026-07-16: MUI-style "click the plus,
+// search/pick from a dropdown, get a pill" rather than a permanently-open
+// text box sitting next to the pills). The popover opens with the full
+// suggestion list already visible (no typing required to see options) and
+// closes itself the moment a value commits, whether picked from the list or
+// typed free text — there is never a leftover empty input on screen.
 // ---------------------------------------------------------------------------
 
 export interface TagAutocompleteInputProps {
@@ -26,51 +28,65 @@ export interface TagAutocompleteInputProps {
 }
 
 export function TagAutocompleteInput({ tags, onChange, suggestions, placeholder, label, labelColor }: TagAutocompleteInputProps) {
+    const [open, setOpen] = useState(false);
     const [draft, setDraft] = useState('');
-    const [focused, setFocused] = useState(false);
     // -1 means "no suggestion highlighted" (Enter commits the typed draft).
     const [highlighted, setHighlighted] = useState(-1);
+    const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (!open) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+                setOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [open]);
+
+    useEffect(() => {
+        if (open) {
+            inputRef.current?.focus();
+        } else {
+            setDraft('');
+            setHighlighted(-1);
+        }
+    }, [open]);
 
     const commitValue = (raw: string) => {
         const cleaned = raw.trim().toLowerCase().replace(/\s+/g, '-');
         if (cleaned && !tags.includes(cleaned)) {
             onChange([...tags, cleaned]);
         }
-        setDraft('');
-        setHighlighted(-1);
+        setOpen(false);
     };
 
-    const commit = () => commitValue(draft);
-
+    // Suggestions show in full as soon as the popover opens; typing narrows
+    // the list rather than being required to populate it.
     const filtered = useMemo(() => {
-        if (!draft.trim()) return [];
-        const lower = draft.toLowerCase();
-        return suggestions.filter(s => s.toLowerCase().includes(lower) && !tags.includes(s));
+        const lower = draft.trim().toLowerCase();
+        return suggestions.filter(s => !tags.includes(s) && (!lower || s.toLowerCase().includes(lower)));
     }, [draft, suggestions, tags]);
 
-    const showDropdown = focused && draft.trim() !== '' && filtered.length > 0;
-
     const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'ArrowDown' && showDropdown) {
+        if (e.key === 'ArrowDown') {
             e.preventDefault();
             setHighlighted(h => Math.min(h + 1, filtered.length - 1));
-        } else if (e.key === 'ArrowUp' && showDropdown) {
+        } else if (e.key === 'ArrowUp') {
             e.preventDefault();
             setHighlighted(h => Math.max(h - 1, -1));
         } else if (e.key === 'Enter' || e.key === ',') {
             e.preventDefault();
-            if (showDropdown && highlighted >= 0 && filtered[highlighted]) {
+            if (highlighted >= 0 && filtered[highlighted]) {
                 commitValue(filtered[highlighted]);
-            } else {
-                commit();
+            } else if (draft.trim()) {
+                commitValue(draft);
             }
         } else if (e.key === 'Escape') {
-            if (showDropdown) {
-                e.preventDefault();
-                setFocused(false);
-                setHighlighted(-1);
-            }
+            e.preventDefault();
+            setOpen(false);
         } else if (e.key === 'Backspace' && draft === '' && tags.length > 0) {
             onChange(tags.slice(0, -1));
         }
@@ -83,6 +99,9 @@ export function TagAutocompleteInput({ tags, onChange, suggestions, placeholder,
         onRemove: () => onChange(tags.filter(x => x !== t)),
     }));
 
+    const fieldName = label ? label.toLowerCase() : 'tag';
+    const addLabel = `Add ${fieldName}`;
+
     return (
         <div className="metadata-field">
             {label && (
@@ -90,40 +109,70 @@ export function TagAutocompleteInput({ tags, onChange, suggestions, placeholder,
                     {label}
                 </label>
             )}
-            <div className="metadata-tags-input__container">
+            <div className="tag-multiselect__row">
                 <VoicePillRow pills={pills} />
-                <input
-                    ref={inputRef}
-                    value={draft}
-                    onChange={e => {
-                        setDraft(e.target.value);
-                        setHighlighted(-1);
-                    }}
-                    onKeyDown={handleKey}
-                    onFocus={() => setFocused(true)}
-                    onBlur={() => {
-                        commit();
-                        setFocused(false);
-                    }}
-                    placeholder={tags.length === 0 ? (placeholder ?? 'Add a tag...') : ''}
-                    aria-label={label ? `Add ${label.toLowerCase()}` : 'Add tag'}
-                    className="metadata-tags-input__draft"
-                    style={{ flex: 1 }}
-                />
-            </div>
-            {showDropdown && (
-                // Prevent the dropdown click from blurring the input first — a
-                // blur-triggered commit() would otherwise fire before the
-                // suggestion's onClick, double-committing draft + suggestion.
-                <div
-                    className="metadata-chip-row"
-                    role="listbox"
-                    aria-label="Tag suggestions"
-                    onMouseDown={e => e.preventDefault()}
-                >
-                    {filtered.map((s, i) => chip(s, i === highlighted, () => commitValue(s)))}
+                <div className="tag-multiselect__control" ref={containerRef}>
+                    <button
+                        type="button"
+                        className="tag-multiselect__add-btn"
+                        onClick={() => setOpen(o => !o)}
+                        aria-label={addLabel}
+                        aria-expanded={open}
+                    >
+                        <Plus size={14} />
+                    </button>
+                    {open && (
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: -6 }}
+                            animate={{ opacity: 1, scale: 1, y: 4 }}
+                            transition={{ duration: 0.12 }}
+                            className="tag-multiselect__popover"
+                        >
+                            <input
+                                ref={inputRef}
+                                value={draft}
+                                onChange={e => {
+                                    setDraft(e.target.value);
+                                    setHighlighted(-1);
+                                }}
+                                onKeyDown={handleKey}
+                                placeholder={placeholder ?? `Search ${fieldName}...`}
+                                aria-label={`Search ${fieldName}`}
+                                className="tag-multiselect__search"
+                            />
+                            <div className="tag-multiselect__options" role="listbox" aria-label={`${label ?? 'Tag'} suggestions`}>
+                                {filtered.map((s, i) => (
+                                    <button
+                                        key={s}
+                                        type="button"
+                                        role="option"
+                                        aria-selected={i === highlighted}
+                                        className="tag-multiselect__option"
+                                        data-highlighted={i === highlighted ? '' : undefined}
+                                        onMouseDown={e => e.preventDefault()}
+                                        onClick={() => commitValue(s)}
+                                    >
+                                        {s}
+                                    </button>
+                                ))}
+                                {filtered.length === 0 && draft.trim() && (
+                                    <button
+                                        type="button"
+                                        className="tag-multiselect__option tag-multiselect__option--create"
+                                        onMouseDown={e => e.preventDefault()}
+                                        onClick={() => commitValue(draft)}
+                                    >
+                                        Add &ldquo;{draft.trim()}&rdquo;
+                                    </button>
+                                )}
+                                {filtered.length === 0 && !draft.trim() && (
+                                    <div className="tag-multiselect__empty">No suggestions</div>
+                                )}
+                            </div>
+                        </motion.div>
+                    )}
                 </div>
-            )}
+            </div>
         </div>
     );
 }

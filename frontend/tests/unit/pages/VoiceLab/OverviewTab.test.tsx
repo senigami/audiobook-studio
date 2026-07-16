@@ -128,7 +128,8 @@ describe('OverviewTab', () => {
 
         // Typing filters taxonomy suggestions and lets you commit either the
         // suggestion or free text.
-        const input = screen.getByLabelText('Add style');
+        fireEvent.click(screen.getByLabelText('Add style'));
+        const input = screen.getByLabelText('Search style');
         fireEvent.change(input, { target: { value: 'calm' } });
         fireEvent.keyDown(input, { key: 'Enter' });
         expect(screen.getByRole('button', { name: 'Remove calm' })).toBeInTheDocument();
