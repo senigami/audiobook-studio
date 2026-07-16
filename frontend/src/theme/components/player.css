@@ -197,6 +197,27 @@
   white-space: nowrap;
 }
 
+/* Volume control (owner-requested, 2026-07-16): mute toggle + level slider,
+   same treatment as the progress slider but fixed-width (not flex: 1) since
+   it isn't meant to grow with the bar. */
+.player-bar-volume {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.player-volume-slider {
+  width: 72px;
+  height: 4px;
+  border-radius: var(--radius-round);
+  background: var(--surface-alt);
+  outline: none;
+  cursor: pointer;
+  accent-color: var(--accent);
+  transition: background 0.2s ease;
+}
+
 /* ---------------------------------------------------------------------------
  * Player bar — inline waveform (duration-driven scrub track, audio-player.md 1.6.0)
  * --------------------------------------------------------------------------- */

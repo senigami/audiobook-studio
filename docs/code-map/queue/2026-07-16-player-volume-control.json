@@ -1,0 +1,16 @@
+{
+  "date": "2026-07-16",
+  "author": "claude",
+  "summary": "Owner-requested: the global audio player (PlayerBar) had no volume control -- it always played at whatever the system/OS volume happened to be. Added a mute-toggle button + level slider, same as a normal media player, persisted across sessions like the theme preference.",
+  "files": [
+    {
+      "path": "frontend/src/app/layout/PlayerBar.tsx",
+      "change": "Added volume state (0-1, loaded/saved via a new 'studio-player-volume' localStorage key, mirroring utils/theme.ts's STORAGE_KEY pattern), an effect applying it to the <audio> element whenever it or the element changes, and a volume control (mute button + range input) rendered in player-bar-content. Mute remembers the last non-zero level via prevVolumeRef so unmute restores it."
+    },
+    {
+      "path": "frontend/src/theme/components/player.css",
+      "change": "Added .player-bar-volume / .player-volume-slider styling, matching the existing .player-progress-slider treatment but fixed-width."
+    }
+  ],
+  "flow_impact": "Purely additive UI control; no change to playerBus state shape or existing playback behavior. Existing PlayerBar.test.tsx assertions using the ambiguous getByRole('slider')/queryByRole('slider') were switched to label-scoped queries (getByLabelText('Seek progress')) since the volume slider now also has role=slider."
+}
