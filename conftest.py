@@ -325,6 +325,32 @@ def reset_progress_service_singleton():
 
 
 @pytest.fixture(autouse=True)
+def reset_job_handler_registry():
+    """Reset the JobHandlerRegistry singleton between tests.
+
+    ``app/jobs/registry.py`` holds a module-level ``JobHandlerRegistry``
+    singleton, and ``initialize_default_handlers()`` (called from
+    ``app/core/boot.py``'s real ``boot_studio()``) is guarded by
+    ``if reg.has_any(): return`` — so once any test exercises real boot
+    (e.g. ``tests/core/test_boot.py``), the registry stays permanently
+    populated with real plugin handlers for the rest of the pytest session.
+    A later test building a MagicMock task with ``engine_id="xtts"`` (etc.)
+    then gets routed through that REAL registered handler instead of falling
+    through to the mocked ``task.run()`` the test actually set up, triggering
+    a real (and here, unconfigured) synthesis attempt that legitimately fails
+    — a cross-test-pollution bug, not a flake in the polluted test.
+    Clearing here forces a fresh, empty registry per test; anything that
+    needs it populated (test_boot.py itself, or a test that calls
+    ``initialize_default_handlers()``/goes through real boot) re-populates it,
+    which is idempotent (plugin discovery just re-scans and re-registers).
+    """
+    from app.jobs.registry import get_handler_registry
+    get_handler_registry().clear()
+    yield
+    get_handler_registry().clear()
+
+
+@pytest.fixture(autouse=True)
 def mock_tts_server_watchdog(monkeypatch):
     """
     Ensures that every test sees a healthy TTS Server watchdog by default.
