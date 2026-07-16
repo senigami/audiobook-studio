@@ -133,7 +133,7 @@ export const ProductionTallyCard: React.FC = () => {
         </div>
       </div>
 
-      <div style={{ position: 'absolute', right: '-10%', bottom: '-20%', opacity: 0.04, color: 'var(--accent)', transform: 'rotate(-15deg)' }}>
+      <div style={{ position: 'absolute', right: '-10%', bottom: '-20%', opacity: 0.04, color: 'var(--action-primary)', transform: 'rotate(-15deg)' }}>
         <Volume2 size={120} />
       </div>
     </section>

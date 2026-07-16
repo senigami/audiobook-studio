@@ -149,7 +149,7 @@ export const PublishToHuggingFaceModal: React.FC<PublishToHuggingFaceModalProps>
                                     href={`https://huggingface.co/${result.hubId}`}
                                     target="_blank"
                                     rel="noreferrer noopener"
-                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--accent)', fontSize: '0.85rem', fontWeight: 600 }}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--action-primary)', fontSize: '0.85rem', fontWeight: 600 }}
                                 >
                                     huggingface.co/{result.hubId}
                                     <ExternalLink size={14} />

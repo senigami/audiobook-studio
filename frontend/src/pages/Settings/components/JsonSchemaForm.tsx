@@ -141,7 +141,7 @@ export const JsonSchemaForm: React.FC<{
                 {prop.title || key}
               </label>
               {!isReadOnly && (prop.type === 'number' || prop.type === 'integer') && (
-                <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--accent)' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 900, color: 'var(--action-primary)' }}>
                   {localValues[key] ?? prop.default}
                 </span>
               )}
@@ -203,7 +203,7 @@ export const JsonSchemaForm: React.FC<{
                 onChange={(e) =>
                   handleChange(key, prop.type === 'integer' ? parseInt(e.target.value) : parseFloat(e.target.value))
                 }
-                style={{ width: '100%', height: '6px', accentColor: 'var(--accent)', cursor: isLocked ? 'not-allowed' : 'pointer' }}
+                style={{ width: '100%', height: '6px', accentColor: 'var(--action-primary)', cursor: isLocked ? 'not-allowed' : 'pointer' }}
               />
             ) : prop.enum ? (
               <select

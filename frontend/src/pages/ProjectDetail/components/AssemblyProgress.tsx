@@ -15,7 +15,7 @@ export const AssemblyProgress: React.FC<AssemblyProgressProps> = ({
 }) => {
   if (activeAssemblyJob) {
     return (
-      <div style={{ background: 'var(--accent-glow)', border: '1px solid var(--accent)', borderRadius: '12px', padding: '1.5rem', boxShadow: 'var(--shadow-sm)' }}>
+      <div style={{ background: 'var(--accent-glow)', border: '1px solid var(--action-primary)', borderRadius: '12px', padding: '1.5rem', boxShadow: 'var(--shadow-sm)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
               <h3 style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Assembling {project.name}...</h3>
               <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
@@ -23,7 +23,7 @@ export const AssemblyProgress: React.FC<AssemblyProgressProps> = ({
               </div>
           </div>
           <div style={{ width: '100%', height: '8px', background: 'var(--progress-track)', borderRadius: '4px', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${activeAssemblyJob.progress * 100}%`, background: 'var(--accent)', transition: 'width 0.3s' }} />
+              <div style={{ height: '100%', width: `${activeAssemblyJob.progress * 100}%`, background: 'var(--action-primary)', transition: 'width 0.3s' }} />
           </div>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
               ETA: {activeAssemblyJob.eta_seconds ? `${Math.floor(activeAssemblyJob.eta_seconds / 60)}m ${activeAssemblyJob.eta_seconds % 60}s` : 'Calculating...'}

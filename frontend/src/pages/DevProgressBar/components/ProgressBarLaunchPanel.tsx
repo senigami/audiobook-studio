@@ -27,12 +27,12 @@ export const ProgressBarLaunchPanel: React.FC<ProgressBarLaunchPanelProps> = ({
       border: '1px solid var(--border)',
       background: 'linear-gradient(180deg, var(--surface-white), var(--surface))',
       boxShadow: 'var(--shadow-sm)',
-      borderLeft: '4px solid var(--accent)',
+      borderLeft: '4px solid var(--action-primary)',
     }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.15rem' }}>
-            <Play size={15} color="var(--accent)" />
+            <Play size={15} color="var(--action-primary)" />
             <h2 style={{ margin: 0 }}>Launch State</h2>
           </div>
           <p style={{ marginTop: '-0.15rem', marginBottom: 0, color: 'var(--text-secondary)', fontSize: '0.92rem' }}>
@@ -48,7 +48,7 @@ export const ProgressBarLaunchPanel: React.FC<ProgressBarLaunchPanelProps> = ({
           letterSpacing: '0.04em',
           textTransform: 'uppercase',
           background: 'var(--accent-tint)',
-          color: 'var(--accent)',
+          color: 'var(--action-primary)',
         }}>
           Initial snapshot
         </span>

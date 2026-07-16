@@ -445,7 +445,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
                           disabled={!anyEnginesEnabled}
                           title={!anyEnginesEnabled ? 'All TTS engines are disabled in Settings' : (showTooltips ? 'Queue all unprocessed chapters' : undefined)}
                           aria-label="Queue all unprocessed chapters"
-                          style={{ border: '1px solid var(--border)', color: anyEnginesEnabled ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                          style={{ border: '1px solid var(--border)', color: anyEnginesEnabled ? 'var(--action-primary)' : 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                         >
                           <Zap size={16} /> <span className="hide-on-mobile">Queue Remaining</span>
                         </button>

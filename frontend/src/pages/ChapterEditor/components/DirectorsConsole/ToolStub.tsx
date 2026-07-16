@@ -27,7 +27,7 @@ export const ToolStub: React.FC<ToolStubProps> = ({ icon: Icon, label }) => {
         height: '48px',
         borderRadius: '50%',
         background: 'var(--accent-tint)',
-        color: 'var(--accent)',
+        color: 'var(--action-primary)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center'

@@ -51,7 +51,7 @@
 .welcome-step-card__number-badge-text {
   font-size: var(--type-micro);
   font-weight: 800;
-  color: var(--accent);
+  color: var(--action-primary);
   line-height: 1;
   user-select: none;
 }
@@ -214,7 +214,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: 8px 28px;
-  background: var(--accent);
+  background: var(--action-primary);
   color: var(--text-on-accent);
   border: none;
   border-radius: var(--radius-button);

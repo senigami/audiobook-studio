@@ -61,9 +61,9 @@ const ActivityPage: React.FC<ActivityPageProps> = ({
             style={{
               padding: '0.45rem 0.8rem',
               borderRadius: '9999px',
-              border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+              border: `1px solid ${active ? 'var(--action-primary)' : 'var(--border)'}`,
               background: active ? 'var(--accent-glow)' : 'var(--surface)',
-              color: active ? 'var(--accent)' : 'var(--text-secondary)',
+              color: active ? 'var(--action-primary)' : 'var(--text-secondary)',
               fontSize: '0.8rem',
               fontWeight: 700,
               cursor: 'pointer',

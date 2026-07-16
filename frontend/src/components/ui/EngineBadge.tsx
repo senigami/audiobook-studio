@@ -8,8 +8,8 @@ import React from 'react';
  *
  * Note: VariantEditor's previous badge built its border via
  * `` `1px solid ${engineBadge.color}33` `` where `engineBadge.color` was itself a CSS
- * variable reference (e.g. `'var(--accent)'`) — appending `33` onto that produces an
- * invalid CSS color (`var(--accent)33`), which browsers silently drop, so that badge was
+ * variable reference (e.g. `'var(--action-primary)'`) — appending `33` onto that produces an
+ * invalid CSS color (`var(--action-primary)33`), which browsers silently drop, so that badge was
  * effectively borderless in practice. Using the real `--accent-tint-border` /
  * `--cloud-tint-border` tokens here means a genuine (intended) border now renders where
  * VariantEditor's badge previously had none — a visual fix, not a regression.
@@ -33,7 +33,7 @@ export interface EngineBadgeProps {
 
 const TONE_TOKENS: Record<EngineBadgeTone, { bg: string; color: string; border: string }> = {
     cloud: { bg: 'var(--cloud-tint-bg)', color: 'var(--cloud-color)', border: 'var(--cloud-tint-border)' },
-    accent: { bg: 'var(--accent-tint-bg)', color: 'var(--accent)', border: 'var(--accent-tint-border)' },
+    accent: { bg: 'var(--accent-tint-bg)', color: 'var(--action-primary)', border: 'var(--accent-tint-border)' },
     muted: { bg: 'var(--accent-focus-ring)', color: 'var(--text-muted)', border: 'var(--border)' },
 };
 

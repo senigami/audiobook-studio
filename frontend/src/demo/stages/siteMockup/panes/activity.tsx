@@ -115,7 +115,7 @@ export const ActivityPane: React.FC = () => {
               {[6, 9, 14, 11, 18, 22, 17].map((h, i) => (
                 <div key={i} style={{
                   flex: 1, height: `${h / 22 * 100}%`,
-                  background: i === 6 ? 'var(--accent)' : 'var(--border)',
+                  background: i === 6 ? 'var(--action-primary)' : 'var(--border)',
                   borderRadius: 2, opacity: 0.8,
                 }} />
               ))}

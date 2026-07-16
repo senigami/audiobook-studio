@@ -76,7 +76,7 @@ interface ResourceRowProps {
 }
 
 const TIER_COLOR: Record<PressureTier, string> = {
-  normal: 'var(--accent)',
+  normal: 'var(--action-primary)',
   elevated: 'var(--warning-text-strong)',
   hot: 'var(--error)',
 };

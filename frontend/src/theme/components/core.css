@@ -85,7 +85,7 @@
 
 .btn-ghost:hover:not(:disabled) {
   background: var(--accent-glow);
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 .btn-ghost:disabled {

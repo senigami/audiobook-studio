@@ -559,8 +559,8 @@ export function CastPalette({
             }}
             className="cast-palette__narrator-btn"
             style={{
-              border: isClearMode ? '1px solid var(--accent)' : '1px solid var(--border)',
-              borderLeft: isClearMode ? '3px solid var(--accent)' : '3px solid transparent',
+              border: isClearMode ? '1px solid var(--action-primary)' : '1px solid var(--border)',
+              borderLeft: isClearMode ? '3px solid var(--action-primary)' : '3px solid transparent',
               background: isClearMode ? 'var(--surface-light)' : 'transparent',
               opacity: selectedCharacterId !== null && !isClearMode ? 0.55 : 1,
             }}
@@ -574,7 +574,7 @@ export function CastPalette({
               </div>
               <div
                 className="cast-palette__truncate"
-                style={{ fontSize: 'var(--type-micro)', color: isClearMode ? 'var(--accent)' : 'var(--text-muted)' }}
+                style={{ fontSize: 'var(--type-micro)', color: isClearMode ? 'var(--action-primary)' : 'var(--text-muted)' }}
               >
                 {isClearMode
                   ? 'click sentences to clear'

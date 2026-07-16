@@ -193,7 +193,7 @@
 }
 
 .lexicon-stage__input:focus {
-  border-color: var(--accent);
+  border-color: var(--action-primary);
   box-shadow: 0 0 0 2px var(--accent-glow);
 }
 
@@ -229,7 +229,7 @@
 
 .lexicon-stage__action-btn:hover:not(:disabled) {
   background: var(--accent-glow);
-  color: var(--accent);
+  color: var(--action-primary);
   border-color: var(--border);
 }
 

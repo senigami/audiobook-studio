@@ -117,7 +117,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
     // `category` handling. No `category` prop (e.g. the free-form tag filter)
     // keeps the prior accent-fill styling.
     const chipBg = category ? `var(--pill-${category}-bg)` : 'var(--accent-glow)';
-    const chipColor = category ? `var(--pill-${category}-text)` : 'var(--accent)';
+    const chipColor = category ? `var(--pill-${category}-text)` : 'var(--action-primary)';
 
     return (
         <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
@@ -156,7 +156,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
                     // border — tags are deliberately unthemed per design-system §5.
                     borderColor: category
                         ? (isOpen ? `var(--pill-${category}-text)` : `var(--pill-${category}-border)`)
-                        : (isOpen ? 'var(--accent)' : 'var(--border)'),
+                        : (isOpen ? 'var(--action-primary)' : 'var(--border)'),
                     boxShadow: isOpen ? '0 0 0 2px var(--accent-glow)' : 'none',
                     transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                     width: '100%',
@@ -288,7 +288,7 @@ const MultiSelectRow: React.FC<{
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 background: isSelected ? 'var(--accent-glow)' : (isHighlighted ? 'var(--surface-light)' : 'transparent'),
-                color: isSelected ? 'var(--accent)' : 'var(--text-primary)',
+                color: isSelected ? 'var(--action-primary)' : 'var(--text-primary)',
                 fontSize: '0.9rem',
                 textAlign: 'left',
                 marginTop: '2px',

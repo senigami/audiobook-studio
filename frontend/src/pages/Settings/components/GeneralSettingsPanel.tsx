@@ -132,7 +132,7 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
           lineHeight: 1.5,
         }}
       >
-        Engines and integrations are managed under <strong style={{ color: 'var(--accent)' }}>Platform</strong>.
+        Engines and integrations are managed under <strong style={{ color: 'var(--action-primary)' }}>Platform</strong>.
       </div>
 
       {/* Appearance section */}

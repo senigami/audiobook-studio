@@ -165,7 +165,7 @@ describe('MultiSelect', () => {
   it('renders selected chips with generic accent styling when no category is supplied', () => {
     render(<MultiSelect options={options} value={['1']} onChange={vi.fn()} />);
     const chip = screen.getByText('Option 1').closest('span');
-    expect(chip).toHaveStyle({ background: 'var(--accent-glow)', color: 'var(--accent)' });
+    expect(chip).toHaveStyle({ background: 'var(--accent-glow)', color: 'var(--action-primary)' });
     expect(chip).not.toHaveAttribute('data-category');
   });
 

@@ -79,7 +79,7 @@ const StepCard: React.FC<{
           {number}
         </span>
       </div>
-      <span style={{ display: 'flex', alignItems: 'center', color: 'var(--accent)' }}>
+      <span style={{ display: 'flex', alignItems: 'center', color: 'var(--action-primary)' }}>
         {icon}
       </span>
     </Row>
@@ -125,7 +125,7 @@ const DocCard: React.FC<{
       minWidth: 150,
     }}
   >
-    <span style={{ display: 'flex', alignItems: 'center', color: 'var(--accent)', flexShrink: 0 }}>
+    <span style={{ display: 'flex', alignItems: 'center', color: 'var(--action-primary)', flexShrink: 0 }}>
       {icon}
     </span>
     <span
@@ -216,7 +216,7 @@ export const SplashPane: React.FC<{ onGetStarted: () => void }> = ({ onGetStarte
                 WebkitBackgroundClip: 'text',
                 backgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
-                color: 'var(--accent)',
+                color: 'var(--action-primary)',
               }}
             >
               Studio

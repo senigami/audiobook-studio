@@ -202,9 +202,9 @@ const ImportWizardModal: React.FC<{
               <div key={label} style={{ flex: 1, textAlign: 'center' }}>
                 <div style={{
                   height: 3, borderRadius: 2, marginBottom: 4,
-                  background: i <= stepIndex ? 'var(--accent)' : 'var(--border)',
+                  background: i <= stepIndex ? 'var(--action-primary)' : 'var(--border)',
                 }} />
-                <span style={{ fontSize: '0.6rem', color: i <= stepIndex ? 'var(--accent)' : 'var(--text-muted)', fontWeight: i === stepIndex ? 700 : 400 }}>
+                <span style={{ fontSize: '0.6rem', color: i <= stepIndex ? 'var(--action-primary)' : 'var(--text-muted)', fontWeight: i === stepIndex ? 700 : 400 }}>
                   {label}
                 </span>
               </div>
@@ -451,9 +451,9 @@ export const UploadToHfModal: React.FC<{
                   style={{
                     flex: 1, padding: 'var(--space-1) var(--space-2)', fontSize: 'var(--type-caption)',
                     borderRadius: 'var(--radius-button)', cursor: 'pointer', fontFamily: 'inherit',
-                    border: `1px solid ${visibility === v ? 'var(--accent)' : 'var(--border)'}`,
+                    border: `1px solid ${visibility === v ? 'var(--action-primary)' : 'var(--border)'}`,
                     background: visibility === v ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-                    color: visibility === v ? 'var(--accent)' : 'var(--text-secondary)',
+                    color: visibility === v ? 'var(--action-primary)' : 'var(--text-secondary)',
                     textTransform: 'capitalize',
                   }}
                 >
@@ -493,7 +493,7 @@ export const UploadToHfModal: React.FC<{
             <a
               href={`https://huggingface.co/${repoName}`}
               target="_blank" rel="noreferrer"
-              style={{ fontSize: 'var(--type-caption)', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              style={{ fontSize: 'var(--type-caption)', color: 'var(--action-primary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
             >
               huggingface.co/{repoName} <ExternalLink size={11} />
             </a>
@@ -541,7 +541,7 @@ export const HuggingFaceDiscoverPane: React.FC = () => {
                 fontSize: 'var(--type-micro)', fontWeight: 600, padding: 'var(--space-1) var(--space-3)',
                 cursor: 'pointer', border: 0, borderRight: i === 0 ? 'var(--hairline)' : 'none',
                 background: browseMode === m ? 'var(--accent-tint-bg)' : 'transparent',
-                color: browseMode === m ? 'var(--accent)' : 'var(--text-secondary)', fontFamily: 'inherit',
+                color: browseMode === m ? 'var(--action-primary)' : 'var(--text-secondary)', fontFamily: 'inherit',
               }}
             >
               {m === 'search' ? 'Browse Hugging Face' : 'Paste a Hub URL'}
@@ -645,7 +645,7 @@ export const HuggingFaceDiscoverPane: React.FC = () => {
       <a
         href="https://huggingface.co/models?other=audiobook-studio-voice"
         target="_blank" rel="noreferrer"
-        style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+        style={{ fontSize: 'var(--type-micro)', color: 'var(--action-primary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
       >
         Browse the full audiobook-studio-voice tag on huggingface.co <ExternalLink size={10} /> <ChevronRight size={10} />
       </a>

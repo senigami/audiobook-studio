@@ -121,7 +121,7 @@ export const AssemblyPanel: React.FC<AssemblyPanelProps> = ({
                                 link.click();
                             }}
                             className="btn-ghost"
-                            style={{ padding: '0.5rem', color: 'var(--accent)' }}
+                            style={{ padding: '0.5rem', color: 'var(--action-primary)' }}
                             title="Download"
                         >
                             <Download size={18} />

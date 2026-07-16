@@ -25,7 +25,7 @@
 .queue-history-remove-btn:focus-visible {
   opacity: 1 !important;
   color: var(--error) !important;
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--action-primary);
   outline-offset: 2px;
 }
 

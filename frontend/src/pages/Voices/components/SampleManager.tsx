@@ -42,7 +42,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
             style={{
                 display: 'flex',
                 flexDirection: 'column',
-                border: isDragging ? '1px solid var(--accent)' : '1px solid var(--border-light)',
+                border: isDragging ? '1px solid var(--action-primary)' : '1px solid var(--border-light)',
                 borderRadius: '12px',
                 background: isDragging ? 'var(--accent-glow)' : 'var(--surface)',
                 overflow: 'hidden',
@@ -52,7 +52,7 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
         >
             {isDragging && (
                 <div className="sample-manager__drag-overlay">
-                    <Upload size={24} color="var(--accent)" />
+                    <Upload size={24} color="var(--action-primary)" />
                     <span className="sample-manager__drag-label">Drop Samples to Add</span>
                 </div>
             )}
@@ -176,11 +176,11 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                                                         height: '24px',
                                                         borderRadius: 'var(--radius-compact)',
                                                         background: playingSample === s.name ? 'var(--accent-glow)' : 'var(--glass-subtle)',
-                                                        border: playingSample === s.name ? '1px solid var(--accent)' : '1px solid var(--border-light)',
+                                                        border: playingSample === s.name ? '1px solid var(--action-primary)' : '1px solid var(--border-light)',
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         justifyContent: 'center',
-                                                        color: playingSample === s.name ? 'var(--accent)' : 'var(--text-muted)',
+                                                        color: playingSample === s.name ? 'var(--action-primary)' : 'var(--text-muted)',
                                                         transition: 'all 0.2s'
                                                     }}
                                                 >

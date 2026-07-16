@@ -139,7 +139,7 @@ describe('WaveformTapeMinimap', () => {
     expect(Number(line.getAttribute('x1'))).toBeCloseTo((25 / 100) * viewW, 0);
   });
 
-  it('window rect uses solid var(--accent), not glass tint', () => {
+  it('window rect uses solid var(--action-primary), not glass tint', () => {
     const { container } = render(
       <WaveformTapeMinimap
         duration={100}
@@ -152,7 +152,7 @@ describe('WaveformTapeMinimap', () => {
     );
     const rect = container.querySelector('rect.tape-minimap-window') as SVGRectElement;
     // Window rect border: plain solid accent (spec §5.2/acceptance criteria).
-    expect(rect.getAttribute('stroke')).toBe('var(--accent)');
+    expect(rect.getAttribute('stroke')).toBe('var(--action-primary)');
   });
 
   it('playhead line is visually distinct from the accent-colored window rect edges', () => {
@@ -172,7 +172,7 @@ describe('WaveformTapeMinimap', () => {
     // token — --text-muted — rather than --accent/--color-wave-cursor, or
     // the strip reads as three indistinguishable blue lines.
     expect(line.getAttribute('stroke')).toBe('var(--text-muted)');
-    expect(line.getAttribute('stroke')).not.toBe('var(--accent)');
+    expect(line.getAttribute('stroke')).not.toBe('var(--action-primary)');
   });
 
   it('dragging the window rectangle calls onSeek with the clamped new windowStartSec', () => {

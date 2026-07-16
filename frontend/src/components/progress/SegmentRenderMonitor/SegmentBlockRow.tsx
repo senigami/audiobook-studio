@@ -60,7 +60,7 @@ function blockStyle(s: SegmentRenderMonitorSegment): React.CSSProperties {
     overflow: 'hidden',
   };
   if (s.phase === 'preparing') return { ...base, background: 'var(--accent-tint-bg)' };
-  if (s.phase === 'done') return { ...base, background: 'var(--accent)' };
+  if (s.phase === 'done') return { ...base, background: 'var(--action-primary)' };
   if (s.phase === 'failed') {
     return { ...base, background: 'var(--surface)', boxShadow: 'inset 0 0 0 1px var(--action-danger)' };
   }
@@ -115,7 +115,7 @@ export const SegmentBlockRow: React.FC<SegmentBlockRowProps> = ({ segments, heig
           >
             {s.phase === 'rendering' && (
               <div
-                style={{ width: `${s.progress * 100}%`, height: '100%', background: 'var(--accent)' }}
+                style={{ width: `${s.progress * 100}%`, height: '100%', background: 'var(--action-primary)' }}
               />
             )}
             {s.phase === 'failed' && (

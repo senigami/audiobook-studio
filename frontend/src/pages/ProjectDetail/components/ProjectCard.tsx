@@ -231,7 +231,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     border: canPlay ? 'none' : '1px solid var(--border)',
-                                    background: canPlay ? 'var(--accent)' : 'var(--surface-glass-white)',
+                                    background: canPlay ? 'var(--action-primary)' : 'var(--surface-glass-white)',
                                     color: canPlay ? 'var(--text-on-accent)' : 'var(--text-muted)',
                                     boxShadow: canPlay ? 'var(--shadow-md)' : 'none',
                                     backdropFilter: canPlay ? undefined : 'blur(4px)',

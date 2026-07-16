@@ -261,7 +261,7 @@ const HoverSentenceControls: React.FC<{ chunkId: string; onPlayFromHere: (id: st
       <button
         aria-label="Play from here"
         onClick={(e) => { e.stopPropagation(); onPlayFromHere(chunkId); }}
-        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent)', display: 'flex', alignItems: 'center' }}
+        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--action-primary)', display: 'flex', alignItems: 'center' }}
       >
         <Play size={13} />
       </button>
@@ -982,7 +982,7 @@ const ContentsDropdown: React.FC<{
             fontFamily: 'inherit', textAlign: 'left',
             display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
             padding: 'var(--space-1) var(--space-3)', cursor: 'pointer',
-            color: isActive ? 'var(--accent)' : 'var(--text-primary)',
+            color: isActive ? 'var(--action-primary)' : 'var(--text-primary)',
             fontWeight: isActive ? 700 : 400,
           }}
           onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--surface-alt)'; }}
@@ -1417,7 +1417,7 @@ export const StudioPane: React.FC<{
           >
             {wordContent}
             {chunk.isRendering && (
-              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', fontStyle: 'italic', marginLeft: 5 }}>
+              <span style={{ fontSize: 'var(--type-micro)', color: 'var(--action-primary)', fontStyle: 'italic', marginLeft: 5 }}>
                 rendering…
               </span>
             )}
@@ -1514,7 +1514,7 @@ export const StudioPane: React.FC<{
                   cursor: 'pointer',
                   borderRight: i === 0 ? '1px solid var(--hairline)' : undefined,
                   background: viewMode === mode ? 'var(--accent-tint-bg)' : 'transparent',
-                  color: viewMode === mode ? 'var(--accent)' : 'var(--text-secondary)',
+                  color: viewMode === mode ? 'var(--action-primary)' : 'var(--text-secondary)',
                   transition: 'background 0.15s, color 0.15s',
                   whiteSpace: 'nowrap',
                 }}
@@ -1530,9 +1530,9 @@ export const StudioPane: React.FC<{
             style={{
               fontSize: 'var(--type-micro)', padding: '2px var(--space-2)',
               borderRadius: 'var(--radius-round)', cursor: 'pointer',
-              border: `1px solid ${safeText ? 'var(--accent)' : 'var(--hairline)'}`,
+              border: `1px solid ${safeText ? 'var(--action-primary)' : 'var(--hairline)'}`,
               background: safeText ? 'var(--accent-tint-bg)' : 'transparent',
-              color: safeText ? 'var(--accent)' : 'var(--text-muted)',
+              color: safeText ? 'var(--action-primary)' : 'var(--text-muted)',
             }}
           >Safe text</div>
           <div
@@ -1540,9 +1540,9 @@ export const StudioPane: React.FC<{
             style={{
               fontSize: 'var(--type-micro)', padding: '2px var(--space-2)',
               borderRadius: 'var(--radius-round)', cursor: 'pointer',
-              border: `1px solid ${showNumbers ? 'var(--accent)' : 'var(--hairline)'}`,
+              border: `1px solid ${showNumbers ? 'var(--action-primary)' : 'var(--hairline)'}`,
               background: showNumbers ? 'var(--accent-tint-bg)' : 'transparent',
-              color: showNumbers ? 'var(--accent)' : 'var(--text-muted)',
+              color: showNumbers ? 'var(--action-primary)' : 'var(--text-muted)',
             }}
           >#</div>
           {/* Task 013: Pronunciation lexicon toggle */}
@@ -1552,9 +1552,9 @@ export const StudioPane: React.FC<{
             style={{
               fontSize: 'var(--type-micro)', padding: '2px var(--space-2)',
               borderRadius: 'var(--radius-round)', cursor: 'pointer',
-              border: `1px solid ${showLexicon ? 'var(--accent)' : 'var(--hairline)'}`,
+              border: `1px solid ${showLexicon ? 'var(--action-primary)' : 'var(--hairline)'}`,
               background: showLexicon ? 'var(--accent-tint-bg)' : 'transparent',
-              color: showLexicon ? 'var(--accent)' : 'var(--text-muted)',
+              color: showLexicon ? 'var(--action-primary)' : 'var(--text-muted)',
               display: 'inline-flex', alignItems: 'center', gap: 3,
             }}
           >
@@ -1670,7 +1670,7 @@ export const StudioPane: React.FC<{
                       setTimeout(() => setBookmarkSaved(false), 1600);
                     }}
                     style={{
-                      background: 'var(--accent)', border: '1px solid var(--accent)',
+                      background: 'var(--action-primary)', border: '1px solid var(--action-primary)',
                       borderRadius: 'var(--radius-button)', padding: '2px 7px',
                       color: 'var(--text-on-accent)', fontSize: 'var(--type-micro)',
                       fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
@@ -1704,7 +1704,7 @@ export const StudioPane: React.FC<{
                     borderRadius: 'var(--radius-button)',
                     border: `1px solid ${bookmarkSaved ? 'var(--accent-tint-border)' : 'var(--hairline)'}`,
                     background: bookmarkSaved ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-                    color: bookmarkSaved ? 'var(--accent)' : 'var(--text-secondary)',
+                    color: bookmarkSaved ? 'var(--action-primary)' : 'var(--text-secondary)',
                     cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3,
                     fontFamily: 'inherit', fontWeight: 600, whiteSpace: 'nowrap',
                     transition: 'background 0.3s, color 0.3s, border-color 0.3s',
@@ -1751,7 +1751,7 @@ export const StudioPane: React.FC<{
                     borderRadius: 'var(--radius-button)',
                     border: `1px solid ${contentsDropdownOpen ? 'var(--accent-tint-border)' : 'var(--hairline)'}`,
                     background: contentsDropdownOpen ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-                    color: contentsDropdownOpen ? 'var(--accent)' : 'var(--text-secondary)',
+                    color: contentsDropdownOpen ? 'var(--action-primary)' : 'var(--text-secondary)',
                     cursor: 'pointer', whiteSpace: 'nowrap',
                     display: 'inline-flex', alignItems: 'center', gap: 3,
                     fontFamily: 'inherit', fontWeight: 600,

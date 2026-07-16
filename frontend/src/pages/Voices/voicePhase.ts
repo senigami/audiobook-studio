@@ -36,7 +36,7 @@ export function getStatusInfo(
         (p.samples?.length || 0) > 0,
     );
 
-    if (buildingProfiles[p.name]) return { label: 'BUILDING...', color: 'var(--accent)', bg: 'var(--accent-glow)' };
+    if (buildingProfiles[p.name]) return { label: 'BUILDING...', color: 'var(--action-primary)', bg: 'var(--accent-glow)' };
 
     if (!selectable) {
         return { label: 'DISABLED', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
@@ -47,7 +47,7 @@ export function getStatusInfo(
         const reasons = p.rebuild_reasons || [];
 
         if (reasons.includes('no_preview')) {
-            return { label: 'BUILD TO TEST', color: 'var(--accent)', bg: 'var(--accent-glow)' };
+            return { label: 'BUILD TO TEST', color: 'var(--action-primary)', bg: 'var(--accent-glow)' };
         }
 
         let label = isRebuildEngine ? 'REBUILD REQUIRED' : 'PREVIEW STALE';
@@ -62,7 +62,7 @@ export function getStatusInfo(
         if (!hasBuildMaterial) {
             return { label: 'NOT READY', color: 'var(--text-muted)', bg: 'var(--surface-alt)' };
         }
-        return { label: 'BUILD TO TEST', color: 'var(--accent)', bg: 'var(--accent-glow)' };
+        return { label: 'BUILD TO TEST', color: 'var(--action-primary)', bg: 'var(--accent-glow)' };
     }
     return { label: 'READY', color: 'var(--success)', bg: 'var(--success-tint-bg)' };
 }
