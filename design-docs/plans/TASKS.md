@@ -713,7 +713,7 @@ above). Two backend items were genuinely undocumented:
   profile first (a `React.memo` on `VoiceCatalogCard` may be sufficient) before reaching for full
   windowing.
 
-## Voice-variant version history *(fast-follow, planned 2026-07-15 — not yet built)*
+## Voice-variant version history *(fast-follow, built 2026-07-15 — all 9 tasks + 3 review fixes shipped)*
 
 Voice-Clone-Trainer persona finding (`design-docs/personas/42-voice-clone-trainer.md`):
 rebuilding a voice variant (`POST /api/speaker-profiles/{name}/build`) destroys the previous
