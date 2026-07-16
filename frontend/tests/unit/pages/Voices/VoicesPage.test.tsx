@@ -72,9 +72,10 @@ describe('VoicesTab', () => {
     it('opens profile details and allows building voice', async () => {
         render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
 
-        // Narrator1: wav_count=5, no preview_url → phase 'build' → CTA "Build voice"
-        // The CTA button is always visible on the catalog card without requiring expansion
-        const buildBtn = await screen.findByText('Build voice')
+        // Narrator1: wav_count=5, no preview_url → phase 'build'. The separate
+        // CTA button is retired (2026-07-16) — the avatar play button doubles
+        // as Build when the profile isn't built yet (aria-label "Build voice").
+        const buildBtn = await screen.findByRole('button', { name: 'Build voice' })
         expect(buildBtn).toBeInTheDocument()
     })
 

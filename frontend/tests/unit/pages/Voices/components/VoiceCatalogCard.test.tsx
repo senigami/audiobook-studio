@@ -190,17 +190,24 @@ describe('VoiceCatalogCard', () => {
     });
 
     // ---------------------------------------------------------------------------
-    // CTA labels by phase
+    // CTA labels by phase (2026-07-16: the separate always-visible CTA button
+    // is retired — Play now doubles as Build when the profile isn't built yet;
+    // owner-confirmed "fine with the extra click because clicking play will
+    // also automatically build it if needed". Navigate/test/edit-intent
+    // phases have no CTA of their own anymore — the card body/name click
+    // (tested separately below) already reaches Voice Lab for those.)
     // ---------------------------------------------------------------------------
 
-    it('shows "Edit voice" CTA for READY profile', () => {
+    it('for a READY profile, the avatar play button offers preview (not build)', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
-        expect(screen.getByRole('button', { name: 'Edit voice' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Play preview' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Build voice' })).not.toBeInTheDocument();
     });
 
-    it('shows "Add samples" CTA for no-samples profile', () => {
+    it('for a no-samples profile (navigate-intent, no build material), the play button stays disabled', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[noSamplesProfile]} />);
-        expect(screen.getByRole('button', { name: 'Add samples' })).toBeInTheDocument();
+        const btn = screen.getByRole('button', { name: 'Play preview' });
+        expect(btn).toBeDisabled();
     });
 
     it('shows "Build voice" CTA for profile with samples but no preview', () => {
@@ -246,15 +253,10 @@ describe('VoiceCatalogCard', () => {
         expect(emitToast).toHaveBeenCalledWith(expect.stringContaining('Clara Bell'));
     });
 
-    // ---------------------------------------------------------------------------
-    // CTA actions
-    // ---------------------------------------------------------------------------
-
-    it('"Edit voice" CTA calls onNavigateToLab', () => {
-        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
-        fireEvent.click(screen.getByRole('button', { name: 'Edit voice' }));
-        expect(baseProps.onNavigateToLab).toHaveBeenCalledWith('sp-1');
-    });
+    // Navigate/test/edit-intent phases no longer have a distinct CTA button —
+    // navigation is via the name button / card body, already covered by
+    // "clicking the voice name navigates to Voice Lab" and the card-body tests
+    // further down.
 
     // ---------------------------------------------------------------------------
     // Set as App Default — moved into the top-right kebab (task 002 consolidation;

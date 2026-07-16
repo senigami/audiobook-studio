@@ -21,14 +21,10 @@
   box-shadow: var(--shadow-sm);
 }
 
-/* Default-status star — top-left edge (task 002: replaces the text pill; the kebab now
-   owns the top-right corner exclusively). Offset past the select-checkbox's 22px footprint
-   (top:6px/left:6px) so the two never overlap in bulk-select mode. Status indicator only
-   (no click handler) — setting default is an action, done via the kebab. */
+/* Owner-requested layout (2026-07-16): the star now sits inline directly above
+   the avatar in the card's header row, not absolutely positioned against the
+   card corner (the select-checkbox no longer needs to dodge it). */
 .voice-catalog-card__default-star {
-  position: absolute;
-  top: 8px;
-  left: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
