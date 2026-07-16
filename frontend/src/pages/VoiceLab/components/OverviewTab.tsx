@@ -31,7 +31,7 @@ import type { VoiceAttributes, VoiceMetadata } from '@/types';
 import { api } from '@/api';
 import { getSection } from '@/pages/Voices/components/metadata/taxonomy';
 import { OneSelect } from '@/pages/Voices/components/metadata/OneSelect';
-import { ManySelect } from '@/pages/Voices/components/metadata/ManySelect';
+import { TagAutocompleteInput } from '@/pages/Voices/components/metadata/TagAutocompleteInput';
 import { categoryForAttributeKey } from '@/pages/Voices/components/VoicePills';
 import SearchableSelect from '@/components/forms/SearchableSelect';
 import { TagsInput } from '@/pages/Voices/components/metadata/TagsInput';
@@ -189,16 +189,26 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ voice, onSaved }) => {
                 );
             })}
 
-            {/* Many-value fields */}
+            {/* Many-value fields — type-to-filter autocomplete with removable
+                pills (user-reported, 2026-07-16: the toggle-chip-row ManySelect
+                didn't match the "type to filter, pick from dropdown or add your
+                own text, get a pill with an × to remove" pattern already used
+                for performance_tags). Suggestions come from the taxonomy's own
+                vocabulary for that field, but entry stays open-ended — typing
+                something not in the list still commits it, same as free tags. */}
             {manyFields.map(key => {
                 const section = getSection(key);
                 if (!section) return null;
+                const category = categoryForAttributeKey(section.key);
                 return (
-                    <ManySelect
+                    <TagAutocompleteInput
                         key={key}
-                        section={section}
-                        value={(attrs as any)[key]}
+                        label={section.label.toUpperCase()}
+                        labelColor={`var(--pill-${category}-text)`}
+                        tags={(attrs as any)[key] ?? []}
                         onChange={val => setAttr(key, val)}
+                        suggestions={section.values.map(v => v.label)}
+                        placeholder={`Add ${section.label.toLowerCase()}...`}
                     />
                 );
             })}

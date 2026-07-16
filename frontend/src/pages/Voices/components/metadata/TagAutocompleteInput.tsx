@@ -18,9 +18,14 @@ export interface TagAutocompleteInputProps {
      *  elsewhere in the library, plus a small starter vocabulary. */
     suggestions: string[];
     placeholder?: string;
+    /** Optional field label, rendered above the pill/input row (F3.1-style
+     *  tinted via `labelColor` when supplied) — omit for the tags-row usage
+     *  in VariantEditor, which has no standalone label of its own. */
+    label?: string;
+    labelColor?: string;
 }
 
-export function TagAutocompleteInput({ tags, onChange, suggestions, placeholder }: TagAutocompleteInputProps) {
+export function TagAutocompleteInput({ tags, onChange, suggestions, placeholder, label, labelColor }: TagAutocompleteInputProps) {
     const [draft, setDraft] = useState('');
     const [focused, setFocused] = useState(false);
     // -1 means "no suggestion highlighted" (Enter commits the typed draft).
@@ -80,6 +85,11 @@ export function TagAutocompleteInput({ tags, onChange, suggestions, placeholder 
 
     return (
         <div className="metadata-field">
+            {label && (
+                <label className="metadata-field-label" style={labelColor ? { color: labelColor } : undefined}>
+                    {label}
+                </label>
+            )}
             <div className="metadata-tags-input__container">
                 <VoicePillRow pills={pills} />
                 <input
@@ -96,7 +106,7 @@ export function TagAutocompleteInput({ tags, onChange, suggestions, placeholder 
                         setFocused(false);
                     }}
                     placeholder={tags.length === 0 ? (placeholder ?? 'Add a tag...') : ''}
-                    aria-label="Add tag"
+                    aria-label={label ? `Add ${label.toLowerCase()}` : 'Add tag'}
                     className="metadata-tags-input__draft"
                     style={{ flex: 1 }}
                 />

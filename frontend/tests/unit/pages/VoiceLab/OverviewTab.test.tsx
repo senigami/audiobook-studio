@@ -102,4 +102,31 @@ describe('OverviewTab', () => {
         expect(screen.getByText('GENDER')).toHaveStyle({ color: 'var(--pill-gender-text)' });
         expect(screen.getByText('AGE')).toHaveStyle({ color: 'var(--pill-age-text)' });
     });
+
+    // -----------------------------------------------------------------------
+    // Many-value fields (user-reported, 2026-07-16): replaced the toggle-chip-
+    // row ManySelect with the type-to-filter, add-as-pill autocomplete
+    // pattern already used for performance_tags, so free text and taxonomy
+    // suggestions both work the same way here.
+    // -----------------------------------------------------------------------
+
+    it('renders TONE as a type-to-filter autocomplete with removable pills, not a toggle-chip row', () => {
+        const voiceWithTone: VoiceMetadata = {
+            ...mockVoice,
+            attributes: { ...mockVoice.attributes, tone: ['warm'] },
+        };
+        render(<OverviewTab voice={voiceWithTone} onSaved={vi.fn()} />);
+
+        // The existing "warm" value renders as a removable pill (a real
+        // button with an accessible "Remove warm" label), not a static
+        // toggle chip with no pill-remove affordance.
+        expect(screen.getByRole('button', { name: 'Remove warm' })).toBeInTheDocument();
+
+        // Typing filters taxonomy suggestions and lets you commit either the
+        // suggestion or free text.
+        const input = screen.getByLabelText('Add tone');
+        fireEvent.change(input, { target: { value: 'calm' } });
+        fireEvent.keyDown(input, { key: 'Enter' });
+        expect(screen.getByRole('button', { name: 'Remove calm' })).toBeInTheDocument();
+    });
 });
