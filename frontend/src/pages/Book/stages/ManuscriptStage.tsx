@@ -43,8 +43,13 @@ export function ManuscriptStage() {
   };
 
   const handleExportSample = async (chapter: Chapter) => {
-    const blob = await api.exportChapterVideo(chapter.id, { projectId: chapter.project_id });
-    downloadBlob(blob, `${chapter.title || 'chapter'}-sample.mp4`);
+    try {
+      const blob = await api.exportChapterVideo(chapter.id, { projectId: chapter.project_id });
+      downloadBlob(blob, `${chapter.title || 'chapter'}-sample.mp4`);
+    } catch (e) {
+      console.error('Failed to export sample video', e);
+      emitToast(e instanceof Error ? e.message : "Couldn't export the video. Please try again.");
+    }
   };
 
   const handleCreateChapter = async (title: string, text: string, file: File | null) => {
