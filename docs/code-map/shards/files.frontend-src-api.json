@@ -216,12 +216,14 @@
         "frontend/src/pages/Settings/components/AboutSettingsPanel.tsx",
         "frontend/src/pages/Settings/components/SettingsComponents.tsx",
         "frontend/src/pages/VoiceLab/VoiceLabPage.tsx",
-        "frontend/src/pages/VoiceLab/components/VoiceIconControls.tsx",
         "frontend/src/pages/Voices/VoicesPage.tsx",
         "frontend/src/pages/Voices/components/MetadataEditorModal.tsx",
-        "frontend/src/pages/Voices/components/metadata/IconUpload.tsx"
+        "frontend/src/pages/Voices/components/metadata/IconUpload.tsx",
+        "frontend/src/hooks/useVariantVersions.ts",
+        "frontend/src/pages/Voices/components/VersionAbPanel.tsx"
       ],
       "notes": [
+        "2026-07-15 (voice-variant version-history tasks 004/005/007): added listVoiceVersions(name), promoteVoiceVersion(name, versionId), runVersionAbTest(name, versionAId, versionBId, testText) wrapping GET/POST .../versions, .../versions/{id}/promote, .../versions/ab-test.",
         "2026-07-12: Added fetchEngineConcurrency() + EngineConcurrencyEntry/EngineConcurrencyResponse types wrapping GET /api/engines/concurrency.",
         "2026-07-12: uploadHfVoice's return type widened to a discriminated union: {status:'ok', hub_id, commit_id} | {status:'generating', job_id, message}.",
         "script-view endpoints use cache:'no-store'",

@@ -1,6 +1,6 @@
 {
   "meta": {
-    "synced_commit": "f81ab004693ed8d47c23833770e82233cdceae4e",
+    "synced_commit": "37eba9ee20e004b2f247bf44cf5e7750ea88dd3a",
     "shards": [
       {
         "prefix": "frontend/src/pages/ChapterEditor/",
@@ -11,14 +11,14 @@
       {
         "prefix": "frontend/src/pages/Voices/",
         "path": "shards/files.frontend-src-pages-Voices.json",
-        "files": 28,
-        "bytes": 29430
+        "files": 34,
+        "bytes": 50499
       },
       {
         "prefix": "frontend/src/components/",
         "path": "shards/files.frontend-src-components.json",
-        "files": 36,
-        "bytes": 37006
+        "files": 38,
+        "bytes": 40715
       },
       {
         "prefix": "frontend/src/pages/Book/",
@@ -41,44 +41,44 @@
       {
         "prefix": "frontend/src/hooks/",
         "path": "shards/files.frontend-src-hooks.json",
-        "files": 40,
-        "bytes": 35788
+        "files": 41,
+        "bytes": 37846
       },
       {
         "prefix": "frontend/src/pages/",
         "path": "shards/files.frontend-src-pages.json",
-        "files": 83,
-        "bytes": 84370
+        "files": 78,
+        "bytes": 90910
       },
       {
         "prefix": "frontend/src/store/",
         "path": "shards/files.frontend-src-store.json",
         "files": 9,
-        "bytes": 11666
+        "bytes": 11601
       },
       {
         "prefix": "frontend/src/theme/",
         "path": "shards/files.frontend-src-theme.json",
         "files": 14,
-        "bytes": 24452
+        "bytes": 27605
       },
       {
         "prefix": "frontend/src/utils/",
         "path": "shards/files.frontend-src-utils.json",
         "files": 27,
-        "bytes": 21988
+        "bytes": 22515
       },
       {
         "prefix": "app/orchestration/",
         "path": "shards/files.app-orchestration.json",
         "files": 27,
-        "bytes": 43191
+        "bytes": 43729
       },
       {
         "prefix": "frontend/src/demo/",
         "path": "shards/files.frontend-src-demo.json",
         "files": 27,
-        "bytes": 22539
+        "bytes": 22708
       },
       {
         "prefix": "plugins/tts_mixed/",
@@ -90,13 +90,13 @@
         "prefix": "frontend/src/api/",
         "path": "shards/files.frontend-src-api.json",
         "files": 9,
-        "bytes": 12195
+        "bytes": 12523
       },
       {
         "prefix": "frontend/src/app/",
         "path": "shards/files.frontend-src-app.json",
         "files": 26,
-        "bytes": 31645
+        "bytes": 32067
       },
       {
         "prefix": "plugins/tts_xtts/",
@@ -125,8 +125,8 @@
       {
         "prefix": "app/domain/",
         "path": "shards/files.app-domain.json",
-        "files": 51,
-        "bytes": 33718
+        "files": 52,
+        "bytes": 36114
       },
       {
         "prefix": "app/utils/",
@@ -149,20 +149,20 @@
       {
         "prefix": "app/api/",
         "path": "shards/files.app-api.json",
-        "files": 41,
-        "bytes": 50781
+        "files": 42,
+        "bytes": 55883
       },
       {
         "prefix": "app/db/",
         "path": "shards/files.app-db.json",
         "files": 30,
-        "bytes": 63783
+        "bytes": 64787
       },
       {
         "prefix": "",
         "path": "shards/files._misc.json",
-        "files": 62,
-        "bytes": 47424
+        "files": 61,
+        "bytes": 47121
       }
     ],
     "unmapped": [
@@ -266,9 +266,11 @@
         "app/orchestration/tasks/sample_build.py|sample_test.py",
         "app/engines/bridge.py#VoiceBridge.synthesize",
         "app/engines/audio_ops.py#finalize_sample_artifact (WAV->MP3)",
-        "app/db/speakers.py#update_speaker_settings"
+        "app/db/speakers.py#update_speaker_settings",
+        "app/domain/voices/variant_versions.py#snapshot_current_as_version,record_new_version (rebuild snapshots outgoing + records incoming as a version)",
+        "app/api/routers/voices_versions.py#list/promote/ab-test (version history + A/B compare, frontend: VersionHistoryPanel.tsx/VersionAbPanel.tsx)"
       ],
-      "carries": "voice profile progresses samples -> build -> test -> ready (frontend/src/pages/Voices/voicePhase.ts state machine); build/test always finalize to MP3, never WAV",
+      "carries": "voice profile progresses samples -> build -> test -> ready (frontend/src/pages/Voices/voicePhase.ts state machine); build/test always finalize to MP3, never WAV; since 2026-07-15 every rebuild also snapshots the outgoing live state and records the incoming one as a version (versions/versions.json), reachable via list/promote/ab-test endpoints -- rebuilding a voice variant no longer silently discards prior state",
       "invariant": "voice samples and previews are MP3-only per the audio-format contract; WAV is deleted after successful MP3 conversion"
     },
     {

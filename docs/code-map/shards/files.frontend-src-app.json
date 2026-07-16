@@ -179,6 +179,7 @@
         "frontend/src/app/layout/AppShell.tsx"
       ],
       "notes": [
+        "2026-07-16 (owner-requested): added a mute-toggle button + level slider (volume state 0-1, persisted via a new 'studio-player-volume' localStorage key mirroring utils/theme.ts's STORAGE_KEY pattern); an effect applies it to the <audio> element. Mute remembers the last non-zero level via prevVolumeRef so unmute restores it. Purely additive -- no change to playerBus state shape or existing playback behavior.",
         "audioCallbackRef pattern for React 19 render-time ref reads",
         "W1 (2026-07-03): showWave predicate is now duration-driven (fitsLegibly + ResizeObserver-measured scrub width), not scope-driven; scope-toggle JSX/CSS removed",
         "2026-07-10 (audio_player_completion_004 tasks 001/008): exports TAPE_DURATION_CAP_SEC=600; tapeOpen/windowSec/tapeMode state (reset on requestId); AudioLines toggle opens/closes the tape (inline-null-check JSX pattern, no separate tapeRendered boolean -- required for TS narrowing on audioEl/audioUrl). sidecarPeaks state + effect fetches the server peaks sidecar only when duration > TAPE_DURATION_CAP_SEC; tapeAvailable = under-cap OR sidecarPeaks!==null.",

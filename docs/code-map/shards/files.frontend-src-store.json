@@ -139,7 +139,6 @@
         "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/useBoothPlayback.ts",
         "frontend/src/pages/Engines/components/EngineTestSample.tsx",
         "frontend/src/pages/ProjectDetail/components/ChapterList.tsx",
-        "frontend/src/pages/VoiceLab/components/TestSection.tsx",
         "frontend/src/pages/Voices/components/VoiceCatalogCard.tsx",
         "frontend/src/store/bookContinuousPlayback.ts",
         "frontend/src/pages/Book/components/ContinueListeningCard.tsx"

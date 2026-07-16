@@ -207,7 +207,8 @@
       "calls": [],
       "called_by": [
         "frontend/src/demo/styleguide/StyleguidePage.tsx",
-        "frontend/src/pages/Voices/components/VoiceModals.tsx"
+        "frontend/src/pages/Voices/components/VoiceModals.tsx",
+        "frontend/src/pages/Voices/components/metadata/ArchetypeQuickPick.tsx"
       ],
       "notes": [],
       "calls_inferred": []
@@ -781,6 +782,54 @@
       ],
       "notes": [
         "Task 011 (2026-07-11). Caller (ActivityPage) owns all expand/dismiss state; see segmentPeekStripState.ts for the persistence layer."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/components/forms/MultiSelect.tsx": {
+      "purpose": "Compact multi-value combobox primitive: focusable role=combobox trigger showing removable chips + placeholder, AnimatePresence checkbox-style panel (role=listbox/aria-multiselectable, rows role=option/aria-selected). Roving highlight via Arrow Up/Down, Space/Enter toggles without closing, Escape closes + refocuses trigger, click-outside closes. Optional category prop tints selected chips to a VoicePill hue, and (2026-07-16) also tints the trigger's resting/open border to the same --pill-{category}-border/-text tokens; the free-form tag filter (no category) keeps a neutral/accent border.",
+      "exports": [
+        {
+          "name": "default (MultiSelect)",
+          "kind": "component"
+        },
+        {
+          "name": "MultiSelectOption, MultiSelectProps",
+          "kind": "type"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/Voices/components/VoicePills.tsx"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/components/VoicesTabHeader.tsx"
+      ],
+      "notes": [
+        "2026-07-16 (owner request): CLASS/GENDER/AGE filter instances now tint the trigger border to their pill hue -- resting borderColor uses --pill-{category}-border (muted, same restraint as pill chips), full-strength --pill-{category}-text on isOpen/focus; text color untouched. No-category (tag) instances keep the prior neutral/accent border unchanged.",
+        "2026-07-15 (round2 review-fixes): trigger changed from <button> to a focusable role=combobox <div> (tabIndex 0) so keyboard nav works while focus stays on the trigger -- the listbox panel never received focus, so its onKeyDown was dead. Chip 'Remove' controls changed from <span role=button> nested inside the old trigger <button> (invalid markup, not tabbable) to real sibling <button> elements.",
+        "2026-07-15 (a11y3/H-5): added optional category?: PillCategory prop -- when supplied, selected chips render with --pill-{category}-bg/-text tokens (plus data-category) instead of generic --accent-glow/--accent fill for every facet.",
+        "2026-07-15 (round2 task004, NEW FILE): first compact multi-value dropdown combobox in the codebase (ManySelect is a chip-toggle row, not a dropdown). KNOWN ISSUE at creation (nested-button chip remove, fixed by the review-fixes entry above)."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/components/ui/EngineBadge.tsx": {
+      "purpose": "Shared engine-badge treatment (DC-007): consolidates VariantEditor's, VoiceCatalogCard's, and the disabled/unselectable-tone engine badge into one component that only composes token-based colors (tone: cloud/accent/muted; size: md/sm).",
+      "exports": [
+        {
+          "name": "EngineBadge",
+          "kind": "component"
+        },
+        {
+          "name": "EngineBadgeTone, EngineBadgeSize, EngineBadgeProps",
+          "kind": "type"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Voices/components/VariantEditor.tsx",
+        "frontend/src/pages/Voices/components/VoiceCatalogCard.tsx"
+      ],
+      "notes": [
+        "2026-07-15 (voice-variant-tagging-and-ia task012, NEW FILE): fixes a genuine pre-existing bug -- VariantEditor's old badge built its border as `1px solid ${engineBadge.color}33` where color was already a var() reference; appending '33' produced invalid CSS the browser silently dropped, so that badge rendered borderless. New --accent-tint-border/--cloud-tint-border tokens (theme/tokens.css) make the intended border actually render."
       ],
       "calls_inferred": []
     }

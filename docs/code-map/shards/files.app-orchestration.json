@@ -587,12 +587,14 @@
         "app/engines/audio_ops.py#finalize_sample_artifact",
         "app/engines/bridge.py#create_voice_bridge",
         "app/orchestration/scheduler/resources.py#ResourceClaim",
-        "app/orchestration/tasks/base.py"
+        "app/orchestration/tasks/base.py",
+        "app/domain/voices/variant_versions.py"
       ],
       "called_by": [
         "app/orchestration/scheduler/orchestrator.py"
       ],
       "notes": [
+        "2026-07-15 (voice-variant version-history task003): after update_speaker_settings succeeds, records the just-built sample (engine/test_text/voice_job_settings + the new wav set + sample.mp3) as a new version via variant_versions.record_new_version and marks it active_version_id, in its own try/except so a version-history failure never turns a successful build into a reported task failure. sample_test.py/SampleTestTask deliberately untouched (hard constraint of this plan).",
         "voice samples always MP3"
       ],
       "calls_inferred": []

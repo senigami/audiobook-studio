@@ -944,6 +944,52 @@
       "notes": [
         "2026-07-12: NEW FILE \u2014 New module. Python port of recordingPromptSuggester.ts's scoring algorithm (identical weights/thresholds: CLASS/GENDER/AGE/PACE match points, TONE/TIMBRE jaccard-overlap weights, CLOSE_THRESHOLD=6, EXACT_THRESHOLD=10, MAX_SCORE=12), reading the same voice_archetypes.json reference dataset. Exposes suggest_sample_text(attrs) -> str | None, returning a match only at close/exact confidence, None otherwise (never a composed guess)."
       ]
+    },
+    "app/domain/voices/variant_versions.py": {
+      "purpose": "Version history for a voice variant's live sample state. A 'version' is a point-in-time snapshot of a variant directory's live *.wav samples plus its sample.mp3 artifact, recorded under versions/v-<unix-timestamp>-<8-hex-shortid>/. versions/versions.json tracks the ordered list plus which one is 'active'. Pure file mechanics -- never calls into settings persistence (update_speaker_settings) or triggers rebuilds; callers own that.",
+      "exports": [
+        {
+          "name": "snapshot_current_as_version",
+          "kind": "function",
+          "contract": "(variant_dir, *, engine_id, test_text, voice_job_settings=None) -> version_id; snapshots current state, does NOT touch active_version_id"
+        },
+        {
+          "name": "record_new_version",
+          "kind": "function",
+          "contract": "(variant_dir, *, engine_id, test_text, voice_job_settings=None) -> version_id; snapshots and sets active_version_id"
+        },
+        {
+          "name": "list_versions",
+          "kind": "function",
+          "contract": "(variant_dir) -> list[dict], oldest-first"
+        },
+        {
+          "name": "get_version",
+          "kind": "function",
+          "contract": "(variant_dir, version_id) -> dict | None"
+        },
+        {
+          "name": "get_active_version_id",
+          "kind": "function",
+          "contract": "(variant_dir) -> str | None"
+        },
+        {
+          "name": "promote_version",
+          "kind": "function",
+          "contract": "(variant_dir, version_id) -> bool; restores a version's samples/artifact as live state and marks it active"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "app/api/routers/voices_actions.py",
+        "app/api/routers/voices_versions.py",
+        "app/orchestration/tasks/sample_build.py"
+      ],
+      "notes": [
+        "2026-07-15 (voice-variant version-history task001, NEW FILE): all path construction goes through an internal _contained() containment check (resolve + relative_to) before any write, matching the repo's path-containment invariant even though this module sits under app/domain (not a route handler).",
+        "versions/ is never misdetected as a sibling variant by voices_helpers._voice_dirs_map() (covered by tests/domain/test_variant_versions.py)."
+      ],
+      "calls_inferred": []
     }
   }
 }

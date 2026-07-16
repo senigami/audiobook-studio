@@ -572,7 +572,7 @@
         {
           "name": "router",
           "kind": "const",
-          "contract": "APIRouter mounting voices_management, voices_characters, voices_narrators, voices_bundles, voices_actions, voices_metadata"
+          "contract": "APIRouter mounting voices_management, voices_characters, voices_narrators, voices_bundles, voices_actions, voices_metadata, voices_versions"
         },
         {
           "name": "list_speaker_profiles",
@@ -586,12 +586,14 @@
         "app/api/routers/voices_management.py#router,list_speaker_profiles",
         "app/db/speakers.py",
         "app/db/state.py",
-        "app/engines/bridge.py"
+        "app/engines/bridge.py",
+        "app/api/routers/voices_versions.py#router"
       ],
       "called_by": [
         "app/api/routers/system.py"
       ],
       "notes": [
+        "2026-07-15 (voice-variant version-history task004): registered voices_versions.router under the existing /api/speaker-profiles include_router block, right after voices_actions.router.",
         "pure composition module, re-exports internal helpers for tests"
       ],
       "calls_inferred": [
@@ -627,10 +629,15 @@
         "app/orchestration/scheduler/orchestrator.py#create_orchestrator",
         "app/orchestration/tasks/sample_build.py#SampleBuildTask",
         "app/orchestration/tasks/sample_test.py#SampleTestTask",
-        "app/utils/__init__.py"
+        "app/utils/__init__.py",
+        "app/domain/voices/variant_versions.py"
       ],
       "called_by": [],
       "notes": [
+        "2026-07-16: added tone/timbre/pace to the settings-write allowlist alongside engine/test_text/performance_tags (owner-requested move off voice-level VoiceAttributes to per-variant SpeakerProfile settings -- these describe how a specific recording performs, which can differ between two variants of the same voice).",
+        "2026-07-15 (voice-variant-tagging-and-ia task004): added 'performance_tags' to the per-variant settings write endpoint's allowlist (previously rejected any key outside an engine-derived allowlist).",
+        "2026-07-15 (task005): added POST /{name}/variants/{variant_name}/set-default -- new per-variant default-write endpoint (is_variant_default), since none existed before this task.",
+        "2026-07-15 (voice-variant version-history task002): in build_speaker_profile, inside the existing containment-checked branch, calls snapshot_current_as_version(...) BEFORE the pre-existing sample.wav/sample.mp3 delete loop, wrapped in try/except Exception -> logger.exception (never surfaces to the caller) -- so rebuilding a voice variant no longer silently discards its prior sample, and a version-history failure can never block a rebuild.",
         "2026-07-15: Upload endpoint (:271-306): adds a narrow existence-check collision guard immediately before the write -- on collision, auto-suffixes the target filename (_1, _2, ...) rather than rejecting, so a retry-free upload flow keeps working. This is the pre-approved, narrow exception to the 'no backend changes' rule (client-side unique naming alone isn't sufficient at the persistence layer).",
         "2026-07-12: test_speaker_profile is now a thin wrapper calling submit_sample_test_job -- behavior-preserving refactor, verified by the existing (unmodified) test_api_voices_actions.py suite passing unchanged. Dropped the now-unused SampleTestTask import."
       ],
@@ -775,6 +782,8 @@
       ],
       "called_by": [],
       "notes": [
+        "2026-07-16: list_speaker_profiles() now includes tone/timbre/pace per profile, read from spk_settings, alongside performance_tags.",
+        "2026-07-15 (voice-variant-tagging-and-ia task004): added performance_tags to list_speaker_profiles()'s per-profile response dict, sourced from the same get_speaker_settings() call already used for other fields.",
         "duplicate detection appends _1, _2 etc suffixes",
         "profile dir must be under VOICES_DIR"
       ],
@@ -931,6 +940,7 @@
         "app/api/ws.py"
       ],
       "notes": [
+        "2026-07-15 (voice-variant version-history ab-review-fix): added 'artifact.mp3' to get_voice_preview_hardened's filename whitelist (previously only sample.mp3/sample.wav -- the versions list/promote/ab-test endpoints' artifact_url had been 404ing since task004). Added GET /out/voice-ab-test/{job_id}/{filename}, containment-checked under TRANSIENT_DIR/voice-ab-test with a strict job_id format regex (abtest-<8hex>) and filename fixed to render.mp3, serving the A/B endpoint's job-branch scratch renders.",
         "startup: DB init->cleanup->reconciliation->listener registration->task recovery->pause restore->TTS server boot",
         "WebSocket origin check prevents CSWSH",
         "path-serving uses _contained_file/_contained_root_file for traversal defense",
@@ -1050,6 +1060,50 @@
       "notes": [
         "2026-07-14: NEW FILE \u2014 New file (219L). Engine verify/self-test/dev-scenario/asset routes: verify_engine, get_test_audio, test_engine, get_engine_scenarios, get_engine_asset."
       ]
+    },
+    "app/api/routers/voices_versions.py": {
+      "purpose": "Version-history routes for a voice variant's live sample state: list versions, promote a version back to live, and A/B-compare two versions. Only handles name/path resolution, response shape, and the settings sync that must happen after a promote/ab-test -- all file mechanics live in app/domain/voices/variant_versions.py.",
+      "exports": [
+        {
+          "name": "router",
+          "kind": "const"
+        },
+        {
+          "name": "list_speaker_versions",
+          "kind": "function",
+          "contract": "GET /{name}/versions"
+        },
+        {
+          "name": "promote_speaker_version",
+          "kind": "function",
+          "contract": "POST /{name}/versions/{version_id}/promote"
+        },
+        {
+          "name": "ab_test_speaker_versions",
+          "kind": "function",
+          "contract": "POST /{name}/versions/ab-test"
+        }
+      ],
+      "calls": [
+        "app/core/config.py",
+        "app/db/models.py",
+        "app/db/state.py",
+        "app/db/queue.py",
+        "app/db/speakers.py#get_speaker_settings,update_speaker_settings",
+        "app/domain/voices/variant_versions.py",
+        "app/orchestration/scheduler/orchestrator.py#create_orchestrator",
+        "app/orchestration/tasks/sample_test.py#SampleTestTask",
+        "app/api/routers/voices_helpers.py"
+      ],
+      "called_by": [
+        "app/api/routers/voices.py"
+      ],
+      "notes": [
+        "2026-07-15 (task004, NEW FILE): list/promote endpoints. Promote snapshots the outgoing live state first (same ordering discipline as task002) before calling promote_version, and recomputes built_samples the same way SampleBuildTask does. No engine-ID branching.",
+        "2026-07-15 (task005, ab-test endpoint): given two version ids and a test passage, returns either a cached artifact.mp3 URL (when a version's own recorded test_text matches the requested passage) or submits a SampleTestTask per version pointed at that version's versions/<id>/samples/ snapshot -- never the live variant directory, never writing back into the version dir. get_version() (unlike list_versions()) has no computed has_artifact key, so the cached-path check looks at the artifact file directly. SampleTestTask.run() writes preview_* keys to the canonical profile.json (last-write-wins across the two A/B sides) -- callers must use the job_id/queue mechanism, never read preview_* back.",
+        "2026-07-15 (ab-review-fix): fixed a real defect -- the static /out/voices/{path} route's whitelist rejected artifact.mp3, so every artifact_url returned here 404'd; fixed in web.py, caught by adding a real HTTP-level test."
+      ],
+      "calls_inferred": []
     }
   }
 }

@@ -1456,10 +1456,21 @@
     },
     "app/db/speakers_settings.py": {
       "purpose": "New module. Owns profile.json metadata: DEFAULT_SPEAKER_TEST_TEXT, _infer_profile_engine, get_profile_engine, profile_has_custom_test_text, get_speaker_settings, update_speaker_settings, _get_minimal_",
-      "exports": [],
+      "exports": [
+        {
+          "name": "get_speaker_settings, update_speaker_settings, profile_has_custom_test_text, get_profile_engine, normalize_profile_metadata, normalize_base_profiles",
+          "kind": "function"
+        },
+        {
+          "name": "DEFAULT_SPEAKER_TEST_TEXT",
+          "kind": "const"
+        }
+      ],
       "calls": [],
       "called_by": [],
       "notes": [
+        "2026-07-16: get_speaker_settings() now defaults tone/timbre to [] and pace to '' alongside performance_tags. update_speaker_settings() applies the same INV-TAG-1 whitespace normalization (collapse runs to a single dash) to tone/timbre as performance_tags, since the frontend edits all three through the same TagAutocompleteInput.tsx component.",
+        "2026-07-15 (voice-variant-tagging-and-ia task004): added performance_tags: [] to get_speaker_settings()'s default response dict; added server-side normalization (strip/lowercase/hyphenate + de-dupe) for performance_tags in update_speaker_settings, placed after the existing variant-name-resolution hazard-guard code.",
         "2026-07-14: NEW FILE \u2014 New module. Owns profile.json metadata: DEFAULT_SPEAKER_TEST_TEXT, _infer_profile_engine, get_profile_engine, profile_has_custom_test_text, get_speaker_settings, update_speaker_settings, _get_minimal_save_metadata, normalize_profile_metadata, normalize_base_profiles. Imports speakers_paths (paths -> settings is the one-directional dependency)."
       ]
     },

@@ -500,7 +500,6 @@
         "frontend/src/pages/ChapterEditor/components/VoiceProfileSelect.tsx",
         "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx",
         "frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx",
-        "frontend/src/pages/VoiceLab/components/TestSection.tsx",
         "frontend/src/pages/Voices/VoicesPage.tsx",
         "frontend/src/pages/Voices/components/NarratorCard.tsx",
         "frontend/src/pages/Voices/components/VariantEditor.tsx",
@@ -554,10 +553,22 @@
     },
     "frontend/src/utils/audio/qualityCheck.ts": {
       "purpose": "New. checkSampleQuality(audioBuffer) returns { ok, durationSeconds, hasClipping, isSilent, message? }: duration floor (1s), peak-amplitude clipping check (>=0.98 full scale), RMS-based silence check (",
-      "exports": [],
+      "exports": [
+        {
+          "name": "checkSampleQuality",
+          "kind": "function"
+        },
+        {
+          "name": "QualityVerdict",
+          "kind": "type"
+        }
+      ],
       "calls": [],
-      "called_by": [],
+      "called_by": [
+        "frontend/src/pages/VoiceLab/components/record/RecordControls.tsx"
+      ],
       "notes": [
+        "2026-07-16 (owner-requested): the clipping branch of checkSampleQuality() now returns ok:true (with hasClipping:true and a warning message) instead of ok:false, so a clipped take can still be Kept (with a visible warning) rather than being unkeepable. Duration and silence checks remain unchanged hard blocks (ok:false).",
         "2026-07-15: NEW FILE \u2014 New. checkSampleQuality(audioBuffer) returns { ok, durationSeconds, hasClipping, isSilent, message? }: duration floor (1s), peak-amplitude clipping check (>=0.98 full scale), RMS-based silence check (<0.02 RMS)."
       ]
     },

@@ -1168,7 +1168,7 @@
       "calls_inferred": []
     },
     "frontend/src/pages/VoiceLab/VoiceLabPage.tsx": {
-      "purpose": "Full-page voice workspace at /voices/:id",
+      "purpose": "Full-page voice workspace at /voices/:id. Overview (voice-level metadata) renders as a disclosure above VariantsTab, which is now the sole navigation surface (the Samples/Variants/Test tab shell was retired, round2 task008).",
       "exports": [
         {
           "name": "VoiceLabPage",
@@ -1177,20 +1177,24 @@
       ],
       "calls": [
         "frontend/src/api/index.ts",
-        "frontend/src/pages/VoiceLab/components/PhaseStepper.tsx",
-        "frontend/src/pages/VoiceLab/components/SamplesSection.tsx",
-        "frontend/src/pages/VoiceLab/components/TestSection.tsx",
-        "frontend/src/pages/VoiceLab/components/VariantsSection.tsx",
-        "frontend/src/pages/VoiceLab/components/VoiceIconControls.tsx",
-        "frontend/src/pages/Voices/components/MetadataEditorModal.tsx",
+        "frontend/src/pages/VoiceLab/components/VoiceDetailHeader.tsx",
+        "frontend/src/pages/VoiceLab/components/OverviewTab.tsx",
+        "frontend/src/pages/VoiceLab/components/VariantsTab.tsx",
+        "frontend/src/pages/VoiceLab/components/PublishToHuggingFaceModal.tsx",
+        "frontend/src/components/overlays/ConfirmModal.tsx",
+        "frontend/src/hooks/useVoiceManagement.ts",
         "frontend/src/pages/Voices/components/VoicePills.tsx",
-        "frontend/src/pages/Voices/voicePhase.ts",
         "frontend/src/types/index.ts"
       ],
       "called_by": [
         "frontend/src/app/App.tsx"
       ],
       "notes": [
+        "2026-07-15 (runaway-polling fix): `profiles` is now useMemo'd on (id, speakerProfiles) instead of an inline .filter() -- the unmemoized version produced a new array reference every render, which useVoiceManagement's fetch effect (dependency on that array's identity) treated as \"profiles changed\", triggering fetch -> setState -> rerender -> refetch forever against /api/speakers.",
+        "2026-07-16 (user-reported): the Samples/Build/Test/Ready PhaseStepper (and rebuild-required alert) moved off this page and into VariantEditor -- each variant has its own build status, a single voice-level stepper was misleading.",
+        "2026-07-16 (critique follow-up): VoiceDetailHeader consolidated into a single overflow ActionMenu (Set default/Export/Publish, divider, Delete); Play preview control dropped entirely; voice delete now routes through requestConfirm/ConfirmModal instead of window.confirm; Overview disclosure's default open/collapsed state computed once per voice from metadata completeness.",
+        "2026-07-15 (round2 task008, 'retire tabs'): removed activeTabId/preselectedTestVariant state, the detailTabs array, and the VoiceDetailTabs mount entirely. VariantsTab is now the only navigation surface below the Overview disclosure (task007). onEditTestText/handleSaveVoiceSettings plumbing later removed by task009 once Script stopped touching selection.",
+        "2026-07-15 (round2 task007): Overview content mounted as a standalone <details open>/<summary>Voice details</summary> disclosure above the (then still-present) tab shell instead of as a tabpanel.",
         "2026-07-15: Wires VariantsTab as the Variants tabpanel's content. Adds real requestConfirm/confirmConfig state + a rendered ConfirmModal, and calls useVoiceManagement(onRefresh, profiles, requestConfirm, jobs) for real buildingProfiles/handleBuildNow/handleUpdateSettings instead of carrying forward the pre-task-001 stub props. Derives the default variant (getDefaultVoiceProfileName) for the promoted Voice Settings panel and threads its settings/isSaving/onSave state. `jobs` prop is now read directly (previously renamed `_jobs` and unused pre-task-004).",
         "2026-07-15: Lifted activeTabId state, passed as VoiceDetailTabs' controlled activeTabId/onTabChange. Wired TestTab as the Test tabpanel (profiles/engines/testProgress/jobs/onTest/onRefresh/voiceName/attributes). Wired VariantsTab's onEditTestText={() => setActiveTabId('test')}. Replaced remaining _testProgress-underscore stub with the real testProgress/jobs props (now read by TestTab).",
         "2026-07-15: Imports SamplesTab and wires it as the Samples tabpanel's `content` in the `detailTabs` array (replacing the placeholder paragraph), passing the same `profiles`/`onRefresh` the page already had in scope. Updated the surrounding placeholder-tabs comment to reflect that Samples is no longer a placeholder (Overview/Variants/Test still are, per tasks 002/004/005).",
@@ -1219,9 +1223,10 @@
         "frontend/src/pages/Voices/voicePhase.ts"
       ],
       "called_by": [
-        "frontend/src/pages/VoiceLab/VoiceLabPage.tsx"
+        "frontend/src/pages/Voices/components/VariantEditor.tsx"
       ],
       "notes": [
+        "2026-07-16 (user-reported): caller moved from VoiceLabPage.tsx (a single voice-level stepper computed from whichever profile resolved as 'active') to VariantEditor.tsx (each variant now renders its own stepper via getVoicePhase([profile], ...)).",
         "2026-07-14: PHASE_INDEX now maps 'building' to the same index as 'build' (required by the VoicePhase union change)."
       ],
       "calls_inferred": [
@@ -1251,32 +1256,8 @@
         "pages/Voices/components/SampleManager"
       ]
     },
-    "frontend/src/pages/VoiceLab/components/TestSection.tsx": {
-      "purpose": "Test section: variant/ref-sample selectors, script input, generate, progress, playback",
-      "exports": [
-        {
-          "name": "TestSection",
-          "kind": "component"
-        }
-      ],
-      "calls": [
-        "frontend/src/store/playerBus.ts",
-        "frontend/src/types/index.ts",
-        "frontend/src/utils/voiceProfiles.ts"
-      ],
-      "called_by": [
-        "frontend/src/pages/VoiceLab/VoiceLabPage.tsx"
-      ],
-      "notes": [
-        "2026-07-15: Added optional onActiveProfileChange?: (profile) => void prop, fired via useEffect keyed on the selected variant's name -- lets TestTab keep its folded-in ScriptEditor fields in sync with whichever variant the 'Variant' dropdown has selected. No change to existing behavior/props otherwise."
-      ],
-      "calls_inferred": [
-        "store/playerBus#*",
-        "utils/voiceProfiles#*"
-      ]
-    },
     "frontend/src/pages/VoiceLab/components/VariantsSection.tsx": {
-      "purpose": "Variants section under Voice Lab: one VariantEditor per profile + add-variant button",
+      "purpose": "Renders VariantSwitcher (task008) + exactly ONE VariantEditor for the selected variant (not one VariantEditor stacked per profile, fixed by round2 task009/tagging-ia task009 -- the root finding every design-critique reviewer converged on). Owns selectedVariantName state (default is_variant_default then profiles[0], auto-selects newly-added variants, falls back sensibly when the selected variant disappears), and computes visibleProfiles by applying VariantFilterBar's active performance_tags filters (rail mode only, >4 variants).",
       "exports": [
         {
           "name": "VariantsSection",
@@ -1285,40 +1266,26 @@
       ],
       "calls": [
         "frontend/src/pages/Voices/components/VariantEditor.tsx",
+        "frontend/src/pages/Voices/components/VariantSwitcher.tsx",
+        "frontend/src/pages/Voices/components/VariantFilterBar.tsx",
         "frontend/src/types/index.ts"
       ],
       "called_by": [
         "frontend/src/pages/VoiceLab/VoiceLabPage.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-15 (round2 task009): dropped the onEditTestText prop (no longer forwarded to VariantEditor); added an attributes passthrough prop for the Script panel's test-text seeding.",
+        "2026-07-15 (round2 task008): added optional controlled-selection props (selectedVariantName/onSelectedVariantChange) alongside existing uncontrolled internal state; added a stable sort (is_variant_default first) applied before profiles are passed to VariantSwitcher.",
+        "2026-07-15 (ARIA remodel doc-only): updated the stale INV-SWITCHER-UNCHANGED reference -- superseded, see VariantSwitcher.tsx's file header.",
+        "2026-07-15 (task010): added activeFilters state + STRIP_THRESHOLD=4 local constant (kept in sync with VariantSwitcher's own internal threshold); computes visibleProfiles (OR-within-facet) and isStrip; renders VariantFilterBar above VariantSwitcher only when !isStrip; auto-selects visibleProfiles[0] if the selected variant is filtered out.",
+        "2026-07-15 (task009 rewrite): rewritten from 'map every profile to a stacked VariantEditor' into 'render VariantSwitcher + exactly one VariantEditor', owning selectedVariantName state (pattern reimplemented from the retired NarratorCard.tsx). handleSetDefault POSTs to /api/speaker-profiles/{name}/variants/{variant}/set-default then onRefresh()."
+      ],
       "calls_inferred": [
         "pages/Voices/components/VariantEditor"
       ]
     },
-    "frontend/src/pages/VoiceLab/components/VoiceIconControls.tsx": {
-      "purpose": "Header controls for voice icon: upload + copy icon prompt",
-      "exports": [
-        {
-          "name": "VoiceIconControls",
-          "kind": "component"
-        }
-      ],
-      "calls": [
-        "frontend/src/api/index.ts",
-        "frontend/src/pages/VoiceLab/iconPrompt.ts",
-        "frontend/src/types/index.ts"
-      ],
-      "called_by": [
-        "frontend/src/pages/VoiceLab/VoiceLabPage.tsx"
-      ],
-      "notes": [],
-      "calls_inferred": [
-        "api#uploadVoiceIcon",
-        "pages/VoiceLab/iconPrompt#buildIconPrompt"
-      ]
-    },
     "frontend/src/pages/VoiceLab/iconPrompt.ts": {
-      "purpose": "Pure deterministic icon prompt builder from VoiceMetadata (clipboard only)",
+      "purpose": "Pure deterministic icon prompt builder from VoiceMetadata (clipboard only, no API call). Walks core then extended attributes + free tags into a keyword string; since 2026-07-16 first checks findMatchingArchetype(attrs) (shared with the recording cue card's suggestRecordingPrompt) and, on a close/exact match, leads the prompt with that archetype's hand-authored appearance_description instead of raw keywords, appending the keyword/description walk as supporting detail. Falls back to the prior raw-keyword (or name-only) prompt when nothing matches closely.",
       "exports": [
         {
           "name": "buildIconPrompt",
@@ -1326,12 +1293,14 @@
         }
       ],
       "calls": [
-        "frontend/src/types/index.ts"
+        "frontend/src/types/index.ts",
+        "frontend/src/pages/Voices/components/metadata/recordingPromptSuggester.ts"
       ],
       "called_by": [
-        "frontend/src/pages/VoiceLab/components/VoiceIconControls.tsx"
+        "frontend/src/pages/VoiceLab/components/VoiceDetailHeader.tsx"
       ],
       "notes": [
+        "2026-07-16 (user-reported gap): now leads with the matched archetype's appearance_description (via the shared findMatchingArchetype) instead of only ever concatenating raw attribute keywords -- appearance_description exists specifically for visual/appearance guidance and was previously unused here.",
         "no API calls"
       ],
       "calls_inferred": []
@@ -1543,13 +1512,31 @@
       ]
     },
     "frontend/src/pages/VoiceLab/components/record/ArchetypePicker.tsx": {
-      "purpose": "New component. Reduced picker exposing ONLY class/gender/age/pace (OneSelect) and tone/timbre (ManySelect) -- the 6 fields scoreArchetype() actually uses -- reusing the existing OneSelect/ManySelect c",
-      "exports": [],
-      "calls": [],
-      "called_by": [],
+      "purpose": "Reduced pre-recording attribute picker exposing ONLY the 6 fields recordingPromptSuggester.ts's scoreArchetype() actually uses (class/gender/age/tone/timbre/pace) -- not the full 11-field taxonomy MetadataEditorModal exposes (accent/language/style/use_case/quality are confirmed unused by the matcher). Reuses OneSelect/ManySelect + getSection() from taxonomy.ts for visual/behavioral consistency with the metadata editor, plus (2026-07-16) an ArchetypeQuickPick combobox above the 6 fields that overwrites all of them at once from a chosen archetype. Ends with a Skip button (onSkip) to bypass tagging and get a generic prompt.",
+      "exports": [
+        {
+          "name": "ArchetypePicker",
+          "kind": "component"
+        },
+        {
+          "name": "ArchetypeAttrs",
+          "kind": "type"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/Voices/components/metadata/taxonomy.ts",
+        "frontend/src/pages/Voices/components/metadata/OneSelect.tsx",
+        "frontend/src/pages/Voices/components/metadata/ManySelect.tsx",
+        "frontend/src/pages/Voices/components/metadata/ArchetypeQuickPick.tsx"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/components/VariantEditor.tsx"
+      ],
       "notes": [
-        "2026-07-15: NEW FILE \u2014 New component. Reduced picker exposing ONLY class/gender/age/pace (OneSelect) and tone/timbre (ManySelect) -- the 6 fields scoreArchetype() actually uses -- reusing the existing OneSelect/ManySelect components and getSection() lookup from Voices/components/metadata/taxonomy.ts. Includes a Skip button (onSkip callback)."
-      ]
+        "2026-07-16 (owner-requested): added ArchetypeQuickPick above the 6 fields -- picking an archetype overwrites all of ONE_FIELDS+MANY_FIELDS at once (class/gender/age/pace via OneSelect, tone/timbre via ManySelect), a fast starting point before fine-tuning individual fields for this recording session.",
+        "2026-07-15 (task 007, voice-card-consolidation, P7): NEW FILE."
+      ],
+      "calls_inferred": []
     },
     "frontend/src/pages/VoiceLab/components/record/RecordingCueCard.tsx": {
       "purpose": "New component. Calls suggestRecordingPrompt(attrs) unmodified. Since suggestRecordingPrompt() returns null for the true zero-selection case (hasMeaningfulAttrs gate) -- distinct from composeFallback()",
@@ -1560,24 +1547,13 @@
         "2026-07-15: NEW FILE \u2014 New component. Calls suggestRecordingPrompt(attrs) unmodified. Since suggestRecordingPrompt() returns null for the true zero-selection case (hasMeaningfulAttrs gate) -- distinct from composeFallback(), which only runs once some attrs are set but none score a close match, and always returns a real prompt -- this component supplies its own GENERIC_SKIP_PROMPT/GENERIC_SKIP_DIRECTION strings for that null case so the card never renders empty."
       ]
     },
-    "frontend/src/pages/VoiceLab/components/SamplesTab.tsx": {
-      "purpose": "Added an Upload | Record mode toggle (role=tablist). Upload mode is unchanged (renders SamplesSection). Record mode renders ArchetypePicker (state-lifted ArchetypeAttrs) + RecordingCueCard, with a Ski",
-      "exports": [],
-      "calls": [],
-      "called_by": [],
-      "notes": [
-        "2026-07-15: New thin wrapper component: renders a `samples-tab` div containing a comment marking the future Record-mode toggle insertion point, then `<SamplesSection {...props} />`. Props are exactly `SamplesSectionProps` (profiles, onRefresh), unchanged.",
-        "2026-07-15: Swaps the bare <RecordControls /> for <TakeManager onFinalize={uploadFiles} />, wiring the existing useVariantActions uploadFiles sink (unchanged) as the finalize callback.",
-        "2026-07-15: Mounts <RecordControls /> below RecordingCueCard in Record mode. Adds a Space-key handler on the record-mode container that clicks the record/stop button via a data-record-toggle-btn selector (covers the container beyond the button's own native Space handling, e.g. right after using the archetype picker); ignored when focus is on a form control. Enter=keep/R=retake are left for task 009 to add to this same keydown surface.",
-        "2026-07-15: NEW FILE \u2014 Added an Upload | Record mode toggle (role=tablist). Upload mode is unchanged (renders SamplesSection). Record mode renders ArchetypePicker (state-lifted ArchetypeAttrs) + RecordingCueCard, with a Skip flag that switches the cue card to the zero-selection generic prompt path. Leaves a comment marking where task 008's capture UI (record/stop/level-meter) will mount below the cue card."
-      ]
-    },
     "frontend/src/pages/VoiceLab/components/record/RecordControls.tsx": {
       "purpose": "New component wrapping useMicRecorder. Record/stop button's accessible name (aria-label) changes with state (not just visual icon). Explicit one-shot aria-live announcements for 'Recording started' / ",
       "exports": [],
       "calls": [],
       "called_by": [],
       "notes": [
+        "2026-07-16 (owner-requested): the captured-state verdict line now renders an AlertTriangle icon + a dismissible clipping warning (via qualityCheck.ts's hasClipping) when hasClipping && ok, instead of always collapsing to 'Quality check passed.' when ok is true. Keep's disabled={!verdict?.ok} falls out correctly since clipping no longer sets ok:false.",
         "2026-07-15: Adds the captured-state UI on top of task 008's record/stop primitive: decodes the captured blob and runs checkSampleQuality, shows the verdict (pass/fail + reason), a 'Play back' control, and the Keep/Retake button group that now actually calls onKeep(blob)/onRetake() (previously accepted-but-unused props) then rec.reset(). Implements this task's two owned INV-REC-4 focus transitions: stopped->playback (focus moves to the Play back button on activation) and playback->keep/retake (focus lands on the Keep button on audio onEnded/onPause).",
         "2026-07-15: NEW FILE \u2014 New component wrapping useMicRecorder. Record/stop button's accessible name (aria-label) changes with state (not just visual icon). Explicit one-shot aria-live announcements for 'Recording started' / 'Recording stopped, N seconds captured' / permission-denied, plus a SEPARATE throttled (2.5s) aria-live channel driven by its own polling interval (not an effect keyed on levelDb, since a sustained near-constant level wouldn't retrigger a value-change effect) that does real silence detection over a rolling window of recent level readings vs a floor threshold. Explicit 'why we need this' explanation rendered before any getUserMedia call (visible in idle/permission-denied). Focus returns to the record button on the record->stopped transition (this task's slice of INV-REC-4 -- task 009 owns the other two transitions, stopped->playback and playback->keep/retake). onKeep/onRetake are accepted per the task's target shape but intentionally unused here (task 009's scope)."
       ]
@@ -1591,53 +1567,91 @@
         "2026-07-15: NEW FILE \u2014 New. Wraps RecordControls; onKeep appends a take (never replaces in place), onRetake is a no-op at this layer (RecordControls already reset itself, no prior take touched), per-take Discard button removes only that take. Enter (keep)/R (retake) keyboard shortcuts wired at the container level, deferring to the actual Keep/Retake buttons so the quality gate is respected. Finalize transcodes every kept take to WAV and assigns each a unique filename (timestamp + index + random suffix) before calling the existing uploadFiles sink unchanged."
       ]
     },
-    "frontend/src/pages/VoiceLab/components/VoiceDetailTabs.tsx": {
-      "purpose": "New generic ARIA tabs primitive. No existing tabs primitive was found under components/ui/ (re-checked, none). Relies on this repo's existing global keyboard-focus-visible ring (theme/base.css button:",
-      "exports": [],
-      "calls": [],
-      "called_by": [],
-      "notes": [
-        "2026-07-15: Added optional controlled-mode props (activeTabId, onTabChange), backward-compatible with the existing fully-uncontrolled mode (no existing callers/tests pass these, all continue to pass). Lets VoiceLabPage switch tabs programmatically from outside the tablist.",
-        "2026-07-15: NEW FILE \u2014 New generic ARIA tabs primitive. No existing tabs primitive was found under components/ui/ (re-checked, none). Relies on this repo's existing global keyboard-focus-visible ring (theme/base.css button:focus-visible/[tabindex]:focus-visible) rather than inventing a new focus-ring convention -- confirmed no local CSS suppresses it for the new .voice-detail-tabs__tab class."
-      ]
-    },
     "frontend/src/pages/VoiceLab/components/VoiceDetailHeader.tsx": {
-      "purpose": "New header component: avatar/name/edit-metadata/pills/description (relocated unchanged from VoiceLabPage.tsx), primary actions row (Play preview + Set as default -- new, self-contained, mirroring Voic",
-      "exports": [],
-      "calls": [],
-      "called_by": [],
+      "purpose": "Voice Lab detail header: avatar (upload/replace button, drag-and-drop target, copy-prompt button stacked below it rather than beside -- so the icon-actions column never reads wider than the avatar circle above it), name, pills, description, and a single overflow ActionMenu (Set default/Export/Publish, divider, Delete) pinned to the identity row's top-right via margin-left: auto (not a sibling stacking below the block). The per-variant status strip and PhaseStepper that used to live here moved to VariantEditor (2026-07-16, per-variant, not voice-level). Icon <img> src is cache-busted with a `?v=` version counter bumped on every successful upload, so a replaced icon is re-fetched immediately instead of showing the browser's cached image until reload.",
+      "exports": [
+        {
+          "name": "VoiceDetailHeader",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/Voices/components/VoicePills.tsx",
+        "frontend/src/components/ui/ActionMenu.tsx",
+        "frontend/src/pages/Voices/components/metadata/IconUpload.tsx",
+        "frontend/src/pages/Voices/components/metadata/IconCropModal.tsx",
+        "frontend/src/pages/VoiceLab/iconPrompt.ts",
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/VoiceLab/VoiceLabPage.tsx"
+      ],
       "notes": [
+        "2026-07-16 (user-reported): fixed icon-not-refreshing-after-upload -- effectiveIconUrl resolved to the identical `/api/voices/{id}/icon` string before and after an upload, so the <img>'s src never changed and the browser kept the cached image until a full reload. Added an iconVersion counter (bumped in useIconUpload's onSuccess, reset on voiceId change) appended as a `?v=` cache-busting query param. Revert-checked (new test fails pre-fix, passes post-fix).",
+        "2026-07-16 (user-reported): the overflow ActionMenu was a sibling of .voice-detail-header__identity, stacking below the whole avatar/name/pills/description block in normal flow. Moved inside the identity row's flex container with margin-left: auto + align-self: flex-start so it sits pinned top-right, matching VoiceCatalogCard's kebab convention. Also stacked the icon's copy-prompt button below Upload/Replace instead of beside it (the icon-actions row was wider than the avatar circle, so the avatar-block column -- which centers on its widest child -- read as 'not quite far left'); class/gender/age comboboxes in the sibling OverviewTab laid out side by side in the same commit.",
+        "2026-07-16 (user-reported): the per-variant status strip (build state + rebuild-required per profile) and PhaseStepper were removed from this header entirely and relocated onto VariantEditor -- each variant owns its own build status, a shared voice-level list/stepper was misleading.",
+        "2026-07-16 (critique follow-up H-1/H-2/H-3 partial): removed the Play preview button and its usePlayerBus wiring entirely (per-variant audition now covered by VariantSwitcher rows/VariantEditor). Replaced the 4 remaining action buttons (Set default/Export/Publish/Delete) with a single overflow ActionMenu, matching VoiceCatalogCard's ordering convention.",
+        "2026-07-15 (round2 task003): folded IconUpload out of OverviewTab onto this header's avatar directly -- upload/replace button under it, drag-and-drop onto the image itself, via the new useIconUpload hook.",
         "2026-07-15: Removed the onEditMetadata prop and the 'Edit metadata' button (Pencil icon) -- metadata is now always editable inline in the Overview tab, so there is nothing left for the header trigger to open. Documented in the file's header comment.",
         "2026-07-15: NEW FILE \u2014 New header component: avatar/name/edit-metadata/pills/description (relocated unchanged from VoiceLabPage.tsx), primary actions row (Play preview + Set as default -- new, self-contained, mirroring VoiceCatalogCard.tsx/useVoiceManagement.ts's existing patterns; Export bundle/Publish to Hugging Face/Delete voice -- relocated unchanged from the old footer), and a new persistent status strip (INV-VC-4) built from SpeakerProfile.is_ready/is_rebuild_required/preview_url only -- no timestamp is shown since SpeakerProfile has no persisted last-test-timestamp field (checked api/types.ts) and fabricating one was rejected."
       ]
     },
     "frontend/src/pages/VoiceLab/components/OverviewTab.tsx": {
-      "purpose": "New component: same state shape/handlers as MetadataEditorModal (attrs, tags, description, languages, iconPath, saving, error, iconError), same handleSave -> api.patchVoiceMetadata(voice.id, patch), s",
-      "exports": [],
-      "calls": [],
-      "called_by": [],
+      "purpose": "Voice-level metadata editor (class/gender/age as SearchableSelect single-select comboboxes; accent/pace -- pace until 2026-07-16 -- via OneSelect; description/languages/tags), same explicit-Save shape as MetadataEditorModal. tone/timbre/pace moved to per-variant VariantEditor editing (2026-07-16); this editor no longer surfaces them.",
+      "exports": [
+        {
+          "name": "OverviewTab",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts",
+        "frontend/src/pages/Voices/components/metadata/taxonomy.ts",
+        "frontend/src/pages/Voices/components/metadata/OneSelect.tsx",
+        "frontend/src/pages/Voices/components/metadata/TagAutocompleteInput.tsx",
+        "frontend/src/pages/Voices/components/VoicePills.tsx",
+        "frontend/src/components/forms/SearchableSelect.tsx",
+        "frontend/src/pages/Voices/components/metadata/TagsInput.tsx",
+        "frontend/src/pages/Voices/components/metadata/ArchetypeQuickPick.tsx",
+        "frontend/src/utils/toast.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/VoiceLab/VoiceLabPage.tsx"
+      ],
       "notes": [
+        "2026-07-16 (user-reported): CLASS/GENDER/AGE comboboxes now lay out side by side in a wrapping flex row (flex: '1 1 140px') instead of stacking full-width -- they read unnecessarily wide as a full-width stack.",
+        "2026-07-16: pace removed from oneFields, tone/timbre removed from manyFields (moved to per-variant VariantEditor editing). handleArchetypePick() now only applies class/gender/age from an archetype pick.",
+        "2026-07-15 (round2 task003): removed the standalone ICON section (IconUpload mount + iconPath/iconError state) -- icon upload relocated onto VoiceDetailHeader's avatar.",
+        "2026-07-15 (round2 task006): class/gender/age converted from OneSelect chip-rows to SearchableSelect single-select comboboxes (one-required-per-voice-taxonomy.json); accent/pace (pre-2026-07-16) stayed on OneSelect.",
+        "2026-07-15 (round2 plan-coverage F3.1): inline CLASS/GENDER/AGE combobox header labels tinted to their pill hue via categoryForAttributeKey.",
+        "2026-07-15 (voice-variant-tagging-and-ia task001): threads voice metadata into IconUpload's copy-prompt button (superseded by task003's relocation above).",
+        "Flagged (round2 task007, not yet fixed as of that task): a stale-fallback-id bug can permanently disable Save via requiredMissing when VoiceLabPage's metadata list hydrates asynchronously after first paint -- see docs/code-map/queue history / design-critique follow-ups for status.",
         "2026-07-15: NEW FILE \u2014 New component: same state shape/handlers as MetadataEditorModal (attrs, tags, description, languages, iconPath, saving, error, iconError), same handleSave -> api.patchVoiceMetadata(voice.id, patch), same requiredMissing gating. Renders IconUpload, description textarea, languages input, OneSelect x5, ManySelect x6, TagsInput, error banner, and an explicit Save button -- no dialog chrome, no useFocusTrap, no Escape handling. Explicit-Save (not autosave-on-change) was chosen and documented in the file's header comment: no debounce infra exists, autosave-per-field-change would spam PATCH calls, and would lose the single commit point needed to surface 422 errors cleanly."
       ]
     },
-    "frontend/src/pages/VoiceLab/components/TestTab.tsx": {
-      "purpose": "New: composes TestSection (unchanged, relocated) with ScriptEditor (reused directly, no Drawer wrapper) sharing the same 'active profile' via TestSection's new onActiveProfileChange callback. Implemen",
-      "exports": [],
-      "calls": [],
-      "called_by": [],
-      "notes": [
-        "2026-07-15: NEW FILE \u2014 New: composes TestSection (unchanged, relocated) with ScriptEditor (reused directly, no Drawer wrapper) sharing the same 'active profile' via TestSection's new onActiveProfileChange callback. Implements its own save/reset handlers (POST /api/speaker-profiles/{name}/settings, /reset-test-text, /variant-name, /rename) mirroring useVoicesTabActions.ts's handleSaveTestText/handleResetTestText exactly, since VoiceLabPage doesn't share that hook (scoped to the legacy VoicesPage catalog tab)."
-      ]
-    },
     "frontend/src/pages/VoiceLab/components/VariantsTab.tsx": {
-      "purpose": "Un-omitted onEditTestText from VariantsTabProps (previously Omit<VariantsSectionProps, 'onEditTestText'> with a TODO(task 005) comment left by task 004) so it now passes through to VariantsSection/Var",
-      "exports": [],
-      "calls": [],
-      "called_by": [],
+      "purpose": "Thin wrapper around VariantsSection, kept as its own file so future voice-level (not variant-scoped) additions have a natural home below the Overview disclosure.",
+      "exports": [
+        {
+          "name": "VariantsTab",
+          "kind": "component"
+        },
+        {
+          "name": "VariantsTabProps",
+          "kind": "type"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/VoiceLab/components/VariantsSection.tsx"
+      ],
+      "called_by": [
+        "frontend/src/pages/VoiceLab/VoiceLabPage.tsx"
+      ],
       "notes": [
-        "2026-07-15: New composition wrapper: renders VariantsSection plus a promoted VoiceSettingsPanel (edits the voice group's default variant's settings, filtered to the active engine's declared synthesis_settings on save).",
-        "2026-07-15: NEW FILE \u2014 Un-omitted onEditTestText from VariantsTabProps (previously Omit<VariantsSectionProps, 'onEditTestText'> with a TODO(task 005) comment left by task 004) so it now passes through to VariantsSection/VariantEditor's 'Script' button."
-      ]
+        "2026-07-15 (round2 task009): slimmed to a thin VariantsSection wrapper -- removed the promoted default-variant-only VoiceSettingsPanel (now redundant with VariantEditor's own per-variant version) and all its settings-related props.",
+        "2026-07-15 (task004, original creation): also promoted a VoiceSettingsPanel for the voice's default variant, since per-voice plugin settings had no other reachable home at the time."
+      ],
+      "calls_inferred": []
     }
   }
 }

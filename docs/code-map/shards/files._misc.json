@@ -326,9 +326,8 @@
         "frontend/src/pages/Settings/components/SettingsComponents.tsx",
         "frontend/src/pages/VoiceLab/VoiceLabPage.tsx",
         "frontend/src/pages/VoiceLab/components/SamplesSection.tsx",
-        "frontend/src/pages/VoiceLab/components/TestSection.tsx",
         "frontend/src/pages/VoiceLab/components/VariantsSection.tsx",
-        "frontend/src/pages/VoiceLab/components/VoiceIconControls.tsx",
+        "frontend/src/pages/VoiceLab/components/VoiceDetailHeader.tsx",
         "frontend/src/pages/VoiceLab/iconPrompt.ts",
         "frontend/src/pages/Voices/VoicesPage.tsx",
         "frontend/src/pages/Voices/components/MetadataEditorModal.tsx",
@@ -336,6 +335,8 @@
         "frontend/src/pages/Voices/components/SampleManager.tsx",
         "frontend/src/pages/Voices/components/ScriptEditor.tsx",
         "frontend/src/pages/Voices/components/VariantEditor.tsx",
+        "frontend/src/pages/Voices/components/VariantFilterBar.tsx",
+        "frontend/src/pages/Voices/components/VariantSwitcher.tsx",
         "frontend/src/pages/Voices/components/VoiceCatalogCard.tsx",
         "frontend/src/pages/Voices/components/VoiceModals.tsx",
         "frontend/src/pages/Voices/components/VoicePills.tsx",
@@ -355,6 +356,8 @@
         "frontend/src/utils/voiceProfiles.ts"
       ],
       "notes": [
+        "2026-07-15: Added SpeakerProfile.is_variant_default?: boolean and performance_tags?: string[] (per-variant fields, distinct from the pre-existing voice-level is_default global-app-default field).",
+        "2026-07-16: Added tone?/timbre?/pace? to SpeakerProfile (per-variant, mirrors backend move off voice-level VoiceAttributes).",
         "2026-07-12: Settings gains huggingface_token?: string (redacted sentinel, documented as such).",
         "no internal deps, pure type definitions",
         "voice taxonomy per design-docs/specs/voice-taxonomy.json v1.0",
@@ -681,6 +684,7 @@
       "calls": [],
       "called_by": [],
       "notes": [
+        "2026-07-16 (owner-requested): added a test that picking 'Warm Storyteller' from the new quick-pick fills all 6 fields (asserted via pressed OneSelect/ManySelect buttons) and updates the connected RecordingCueCard's prompt to that archetype's own curated text.",
         "2026-07-15: NEW FILE \u2014 New tests: picker renders exactly the 6 matcher-relevant field labels and not the other 5 taxonomy sections; Skip button fires onSkip; selecting a value (Class=Human) updates a connected RecordingCueCard's rendered prompt away from the generic skip prompt."
       ]
     },
@@ -744,6 +748,8 @@
       "calls": [],
       "called_by": [],
       "notes": [
+        "2026-07-16 (user-reported): added tests for the card-body click-to-navigate affordance -- clicking the body's dead space calls onNavigateToLab/onToggleSelect (select mode), while clicking a nested control (Play preview) does not double-fire navigation.",
+        "2026-07-16 (owner-requested): CTA-by-phase tests rewritten around the retired separate CTA button -- READY profile's avatar button is labeled 'Play preview' (enabled); no-samples profile's play button is present but disabled; Build is reachable via the avatar's aria-label switching to 'Build voice' or the kebab's explicit item.",
         "2026-07-15: NEW FILE \u2014 Removed assertions on the deleted menu items; added coverage for Set Default as a direct action (enabled/disabled state) and the slimmed 3-item overflow menu; kept an UntaggedBadge->onEditMetadata regression test."
       ]
     },
@@ -762,6 +768,7 @@
       "calls": [],
       "called_by": [],
       "notes": [
+        "2026-07-16 (owner-requested): 'Build voice' assertion switched from findByText (a standalone always-visible CTA button, since retired) to findByRole('button', {name: 'Build voice'}) -- the avatar's play button now carries that aria-label when the profile isn't built yet.",
         "2026-07-15: NEW FILE \u2014 Replaced the two ScriptEditor/VoiceSettingsPanel drawer-reachability tests with tests asserting those items (and Edit Metadata/Open in Voice Lab) are absent from the catalog card overflow menu, and that Set Default is directly reachable."
       ]
     },
@@ -774,21 +781,13 @@
         "2026-07-15: NEW FILE \u2014 Deleted -- its sole subject (handleSaveTestText) was removed as dead code."
       ]
     },
-    "frontend/tests/unit/pages/VoiceLab/components/VoiceDetailTabs.test.tsx": {
-      "purpose": "New test file (8 tests): full ARIA structure assertions, real ArrowRight/ArrowLeft/Home/End fireEvent.keyDown on rendered tab buttons asserting document.activeElement/tabIndex/aria-selected (including",
-      "exports": [],
-      "calls": [],
-      "called_by": [],
-      "notes": [
-        "2026-07-15: NEW FILE \u2014 New test file (8 tests): full ARIA structure assertions, real ArrowRight/ArrowLeft/Home/End fireEvent.keyDown on rendered tab buttons asserting document.activeElement/tabIndex/aria-selected (including wrap-around), click activation, and the aria-live announcement text on tab change."
-      ]
-    },
     "frontend/tests/unit/pages/VoiceLab/VoiceLabPage.test.tsx": {
       "purpose": "Removed the now-obsolete SamplesSection/VariantsSection/TestSection mocks and the test asserting their data-testids render (that behavior moved out of scope for this task). Added a test asserting the ",
       "exports": [],
       "calls": [],
       "called_by": [],
       "notes": [
+        "2026-07-16 (user-reported): 'keeps the status strip visible' test replaced -- now asserts the voice-level status strip is GONE (querySelector returns null) and that the per-variant PhaseStepper renders on the selected variant's own panel instead (role=list, 'voice setup progress').",
         "2026-07-15: Scoped the 'keeps the status strip visible after switching tabs' assertion to the header's .voice-detail-header__status-strip element instead of screen-wide getByText('Default'), since the Variants tab now renders real VariantEditor rows (which also show a 'Default' variant label) instead of a placeholder.",
         "2026-07-15: Added two tests: (1) Test tab renders TestSection's variant picker plus the folded-in ScriptEditor content (variant-name helper text, 'Suggest from voice qualities' button) and no longer shows a separate 'Edit preview script' link; (2) clicking the Variants tab's 'Script' button switches the active tab to Test (no dialog opens). R1 revert-check performed manually (temporarily reverted the Test-tabpanel wiring/onEditTestText prop back to the task-004 placeholder state) -- both new tests failed for the right reason, then passed again after restoring.",
         "2026-07-15: Replaced the 'opens MetadataEditorModal when Edit metadata is clicked' test with one asserting the Overview tab's fields (description, Save button) are visible inline by default and that no 'Edit metadata' button or dialog exists. Updated the tabs-placeholder-content test to assert the Overview description field instead of the retired 'Overview content coming soon.' text. Added api.patchVoiceMetadata to the module's api mock.",

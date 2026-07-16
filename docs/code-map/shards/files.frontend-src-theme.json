@@ -75,6 +75,7 @@
       "calls": [],
       "called_by": [],
       "notes": [
+        "2026-07-16 (owner-requested): added .player-bar-volume/.player-volume-slider styling (mute button + range input), matching the existing .player-progress-slider treatment but fixed-width.",
         "2026-07-10 (audio_player_completion_004 task 002): added the expandable tape-view CSS -- .player-tape-region (grow-upward, reduced-motion-safe), .tape/.tape-canvas/.tape-ruler/.tape-tick (WaveformTape.tsx), .nsp-minimap/.tape-minimap-* (WaveformTapeMinimap.tsx), .ns-size-*/.tape-zoom-* (WaveformTapeZoom.tsx, cover-slider chrome ported from the siteMockup demo). All new rules are token-based (INV-7).",
         "2026-07-11 waveform fixes: .player-bar position:fixed -> position:relative + flex-shrink:0 (docked, not overlay). Added .tape-zoom-row / .tape-zoom-icon; tape-region height budget raised (120->220, max 260) with a .tape-canvas min-height floor; .tape-motion-toggle spacing."
       ],
@@ -123,6 +124,15 @@
       "calls": [],
       "called_by": [],
       "notes": [
+        "2026-07-16 (user-reported, catalog-card layout rework, most-recent state): .voice-catalog-card__default-star is absolutely positioned again (top:8px/left:34px against .voice-catalog-card) after briefly sitting inline in the header row -- pinned back to the card's true top-left corner. .voices-catalog-grid minmax widened 220px->300px so the pill row (3 pills + '+N') fits one line without wrapping now that pills moved to a full-width row below the header. .voice-catalog-card__body gained cursor:pointer + a hover-underline on __name (card body is now click-to-navigate, not name-only).",
+        "2026-07-16 (user-reported): removed .voice-lab-page__stepper-row and the whole .voice-detail-header__status-strip/__status-item(--muted)/__status-variant/__status-detail/__status-icon--success/--warning rule set -- the voice-level PhaseStepper and per-profile status strip were deleted from VoiceLabPage/VoiceDetailHeader and relocated to VariantEditor (which reuses PhaseStepper's own styling, no new rules needed there).",
+        "2026-07-16 (user-reported): .voice-detail-header__icon-actions changed to flex-direction: column (copy-prompt button now stacks below Upload/Replace instead of beside it, so the row doesn't out-width the avatar circle above it); .voice-detail-header__actions gained margin-left: auto + align-self: flex-start + flex-shrink: 0 to pin the kebab to the identity row's top-right instead of stacking below as a block-level sibling.",
+        "2026-07-16: added .tag-multiselect__row/__control/__add-btn/__popover/__search/__options/__option/__empty rules for TagAutocompleteInput's plus-trigger+popover redesign; pre-existing .metadata-tags-input__* rules left in place (still used elsewhere).",
+        "2026-07-15 (task012 cleanup): added .voice-lab-section__add-variant-btn rule (Add-variant button sizing moved off one-off inline styles).",
+        "2026-07-15 (task010): added .variant-filter-bar rules.",
+        "2026-07-15 (round2 task009): added .variant-editor__script-panel/.variant-editor__record-mode; removed the now-dead .samples-tab__mode-toggle/.samples-tab__record-mode rules (SamplesTab-only, file since deleted).",
+        "2026-07-15 (round2 task005/002/plan-coverage F5.7): .voice-catalog-card__avatar 40px -> 56px; .voice-catalog-card__avatar-play-btn (base + 375px mobile override) both set to 44px (WCAG 2.5.5); replaced .voice-catalog-card__default-badge (text pill) with .voice-catalog-card__default-star; added .voice-catalog-card__menu and .voice-catalog-card__avatar-play-btn (opacity-gated hover/focus reveal, INV-FOCUS).",
+        "2026-07-15 (round2 task003): added .voice-detail-header__avatar-block/__icon-actions/__icon-btn layout rules, reusing existing .metadata-icon-upload__* classes.",
         "2026-07-15: Added .voice-detail-header/__identity/__actions/__delete-btn/__status-strip/__status-item(--muted)/__status-variant/__status-detail/__status-icon--success/--warning and .voice-detail-tabs/__list/__tab(--active)/__panel/__placeholder classes, following this file's existing voice-lab-* BEM-ish convention. No custom :focus-visible rule added -- relies on the existing global button:focus-visible ring.",
         "2026-07-15: Added .voice-catalog-card__set-default-btn styling to match the existing preview/CTA button sizing, including the touch-target media query bump.",
         "2026-07-15: Added minimal styling for the new samples-tab__mode-toggle, samples-tab__record-mode, archetype-picker, archetype-picker__skip-btn, and recording-cue-card(__prompt/__direction) classes, following the existing metadata-editor class conventions in this file.",
@@ -159,6 +169,7 @@
       "calls": [],
       "called_by": [],
       "notes": [
+        "2026-07-15 (task012 cleanup): added --cloud-tint-border (light + dark) so EngineBadge's cloud tone has a real border token, matching the existing --accent-tint-border convention.",
         "Not previously tracked as a files record; added 2026-07-09. Touched during the 2026-07-09 book-layout session (already reflected in map.json content per that session's own consolidation).",
         "2026-07-09 border-strong-token-gap-fix: added --border-strong (light: #c3cbdb, dark: #5a6480) next to --border/--border-muted -- closes a gap where components.css referenced this custom property (undefined until this fix) for the series-position pill border and the stepper's hover border-color.",
         "2026-07-10: Added `--z-drawer: 400` to the light/root token block (value matches the existing var(--z-drawer, 400) fallback already used by .mobile-nav-drawer in components.css), slotted between the ~300 dropdown tier and the ~1000+ modal/toast tier."

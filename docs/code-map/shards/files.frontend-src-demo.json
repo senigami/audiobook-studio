@@ -461,6 +461,7 @@
         "frontend/src/demo/stages/voiceLabStageDescriptor.tsx"
       ],
       "notes": [
+        "2026-07-15 (round2 task009): removed the now-nonexistent onEditTestText={noop} prop passed to NarratorCard (VariantEditor's interface no longer accepts it).",
         "all callbacks no-op, previews use silent WAV data-URI",
         "2026-07-10: Exported VoiceLabStageInner (was file-local) and removed the co-exported `voiceLabStage` descriptor object."
       ],

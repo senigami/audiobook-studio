@@ -670,6 +670,7 @@
         "frontend/src/pages/Voices/VoicesPage.tsx"
       ],
       "notes": [
+        "2026-07-16 (bug fix, owner-reported 'after I rebuild, the samples are still labeled as new'): merged two separate useEffects that both watched `jobs` into one. Previously the first (declared first) silently cleared a just-completed build job's buildingProfiles entry as a side effect of its own bookkeeping, so the second effect (which alone called onRefresh()) never saw the transition -- the profile list's is_new/is_rebuild_required flags never refreshed after a rebuild finished. The single merged effect now adds in-flight voice_build jobs and, on any terminal status, both clears buildingProfiles AND calls onRefresh() in the same pass.",
         "2026-07-14: handleDelete(name) no longer calls DELETE /api/speaker-profiles/{name} immediately; it schedules the request via setTimeout(TOAST_VISIBLE_MS) tracked in a pendingDeletesRef keyed by name, and emits a 'Deleted voice \"name\".' toast with an Undo action that clearTimeouts the pending request.",
         "2026-07-10: profile-settings save failure path now emits a user-visible toast (emitToast) in addition to console.error, on both non-ok response and thrown error. (Uncovered drift \u2014 no queue entry named this file; found via direct diff scan against synced_commit.)"
       ],
@@ -678,7 +679,7 @@
       ]
     },
     "frontend/src/hooks/useVoicesData.ts": {
-      "purpose": "Voice grouping, filtering, metadata projection for voice management UI",
+      "purpose": "Voice grouping, filtering (array-based OR-within-facet class/gender/age plus a free-form tag filter, AND-across-facets), metadata projection for voice management UI",
       "exports": [
         {
           "name": "useVoicesData",
@@ -693,6 +694,7 @@
         "frontend/src/pages/Voices/VoicesPage.tsx"
       ],
       "notes": [
+        "2026-07-15 (round2 task005): filter predicates changed from single-value equality to array-based OR-within-facet (classFilter.includes(...) etc.), plus a new matchesTags predicate. Combination stays AND across facets.",
         "2026-07-14: engineFilterOptions' 'all' chip label now uses activeVoices.length instead of activeSpeakerProfiles.length."
       ],
       "calls_inferred": [
@@ -738,6 +740,7 @@
         "frontend/src/pages/Voices/VoicesPage.tsx"
       ],
       "notes": [
+        "2026-07-15 (round2 task005): classFilter/genderFilter/ageFilter changed from string to string[]; added tagFilter/setTagFilter (string[]).",
         "2026-07-15: Removed editingProfile/testText/variantName/editingEngine/referenceSample/engineVoiceId/editingSettings/editSurface/isSavingText state and its sync effect -- only consumer was the removed drawer wiring.",
         "2026-07-09: Added `isVoiceSettingsOpen`/`setIsVoiceSettingsOpen` state, reset to false whenever `editingProfile` is cleared. Determines whether the shared editing session (editingProfile + its loaded testText/engine/settings/etc.) surfaces as the Script Editor drawer or the new Voice Settings drawer."
       ],
@@ -836,6 +839,30 @@
       "notes": [
         "2026-07-15: NEW FILE \u2014 New hook. getUserMedia request -> MediaRecorder lifecycle -> AudioContext/AnalyserNode level metering (RMS over time-domain samples, converted to dBFS, floored at -60dB) -> running elapsedMs timer. start()/stop()/reset() plus full teardown (stream tracks stopped, AudioContext closed, intervals cleared) on unmount."
       ]
+    },
+    "frontend/src/hooks/useVariantVersions.ts": {
+      "purpose": "Wraps api.listVoiceVersions/promoteVoiceVersion with load/error state; exposes versions/loading/error/refresh/promote. promote() calls the API then refresh()es on {status:'ok'}; falls back to [] when the response has no versions field.",
+      "exports": [
+        {
+          "name": "useVariantVersions",
+          "kind": "hook"
+        },
+        {
+          "name": "VoiceVersion",
+          "kind": "type"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/components/VersionAbPanel.tsx",
+        "frontend/src/pages/Voices/components/VersionHistoryPanel.tsx"
+      ],
+      "notes": [
+        "2026-07-15 (voice-variant version-history task007, NEW FILE): fetches versions via api.listVoiceVersions on mount/voiceName change."
+      ],
+      "calls_inferred": []
     }
   }
 }
