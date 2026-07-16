@@ -104,6 +104,25 @@ def test_get_audio_duration():
         assert d == 10.5
 
 
+def test_convert_to_wav_passes_timeout():
+    with patch("app.engines.audio_ops.subprocess.run") as mock_run:
+        mock_run.return_value.returncode = 0
+        rc = convert_to_wav(Path("in.mp3"), Path("out.wav"))
+        assert rc == 0
+        _, kwargs = mock_run.call_args
+        assert kwargs.get("timeout") == 300
+
+
+def test_convert_to_wav_surfaces_clean_error_on_timeout():
+    """BP-2: a wedged ffmpeg must never hang the caller forever — a
+    subprocess.TimeoutExpired must be caught and surfaced as a clean failure
+    (non-zero return code), not an unhandled exception."""
+    with patch("app.engines.audio_ops.subprocess.run") as mock_run:
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd="ffmpeg", timeout=300)
+        rc = convert_to_wav(Path("in.mp3"), Path("out.wav"))
+        assert rc != 0
+
+
 def test_create_temp_manifest_uses_system_temp_dir(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     manifest = _create_temp_manifest("out_", ".list.txt")

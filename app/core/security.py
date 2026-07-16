@@ -1,7 +1,7 @@
 import hmac
 import time
 import threading
-from typing import Dict, List
+from typing import Callable, Dict, List
 from fastapi import Security, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN, HTTP_429_TOO_MANY_REQUESTS
@@ -54,27 +54,70 @@ class SimpleRateLimiter:
       per-API-key bucketing.
     """
 
-    def __init__(self, requests_per_minute: int = 60):
+    def __init__(
+        self,
+        requests_per_minute: int = 60,
+        *,
+        time_fn: Callable[[], float] = time.time,
+        sweep_interval_seconds: float = 60.0,
+    ):
         self.requests_per_minute = requests_per_minute
         self._history: Dict[str, List[float]] = {}
         self._lock = threading.Lock()
+        self._time_fn = time_fn
+        # PERF-7: an IP that stops sending never calls check() with its own
+        # key again, so its stale timestamps would otherwise sit in
+        # `_history` forever (only the CALLING key's own list is trimmed
+        # above). `_sweep_interval_seconds` bounds how often the opportunistic
+        # sweep below scans every key.
+        self._sweep_interval_seconds = sweep_interval_seconds
+        self._last_sweep = self._time_fn()
 
     def check(self, key: str) -> bool:
         """Check if the given key (e.g. IP or token) is within limits."""
-        now = time.time()
+        now = self._time_fn()
         with self._lock:
-            if key not in self._history:
+            self._sweep_stale_keys(now)
+
+            history = self._history.get(key)
+            if history is not None:
+                # Filter timestamps to last 60 seconds
+                filtered = [t for t in history if now - t < 60]
+                if not filtered:
+                    # (a) Nothing survived the window — drop the key
+                    # entirely rather than leaving an empty list behind.
+                    del self._history[key]
+                    history = None
+                else:
+                    self._history[key] = filtered
+
+            if history is None:
                 self._history[key] = [now]
                 return True
-
-            # Filter timestamps to last 60 seconds
-            self._history[key] = [t for t in self._history[key] if now - t < 60]
 
             if len(self._history[key]) >= self.requests_per_minute:
                 return False
 
             self._history[key].append(now)
             return True
+
+    def _sweep_stale_keys(self, now: float) -> None:
+        """(b) Opportunistic sweep: silent keys (IPs that stopped sending)
+        never revisit ``check()`` on their own key, so they'd never
+        otherwise get their windowed timestamps filtered/removed. Runs at
+        most once per ``_sweep_interval_seconds``, piggybacking on whichever
+        caller's ``check()`` happens to land after the interval elapses —
+        already under ``self._lock``, so no extra thread/timer needed.
+        """
+        if now - self._last_sweep < self._sweep_interval_seconds:
+            return
+        self._last_sweep = now
+        stale_keys = [
+            k for k, timestamps in self._history.items()
+            if not any(now - t < 60 for t in timestamps)
+        ]
+        for k in stale_keys:
+            del self._history[k]
 
 
 # Global rate limiter instance

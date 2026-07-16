@@ -511,7 +511,7 @@ def _run_serve_job(job: dict, tts, xtts_model, device) -> int:
             and os.path.exists(speaker_wav_paths)
         ):
             try:
-                latents = torch.load(speaker_wav_paths, map_location=device, weights_only=False)
+                latents = torch.load(speaker_wav_paths, map_location=device, weights_only=True)
                 return latents["gpt_cond_latent"], latents["speaker_embedding"]
             except Exception as exc:
                 _emit_stderr_line(
@@ -532,7 +532,7 @@ def _run_serve_job(job: dict, tts, xtts_model, device) -> int:
 
         if os.path.exists(latent_file):
             try:
-                latents = torch.load(latent_file, map_location=device, weights_only=False)
+                latents = torch.load(latent_file, map_location=device, weights_only=True)
                 return latents["gpt_cond_latent"], latents["speaker_embedding"]
             except Exception as exc:
                 _emit_stderr_line(f"Warning: failed to load cached latents: {exc}", flush=True)
@@ -676,14 +676,14 @@ def main():
         if isinstance(wav_input, str) and wav_input.lower().endswith(".pth") and os.path.exists(wav_input):
             try:
                 print(f"Loading pre-computed latents from {wav_input}...", file=sys.stderr)
-                latents = torch.load(wav_input, map_location=device, weights_only=False)
+                latents = torch.load(wav_input, map_location=device, weights_only=True)
                 return latents["gpt_cond_latent"], latents["speaker_embedding"]
             except Exception as e:
                 print(f"Warning: Failed to load pre-computed latents from {wav_input}: {e}", file=sys.stderr)
 
         if os.path.exists(latent_file):
             try:
-                latents = torch.load(latent_file, map_location=device, weights_only=False)
+                latents = torch.load(latent_file, map_location=device, weights_only=True)
                 if wav_input is None:
                     print(f"Loading cached latents for {speaker_id} (no source wavs available)...", file=sys.stderr)
                     return latents["gpt_cond_latent"], latents["speaker_embedding"]

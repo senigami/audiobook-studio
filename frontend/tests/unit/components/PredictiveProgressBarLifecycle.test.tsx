@@ -348,4 +348,109 @@ describe('PredictiveProgressBar - Lifecycle', () => {
 
         dateSpy.mockRestore()
     })
+
+    // COR-F-5: previously progressMemory's floor for a bar was only evicted by the
+    // terminal-status effect. A bar unmounted while still ACTIVE (non-terminal) left its
+    // floor entry orphaned in the module-global map forever, where the 100-entry FIFO cap
+    // could later evict OTHER, still-live bars' floors to make room for it.
+    it('evicts its progressMemory floor on unmount so a later bar reusing the same key is not falsely floored', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(500_000)
+        const memoryKey = 'job-unmount-evict-test'
+        const startedAt = (Date.now() - 10_000) / 1000
+
+        const { unmount, container } = render(
+            <PredictiveProgressBar
+                progress={0.6}
+                startedAt={startedAt}
+                persistenceKey={memoryKey}
+                status="running"
+                showEta={false}
+                allowBackwardProgress={false}
+            />
+        )
+        const fill = () => container.querySelector('[data-testid="progress-bar"] > div:last-child > div') as HTMLElement
+        // Bar established a >=60% floor while active (non-terminal).
+        expect(parseFloat(fill().style.width)).toBeGreaterThanOrEqual(60)
+
+        // Unmount WHILE STILL ACTIVE — not via a terminal status transition.
+        unmount()
+
+        // A brand-new bar instance mounts with the SAME persistenceKey+startedAt (so the same
+        // memoryKey) but at progress=0. If the unmounted bar's floor were still present,
+        // allowBackwardProgress=false would clamp this fresh bar up to the stale ~60% floor.
+        const { container: container2 } = render(
+            <PredictiveProgressBar
+                progress={0}
+                startedAt={startedAt}
+                persistenceKey={memoryKey}
+                status="running"
+                showEta={false}
+                allowBackwardProgress={false}
+            />
+        )
+        const fill2 = () => container2.querySelector('[data-testid="progress-bar"] > div:last-child > div') as HTMLElement
+        expect(parseFloat(fill2().style.width)).toBe(0)
+
+        vi.useRealTimers()
+    })
+
+    it('keeps the terminal-status eviction path working (no regression from the unmount cleanup addition)', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(500_000)
+        const memoryKey = 'job-terminal-evict-still-works'
+        const startedAt = (Date.now() - 10_000) / 1000
+
+        const { rerender, unmount } = render(
+            <PredictiveProgressBar
+                progress={0.6}
+                startedAt={startedAt}
+                persistenceKey={memoryKey}
+                status="running"
+                showEta={false}
+                allowBackwardProgress={false}
+            />
+        )
+        // Reach a terminal status — the existing terminal-status effect evicts the floor.
+        rerender(
+            <PredictiveProgressBar
+                progress={1.0}
+                startedAt={startedAt}
+                persistenceKey={memoryKey}
+                status="done"
+                showEta={false}
+                allowBackwardProgress={false}
+            />
+        )
+        unmount()
+
+        const { container: container2 } = render(
+            <PredictiveProgressBar
+                progress={0}
+                startedAt={startedAt}
+                persistenceKey={memoryKey}
+                status="running"
+                showEta={false}
+                allowBackwardProgress={false}
+            />
+        )
+        const fill2 = () => container2.querySelector('[data-testid="progress-bar"] > div:last-child > div') as HTMLElement
+        expect(parseFloat(fill2().style.width)).toBe(0)
+
+        vi.useRealTimers()
+    })
+
+    it('does not perform a React state update from its unmount cleanup (smoke)', () => {
+        const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+        const { unmount } = render(
+            <PredictiveProgressBar
+                progress={0.3}
+                status="running"
+                persistenceKey="job-unmount-smoke-test"
+            />
+        )
+        unmount()
+        expect(consoleError).not.toHaveBeenCalled()
+        consoleError.mockRestore()
+    })
 })

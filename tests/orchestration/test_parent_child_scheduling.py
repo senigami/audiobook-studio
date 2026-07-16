@@ -466,3 +466,91 @@ class TestFailedPhaseWrite:
         assert failed_entries, f"expected a phase='failed' active_segments_map write; got {writes}"
         assert failed_entries[0]["progress"] == 1.0
         assert "char_count" in failed_entries[0]
+
+
+class TestSegmentCharCountConcurrentAppendSnapshot:
+    """COR-B-3: ``_segment_char_count`` must not read the live, unlocked
+    ``self._children`` list while the retry-swap
+    (``_run_child_with_retry``, ~:1120-1125) appends a retry child under
+    ``self._children_lock`` — at ``tts_parallel_cap`` > 1 both can run on
+    different worker threads at once.
+
+    Deterministic interleave (R4 — no sleep): a custom dict subclass on
+    ``child0.group`` blocks the FIRST ``.get("segments")`` call inside
+    ``_segment_char_count``'s iteration on a ``threading.Event`` until a
+    second thread has actually performed the real production append (under
+    ``self._children_lock``), then releases via a second ``threading.Event``.
+    """
+
+    def test_concurrent_append_during_char_count_is_not_observed(self):
+        from app.orchestration.tasks.segment_synthesis import SegmentSynthesisTask  # noqa: PLC0415
+
+        task = _make_chapter_task(
+            "chap-charcount-race", "chapter-charcount-race", groups_count=1, max_workers=1,
+        )
+        children, _ = task._fan_out_chapter()
+        task._children = list(children)
+        child0 = task._children[0]
+
+        unblock_append = threading.Event()
+        append_done = threading.Event()
+
+        class _BlockingSegmentsDict(dict):
+            """Blocks the first ``.get("segments")`` call so a concurrent
+            append to ``self._children`` can be forced mid-iteration."""
+
+            _triggered = False
+
+            def get(self, key, default=None):
+                if key == "segments" and not self._triggered:
+                    self._triggered = True
+                    unblock_append.set()
+                    if not append_done.wait(timeout=5):
+                        raise AssertionError("append thread never completed")
+                return super().get(key, default)
+
+        child0.group = _BlockingSegmentsDict(child0.group)
+
+        target_id = "late-appended-segment"
+        late_child = SegmentSynthesisTask(
+            task_id="retry-child",
+            parent_task_id=task.task_id,
+            engine_id="xtts",
+            group={"segments": [{"id": target_id, "text_content": "Twelve chars"}]},
+            stop_event=task.stop_event,
+        )
+
+        errors: list[BaseException] = []
+
+        def _append_late_child():
+            if not unblock_append.wait(timeout=5):
+                errors.append(RuntimeError("appender never unblocked"))
+                return
+            try:
+                # Mirrors the real retry-swap append path
+                # (_run_child_with_retry, ~:1120-1125): mutate
+                # self._children only under self._children_lock.
+                with task._children_lock:
+                    task._children.append(late_child)
+            except BaseException as exc:  # pragma: no cover - safety net
+                errors.append(exc)
+            finally:
+                append_done.set()
+
+        appender = threading.Thread(target=_append_late_child)
+        appender.start()
+
+        result = task._segment_char_count(target_id)
+        appender.join(timeout=5)
+
+        assert not errors, f"appender thread raised: {errors}"
+        # A snapshot taken under the lock BEFORE iterating must not observe
+        # a child appended mid-call — the pre-fix unlocked live iteration
+        # over self._children WOULD reach the newly appended item (a plain
+        # Python list keeps re-checking its live length each iteration step,
+        # so growth mid-loop is picked up) and incorrectly return
+        # len("Twelve chars") instead of None here.
+        assert result is None, (
+            f"expected None (a child appended mid-call must not be visible "
+            f"to an in-flight char-count snapshot), got {result}"
+        )

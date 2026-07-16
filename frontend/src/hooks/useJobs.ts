@@ -20,6 +20,21 @@ import { buildSegmentsProgressProjection } from '@/utils/segmentsProgressProject
 const globalSegmentProgressUpdates: any[] = [];
 let nextSequenceNumber = 1;
 
+// COR-F-2: segmentProgress previously accumulated one entry per segment_id ever seen for
+// the lifetime of the hook, with no eviction — an unbounded growth over a long session
+// (large books can touch thousands of segment ids across renders/re-renders).
+//
+// Chosen strategy: cap the map size with oldest-eviction (FIFO by insertion order), NOT
+// "drop on terminal status". Consumers such as BoothTool
+// (pages/ChapterEditor/components/DirectorsConsole/BoothTool/index.tsx) read
+// `segmentProgress[activeSegmentId]` right as a segment finishes (to show the final 100%
+// re-render progress) — deleting an entry the moment it goes terminal would make that read
+// disappear out from under the UI at exactly the wrong time. FIFO eviction never touches the
+// entry that was just written; it only reclaims the OLDEST tracked segment ids once the map
+// exceeds the cap, so any consumer reading a just-updated (including just-completed) segment
+// is unaffected.
+const MAX_SEGMENT_PROGRESS_ENTRIES = 300;
+
 export const resetGlobalSegmentProgressUpdates = () => {
   globalSegmentProgressUpdates.length = 0;
   nextSequenceNumber = 1;
@@ -33,6 +48,9 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
   // liveJobsRef is kept in sync inside setJobs functional updaters so overlay-only
   // guards always see the latest committed state, even before React flushes.
   const liveJobsRef = useRef<Record<string, Job>>({});
+  // Insertion-order tracking for the FIFO eviction in setSegmentProgress below
+  // (see MAX_SEGMENT_PROGRESS_ENTRIES comment).
+  const segmentProgressOrderRef = useRef<string[]>([]);
   const connected = useStudioSocketConnection();
 
   // Keep callbacks in a ref so the subscribe effect below doesn't need them as deps.
@@ -146,7 +164,7 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
           recordWebsocketDebugMessage('useJobs', data, raw, envelope);
           if (event.eventKind === 'queue_item_invalidated') {
             refreshJobs();
-            if (onQueueUpdate) onQueueUpdate();
+            callbacksRef.current.onQueueUpdate?.();
           } else {
             recordLiveEventSubscriberObservation(envelope?.frameId, 'main-queue', 'handled');
             if (event.eventKind === 'queue_paused') {
@@ -208,7 +226,24 @@ export const useJobs = (onJobComplete?: () => void, onQueueUpdate?: () => void, 
               status: projectedUpdates.status,
               updated_at: projectedUpdates.updated_at,
             };
-            setSegmentProgress(prev => ({ ...prev, [next.segment_id]: next }));
+            // FIFO bookkeeping is done HERE (in the event handler, where a side
+            // effect is fine) — NOT inside the setState updater. React double-
+            // invokes updaters under StrictMode, so mutating the order ref there
+            // would double-track ids and halve the effective cap in dev. Keeping
+            // the updater a pure function of `prev` avoids that.
+            const orderRef = segmentProgressOrderRef.current;
+            if (!orderRef.includes(next.segment_id)) {
+              orderRef.push(next.segment_id);
+            }
+            let evictedSegmentIds: string[] = [];
+            if (orderRef.length > MAX_SEGMENT_PROGRESS_ENTRIES) {
+              evictedSegmentIds = orderRef.splice(0, orderRef.length - MAX_SEGMENT_PROGRESS_ENTRIES);
+            }
+            setSegmentProgress(prev => {
+              const merged = { ...prev, [next.segment_id]: next };
+              for (const evictedId of evictedSegmentIds) delete merged[evictedId];
+              return merged;
+            });
           }
           if (event.jobId && liveJobsRef.current[event.jobId]) {
             recordLiveEventSubscriberObservation(envelope?.frameId, 'chapter-state', 'handled');

@@ -483,22 +483,65 @@ def shutdown_event():
     terminate_all_subprocesses()
 
 
+# Mutating management endpoints that accept untrusted input and must not be
+# reachable from the LAN by default. Voice-bundle import is the priority: it
+# writes attacker-supplied files that the XTTS engine later loads (see the
+# weights_only hardening) — an unauthenticated LAN client must not reach it.
+# The socket may still bind 0.0.0.0 (reads/UI stay reachable); these specific
+# write paths are gated unless the operator enables LAN access in Settings.
+_LAN_GATED_MGMT_PREFIXES = (
+    "/api/voices/bundle/import",   # voice-bundle import (RCE vector via torch.load)
+    "/api/voices/huggingface",     # remote fetch + write to disk
+    "/api/settings",               # system settings writes (default speaker, paths, engine config)
+    # Engine-plugin management (the ENTIRE mutating surface). Importing/staging/
+    # confirming a plugin installs and later executes plugin code (interface.py)
+    # inside the TTS server — a direct RCE from an untrusted upload or attacker-
+    # supplied git URL, strictly worse than the voice-bundle torch.load vector and
+    # unmitigated by weights_only. install/delete/settings/calibrate/test/verify
+    # are all admin operations. The whole /api/engines/ write surface is gated so
+    # no dynamic-path member (e.g. /api/engines/{id}/install) can slip the matcher.
+    "/api/engines",
+)
+_MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+
+def _is_loopback_client(host: str) -> bool:
+    return host in ("127.0.0.1", "localhost", "::1", "testclient")
+
+
 @app.middleware("http")
 async def lan_protection_middleware(request: Request, call_next):
-    """Enforce 'local_only' vs 'lan' binding controls at the application level."""
-    # Only protect the external TTS API and sensitive system endpoints.
-    # The main UI is often bound to 0.0.0.0 for convenience, but the API
-    # gateway should be explicit.
-    if request.url.path.startswith("/api/v1/tts"):
+    """Enforce 'local_only' vs 'lan' binding controls at the application level.
+
+    The external TTS API (/api/v1/tts) is gated on all methods; the sensitive
+    mutating management endpoints above are gated on mutating methods only, so
+    the main UI (reads, browsing) stays reachable from the LAN while the
+    dangerous write paths require the operator to opt in via ``lan_binding_enabled``.
+    """
+    path = request.url.path
+    gated = False
+    if path.startswith("/api/v1/tts"):
+        gated = True
+    elif request.method in _MUTATING_METHODS:
+        gated = any(
+            path == prefix or path.startswith(prefix + "/")
+            for prefix in _LAN_GATED_MGMT_PREFIXES
+        )
+
+    if gated:
         from app.db.state import get_settings  # noqa: PLC0415
         settings = get_settings()
         if not settings.get("lan_binding_enabled"):
             client_host = request.client.host if request.client else "127.0.0.1"
-            # Basic loopback check.
-            if client_host not in ("127.0.0.1", "localhost", "::1", "testclient"):
+            if not _is_loopback_client(client_host):
                 return JSONResponse(
                     status_code=403,
-                    content={"detail": "LAN access to TTS API is disabled in Studio settings."}
+                    content={
+                        "detail": (
+                            "LAN access to this endpoint is disabled. Enable LAN access in "
+                            "Studio settings to allow it from other machines."
+                        )
+                    },
                 )
 
     return await call_next(request)

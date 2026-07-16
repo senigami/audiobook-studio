@@ -37,7 +37,13 @@ def _noop_output(*_args) -> None:
 def _convert_to_wav(in_file: Path, out_wav: Path) -> int:
     """Converts any audio file to a standard 22050Hz mono WAV."""
     cmd = ["ffmpeg", "-y", "-i", str(in_file), "-ar", "22050", "-ac", "1", str(out_wav)]
-    return subprocess.run(cmd, capture_output=True, check=False).returncode
+    try:
+        return subprocess.run(cmd, capture_output=True, check=False, timeout=300).returncode
+    except subprocess.TimeoutExpired as exc:
+        # A wedged ffmpeg on malformed/hostile input must never hang the
+        # synthesis call forever (BP-2). Surface this as the file's own
+        # structured error rather than an unhandled exception.
+        raise VoxtralError(f"Audio conversion timed out after {exc.timeout:.0f}s (ffmpeg may be stuck).") from exc
 
 
 def resolve_mistral_api_key(settings: Optional[dict[str, Any]] = None) -> Optional[str]:

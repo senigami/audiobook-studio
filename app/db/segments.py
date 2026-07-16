@@ -68,8 +68,8 @@ def update_segments_status_bulk(segment_ids: List[str], chapter_id: str, status:
         try:
             from ..api.ws import broadcast_segments_updated
             broadcast_segments_updated(chapter_id)
-        except Exception as e:
-            print(f"Warning: Failed to broadcast bulk segment update: {e}")
+        except Exception:
+            logger.warning("Failed to broadcast bulk segment update", exc_info=True)
 
     # Cache Invalidation: If segments are being reset, delete chapter-level files
     if status == 'unprocessed':
@@ -417,8 +417,8 @@ def update_segment(segment_id: str, broadcast: bool = True, **updates) -> bool:
                 if row:
                     from ..api.ws import broadcast_segments_updated
                     broadcast_segments_updated(row["chapter_id"])
-        except Exception as e:
-            print(f"Warning: Failed to broadcast segment update: {e}")
+        except Exception:
+            logger.warning("Failed to broadcast segment update", exc_info=True)
 
     return changed
 
