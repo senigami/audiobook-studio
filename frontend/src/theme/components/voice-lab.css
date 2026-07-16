@@ -1312,6 +1312,21 @@
   gap: 10px;
 }
 
+/* Script/engine-config panel + Record-mode capture (task 009: absorbed from
+ * the retired TestTab/ScriptEditor + VariantsTab/VoiceSettingsPanel
+ * composition and SamplesTab's record-mode toggle, all scoped per-variant). */
+.variant-editor__script-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.variant-editor__record-mode {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
 .variant-editor__footer-btn {
   gap: 6px;
   font-size: 0.8rem;
@@ -1535,21 +1550,12 @@
 }
 
 /* ---------------------------------------------------------------------------
- * SamplesTab mode toggle + ArchetypePicker/RecordingCueCard (task 007,
- * voice-card-consolidation P7)
+ * ArchetypePicker/RecordingCueCard (task 007, voice-card-consolidation P7) --
+ * the mode-toggle + record-mode container rules that used to live here
+ * (SamplesTab-scoped) were retired with SamplesTab.tsx (task 009); the
+ * equivalent record-mode container is now `.variant-editor__record-mode`
+ * above.
  * --------------------------------------------------------------------------- */
-
-.samples-tab__mode-toggle {
-  display: flex;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
-}
-
-.samples-tab__record-mode {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
 
 .archetype-picker {
   display: flex;

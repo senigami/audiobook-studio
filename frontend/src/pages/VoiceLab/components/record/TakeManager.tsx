@@ -10,8 +10,9 @@
  *
  * Keyboard shortcuts (documented here per task 009's completion report,
  * since the full set is split across two task files):
- *   - Space: start/stop recording (task 008, wired at the `SamplesTab`
- *     container level, above this component)
+ *   - Space: start/stop recording (task 008, wired at the record-mode
+ *     container level above this component -- originally `SamplesTab`,
+ *     migrated to `VariantEditor` by voices-variants-round2 task 009)
  *   - Enter: Keep the current captured take (this task)
  *   - R: Retake — discard the current in-progress capture and start a new
  *     one, without touching any previously kept take (this task)
@@ -91,8 +92,8 @@ export function TakeManager({ onFinalize }: { onFinalize: (takes: File[]) => Pro
     }, [takes, onFinalize]);
 
     // Enter = keep the current captured take, R = retake. Both are wired at
-    // this container level (mirroring task 008's Space handling in
-    // `SamplesTab.tsx`) rather than only relying on the buttons themselves
+    // this container level (mirroring task 008's Space handling, now in
+    // `VariantEditor.tsx` post-task-009) rather than only relying on the buttons themselves
     // having focus, and both defer to the actual Keep/Retake buttons
     // rendered inside `RecordControls` so the quality gate (Keep disabled
     // until the verdict is ok) is respected rather than bypassed.

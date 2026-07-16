@@ -1,0 +1,70 @@
+{
+  "date": "2026-07-15",
+  "author": "claude",
+  "summary": "Task 009 of the voices-variants-round2 plan: moves engine-config editing (engine select, reference sample, remote voice asset id, per-engine synthesis settings) and test-text editing in-place into VariantEditor, scoped per-variant instead of a shared/default profile. Migrates the Record-mode sample-capture flow (ArchetypePicker/RecordingCueCard/TakeManager) from the now-dead SamplesTab into VariantEditor, scoped to the actual variant instead of hardcoded profiles[0]. Deletes TestTab.tsx/SamplesTab.tsx/TestSection.tsx (confirmed dead post-migration) and slims VariantsTab.tsx (drops the promoted default-only VoiceSettingsPanel, now redundant with VariantEditor's per-variant version).",
+  "files": [
+    {
+      "path": "frontend/src/pages/Voices/components/VariantEditor.tsx",
+      "change": "Added a Script/engine-config disclosure panel (toggled by the ActionMenu 'Script' item, replacing the retired onEditTestText tab-switch callback) composing the existing ScriptEditor (engine/reference-sample/engineVoiceId/test-text, with F1.4's 'Suggest from voice qualities' seeding via a new optional `attributes` prop) and VoiceSettingsPanel (per-engine synthesis settings), both bound to local state seeded from `profile` and saved via the existing /settings and /reset-test-text endpoints -- no new endpoints. Added a 'Record samples' ActionMenu item toggling an inline capture block (ArchetypePicker + RecordingCueCard + TakeManager) reusing the same per-variant `uploadFiles` sink SampleManager already uses. Removed the `onEditTestText` prop entirely (no longer needed -- selection never changes, the panel just toggles in place). Deliberately did NOT add a variant-rename field (out of this task's explicit field list; INV-VC-2 doesn't list rename either) -- ScriptEditor's variantName field was made optional/hidden for this caller.",
+      "contract_changed": true
+    },
+    {
+      "path": "frontend/src/pages/Voices/components/ScriptEditor.tsx",
+      "change": "Made variantName/onVariantNameChange optional -- the VARIANT NAME field only renders when a caller wires onVariantNameChange (VariantEditor omits it; existing callers/tests unaffected)."
+    },
+    {
+      "path": "frontend/src/pages/VoiceLab/components/VariantsSection.tsx",
+      "change": "Dropped the onEditTestText prop (no longer forwarded to VariantEditor). Added an `attributes` passthrough prop to VariantEditor for the Script panel's test-text seeding."
+    },
+    {
+      "path": "frontend/src/pages/VoiceLab/components/VariantsTab.tsx",
+      "change": "Slimmed to a thin VariantsSection wrapper -- removed the promoted default-variant-only VoiceSettingsPanel (now redundant with VariantEditor's own per-variant version) and all its settings-related props."
+    },
+    {
+      "path": "frontend/src/pages/VoiceLab/VoiceLabPage.tsx",
+      "change": "Removed the settingsProfile/editingSettings/isSavingSettings/handleSaveVoiceSettings plumbing (moved into VariantEditor) and the lifted selectedVariantName/onSelectedVariantChange/onEditTestText state (no longer needed -- VariantsSection's own uncontrolled selection is sufficient once Script stopped touching selection). Passes `attributes={metadata?.attributes}` to VariantsTab instead."
+    },
+    {
+      "path": "frontend/src/pages/Voices/components/NarratorCard.tsx",
+      "change": "Removed the onEditTestText prop/forwarding to VariantEditor (interface no longer accepts it)."
+    },
+    {
+      "path": "frontend/src/demo/stages/voiceLabStage.tsx",
+      "change": "Removed the now-nonexistent onEditTestText={noop} prop passed to NarratorCard."
+    },
+    {
+      "path": "frontend/src/pages/VoiceLab/components/TestTab.tsx",
+      "change": "Deleted -- confirmed no remaining imports (grep) after the migration above."
+    },
+    {
+      "path": "frontend/src/pages/VoiceLab/components/SamplesTab.tsx",
+      "change": "Deleted -- confirmed no remaining imports; its Record-mode flow migrated into VariantEditor.tsx (scoped per-variant instead of profiles[0])."
+    },
+    {
+      "path": "frontend/src/pages/VoiceLab/components/TestSection.tsx",
+      "change": "Deleted -- only import was the now-deleted TestTab.tsx."
+    },
+    {
+      "path": "frontend/tests/unit/pages/VoiceLab/TestSection.test.tsx",
+      "change": "Deleted alongside TestSection.tsx."
+    },
+    {
+      "path": "frontend/src/theme/components/voice-lab.css",
+      "change": "Added .variant-editor__script-panel/.variant-editor__record-mode; removed the now-dead .samples-tab__mode-toggle/.samples-tab__record-mode rules (SamplesTab-only)."
+    },
+    {
+      "path": "frontend/tests/unit/pages/Voices/components/VariantEditor.test.tsx",
+      "change": "Replaced the 'clicking Script calls onEditTestText' test with two tests asserting the Script and Record-samples ActionMenu items toggle their respective in-place panels; updated the chrome-demotion item-presence test to include 'Record samples'."
+    },
+    {
+      "path": "frontend/tests/unit/pages/VoiceLab/VariantsTabRebuild.test.tsx",
+      "change": "Reworked the Voice Settings reachability test: Voice Settings now lives behind the selected variant's ActionMenu 'Script' item (not promoted/always-visible) -- test opens the menu and clicks Script before asserting the panel/save button."
+    },
+    {
+      "path": "frontend/tests/unit/pages/Voices/VoicesPage.test.tsx",
+      "change": "Reworked the imported-variant-label save test: it previously drove NarratorCard's onEditTestText to reach a hand-rolled ScriptEditor harness (now-removed plumbing); renders ScriptEditor directly instead, preserving the same imported-vs-native save-branching assertion without depending on retired NarratorCard wiring. Dropped the unused NarratorCard/Speaker imports."
+    }
+  ],
+  "flow_impact": "Sixth and final content-migration task in the voices-variants-round2 plan (task 010 remaining is spec-sync only). Every variant's full editable surface (samples, script/test-text, engine config/settings, version history, rebuild/move/delete/set-default/test) now lives in one place: VariantEditor. VoiceDetailTabs, TestTab, SamplesTab, TestSection, and the promoted default-only VoiceSettingsPanel are all gone.",
+  "flagged_pre_existing_issue": "Per-variant renaming (the 'VARIANT NAME' field in the old ScriptEditor/TestTab composition, plus its imported-profile variant-name-vs-rename endpoint branching) has no reachable UI anywhere in the app as of this task -- it was already unreachable before this task started (TestTab, its only home, was dead code since task 008), and this task's explicit field scope (reference sample + engineVoiceId only, INV-VC-2 doesn't list rename) didn't restore it. Flagged, not fixed -- restoring it would be a new decision, not a faithful port."
+}

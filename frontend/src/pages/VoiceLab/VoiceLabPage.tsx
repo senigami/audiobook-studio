@@ -25,7 +25,6 @@ import { OverviewTab } from '@/pages/VoiceLab/components/OverviewTab';
 import { VariantsTab } from '@/pages/VoiceLab/components/VariantsTab';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { useVoiceManagement } from '@/hooks/useVoiceManagement';
-import { getDefaultVoiceProfileName } from '@/utils/voiceProfiles';
 
 // NOTE: VoiceIconControls (previously lazy-loaded and rendered directly below
 // the phase stepper) is not rendered in this task. SamplesSection was
@@ -37,12 +36,12 @@ import { getDefaultVoiceProfileName } from '@/utils/voiceProfiles';
 //
 // voices-variants-round2 task 008 ("retire tabs"): the Samples/Variants/Test
 // tab shell -- the generic ARIA-tabs primitive this page used to mount -- is
-// removed entirely. `VariantsTab` (which composes `VariantsSection` + the
-// promoted Voice Settings panel) is now the only navigation surface rendered
-// below the Overview disclosure (task 007). The Samples/Test tabpanels'
-// former content is no longer mounted here; it has no new home yet (that's
-// voices-variants-round2 task 009's job, not this one) -- an expected,
-// temporary intermediate state within this plan's execution.
+// removed entirely. `VariantsTab` (which composes `VariantsSection`) is now
+// the only navigation surface rendered below the Overview disclosure (task
+// 007). Task 009 then moved engine-config + test-text editing (previously
+// promoted here as a separate Voice Settings panel, and folded into the now-
+// deleted `TestTab`) directly into `VariantEditor`, scoped per-variant --
+// `VariantsTab` no longer needs any settings-related props from this page.
 
 export interface VoiceLabPageProps {
     speakerProfiles: SpeakerProfile[];
@@ -59,13 +58,6 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
     testProgress,
     onRefresh,
 }) => {
-    // Controlled variant selection (task 008, replaces the retired
-    // active-tab-id/preselected-test-variant tab-switch state pair) -- lifted
-    // up so the Variants tab's "Script" action can drive VariantsSection's
-    // own selection directly instead of switching tabs. Empty string lets
-    // VariantsSection's existing default-to-`is_variant_default` logic pick
-    // the initial selection on mount (see VariantsSection.tsx).
-    const [selectedVariantName, setSelectedVariantName] = useState('');
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
 
@@ -104,12 +96,6 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
         isAlert?: boolean;
     }) => setConfirmConfig(config), []);
 
-    // Voice Settings (promoted into the Variants tab, task 004) -- edits the
-    // default variant's plugin settings. isSavingSettings is local since
-    // useVoiceManagement's handleUpdateSettings doesn't track a busy flag.
-    const [editingSettings, setEditingSettings] = useState<Record<string, any>>({});
-    const [isSavingSettings, setIsSavingSettings] = useState(false);
-
     const fetchMetadata = useCallback(async () => {
         try {
             const list = await api.listVoicesWithMetadata();
@@ -141,34 +127,12 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
     // pre-task-001 VoiceLabPage's inert `buildingProfiles={{}}` /
     // `onBuildNow={async () => false}` / `requestConfirm={() => undefined}`
     // stubs (confirmed a live bug -- see task 004's completion report).
-    const { buildingProfiles, handleBuildNow, handleUpdateSettings } = useVoiceManagement(
+    const { buildingProfiles, handleBuildNow } = useVoiceManagement(
         onRefresh,
         profiles,
         requestConfirm,
         jobs
     );
-
-    const settingsProfileName = useMemo(() => getDefaultVoiceProfileName(profiles, engines), [profiles, engines]);
-    const settingsProfile = profiles.find(p => p.name === settingsProfileName) ?? null;
-
-    useEffect(() => {
-        setEditingSettings(settingsProfile?.settings || {});
-    }, [settingsProfile]);
-
-    const handleSaveVoiceSettings = useCallback(async () => {
-        if (!settingsProfile) return;
-        setIsSavingSettings(true);
-        try {
-            const activeEngine = engines.find(e => e.engine_id === settingsProfile.engine);
-            const allowedPluginSettings = new Set(activeEngine?.behavior?.synthesis_settings || []);
-            const settingsToUpdate = Object.fromEntries(
-                Object.entries(editingSettings || {}).filter(([key]) => allowedPluginSettings.has(key))
-            );
-            await handleUpdateSettings(settingsProfile.name, settingsToUpdate);
-        } finally {
-            setIsSavingSettings(false);
-        }
-    }, [settingsProfile, engines, editingSettings, handleUpdateSettings]);
 
     // Unknown id → redirect
     useEffect(() => {
@@ -289,13 +253,13 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
             </details>
 
             {/* Task 008 (voices-variants-round2): the Samples/Variants/Test tab
-                shell is retired -- VariantsTab (VariantsSection + the promoted
-                Voice Settings panel) is the sole navigation surface below the
-                disclosure above. `selectedVariantName` is lifted here so the
-                Variants tab's "Script" action can route selection directly
-                into VariantsSection instead of switching tabs (no dead click)
-                -- see VariantsSection.tsx's optional controlled-selection
-                support. */}
+                shell is retired -- VariantsTab (VariantsSection) is the sole
+                navigation surface below the disclosure above. Task 009 moved
+                the Script action's engine-config/test-text editing in-place
+                into VariantEditor, so selection no longer needs to be lifted
+                here (VariantsSection's own uncontrolled selection state is
+                enough) -- `attributes` is threaded down for the Script
+                panel's test-text seeding (F1.4). */}
             <VariantsTab
                 speakerName={metadata?.name ?? ''}
                 profiles={profiles}
@@ -305,14 +269,7 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
                 onRefresh={onRefresh}
                 onBuildNow={handleBuildNow}
                 requestConfirm={requestConfirm}
-                selectedVariantName={selectedVariantName}
-                onSelectedVariantChange={setSelectedVariantName}
-                onEditTestText={(profile) => setSelectedVariantName(profile.name)}
-                settingsProfile={settingsProfile}
-                settings={editingSettings}
-                onSettingsChange={setEditingSettings}
-                isSavingSettings={isSavingSettings}
-                onSaveSettings={handleSaveVoiceSettings}
+                attributes={metadata?.attributes}
             />
 
             {/* Publish to Hugging Face modal */}

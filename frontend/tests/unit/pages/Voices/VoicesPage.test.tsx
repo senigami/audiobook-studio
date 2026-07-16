@@ -3,10 +3,9 @@ import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { VoicesTab, resolveEditingVoiceMetadata, CLASS_OPTIONS, GENDER_OPTIONS, AGE_OPTIONS } from '@/pages/Voices/VoicesPage'
 import rawVoiceTaxonomy from '../../../../../design-docs/specs/voice-taxonomy.json'
-import { NarratorCard } from '@/pages/Voices/components/NarratorCard'
 import { ScriptEditor } from '@/pages/Voices/components/ScriptEditor'
 import { describe, it, expect, vi } from 'vitest'
-import type { Speaker, SpeakerProfile, VoiceMetadata, TtsEngine } from '@/types'
+import type { SpeakerProfile, VoiceMetadata, TtsEngine } from '@/types'
 
 // ---------------------------------------------------------------------------
 // Mock framer-motion so catalog-card and NarratorCard animations work in JSDOM
@@ -118,10 +117,17 @@ describe('VoicesTab', () => {
     })
 
     it('saves imported base variant labels as metadata instead of renaming the whole voice', async () => {
-        // The "Edit Preview Script" path now lives in NarratorCard → VariantEditor → ScriptEditor chain.
-        // We render that chain directly here since VoicesTab's catalog cards (R5-T3) no longer
-        // expose this flow — it was moved to Voice Lab (R5-T5). This preserves the behavioral
-        // contract (variant-name endpoint, not rename) while adapting to the new architecture.
+        // The "Edit Preview Script" path used to reach `ScriptEditor` via
+        // NarratorCard's `onEditTestText` -> a local `editingProfile` toggle
+        // (mirroring the retired VoicesTab state chain). voices-variants-round2
+        // task 009 moved test-text/engine-config editing in-place into
+        // `VariantEditor` itself and dropped `onEditTestText` entirely (there's
+        // no separate view to switch to anymore) -- `NarratorCard` no longer
+        // drives this at all, and was already dead in production (see
+        // VoicesTabContent.tsx's header comment) before this task. This test
+        // renders `ScriptEditor` directly instead, preserving the behavioral
+        // contract under test (imported voices' variant-name endpoint, not a
+        // full rename) without depending on retired plumbing.
         const onRefresh = vi.fn().mockResolvedValue(undefined)
         const fetchMock = vi.fn((url: string) => {
             if (url === '/api/speaker-profiles/Woman/test-text') {
@@ -149,105 +155,60 @@ describe('VoicesTab', () => {
             test_text: 'Original script',
         } as any
 
-        const mockSpeaker: Speaker = {
-            id: 'speaker-1',
-            name: 'Woman',
-            default_profile_name: 'Woman',
-            created_at: Date.now(),
-            updated_at: Date.now(),
-        }
-
         const mockEngines: TtsEngine[] = [
             { engine_id: 'xtts', display_name: 'XTTS', enabled: true, verified: true, status: 'ready' } as any
         ]
 
-        // Minimal wrapper that wires NarratorCard's onEditTestText into a ScriptEditor modal,
-        // mirroring the VoicesTab state chain (state.setEditingProfile → VoicesModals).
-        function NarratorWithScriptEditor() {
-            const [editingProfile, setEditingProfile] = useState<SpeakerProfile | null>(null)
-            const [variantName, setVariantName] = useState('')
-
-            const handleEditTestText = (profile: SpeakerProfile) => {
-                setEditingProfile(profile)
-                setVariantName(profile.variant_name || '')
-            }
+        // Renders ScriptEditor directly (task 009: no more onEditTestText
+        // chain through NarratorCard to reach it) with the same imported-vs-
+        // native save branching this test exercises.
+        function ScriptEditorHarness() {
+            const [variantName, setVariantName] = useState(importedProfile.variant_name || '')
 
             const handleSave = async () => {
-                if (!editingProfile) return
-                const isImported = Boolean(editingProfile.speaker_id)
+                const isImported = Boolean(importedProfile.speaker_id)
                 if (isImported) {
                     // Mirrors useVoicesTabActions.handleSaveTestText: imported voices
                     // update variant-name metadata rather than renaming
-                    await fetch(`/api/speaker-profiles/${encodeURIComponent(editingProfile.name)}/variant-name`, {
+                    await fetch(`/api/speaker-profiles/${encodeURIComponent(importedProfile.name)}/variant-name`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ variant_name: variantName }),
                     })
                 } else {
-                    await fetch(`/api/speaker-profiles/${encodeURIComponent(editingProfile.name)}/test-text`, {
+                    await fetch(`/api/speaker-profiles/${encodeURIComponent(importedProfile.name)}/test-text`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ test_text: editingProfile.test_text }),
+                        body: JSON.stringify({ test_text: importedProfile.test_text }),
                     })
                 }
                 onRefresh()
-                setEditingProfile(null)
             }
 
             return (
-                <>
-                    <NarratorCard
-                        speaker={mockSpeaker}
-                        profiles={[importedProfile]}
-                        onRefresh={onRefresh}
-                        onTest={vi.fn()}
-                        onDelete={vi.fn()}
-                        onMoveVariant={vi.fn()}
-                        onEditTestText={handleEditTestText}
-                        onBuildNow={vi.fn()}
-                        testProgress={{}}
-                        requestConfirm={vi.fn()}
-                        buildingProfiles={{}}
-                        onAddVariantClick={vi.fn()}
-                        onSetDefaultClick={vi.fn()}
-                        onRenameClick={vi.fn()}
-                        isExpanded={true}
-                        onToggleExpand={vi.fn()}
-                        engines={mockEngines}
-                    />
-                    {editingProfile && (
-                        <ScriptEditor
-                            variantName={variantName}
-                            onVariantNameChange={setVariantName}
-                            engine={editingProfile.engine || 'xtts'}
-                            onEngineChange={vi.fn()}
-                            engines={mockEngines}
-                            testText={editingProfile.test_text || ''}
-                            onTestTextChange={vi.fn()}
-                            referenceSample=""
-                            onReferenceSampleChange={vi.fn()}
-                            availableSamples={[]}
-                            engineVoiceId=""
-                            onEngineVoiceIdChange={vi.fn()}
-                            settings={{}}
-                            onSettingsChange={vi.fn()}
-                            onResetTestText={vi.fn()}
-                            onSave={handleSave}
-                            isSaving={false}
-                        />
-                    )}
-                </>
+                <ScriptEditor
+                    variantName={variantName}
+                    onVariantNameChange={setVariantName}
+                    engine={importedProfile.engine || 'xtts'}
+                    onEngineChange={vi.fn()}
+                    engines={mockEngines}
+                    testText={importedProfile.test_text || ''}
+                    onTestTextChange={vi.fn()}
+                    referenceSample=""
+                    onReferenceSampleChange={vi.fn()}
+                    availableSamples={[]}
+                    engineVoiceId=""
+                    onEngineVoiceIdChange={vi.fn()}
+                    onResetTestText={vi.fn()}
+                    onSave={handleSave}
+                    isSaving={false}
+                />
             )
         }
 
         await act(async () => {
-            render(<NarratorWithScriptEditor />)
+            render(<ScriptEditorHarness />)
         })
-
-        // Script is now consolidated into VariantEditor's ActionMenu overflow
-        // (task 009 chrome demotion) — open it first, then click the item.
-        fireEvent.click(await screen.findByTitle('More actions'))
-        fireEvent.click(await screen.findByRole('button', { name: /^Script$/i }))
 
         const input = screen.getByDisplayValue('New Zealand')
         expect(input).not.toBeDisabled()

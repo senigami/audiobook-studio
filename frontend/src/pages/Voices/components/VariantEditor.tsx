@@ -1,20 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { SpeakerProfile, TtsEngine } from '@/types';
+import type { SpeakerProfile, TtsEngine, VoiceAttributes, VoiceEngine } from '@/types';
 import {
     Trash2, Play, Loader2, RefreshCw, FileEdit,
-    Pause, Sliders, MoreVertical, ArrowRightLeft
+    Pause, Sliders, MoreVertical, ArrowRightLeft, Mic
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { SpeedPopover } from '@/pages/Voices/components/VoiceUtils';
 import { useVariantActions } from '@/hooks/useVariantActions';
 import { SampleManager } from '@/pages/Voices/components/SampleManager';
 import { VersionHistoryPanel } from '@/pages/Voices/components/VersionHistoryPanel';
+import { ScriptEditor } from '@/pages/Voices/components/ScriptEditor';
+import { VoiceSettingsPanel } from '@/pages/Voices/components/VoiceSettingsPanel';
 import { formatVoiceEngineLabel, getVariantDisplayName, getVoiceProfileEngine } from '@/utils/voiceProfiles';
 import { TagAutocompleteInput } from '@/pages/Voices/components/metadata/TagAutocompleteInput';
 import { ActionMenu, type ActionMenuItem } from '@/components/ui/ActionMenu';
 import { EngineBadge } from '@/components/ui/EngineBadge';
+import { ArchetypePicker, type ArchetypeAttrs } from '@/pages/VoiceLab/components/record/ArchetypePicker';
+import { RecordingCueCard } from '@/pages/VoiceLab/components/record/RecordingCueCard';
+import { TakeManager } from '@/pages/VoiceLab/components/record/TakeManager';
 
 const PERFORMANCE_TAG_STARTER_VOCABULARY = ['happy', 'sad', 'angry', 'calm', 'slow', 'fast', 'measured'];
+const EMPTY_ARCHETYPE_ATTRS: ArchetypeAttrs = {};
 
 interface VariantEditorProps {
     profile: SpeakerProfile;
@@ -24,7 +30,6 @@ interface VariantEditorProps {
     onDeleteVariant: (name: string) => void;
     onMoveVariant: (profile: SpeakerProfile) => void;
     onRefresh: () => void;
-    onEditTestText: (profile: SpeakerProfile) => void;
     onBuildNow: (name: string, files: File[], speakerId?: string, variantName?: string) => Promise<boolean>;
     requestConfirm: (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean; isAlert?: boolean }) => void;
     voiceName: string;
@@ -34,13 +39,17 @@ interface VariantEditorProps {
     /** Tags already used by this voice's other variants, for the suggestions
      *  dropdown — aggregated + deduplicated by the caller (VariantsSection). */
     tagSuggestions?: string[];
+    /** Tagged attributes for the voice this variant belongs to — drives the
+     * Script panel's "Suggest from voice qualities" test-text seeding (F1.4),
+     * ported in from the retired TestTab/ScriptEditor composition (task 009). */
+    attributes?: VoiceAttributes;
 }
 
 export const VariantEditor: React.FC<VariantEditorProps> = ({
     profile, isTesting, onTest, onDeleteVariant, onMoveVariant, onRefresh,
-    onEditTestText, onBuildNow, requestConfirm, testStatus,
+    onBuildNow, requestConfirm, testStatus,
     voiceName, showControlsInline = false, buildingProfiles, engines = [],
-    tagSuggestions = []
+    tagSuggestions = [], attributes
 }) => {
     const engine = getVoiceProfileEngine(profile) || 'unknown';
     const activeEngine = engines.find(e => e.engine_id === engine);
@@ -123,6 +132,114 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
         }
     }, [profile.wav_count, profile.name]);
 
+    // Script/engine-config panel (task 009): absorbs TestTab's folded-in
+    // `ScriptEditor` (test-text, reference sample, engine, engineVoiceId) and
+    // VariantsTab's promoted `VoiceSettingsPanel` (per-engine synthesis
+    // settings), both scoped to THIS variant instead of a shared/default
+    // profile. "Script" in the ActionMenu below now toggles this inline panel
+    // in place -- there's no separate tab to switch to (task 008).
+    const [isScriptExpanded, setIsScriptExpanded] = useState(false);
+    const [editingEngine, setEditingEngine] = useState<VoiceEngine>((profile.engine as VoiceEngine) ?? '');
+    const [testText, setTestText] = useState(profile.test_text ?? '');
+    const [referenceSample, setReferenceSample] = useState(profile.reference_sample ?? '');
+    const [engineVoiceId, setEngineVoiceId] = useState(profile.voice_asset_id ?? '');
+    const [editingSettings, setEditingSettings] = useState<Record<string, any>>(profile.settings ?? {});
+    const [isSavingScript, setIsSavingScript] = useState(false);
+    const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+    // No profile.name-keyed resync effect here (unlike TestTab's original
+    // activeProfile-keyed effect): both call sites (`VariantsSection`,
+    // `NarratorCard`) already mount `VariantEditor` with `key={profile.name}`,
+    // so switching variants remounts a fresh instance with correct initial
+    // state instead of updating props in place -- an extra sync effect would
+    // only add a redundant post-mount re-render.
+
+    const handleSaveScript = async () => {
+        setIsSavingScript(true);
+        try {
+            const settingsToUpdate: Record<string, any> = {
+                test_text: testText,
+                engine: editingEngine,
+            };
+            const activeScriptEngine = engines.find(e => e.engine_id === editingEngine);
+            if (activeScriptEngine?.cloud || activeScriptEngine?.capabilities?.includes('voice_asset_id')) {
+                settingsToUpdate.reference_sample = referenceSample || null;
+                settingsToUpdate.voice_asset_id = engineVoiceId;
+            }
+            const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(profile.name)}/settings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settingsToUpdate),
+            });
+            if (resp.ok) onRefresh();
+        } catch (err) {
+            console.error('Failed to save script/engine settings', err);
+        } finally {
+            setIsSavingScript(false);
+        }
+    };
+
+    const handleResetTestText = async () => {
+        setIsSavingScript(true);
+        try {
+            const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(profile.name)}/reset-test-text`, {
+                method: 'POST',
+            });
+            const result = await resp.json();
+            if (result.status === 'ok' || result.status === 'success') {
+                setTestText(result.test_text);
+                onRefresh();
+            }
+        } catch (err) {
+            console.error('Failed to reset test text', err);
+        } finally {
+            setIsSavingScript(false);
+        }
+    };
+
+    const handleSaveSettings = async () => {
+        setIsSavingSettings(true);
+        try {
+            const activeSettingsEngine = engines.find(e => e.engine_id === editingEngine);
+            const allowedPluginSettings = new Set(activeSettingsEngine?.behavior?.synthesis_settings || []);
+            const settingsToUpdate = Object.fromEntries(
+                Object.entries(editingSettings || {}).filter(([key]) => allowedPluginSettings.has(key))
+            );
+            const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(profile.name)}/settings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settingsToUpdate),
+            });
+            if (resp.ok) onRefresh();
+        } catch (err) {
+            console.error('Failed to save voice settings', err);
+        } finally {
+            setIsSavingSettings(false);
+        }
+    };
+
+    // Record-mode sample capture (task 009): migrated from the now-dead
+    // `SamplesTab.tsx`, which hardcoded `profiles[0]` for its capture sink --
+    // here it's scoped to THIS variant's own `uploadFiles` (already the
+    // correct per-profile sink `SampleManager` above uses).
+    const [isRecordModeOpen, setIsRecordModeOpen] = useState(false);
+    const [archetypeAttrs, setArchetypeAttrs] = useState<ArchetypeAttrs>(EMPTY_ARCHETYPE_ATTRS);
+    const [recordSkipped, setRecordSkipped] = useState(false);
+    const recordModeRef = useRef<HTMLDivElement>(null);
+
+    // Space toggles start/stop from anywhere within the record-mode container
+    // (mirrors the retired SamplesTab's own handler), ignored when focus is on
+    // a form control that needs Space for its own purpose.
+    const handleRecordModeKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (event.code !== 'Space') return;
+        const target = event.target as HTMLElement;
+        if (['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(target.tagName)) return;
+        const toggleBtn = recordModeRef.current?.querySelector<HTMLButtonElement>('[data-record-toggle-btn]');
+        if (!toggleBtn) return;
+        event.preventDefault();
+        toggleBtn.click();
+    };
+
     // Chrome demotion (task 009): Script, Move, Delete, and Rebuild/Regenerate
     // all consolidate into a single ActionMenu overflow. Rebuild/Regenerate is
     // still gated by the same enabled/disabled logic as before (hasBuildMaterial
@@ -144,7 +261,12 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
         {
             label: 'Script',
             icon: FileEdit,
-            onClick: () => onEditTestText(profile),
+            onClick: () => setIsScriptExpanded(v => !v),
+        },
+        {
+            label: 'Record samples',
+            icon: Mic,
+            onClick: () => setIsRecordModeOpen(v => !v),
         },
         rebuildOrGenerateItem,
         { isDivider: true },
@@ -196,6 +318,58 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                 handlePlaySample={handlePlaySample}
                 handleDeleteSample={handleDeleteSample}
             />
+
+            {isRecordModeOpen && (
+                <div
+                    className="variant-editor__record-mode"
+                    ref={recordModeRef}
+                    onKeyDown={handleRecordModeKeyDown}
+                >
+                    {!recordSkipped && (
+                        <ArchetypePicker
+                            value={archetypeAttrs}
+                            onChange={setArchetypeAttrs}
+                            onSkip={() => setRecordSkipped(true)}
+                        />
+                    )}
+                    <RecordingCueCard attrs={recordSkipped ? {} : archetypeAttrs} />
+                    <TakeManager onFinalize={uploadFiles} />
+                </div>
+            )}
+
+            {isScriptExpanded && (
+                <div className="variant-editor__script-panel">
+                    <ScriptEditor
+                        engine={editingEngine}
+                        onEngineChange={setEditingEngine}
+                        engines={engines}
+                        testText={testText}
+                        onTestTextChange={setTestText}
+                        referenceSample={referenceSample}
+                        onReferenceSampleChange={setReferenceSample}
+                        availableSamples={profile.samples || []}
+                        engineVoiceId={engineVoiceId}
+                        onEngineVoiceIdChange={setEngineVoiceId}
+                        onResetTestText={handleResetTestText}
+                        onSave={handleSaveScript}
+                        isSaving={isSavingScript}
+                        attributes={attributes}
+                    />
+                    <div>
+                        <div className="voice-lab-section__header">
+                            <span className="voice-lab-section-label">Voice Settings</span>
+                        </div>
+                        <VoiceSettingsPanel
+                            engine={editingEngine}
+                            engines={engines}
+                            settings={editingSettings}
+                            onSettingsChange={setEditingSettings}
+                            isSaving={isSavingSettings}
+                            onSave={handleSaveSettings}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 

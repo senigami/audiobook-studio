@@ -8,15 +8,19 @@
  *
  * Optionally controllable (voices-variants-round2 task 008, "retire tabs"):
  * `VoiceLabPage` now renders this section directly below the Overview
- * disclosure (no tab shell), so a parent-level action -- the Variants tab's
- * "Script" button, which used to switch to the retired Test tab -- can drive
- * this section's selection via `selectedVariantName`/`onSelectedVariantChange`
- * instead. Omitting both props keeps the original uncontrolled behavior. The
- * default-variant-first sort feeding `VariantSwitcher` (below) is also new in
- * this task; `VariantSwitcher` itself is unchanged (INV-SWITCHER-UNCHANGED).
+ * disclosure (no tab shell), so a parent-level action could drive this
+ * section's selection via `selectedVariantName`/`onSelectedVariantChange`
+ * instead of a tab switch. (Task 009: the "Script" action that originally
+ * motivated this -- switching to the retired Test tab -- is now an in-place
+ * disclosure toggle inside `VariantEditor` itself and no longer needs to
+ * touch selection at all; the controlled-selection props stay as a general
+ * hook, just unused by that action today.) Omitting both props keeps the
+ * original uncontrolled behavior. The default-variant-first sort feeding
+ * `VariantSwitcher` (below) is also new in task 008; `VariantSwitcher` itself
+ * is unchanged (INV-SWITCHER-UNCHANGED).
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { SpeakerProfile, TtsEngine } from '@/types';
+import type { SpeakerProfile, TtsEngine, VoiceAttributes } from '@/types';
 import { Plus } from 'lucide-react';
 import { VariantEditor } from '@/pages/Voices/components/VariantEditor';
 import { VariantSwitcher } from '@/pages/Voices/components/VariantSwitcher';
@@ -37,17 +41,22 @@ export interface VariantsSectionProps {
     requestConfirm: (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean; isAlert?: boolean }) => void;
     onAddVariant?: () => void;
     onMoveVariant?: (profile: SpeakerProfile) => void;
-    onEditTestText?: (profile: SpeakerProfile) => void;
     /**
      * Optional controlled selection (task 008, retire-tabs) — lets a parent
      * (`VoiceLabPage`) drive which variant's panel is shown without a tab
-     * switch, e.g. wiring `onEditTestText` straight into this section's own
-     * selection instead of the retired tab shell. Omit either prop for the
-     * original fully-uncontrolled behavior (internal state + the
-     * default-variant-then-first-profile fallback below).
+     * switch. Omit either prop for the original fully-uncontrolled behavior
+     * (internal state + the default-variant-then-first-profile fallback
+     * below). (Task 009: this section no longer needs to drive selection for
+     * a "Script" action — that action is now an in-place toggle inside
+     * `VariantEditor` itself — but the controlled-selection capability stays,
+     * unused today, since it's a harmless general-purpose hook other actions
+     * could still use.)
      */
     selectedVariantName?: string;
     onSelectedVariantChange?: (name: string) => void;
+    /** Tagged attributes for the voice — threaded down to `VariantEditor`'s
+     * Script panel for test-text seeding (F1.4, task 009). */
+    attributes?: VoiceAttributes;
 }
 
 export const VariantsSection: React.FC<VariantsSectionProps> = ({
@@ -61,9 +70,9 @@ export const VariantsSection: React.FC<VariantsSectionProps> = ({
     requestConfirm,
     onAddVariant,
     onMoveVariant,
-    onEditTestText,
     selectedVariantName: controlledSelectedVariantName,
     onSelectedVariantChange,
+    attributes,
 }) => {
     const isControlled = controlledSelectedVariantName !== undefined;
     const [internalSelectedVariantName, setInternalSelectedVariantName] = useState(
@@ -196,13 +205,13 @@ export const VariantsSection: React.FC<VariantsSectionProps> = ({
                                     }}
                                     onMoveVariant={onMoveVariant ?? (() => undefined)}
                                     onRefresh={onRefresh}
-                                    onEditTestText={onEditTestText ?? (() => undefined)}
                                     onBuildNow={onBuildNow}
                                     requestConfirm={requestConfirm}
                                     voiceName={speakerName}
                                     showControlsInline={true}
                                     buildingProfiles={buildingProfiles}
                                     engines={engines}
+                                    attributes={attributes}
                                 />
                             </>
                         );

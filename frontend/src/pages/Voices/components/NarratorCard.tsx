@@ -15,7 +15,6 @@ interface NarratorCardProps {
     onDelete: (name: string) => void;
     onMoveVariant: (profile: SpeakerProfile) => void;
     onRefresh: () => void;
-    onEditTestText: (profile: SpeakerProfile) => void;
     onBuildNow: (name: string, files: File[], speakerId?: string, variantName?: string) => Promise<boolean>;
     requestConfirm: (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean; isAlert?: boolean }) => void;
     onAddVariantClick: (speaker: Speaker, profileCount: number) => void;
@@ -35,7 +34,7 @@ interface NarratorCardProps {
 export const NarratorCard: React.FC<NarratorCardProps> = ({
     speaker, profiles, testProgress,
     onTest, onDelete, onRefresh,
-    onEditTestText, onBuildNow, requestConfirm,
+    onBuildNow, requestConfirm,
     onAddVariantClick, onRenameClick, onExportVoice, onSetDefaultClick, isExpanded, onToggleExpand, onMoveVariant,
     buildingProfiles,
     engines = [],
@@ -352,7 +351,6 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                     onDeleteVariant={onDelete}
                                     onMoveVariant={onMoveVariant}
                                     onRefresh={onRefresh}
-                                    onEditTestText={onEditTestText}
                                     onBuildNow={onBuildNow}
                                     requestConfirm={requestConfirm}
                                     voiceName={speaker.name}

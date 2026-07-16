@@ -158,7 +158,7 @@ describe('VoiceLabPage Variants tab — real rebuild wiring (R3)', () => {
         expect(formData.get('variant_name')).toBe(mockProfile.variant_name);
     });
 
-    it('makes Voice Settings reachable and functional directly from the Variants tab (no overflow menu)', async () => {
+    it('makes Voice Settings reachable and functional from the selected variant\'s Script panel (task 009: moved off the promoted default-only panel, into VariantEditor itself)', async () => {
         const user = userEvent.setup();
 
         // Give the fixture engine a real settings_schema/synthesis_settings so
@@ -204,8 +204,12 @@ describe('VoiceLabPage Variants tab — real rebuild wiring (R3)', () => {
             expect(screen.getByText('Aria Nova')).toBeInTheDocument();
         });
 
-        // Reachable directly -- no overflow/action menu click, and (as of
-        // task 008) no tab switch either; the Variants section is always rendered.
+        // Task 009: Voice Settings is no longer promoted separately -- it's
+        // part of the selected variant's Script panel inside VariantEditor's
+        // ActionMenu overflow (no tab switch either, per task 008).
+        await user.click(await screen.findByTitle('More actions'));
+        await user.click(await screen.findByRole('button', { name: /^Script$/i }));
+
         expect(screen.getByText('Voice Settings')).toBeInTheDocument();
         const saveBtn = screen.getByRole('button', { name: /save voice settings/i });
         expect(saveBtn).toBeInTheDocument();

@@ -104,7 +104,6 @@ describe('VariantEditor', () => {
         onDeleteVariant: vi.fn(),
         onMoveVariant: vi.fn(),
         onRefresh: vi.fn(),
-        onEditTestText: vi.fn(),
         onBuildNow: vi.fn().mockResolvedValue(true),
         requestConfirm: vi.fn(),
         voiceName: 'Aria Nova',
@@ -226,20 +225,36 @@ describe('VariantEditor', () => {
     });
 
     describe('ActionMenu chrome demotion (task 009)', () => {
-        it('includes Script, Rebuild, Move Variant, and Delete Variant (destructive) items', () => {
+        it('includes Script, Record samples, Rebuild, Move Variant, and Delete Variant (destructive) items', () => {
             render(<VariantEditor {...baseProps} profile={softProfile} />);
             expect(screen.getByTestId('menu-item-Script')).toBeInTheDocument();
+            expect(screen.getByTestId('menu-item-Record samples')).toBeInTheDocument();
             expect(screen.getByTestId('menu-item-Rebuild')).toBeInTheDocument();
             expect(screen.getByTestId('menu-item-Move Variant')).toBeInTheDocument();
             const deleteItem = screen.getByTestId('menu-item-Delete Variant');
             expect(deleteItem).toHaveAttribute('data-destructive', 'true');
         });
 
-        it('clicking Script calls onEditTestText with the profile', () => {
-            const onEditTestText = vi.fn();
-            render(<VariantEditor {...baseProps} onEditTestText={onEditTestText} profile={softProfile} />);
+        it('clicking Script toggles the in-place Script/engine-config panel open and closed (task 009: no more onEditTestText tab-switch)', () => {
+            render(<VariantEditor {...baseProps} profile={softProfile} />);
+            expect(screen.queryByText('PREVIEW TEXT SCRIPT')).not.toBeInTheDocument();
+
             fireEvent.click(screen.getByTestId('menu-item-Script'));
-            expect(onEditTestText).toHaveBeenCalledWith(softProfile);
+            expect(screen.getByText('PREVIEW TEXT SCRIPT')).toBeInTheDocument();
+
+            fireEvent.click(screen.getByTestId('menu-item-Script'));
+            expect(screen.queryByText('PREVIEW TEXT SCRIPT')).not.toBeInTheDocument();
+        });
+
+        it('clicking Record samples toggles the in-place record-mode capture UI', () => {
+            render(<VariantEditor {...baseProps} profile={softProfile} />);
+            expect(screen.queryByText(/skip/i)).not.toBeInTheDocument();
+
+            fireEvent.click(screen.getByTestId('menu-item-Record samples'));
+            expect(screen.getByRole('button', { name: /skip/i })).toBeInTheDocument();
+
+            fireEvent.click(screen.getByTestId('menu-item-Record samples'));
+            expect(screen.queryByRole('button', { name: /skip/i })).not.toBeInTheDocument();
         });
 
         it('clicking Move Variant calls onMoveVariant with the profile', () => {
