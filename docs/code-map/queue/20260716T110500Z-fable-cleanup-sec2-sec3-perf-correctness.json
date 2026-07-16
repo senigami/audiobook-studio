@@ -1,0 +1,53 @@
+{
+  "at": "2026-07-16T11:05:00Z",
+  "commit": "uncommitted",
+  "task": "Fable cleanup Tier 0+1: SEC-2 (LAN-gate management writes), SEC-3 (voice_ref safe_join + reject .pth), PERF-3 (DB indexes), PERF-7 (rate-limiter sweep), BP-3 (print->logger), COR-B-1 (recovery order), COR-B-3 (char-count lock snapshot + stale docstring), COR-F-2/4 (useJobs), COR-F-5 (PredictiveProgressBar)",
+  "files": {
+    "app/api/web.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "SEC-2: lan_protection_middleware extended beyond /api/v1/tts to gate a new _LAN_GATED_MGMT_PREFIXES set (/api/voices/bundle/import, /api/voices/huggingface, /api/settings, and the ENTIRE /api/engines/ mutating surface) for non-loopback clients on mutating methods (POST/PUT/PATCH/DELETE) unless lan_binding_enabled. Added _is_loopback_client helper. The whole /api/engines/ prefix is gated (not enumerated routes) so dynamic-path members like /api/engines/{engine_id}/install cannot slip the matcher. Reads/GET and the general UI remain reachable from the LAN; socket bind unchanged (still 0.0.0.0). Closes the unauthenticated-LAN voice-bundle-import RCE vector (paired with SEC-1) AND the worse plugin import/install RCE (plugin code executes in the TTS server; unmitigated by weights_only)."
+    },
+    "app/api/tts_api.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "SEC-3: _validate_voice_ref now rejects caller-supplied .pth refs (400) and asserts containment via the realpath-resolving safe_join barrier against VOICES_DIR/TRANSIENT_DIR instead of a purely lexical os.path.normpath+startswith check (closes symlink-escape and the caller-controlled-.pth->torch.load path). Accepts legitimate contained paths unchanged."
+    },
+    "app/core/security.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "PERF-7/SEC-6: SimpleRateLimiter no longer grows _history unboundedly. check() drops a key when its windowed history becomes empty; new _sweep_stale_keys() opportunistically removes silent-IP keys at most once per sweep_interval_seconds (default 60s). Added injectable time_fn for testability. Active-client rate-limiting behavior unchanged."
+    },
+    "app/db/core.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "PERF-3: init_db adds non-unique CREATE INDEX IF NOT EXISTS on chapters(project_id), chapter_segments(chapter_id), characters(project_id), lexicon(project_id), processing_queue(chapter_id, status) [composite] on the user DB, and render_performance_samples(job_id, completed_at DESC) on the studio DB. Composite + job_id index also mirrored into the legacy table-rebuild fallback blocks. Idempotent, applies to existing DBs on next boot. Deliberately omits chapter_segments(audio_status) (hot-path write amplification)."
+    },
+    "app/db/segments.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "BP-3: the two broadcast-failure warnings (~:72, ~:421) now use logger.warning(..., exc_info=True) instead of print(), matching the existing logger usage in the file. DB-layer fire-and-forget paths; never surfaced in an API response."
+    },
+    "app/orchestration/scheduler/recovery.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "COR-B-1: _RECOVERABLE_STATUSES changed from a set to an ordered tuple ('running','queued','waiting') so the per-chapter recovery dedup deterministically prefers the most-active row across restarts (a set's iteration order is hash-seed dependent)."
+    },
+    "app/orchestration/tasks/segment_synthesis.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "COR-B-3: _segment_char_count now iterates a list(self._children) snapshot taken under _children_lock instead of the live list, matching the class's documented lock discipline (avoids observing a mid-iteration retry-swap append and returning a wrong char count). Also corrected the stale module docstring that claimed the task was 'not yet wired into the orchestrator submit() path' (live since W-PAR shipped 2026-07-06)."
+    },
+    "frontend/src/hooks/useJobs.ts": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "COR-F-2: the per-session segmentProgress map is now bounded via FIFO oldest-eviction (cap 300, tracked by segmentProgressOrderRef) instead of growing unboundedly; newest/terminal entries are preserved so the BoothTool final-state read is unaffected. COR-F-4: the queue_item_invalidated handler now calls callbacksRef.current.onQueueUpdate (was the stale captured prop), matching sibling handlers."
+    },
+    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "COR-F-5: added an unmount-cleanup effect (memoryKeyRef + memoryFinalizedRef) that evicts this bar's progressMemory floor entry on true unmount unless the terminal-status path already finalized it, preventing an orphaned floor from later evicting other live bars' floors via the 100-entry FIFO cap."
+    }
+  },
+  "flow_impact": "SEC-2 adds an application-layer authorization gate on the HTTP request path for a defined set of mutating management endpoints (bundle/HF import, settings writes) when accessed from non-loopback clients; no change to the job/synthesis flows."
+}

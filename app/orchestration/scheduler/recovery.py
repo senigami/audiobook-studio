@@ -26,7 +26,11 @@ from app.orchestration.tasks.base import TaskContext
 logger = logging.getLogger(__name__)
 
 # Job statuses that indicate interrupted work to be recovered.
-_RECOVERABLE_STATUSES = {"running", "queued", "waiting"}
+# Order matters: the per-chapter dedup below keeps the first row seen for a
+# chapter, so this must iterate most-active-first (running, then queued, then
+# waiting) deterministically. A set() would not guarantee that ordering
+# across process restarts (Python randomizes string hashing by default).
+_RECOVERABLE_STATUSES = ("running", "queued", "waiting")
 
 
 def load_recoverable_task_contexts() -> list[TaskContext]:

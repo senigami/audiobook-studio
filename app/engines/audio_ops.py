@@ -53,7 +53,14 @@ def wav_to_mp3(
 def convert_to_wav(in_file: Path, out_wav: Path) -> int:
     """Converts any audio file to a standard 22050Hz mono WAV (best for voice references)."""
     cmd = ["ffmpeg", "-y", "-i", str(in_file), "-ar", "22050", "-ac", "1", str(out_wav)]
-    return subprocess.run(cmd, check=False).returncode
+    try:
+        return subprocess.run(cmd, check=False, timeout=300).returncode
+    except subprocess.TimeoutExpired:
+        # A wedged ffmpeg on malformed/hostile input must never hang the caller
+        # forever (BP-2). Surface a clean failure (non-zero rc) rather than an
+        # unhandled exception, matching this function's -> int failure contract.
+        logger.warning("convert_to_wav: ffmpeg timed out after 300s converting %s -> %s", in_file, out_wav)
+        return 1
 
 
 def get_audio_duration(file_path: Path) -> float:

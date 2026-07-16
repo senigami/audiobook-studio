@@ -77,6 +77,36 @@ def test_recoverable_context_is_task_context_instance():
         assert isinstance(ctx, TaskContext)
 
 
+def test_dedup_keeps_most_active_row_running_over_waiting():
+    """When a chapter has both a 'waiting' and a 'running' row, the per-chapter
+    dedup in load_recoverable_task_contexts() must keep the 'running' row.
+
+    Contract test (not a naive revert-check): a bare ``set`` of status strings
+    does not have a guaranteed iteration order across process runs (Python
+    randomizes string hashing by default), so this could false-green even on
+    the pre-fix code depending on hash seed. _RECOVERABLE_STATUSES must be an
+    ordered sequence with 'running' before 'waiting' for this to be
+    deterministic. See revert-check note below for how this was verified.
+    """
+    pid = create_project("P-recovery-dedup-order")
+    cid = create_chapter(pid, "C-recovery-dedup-order")
+    waiting_job_id = "job-recover-dedup-waiting-1"
+    running_job_id = "job-recover-dedup-running-1"
+    upsert_queue_row(waiting_job_id, project_id=pid, chapter_id=cid, status="waiting")
+    upsert_queue_row(running_job_id, project_id=pid, chapter_id=cid, status="running")
+
+    contexts = load_recoverable_task_contexts()
+    chapter_contexts = [c for c in contexts if c.payload.get("chapter_id") == cid]
+
+    assert len(chapter_contexts) == 1, (
+        f"Expected exactly one deduped context for chapter {cid}, got {chapter_contexts}"
+    )
+    assert chapter_contexts[0].task_id == running_job_id, (
+        f"Expected the 'running' row ({running_job_id}) to win dedup, "
+        f"got {chapter_contexts[0].task_id}"
+    )
+
+
 def test_terminal_jobs_not_recovered():
     """Done/failed/cancelled rows are NOT included in recovered contexts."""
     pid = create_project("P-recovery-terminal")

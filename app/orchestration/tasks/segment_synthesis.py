@@ -13,9 +13,12 @@ With ``max_concurrent_workers=1`` (the default), the parent's own
 ``ThreadPoolExecutor`` bound plus the per-engine-class semaphore both admit
 exactly one child at a time — fan-out of 1, serial, byte-identical to today
 (INV-1). Per-segment ``_dispatch`` state isolation (timing/marker scalars) is
-explicitly out of scope for this task (task 003, R-A); this task only
-establishes the fan-out structure and is not yet wired into the live
-mixed-handler marker pipeline or the orchestrator's ``submit()`` path.
+explicitly out of scope for this task (task 003, R-A).
+
+``ChapterSynthesisTask``/``SegmentSynthesisTask`` are live: W-PAR parallel
+render shipped 2026-07-06 and this is the task instantiated on the
+orchestrator's ``submit()`` path (see
+``app/api/routers/generation_shared.py``).
 """
 
 from __future__ import annotations
@@ -673,7 +676,13 @@ class ChapterSynthesisTask(StudioTask):
         """
         if not segment_id:
             return None
-        for child in self._children:
+        # Snapshot under the same lock that guards mutation of self._children
+        # (the retry-once swap in _run_child_with_retry can append a retry
+        # child mid-iteration) — iterating the live list unlocked can raise
+        # "list changed size during iteration" at tts_parallel_cap>1.
+        with self._children_lock:
+            children = list(self._children)
+        for child in children:
             for segment in (child.group or {}).get("segments") or []:
                 if segment.get("id") == segment_id:
                     return len(segment.get("text_content") or "") or None

@@ -268,6 +268,31 @@ def init_db():
                 )
             """)
 
+            # Non-unique indexes on hot lookup/join columns (PERF-3: the
+            # queue/history correlated-subquery cliff). CREATE INDEX IF NOT
+            # EXISTS is idempotent and runs on every boot, so this also
+            # backfills these indexes onto existing (upgraded) databases.
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_chapters_project_id
+                ON chapters (project_id)
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_chapter_segments_chapter_id
+                ON chapter_segments (chapter_id)
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_characters_project_id
+                ON characters (project_id)
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_lexicon_project_id
+                ON lexicon (project_id)
+            """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_processing_queue_chapter_status
+                ON processing_queue (chapter_id, status)
+            """)
+
             # Projects/User migrations
             def add_column_if_missing(sql: str, label: str):
                 try:
@@ -356,6 +381,14 @@ def init_db():
                         FROM _processing_queue_old
                     """)
                     cursor.execute("DROP TABLE _processing_queue_old")
+                    # Restore the composite index dropped along with the old
+                    # table (PERF-3) — self-heals on the next boot anyway
+                    # (idempotent CREATE INDEX IF NOT EXISTS above), but
+                    # restoring it immediately avoids a window with no index.
+                    cursor.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_processing_queue_chapter_status
+                        ON processing_queue (chapter_id, status)
+                    """)
             except Exception:
                 logger.warning("Failed to migrate processing_queue NULL constraints", exc_info=True)
 
@@ -405,6 +438,13 @@ def init_db():
             studio_cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_render_performance_completed_at
                 ON render_performance_samples (completed_at)
+            """)
+
+            # PERF-3: the queue/history correlated-subquery cliff — per-job
+            # performance-sample lookups scan the whole table without this.
+            studio_cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_render_performance_job_id
+                ON render_performance_samples (job_id, completed_at DESC)
             """)
 
             # Operational migrations
@@ -487,6 +527,10 @@ def init_db():
                             CREATE INDEX IF NOT EXISTS idx_render_performance_completed_at
                             ON render_performance_samples (completed_at)
                         """)
+                        studio_cursor.execute("""
+                            CREATE INDEX IF NOT EXISTS idx_render_performance_job_id
+                            ON render_performance_samples (job_id, completed_at DESC)
+                        """)
             except Exception:
                 logger.warning("Failed to migrate chapter_load_seconds column", exc_info=True)
 
@@ -539,6 +583,10 @@ def init_db():
                         studio_cursor.execute("""
                             CREATE INDEX IF NOT EXISTS idx_render_performance_completed_at
                             ON render_performance_samples (completed_at)
+                        """)
+                        studio_cursor.execute("""
+                            CREATE INDEX IF NOT EXISTS idx_render_performance_job_id
+                            ON render_performance_samples (job_id, completed_at DESC)
                         """)
             except Exception:
                 logger.warning("Failed to migrate render_performance_samples to remove make_mp3 column", exc_info=True)

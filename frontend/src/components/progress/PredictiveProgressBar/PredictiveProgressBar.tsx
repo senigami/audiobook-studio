@@ -153,6 +153,14 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     const presentationState = state ?? status;
     const effectiveAllowBackward = allowBackwardProgress ?? !authoritativeFloor;
     const memoryKey = getProgressMemoryKey(persistenceKey, startedAt);
+    // Latest memoryKey, readable from the unmount-only cleanup effect below without adding
+    // memoryKey as a dep (which would fire that cleanup on every key change, not just unmount).
+    const memoryKeyRef = useRef(memoryKey);
+    memoryKeyRef.current = memoryKey;
+    // Tracks whether the terminal-status effect below already deleted this bar's progressMemory
+    // entry, so the unmount cleanup effect doesn't need to (and can't accidentally interfere with
+    // a different bar that has since reused the same key).
+    const memoryFinalizedRef = useRef(false);
     // Queue bar with a positive ETA renders DETERMINATE even during preparing/indeterminate:
     // the predictive fill starts at ETA-arrival and progresses continuously into running,
     // eliminating the "hidden catch-up jump" at the START_SYNTHESIS transition.
@@ -531,11 +539,31 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
         if (isTerminalStatus(presentationState)) {
             // Bar has reached a terminal state; evict its own key to avoid unbounded growth
             progressMemory.delete(memoryKey);
+            memoryFinalizedRef.current = true;
             return;
         }
+        memoryFinalizedRef.current = false;
         const currentFloor = !effectiveAllowBackward ? Math.max(getRememberedProgress(memoryKey), displayProgress) : clamp01(displayProgress);
         progressMemorySet(memoryKey, currentFloor);
     }, [memoryKey, displayProgress, effectiveAllowBackward, presentationState]);
+
+    // COR-F-5: the effect above only evicts this bar's progressMemory floor when it reaches a
+    // TERMINAL status. A bar that unmounts while still active (e.g. its row/segment disappears
+    // from a filtered list, or the surface it lives in is navigated away from) never runs that
+    // path, so its floor entry is orphaned in the module-global `progressMemory` map forever —
+    // and the 100-entry FIFO cap in `progressMemorySet` can then evict OTHER, still-live bars'
+    // floors to make room for entries that will never be cleaned up. Delete this bar's own key
+    // on unmount too, unless the terminal-status effect already finalized (and deleted) it.
+    useEffect(() => {
+        return () => {
+            const key = memoryKeyRef.current;
+            if (key && !memoryFinalizedRef.current) {
+                progressMemory.delete(key);
+            }
+        };
+        // Intentionally empty deps: this must run its cleanup ONLY on true unmount, reading the
+        // latest memoryKey via ref rather than re-running (and re-deleting) on every key change.
+    }, []);
 
     // Fire onDisplayProgress with localProgress — the exact value rendered as the bar width —
     // on every render where it changes. Throttled to 4 decimal places to prevent infinite loops.

@@ -252,3 +252,41 @@ def test_get_job_status(auth_client, monkeypatch):
     assert data["job_id"] == job_id
     assert data["status"] == "running"
     assert data["progress"] == 0.5
+
+
+def test_voice_ref_pth_extension_rejected():
+    """SEC-3: a caller-supplied .pth voice_ref must be rejected even when it
+    resolves inside VOICES_DIR — it would otherwise feed torch.load a
+    caller-controlled latent file. Revert-check: pre-fix this path was accepted."""
+    from fastapi import HTTPException
+    from app.api.tts_api import _validate_voice_ref, VOICES_DIR
+
+    # A .pth path that IS contained under VOICES_DIR (so it fails ONLY on the
+    # .pth rule, not on containment).
+    ref = str(Path(VOICES_DIR) / "someprofile" / "latent.pth")
+    with pytest.raises(HTTPException) as exc:
+        _validate_voice_ref(ref)
+    assert exc.value.status_code == 400
+    assert ".pth" in str(exc.value.detail).lower()
+
+
+def test_voice_ref_symlink_escape_rejected(tmp_path, monkeypatch):
+    """SEC-3: safe_join resolves symlinks, so a symlink inside VOICES_DIR that
+    points outside the root must be rejected (the old lexical normpath check
+    would have passed it)."""
+    from fastapi import HTTPException
+    import app.api.tts_api as tts_api_mod
+
+    voices = tmp_path / "voices"
+    voices.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.wav").write_bytes(b"x")
+    link = voices / "escape"
+    link.symlink_to(outside)  # voices/escape -> outside
+
+    monkeypatch.setattr(tts_api_mod, "VOICES_DIR", voices)
+    ref = str(link / "secret.wav")  # lexically under voices/, really outside
+    with pytest.raises(HTTPException) as exc:
+        tts_api_mod._validate_voice_ref(ref)
+    assert exc.value.status_code == 400

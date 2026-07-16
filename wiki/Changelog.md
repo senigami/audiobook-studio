@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Security] - 2026-07-16
+
+### Coordinated code review — security hardening (fable cleanup, Tier 0)
+
+- **Remote code execution via voice bundles closed.** Imported voice bundles carry a `latent.pth` file that the XTTS engine loaded with `torch.load(..., weights_only=False)` — which unpickles arbitrary objects and would execute attacker code the first time an imported voice was synthesized. All four latent-load sites now use `weights_only=True` (XTTS latents are plain tensor dicts, so legitimate bundles are unaffected). A regression test crafts a malicious pickle and proves it can no longer execute. A `safetensors` migration is tracked as a follow-up.
+- **Management API no longer exposed to the LAN by default.** The app can bind `0.0.0.0`, but the dangerous *mutating* management endpoints — voice-bundle import (the RCE vector above), HuggingFace import, settings writes, and the entire engine-plugin management surface (`/api/engines/*` — importing/installing a plugin executes plugin code in the TTS server) — are now rejected (403) for non-loopback clients unless you enable **LAN access** in Settings (`lan_binding_enabled`). Reads and the UI stay reachable from other machines, so browsing is unaffected; only the admin/write operations require the opt-in. Bind host and socket behavior are unchanged.
+- **External TTS API `voice_ref` hardened.** `/api/v1/tts` now validates a path-style `voice_ref` through the realpath-resolving `safe_join` barrier (the previous lexical check missed symlink escape) and rejects caller-supplied `.pth` references (defense-in-depth for the deserialization fix above).
+- See `design-docs/specs/security.md` 1.3.0 (S13/S14/S15).
+
+## [Fixed] - 2026-07-16
+
+### Coordinated code review — correctness & resource fixes (fable cleanup, Tier 1)
+
+- **Scheduler recovery is now deterministic across restarts.** The recoverable-status set was an unordered `set`, so which interrupted job resumed for a chapter (running vs. queued vs. waiting) depended on Python's per-process hash seed; it's now an ordered tuple that reliably prefers the most-active row.
+- **Parallel-render progress no longer risks a wrong per-segment character count.** `_segment_char_count` now snapshots the children list under its lock instead of iterating the live list, matching the class's existing lock discipline (`tts_parallel_cap > 1`).
+- **Two unbounded memory leaks fixed:** the TTS-API rate limiter never evicted client-IP buckets (now drops empty buckets and sweeps silent IPs), and the frontend per-segment progress map grew for the whole session (now capped at 300 with oldest-first eviction that preserves just-completed entries).
+- **A wedged `ffmpeg` conversion can no longer hang a worker forever** — the Voxtral cloud-synthesis audio conversion and the `audio_ops` helper now time out after 300 s and surface a clear error.
+- **Smaller fixes:** a stale-closure `onQueueUpdate` callback in `useJobs`; a `PredictiveProgressBar` progress-floor cache entry that leaked on unmount and could disturb other live bars; DB-layer broadcast-failure warnings now go through the logger instead of `print()`; and new SQLite indexes (including a composite `processing_queue(chapter_id, status)` and `render_performance_samples(job_id)`) that remove full-table scans on the queue/history and chapter-open paths at large-catalog scale.
+
 ## [Changed] - 2026-07-11
 
 ### Waveform tape appears instantly on freshly rendered long chapters
