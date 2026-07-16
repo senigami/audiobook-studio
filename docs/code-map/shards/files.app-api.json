@@ -872,6 +872,8 @@
       "called_by": [],
       "notes": [
         "voice_ref validation: path refs must be under VOICES_DIR/TRANSIENT_DIR",
+        "SEC-3 (2026-07-16): _validate_voice_ref now rejects caller-supplied .pth refs (400) and asserts containment via the realpath-resolving safe_join barrier against VOICES_DIR/TRANSIENT_DIR (was a purely lexical os.path.normpath+startswith check) -- closes symlink-escape and the caller-controlled-.pth->torch.load path. Legitimate contained paths accepted unchanged.",
+        "PERF-2 (2026-07-16): the inline (<500 char) branch of POST /synthesize runs orchestrator.submit(task) via starlette run_in_threadpool instead of directly on the async handler. submit() is fully blocking (admission loop with time.sleep, HTTP dispatch, retries); calling it inline froze the asyncio event loop for the request's duration, stalling every other API request, /jobs poll, and websocket broadcast. Response shape unchanged; the long-text background_tasks.add_task branch was already off-loop.",
         "inline vs queued threshold: 500 chars",
         "engine unavailability returns empty registry not crash",
         "2026-07-10: S12 fix: FastAPI's auto-generated docs_url/openapi_url/redoc_url routes are registered via add_route() (plain Starlette routing), which bypasses FastAPI's dependency-injection system -- so the `dependencies=[Depends(verify_api_key), Depends(rate_limit)]` passed to the FastAPI() constructor never applied to /api/v1/tts/docs or /api/v1/tts/openapi. Confirmed empirically pre-fix: both returned 200 with no Authorization header, and even when tts_api_enabled=False. Fix: disabled docs_url/openapi_url/redoc_url on the FastAPI() constructor and added explicit GET /openapi and GET /docs routes on `router` (which is include_router'd into the sub-app and therefore inherits the same verify_api_key + rate_limit dependencies as every data route, e.g. /engines, /synthesize, /jobs/{id}). Verified: 401 unauthenticated, 403 when tts_api_enabled=False, 200 with a valid key -- matching every other route's behavior."
@@ -913,7 +915,7 @@
           "contract": "FastAPI instance"
         },
         {
-          "name": "startup_event, shutdown_event, websocket_endpoint, get_project_cover_hardened, get_project_m4b_hardened, get_voice_preview_hardened, get_legacy_cover_output, lan_protection_middleware, catch_all",
+          "name": "startup_event, shutdown_event, websocket_endpoint, get_project_cover_hardened, get_project_m4b_hardened, get_voice_preview_hardened, get_legacy_cover_output, lan_protection_middleware, _is_loopback_client, catch_all",
           "kind": "function"
         }
       ],
@@ -944,7 +946,7 @@
         "startup: DB init->cleanup->reconciliation->listener registration->task recovery->pause restore->TTS server boot",
         "WebSocket origin check prevents CSWSH",
         "path-serving uses _contained_file/_contained_root_file for traversal defense",
-        "LAN protection middleware enforces lan_binding_enabled on external API",
+        "SEC-2 (2026-07-16): lan_protection_middleware now gates a _LAN_GATED_MGMT_PREFIXES set (/api/voices/bundle/import, /api/voices/huggingface, /api/settings, and the ENTIRE /api/engines/ mutating surface) for non-loopback clients on mutating methods (POST/PUT/PATCH/DELETE) unless lan_binding_enabled -- NOT just /api/v1/tts anymore. Prior invariant that internal/management routes are never LAN-gated is REVERSED. The whole /api/engines/ prefix is gated (not enumerated) so dynamic members like /api/engines/{engine_id}/install can't slip. Reads/GET and the general UI stay reachable from the LAN; socket bind unchanged. New _is_loopback_client helper. Closes the unauthenticated-LAN voice-bundle-import and plugin install/import RCE vectors.",
         "BE-1a (2026-07-04): removed dead REPORT_DIR/UPLOAD_DIR import + REPORT_DIR=REPORT_DIR self-alias, and dead tts_generate_stub() (zero real callers)"
       ],
       "calls_inferred": [

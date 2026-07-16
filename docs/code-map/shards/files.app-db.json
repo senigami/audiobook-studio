@@ -324,7 +324,8 @@
         "verify_and_cleanup_legacy_tables: ATTACH studio_db, migrates data, drops legacy tables from user DB",
         "test safety: refuses non-test paths during pytest (checks temp/ dirs)",
         "2026-07-08: init_db now adds a projects.series_position INTEGER column alongside the CREATE TABLE default, via an idempotent PRAGMA table_info(projects) presence check + ALTER TABLE for pre-existing DBs.",
-        "2026-07-09: init_db()'s projects CREATE TABLE now declares a `description TEXT` column for fresh DBs, plus a guarded `ALTER TABLE projects ADD COLUMN description TEXT` for existing DBs (idempotent, same idiom as the series_position migration guard immediately above it)."
+        "2026-07-09: init_db()'s projects CREATE TABLE now declares a `description TEXT` column for fresh DBs, plus a guarded `ALTER TABLE projects ADD COLUMN description TEXT` for existing DBs (idempotent, same idiom as the series_position migration guard immediately above it).",
+        "PERF-3 (2026-07-16): init_db adds non-unique CREATE INDEX IF NOT EXISTS on chapters(project_id), chapter_segments(chapter_id), characters(project_id), lexicon(project_id), processing_queue(chapter_id, status) [composite] on the user DB, and render_performance_samples(job_id, completed_at DESC) on the studio DB. Composite + job_id index also mirrored into the legacy table-rebuild fallback blocks. Idempotent, applies to existing DBs on next boot. Deliberately omits chapter_segments(audio_status) (hot-path write amplification)."
       ],
       "calls_inferred": []
     },
@@ -870,7 +871,8 @@
         "update_segment triggers cascading invalidation (text/character/speaker changes invalidate audio)",
         "get_chapter_segments validates canonical names against current chunk groups",
         "broadcast_segments_updated called outside lock to prevent deadlock",
-        "chapter_completion_by_size is computed-but-not-wired: no callers yet"
+        "chapter_completion_by_size is computed-but-not-wired: no callers yet",
+        "BP-3 (2026-07-16): the two broadcast-failure warnings now use logger.warning(..., exc_info=True) instead of print() (DB-layer fire-and-forget paths, never surfaced in an API response)"
       ],
       "calls_inferred": [
         "app/core/config.py#get_chapter_dir",
@@ -1164,17 +1166,27 @@
         {
           "name": "_load_state_no_lock",
           "kind": "fn",
-          "contract": "() \u2192 Dict; assumes caller holds _STATE_LOCK, loads and auto-fixes corrupt"
+          "contract": "() \u2192 Dict; assumes caller holds _STATE_LOCK. PERF-1 (2026-07-16): returns the SHARED copy-on-write in-memory cache on a signature match (READ-ONLY contract -- callers must not mutate) instead of re-reading+parsing state.json every call; still auto-fixes corrupt on a cache miss"
+        },
+        {
+          "name": "_load_state_for_update_no_lock",
+          "kind": "fn",
+          "contract": "PERF-1 (2026-07-16): () \u2192 Dict; returns a deepcopy for mutators (preserves the pre-cache guarantee that a mid-mutation exception leaves committed state untouched)"
+        },
+        {
+          "name": "_commit_state_no_lock",
+          "kind": "fn",
+          "contract": "PERF-1 (2026-07-16): Dict \u2192 None; the single write chokepoint -- persists, adopts as cache, refreshes signature"
         },
         {
           "name": "load_state",
           "kind": "fn",
-          "contract": "() \u2192 Dict; loads state.json under lock"
+          "contract": "() \u2192 Dict; loads state.json under lock (PERF-1: returns a copy)"
         },
         {
           "name": "save_state",
           "kind": "fn",
-          "contract": "Dict \u2192 None; saves state.json under lock"
+          "contract": "Dict \u2192 None; saves state.json under lock (PERF-1: routes through _commit_state_no_lock chokepoint)"
         }
       ],
       "calls": [
@@ -1182,13 +1194,16 @@
         "app/db/__init__.py"
       ],
       "called_by": [
-        "app/db/state.py"
+        "app/db/state.py",
+        "app/db/state_jobs.py",
+        "app/db/state_settings.py"
       ],
       "notes": [
         "RLock prevents deadlock when nested lock holders call functions that also lock",
         "_atomic_write_text: tmp+os.replace prevents partial writes",
         "_load_state_no_lock handles missing/empty/corrupt files (backs up, resets to minimal)",
-        "listeners are stored in module-level _JOB_LISTENERS list"
+        "listeners are stored in module-level _JOB_LISTENERS list",
+        "PERF-1 (2026-07-16): state.json is now a copy-on-write in-memory cache keyed on (path, mtime_ns, size). Readers get the shared cached dict (no re-parse per access); mutators take a deepcopy and persist through the single _commit_state_no_lock chokepoint. New _prime_cache_no_lock/_state_file_signature/_invalidate_state_cache helpers. External writes (e.g. migration) and STATE_FILE path switches change the signature and force a reload. Behavior (observable job/settings state) unchanged -- only the read cost."
       ],
       "calls_inferred": []
     },
@@ -1297,6 +1312,8 @@
         "app/db/state_helpers.py#_atomic_write_text",
         "app/db/state_helpers.py#_cache_listener_snapshot_support",
         "app/db/state_helpers.py#_load_state_no_lock",
+        "app/db/state_helpers.py#_load_state_for_update_no_lock",
+        "app/db/state_helpers.py#_commit_state_no_lock",
         "app/db/state_helpers.py#get_state_file",
         "app/db/state_job_guards.py#apply_status_regression_guard",
         "app/db/state_job_guards.py#apply_terminal_eta_cleanup",
@@ -1317,7 +1334,8 @@
         "terminal-reset: terminal\u2192queued/preparing clears stale fields (started_at, eta_*, etc)",
         "force_broadcast bypasses guards, forces broadcast even if no fields changed",
         "ETA basis: 'remaining_from_update' computed relative to event timestamp",
-        "pruning: keeps 50 most recent terminal jobs; older ones removed from state.json"
+        "pruning: keeps 50 most recent terminal jobs; older ones removed from state.json",
+        "PERF-1 (2026-07-16): the 6 mutators (put_job, update_job, prune_completed_jobs, delete_jobs, clear_all_jobs, purge_jobs_for_chapter) now load via _load_state_for_update_no_lock() and persist via _commit_state_no_lock() (prune_completed_jobs also fixed to use the chokepoint instead of writing STATE_FILE directly). get_jobs() stays on the fast read-only _load_state_no_lock() path."
       ],
       "calls_inferred": [
         "app/db/queue.py#update_queue_item"
@@ -1426,6 +1444,8 @@
         "app/db/state_helpers.py#_STATE_LOCK",
         "app/db/state_helpers.py#_atomic_write_text",
         "app/db/state_helpers.py#_load_state_no_lock",
+        "app/db/state_helpers.py#_load_state_for_update_no_lock",
+        "app/db/state_helpers.py#_commit_state_no_lock",
         "app/db/state_helpers.py#get_state_file",
         "app/engines/behavior.py#required_settings_for",
         "app/engines/voice_engines.py#get_default_profile_engine",
@@ -1436,6 +1456,7 @@
         "app/api/routers/engines.py"
       ],
       "notes": [
+        "PERF-1 (2026-07-16): update_settings() routes through _load_state_for_update_no_lock()/_commit_state_no_lock(); get_settings()/set_engine_cap() stay readers. Also fixed a latent aliasing bug: _normalize_settings now copies the nested enabled_plugins dict before mutating it, so a reader (get_settings) can no longer corrupt the shared state cache via the required-setting-disable path.",
         "enforces enabled_plugins as source of truth for plugin enablement",
         "disables plugins missing required_settings",
         "clears default_engine if it's no longer enabled",

@@ -33,7 +33,8 @@
    ],
    "called_by": [],
    "notes": [
-    "registry-dispatched for assembly jobs"
+    "registry-dispatched for assembly jobs",
+    "2026-07-16 fix: out_file no longer re-appends '.m4b' to a chapter_file that already ended in '.m4b' (chapter_file = Path(output_path).name of the AssemblyTask's *.m4b output), which had written shipped audiobooks as '<name>.m4b.m4b' (also recorded as job.output_mp3). Now strips a trailing '.m4b' before re-appending so the M4B filename has exactly one extension. Regression-tested via tests/orchestration/test_audiobook_handler_filename.py."
    ],
    "calls_inferred": []
   },
