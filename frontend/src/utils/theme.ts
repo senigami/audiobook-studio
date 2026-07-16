@@ -20,11 +20,14 @@ export function applyTheme(pref: Theme): void {
   document.documentElement.setAttribute('data-theme', effective);
 }
 
+// Owner-requested (2026-07-16): default to light mode for first-time users
+// instead of following the OS preference, which was landing new users in
+// dark mode more often than not.
 export function loadThemePref(): Theme {
   try {
-    return (localStorage.getItem(STORAGE_KEY) as Theme) ?? 'system';
+    return (localStorage.getItem(STORAGE_KEY) as Theme) ?? 'light';
   } catch {
-    return 'system';
+    return 'light';
   }
 }
 

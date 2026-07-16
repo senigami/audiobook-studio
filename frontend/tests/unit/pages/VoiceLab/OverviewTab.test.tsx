@@ -133,4 +133,38 @@ describe('OverviewTab', () => {
         fireEvent.keyDown(input, { key: 'Enter' });
         expect(screen.getByRole('button', { name: 'Remove calm' })).toBeInTheDocument();
     });
+
+    // Owner-requested (2026-07-16): Save must be disabled ("grayed out") when
+    // there's nothing to save, enabled once a change is made, and disabled
+    // again after a successful save, with a toast confirming the save.
+    describe('Save button dirty-state + toast', () => {
+        it('starts disabled when the draft matches the saved voice', () => {
+            render(<OverviewTab voice={mockVoice} onSaved={vi.fn()} />);
+            expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+        });
+
+        it('enables once a field changes, and disables again after a successful save', async () => {
+            const { api } = await import('@/api');
+            vi.mocked(api.patchVoiceMetadata).mockResolvedValue({ ...mockVoice, description: 'Updated.' });
+            const onSaved = vi.fn();
+            const toastListener = vi.fn();
+            window.addEventListener('studio-toast', toastListener);
+
+            render(<OverviewTab voice={mockVoice} onSaved={onSaved} />);
+
+            const description = screen.getByLabelText('DESCRIPTION');
+            fireEvent.change(description, { target: { value: 'Updated.' } });
+            expect(screen.getByRole('button', { name: 'Save' })).not.toBeDisabled();
+
+            fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+            await vi.waitFor(() => expect(onSaved).toHaveBeenCalled());
+            expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+            expect(toastListener).toHaveBeenCalledWith(
+                expect.objectContaining({ detail: expect.objectContaining({ message: 'Voice details saved' }) })
+            );
+
+            window.removeEventListener('studio-toast', toastListener);
+        });
+    });
 });

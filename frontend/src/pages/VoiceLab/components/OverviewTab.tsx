@@ -36,6 +36,27 @@ import { categoryForAttributeKey } from '@/pages/Voices/components/VoicePills';
 import SearchableSelect from '@/components/forms/SearchableSelect';
 import { TagsInput } from '@/pages/Voices/components/metadata/TagsInput';
 import { ArchetypeQuickPick, type ArchetypeQuickPickFields } from '@/pages/Voices/components/metadata/ArchetypeQuickPick';
+import { emitToast } from '@/utils/toast';
+
+// Owner-requested (2026-07-16): Save must read as grayed-out/disabled when
+// there's nothing to save, turn active once a change is made, and go back
+// to grayed-out after a successful save -- so it needs a snapshot of the
+// last-saved draft shape to diff the live draft against.
+interface DraftSnapshot {
+    attrs: VoiceAttributes;
+    tags: string[];
+    description: string;
+    languages: string;
+}
+
+function snapshotOf(voice: VoiceMetadata | null | undefined): DraftSnapshot {
+    return {
+        attrs: voice?.attributes || {},
+        tags: voice?.tags || [],
+        description: voice?.description || '',
+        languages: (voice?.languages || []).join(', '),
+    };
+}
 
 export interface OverviewTabProps {
     voice: VoiceMetadata;
@@ -50,6 +71,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ voice, onSaved }) => {
     const [languages, setLanguages] = useState<string>((voice?.languages || []).join(', '));
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [savedSnapshot, setSavedSnapshot] = useState<string>(() => JSON.stringify(snapshotOf(voice)));
 
     // Sync when voice prop changes (different voice opened)
     React.useEffect(() => {
@@ -58,7 +80,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ voice, onSaved }) => {
         setDescription(voice?.description || '');
         setLanguages((voice?.languages || []).join(', '));
         setError(null);
+        setSavedSnapshot(JSON.stringify(snapshotOf(voice)));
     }, [voice?.id]);
+
+    const isDirty = savedSnapshot !== JSON.stringify({ attrs, tags, description, languages });
 
     const setAttr = useCallback((key: keyof VoiceAttributes, val: any) => {
         setAttrs(prev => ({ ...prev, [key]: val }));
@@ -90,6 +115,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ voice, onSaved }) => {
             };
             const updated = await api.patchVoiceMetadata(voice.id, patch);
             onSaved(updated);
+            // Owner-requested (2026-07-16): Save goes gray again immediately
+            // after a successful save, and a toast confirms it happened.
+            setSavedSnapshot(JSON.stringify({ attrs, tags, description, languages }));
+            emitToast('Voice details saved');
         } catch (err: any) {
             // Surface 422 verbatim per spec
             setError(err.message || 'Save failed');
@@ -241,9 +270,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ voice, onSaved }) => {
                 <button
                     type="button"
                     onClick={handleSave}
-                    disabled={saving || requiredMissing}
+                    disabled={saving || requiredMissing || !isDirty}
                     className="btn-primary metadata-editor-modal__action-btn"
-                    style={{ padding: '0 var(--space-5)', opacity: (saving || requiredMissing) ? 0.5 : 1 }}
+                    style={{ padding: '0 var(--space-5)' }}
                 >
                     {saving ? 'Saving…' : 'Save'}
                 </button>
