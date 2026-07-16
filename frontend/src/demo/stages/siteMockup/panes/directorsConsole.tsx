@@ -2,7 +2,7 @@
  * Director's Console — Northstar demo pane
  *
  * Demonstrates the Chapter Editor's "Director's Console" design:
- *   Cast (V) · Booth (R) · Write (W) · Revise (E)
+ *   Cast (V) · Booth (R) · Revise (E) · Write (W)
  *   Left annotation gutter · Cast palette · Karaoke · In-place editing
  *   Stage Direction (S) and Performance Cue (P) built-ins
  */
@@ -71,9 +71,9 @@ const VOICE = {
 
 const MODE_STYLE = {
   cast: { label: 'Cast', key: 'V', color: 'var(--accent)', bg: 'var(--accent-tint-bg)', border: 'var(--accent-tint-border)' },
-  booth: { label: 'Booth', key: 'R', color: '#4ade80', bg: 'rgba(74,222,128,.10)', border: 'rgba(74,222,128,.25)' },
-  write: { label: 'Write', key: 'W', color: '#fbbf24', bg: 'rgba(251,191,36,.10)', border: 'rgba(251,191,36,.25)' },
-  revise: { label: 'Revise', key: 'E', color: '#fb923c', bg: 'rgba(251,146,60,.10)', border: 'rgba(251,146,60,.25)' },
+  booth: { label: 'Booth', key: 'R', color: 'var(--success)', bg: 'var(--success-tint-bg)', border: 'var(--success-tint-border)' },
+  revise: { label: 'Revise', key: 'E', color: 'var(--error)', bg: 'var(--error-tint-bg)', border: 'var(--error-tint-border)' },
+  write: { label: 'Write', key: 'W', color: 'var(--warning)', bg: 'var(--warning-tint-bg)', border: 'var(--warning-tint-border)' },
 } as const;
 
 // ── Reader preferences ────────────────────────────────────────────────────────
