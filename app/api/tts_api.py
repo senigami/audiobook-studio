@@ -61,7 +61,10 @@ class EngineListResponse(BaseModel):
 
 class SynthesisRequest(BaseModel):
     engine_id: str = Field(..., description="Target TTS engine identifier.")
-    text: str = Field(..., description="Text to synthesize.")
+    # Bound the text length at the API boundary — an unbounded body is a cheap
+    # DoS vector (accepted onto the queue, then rendered). 100k chars comfortably
+    # covers a long chapter while capping abuse; over-limit -> 422 automatically.
+    text: str = Field(..., min_length=1, max_length=100_000, description="Text to synthesize.")
     voice_ref: Optional[str] = Field(None, description="Optional reference audio path or profile name.")
     language: str = Field("en", description="BCP-47 language code.")
     output_format: str = Field("wav", description="Desired output format (wav, mp3, ogg).")
@@ -78,6 +81,21 @@ class JobStatusResponse(BaseModel):
     message: Optional[str] = None
     progress: float = 0.0
     download_url: Optional[str] = None
+
+# --- Caller-safe messaging ---
+
+def _public_job_message(job: Any) -> Optional[str]:
+    """Return a caller-safe status message for a job.
+
+    We must never surface raw engine/bridge exception text to an external caller:
+    those strings can embed internal filesystem paths or the managed TTS server
+    URL (see api-conventions.md — error messages MUST NOT leak internal paths or
+    stack traces). Map to a small fixed vocabulary keyed only on terminal status.
+    """
+    if getattr(job, "status", None) in {"failed", "cancelled"}:
+        return "Synthesis failed."
+    return None
+
 
 # --- Voice ref validation ---
 
@@ -181,11 +199,11 @@ async def synthesize(request: SynthesisRequest, req_context: Request, background
     # Ensure output directory exists
     output_dir = (TRANSIENT_DIR / "api").resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
-    # Path uses the literal extension from the allowlist dict — no user input in the path.
-    output_path = (output_dir / task_id).with_suffix(output_extension).resolve()
-    # Defense in depth: the served file must stay inside the API output dir.
-    if not output_path.is_relative_to(output_dir):
-        raise HTTPException(status_code=400, detail="Invalid output path.")
+    # Build the output path via contained_path — the normpath+startswith
+    # containment barrier recognized by static analysis (api-conventions.md).
+    # task_id is server-generated and output_extension is a literal from the
+    # allowlist, so no user input flows into the path; assert containment anyway.
+    output_path = contained_path(output_dir, f"{task_id}{output_extension}")
 
     task = ApiSynthesisTask(
         task_id=task_id,
@@ -232,8 +250,11 @@ async def synthesize(request: SynthesisRequest, req_context: Request, background
 @router.post("/preview")
 async def preview(request: SynthesisRequest, req_context: Request, background_tasks: BackgroundTasks):
     """Quick preview synthesis for short text (always inline)."""
-    if len(request.text) > 500:
-        raise HTTPException(status_code=422, detail="Text exceeds preview limit (500 chars).")
+    # Must match the inline threshold in synthesize() (< 500), otherwise a
+    # 500-char preview would be queued and return a job envelope, contradicting
+    # the "always inline" contract.
+    if len(request.text) >= 500:
+        raise HTTPException(status_code=422, detail="Preview text must be under 500 characters.")
 
     return await synthesize(request, req_context, background_tasks)
 
@@ -248,11 +269,12 @@ async def get_job_status(job_id: str):
     response = {
         "job_id": job_id,
         "status": job.status,
-        "message": getattr(job, "message", None),
+        "message": _public_job_message(job),
         "progress": getattr(job, "progress", 0.0),
     }
 
-    if job.status == "completed":
+    # Terminal success in the Job status vocabulary (app/db/models.py) is "done".
+    if job.status == "done":
         response["download_url"] = f"/api/v1/tts/jobs/{job_id}/audio"
 
     return response
@@ -265,25 +287,31 @@ async def get_job_audio(job_id: str):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found.")
 
-    if job.status != "completed":
+    # Terminal success is "done" in the Job status vocabulary (app/db/models.py).
+    if job.status != "done":
         raise HTTPException(status_code=400, detail=f"Job is in state '{job.status}'.")
 
-    # In ApiSynthesisTask, the output_path is stored in the payload
-    payload = getattr(job, "payload", {})
-    output_path_str = payload.get("output_path")
-    if not output_path_str:
-        raise HTTPException(status_code=500, detail="Job has no output path recorded.")
-
-    output_path = Path(output_path_str).resolve()
-    # Defense in depth: assert the stored output path is within the expected API output dir.
+    # The Job model does not persist the API output path, so reconstruct it the
+    # same way POST /synthesize built it: TRANSIENT_DIR/api/<job_id><ext>, where
+    # <ext> is one of the fixed output-format extensions. contained_path is the
+    # normpath+startswith containment barrier — it rejects any traversal in the
+    # (URL-supplied) job_id, and confining lookups to TRANSIENT_DIR/api means a
+    # non-API job id can never be used to serve a Studio render's audio.
     api_output_dir = (TRANSIENT_DIR / "api").resolve()
-    if not output_path.is_relative_to(api_output_dir):
-        logger.error("Job %s output_path %s is outside api output dir — refusing to serve", job_id, output_path)
-        raise HTTPException(status_code=500, detail="Job output path is invalid.")
-    if not output_path.exists():
+    served_path: Optional[Path] = None
+    for ext in (".wav", ".mp3", ".ogg", ".flac"):
+        try:
+            candidate = contained_path(api_output_dir, f"{job_id}{ext}")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid job id.")
+        if candidate.is_file():
+            served_path = candidate
+            break
+
+    if served_path is None:
         raise HTTPException(status_code=410, detail="Audio file has expired or been removed.")
 
-    return FileResponse(output_path, filename=output_path.name)
+    return FileResponse(served_path, filename=served_path.name)
 
 @router.get("/openapi", include_in_schema=False)
 async def get_openapi_schema():
