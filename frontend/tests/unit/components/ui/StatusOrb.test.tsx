@@ -174,9 +174,13 @@ describe('StatusOrb', () => {
 
     // No animate-spin anywhere in the preparing orb (spinner is the running-only cue).
     expect(container.querySelector('.animate-spin')).toBeNull()
-    // The pulse rides the .is-preparing class, which base.css re-enables under
+    // The pulse rides the orb-scoped .orb-is-preparing class (not bare .is-preparing,
+    // which ScriptView uses on body text), which base.css re-enables under
     // prefers-reduced-motion (calm opacity breathe, no movement).
-    expect(container.querySelector('.is-preparing')).toBeTruthy()
+    expect(container.querySelector('.orb-is-preparing')).toBeTruthy()
+    // Guard the F1 regression: the orb must NOT use the bare class that would leak
+    // the global animation onto ScriptView's script-mode preparing text spans.
+    expect(container.querySelector('.is-preparing')).toBeNull()
   })
 
   it('shows the live segment arc at real done/total while a job is actively rendering', () => {

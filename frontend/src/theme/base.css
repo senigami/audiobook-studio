@@ -66,9 +66,11 @@
     animation-duration: 1.6s !important;
     animation-iteration-count: infinite !important;
   }
-  /* Bare .is-preparing is the StatusOrb preparing pulse (orb-preparing-pulse, a
-     calm dimmed opacity breathe, no movement) — same essential-state exemption. */
-  .is-preparing {
+  /* .orb-is-preparing is the StatusOrb preparing pulse (orb-preparing-pulse, a
+     calm dimmed opacity breathe, no movement) — same essential-state exemption.
+     Scoped (not bare .is-preparing) so it can't re-enable ScriptView's bare
+     is-preparing spans under reduced-motion. */
+  .orb-is-preparing {
     animation-duration: var(--preparing-pulse-duration, 2s) !important;
     animation-iteration-count: infinite !important;
   }

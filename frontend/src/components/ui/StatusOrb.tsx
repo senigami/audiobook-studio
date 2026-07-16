@@ -73,15 +73,17 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
   } else if (isPreparing) {
     // Distinct preparing tier (progress-presentation.md §2.7): dimmed, calm-pulsing,
     // NO spinner — the model-load window reads differently from active synthesis.
-    // The pulse rides `.is-preparing`, which base.css re-enables under
+    // The pulse rides `.orb-is-preparing`, which base.css re-enables under
     // prefers-reduced-motion as a calm opacity breathe (no movement) — same
-    // essential-state exemption as the ScriptView preparing pulse.
+    // essential-state exemption as the ScriptView preparing pulse. The class is
+    // orb-scoped (not bare `is-preparing`) so it can't leak onto ScriptView's
+    // bare-`is-preparing` script-mode text spans.
     fill = 'rgba(30,79,216,.10)';
     orbStroke = 'var(--live-indicator)';
     content = (
       <span
         data-testid="orb-icon-preparing"
-        className="is-preparing"
+        className="orb-is-preparing"
         aria-hidden="true"
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 0 }}
       >
@@ -214,7 +216,7 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
             stroke={isTrulyProcessing ? 'var(--live-indicator)' : 'var(--border)'}
             strokeWidth="1.2"
             strokeLinecap="round"
-            className={isPreparing ? 'is-preparing' : (isTrulyProcessing ? 'is-running' : undefined)}
+            className={isPreparing ? 'orb-is-preparing' : (isTrulyProcessing ? 'is-running' : undefined)}
             style={{ opacity: isStale ? 0 : (isPreparing ? 0.45 : (isTrulyProcessing ? 0.8 : 0.3)), transition: 'all 0.3s' }}
           />
 

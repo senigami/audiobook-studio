@@ -18,13 +18,15 @@
 /* Dimmed preparing breathe — the StatusOrb model-load window. Distinct from
    is-running: a lower opacity band (0.35→0.65 vs 0.7→1.0) reads as "warming up,
    not yet working" without a spinner. INV-5: essential state cue, survives
-   reduced-motion (re-enabled in base.css). More-specific ScriptView rules
-   (.script-line.is-preparing / .script-render-group.is-preparing) override this. */
+   reduced-motion (re-enabled in base.css). Scoped to `.orb-is-preparing`, NOT bare
+   `.is-preparing`: ScriptView applies a bare `is-preparing` to `.script-span` in
+   script mode with no scoped CSS rule, so a global `.is-preparing` animation would
+   leak onto that body text and pulse it. */
 @keyframes orb-preparing-pulse {
   0%, 100% { opacity: 0.35; }
   50%       { opacity: 0.65; }
 }
-.is-preparing {
+.orb-is-preparing {
   --preparing-pulse-duration: 2s;
   animation: orb-preparing-pulse var(--preparing-pulse-duration) ease-in-out infinite;
 }
