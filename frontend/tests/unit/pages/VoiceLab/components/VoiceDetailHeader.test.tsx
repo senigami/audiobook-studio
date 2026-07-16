@@ -116,6 +116,29 @@ describe('VoiceDetailHeader', () => {
         });
     });
 
+    it('bumps the icon src after a successful upload so the browser actually re-fetches it (user-reported: image did not update until page reload)', async () => {
+        FakeImage.behavior = 'square';
+        (api.uploadVoiceIcon as any).mockResolvedValue({ image: 'icon.png' });
+
+        render(<VoiceDetailHeader {...baseProps({ iconUrl: '/api/voices/voice-abc/icon' })} />);
+
+        const beforeSrc = (screen.getByAltText('Aria Nova icon') as HTMLImageElement).src;
+
+        const uploadButton = screen.getByRole('button', { name: 'Replace icon' });
+        const input = screen.getByLabelText('Upload voice icon') as HTMLInputElement;
+        fireEvent.click(uploadButton);
+        fireEvent.change(input, { target: { files: [makeFile()] } });
+
+        await waitFor(() => {
+            expect(api.uploadVoiceIcon).toHaveBeenCalled();
+        });
+
+        await waitFor(() => {
+            const afterSrc = (screen.getByAltText('Aria Nova icon') as HTMLImageElement).src;
+            expect(afterSrc).not.toBe(beforeSrc);
+        });
+    });
+
     it('uploads an image dropped directly onto the avatar', async () => {
         FakeImage.behavior = 'square';
         (api.uploadVoiceIcon as any).mockResolvedValue({ image: 'icon.png' });

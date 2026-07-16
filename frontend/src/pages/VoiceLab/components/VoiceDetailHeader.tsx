@@ -73,9 +73,18 @@ export const VoiceDetailHeader: React.FC<VoiceDetailHeaderProps> = ({
     // VoiceLabPage -- same non-propagating behavior as before, just relocated.
     const [iconOverride, setIconOverride] = useState<string | null>(null);
     const [iconUploadError, setIconUploadError] = useState<string | null>(null);
+    // Bug fix (user-reported, 2026-07-16): a successful upload replaced the
+    // file server-side, but the <img> never re-fetched it -- the resolved
+    // URL (`/api/voices/{id}/icon`) is identical before and after, so the
+    // element's `src` attribute didn't change and the browser kept showing
+    // its cached image until a full page reload. Bumping a version counter
+    // on every successful upload and appending it as a cache-busting query
+    // param forces a real re-fetch without needing a reload.
+    const [iconVersion, setIconVersion] = useState(0);
     useEffect(() => {
         setIconOverride(null);
         setIconUploadError(null);
+        setIconVersion(0);
     }, [voiceId]);
 
     const {
@@ -94,12 +103,15 @@ export const VoiceDetailHeader: React.FC<VoiceDetailHeaderProps> = ({
     } = useIconUpload({
         voiceId,
         metadata,
-        onSuccess: (image) => setIconOverride(image),
+        onSuccess: (image) => {
+            setIconOverride(image);
+            setIconVersion(v => v + 1);
+        },
         onError: (msg) => setIconUploadError(msg),
     });
 
     const effectiveIconUrl = iconOverride
-        ? `/api/voices/${encodeURIComponent(voiceId)}/icon`
+        ? `/api/voices/${encodeURIComponent(voiceId)}/icon?v=${iconVersion}`
         : iconUrl;
 
     const defaultProfile = profiles.find(p => p.is_default) ?? profiles[0] ?? null;
