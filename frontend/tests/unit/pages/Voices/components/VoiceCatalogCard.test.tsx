@@ -5,6 +5,7 @@
  */
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock the playerBus boundary (audio owner)
@@ -154,6 +155,15 @@ describe('VoiceCatalogCard', () => {
         const profiles = [{ ...readyProfile, is_default: false }];
         render(<VoiceCatalogCard {...baseProps} profiles={profiles} />);
         expect(screen.queryByLabelText('App default voice')).not.toBeInTheDocument();
+    });
+
+    // H-4: the app-default badge renders lucide's `Star` shape (VariantSwitcher's
+    // per-variant-default control uses a distinct `BadgeCheck` shape instead, so the
+    // two "default" concepts are never differentiated by color alone).
+    it('renders the app-default badge with the Star icon (not shared with the variant-default control)', () => {
+        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
+        const badge = screen.getByLabelText('App default voice');
+        expect(badge.querySelector('svg.lucide-star')).toBeInTheDocument();
     });
 
     it('shows UntaggedBadge when voice is untagged (no attributes, no tags)', () => {
@@ -347,9 +357,43 @@ describe('VoiceCatalogCard', () => {
         expect(screen.queryByTestId('menu-item-Voice Settings')).not.toBeInTheDocument();
     });
 
-    it('clicking the card body (name/avatar area) navigates to Voice Lab', () => {
+    it('clicking the voice name navigates to Voice Lab', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
-        fireEvent.click(screen.getByTestId('voice-catalog-card-body'));
+        fireEvent.click(screen.getByTestId('voice-catalog-card-name-btn'));
+        expect(baseProps.onNavigateToLab).toHaveBeenCalledWith('sp-1');
+    });
+
+    // ---------------------------------------------------------------------------
+    // A11Y-3 — the card body is no longer a single role="button" nesting other
+    // interactive controls (play button, pills "+N more" toggle, untagged badge)
+    // ---------------------------------------------------------------------------
+
+    it('the card body wrapper carries no button role/tabIndex/click handler of its own', () => {
+        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
+        const body = screen.getByTestId('voice-catalog-card-body');
+        expect(body).not.toHaveAttribute('role');
+        expect(body).not.toHaveAttribute('tabindex');
+        fireEvent.click(body);
+        expect(baseProps.onNavigateToLab).not.toHaveBeenCalled();
+    });
+
+    it('the voice name is a real, independently focusable <button>', () => {
+        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
+        const nameBtn = screen.getByTestId('voice-catalog-card-name-btn');
+        expect(nameBtn.tagName).toBe('BUTTON');
+        nameBtn.focus();
+        expect(nameBtn).toHaveFocus();
+    });
+
+    it('pressing Enter/Space on the voice name navigates to Voice Lab (native button activation)', async () => {
+        const user = userEvent.setup();
+        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
+        const nameBtn = screen.getByTestId('voice-catalog-card-name-btn');
+        nameBtn.focus();
+        await user.keyboard('{Enter}');
+        expect(baseProps.onNavigateToLab).toHaveBeenCalledWith('sp-1');
+        baseProps.onNavigateToLab.mockClear();
+        await user.keyboard(' ');
         expect(baseProps.onNavigateToLab).toHaveBeenCalledWith('sp-1');
     });
 
@@ -383,7 +427,7 @@ describe('VoiceCatalogCard', () => {
         expect(baseProps.onNavigateToLab).not.toHaveBeenCalled();
     });
 
-    it('clicking the card body toggles selection instead of navigating when selectable', () => {
+    it('clicking the voice name toggles selection instead of navigating when selectable', () => {
         const onToggleSelect = vi.fn();
         render(
             <VoiceCatalogCard
@@ -393,7 +437,7 @@ describe('VoiceCatalogCard', () => {
                 onToggleSelect={onToggleSelect}
             />
         );
-        fireEvent.click(screen.getByTestId('voice-catalog-card-body'));
+        fireEvent.click(screen.getByTestId('voice-catalog-card-name-btn'));
         expect(onToggleSelect).toHaveBeenCalledTimes(1);
         expect(baseProps.onNavigateToLab).not.toHaveBeenCalled();
     });

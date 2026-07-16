@@ -157,6 +157,28 @@ describe('MultiSelect', () => {
     expect(unselectedOption).toHaveAttribute('aria-selected', 'false');
   });
 
+  // -----------------------------------------------------------------------
+  // H-5 (design-critique follow-up): selected chips tint to the facet's pill
+  // hue when a `category` is supplied, instead of one generic accent color.
+  // -----------------------------------------------------------------------
+
+  it('renders selected chips with generic accent styling when no category is supplied', () => {
+    render(<MultiSelect options={options} value={['1']} onChange={vi.fn()} />);
+    const chip = screen.getByText('Option 1').closest('span');
+    expect(chip).toHaveStyle({ background: 'var(--accent-glow)', color: 'var(--accent)' });
+    expect(chip).not.toHaveAttribute('data-category');
+  });
+
+  it('tints selected chips to the pill hue for the supplied category', () => {
+    render(<MultiSelect options={options} value={['1']} onChange={vi.fn()} category="gender" />);
+    const chip = screen.getByText('Option 1').closest('span');
+    expect(chip).toHaveStyle({
+      background: 'var(--pill-gender-bg)',
+      color: 'var(--pill-gender-text)',
+    });
+    expect(chip).toHaveAttribute('data-category', 'gender');
+  });
+
   it('is disabled when disabled prop is true', () => {
     render(<MultiSelect options={options} value={[]} onChange={vi.fn()} disabled={true} label="Pick" />);
     const combobox = screen.getByRole('combobox', { name: 'Pick' });

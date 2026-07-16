@@ -6,7 +6,8 @@
  *   Play/Pause preview control revealed as a hover/focus overlay (never hover-only — see
  *   INV-FOCUS below)
  * - Default-voice star badge (top-left) and untagged badge
- * - Voice name
+ * - Voice name — a real `<button>`, the sole navigate-to-Voice-Lab (or, in select mode,
+ *   toggle-selection) affordance in the body (see A11Y-3 note below)
  * - VoicePillRow (max 3, overflow collapses)
  * - One-line description
  * - Build (or phase-appropriate primary CTA, from getPrimaryCta/getVoicePhase) — the sole
@@ -17,6 +18,13 @@
  * "Edit Metadata" (→ VoiceLabPage Overview tab), "Edit Recording Script" (→ Test tab), and
  * "Voice Settings" (→ Variants tab) were relocated to the consolidated voice detail page
  * (task 006, voice-card-consolidation plan) — see VoiceDetailTabs/VoiceLabPage.
+ *
+ * A11Y-3 (design-critique follow-up): the card body used to be one `role="button"` div
+ * wrapping the avatar/name/pills/description, nesting the avatar's real play `<button>`,
+ * `VoicePillRow`'s own "+N more" toggle button, and `UntaggedBadge`'s click target inside
+ * another button/role — invalid ARIA (interactive content inside a button) and confusing
+ * for assistive tech. The navigate-to-Voice-Lab (or toggle-selection) affordance is now
+ * scoped to just the name `<button>`; the body wrapper itself carries no role/handlers.
  *
  * INV-FOCUS (design-system.md §8.1 focus-visible rule): the avatar's Play/Pause overlay is
  * a real, always-in-DOM, always-tabbable `<button>` — visibility is gated by CSS `opacity`
@@ -185,7 +193,11 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
 
             {/* Default status — star badge, top-left (freeing the top-right corner for the
                 kebab). Status indicator only, not a button: setting default is an action,
-                done via the kebab's "Set as App Default" item. */}
+                done via the kebab's "Set as App Default" item.
+                H-4 (design-critique follow-up): this app-default `Star` and
+                VariantSwitcher's per-variant-default control now differ by icon shape
+                (`Star` vs. `BadgeCheck`), not color alone — see VariantSwitcher.tsx's
+                file header. */}
             {hasDefaultProfile && (
                 <span className="voice-catalog-card__default-star" aria-label="App default voice" title="App default voice">
                     <Star size={12} fill="currentColor" />
@@ -226,30 +238,19 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
             </div>
 
             {/*
-              * Card body — name/avatar area is an explicit affordance for
-              * opening Voice Lab (blocker 3), independent of the primary
-              * CTA's phase-driven label/intent. Keyboard-accessible via
-              * role="button" + Enter/Space, mirroring onNavigateToLab used
-              * elsewhere on this card.
-              *
-              * In select mode, the body toggles selection instead of
-              * navigating away — clicking a card while curating a bulk
-              * action shouldn't leave the page.
+              * Card body — plain (non-interactive) wrapper for the avatar, name,
+              * pills, and description. A11Y-3: this used to be a single
+              * role="button" spanning the whole body, which nested the avatar's
+              * real play <button>, VoicePillRow's own "+N more" toggle button,
+              * and UntaggedBadge's click target inside another button/role —
+              * invalid ARIA (interactive content inside a button) and confusing
+              * for screen readers. The navigate-to-Voice-Lab affordance is now
+              * scoped to just the name (below), a real <button> with no other
+              * interactive descendants.
               */}
             <div
                 data-testid="voice-catalog-card-body"
-                role="button"
-                tabIndex={0}
-                aria-label={selectable ? `Select ${speaker.name}` : `Open ${speaker.name} in Voice Lab`}
-                onClick={() => (selectable ? onToggleSelect?.() : onNavigateToLab(speaker.id))}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        if (selectable) onToggleSelect?.();
-                        else onNavigateToLab(speaker.id);
-                    }
-                }}
-                style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', width: '100%' }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', width: '100%' }}
             >
                 {/* Avatar — hosts the Play/Pause preview overlay (INV-FOCUS, see file header) */}
                 <div className="voice-catalog-card__avatar">
@@ -263,24 +264,26 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
                         aria-label={isPlaying ? 'Pause preview' : 'Play preview'}
                         disabled={!previewUrl}
                         tabIndex={0}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handlePreview();
-                        }}
-                        onKeyDown={(e) => {
-                            // Stop Enter/Space from bubbling to the card body's own
-                            // navigate-on-Enter/Space handler — the button already
-                            // handles its own activation natively.
-                            e.stopPropagation();
-                        }}
+                        onClick={handlePreview}
                         className="voice-catalog-card__avatar-play-btn"
                     >
                         {isPlaying ? <Pause size={14} /> : <Play size={14} />}
                     </button>
                 </div>
 
-                {/* Name */}
-                <div className="voice-catalog-card__name">{speaker.name}</div>
+                {/* Name — the sole navigate-to-Voice-Lab (or, in select mode,
+                    toggle-selection) affordance, a real <button> with no nested
+                    interactive descendants (A11Y-3). */}
+                <button
+                    type="button"
+                    data-testid="voice-catalog-card-name-btn"
+                    aria-label={selectable ? `Select ${speaker.name}` : `Open ${speaker.name} in Voice Lab`}
+                    onClick={() => (selectable ? onToggleSelect?.() : onNavigateToLab(speaker.id))}
+                    className="voice-catalog-card__name"
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit', fontWeight: 700 }}
+                >
+                    {speaker.name}
+                </button>
 
                 {/* Engine badge */}
                 {activeEngine && (
@@ -298,7 +301,7 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
                         <VoicePillRow pills={pills} max={3} />
                     </div>
                 ) : isUntagged ? (
-                    <div style={{ display: 'flex', justifyContent: 'center' }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
                         <UntaggedBadge onClick={onEditMetadata} />
                     </div>
                 ) : null}

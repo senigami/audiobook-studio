@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Check, ChevronDown, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { PillCategory } from '@/pages/Voices/components/VoicePills';
 
 export interface MultiSelectOption {
     id: string;
@@ -14,6 +15,15 @@ export interface MultiSelectProps {
     placeholder?: string;
     label?: string;
     disabled?: boolean;
+    /**
+     * H-5 (design-critique follow-up): when a facet maps to a `VoicePill` hue
+     * (class/gender/age/extended/tag), pass its category so the selected chips
+     * are tinted to match — mirrors `metadata/chip.tsx`'s `category` prop,
+     * which solved the same drift for the metadata editor's active chips.
+     * Callers with no taxonomy facet (e.g. a free-form tag filter) omit this
+     * and keep the prior generic accent-fill styling.
+     */
+    category?: PillCategory;
 }
 
 const MultiSelect: React.FC<MultiSelectProps> = ({
@@ -22,7 +32,8 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
     onChange,
     placeholder = 'Select options...',
     label,
-    disabled = false
+    disabled = false,
+    category,
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [highlightedIndex, setHighlightedIndex] = useState(0);
@@ -100,6 +111,14 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
         .map(id => options.find(opt => opt.id === id))
         .filter((opt): opt is MultiSelectOption => Boolean(opt));
 
+    // H-5: tint selected chips to the facet's `--pill-{category}-*` hue (matching
+    // the `VoicePill`s the same values render elsewhere on the page) instead of a
+    // single generic accent for every field — mirrors `metadata/chip.tsx`'s
+    // `category` handling. No `category` prop (e.g. the free-form tag filter)
+    // keeps the prior accent-fill styling.
+    const chipBg = category ? `var(--pill-${category}-bg)` : 'var(--accent-glow)';
+    const chipColor = category ? `var(--pill-${category}-text)` : 'var(--accent)';
+
     return (
         <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
             {/* The trigger is a focusable combobox element (not a <button>) so
@@ -142,14 +161,15 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
                         selectedOptions.map(opt => (
                             <span
                                 key={opt.id}
+                                data-category={category}
                                 style={{
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     gap: '4px',
                                     padding: '2px 6px',
                                     borderRadius: 'var(--radius-compact, 6px)',
-                                    background: 'var(--accent-glow)',
-                                    color: 'var(--accent)',
+                                    background: chipBg,
+                                    color: chipColor,
                                     fontSize: '0.8rem'
                                 }}
                             >

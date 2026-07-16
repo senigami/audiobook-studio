@@ -116,10 +116,10 @@ describe('VoicesTabContent', () => {
         expect(baseProps.onExportVoice).toHaveBeenCalledWith('Clara Bell');
     });
 
-    it('forwards onNavigateToLab to the rendered VoiceCatalogCard (card body click)', () => {
+    it('forwards onNavigateToLab to the rendered VoiceCatalogCard (voice name click)', () => {
         render(<VoicesTabContent {...baseProps} />);
 
-        fireEvent.click(screen.getByTestId('voice-catalog-card-body'));
+        fireEvent.click(screen.getByTestId('voice-catalog-card-name-btn'));
 
         expect(baseProps.onNavigateToLab).toHaveBeenCalledWith('sp-1');
     });

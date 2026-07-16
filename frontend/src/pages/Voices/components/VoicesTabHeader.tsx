@@ -8,6 +8,13 @@
  *   separated MultiSelect covers the free-form tag filter.
  * - Toolbar buttons remain right-aligned
  * ALL existing controls and their handlers are preserved (R-C).
+ *
+ * H-5 (design-critique follow-up): CLASS/GENDER/AGE pass their matching
+ * `category` to `MultiSelect` so selected chips pick up the same
+ * `--pill-{category}-*` hue as the `VoicePill`s rendered elsewhere on this
+ * page (indigo/pink/amber, design-system.md §5) instead of one generic
+ * accent color for every facet. The free-form TAGS MultiSelect omits
+ * `category` and stays neutral, matching how free tags render as ghost pills.
  */
 import React, { useEffect, useState } from 'react';
 import { Search, Plus, Info, Upload, Download, CheckSquare } from 'lucide-react';
@@ -236,6 +243,7 @@ export const VoicesTabHeader: React.FC<VoicesTabHeaderProps> = ({
                                         onChange={(v) => setClassFilter?.(v)}
                                         placeholder="Class"
                                         label="CLASS"
+                                        category="class"
                                     />
                                 </div>
                             )}
@@ -247,6 +255,7 @@ export const VoicesTabHeader: React.FC<VoicesTabHeaderProps> = ({
                                         onChange={(v) => setGenderFilter?.(v)}
                                         placeholder="Gender"
                                         label="GENDER"
+                                        category="gender"
                                     />
                                 </div>
                             )}
@@ -258,6 +267,7 @@ export const VoicesTabHeader: React.FC<VoicesTabHeaderProps> = ({
                                         onChange={(v) => setAgeFilter?.(v)}
                                         placeholder="Age"
                                         label="AGE"
+                                        category="age"
                                     />
                                 </div>
                             )}
@@ -265,6 +275,9 @@ export const VoicesTabHeader: React.FC<VoicesTabHeaderProps> = ({
                                 <>
                                     <span className="voice-facet-divider" aria-hidden="true" />
                                     <div data-testid="tag-facet-filter" style={{ width: '160px' }}>
+                                        {/* Free-form tag filter stays neutral/generic — no `category`,
+                                            matching how free tags render as ghost pills (no facet hue)
+                                            per design-system.md §5 (H-5). */}
                                         <MultiSelect
                                             options={tagOptions}
                                             value={tagFilter}

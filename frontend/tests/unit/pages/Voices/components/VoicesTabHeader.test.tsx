@@ -220,6 +220,41 @@ describe('VoicesTabHeader', () => {
         render(<VoicesTabHeader {...baseProps} classOptions={[{ id: 'human', label: 'Human' }]} />);
         expect(screen.queryByRole('combobox', { name: 'TAGS' })).not.toBeInTheDocument();
     });
+
+    // -----------------------------------------------------------------------
+    // H-5 (design-critique follow-up): CLASS/GENDER/AGE selected chips tint to
+    // their facet's pill hue; the free-form TAGS filter stays neutral/generic.
+    // -----------------------------------------------------------------------
+
+    it('tints selected CLASS/GENDER/AGE chips to their facet pill hue, and leaves TAGS generic', () => {
+        render(
+            <VoicesTabHeader
+                {...baseProps}
+                classFilter={['human']}
+                classOptions={[{ id: 'human', label: 'Human' }]}
+                genderFilter={['feminine']}
+                genderOptions={[{ id: 'feminine', label: 'Feminine' }]}
+                ageFilter={['adult']}
+                ageOptions={[{ id: 'adult', label: 'Adult' }]}
+                tagFilter={['raspy']}
+                tagOptions={[{ id: 'raspy', label: 'raspy' }]}
+            />,
+        );
+        const classChip = screen.getByText('Human').closest('span');
+        const genderChip = screen.getByText('Feminine').closest('span');
+        const ageChip = screen.getByText('Adult').closest('span');
+        const tagChip = screen.getByText('raspy').closest('span');
+
+        expect(classChip).toHaveAttribute('data-category', 'class');
+        expect(genderChip).toHaveAttribute('data-category', 'gender');
+        expect(ageChip).toHaveAttribute('data-category', 'age');
+        expect(tagChip).not.toHaveAttribute('data-category');
+
+        expect(classChip).toHaveStyle({ background: 'var(--pill-class-bg)', color: 'var(--pill-class-text)' });
+        expect(genderChip).toHaveStyle({ background: 'var(--pill-gender-bg)', color: 'var(--pill-gender-text)' });
+        expect(ageChip).toHaveStyle({ background: 'var(--pill-age-bg)', color: 'var(--pill-age-text)' });
+        expect(tagChip).toHaveStyle({ background: 'var(--accent-glow)', color: 'var(--accent)' });
+    });
 });
 
 // ---------------------------------------------------------------------------
