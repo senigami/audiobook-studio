@@ -1,0 +1,69 @@
+{
+  "at": "2026-07-16T22:30:00Z",
+  "commit": "uncommitted",
+  "task": "W-PERF safe-foundation PR (tasks 000-004): additive chapter_segments/characters columns, canonical performance_data JSON schema + validator, rendering-mode resolution layer, plugin-manifest export-capability fields",
+  "files": {
+    "app/db/core.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Added W-PERF additive/nullable columns to chapter_segments (performance_data, speaker_confidence, speaker_basis, speaker_evidence, needs_review, review_reasons, locked, ai_suggested) and characters (display_name, role, character_type, aliases, source_presence, source_profile, voice_guidance, needs_review, review_reasons, locked, ai_suggested), both in CREATE TABLE IF NOT EXISTS and add_column_if_missing migration paths. Nothing reads these columns yet -- no behavior change.",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "app/domain/chapters/performance_schema.py": {
+      "change": "added",
+      "contract_changed": true,
+      "summary": "New module: Pydantic models for the canonical performance_data JSON format (SegmentKind, RenderingMode, RenderingValue, PerformanceAnnotation, ReviewAnnotation, PerformanceData, etc.) plus validate_performance_data(raw: dict) -> PerformanceData, raising PerformanceDataValidationError on malformed input. Mirrors design-docs/plans/proposals/performance_script_model/01-canonical-json-format.md."
+    },
+    "app/domain/chapters/rendering.py": {
+      "change": "added",
+      "contract_changed": true,
+      "summary": "New module: resolve_rendering(segment, mode, defaults) -> RenderingDecision, the single translation layer resolving one of 8 RenderingValues for a segment across 5 RenderingModes, per doc-01's precedence chain (studio_override > explicit_source_fact > ai_inference > character/scene/chapter/book/engine default). Built-in 60-cell kind x mode default matrix as final fallback. Depends on app/domain/chapters/performance_schema.py's types.",
+      "calls_added": ["app/domain/chapters/performance_schema.py#RenderingMode", "app/domain/chapters/performance_schema.py#RenderingValue", "app/domain/chapters/performance_schema.py#SegmentKind", "app/domain/chapters/performance_schema.py#PerformanceData"]
+    },
+    "app/tts_server/plugin_loader.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "_validate_manifest() now validates optional behavior.export_format (enum) and behavior.supports_per_span_voice/supports_emotion_style/supports_prosody/supports_break (booleans) when present; absent is fine. No manifest version bump. No real plugin manifest changed.",
+      "calls_added": [],
+      "calls_removed": []
+    },
+    "app/engines/behavior.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Added export_capabilities_for(engine_id, behavior=None) helper, mirroring behavior_for_engine's pattern, resolving the new export-layer capability fields (export_format, supports_per_span_voice, supports_emotion_style, supports_prosody, supports_break) with safe defaults (None/False) when absent. Consumed by the future export layer, not the render pipeline's has_behavior gate.",
+      "calls_added": ["app/engines/behavior.py#_load_full_manifest"]
+    },
+    "frontend/src/types/performanceScript.ts": {
+      "change": "added",
+      "contract_changed": true,
+      "summary": "New TypeScript types mirroring app/domain/chapters/performance_schema.py field-for-field (SegmentKind, RenderingMode, RenderingValue, PerformanceAnnotation, ReviewAnnotation, PerformanceData, etc.)."
+    },
+    "design-docs/specs/data-model.md": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Documented new chapter_segments/characters W-PERF columns; bumped spec_version 1.10.1 -> 1.11.0 with changelog row."
+    },
+    "design-docs/specs/plugin-contract.md": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Documented new optional behavior export-capability fields; bumped spec_version 1.5.0 -> 1.6.0 with changelog row."
+    },
+    "design-docs/specs/performance-script-format.md": {
+      "change": "added",
+      "contract_changed": true,
+      "summary": "New spec: canonical performance_data JSON shape and rendering-mode resolution (resolve_rendering), INV-2. spec_version 1.0.0."
+    },
+    "design-docs/specs/README.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Fixed stale version numbers for data-model.md (1.7.0 -> 1.11.0) and plugin-contract.md (1.4.0 -> 1.6.0) in the router index table; added new performance-script-format.md row."
+    },
+    "design-docs/plans/proposals/performance_script_model/03-db-schema-changes.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Corrected stale claim that span_start/span_end 'replace sentence-level position as ownership unit' -- sub-sentence assignment shipped via text_content splitting + segment_order shifting instead; no span_start/span_end/sentence_index columns exist or are planned."
+    }
+  },
+  "flow_impact": "none -- all changes are additive/schema-only or new isolated domain modules; nothing wires performance_data into any existing read/write path or exporter yet"
+}
