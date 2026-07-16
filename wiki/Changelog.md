@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Changed] - 2026-07-11
+
+### Waveform tape appears instantly on freshly rendered long chapters
+
+- The waveform "peaks sidecar" (used by the expandable tape for chapters longer than the 600 s browser-decode cap) is now generated **proactively when a chapter finishes rendering**, instead of only lazily on the first waveform request. Long chapters now show their tape immediately on first open with no decode-latency stutter. The generation hook is best-effort and non-blocking — it never delays or fails a render — and runs at the orchestrator's single engine-agnostic completion point, so it covers every engine (XTTS and the local mixed path) without special-casing. The lazy on-request path is retained as the fallback for the existing back-catalog (this change does not backfill already-rendered chapters). See `design-docs/specs/audio-player.md` 1.6.8.
+
+### North Star Screen Parity (13 tasks)
+
+- **Welcome page:** CTA row moved up next to the hero, matching the north-star demo instead of sitting below two unrelated sections.
+- **Library:** new "All Books" section header with Recent/A–Z/In Progress quick-filter chips and a grid cover-size slider; grid cards regained an "Open" action plus a hover-reveal play button (plays the assembled audiobook directly when one exists, never a bait-and-switch redirect to Publish); a per-project status pill (Drafting/Casting/Rendered) computed via one new no-schema-change aggregate query; a new "Continue" section surfacing up to 2 most-recently-active in-progress projects with a real (non-fabricated) rendered-fraction progress bar — no ETA, since none exists at book grain without an active render job; a new library-wide bookmarks panel (every bookmark across every book); removed a genuinely unreachable duplicate empty-state code path.
+- **Chapter Workspace:** the chapter-switcher dropdown now shows each chapter's status orb.
+- **Backups tab:** now fully functional — the working `ProjectBackupsPanel` wiring was relocated here from the Publish tab (which is now assembly-only); project scoping verified identical before/after.
+- **Contents tab simplified to a pure chapter board:** removed the inline `ChapterTextPanel` full-text editor (`ContentsStage.tsx`), matching the north-star demo's slimmer chapter-board design (North Star Screen Parity task 010). The per-chapter Write mode in the Chapter Workspace (Director's Console) already provides identical full-text editing via the same `ChapterTextPanel` component (`variant="immediate"`) — no editing capability was lost. Also removed the Contents tab's "Focus" toggle (it only mattered for hiding the table beside the now-removed editor), and added a book-scoped bookmarks panel (every bookmark across every chapter in this book) — the demo's own `GlobalBookmarkPanel` turned out to be genuinely cross-book on direct code inspection, so both a book-scoped panel (here) and the separate library-wide panel (above) were built to cover both scopes.
+- **Chapter Workspace bookmarks dropdown:** fixed — it was rendering as an unstyled white box with no dark-mode background (a bespoke, forgotten implementation). Now reuses the same shared, themed `BookmarkList` component as the Contents-tab and library-wide bookmark panels above; also now marks bookmarks that belong to a different book so two identically-titled chapters aren't ambiguous.
+- **Plugin SDK contract (Stage 3 closeout):** fixed the last real `app.*` import residue — `plugins/tts_xtts` and `plugins/tts_voxtral`'s `app_adapter.py` files carried 11 module-level imports that had slipped past the original acceptance tests (those files were never in the tests' target list). `studio_plugin_sdk` gained 5 new exports (`BaseVoiceEngine`, `EngineHealthModel`, `EngineManifestModel`, `EngineExecutionError`, `EngineRequestError`) so both files no longer reach into `app.*` directly; a previously-unguarded context call in `tts_xtts`'s adapter now raises this adapter's own `EngineExecutionError` instead of an unclassified exception on failure. See `design-docs/specs/plugin-contract.md` 1.5.0.
+
 ## [Fixed] - 2026-07-11
 
 ### Waveform tape visual & UX polish

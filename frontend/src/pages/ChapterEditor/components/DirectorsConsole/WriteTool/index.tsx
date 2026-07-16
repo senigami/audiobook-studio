@@ -40,6 +40,7 @@ const WriteToolBody: React.FC = () => {
         onSaved={reload}
         onDirtyChange={handleDirtyChange}
         variant="immediate"
+        showTitle={false}
       />
     </div>
   );

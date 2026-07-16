@@ -13,13 +13,32 @@ import time
 from pathlib import Path
 from typing import Any
 
-from app.engines.errors import EngineExecutionError, EngineRequestError
-from app.engines.models import EngineHealthModel, EngineManifestModel
-from app.engines.voice.base import BaseVoiceEngine
-from app.engines.voice.sdk import TTSRequest, TTSResult, VoiceProcessingHooks, SynthesisPlan
-from app.infra.subprocess import run_managed_subprocess_async
-from app.engines.voice_engines import resolve_voice_preview_inputs
-from app.studio_plugin_sdk.plugin_utils import load_settings_schema
+try:
+    from studio_plugin_sdk import (  # noqa: PLC0415
+        BaseVoiceEngine,
+        EngineExecutionError,
+        EngineHealthModel,
+        EngineManifestModel,
+        EngineRequestError,
+        SynthesisPlan,
+        TTSRequest,
+        TTSResult,
+        VoiceProcessingHooks,
+    )
+    from studio_plugin_sdk.plugin_utils import load_settings_schema
+except ImportError:
+    from app.studio_plugin_sdk import (  # fallback for test/direct import
+        BaseVoiceEngine,
+        EngineExecutionError,
+        EngineHealthModel,
+        EngineManifestModel,
+        EngineRequestError,
+        SynthesisPlan,
+        TTSRequest,
+        TTSResult,
+        VoiceProcessingHooks,
+    )
+    from app.studio_plugin_sdk.plugin_utils import load_settings_schema
 
 # Local defaults for XTTS environment
 XTTS_ENV_DIR_DEFAULT = Path.home() / "xtts-env"
@@ -29,6 +48,33 @@ XTTS_ENV_ACTIVATE = XTTS_ENV_DIR / ("Scripts/Activate.ps1" if os.name == "nt" el
 
 # Upstream: app.engines.registry. Downstream: BaseVoiceEngine, run_managed_subprocess. Must
 # not import app.orchestration / app.api.routers / app.jobs directly.
+
+
+def _get_ctx():
+    try:
+        from studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
+    except ImportError:
+        from app.studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
+    return get_plugin_ctx("xtts")
+
+
+def _resolve_voice_inputs(voice_profile_id: str) -> tuple[str | None, Path | None]:
+    """Resolve (speaker_wav, voice_profile_dir) for a profile via the SDK context.
+
+    Wraps ctx.resolve_voice_preview_inputs's dict return shape
+    ({"voice_ref": str|None, "voice_profile_dir": str|None}) back into the
+    (str|None, Path|None) tuple this adapter's callers expect, and classifies
+    any failure as EngineExecutionError so it doesn't escape this file's
+    error contract unclassified.
+    """
+    try:
+        preview_inputs = _get_ctx().resolve_voice_preview_inputs(voice_profile_id)
+    except Exception as exc:
+        raise EngineExecutionError(f"Failed to resolve voice profile inputs: {exc}") from exc
+    speaker_wav = preview_inputs["voice_ref"]
+    voice_profile_dir_str = preview_inputs["voice_profile_dir"]
+    voice_profile_dir = Path(voice_profile_dir_str) if voice_profile_dir_str else None
+    return speaker_wav, voice_profile_dir
 
 
 def xtts_generate(
@@ -181,7 +227,6 @@ class XttsVoiceEngine(BaseVoiceEngine):
     def synthesize(self, request: dict[str, object]) -> dict[str, object]:
         """Run XTTS synthesis through the standard engine contract."""
 
-        _ = run_managed_subprocess_async
         self.validate_request(request)
 
         script_text = str(request["script_text"]).strip()
@@ -206,7 +251,7 @@ class XttsVoiceEngine(BaseVoiceEngine):
             speaker_wav = reference_audio_path
         # Priority 3: Resolve from profile
         else:
-            speaker_wav, voice_profile_dir = resolve_voice_preview_inputs(voice_profile_id)
+            speaker_wav, voice_profile_dir = _resolve_voice_inputs(voice_profile_id)
             if voice_profile_dir is None:
                 raise EngineRequestError(
                     "XTTS synthesis requires an existing voice profile directory or reference_audio_path."
@@ -322,7 +367,7 @@ class XttsVoiceEngine(BaseVoiceEngine):
         if reference_audio_path:
             speaker_wav = reference_audio_path
         else:
-            speaker_wav, voice_profile_dir = resolve_voice_preview_inputs(voice_profile_id)
+            speaker_wav, voice_profile_dir = _resolve_voice_inputs(voice_profile_id)
             if voice_profile_dir is None:
                 raise EngineRequestError(
                     "XTTS preview requires an existing voice profile directory or reference_audio_path."

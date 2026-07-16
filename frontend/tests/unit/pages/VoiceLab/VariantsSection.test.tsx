@@ -135,12 +135,71 @@ describe('VariantsSection', () => {
         expect(screen.getByText(/No variants yet/i)).toBeInTheDocument();
     });
 
-    it('renders one VariantEditor row per profile', () => {
+    it('renders the VariantSwitcher plus exactly ONE VariantEditor, never one per profile', () => {
         render(<VariantsSection {...commonProps} profiles={[defaultProfile, secondProfile]} />);
-        // Each VariantEditor renders exactly one unconditional "Script" button
-        // (title="Edit Preview Script"), so counting them ties the assertion to
-        // the number of profiles rendered rather than a vague "more than 2".
-        const scriptButtons = screen.getAllByRole('button', { name: /script/i });
-        expect(scriptButtons).toHaveLength(2);
+        // VariantSwitcher renders a tab per profile...
+        expect(screen.getAllByRole('option')).toHaveLength(2);
+        // ...but only the selected profile's VariantEditor is mounted. Each
+        // VariantEditor renders exactly one "More actions" overflow trigger,
+        // so counting it ties the assertion to the number of editors mounted.
+        const moreActionsButtons = screen.getAllByTitle('More actions');
+        expect(moreActionsButtons).toHaveLength(1);
+    });
+
+    it('defaults selection to the character default variant, and switching tabs swaps the mounted VariantEditor', async () => {
+        const user = userEvent.setup();
+        const defaultVariant = { ...defaultProfile, is_variant_default: true };
+        const softVariant = { ...secondProfile, is_variant_default: false };
+        render(<VariantsSection {...commonProps} profiles={[softVariant, defaultVariant]} />);
+
+        // Default variant tab is selected initially.
+        expect(screen.getByRole('option', { name: /Default/ })).toHaveAttribute('aria-selected', 'true');
+
+        // Switching to the other variant's tab swaps which VariantEditor is mounted.
+        await user.click(screen.getByRole('option', { name: /Soft/ }));
+        expect(screen.getByRole('option', { name: /Soft/ })).toHaveAttribute('aria-selected', 'true');
+        expect(screen.getAllByTitle('More actions')).toHaveLength(1);
+    });
+
+    it('does not render the filter bar in strip mode (<=4 variants)', () => {
+        render(<VariantsSection {...commonProps} profiles={[defaultProfile, secondProfile]} />);
+        expect(screen.queryByTestId('variant-filter-bar')).not.toBeInTheDocument();
+    });
+
+    it('renders the filter bar in rail mode (>4 variants) and narrows visible variants on chip select', async () => {
+        const user = userEvent.setup();
+        const railProfiles: SpeakerProfile[] = ['A', 'B', 'C', 'D', 'E'].map((n, i) => ({
+            ...defaultProfile,
+            name: `Aria Nova/${n}`,
+            variant_name: n,
+            is_default: i === 0,
+            performance_tags: n === 'C' ? ['sad', 'slow'] : ['happy'],
+        }));
+        render(<VariantsSection {...commonProps} profiles={railProfiles} />);
+        expect(screen.getByTestId('variant-filter-bar')).toBeInTheDocument();
+        expect(screen.getAllByRole('option')).toHaveLength(5);
+
+        await user.click(screen.getByRole('button', { name: 'sad' }));
+        expect(screen.getAllByRole('option')).toHaveLength(1);
+        expect(screen.getByRole('option', { name: /C/ })).toBeInTheDocument();
+    });
+
+    it('auto-selects the first remaining visible variant when a filter hides the currently-selected one', async () => {
+        const user = userEvent.setup();
+        const railProfiles: SpeakerProfile[] = ['A', 'B', 'C', 'D', 'E'].map((n, i) => ({
+            ...defaultProfile,
+            name: `Aria Nova/${n}`,
+            variant_name: n,
+            is_default: i === 0,
+            performance_tags: n === 'C' ? ['sad'] : ['happy'],
+        }));
+        render(<VariantsSection {...commonProps} profiles={railProfiles} />);
+
+        // Selected variant defaults to "A" (is_default). Filtering to "sad"
+        // hides A, so the detail pane must fall forward onto "C" (the only
+        // remaining visible profile) instead of staying pointed at A.
+        expect(screen.getByRole('option', { name: /A/ })).toHaveAttribute('aria-selected', 'true');
+        await user.click(screen.getByRole('button', { name: 'sad' }));
+        expect(screen.getByRole('option', { name: /C/ })).toHaveAttribute('aria-selected', 'true');
     });
 });

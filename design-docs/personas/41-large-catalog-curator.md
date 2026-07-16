@@ -1,4 +1,4 @@
-# 41 · "Harriet Brooks" — Large Catalog Curator  ☆ INFERRED
+# 41 · Large Catalog Curator  ☆ INFERRED
 
 **Identity:** "A library operations manager who needs the project list to behave like operational software — filterable, sortable, bulk-actionable, and honest about scope before she commits to anything destructive."
 
@@ -24,11 +24,11 @@
 - **Failure pattern check:** Looks for multiple projects failing on the same date range, which often signals a plugin regression or a shared asset problem rather than individual project errors
 
 ## Top friction points *(INFERRED)*
-- **F1 — No cross-project failure filter:** The project list has no filter for "contains failed renders"; Harriet must open each project to check render status, making failure triage at scale impossible
-- **F2 — Bulk actions without scope preview:** Selecting projects and applying a voice change executes without showing how many projects are affected or what the current voice assignment is — she has caused wrong-voice assignments to large batches
+- **F1 — No cross-project failure filter:** The project list has no filter for "contains failed renders"; the Large Catalog Curator must open each project to check render status, making failure triage at scale impossible
+- **F2 — Bulk actions without scope preview:** Selecting projects and applying a voice change executes without showing how many projects are affected or what the current voice assignment is — the Large Catalog Curator has caused wrong-voice assignments to large batches
 - **F3 — List performance degrades past ~200 projects:** Scrolling and filtering slow down noticeably; at 500+ projects the list becomes unreliable for daily use
 - **F4 — No "last activity" sort:** Projects sort by creation date or alphabetically; there is no sort by last render job, last edit, or last status change — stale work is invisible without manual auditing
-- **F5 — Stale metadata drift:** Project completion percentages shown in the list sometimes lag actual render state; Harriet has shipped a "complete" title only to find chapters were still queued
+- **F5 — Stale metadata drift:** Project completion percentages shown in the list sometimes lag actual render state; the Large Catalog Curator has shipped a "complete" title only to find chapters were still queued
 
 ## What they need from the studio
 - Project list filters for: completion status, last render date (range), presence of failed jobs, assigned voice, and genre tag

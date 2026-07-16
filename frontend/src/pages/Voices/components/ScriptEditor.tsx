@@ -5,8 +5,12 @@ import type { VoiceEngine, TtsEngine, VoiceAttributes } from '@/types';
 import { suggestRecordingPrompt } from './metadata/recordingPromptSuggester';
 
 interface ScriptEditorProps {
-    variantName: string;
-    onVariantNameChange: (val: string) => void;
+    /** Omit both variantName + onVariantNameChange to hide the "Variant name"
+     * field entirely — it only renders when a caller wires it up. VariantEditor
+     * wires it (restoring the variant-rename affordance the retired TestTab used
+     * to host, INV-VC-2); callers that don't want inline renaming leave it off. */
+    variantName?: string;
+    onVariantNameChange?: (val: string) => void;
     engine: VoiceEngine;
     onEngineChange: (val: VoiceEngine) => void;
     engines?: TtsEngine[];
@@ -50,17 +54,19 @@ export const ScriptEditor: React.FC<ScriptEditorProps> = ({
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
             <div className="glass-panel" style={{ padding: 'var(--space-5)' }}>
-                <div className="script-editor-field-group" style={{ marginBottom: 'var(--space-5)' }}>
-                    <label className="voice-field-label">VARIANT NAME</label>
-                    <GlassInput
-                        placeholder="Variant name"
-                        value={variantName}
-                        onChange={(e) => onVariantNameChange(e.target.value)}
-                    />
-                    <p className="script-editor-helper-text" style={{ margin: 'var(--space-1) 0 0' }}>
-                        Changing the variant label updates how this profile appears in the app. Use <strong>Rename Voice</strong> if you want to rename the voice itself.
-                    </p>
-                </div>
+                {onVariantNameChange && (
+                    <div className="script-editor-field-group" style={{ marginBottom: 'var(--space-5)' }}>
+                        <label className="voice-field-label">VARIANT NAME</label>
+                        <GlassInput
+                            placeholder="Variant name"
+                            value={variantName}
+                            onChange={(e) => onVariantNameChange(e.target.value)}
+                        />
+                        <p className="script-editor-helper-text" style={{ margin: 'var(--space-1) 0 0' }}>
+                            Changing the variant label updates how this profile appears in the app. Use <strong>Rename Voice</strong> if you want to rename the voice itself.
+                        </p>
+                    </div>
+                )}
 
                 <div className="script-editor-field-group" style={{ marginBottom: 'var(--space-5)' }}>
                     <label className="voice-field-label">ENGINE</label>

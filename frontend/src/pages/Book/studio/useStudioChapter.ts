@@ -268,19 +268,38 @@ export function useStudioChapter({
     for (const id of batch.span_ids) into.add(id);
   }, [scriptViewData?.render_batches]);
 
+  // Segments already rendered in a PRIOR render (persisted audio_status —
+  // not just this render's live map). 2026-07-13 fix: chapterRenderDoneSegmentIds
+  // used to come ONLY from the live active_segments_map's small rolling
+  // window, so on resume (job.segment_ids null -> chapterRenderQueuedSegmentIds
+  // falls back to "every render-batch span minus rendering minus done"), every
+  // already-black segment finished before this job started had no way to be
+  // excluded from "queued" and re-dimmed to gray the moment the new job's
+  // first segment began rendering.
+  const persistedDoneSegmentIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const segment of segments) {
+      if (segment.audio_status === 'done' || segment.audio_file_path) ids.add(segment.id);
+    }
+    return ids;
+  }, [segments]);
+
   // W-PAR: map entries whose phase just transitioned to "done" (2026-07-07
   // fix) — a live signal that a segment finished THIS render, ahead of the
   // next full chapter/segment DB refetch (which does not happen mid-render).
   // Expanded to batch span ids like preparing/rendering already are, so a
   // multi-span render batch's whole leader-driven group lights up together.
+  // Union'd with persistedDoneSegmentIds so a segment finished in an EARLIER
+  // render (outside this job's live map entirely) is just as much "done" as
+  // one that finished a moment ago in the live map's window.
   const chapterRenderDoneSegmentIds = useMemo(() => {
-    if (!chapterRenderActiveSegmentsMap) return new Set<string>();
-    const ids = new Set<string>();
+    const ids = new Set<string>(persistedDoneSegmentIds);
+    if (!chapterRenderActiveSegmentsMap) return ids;
     for (const [segId, entry] of Object.entries(chapterRenderActiveSegmentsMap)) {
       if (entry.phase === 'done') expandToBatchSpanIds(segId, ids);
     }
     return ids;
-  }, [chapterRenderActiveSegmentsMap, expandToBatchSpanIds]);
+  }, [persistedDoneSegmentIds, chapterRenderActiveSegmentsMap, expandToBatchSpanIds]);
 
   const chapterRenderPendingSegmentIds = useMemo(() => {
     const ids = new Set<string>(effectivePendingSegmentIds);
@@ -591,11 +610,25 @@ export function useStudioChapter({
     setIsResyncing(true);
     try {
       const success = await handleSave(title, text);
-      if (success) setIsPreviewingResync(false);
+      if (success) {
+        setIsPreviewingResync(false);
+        // Resyncing an already-produced chapter's text invalidates its
+        // existing render, so the confirm action also re-queues the
+        // chapter (force=true, mirroring the "Rebuild Audio" path) —
+        // matching useChapterQueue's established queue-submission call.
+        const onBlocked = (msg: string) => setConfirmConfig({
+          title: 'Queue Blocked',
+          message: msg,
+          onConfirm: () => {},
+          confirmText: 'OK',
+        });
+        const onSuccess = (msg: string) => setQueueNotice(msg);
+        await executeQueue(effectiveSelectedVoice, onBlocked, onSuccess, true);
+      }
     } finally {
       setIsResyncing(false);
     }
-  }, [handleSave, text, title]);
+  }, [effectiveSelectedVoice, executeQueue, handleSave, setConfirmConfig, setQueueNotice, text, title]);
 
   const handleExportAudio = useCallback(async (format: 'wav' | 'mp3') => {
     setExportingFormat(format);

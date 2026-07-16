@@ -35,7 +35,6 @@ export const VoiceLabStageInner: React.FC = () => {
           onDelete={noop}
           onMoveVariant={noop}
           onRefresh={noop}
-          onEditTestText={noop}
           onBuildNow={noopAsync}
           requestConfirm={noopConfirm}
           onAddVariantClick={noop}

@@ -1,0 +1,681 @@
+{
+  "files": {
+    "app/engines/__init__.py": {
+      "purpose": "Package-level exports for engines module",
+      "exports": [
+        {
+          "name": "create_voice_bridge, load_engine_registry, get_audio_duration, run_cmd_stream",
+          "kind": "function",
+          "contract": "re-exports"
+        }
+      ],
+      "calls": [
+        "app/engines/audio_ops.py#get_audio_duration",
+        "app/engines/bridge.py#create_voice_bridge",
+        "app/engines/proc_utils.py#run_cmd_stream",
+        "app/engines/registry.py#load_engine_registry"
+      ],
+      "called_by": [
+        "app/api/routers/voices_management.py"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "app/engines/audio_ops.py": {
+      "purpose": "Audio processing: WAV<->MP3, duration probing, stitching",
+      "exports": [
+        {
+          "name": "wav_to_mp3, convert_to_wav, get_audio_duration, finalize_sample_artifact, stitch_segments, _ffmpeg_concat_entry",
+          "kind": "function"
+        },
+        {
+          "name": "compute_peaks_sidecar",
+          "kind": "function",
+          "contract": "(wav_path: Path) -> dict|None. Versioned (SIDECAR_VERSION=2; PEAKS_PER_SEC=60, PEAKS_MAX=200_000 -- bumped from v1's 8/100k, loader treats a version mismatch as stale and recomputes) downsampled peaks sidecar: {version, peaks([0,1] max-abs/bucket), duration_sec, sample_rate, channels, peaks_per_sec, source:{filename,size_bytes,mtime_ns}}. Stats the WAV before+after computing; a mismatch (concurrent re-render) returns None rather than caching a torn read. 2026-07-10 review hardening: PEAKS_MAX_DECODE_SAMPLES=20_000_000 caps decoded INPUT sample count (ffmpeg -ar downsample when duration_sec*sample_rate would exceed it) -- previously only the OUTPUT bucket count (PEAKS_MAX) was capped, a real memory/CPU DoS-caliber gap for long WAVs inside a sync request handler."
+        },
+        {
+          "name": "ensure_peaks_sidecar",
+          "kind": "function",
+          "contract": "(wav_path, sidecar_path=None) -> dict|None. Single-owner cache wrapper around compute_peaks_sidecar: reads a fresh cached sidecar if version+source stat match, else computes and atomically writes. Called from two paths sharing this one implementation: (1) proactively at chapter render finalization (orchestrator.py TaskOrchestrator._emit_chapter_peaks_sidecar), (2) lazily on first GET request (chapters_assets.py _load_or_compute_peaks_sidecar)."
+        }
+      ],
+      "calls": [
+        "app/core/config.py#MP3_QUALITY",
+        "app/engines/audiobook_utils.py",
+        "app/engines/proc_utils.py#run_cmd_stream",
+        "app/utils/subprocess_utils.py#probe_audio_duration",
+        "app/utils/subprocess_utils.py#probe_audio_stream_info"
+      ],
+      "called_by": [
+        "app/api/routers/chapters_assets.py",
+        "plugins/tts_voxtral/plugin/studio/app_adapter.py",
+        "plugins/tts_xtts/plugin/server/engine.py",
+        "plugins/tts_xtts/plugin/studio/adapter.py",
+        "plugins/tts_xtts/plugin/studio/app_adapter.py",
+        "app/orchestration/scheduler/orchestrator.py"
+      ],
+      "notes": [
+        "finalize_sample_artifact keeps WAV if MP3 conversion fails",
+        "2026-07-11 waveform fixes: compute_peaks_sidecar density PEAKS_PER_SEC 8->60, PEAKS_MAX 100k->200k, SIDECAR_VERSION 1->2 (mismatch = stale, recompute). Max-abs-per-bucket aggregation unchanged.",
+        "2026-07-11/12: extracted ensure_peaks_sidecar as the single cache-format owner (_read_fresh_sidecar/_atomic_write_sidecar helpers); render-time emission hook added at orchestrator.py's one engine-agnostic completion point (scope=='chapter' synthesis only, best-effort/non-blocking, no backfill of existing chapters)."
+      ],
+      "calls_inferred": []
+    },
+    "app/engines/audiobook_utils.py": {
+      "purpose": "Audiobook assembly and manifest utilities for M4B generation",
+      "exports": [
+        {
+          "name": "assemble_audiobook",
+          "kind": "function",
+          "contract": "assembles M4B with ffmpeg metadata+chapters+cover"
+        }
+      ],
+      "calls": [
+        "app/core/config.py",
+        "app/engines/audio_ops.py#get_audio_duration,_ffmpeg_concat_entry",
+        "app/engines/proc_utils.py#run_cmd_stream"
+      ],
+      "called_by": [
+        "app/engines/audio_ops.py"
+      ],
+      "notes": [
+        "pre-encodes chapters to AAC cached as .m4a",
+        "FFMETADATA1 chapter format"
+      ],
+      "calls_inferred": []
+    },
+    "app/engines/behavior.py": {
+      "purpose": "Manifest-declared engine behavior policy extraction and fallbacks",
+      "exports": [
+        {
+          "name": "normalize_behavior",
+          "kind": "function"
+        },
+        {
+          "name": "has_behavior",
+          "kind": "function"
+        },
+        {
+          "name": "required_settings_for",
+          "kind": "function"
+        },
+        {
+          "name": "setting_aliases_for",
+          "kind": "function"
+        },
+        {
+          "name": "extract_engine_settings",
+          "kind": "function"
+        },
+        {
+          "name": "get_synthesis_settings_allowlist",
+          "kind": "function"
+        },
+        {
+          "name": "behavior_for_engine",
+          "kind": "function"
+        },
+        {
+          "name": "supports_standard_rendering",
+          "kind": "function"
+        },
+        {
+          "name": "supports_segment_rendering",
+          "kind": "function"
+        },
+        {
+          "name": "supports_bake_rendering",
+          "kind": "function"
+        },
+        {
+          "name": "supports_mixed_rendering",
+          "kind": "function"
+        },
+        {
+          "name": "uses_segment_orchestration",
+          "kind": "function"
+        },
+        {
+          "name": "get_sanitize_categories",
+          "kind": "function"
+        },
+        {
+          "name": "get_text_chunk_limit",
+          "kind": "function",
+          "contract": "default 500"
+        },
+        {
+          "name": "get_text_split_target",
+          "kind": "function",
+          "contract": "default 450"
+        },
+        {
+          "name": "get_progress_pattern",
+          "kind": "function"
+        },
+        {
+          "name": "parse_engine_progress",
+          "kind": "function"
+        },
+        {
+          "name": "get_timing_markers",
+          "kind": "function"
+        },
+        {
+          "name": "match_timing_marker",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/core/config.py",
+        "app/tts_server/settings_store.py#load_settings",
+        "app/utils/text/textops_cleaning.py"
+      ],
+      "called_by": [
+        "app/api/contracts/events.py",
+        "app/api/routers/chapters_assets.py",
+        "app/api/routers/voices_actions.py",
+        "app/api/routers/voices_helpers.py",
+        "app/domain/chapters/operations.py",
+        "app/jobs/worker_voice.py",
+        "app/orchestration/scheduler/orchestrator.py",
+        "app/orchestration/scheduler/orchestrator_helpers.py",
+        "plugins/tts_mixed/handler.py",
+        "plugins/tts_xtts/plugin/studio/app_adapter.py"
+      ],
+      "notes": [
+        "LRU cache maxsize=64 on manifest loaders",
+        "_ENGINE_ID_RE = ^[a-z][a-z0-9_-]{1,63}$"
+      ],
+      "calls_inferred": []
+    },
+    "app/engines/bridge.py": {
+      "purpose": "Master voice request router: single point for synthesis/preview/discovery",
+      "exports": [
+        {
+          "name": "VoiceBridge",
+          "kind": "class",
+          "contract": "synthesize/cancel/preview/describe_registry/verify_engine/run_test"
+        },
+        {
+          "name": "create_voice_bridge",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/core/config.py#PLUGINS_DIR",
+        "app/db/state.py#get_settings,get_performance_metrics",
+        "app/engines/bridge_remote.py#RemoteBridgeHandler",
+        "app/engines/errors.py",
+        "app/engines/registry.py#load_engine_registry",
+        "app/engines/watchdog.py#get_watchdog",
+        "app/orchestration/scheduler/eta.py",
+        "app/tts_server/performance_settings.py"
+      ],
+      "called_by": [
+        "app/api/routers/system.py",
+        "app/api/routers/voices.py",
+        "app/orchestration/tasks/segment_synthesis.py"
+      ],
+      "notes": [
+        "Studio 2.0 always routes through TTS Server (RemoteBridgeHandler)",
+        "enriches registry with calibration metrics"
+      ],
+      "calls_inferred": []
+    },
+    "app/engines/bridge_remote.py": {
+      "purpose": "TTS Server (remote) handler routing synthesis/preview/registry over HTTP",
+      "exports": [
+        {
+          "name": "RemoteBridgeHandler",
+          "kind": "class",
+          "contract": "synthesize/preview/cancel/describe_registry/verify_engine/run_test/install_dependencies"
+        }
+      ],
+      "calls": [
+        "app/engines/bridge_utils.py#*",
+        "app/engines/errors.py#EngineUnavailableError,EngineOutputRejectedError",
+        "app/engines/tts_client.py#TtsClient",
+        "app/engines/voice/sdk.py",
+        "app/engines/watchdog.py#_global_watchdog"
+      ],
+      "called_by": [
+        "app/orchestration/tasks/api_synthesis.py"
+      ],
+      "notes": [
+        "raises EngineUnavailableError if watchdog not running/unhealthy/circuit open"
+      ],
+      "calls_inferred": []
+    },
+    "app/engines/bridge_utils.py": {
+      "purpose": "Shared helpers for voice request parsing/validation in bridge layer",
+      "exports": [
+        {
+          "name": "extract_engine_id",
+          "kind": "function",
+          "contract": "(request) -> str; raises EngineRequestError if missing"
+        },
+        {
+          "name": "extract_synthesis_settings",
+          "kind": "function",
+          "contract": "(request) -> dict"
+        },
+        {
+          "name": "infer_audio_format",
+          "kind": "function",
+          "contract": "(output_path) -> 'mp3'|'wav'"
+        }
+      ],
+      "calls": [
+        "app/engines/behavior.py#extract_engine_settings",
+        "app/engines/errors.py#EngineRequestError"
+      ],
+      "called_by": [],
+      "notes": [
+        "Documents architectural boundary: bridge must not import api.routers/db/legacy jobs -- now enforced by tests/orchestration/test_import_boundaries.py (BE-2, 2026-07-04)"
+      ],
+      "calls_inferred": []
+    },
+    "app/engines/enablement.py": {
+      "purpose": "Validation logic for engine enable/disable toggles",
+      "exports": [
+        {
+          "name": "can_enable_engine",
+          "kind": "function",
+          "contract": "(engine_id, current_settings=None, built_in=False, verified=False, status=None, behavior=None) -> (bool, str)"
+        }
+      ],
+      "calls": [
+        "app/engines/behavior.py#required_settings_for"
+      ],
+      "called_by": [],
+      "notes": [
+        "Built-in engines toggleable if status==ready",
+        "Non-built-in plugins require verified=True",
+        "Required settings must be populated to enable"
+      ],
+      "calls_inferred": []
+    },
+    "app/engines/errors.py": {
+      "purpose": "Exception hierarchy for engine bridge failures",
+      "exports": [
+        {
+          "name": "EngineBridgeError, EngineRequestError, EngineUnavailableError, EngineNotReadyError, EngineExecutionError, EngineOutputRejectedError",
+          "kind": "exception"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "app/api/routers/engines.py",
+        "app/api/routers/system.py",
+        "app/api/routers/voices_actions.py",
+        "app/api/routers/voices_helpers.py",
+        "app/api/routers/voices_management.py",
+        "app/api/tts_api.py",
+        "app/engines/bridge.py",
+        "app/engines/voice/base.py",
+        "app/jobs/handlers/bridge_helpers.py",
+        "app/jobs/worker_voice.py",
+        "app/orchestration/scheduler/orchestrator_helpers.py",
+        "plugins/tts_mixed/handler.py",
+        "plugins/tts_voxtral/plugin/studio/handler.py"
+      ],
+      "notes": [
+        "all inherit EngineBridgeError"
+      ],
+      "calls_inferred": []
+    },
+    "app/engines/models.py": {
+      "purpose": "Dataclasses for engine metadata/health/registration contracts",
+      "exports": [
+        {
+          "name": "ResourceProfile",
+          "kind": "dataclass",
+          "contract": "frozen; gpu,vram_mb,cpu_heavy"
+        },
+        {
+          "name": "EngineManifestModel",
+          "kind": "dataclass",
+          "contract": "frozen; discovery metadata, built_in defaults True"
+        },
+        {
+          "name": "EngineHealthModel",
+          "kind": "dataclass",
+          "contract": "frozen; readiness summary, to_dict()"
+        },
+        {
+          "name": "EngineRegistrationModel",
+          "kind": "dataclass",
+          "contract": "frozen; manifest+engine+health, to_dict() flattens"
+        }
+      ],
+      "calls": [
+        "app/engines/voice/base.py"
+      ],
+      "called_by": [],
+      "notes": [
+        "ResourceProfile frozen so scheduler sees immutable resource gates"
+      ],
+      "calls_inferred": []
+    },
+    "app/engines/official_registry.py": {
+      "purpose": "Hardcoded MVP registry of official plugins for v2.0 release",
+      "exports": [
+        {
+          "name": "get_official_registry",
+          "kind": "function",
+          "contract": "() -> list[dict]; returns official plugin metadata (id, name, summary, trust_level, urls, tags, requirements)"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "app/api/routers/engines.py"
+      ],
+      "notes": [
+        "Temporary MVP; will be replaced with remote JSON",
+        "hardcodes tts_xtts and tts_voxtral as official plugins"
+      ],
+      "calls_inferred": []
+    },
+    "app/engines/proc_utils.py": {
+      "purpose": "Subprocess management: runtime markers, command streaming, orphan cleanup",
+      "exports": [
+        {
+          "name": "write_tts_server_runtime_marker",
+          "kind": "function",
+          "contract": "persists pid/port/host/script/plugins_dir JSON"
+        },
+        {
+          "name": "load_tts_server_runtime_marker",
+          "kind": "function"
+        },
+        {
+          "name": "clear_tts_server_runtime_marker",
+          "kind": "function"
+        },
+        {
+          "name": "cleanup_marked_tts_server_process",
+          "kind": "function",
+          "contract": "SIGTERM orphan if ppid==1"
+        },
+        {
+          "name": "cleanup_orphaned_tts_server_processes",
+          "kind": "function",
+          "contract": "scans ps for orphaned tts_server.py"
+        },
+        {
+          "name": "terminate_all_subprocesses",
+          "kind": "function"
+        },
+        {
+          "name": "run_cmd_stream",
+          "kind": "function",
+          "contract": "streams cmd output with heartbeat + cancellation"
+        }
+      ],
+      "calls": [
+        "app/core/config.py",
+        "app/utils/subprocess_utils.py#coerce_subprocess_output"
+      ],
+      "called_by": [
+        "app/api/web.py",
+        "plugins/tts_xtts/plugin/server/engine.py"
+      ],
+      "notes": [
+        "only PPID 1 processes are orphan cleanup targets",
+        "no shell execution (shlex.split)"
+      ],
+      "calls_inferred": []
+    },
+    "app/engines/registry.py": {
+      "purpose": "Engine registry loader: queries TTS Server /engines with fallback + 5s TTL cache",
+      "exports": [
+        {
+          "name": "load_engine_registry",
+          "kind": "function",
+          "contract": "() -> dict[str,EngineRegistrationModel]"
+        },
+        {
+          "name": "_TtsServerEngineProxy",
+          "kind": "class",
+          "contract": "proxy for registry introspection only"
+        }
+      ],
+      "calls": [
+        "app/db/state.py#get_settings",
+        "app/engines/models.py#*",
+        "app/engines/tts_client.py#TtsClient",
+        "app/engines/watchdog.py#get_watchdog"
+      ],
+      "called_by": [
+        "app/api/routers/engines.py",
+        "app/orchestration/scheduler/orchestrator_helpers.py"
+      ],
+      "notes": [
+        "circuit-open check returns {} immediately",
+        "fallback to local empty registry on server unreachable"
+      ],
+      "calls_inferred": []
+    },
+    "app/engines/tts_client.py": {
+      "purpose": "Synchronous HTTP client for TTS Server endpoints",
+      "exports": [
+        {
+          "name": "TtsClient",
+          "kind": "class",
+          "contract": "health/ping/synthesize/preview/verify_engine/run_test/install_dependencies/delete_engine/import_plugin"
+        },
+        {
+          "name": "TtsServerError, TtsServerConnectionError, TtsServerResponseError, TtsServerOutputRejectedError",
+          "kind": "exception"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "app/api/routers/engines.py"
+      ],
+      "notes": [
+        "ping() never raises",
+        "all URLs path-sanitized via _safe_id()"
+      ],
+      "calls_inferred": []
+    },
+    "app/engines/video_utils.py": {
+      "purpose": "Video sample generation from audio with optional logo overlay via FFmpeg",
+      "exports": [
+        {
+          "name": "generate_video_sample",
+          "kind": "function",
+          "contract": "(input_audio, output_video, logo_path, on_output, cancel_check, max_duration=120) -> int"
+        }
+      ],
+      "calls": [
+        "app/engines/proc_utils.py#run_cmd_stream"
+      ],
+      "called_by": [],
+      "notes": [
+        "Black background video, logo overlay 400x400 centered, respects cancellation"
+      ],
+      "calls_inferred": []
+    },
+    "app/engines/voice/__init__.py": {
+      "purpose": "Voice engine implementations package marker",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "app/engines/voice/base.py": {
+      "purpose": "Voice engine base contracts: BaseVoiceEngine + StudioTTSEngine",
+      "exports": [
+        {
+          "name": "BaseVoiceEngine",
+          "kind": "class",
+          "contract": "abstract; hooks/describe_health/validate_environment/validate_request/synthesize/preview/settings_schema; gained normalize_output_format/resolve_output_path/resolve_on_output/resolve_cancel_check shared request-adapter helpers (PL-3, 2026-07-04, moved from per-plugin app_adapter.py duplicates)"
+        },
+        {
+          "name": "StudioTTSEngine",
+          "kind": "class",
+          "contract": "abstract SDK contract for plugin engines; run_test(*, asset_search_order=None, default_text=None, settings=None) gained a real shared implementation (PL-3, 2026-07-04) -- omitting asset_search_order preserves the original always-not-implemented VerificationResult"
+        }
+      ],
+      "calls": [
+        "app/engines/errors.py",
+        "app/engines/models.py#EngineHealthModel",
+        "app/engines/voice/sdk.py#*"
+      ],
+      "called_by": [
+        "app/engines/models.py"
+      ],
+      "notes": [
+        "plugins must not import from app.* except app.engines.voice.sdk"
+      ],
+      "calls_inferred": []
+    },
+    "app/engines/voice/sdk.py": {
+      "purpose": "Studio TTS SDK contract types: TTSRequest, TTSResult, VerificationResult, SynthesisPlan",
+      "exports": [
+        {
+          "name": "TimingEventName, TimingEvent, SegmentTimingResult, TTSTimingResult, TTSRequest, TTSResult, VerificationResult, SynthesisPlan, VoiceProcessingHooks",
+          "kind": "type/dataclass/class"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "app/engines/bridge_remote.py",
+        "app/tts_server/server.py"
+      ],
+      "notes": [
+        "plugin authors import ONLY from this module, no other app.* imports",
+        "TTSRequest frozen"
+      ],
+      "calls_inferred": []
+    },
+    "app/engines/voice_engines.py": {
+      "purpose": "Voice engine discovery/resolution helpers with thread-safe caching and recursion guard",
+      "exports": [
+        {
+          "name": "list_tts_engines",
+          "kind": "function"
+        },
+        {
+          "name": "get_default_profile_engine",
+          "kind": "function"
+        },
+        {
+          "name": "normalize_tts_engine",
+          "kind": "function"
+        },
+        {
+          "name": "is_tts_engine",
+          "kind": "function"
+        },
+        {
+          "name": "resolve_profile_engine",
+          "kind": "function"
+        },
+        {
+          "name": "resolve_tts_engine_for_profiles",
+          "kind": "function"
+        },
+        {
+          "name": "resolve_voice_preview_inputs",
+          "kind": "function"
+        },
+        {
+          "name": "select_runtime_engine_candidate",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/db/speakers.py#get_profile_engine,get_profile_wavs,get_profile_dir",
+        "app/db/state_settings.py#get_settings",
+        "app/engines/bridge.py#create_voice_bridge"
+      ],
+      "called_by": [
+        "app/api/utils.py",
+        "app/studio_plugin_sdk/context.py",
+        "plugins/tts_xtts/plugin/studio/app_adapter.py"
+      ],
+      "notes": [
+        "2026-07-14: FOLLOW-UP (same session, after owner reported the fix only reduced 18s to 11.34s): resolve_tts_engine_for_profiles() had the identical N+1 bug at a second call site -- its generator expression called resolve_profile_engine(profile_name, fallback) once per item in profile_names *before* the surrounding set comprehension deduped the results, so all ~1000 segments still triggered the disk-I/O-heavy resolve call. Now builds `distinct_profiles = set(profile_names)` first and iterates that instead.",
+        "thread-local recursion guard for describe_registry()",
+        "_LAST_GOOD_MANIFESTS cache serves stale-but-valid data on transient failure"
+      ],
+      "calls_inferred": []
+    },
+    "app/engines/watchdog.py": {
+      "purpose": "Manages TTS Server subprocess lifecycle: spawn, heartbeat, restart with circuit breaker",
+      "exports": [
+        {
+          "name": "start_watchdog",
+          "kind": "function",
+          "contract": "(plugins_dir=None,port=7862,host='127.0.0.1') -> TtsServerWatchdog; idempotent singleton"
+        },
+        {
+          "name": "stop_watchdog",
+          "kind": "function",
+          "contract": "() -> None"
+        },
+        {
+          "name": "get_watchdog",
+          "kind": "function",
+          "contract": "() -> TtsServerWatchdog|None"
+        },
+        {
+          "name": "get_server_health",
+          "kind": "function",
+          "contract": "() -> dict|None"
+        },
+        {
+          "name": "TtsServerWatchdog",
+          "kind": "class",
+          "contract": "start/stop/is_healthy/is_circuit_open/get_url/get_port/get_client/restart/get_logs; RLock-protected"
+        },
+        {
+          "name": "WatchdogError",
+          "kind": "exception",
+          "contract": "fatal unrecoverable failures"
+        }
+      ],
+      "calls": [
+        "app/core/config.py",
+        "app/engines/proc_utils.py#clear_tts_server_runtime_marker",
+        "app/engines/proc_utils.py#write_tts_server_runtime_marker",
+        "app/engines/tts_client.py#TtsClient"
+      ],
+      "called_by": [
+        "app/orchestration/scheduler/orchestrator_helpers.py",
+        "app/orchestration/scheduler/orchestrator_publish.py",
+        "app/orchestration/tasks/segment_synthesis.py",
+        "app/orchestration/tasks/synthesis.py"
+      ],
+      "notes": [
+        "Circuit breaker: 5 restarts/300s window opens circuit",
+        "Heartbeat 5s interval, 3 consecutive fails -> restart",
+        "singleton _global_watchdog prevents multiple server spawns"
+      ],
+      "calls_inferred": []
+    },
+    "app/engines/system_resources.py": {
+      "purpose": "Best-effort host resource sampling (CPU/RAM/VRAM) for the Activity page's system-resource strip",
+      "exports": [
+        {
+          "name": "sample_resources",
+          "kind": "function",
+          "contract": "() -> ResourceSample {cpu_pct, ram_used_gb, ram_total_gb, vram_used_gb: float|None, vram_total_gb: float|None}. Never raises -- CPU/RAM via psutil (non-blocking cpu_percent), VRAM via a 2s-timeout nvidia-smi subprocess call that degrades to None on any failure (missing binary, timeout, non-zero exit, unparseable output)."
+        }
+      ],
+      "calls": [],
+      "calls_inferred": [],
+      "called_by": [
+        "app/api/routers/system.py"
+      ],
+      "flows": [],
+      "notes": [
+        "Pure, synchronous, no import-time side effects, no threads -- safe to call directly from a request handler (modular_architecture.md). No new pip dependency for VRAM (subprocess+nvidia-smi, not pynvml)."
+      ]
+    }
+  }
+}

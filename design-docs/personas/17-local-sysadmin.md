@@ -1,6 +1,6 @@
-# 17 · "Brendan Walsh" — Local Sysadmin  ☆ INFERRED
+# 17 · Local Sysadmin  ☆ INFERRED
 
-**Identity:** "Brendan needs Studio to be honest about its own state — running, broken, or partially started — and easy to fully reset without losing project data, because he is never the person who caused the problem and he is always the person who has to fix it."
+**Identity:** "I need Studio to be honest about its own state — running, broken, or partially started — and easy to fully reset without losing project data, because I am never the person who caused the problem and I am always the person who has to fix it."
 
 ## Goals
 - Start and stop the app cleanly from the command line, with a reliable signal for when it is actually ready versus still initializing
@@ -17,24 +17,24 @@
 
 ## Key workflow moments
 - **Normal startup:** Runs `./run.sh` from the repo root; expects a clear log line indicating the app is accepting connections (not just that uvicorn started — the TTS server subprocess must also be ready), with a port number he can verify
-- **Diagnosing a startup failure:** `run.sh` exits non-zero or hangs; Brendan needs the error output to tell him what failed (port in use, plugin failed to load, `~/xtts-env` missing) without grepping through a wall of uvicorn startup logs
-- **Killing a stale session:** After a crash, `run.sh` fails because port 8123 is already bound; Brendan needs to find and kill the stale process — ideally a single command the README tells him to run, not a multi-step lsof investigation
+- **Diagnosing a startup failure:** `run.sh` exits non-zero or hangs; the Local Sysadmin needs the error output to tell them what failed (port in use, plugin failed to load, `~/xtts-env` missing) without grepping through a wall of uvicorn startup logs
+- **Killing a stale session:** After a crash, `run.sh` fails because port 8123 is already bound; they need to find and kill the stale process — ideally a single command the README tells them to run, not a multi-step lsof investigation
 - **Updating the app:** Pulls new commits, runs `./run.sh --setup-only` to reprovision; needs the provisioner to be idempotent — rerunning it on an already-provisioned machine should not break the existing environment
-- **Recovering a bad plugin install:** A new plugin was dropped into `plugins/` but has a broken manifest; the TTS server fails to start; Brendan needs to identify the offending plugin from the startup log and disable it without touching the others
+- **Recovering a bad plugin install:** A new plugin was dropped into `plugins/` but has a broken manifest; the TTS server fails to start; they need to identify the offending plugin from the startup log and disable it without touching the others
 
 ## Top friction points *(INFERRED)*
-- **F1 — TTS server readiness is not surfaced to the operator:** `tts_server.py` prints `READY:{port}` to stdout for the watchdog, but this signal is not echoed clearly in `run.sh` output; Brendan sees uvicorn start and assumes everything is ready, but the TTS subprocess may still be initializing or have silently failed
+- **F1 — TTS server readiness is not surfaced to the operator:** `tts_server.py` prints `READY:{port}` to stdout for the watchdog, but this signal is not echoed clearly in `run.sh` output; the Local Sysadmin sees uvicorn start and assumes everything is ready, but the TTS subprocess may still be initializing or have silently failed
 - **F2 — Stale subprocess trees survive crashes:** If uvicorn is killed with SIGKILL (e.g., force-quit), the TTS server subprocess it spawned may keep running; on the next `run.sh`, the app starts cleanly but the old TTS server is still bound to its port, causing the watchdog to fail health checks against the wrong process
-- **F3 — Port conflict error is buried in logs:** When port 8123 is already in use, uvicorn emits an OS-level bind error inside a Python traceback; the actionable information (which PID holds the port) is not in the log and Brendan has to run `lsof -i :8123` himself
+- **F3 — Port conflict error is buried in logs:** When port 8123 is already in use, uvicorn emits an OS-level bind error inside a Python traceback; the actionable information (which PID holds the port) is not in the log and they have to run `lsof -i :8123` themselves
 - **F4 — Plugin failure takes down the whole TTS server:** A single broken plugin manifest causes `plugin_loader.py` to raise during TTS server startup; the entire server fails to start, taking down synthesis for all other engines, with no fallback degraded mode
-- **F5 — No clean reset command:** After a bad update or crash, Brendan wants a single `./run.sh --reset` or equivalent that clears lock files, kills stale subprocesses, and leaves project data untouched — this does not exist, so he assembles the reset steps manually each time
+- **F5 — No clean reset command:** After a bad update or crash, the Local Sysadmin wants a single `./run.sh --reset` or equivalent that clears lock files, kills stale subprocesses, and leaves project data untouched — this does not exist, so they assemble the reset steps manually each time
 
 ## What they need from the studio
 - A startup readiness log line that is unambiguous: `Studio ready — web :8123, TTS server :PORT` only after both processes are accepting connections
 - A documented one-liner to kill all Studio-related processes by name or port, safe to run after any crash
 - An `--idempotent` or `--repair` mode for `run.sh` that re-provisions without destroying an existing working environment
 - Isolated plugin failure handling: a plugin that fails to load is skipped with a warning, not a hard crash; the remaining engines stay available
-- A `--status` flag or health endpoint that reports the state of each component (web server, TTS server, loaded plugins, active queue) as structured output Brendan can read at a glance
+- A `--status` flag or health endpoint that reports the state of each component (web server, TTS server, loaded plugins, active queue) as structured output the Local Sysadmin can read at a glance
 
 ## Review lens — questions they ask of any screen
 - "If I run this command on a machine where Studio is already running, will it break the running instance?"
@@ -49,7 +49,7 @@
 - The app appears to start successfully but synthesis silently fails because the TTS server subprocess crashed after the readiness signal
 - A second `run.sh` invocation starts a second Studio instance instead of detecting and refusing the conflict
 - `./run.sh --setup-only` on an already-provisioned machine overwrites or corrupts `~/xtts-env`
-- No way to distinguish "app is starting" from "app is stuck" — Brendan waits two minutes before realizing he needs to Ctrl-C
+- No way to distinguish "app is starting" from "app is stuck" — the Local Sysadmin waits two minutes before realizing they need to Ctrl-C
 - A crash that writes a corrupt `state.json` that then prevents the app from starting on any subsequent boot, with no documented recovery path
 
 **Evidence basis:** INFERRED. Interview IT staff or self-hosting engineers at small production companies who manage shared local AI tools (Automatic1111, LM Studio, ComfyUI) and ask specifically about the startup failure modes they encounter most often and what information they wish the app had logged.

@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
 import { GlassInput } from '@/components/forms/GlassInput';
 import { VoiceDropzone } from '@/components/forms/VoiceDropzone';
 import SearchableSelect from '@/components/forms/SearchableSelect';
 import type { TtsEngine, VoiceEngine } from '@/types';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 const engineSelectStyle: React.CSSProperties = {
     width: '100%',
@@ -32,10 +33,15 @@ interface NewVoiceModalProps {
 }
 
 export const NewVoiceModal: React.FC<NewVoiceModalProps> = ({ isOpen, onClose, value, onChange, engine, onEngineChange, engines = [], onSubmit, isCreating, sampleFiles = [], onSampleFilesChange }) => {
+    const dialogRef = useRef<HTMLDivElement>(null);
+    useFocusTrap(dialogRef, isOpen);
     if (!isOpen) return null;
     return (
         <div className="voice-modal-overlay">
             <motion.div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 className="voice-modal-panel"
@@ -111,10 +117,15 @@ interface RenameVoiceModalProps {
 }
 
 export const RenameVoiceModal: React.FC<RenameVoiceModalProps> = ({ isOpen, onClose, originalName, value, onChange, onSubmit, isRenaming }) => {
+    const dialogRef = useRef<HTMLDivElement>(null);
+    useFocusTrap(dialogRef, isOpen);
     if (!isOpen) return null;
     return (
         <div className="voice-modal-overlay">
             <motion.div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 className="voice-modal-panel"
@@ -171,10 +182,15 @@ interface AddVariantModalProps {
 }
 
 export const AddVariantModal: React.FC<AddVariantModalProps> = ({ isOpen, onClose, speakerName, value, onChange, engine, onEngineChange, engines = [], onSubmit, isAdding }) => {
+    const dialogRef = useRef<HTMLDivElement>(null);
+    useFocusTrap(dialogRef, isOpen);
     if (!isOpen) return null;
     return (
         <div className="voice-modal-overlay">
             <motion.div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 className="voice-modal-panel"
@@ -242,12 +258,17 @@ interface MoveVariantModalProps {
 }
 
 export const MoveVariantModal: React.FC<MoveVariantModalProps> = ({ 
-    isOpen, onClose, variantName, speakers, selectedSpeakerId, onSelectSpeaker, onSubmit, isMoving 
+    isOpen, onClose, variantName, speakers, selectedSpeakerId, onSelectSpeaker, onSubmit, isMoving
 }) => {
+    const dialogRef = useRef<HTMLDivElement>(null);
+    useFocusTrap(dialogRef, isOpen);
     if (!isOpen) return null;
     return (
         <div className="voice-modal-overlay">
             <motion.div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 className="voice-modal-panel"

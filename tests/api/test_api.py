@@ -68,7 +68,7 @@ def test_queue_uniqueness():
 
     with patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit") as mock_submit, \
          patch("app.engines.voice_engines.resolve_profile_engine", return_value="xtts"), \
-         patch("app.api.routers.generation.resolve_profile_engine", return_value="xtts"):
+         patch("app.api.routers.generation_shared.resolve_profile_engine", return_value="xtts"):
         # 3. Add to queue first time
         res1 = client.post("/api/processing_queue", data={
             "project_id": pid,

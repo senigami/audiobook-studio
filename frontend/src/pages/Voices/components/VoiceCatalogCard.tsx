@@ -1,23 +1,46 @@
 /**
- * VoiceCatalogCard.tsx — R5-T3
+ * VoiceCatalogCard.tsx — R5-T3 (actions consolidated, task 002 voice-variants-round2)
  *
  * Grid card for the Voices catalog. Displays:
- * - Circular avatar (uploaded icon if available, else User lucide on accent tint)
- * - default badge (top-right) and untagged badge
- * - Voice name
+ * - Circular avatar (uploaded icon if available, else User lucide on accent tint), with a
+ *   Play/Pause preview control revealed as a hover/focus overlay (never hover-only — see
+ *   INV-FOCUS below)
+ * - Default-voice star badge (top-left) and untagged badge
+ * - Voice name — a real `<button>`, the sole navigate-to-Voice-Lab (or, in select mode,
+ *   toggle-selection) affordance in the body (see A11Y-3 note below)
  * - VoicePillRow (max 3, overflow collapses)
  * - One-line description
- * - Preview (Play) button (routes through playerBus)
- * - Phase-appropriate primary CTA (from getPrimaryCta/getVoicePhase)
- * - ⋯ ActionMenu: Set as default / Edit Metadata / Edit Recording Script / Voice Settings / Rename Voice / Export Voice Bundle / Delete Voice
+ * - Build (or phase-appropriate primary CTA, from getPrimaryCta/getVoicePhase) — the sole
+ *   always-visible action button
+ * - ⋯ ActionMenu (top-right): Rename Voice / Export Voice Bundle / Set as App Default / Delete
+ *
+ * "Open in Voice Lab" (redundant with the card body/CTA, which already navigate there),
+ * "Edit Metadata" (→ VoiceLabPage Overview tab), "Edit Recording Script" (→ Test tab), and
+ * "Voice Settings" (→ Variants tab) were relocated to the consolidated voice detail page
+ * (task 006, voice-card-consolidation plan) — see VoiceDetailTabs/VoiceLabPage.
+ *
+ * A11Y-3 (design-critique follow-up): the card body used to be one `role="button"` div
+ * wrapping the avatar/name/pills/description, nesting the avatar's real play `<button>`,
+ * `VoicePillRow`'s own "+N more" toggle button, and `UntaggedBadge`'s click target inside
+ * another button/role — invalid ARIA (interactive content inside a button) and confusing
+ * for assistive tech. The navigate-to-Voice-Lab (or toggle-selection) affordance is now
+ * scoped to just the name `<button>`; the body wrapper itself carries no role/handlers.
+ *
+ * INV-FOCUS (design-system.md §8.1 focus-visible rule): the avatar's Play/Pause overlay is
+ * a real, always-in-DOM, always-tabbable `<button>` — visibility is gated by CSS `opacity`
+ * (0 at rest, 1 on `.voice-catalog-card__avatar:hover` or the button's own `:focus-visible`),
+ * never by `display: none`/`visibility: hidden`, so it stays reachable via Tab and touch
+ * regardless of hover state.
  */
 import React from 'react';
-import { User, Star, Download, FileEdit, Trash2, Tag, Play, Pause, Mic, SlidersHorizontal } from 'lucide-react';
+import { User, Star, Download, FileEdit, Trash2, Play, Pause, Loader2, Hammer } from 'lucide-react';
 import type { Speaker, SpeakerProfile, TtsEngine, VoiceMetadata } from '@/types';
 import { ActionMenu } from '@/components/ui/ActionMenu';
+import { EngineBadge } from '@/components/ui/EngineBadge';
 import { VoicePillRow, UntaggedBadge, voicePillsFromMetadata } from '@/pages/Voices/components/VoicePills';
 import { getVoicePhase, getPrimaryCta } from '@/pages/Voices/voicePhase';
 import { usePlayerBus, loadAndPlay, pause as pauseBus } from '@/store/playerBus';
+import { emitToast } from '@/utils/toast';
 import { formatVoiceEngineLabel, getVoiceProfileEngine, isVoiceProfileSelectable } from '@/utils/voiceProfiles';
 
 // ---------------------------------------------------------------------------
@@ -38,12 +61,14 @@ export interface VoiceCatalogCardProps {
     onRenameClick: (speaker: Speaker) => void;
     onExportVoice?: (voiceName: string) => void;
     requestConfirm: (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean }) => void;
+    /** Still used for the untagged-badge affordance in the card body; Edit Metadata is no
+     * longer a menu item (relocated to the VoiceLabPage Overview tab, task 006). */
     onEditMetadata?: () => void;
-    onEditTestText?: (profile: SpeakerProfile) => void;
-    /** Opens the standalone Voice Settings drawer (per-voice plugin controls), relocated
-     * out of the Script Editor drawer per the Phase 12 placement backlog item. */
-    onEditVoiceSettings?: (profile: SpeakerProfile) => void;
     onRefresh: () => void;
+    /** Multi-select (bulk delete/export) — omit to render the card in its normal single-voice mode. */
+    selectable?: boolean;
+    selected?: boolean;
+    onToggleSelect?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -63,9 +88,10 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
     onExportVoice,
     requestConfirm,
     onEditMetadata,
-    onEditTestText,
-    onEditVoiceSettings,
     onRefresh,
+    selectable = false,
+    selected = false,
+    onToggleSelect,
 }) => {
     const playerBus = usePlayerBus();
 
@@ -77,6 +103,7 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
 
     const phase = getVoicePhase(profiles, engines, buildingProfiles);
     const cta = getPrimaryCta(phase);
+    const isBuilding = phase === 'building';
 
     const pills = metadata ? voicePillsFromMetadata(metadata) : [];
     const isUntagged = metadata?.is_untagged ?? (!metadata);
@@ -89,7 +116,25 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
         playerBus.audioUrl === previewUrl &&
         playerBus.playing;
 
+    // Owner-corrected (2026-07-16): Play's job is to play. It only falls back
+    // to triggering a build when there is genuinely no audio to play yet
+    // (`!previewUrl`) — NOT merely because `cta.intent === 'build'`, which
+    // is also true for a voice that already has a valid preview but is
+    // separately flagged `is_rebuild_required` (new samples, settings
+    // changed, etc. — see voicePhase.ts's LABEL_TO_PHASE). The earlier
+    // `cta.intent === 'build'`-only check was wrong: it forced a rebuild
+    // instead of playing existing, perfectly good audio. Build is also its
+    // own explicit "Build voice" kebab item (below) — Play's auto-build is a
+    // convenience fallback for the true no-audio-yet case, not a substitute.
     const handlePreview = () => {
+        if (isBuilding) return; // already in flight — button is disabled, but guard direct calls too
+        if (!previewUrl && cta.intent === 'build' && defaultProfile) {
+            onBuildNow(defaultProfile.name, [], speaker.id || undefined, defaultProfile.variant_name || undefined)
+                .then(ok => {
+                    if (ok) emitToast(`Queued build for ${speaker.name}`);
+                });
+            return;
+        }
         if (!previewUrl) return;
         if (isPlaying) {
             pauseBus();
@@ -103,32 +148,24 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
         }
     };
 
+    // Explicit Build action for the kebab menu (owner-requested: Build must
+    // stay directly reachable there, not only implied via Play).
+    const handleBuildNowClick = () => {
+        if (isBuilding || !defaultProfile) return;
+        onBuildNow(defaultProfile.name, [], speaker.id || undefined, defaultProfile.variant_name || undefined)
+            .then(ok => {
+                if (ok) emitToast(`Queued build for ${speaker.name}`);
+            });
+    };
+
     // Engine badge
     const activeEngine = getVoiceProfileEngine(defaultProfile) || null;
     const activeEngineInfo = engines.find(e => e.engine_id === activeEngine);
     const activeEngineSelectable = defaultProfile ? isVoiceProfileSelectable(defaultProfile, engines) : false;
     const isCloudEngine = activeEngineInfo?.cloud === true;
 
-    const engineBadgeBg = !activeEngineSelectable
-        ? 'var(--accent-focus-ring)'
-        : isCloudEngine
-            ? 'var(--cloud-tint-bg)'
-            : 'var(--accent-tint-bg)';
-    const engineBadgeColor = !activeEngineSelectable
-        ? 'var(--text-muted)'
-        : isCloudEngine
-            ? 'var(--cloud-color)'
-            : 'var(--accent)';
+    const engineBadgeTone = !activeEngineSelectable ? 'muted' : isCloudEngine ? 'cloud' : 'accent';
     const engineBadgeLabel = activeEngineInfo?.display_name || formatVoiceEngineLabel(activeEngine || '');
-
-    // CTA handler
-    const handleCta = () => {
-        if (cta.intent === 'build' && defaultProfile) {
-            onBuildNow(defaultProfile.name, [], speaker.id || undefined, defaultProfile.variant_name || undefined);
-        } else {
-            onNavigateToLab(speaker.id);
-        }
-    };
 
     // Delete
     const handleDelete = () => {
@@ -148,109 +185,63 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
     };
 
     // Voice icon
-    const iconUrl = metadata?.image ?? null;
+    const iconUrl = metadata?.image ? `/api/voices/${encodeURIComponent(speaker.id)}/icon` : null;
 
     return (
         <div className="voice-catalog-card">
-            {/* Default badge */}
+            {/* Selection checkbox — top-left, mirrors the default-badge's top-right corner
+                placement. Only rendered in bulk-select mode (persona fast-follow: Large
+                Catalog Curator, one-card-at-a-time destructive/organizational actions). */}
+            {selectable && (
+                <label
+                    className="voice-catalog-card__select-checkbox"
+                    aria-label={`Select ${speaker.name} checkbox`}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => onToggleSelect?.()}
+                    />
+                </label>
+            )}
+
+            {/* Default status — star badge, pinned to the card's actual top-left corner
+                (user-reported, 2026-07-16: it needs to be "in the far upper left," not
+                indented within the body's content padding alongside the avatar).
+                Absolutely positioned against `.voice-catalog-card` (position: relative),
+                same convention as the kebab's opposite corner. Offset past the
+                select-checkbox's 22px footprint in bulk-select mode so the two never
+                overlap. Status indicator only, not a button — setting default is an
+                action, done via the kebab's "Set as App Default" item.
+                H-4: this app-default `Star` and VariantSwitcher's per-variant-default
+                control differ by icon shape (`Star` vs. `BadgeCheck`), not color alone. */}
             {hasDefaultProfile && (
-                <span className="voice-catalog-card__default-badge" aria-label="Default voice">
-                    ★ default
+                <span
+                    className="voice-catalog-card__default-star"
+                    aria-label="App default voice"
+                    title="App default voice"
+                    style={selectable ? { left: '34px' } : undefined}
+                >
+                    <Star size={12} fill="currentColor" />
                 </span>
             )}
 
-            {/* Avatar */}
-            <div className="voice-catalog-card__avatar">
-                {iconUrl ? (
-                    <img src={iconUrl} alt={`${speaker.name} icon`} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                ) : (
-                    <User size={20} />
-                )}
-            </div>
-
-            {/* Name */}
-            <div className="voice-catalog-card__name">{speaker.name}</div>
-
-            {/* Engine badge */}
-            {activeEngine && (
-                <span style={{
-                    fontSize: '0.6rem',
-                    padding: '1px 6px',
-                    borderRadius: 'var(--radius-round)',
-                    background: engineBadgeBg,
-                    color: engineBadgeColor,
-                    fontWeight: 700,
-                    letterSpacing: '0.02em',
-                    marginBottom: '4px',
-                    display: 'inline-block',
-                }}>
-                    {engineBadgeLabel}
-                </span>
-            )}
-
-            {/* Pills */}
-            {pills.length > 0 ? (
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <VoicePillRow pills={pills} max={3} />
-                </div>
-            ) : isUntagged ? (
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <UntaggedBadge onClick={onEditMetadata} />
-                </div>
-            ) : null}
-
-            {/* Description */}
-            {metadata?.description && (
-                <p className="voice-catalog-card__description">{metadata.description}</p>
-            )}
-
-            {/* Actions row */}
-            <div className="voice-catalog-card__actions">
-                {/* Preview */}
-                <button
-                    type="button"
-                    aria-label={isPlaying ? 'Pause preview' : 'Play preview'}
-                    disabled={!previewUrl}
-                    onClick={handlePreview}
-                    className="btn-glass voice-catalog-card__preview-btn"
-                >
-                    {isPlaying ? <Pause size={12} /> : <Play size={12} />}
-                    {isPlaying ? 'Pause' : 'Play'}
-                </button>
-
-                {/* Primary CTA */}
-                <button
-                    type="button"
-                    onClick={handleCta}
-                    className="btn-primary voice-catalog-card__cta-btn"
-                >
-                    {cta.label}
-                </button>
-
-                {/* Overflow menu */}
+            {/* Overflow menu — top-right. Build / Rename / Export / Set as App Default /
+                Delete (task 002: consolidated out of the always-visible actions row;
+                Build restored here explicitly per owner request, 2026-07-16 — Play's
+                auto-build is a convenience fallback for the no-audio-yet case, not a
+                substitute for a direct Build action). */}
+            <div className="voice-catalog-card__menu">
                 <ActionMenu
                     items={[
                         {
-                            label: 'Set as Default',
-                            icon: Star,
-                            disabled: hasDefaultProfile && profiles.find(p => p.is_default)?.name === defaultProfile?.name,
-                            onClick: () => defaultProfile && onSetDefaultClick(defaultProfile.name),
+                            label: isBuilding ? 'Building…' : 'Build voice',
+                            icon: isBuilding ? Loader2 : Hammer,
+                            disabled: isBuilding || !defaultProfile,
+                            onClick: handleBuildNowClick,
                         },
-                        {
-                            label: 'Edit Metadata',
-                            icon: Tag,
-                            onClick: () => onEditMetadata?.(),
-                        },
-                        {
-                            label: 'Edit Recording Script',
-                            icon: Mic,
-                            onClick: () => defaultProfile && onEditTestText?.(defaultProfile),
-                        },
-                        {
-                            label: 'Voice Settings',
-                            icon: SlidersHorizontal,
-                            onClick: () => defaultProfile && onEditVoiceSettings?.(defaultProfile),
-                        },
+                        { isDivider: true },
                         {
                             label: 'Rename Voice',
                             icon: FileEdit,
@@ -261,15 +252,144 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
                             icon: Download,
                             onClick: () => onExportVoice?.(speaker.name),
                         },
+                        { isDivider: true },
                         {
-                            label: 'Delete Voice (all variants)',
+                            label: 'Set as App Default',
+                            icon: Star,
+                            disabled: hasDefaultProfile,
+                            onClick: () => defaultProfile && onSetDefaultClick(defaultProfile.name),
+                        },
+                        { isDivider: true },
+                        {
+                            label: 'Delete',
                             icon: Trash2,
-                            onClick: handleDelete,
                             isDestructive: true,
+                            onClick: handleDelete,
                         },
                     ]}
                 />
             </div>
+
+            {/*
+              * Card body — wrapper for the avatar, name, pills, and description.
+              * A11Y-3: this used to be a single role="button" spanning the whole
+              * body, which nested the avatar's real play <button>, VoicePillRow's
+              * own "+N more" toggle button, and UntaggedBadge's click target
+              * inside another button/role — invalid ARIA (interactive content
+              * inside a button) and confusing for screen readers. The
+              * keyboard-accessible navigate-to-Voice-Lab affordance is the name
+              * button below (a real <button>, no nested interactives).
+              *
+              * User-reported follow-up: scoping the click target to just the
+              * name text left no obvious way to open a voice with the mouse.
+              * The body wrapper below adds a plain (no role/tabIndex) onClick
+              * that navigates for clicks anywhere in its "dead space" — but
+              * defers to a nested interactive element's own handler (checked via
+              * closest('button, [role="button"], a')) rather than double-firing,
+              * so the play button/pills toggle/untagged badge still work exactly
+              * as before. This container makes no ARIA role claim, so it doesn't
+              * reintroduce A11Y-3 — it's a mouse-convenience affordance layered
+              * on top of the real keyboard-operable name button, not a
+              * replacement for it.
+              */}
+            <div
+                data-testid="voice-catalog-card-body"
+                className="voice-catalog-card__body"
+                onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.closest('button, [role="button"], a')) return;
+                    if (selectable) onToggleSelect?.();
+                    else onNavigateToLab(speaker.id);
+                }}
+                style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}
+            >
+                {/* Header row (owner-requested layout, 2026-07-16): star + avatar in a
+                    left column, name/engine/pills in a right column — replaces the
+                    prior fully-centered stack. The default-star (previously an
+                    absolutely-positioned card-level badge) now sits inline directly
+                    above the avatar, still a status indicator only (not a button —
+                    setting default is an action, done via the kebab's "Set as App
+                    Default" item). H-4: this app-default `Star` and
+                    VariantSwitcher's per-variant-default control differ by icon shape
+                    (`Star` vs. `BadgeCheck`), not color alone. */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', width: '100%', textAlign: 'left' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                        {/* Avatar — hosts the Play/Pause preview overlay (INV-FOCUS, see file header) */}
+                        <div className="voice-catalog-card__avatar">
+                            {iconUrl ? (
+                                <img src={iconUrl} alt={`${speaker.name} icon`} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                            ) : (
+                                <User size={20} />
+                            )}
+                            <button
+                                type="button"
+                                aria-label={
+                                    isBuilding ? 'Building…'
+                                        : !previewUrl && cta.intent === 'build' ? 'Build voice'
+                                            : isPlaying ? 'Pause preview' : 'Play preview'
+                                }
+                                disabled={isBuilding || (!previewUrl && cta.intent !== 'build')}
+                                tabIndex={0}
+                                onClick={handlePreview}
+                                className="voice-catalog-card__avatar-play-btn"
+                            >
+                                {isBuilding ? <Loader2 size={14} className="animate-spin" />
+                                    : !previewUrl && cta.intent === 'build' ? <Play size={14} />
+                                        : isPlaying ? <Pause size={14} /> : <Play size={14} />}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style={{ minWidth: 0, flex: 1, paddingTop: '2px' }}>
+                        {/* Name — the sole navigate-to-Voice-Lab (or, in select mode,
+                            toggle-selection) affordance, a real <button> with no nested
+                            interactive descendants (A11Y-3). */}
+                        <button
+                            type="button"
+                            data-testid="voice-catalog-card-name-btn"
+                            aria-label={selectable ? `Select ${speaker.name}` : `Open ${speaker.name} in Voice Lab`}
+                            onClick={() => (selectable ? onToggleSelect?.() : onNavigateToLab(speaker.id))}
+                            className="voice-catalog-card__name"
+                            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit', fontWeight: 700, display: 'block' }}
+                        >
+                            {speaker.name}
+                        </button>
+
+                        {/* Engine — directly under the name (owner-requested placement,
+                            matches the order the card already used before this
+                            layout change, just re-positioned). */}
+                        {activeEngine && (
+                            <EngineBadge
+                                label={engineBadgeLabel}
+                                tone={engineBadgeTone}
+                                size="sm"
+                                style={{ marginTop: '2px' }}
+                            />
+                        )}
+                    </div>
+                </div>
+
+                {/* Pills — full card width, own row below the header row (owner-requested,
+                    2026-07-16: pills were cramped into the narrow name column; they now
+                    start at the card's left edge like the description below, with room
+                    for 3 pills + the "+N" overflow (4 total) without wrapping — see
+                    .voices-catalog-grid's widened minmax in voice-lab.css. */}
+                {pills.length > 0 ? (
+                    <div style={{ display: 'flex', flexWrap: 'nowrap' }}>
+                        <VoicePillRow pills={pills} max={3} />
+                    </div>
+                ) : isUntagged ? (
+                    <div style={{ display: 'flex' }}>
+                        <UntaggedBadge onClick={onEditMetadata} />
+                    </div>
+                ) : null}
+
+                {/* Description — full card width, below the header row. */}
+                {metadata?.description && (
+                    <p className="voice-catalog-card__description" style={{ textAlign: 'left' }}>{metadata.description}</p>
+                )}
+            </div>
+
         </div>
     );
 };

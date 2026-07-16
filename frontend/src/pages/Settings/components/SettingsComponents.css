@@ -1,0 +1,14 @@
+/* NumberStepper segments: 32px desktop, bumped to 44px at mobile widths to
+   meet Apple's ~44pt touch-target guidance (breakpoint matches the
+   ~560-640px convention used elsewhere, e.g.
+   frontend/src/pages/ProjectDetail/components/ChapterList.css). */
+@media (max-width: 640px) {
+  .number-stepper-segment {
+    width: 44px !important;
+    height: 44px !important;
+  }
+  .number-stepper-input {
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+}

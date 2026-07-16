@@ -29,7 +29,7 @@ corresponding setting is absent from the settings store — the same
 settings-then-env precedence used by ``TTS_API_PRIORITY`` / ``api_priority_mode``.
 
 Note: ``app.db.state_settings._normalize_settings`` always materializes a
-default value for ``tts_parallel_cap`` (``1``) once it has run, so in
+default value for ``tts_parallel_cap`` (``2``) once it has run, so in
 practice — exactly like ``api_priority_mode`` / ``TTS_API_PRIORITY`` — the env
 var is a true fallback only before ``state.json`` has ever been normalized
 (e.g. a bare/fresh install, or a caller passing an explicit sparse

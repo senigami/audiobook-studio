@@ -1,0 +1,244 @@
+{
+  "files": {
+    "plugins/tts_voxtral/__init__.py": {
+      "purpose": "Package marker",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "plugins/tts_voxtral/cli.py": {
+      "purpose": "Standalone CLI for offline Voxtral synthesis testing",
+      "exports": [
+        {
+          "name": "main",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": [
+        "plugins/tts_voxtral/plugin/core/implementation.py#voxtral_generate,VoxtralError"
+      ]
+    },
+    "plugins/tts_voxtral/interface.py": {
+      "purpose": "Public plugin entry point exporting VoxtralPlugin, VoxtralVoiceEngine, handle_voxtral_job",
+      "exports": [
+        {
+          "name": "VoxtralPlugin, VoxtralVoiceEngine, handle_voxtral_job",
+          "kind": "class/function"
+        }
+      ],
+      "calls": [
+        "plugins/tts_voxtral/plugin/server/engine.py#VoxtralPlugin",
+        "plugins/tts_voxtral/plugin/studio/app_adapter.py#VoxtralVoiceEngine",
+        "plugins/tts_voxtral/plugin/studio/handler.py#handle_voxtral_job"
+      ],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "plugins/tts_voxtral/plugin/__init__.py": {
+      "purpose": "Internal implementation package marker",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "plugins/tts_voxtral/plugin/core/__init__.py": {
+      "purpose": "Voxtral engine runtime helpers package marker",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "plugins/tts_voxtral/plugin/core/implementation.py": {
+      "purpose": "Core Voxtral HTTP client logic: API key/model resolution, synthesis, model listing",
+      "exports": [
+        {
+          "name": "VoxtralError",
+          "kind": "class"
+        },
+        {
+          "name": "voxtral_generate, resolve_mistral_api_key, resolve_voxtral_model, resolve_mistral_tts_url, resolve_reference_audio_path, list_mistral_models",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "tries multiple request payload variants",
+        "converts non-WAV via ffmpeg",
+        "caches model list 5min per API key hash"
+      ],
+      "calls_inferred": [
+        "httpx.Client",
+        "subprocess.run"
+      ]
+    },
+    "plugins/tts_voxtral/plugin/server/__init__.py": {
+      "purpose": "TTS Server-facing Voxtral implementation package marker",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "plugins/tts_voxtral/plugin/server/engine.py": {
+      "purpose": "StudioTTSEngine server implementation: synthesize/preview/verify/info/check_env",
+      "exports": [
+        {
+          "name": "VoxtralPlugin",
+          "kind": "class"
+        }
+      ],
+      "calls": [
+        "app/engines/audio_ops.py#wav_to_mp3",
+        "app/engines/voice/base.py#StudioTTSEngine",
+        "app/engines/voice/sdk.py#*",
+        "plugins/tts_voxtral/plugin/core/implementation.py#*"
+      ],
+      "called_by": [],
+      "notes": [
+        "must NOT import app.api/domain/orchestration/db",
+        "PL-3 (2026-07-04): run_test() is now a one-line super().run_test(asset_search_order=[...], default_text=..., settings=settings or {}) delegating to StudioTTSEngine's shared implementation"
+      ],
+      "calls_inferred": []
+    },
+    "plugins/tts_voxtral/plugin/studio/__init__.py": {
+      "purpose": "Studio app-facing adapters package marker",
+      "exports": [],
+      "calls": [],
+      "called_by": [
+        "plugins/tts_voxtral/plugin/studio/bake.py",
+        "plugins/tts_voxtral/plugin/studio/segments.py"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "plugins/tts_voxtral/plugin/studio/app_adapter.py": {
+      "purpose": "BaseVoiceEngine adapter bridging Voxtral into standard Studio 2.0 contract",
+      "exports": [
+        {
+          "name": "VoxtralVoiceEngine, VoxtralProcessingHooks",
+          "kind": "class"
+        },
+        {
+          "name": "_run_voxtral_generate",
+          "kind": "method",
+          "contract": "shared staging + generate + cleanup helper for synthesize()/preview()"
+        }
+      ],
+      "calls": [
+        "app/db/speakers.py",
+        "app/db/state.py",
+        "app/engines/audio_ops.py",
+        "app/studio_plugin_sdk/__init__.py#get_plugin_ctx",
+        "plugins/tts_voxtral/plugin/core/implementation.py#*"
+      ],
+      "called_by": [],
+      "notes": [
+        "stages reference audio to temp voice profile folder for preview",
+        "2026-07-04: dead INTENDED_*/FORBIDDEN_* constants removed (BE-2); unimplemented validate_environment/build_voice_asset ABC stubs removed, zero callers (PL-5); _normalize_output_format/_resolve_output_path/_resolve_on_output/_resolve_cancel_check moved to BaseVoiceEngine, _load_settings_schema moved to plugin_utils.load_settings_schema (PL-3)",
+        "review-ratchet fix (2026-07-04): settings_schema() passes cache=False to plugin_utils.load_settings_schema to preserve this engine's original live-reload behavior (it never cached pre-PL-3; the initial merge had silently made it cache forever like xtts)",
+        "R2 (2026-07-04): removed a duplicate local wav_to_mp3() wrapper, same as xtts",
+        "R3 (2026-07-04): extracted _run_voxtral_generate(...) from synthesize()/preview() -- shared reference-audio staging + generate-call-with-cleanup try/finally, parameterized where the two callers genuinely differ (error_context, on_output/cancel_check, reference_sample's default source); a Fable review caught that the extraction inverted mkstemp-vs-staging order (temp-wav leak on a staging failure) -- fixed with a try/except around the call that cleans up temp_wav on any exception",
+        "2026-07-11 (Stage3 SDK migration residue): replaced module-level `from app.core.config import VOICES_DIR`, `from app.engines.errors/voice.base/voice.sdk/models import ...`, and the plugin_utils load_settings_schema import with a single try/except-ImportError consolidated `from studio_plugin_sdk import (...)` block (falls back to app.studio_plugin_sdk), matching bake.py/handler.py. Added a module-level _get_ctx() helper (get_plugin_ctx(\"voxtral\")). _stage_reference_audio now uses Path(_get_ctx().get_voices_dir()) instead of the raw VOICES_DIR Path constant. Closes an S5 import-cleanliness gap -- this file was never in the plugin's module-level app-import ban test's _TARGET_MODULES; that test now includes it too."
+      ],
+      "calls_inferred": []
+    },
+    "plugins/tts_voxtral/plugin/studio/bake.py": {
+      "purpose": "Render all/missing chapter segment groups then stitch audio",
+      "exports": [
+        {
+          "name": "handle_voxtral_bake",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/db/__init__.py#get_chapter_segments,update_segment,update_queue_item",
+        "app/db/lexicon.py#get_lexicon",
+        "app/engines/audio_ops.py#stitch_segments,get_audio_duration",
+        "app/jobs/handlers/bridge_helpers.py#generate_via_bridge",
+        "app/studio_plugin_sdk/__init__.py#StudioPluginContext",
+        "app/studio_plugin_sdk/errors.py",
+        "app/studio_plugin_sdk/plugin_utils.py#get_plugin_ctx",
+        "app/studio_plugin_sdk/plugin_utils.py#make_segment_output_handler",
+        "app/utils/text/lexicon.py#apply_lexicon",
+        "plugins/tts_voxtral/plugin/studio/__init__.py"
+      ],
+      "called_by": [],
+      "notes": [
+        "force_rerender bypasses cache",
+        "emits SEGMENT_SAVED/START_SEGMENT/PROGRESS markers",
+        "PL-1 (2026-07-04): local _get_ctx() kept as a thin patchable shim, body now delegates to the shared get_plugin_ctx(engine_id) factory",
+        "PL-2 (2026-07-04): local _group_needs_render removed (delegates to ctx.group_needs_render); bake_on_output replaced by make_segment_output_handler(...) with a linear progress_formula (unchanged math); no on_group_completed/on_group_started hooks, matching voxtral's original (never mutated j.*)"
+      ],
+      "calls_inferred": [
+        "app/studio_plugin_sdk/context.py#StudioPluginContext.group_needs_render"
+      ]
+    },
+    "plugins/tts_voxtral/plugin/studio/handler.py": {
+      "purpose": "Router for all Voxtral job types: segment renders, bake, samples, chapters",
+      "exports": [
+        {
+          "name": "handle_voxtral_job",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/core/config.py",
+        "app/db/__init__.py",
+        "app/db/lexicon.py",
+        "app/db/speakers.py",
+        "app/db/state.py#update_job",
+        "app/engines/errors.py",
+        "app/jobs/handlers/bridge_helpers.py#generate_via_bridge",
+        "app/studio_plugin_sdk/__init__.py",
+        "app/utils/text/lexicon.py",
+        "plugins/tts_voxtral/plugin/studio/bake.py#handle_voxtral_bake",
+        "plugins/tts_voxtral/plugin/studio/segments.py#handle_voxtral_segments"
+      ],
+      "called_by": [],
+      "notes": [
+        "rejects multi-profile chapters (not supported)",
+        "PL-1 (2026-07-04): local _get_ctx() kept as a thin patchable shim, body now delegates to the shared get_plugin_ctx(engine_id) factory"
+      ],
+      "calls_inferred": [
+        "app/studio_plugin_sdk/plugin_utils.py#get_plugin_ctx"
+      ]
+    },
+    "plugins/tts_voxtral/plugin/studio/segments.py": {
+      "purpose": "Render only targeted segment groups, emit progress markers",
+      "exports": [
+        {
+          "name": "handle_voxtral_segments",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/db/__init__.py#get_chapter_segments,update_segment",
+        "app/db/lexicon.py",
+        "app/jobs/handlers/bridge_helpers.py#generate_via_bridge",
+        "app/studio_plugin_sdk/__init__.py",
+        "app/studio_plugin_sdk/errors.py",
+        "app/studio_plugin_sdk/plugin_utils.py#get_plugin_ctx",
+        "app/studio_plugin_sdk/plugin_utils.py#make_segment_output_handler",
+        "app/utils/text/lexicon.py",
+        "plugins/tts_voxtral/plugin/studio/__init__.py"
+      ],
+      "called_by": [],
+      "notes": [
+        "PL-1 (2026-07-04): local _get_ctx() kept as a thin patchable shim, body now delegates to the shared get_plugin_ctx(engine_id) factory",
+        "PL-2 (2026-07-04): seg_on_output replaced by make_segment_output_handler(...) with a linear progress_formula and emit_on_save=False, preserving the original's SEGMENT_SAVED-skips-update_job asymmetry"
+      ],
+      "calls_inferred": [
+        "app/studio_plugin_sdk/context.py#StudioPluginContext.group_needs_render"
+      ]
+    }
+  }
+}

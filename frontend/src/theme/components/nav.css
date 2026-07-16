@@ -146,6 +146,25 @@
   color: var(--text-primary);
 }
 
+/* Ambient chapter-progress glance (persona fast-follow: Oliver/deadline-editor
+   finding, contextual-left-nav sign-off round 4) — a no-click substitute for
+   the rail's removed permanent chapter list, visible while working a
+   different tab (Cast/Publish) within the book. */
+.rail-book-block__progress {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.35rem;
+  padding-left: 2px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.rail-book-block__progress-rendering {
+  color: var(--accent);
+}
+
 /* Stage links — indented further than title row */
 .rail-book-block__stages {
   display: flex;
@@ -154,7 +173,7 @@
 }
 
 /* Active signature: left accent bar + tint fill + accent text.
-   Matches .nav-rail__item--active and .rail-book-block__chapter-wrap--active. */
+   Matches .nav-rail__item--active. */
 .rail-book-block__stage {
   display: flex;
   align-items: center;
@@ -181,142 +200,6 @@
   font-weight: 700;
 }
 
-/* Chapter list — shown under Studio stage */
-.rail-book-block__chapters {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding-top: 0.1rem;
-  /* Indent chapters a level past the stage labels (which sit at ~1.25rem). */
-  padding-left: 1.4rem;
-}
-
-/* Compact chapter row button — overrides the global button padding/centering
-   so the rows are tight and left-aligned (matching the mock). */
-.rail-book-block__chapter {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  width: 100%;
-  min-width: 0;
-  min-height: 0;
-  padding: 0.18rem 0.4rem;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.rail-book-block__chapter-wrap {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.15rem;
-  min-width: 0;
-  border-left: 2px solid transparent;
-  background: transparent;
-  margin-left: -1px;
-}
-
-.rail-book-block__chapter-wrap--active {
-  border-left-color: var(--accent);
-  background: var(--accent-tint-bg);
-}
-
-.rail-book-block__chapter {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.1rem;
-  min-width: 0;
-  min-height: 1.75rem;
-  width: 100%;
-  padding: 0.15rem 0.35rem 0.1rem 0.45rem;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-primary);
-  font: inherit;
-  cursor: pointer;
-  text-align: left;
-}
-
-.rail-book-block__chapter--active {
-  background: transparent;
-}
-
-.rail-book-block__chapter:hover {
-  background: var(--accent-glow);
-}
-
-.rail-book-block__chapter-wrap--active .rail-book-block__chapter:hover {
-  background: transparent;
-}
-
-.rail-book-block__chapter-main {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  width: 100%;
-  min-width: 0;
-}
-
-.rail-book-block__chapter-index {
-  color: var(--text-secondary);
-  font-size: 0.58rem;
-  font-weight: 800;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.rail-book-block__chapter-title {
-  min-width: 0;
-  overflow: hidden;
-  font-size: 0.58rem;
-  font-weight: 600;
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-secondary);
-  line-height: 1.3;
-}
-
-.rail-book-block__chapter-wrap--active .rail-book-block__chapter-index,
-.rail-book-block__chapter-wrap--active .rail-book-block__chapter-title {
-  color: var(--accent);
-  font-weight: 700;
-}
-
-.rail-book-block__chapter-actions {
-  display: flex;
-  justify-content: flex-end;
-  padding-right: 0.25rem;
-}
-
-.rail-book-block__chapter-actions .kebab-trigger {
-  /* ActionMenu hardcodes a 44px bordered glass box inline, which made the
-     selected chapter row tall. Force a compact, borderless kebab in the rail
-     (inline styles require !important to override). */
-  width: 1.5rem !important;
-  height: 1.5rem !important;
-  background: transparent !important;
-  border-color: transparent !important;
-  box-shadow: none !important;
-}
-
-.rail-book-block__progress {
-  grid-column: 1 / -1;
-  height: 0.2rem;
-  overflow: hidden;
-  padding: 0 0.3rem 0.2rem 1.95rem;
-}
-
-.rail-book-block__progress .predictive-progress-bar {
-  height: 0.2rem;
-}
-
 .nav-rail__group-label {
   padding: 0.45rem 0.875rem 0.125rem;
   color: var(--text-muted);
@@ -326,7 +209,12 @@
   text-transform: uppercase;
 }
 
-.nav-rail--collapsed .nav-rail__group-label {
+/* Scoped to the non-overlay panel only (`> .nav-rail__panel:not(--overlay)`,
+   not a bare descendant selector): the hover-preview overlay renders a full
+   expanded copy of this content *nested inside the same* `.nav-rail--collapsed`
+   <nav>, so an unscoped descendant selector here would hide labels in the
+   overlay too and defeat the hover-expand preview. */
+.nav-rail--collapsed > .nav-rail__panel:not(.nav-rail__panel--overlay) .nav-rail__group-label {
   display: none;
 }
 
@@ -361,7 +249,7 @@
   color: var(--accent);
 }
 
-.nav-rail--collapsed .nav-rail__item {
+.nav-rail--collapsed > .nav-rail__panel:not(.nav-rail__panel--overlay) .nav-rail__item {
   justify-content: center;
   padding: 0.5rem 0;
 }
@@ -381,7 +269,7 @@
   text-overflow: ellipsis;
 }
 
-.nav-rail--collapsed .nav-rail__label {
+.nav-rail--collapsed > .nav-rail__panel:not(.nav-rail__panel--overlay) .nav-rail__label {
   display: none;
 }
 
@@ -507,6 +395,15 @@
   margin-top: 0.25rem;
 }
 
+/* Same collapse as .player-btn svg (player.css): lucide icons carry
+   width/height as presentation attributes, not real CSS sizing, so inside a
+   tight inline-flex button the flex algorithm's automatic minimum size can
+   shrink their main axis to 0 — rendering a blank button with no visible
+   icon at all. Pin them to their intrinsic size. */
+.nav-rail__bottom-button--icon svg {
+  flex-shrink: 0;
+}
+
 .nav-rail__bottom-label {
   flex: 1 1 auto;
   min-width: 0;
@@ -522,6 +419,27 @@
   background: var(--surface);
   border-right: 1px solid var(--border);
   box-shadow: var(--shadow-lg);
+  /* Mounted only after the JS dwell delay (NavRail.tsx), so this animates
+     every time it appears rather than gating on a class toggle. */
+  animation: nav-rail-overlay-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: left center;
+}
+
+@keyframes nav-rail-overlay-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-rail__overlay {
+    animation: none;
+  }
 }
 
 .nav-rail__panel--overlay {
@@ -668,6 +586,21 @@
   background: transparent;
   color: inherit;
   cursor: pointer;
+}
+
+/* Icon-only brand mark at phone width: the full "Audiobook Studio" wordmark
+   plus the hamburger, breadcrumb, and queue button together overflow a
+   375px top bar even with the breadcrumb squeezed to 0 (confirmed via
+   layout measurement: ~403px of fixed-width chrome). Dropping the wordmark
+   text is the standard compact-nav-bar pattern and the single biggest
+   space win (~140px) — the icon alone still identifies "home". */
+@media (max-width: 480px) {
+  /* !important is required here: BrandLogo sets display:flex via an inline
+     style attribute, which always outranks a stylesheet rule regardless of
+     selector specificity. */
+  .top-bar__brand-btn .as-wordmark > div:last-child {
+    display: none !important;
+  }
 }
 
 /* Vertical pipe divider between the brand and the breadcrumb (matches the mock). */

@@ -168,37 +168,35 @@ describe('StyleguidePage section headings', () => {
   it('renders all 13 canonical section headings', () => {
     render(<StyleguidePage />);
 
-    // Each label appears in both the sticky nav and the section h2 — use getAllByText
-    expect(screen.getAllByText(/1\. Principles/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/2\. Brand & Identity/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/3\. Color/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/4\. Typography/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/5\. Spacing & Radius/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/6\. Buttons/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/7\. Forms & Focus/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/8\. Status & Progress/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/9\. Overlays/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/10\. Voice Pills/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/11\. Iconography/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/12\. Accessibility/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/13\. Theme/i).length).toBeGreaterThanOrEqual(1);
-
-    // Confirm h2 headings are present by role
+    // The redesigned SectionWrapper renders each h2 as a zero-padded number,
+    // a middot separator, then the section name (e.g. "01·Principles"), split
+    // across <span>s — so assert against each h2's concatenated textContent
+    // rather than a single contiguous "N. Name" text node (which no longer exists).
     const headings = screen.getAllByRole('heading', { level: 2 });
     const headingTexts = headings.map(h => h.textContent ?? '');
-    expect(headingTexts.some(t => /Principles/i.test(t))).toBe(true);
-    expect(headingTexts.some(t => /Brand.*Identity/i.test(t))).toBe(true);
-    expect(headingTexts.some(t => /Color/i.test(t))).toBe(true);
-    expect(headingTexts.some(t => /Typography/i.test(t))).toBe(true);
-    expect(headingTexts.some(t => /Spacing.*Radius/i.test(t))).toBe(true);
-    expect(headingTexts.some(t => /Buttons/i.test(t))).toBe(true);
-    expect(headingTexts.some(t => /Forms.*Focus/i.test(t))).toBe(true);
-    expect(headingTexts.some(t => /Status.*Progress/i.test(t))).toBe(true);
-    expect(headingTexts.some(t => /Overlays/i.test(t))).toBe(true);
-    expect(headingTexts.some(t => /Voice Pills/i.test(t))).toBe(true);
-    expect(headingTexts.some(t => /Iconography/i.test(t))).toBe(true);
-    expect(headingTexts.some(t => /Accessibility/i.test(t))).toBe(true);
-    expect(headingTexts.some(t => /Theme/i.test(t))).toBe(true);
+
+    const CANONICAL_SECTIONS: Array<[string, RegExp]> = [
+      ['01', /Principles/i],
+      ['02', /Brand.*Identity/i],
+      ['03', /Color/i],
+      ['04', /Typography/i],
+      ['05', /Spacing.*Radius/i],
+      ['06', /Buttons/i],
+      ['07', /Forms.*Focus/i],
+      ['08', /Status.*Progress/i],
+      ['09', /Overlays/i],
+      ['10', /Voice Pills/i],
+      ['11', /Iconography/i],
+      ['12', /Accessibility/i],
+      ['13', /Theme/i],
+    ];
+
+    // All 13 canonical sections render, in order, each as "<zero-padded number>·<name>".
+    expect(headingTexts).toHaveLength(CANONICAL_SECTIONS.length);
+    CANONICAL_SECTIONS.forEach(([num, nameRe], i) => {
+      expect(headingTexts[i]).toContain(num);
+      expect(nameRe.test(headingTexts[i])).toBe(true);
+    });
   });
 
   it('does NOT render removed meta sections', () => {

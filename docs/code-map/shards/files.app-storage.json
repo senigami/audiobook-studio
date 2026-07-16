@@ -1,0 +1,55 @@
+{
+ "files": {
+  "app/storage/manager.py": {
+   "purpose": "Central entry point for storage resolution and path validation",
+   "exports": [
+    {
+     "name": "StorageManager",
+     "kind": "class",
+     "contract": "get_project_context/list_projects/get_voice_dir/is_safe/resolve_chapter_asset_path"
+    },
+    {
+     "name": "get_storage_manager",
+     "kind": "function"
+    }
+   ],
+   "calls": [
+    "app/core/__init__.py",
+    "app/storage/project.py#ProjectContext",
+    "app/utils/pathing.py#secure_join_flat"
+   ],
+   "called_by": [
+    "app/api/routers/projects_backups.py",
+    "app/api/routers/projects_helpers.py"
+   ],
+   "notes": [
+    "is_safe() checks resolved paths against trusted roots",
+    "_find_file uses os.scandir entry.name for CodeQL SINK strategy"
+   ],
+   "calls_inferred": [
+    "app/core/config.py#*"
+   ]
+  },
+  "app/storage/project.py": {
+   "purpose": "Project-scoped storage context with safe path helpers",
+   "exports": [
+    {
+     "name": "ProjectContext",
+     "kind": "class",
+     "contract": "m4b_dir/cover_dir/trash_dir/chapters_root/get_chapter_dir properties"
+    }
+   ],
+   "calls": [
+    "app/core/__init__.py",
+    "app/utils/pathing.py#secure_join_flat"
+   ],
+   "called_by": [],
+   "notes": [
+    "all path resolution via secure_join_flat"
+   ],
+   "calls_inferred": [
+    "app/core/config.py#SAFE_PROJECT_ID_RE"
+   ]
+  }
+ }
+}

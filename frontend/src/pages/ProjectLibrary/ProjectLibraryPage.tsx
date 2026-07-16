@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { Plus, Book, ImageIcon, Loader2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useProjectLibrary } from '@/hooks/useProjectLibrary';
 import { ProjectCard } from '@/pages/ProjectDetail/components/ProjectCard';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { LibraryControls } from './components/LibraryControls';
 import { ProjectListView } from './components/ProjectListView';
+import { LibraryBookmarksPanel } from './components/LibraryBookmarksPanel';
+import { LibraryContinueSection } from './components/LibraryContinueSection';
+import { COVER_SIZES, getStoredCoverSizeIdx, setStoredCoverSizeIdx } from './lib/coverSize';
 import './ProjectLibraryPage.css';
 
 interface ProjectLibraryProps {
@@ -47,9 +51,24 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
         setViewMode,
         sortOption,
         setSortOption,
-        sortedProjects,
+        statusFilter,
+        setStatusFilter,
+        filteredProjects,
         existingSeries
     } = useProjectLibrary(onSelectProject);
+
+    const prefersReducedMotion = useReducedMotion();
+    const [coverSizeIdx, setCoverSizeIdxState] = useState(getStoredCoverSizeIdx);
+    const setCoverSizeIdx = (idx: number) => {
+        setCoverSizeIdxState(idx);
+        setStoredCoverSizeIdx(idx);
+    };
+    const coverColumnWidth = COVER_SIZES[coverSizeIdx]?.col ?? COVER_SIZES[0].col;
+
+    // Both "Create Project" render sites below (empty-state and populated-state)
+    // share this single state/ref pair since they're mutually exclusive.
+    const createProjectDialogRef = useRef<HTMLDivElement>(null);
+    useFocusTrap(createProjectDialogRef, showModal);
 
     const formatDate = (timestamp: number) => {
         return new Date(timestamp * 1000).toLocaleDateString(undefined, {
@@ -94,6 +113,9 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                 {showModal && (
                     <div className="project-library-modal-backdrop">
                         <motion.div
+                            ref={createProjectDialogRef}
+                            role="dialog"
+                            aria-modal="true"
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
@@ -216,47 +238,70 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                 </button>
             </header>
 
-            {projects.length === 0 ? (
-                <div className="project-library-no-results">
-                    <Book size={48} className="project-library-no-results-icon" />
-                    <p className="project-library-no-results-title">No projects found</p>
-                    <p className="project-library-no-results-copy">Create a new project to get started translating text into audio.</p>
-                </div>
-            ) : (
-                <>
-                    <LibraryControls
-                        viewMode={viewMode}
-                        onViewModeChange={setViewMode}
-                        sortOption={sortOption}
-                        onSortOptionChange={setSortOption}
-                    />
+            <LibraryBookmarksPanel projects={projects} />
 
-                    {viewMode === 'grid' ? (
-                        <div className="project-library-grid">
-                            {sortedProjects.map(project => (
-                                <ProjectCard
-                                    key={project.id}
-                                    project={project}
-                                    isHovered={hoveredProjectId === project.id}
-                                    onHover={setHoveredProjectId}
-                                    onClick={(id) => onSelectProject?.(id)}
-                                    onOpenDetails={handleOpenProjectDetails}
-                                    onDelete={handleDeleteClick}
-                                    formatDate={formatDate}
-                                />
-                            ))}
-                        </div>
-                    ) : (
+            <LibraryContinueSection
+                projects={projects}
+                onOpenProject={(id) => onSelectProject?.(id)}
+            />
+
+            <LibraryControls
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                sortOption={sortOption}
+                onSortOptionChange={setSortOption}
+                statusFilter={statusFilter}
+                onStatusFilterChange={setStatusFilter}
+                coverSizeIdx={coverSizeIdx}
+                onCoverSizeIdxChange={setCoverSizeIdx}
+            />
+
+            {/* Grid/List swap fades only this container (not the header/controls
+                above it) and is a quick 0.15s crossfade rather than the ~1s
+                whole-page dim flagged in the 2026-07-14 HIG review (item 10).
+                Reduced-motion users get an instant swap, no fade. */}
+            <AnimatePresence initial={false}>
+                {viewMode === 'grid' ? (
+                    <motion.div
+                        key="grid"
+                        initial={prefersReducedMotion ? false : { opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={prefersReducedMotion ? undefined : { opacity: 0 }}
+                        transition={{ duration: prefersReducedMotion ? 0 : 0.15 }}
+                        className="project-library-grid"
+                        style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${coverColumnWidth}px, 1fr))` }}
+                    >
+                        {filteredProjects.map(project => (
+                            <ProjectCard
+                                key={project.id}
+                                project={project}
+                                isHovered={hoveredProjectId === project.id}
+                                onHover={setHoveredProjectId}
+                                onClick={(id) => onSelectProject?.(id)}
+                                onOpenDetails={handleOpenProjectDetails}
+                                onDelete={handleDeleteClick}
+                                formatDate={formatDate}
+                            />
+                        ))}
+                    </motion.div>
+                ) : (
+                    <motion.div
+                        key="list"
+                        initial={prefersReducedMotion ? false : { opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={prefersReducedMotion ? undefined : { opacity: 0 }}
+                        transition={{ duration: prefersReducedMotion ? 0 : 0.15 }}
+                    >
                         <ProjectListView
-                            projects={sortedProjects}
+                            projects={filteredProjects}
                             onSelect={(id) => onSelectProject?.(id)}
                             onOpenDetails={handleOpenProjectDetails}
                             onDelete={handleDeleteClick}
                             formatDate={formatDate}
                         />
-                    )}
-                </>
-            )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Create Project Modal */}
             <AnimatePresence>
@@ -268,6 +313,9 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                     className="project-library-modal-backdrop"
                 >
                     <motion.div
+                        ref={createProjectDialogRef}
+                        role="dialog"
+                        aria-modal="true"
                         initial={{ opacity: 0, scale: 0.95, y: 10 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}

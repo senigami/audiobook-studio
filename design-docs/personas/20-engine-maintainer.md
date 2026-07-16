@@ -1,4 +1,4 @@
-# 20 · "Dr. Sarah Kim" — Engine Maintainer  ☆ INFERRED
+# 20 · Engine Maintainer  ☆ INFERRED
 
 **Identity:** "A researcher-turned-engineer who owns the tts_mixed plugin and needs the Studio orchestrator to remain agnostic to her engine's internals — so she can change marker timing, add a new child engine, or swap a fallback without touching application code."
 
@@ -25,7 +25,7 @@
 
 ## Top friction points *(INFERRED)*
 - **F1 — Mixed-synthesis ETA discontinuity:** When XTTS finishes its voice segments and the narration engine begins, the orchestrator's ETA can spike or stall because the progress stream switches source. The combined ETA math does not account for the handoff transition ring, making the UI show misleading estimates during the switch.
-- **F2 — No contract-violation feedback during dev:** If `progress_pattern` in the manifest produces a match group that cannot be parsed as a float, the orchestrator silently drops the progress update rather than logging an error. Sarah only discovers this when ETA stays at 0% through a full render.
+- **F2 — No contract-violation feedback during dev:** If `progress_pattern` in the manifest produces a match group that cannot be parsed as a float, the orchestrator silently drops the progress update rather than logging an error. The Engine Maintainer only discovers this when ETA stays at 0% through a full render.
 - **F3 — Spec/code drift is invisible:** There is no automated check that `manifest.json`'s declared `behavior.text_chunk_limit` matches what the plugin's `interface.py` actually enforces. She discovers drift manually when a downstream test fails unexpectedly.
 - **F4 — Child-engine test isolation requires real subprocess:** Testing the mixed plugin's fallback path requires standing up a real (or stubbed) child engine subprocess. There is no lightweight mock-engine fixture, so fallback tests are slow and platform-sensitive.
 

@@ -1,24 +1,31 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.11.6
+spec_version: 1.12.2
 status: active
-updated: 2026-07-06
+updated: 2026-07-14
 created: 2026-06-10
 sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
-         app/orchestration/scheduler/{orchestrator,orchestrator_helpers,policies,resources,recovery}.py,
+         app/orchestration/scheduler/{orchestrator,orchestrator_helpers,policies,resources,recovery,cap_settings}.py,
+         app/orchestration/tasks/{synthesis,segment_synthesis}.py,
          plugins/tts_xtts/plugin/studio/standard_handler.py,
+         plugins/tts_mixed/handler.py,
          app/orchestration/progress/eta.py, app/core/boot.py, app/api/web.py,
-         app/db/performance.py, frontend/src/components/queue/QueueItem.tsx,
+         app/db/performance.py, app/db/state_settings.py, app/api/routers/engines.py,
+         frontend/src/components/queue/QueueItem.tsx,
          tests/db/test_state_rules.py, test_state_jobs_broadcast.py, test_db_reconcile.py,
          tests/orchestration/test_recovery_db_integration.py,
-         tests/orchestration/test_engine_semaphores.py
+         tests/orchestration/test_engine_semaphores.py,
+         tests/orchestration/test_live_cap_admission.py
 ```
 
 ## Changelog
 
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
+| 1.12.2  | 2026-07-14 | **Stats — per-engine calibration never records an `engine="mixed"` sample.** "Mixed" is a job-level container label, not a real synthesizing engine (ADR-0004) — each render group inside a mixed chapter already resolves to a real engine (xtts/voxtral) via `group["engine"]`. Previously `_record_render_stats_inner` (`app/orchestration/scheduler/orchestrator_helpers.py`) wrote exactly one `render_performance_samples` row per completed job under `engine=str(payload.get("engine_id"))`, which is literally `"mixed"` for a mixed chapter — polluting the Engines page with a bogus "Mixed Synthesis" calibration baseline while starving xtts/voxtral's own baselines of the work actually done through Mixed. Fixed: `plugins/tts_mixed/handler.py`'s `render_one_group` now times each group's real `_render_segment` call and emits a new marker, `[SEGMENT_ENGINE_SAMPLE] {segment_id} {engine} {chars} {duration_seconds}` (four whitespace-separated tokens, same convention as `[SEGMENT_SAVED]`), only after the group's artifact passes INV-3 validation. The orchestrator's marker listener parses it into a per-dispatch `timing["mixed_segment_samples"]` list (in-memory only — fully consumed within the same `_dispatch_segment` call, no cross-restart persistence needed). At the sample-recording call site, a job whose `engine_id == "mixed"` no longer calls `record_render_sample(engine="mixed", ...)` at all; instead it loops over `mixed_segment_samples` and records one sample per group under that group's real engine. If no per-group samples were captured (stale engine build predating the marker, or every group was reused/cached so nothing synthesized), it records nothing and logs a warning — it does NOT fall back to the old single "mixed" row. Non-mixed jobs are unaffected (byte-identical). INV-6 (orchestrator is the sole render-performance-sample writer) is preserved — the mixed handler only emits a marker, it never calls `record_render_sample` itself. See `system-architecture.md`'s marker/event-envelope section for the sibling note on the new marker's shape. |
+| 1.12.1  | 2026-07-14 | **XTTS manifest ceiling raised `2 → 8` (owner directive).** `plugins/tts_xtts/manifest.json`'s `behavior.max_concurrent_workers` moved 2 → 8, matching `MAX_GLOBAL_CONCURRENT_SYNTHESIS` and the Settings slider's max — the manifest was silently clamping `tts_parallel_cap`/`tts_engine_caps["xtts"]` with no UI feedback when a user raised the setting above 2. The user's own `tts_parallel_cap`/per-engine-cap setting (still defaulting to 2) is now the real, user-explorable lever for XTTS concurrency up to the global backstop; the manifest is no longer an effective ceiling in practice. VRAM/OOM risk from running more concurrent warm workers than the GPU can hold is now the user's own tradeoff, same as any other resource-heavy setting. Voxtral/Mixed unchanged (`max_concurrent_workers: 1`, not the same "arbitrary author ceiling" case). Full detail in `system-architecture.md` §3.1/1.7.1. |
+| 1.12.0  | 2026-07-11 | **§7.3b/§7.4a — live cap admission (W-PAR task 014), corrects a stale claim in this same section.** §7.3b previously stated "`_manifest_resource_claim` calls `resolve_effective_cap` when building each `ResourceClaim.cap`" — no longer true: `ResourceClaim.cap` (plus a new `manifest_max` field, same value) is now the **structural manifest ceiling only**; `resolve_effective_cap` is called fresh inside `reserve_task_resources` on every admission attempt instead, via a new optional `limit` parameter on `EngineClassSemaphore.try_acquire`. This closes the actual gap the stale sentence implied was already closed: previously, changing `tts_parallel_cap`/`tts_engine_caps` had no effect on already-queued/in-flight work until a process restart (the effective value was frozen into the claim at task-construction time, and the semaphore itself is grow-only, §7.4a). Now a settings change reaches every currently-waiting admission attempt (orchestrator's ~1s retry loop, per-child segment dispatch's ~0.5s retry loop — confirmed each child reserves individually, not via one shared parent reservation) within one retry cycle, with no restart and no eviction of in-flight tasks (`release_task_resources` was already, and remains, unconditional). `ensure_min_cap` (§7.4a) is untouched and only ever receives the manifest ceiling. New `GET`/`PUT /api/engines/{engine_id}/concurrency` (`api-conventions.md` gets the request/response shape) backed by a new single-key-merge `state_settings.set_engine_cap` (avoids two engines' overrides clobbering each other via a whole-`tts_engine_caps` replace). See `system-architecture.md` §3.1b for the full mechanism. |
 | 1.11.6  | 2026-07-06 | **§7.3a/§7.4 — `ENGINE_CLASS_ADMISSION` now defaults ON (owner directive), closing the gap left by 1.11.5.** 1.11.5 raised `tts_parallel_cap`'s default 1→2 but left the admission gate that actually lets concurrent segments render (`_engine_class_admission_enabled` in `app/orchestration/scheduler/resources.py`) defaulting OFF — so every synthesis claim still funnelled through the legacy single-flight exclusive gate regardless of the cap setting, and chapter renders stayed genuinely sequential despite the setting/toggle suggesting otherwise. Found while root-causing an owner report of confusing, jumpy segment highlighting during a render — the highlighting behavior traced to real chunk-group batching + this dormant gate, not a rendering-layer bug. `_engine_class_admission_enabled()` now returns `True` unless `ENGINE_CLASS_ADMISSION` is explicitly set to `"0"`/`"false"`/`"no"`/`"off"` (previously: `True` only for `"1"`/`"true"`/`"yes"`/`"on"`, `False` otherwise). Companion test updates: `tests/orchestration/test_engine_semaphores.py`'s `TestShipsDarkCrossClassSerialization` renamed to `TestPerClassAdmissionDefault` (default-on cross-class concurrency test added; the old default-off assertion moved to an explicit `ENGINE_CLASS_ADMISSION=0` test) and `tests/orchestration/test_eta_bracket_and_engine_cap.py::test_currently_live_engines_unaffected_toggle_off` now forces the env var off explicitly rather than relying on it as an ambient default. |
 | 1.11.5  | 2026-07-05 | **§7.3b — parallel rendering is now the shipped default (owner directive, superseding the W-PAR task 007 "ships dark" cap=1 default).** `DEFAULT_GLOBAL_CAP` (`cap_settings.py`) and the `tts_parallel_cap` default materialized by `state_settings._default_state()`/`_normalize_settings` both raised `1 → 2`. Rationale: sequential rendering is just the cap=1 case of the same fan-out code path, not a mode worth maintaining separately, and the owner does not want the two behaviors treated as parallel product surfaces. Reachable in-app via a new "Parallel Segment Rendering" toggle on Settings → General → Core Synthesis Defaults (`GeneralSettingsPanel.tsx`, POSTs `{tts_parallel_cap}` as JSON) — no env var or config-file edit needed for a running install. `effective_cap = min(2, manifest_max)` still applies, so Voxtral/Mixed (`max_concurrent_workers: 1`) remain sequential by their own manifest ceiling; only XTTS (`max_concurrent_workers: 2`) is affected. INV-1's cap=1-parity guarantee is unchanged — only the default value moved, the byte-identical-at-cap=1 contract still holds and is still tested. Companion fix (same investigation, §2.6/§2.7 territory in `progress-presentation.md`): the Chapter Editor's pre-first-segment "cold start" status pill (`ChapterHeader.tsx`, shown before any `active_segment_id` exists so the animated `PredictiveProgressBar` hasn't mounted yet) now carries the shared `.is-running`/`calm-pulse` animation while `queueStatus === 'Preparing'`, instead of sitting static for the whole model-load window. |
 | 1.11.4  | 2026-07-05 | **§3.10 second escaped defect — the Phase 1 visual check's OTHER failure mode: `active_segments_map` never populated during a render, even after the routing crash (1.11.3) was fixed and a chapter rendered successfully at cap=1.** Root cause: `_current_active_segments_map` only ever ran inside `_publish_progress`, itself only called from the `as_completed` loop at group-COMPLETION boundaries — structurally always empty (the just-finished child excluded, the next not yet started), regardless of concurrency level. Separately, `build_chapter_progress_event` had no `active_segments_map` parameter at all, so even a correctly-populated map could never reach a `chapters.progress` frame (the delivery leg). Diagnosed via a 4-agent fusion design panel (Sonnet-only, per owner directive) + Fable plan verification, which caught both the missing delivery leg AND a lifecycle-ordering bug in the panel's initial timer-based proposal — leading to a simpler event-driven fix with no new timer/thread/join lifecycle at all (Fable's own suggested alternative). Fixed: `_on_child_segment_tick` (event-driven, diff-gated, `skip_job_updated=True`) replaces completion-boundary sampling; `build_chapter_progress_event` + `ws.py` gain the delivery leg. Frontend companion fix (same change): `useStudioChapter.ts` was silently discarding an already-delivered `segmentProgress` prop (real per-segment live data from the existing `segments.progress` stream) — now used as a fallback active-segments map when the backend hasn't supplied its own (backend `{}` always wins — a real "nothing rendering" signal must not be overridden by stale local data). |
@@ -725,23 +732,79 @@ effective_cap   = min(requested_cap, manifest_max)
 
 The manifest's `behavior.max_concurrent_workers` is always the ceiling — a
 Studio setting can only **lower** the effective cap, never raise it above what
-the plugin author declared safe. `_manifest_resource_claim` (synthesis.py)
-calls `resolve_effective_cap` when building each `ResourceClaim.cap`.
+the plugin author declared safe.
+
+**Updated 2026-07-11 (W-PAR task 014, §7.3c below):** `_manifest_resource_claim`
+(synthesis.py) no longer bakes `resolve_effective_cap`'s result into
+`ResourceClaim.cap` — `cap` (and the new `manifest_max` field, same value) is
+now purely the manifest ceiling. `resolve_effective_cap` is instead called
+fresh, on every admission attempt, inside `reserve_task_resources` — see
+§7.3c for why this split exists and what it fixes.
 
 **Default raised to `tts_parallel_cap=2` (2026-07-05, superseding the 007
 "ships dark" default of 1).** Parallel rendering is the shipped default now —
 sequential is just the `cap=1` case of the same code path (still explicitly
 reachable via the Settings toggle above, or `{"tts_parallel_cap": 1}`), not a
 separately maintained mode. `effective_cap` for any given engine is still
-`min(2, manifest_max)`, so engines whose manifest declares a lower ceiling
-(Voxtral, Mixed — both `max_concurrent_workers: 1`) stay sequential
-regardless of this default; only XTTS (`max_concurrent_workers: 2`) is
-affected today. INV-1's narrower guarantee — that explicitly setting
+`min(requested, manifest_max)`, so engines whose manifest declares a lower
+ceiling (Voxtral, Mixed — both `max_concurrent_workers: 1`) stay sequential
+regardless of this default. As of 1.12.1, XTTS's manifest ceiling is 8 (not
+2), so `requested` — the user's own `tts_parallel_cap`/`tts_engine_caps`
+setting — is the practical, user-explorable limit for XTTS up to the global
+backstop. INV-1's narrower guarantee — that explicitly setting
 `tts_parallel_cap=1` reproduces pre-007 single-stream behavior byte-for-byte —
 is unchanged and still enforced by the cap=1 parity tests; only the *shipped
-default value* changed, not that contract. Changing either setting takes
-effect on the **next job submission** — no restart required (each
-`SynthesisTask.__init__` re-resolves the claim).
+default value* changed, not that contract. **Superseded 2026-07-11 (§7.3c):**
+"next job submission" undersold what actually happens after W-PAR task 014 —
+a setting change now reaches *already-queued and already-running* work too,
+not just newly-submitted tasks.
+
+### 7.3c Live cap admission — settings changes reach already-queued work (W-PAR task 014)
+
+Before this task, the sentence just above was the whole story: each
+`SynthesisTask.__init__` re-resolved `resolve_effective_cap` once, into
+`ResourceClaim.cap`, at construction time. That meant a setting change was
+only visible to *tasks constructed after* the change — anything already
+queued or already fanned out into chapter-segment children kept whatever
+effective cap was baked in when it was built, until the process restarted.
+
+**The fix separates two concerns that used to be conflated in one field:**
+
+- `ResourceClaim.cap` (and a new `ResourceClaim.manifest_max` field, carrying
+  the same value) is now purely the **structural ceiling** — the manifest's
+  `behavior.max_concurrent_workers`. This is the only value `ensure_min_cap`
+  (§7.4a) ever sees; the class/per-engine-id semaphores are grown to it and
+  nothing else, exactly as before.
+- `EngineClassSemaphore.try_acquire(task_id, limit=None)` gained the optional
+  `limit` parameter — the **live limit**, resolved fresh by
+  `reserve_task_resources` via `resolve_effective_cap(engine_id,
+  manifest_max)` on *every single call*, never cached. The admission
+  threshold for that call is `min(structural_cap, limit)` — a live limit can
+  only narrow admission for that attempt, never widen it past the manifest
+  ceiling.
+
+**Why already-queued work is reached without a restart:** both the
+orchestrator's top-level `submit()` (§7.1's ~1s retry loop on denial) and
+per-child segment dispatch (`SegmentSynthesisTask.run()`, its own ~0.5s retry
+loop — confirmed this session to reserve **individually per child**, not via
+one shared parent-level reservation) re-enter `reserve_task_resources` with
+the *same* claim on every retry while denied. Because the live limit is now
+resolved fresh each time rather than read once from a frozen claim, a
+settings write becomes visible to every currently-waiting task within one
+retry cycle — no restart, and (since `release_task_resources` was already
+unconditional and remains so) a shrink never evicts an in-flight task, it
+only blocks the next admission until the active count drops below the new
+limit.
+
+**New API:** `GET /api/engines/concurrency` (global cap + per-engine
+`engine_class`/`manifest_max`/`requested_cap`/`effective_cap`/`active_count`
+snapshot) and `PUT /api/engines/{engine_id}/concurrency` (body
+`{"cap": <int>|null}`, HTTP 422 on out-of-range rather than silent clamping)
+in `app/api/routers/engines.py`. Writes go through
+`app.db.state_settings.set_engine_cap` — a single-key read-merge-write under
+the settings lock, so two concurrent writes to *different* engines' overrides
+can no longer clobber each other (the prior only path, a whole-object
+`update_settings({"tts_engine_caps": {...}})`, replaced the entire map).
 
 ### 7.4 Admission order
 

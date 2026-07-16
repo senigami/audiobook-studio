@@ -1,6 +1,28 @@
 import type { Project, Chapter, ScriptViewResponse, ScriptAssignmentsUpdate } from '@/types';
 import { DEFAULT_VOICE_SENTINEL } from '@/constants/api';
 
+export interface SystemResourcesResponse {
+  cpu_pct: number;
+  ram_used_gb: number;
+  ram_total_gb: number;
+  vram_used_gb: number | null;
+  vram_total_gb: number | null;
+}
+
+export interface EngineConcurrencyEntry {
+  engine_id: string;
+  engine_class: string;
+  manifest_max: number;
+  requested_cap: number;
+  effective_cap: number;
+  active_count: number;
+}
+
+export interface EngineConcurrencyResponse {
+  global_cap: number;
+  engines: EngineConcurrencyEntry[];
+}
+
 const parseApiResponse = async (res: Response) => {
   const data = await res.json();
   if (!res.ok || data?.status === 'error') {
@@ -22,6 +44,10 @@ export const api = {
   },
   restartTtsServer: async (): Promise<any> => {
     const res = await fetch('/api/system/tts-server/restart', { method: 'POST' });
+    return parseApiResponse(res);
+  },
+  fetchSystemResources: async (): Promise<SystemResourcesResponse> => {
+    const res = await fetch('/api/system/resources');
     return parseApiResponse(res);
   },
   // --- Projects ---
@@ -467,6 +493,10 @@ export const api = {
     const res = await fetch('/api/engines/registry');
     return parseApiResponse(res);
   },
+  fetchEngineConcurrency: async (): Promise<EngineConcurrencyResponse> => {
+    const res = await fetch('/api/engines/concurrency');
+    return parseApiResponse(res);
+  },
 
   // --- Pronunciation Lexicon ---
   fetchLexicon: async (projectId: string): Promise<import('@/types').LexiconEntry[]> => {
@@ -520,6 +550,61 @@ export const api = {
     const res = await fetch('/api/voices/');
     return parseApiResponse(res);
   },
+
+  // --- Voice variant version history ---
+  listVoiceVersions: async (
+    voiceName: string
+  ): Promise<{
+    versions: Array<{
+      id: string;
+      created_at: number;
+      backfilled: boolean;
+      engine_id: string;
+      model: string | null;
+      test_text: string;
+      sample_count: number;
+      has_artifact: boolean;
+      is_active: boolean;
+      artifact_url: string | null;
+    }>;
+    active_version_id: string | null;
+  }> => {
+    const res = await fetch(`/api/speaker-profiles/${encodeURIComponent(voiceName)}/versions`);
+    return parseApiResponse(res);
+  },
+
+  promoteVoiceVersion: async (
+    voiceName: string,
+    versionId: string
+  ): Promise<{ status: string; active_version_id?: string; message?: string }> => {
+    const res = await fetch(
+      `/api/speaker-profiles/${encodeURIComponent(voiceName)}/versions/${encodeURIComponent(versionId)}/promote`,
+      { method: 'POST' }
+    );
+    return parseApiResponse(res);
+  },
+
+  runVersionAbTest: async (
+    voiceName: string,
+    versionAId: string,
+    versionBId: string,
+    testText: string
+  ): Promise<{
+    status: string;
+    results?: Record<'a' | 'b', { mode: 'cached' | 'job'; audio_url?: string; job_id?: string }>;
+    message?: string;
+  }> => {
+    const res = await fetch(
+      `/api/speaker-profiles/${encodeURIComponent(voiceName)}/versions/ab-test`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version_a_id: versionAId, version_b_id: versionBId, test_text: testText }),
+      }
+    );
+    return parseApiResponse(res);
+  },
+
   patchVoiceMetadata: async (
     voiceId: string,
     patch: {
@@ -612,7 +697,10 @@ export const api = {
     voiceId: string;
     hubId: string;
     extraTags?: string[];
-  }): Promise<{ status: string; hub_id: string; commit_id: string }> => {
+  }): Promise<
+    | { status: 'ok'; hub_id: string; commit_id: string }
+    | { status: 'generating'; job_id: string; message: string }
+  > => {
     const res = await fetch('/api/voices/huggingface/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

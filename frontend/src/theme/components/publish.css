@@ -412,21 +412,35 @@
 }
 
 .book-info-card__series-number-add {
-  border: 0;
-  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-alt);
   color: var(--text-muted);
-  cursor: text;
+  cursor: pointer;
   font: inherit;
   font-size: 0.82rem;
   font-style: italic;
-  padding: 0;
+  padding: 0.2rem 0.55rem;
   text-align: left;
 }
 
 .book-info-card__series-number-add:hover,
 .book-info-card__series-number-add:focus-visible {
+  background: var(--surface-light);
+  border-color: var(--border-strong);
   color: var(--text-secondary);
   outline: none;
+}
+
+/* Disambiguates the two placeholder affordances ("Add series" / "Add book
+   number") so they read as two distinct fields, not one run-on string. */
+.book-info-card__series-separator {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1;
 }
 
 .book-info-card__title-block .inline-edit-trigger {
@@ -580,6 +594,12 @@
   flex-wrap: wrap;
 }
 
+.continue-listening-card__download-hint {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-style: italic;
+}
+
 /* Nested inside the Book tab hero (.book-info-card__content): render as part of
    the same region instead of a second bordered card, and drop the redundant
    small cover thumbnail since the hero's own cover already carries identity. */
@@ -598,6 +618,29 @@
 @media (max-width: 640px) {
   .book-info-card__content {
     --book-info-title-size: 1.9rem;
+  }
+
+  /* Below this breakpoint the cover previously filled ~70% of the first
+     viewport, pushing "Continue Listening" to the fold and making the
+     "Change cover" utility the most prominent element above it. Switch to a
+     compact horizontal cover + utility row so identity + resume share the
+     first screen. */
+  .book-info-card {
+    grid-template-columns: 1fr;
+  }
+
+  .book-info-card__cover {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.85rem;
+  }
+
+  .book-info-card__cover-button {
+    flex: none;
+    width: auto;
+    height: 30vh;
+    max-height: 200px;
+    aspect-ratio: 2 / 3;
   }
 }
 

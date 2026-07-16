@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { VoicesTab, resolveEditingVoiceMetadata } from '@/pages/Voices/VoicesPage'
-import { NarratorCard } from '@/pages/Voices/components/NarratorCard'
+import { VoicesTab, resolveEditingVoiceMetadata, CLASS_OPTIONS, GENDER_OPTIONS, AGE_OPTIONS } from '@/pages/Voices/VoicesPage'
+import rawVoiceTaxonomy from '../../../../../design-docs/specs/voice-taxonomy.json'
 import { ScriptEditor } from '@/pages/Voices/components/ScriptEditor'
 import { describe, it, expect, vi } from 'vitest'
-import type { Speaker, SpeakerProfile, VoiceMetadata, TtsEngine } from '@/types'
+import type { SpeakerProfile, VoiceMetadata, TtsEngine } from '@/types'
 
 // ---------------------------------------------------------------------------
 // Mock framer-motion so catalog-card and NarratorCard animations work in JSDOM
@@ -17,6 +17,7 @@ vi.mock('framer-motion', () => ({
         span: ({ children, ...props }: any) => <span {...props}>{children}</span>,
     },
     AnimatePresence: ({ children }: any) => <>{children}</>,
+    useReducedMotion: () => false,
 }))
 
 describe('VoicesTab', () => {
@@ -63,28 +64,26 @@ describe('VoicesTab', () => {
             render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
         })
 
-        // Narrator2 has is_default=true — VoiceCatalogCard renders a "★ default" badge
-        // with aria-label="Default voice"
-        expect(screen.getByLabelText('Default voice')).toBeInTheDocument()
+        // Narrator2 has is_default=true — VoiceCatalogCard renders an "App default" badge
+        // with aria-label="App default voice"
+        expect(screen.getByLabelText('App default voice')).toBeInTheDocument()
     })
 
     it('opens profile details and allows building voice', async () => {
         render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
 
-        // Narrator1: wav_count=5, no preview_url → phase 'build' → CTA "Build voice"
-        // The CTA button is always visible on the catalog card without requiring expansion
-        const buildBtn = await screen.findByText('Build voice')
+        // Narrator1: wav_count=5, no preview_url → phase 'build'. The separate
+        // CTA button is retired (2026-07-16) — the avatar play button doubles
+        // as Build when the profile isn't built yet (aria-label "Build voice").
+        const buildBtn = await screen.findByRole('button', { name: 'Build voice' })
         expect(buildBtn).toBeInTheDocument()
     })
 
-    it('shows delete option in ActionMenu', async () => {
+    it('exposes Delete as a reachable overflow-menu item (task 002: consolidated into the kebab)', async () => {
         render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
-
-        // VoiceCatalogCard renders ActionMenu with aria-label="More actions"
-        const actionMenus = await screen.findAllByRole('button', { name: /more actions/i })
-        fireEvent.click(actionMenus[0])
-
-        expect(screen.getByText('Delete Voice (all variants)')).toBeInTheDocument()
+        const menuTriggers = await screen.findAllByRole('button', { name: /more actions/i })
+        fireEvent.click(menuTriggers[0])
+        expect(await screen.findByText('Delete')).toBeInTheDocument()
     })
 
     it('refreshes the full voice state after renaming an unassigned voice', async () => {
@@ -119,10 +118,17 @@ describe('VoicesTab', () => {
     })
 
     it('saves imported base variant labels as metadata instead of renaming the whole voice', async () => {
-        // The "Edit Preview Script" path now lives in NarratorCard → VariantEditor → ScriptEditor chain.
-        // We render that chain directly here since VoicesTab's catalog cards (R5-T3) no longer
-        // expose this flow — it was moved to Voice Lab (R5-T5). This preserves the behavioral
-        // contract (variant-name endpoint, not rename) while adapting to the new architecture.
+        // The "Edit Preview Script" path used to reach `ScriptEditor` via
+        // NarratorCard's `onEditTestText` -> a local `editingProfile` toggle
+        // (mirroring the retired VoicesTab state chain). voices-variants-round2
+        // task 009 moved test-text/engine-config editing in-place into
+        // `VariantEditor` itself and dropped `onEditTestText` entirely (there's
+        // no separate view to switch to anymore) -- `NarratorCard` no longer
+        // drives this at all, and was already dead in production (see
+        // VoicesTabContent.tsx's header comment) before this task. This test
+        // renders `ScriptEditor` directly instead, preserving the behavioral
+        // contract under test (imported voices' variant-name endpoint, not a
+        // full rename) without depending on retired plumbing.
         const onRefresh = vi.fn().mockResolvedValue(undefined)
         const fetchMock = vi.fn((url: string) => {
             if (url === '/api/speaker-profiles/Woman/test-text') {
@@ -150,102 +156,60 @@ describe('VoicesTab', () => {
             test_text: 'Original script',
         } as any
 
-        const mockSpeaker: Speaker = {
-            id: 'speaker-1',
-            name: 'Woman',
-            default_profile_name: 'Woman',
-            created_at: Date.now(),
-            updated_at: Date.now(),
-        }
-
         const mockEngines: TtsEngine[] = [
             { engine_id: 'xtts', display_name: 'XTTS', enabled: true, verified: true, status: 'ready' } as any
         ]
 
-        // Minimal wrapper that wires NarratorCard's onEditTestText into a ScriptEditor modal,
-        // mirroring the VoicesTab state chain (state.setEditingProfile → VoicesModals).
-        function NarratorWithScriptEditor() {
-            const [editingProfile, setEditingProfile] = useState<SpeakerProfile | null>(null)
-            const [variantName, setVariantName] = useState('')
-
-            const handleEditTestText = (profile: SpeakerProfile) => {
-                setEditingProfile(profile)
-                setVariantName(profile.variant_name || '')
-            }
+        // Renders ScriptEditor directly (task 009: no more onEditTestText
+        // chain through NarratorCard to reach it) with the same imported-vs-
+        // native save branching this test exercises.
+        function ScriptEditorHarness() {
+            const [variantName, setVariantName] = useState(importedProfile.variant_name || '')
 
             const handleSave = async () => {
-                if (!editingProfile) return
-                const isImported = Boolean(editingProfile.speaker_id)
+                const isImported = Boolean(importedProfile.speaker_id)
                 if (isImported) {
                     // Mirrors useVoicesTabActions.handleSaveTestText: imported voices
                     // update variant-name metadata rather than renaming
-                    await fetch(`/api/speaker-profiles/${encodeURIComponent(editingProfile.name)}/variant-name`, {
+                    await fetch(`/api/speaker-profiles/${encodeURIComponent(importedProfile.name)}/variant-name`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ variant_name: variantName }),
                     })
                 } else {
-                    await fetch(`/api/speaker-profiles/${encodeURIComponent(editingProfile.name)}/test-text`, {
+                    await fetch(`/api/speaker-profiles/${encodeURIComponent(importedProfile.name)}/test-text`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ test_text: editingProfile.test_text }),
+                        body: JSON.stringify({ test_text: importedProfile.test_text }),
                     })
                 }
                 onRefresh()
-                setEditingProfile(null)
             }
 
             return (
-                <>
-                    <NarratorCard
-                        speaker={mockSpeaker}
-                        profiles={[importedProfile]}
-                        onRefresh={onRefresh}
-                        onTest={vi.fn()}
-                        onDelete={vi.fn()}
-                        onMoveVariant={vi.fn()}
-                        onEditTestText={handleEditTestText}
-                        onBuildNow={vi.fn()}
-                        testProgress={{}}
-                        requestConfirm={vi.fn()}
-                        buildingProfiles={{}}
-                        onAddVariantClick={vi.fn()}
-                        onSetDefaultClick={vi.fn()}
-                        onRenameClick={vi.fn()}
-                        isExpanded={true}
-                        onToggleExpand={vi.fn()}
-                        engines={mockEngines}
-                    />
-                    {editingProfile && (
-                        <ScriptEditor
-                            variantName={variantName}
-                            onVariantNameChange={setVariantName}
-                            engine={editingProfile.engine || 'xtts'}
-                            onEngineChange={vi.fn()}
-                            engines={mockEngines}
-                            testText={editingProfile.test_text || ''}
-                            onTestTextChange={vi.fn()}
-                            referenceSample=""
-                            onReferenceSampleChange={vi.fn()}
-                            availableSamples={[]}
-                            engineVoiceId=""
-                            onEngineVoiceIdChange={vi.fn()}
-                            settings={{}}
-                            onSettingsChange={vi.fn()}
-                            onResetTestText={vi.fn()}
-                            onSave={handleSave}
-                            isSaving={false}
-                        />
-                    )}
-                </>
+                <ScriptEditor
+                    variantName={variantName}
+                    onVariantNameChange={setVariantName}
+                    engine={importedProfile.engine || 'xtts'}
+                    onEngineChange={vi.fn()}
+                    engines={mockEngines}
+                    testText={importedProfile.test_text || ''}
+                    onTestTextChange={vi.fn()}
+                    referenceSample=""
+                    onReferenceSampleChange={vi.fn()}
+                    availableSamples={[]}
+                    engineVoiceId=""
+                    onEngineVoiceIdChange={vi.fn()}
+                    onResetTestText={vi.fn()}
+                    onSave={handleSave}
+                    isSaving={false}
+                />
             )
         }
 
         await act(async () => {
-            render(<NarratorWithScriptEditor />)
+            render(<ScriptEditorHarness />)
         })
-
-        fireEvent.click(await screen.findByTitle('Edit Preview Script'))
 
         const input = screen.getByDisplayValue('New Zealand')
         expect(input).not.toBeDisabled()
@@ -266,38 +230,32 @@ describe('VoicesTab', () => {
         expect(onRefresh).toHaveBeenCalled()
     })
 
-    it('wires the catalog card "Edit Recording Script" action to open the Script Editor drawer', async () => {
-        // Regression: onEditTestText was declared in VoicesTabContentProps but never
-        // destructured/forwarded to VoiceCatalogCard, and VoiceCatalogCard had no menu
-        // item to trigger it — making the Script Editor drawer unreachable from the
-        // live Voices catalog. This exercises the full path: catalog card action menu
-        // → state.setEditingProfile → VoicesModals → ScriptEditor drawer.
+    it('no longer exposes Edit Recording Script/Voice Settings/Edit Metadata/Open in Voice Lab on the catalog card overflow menu (task 006 — relocated to the voice detail page)', async () => {
         await act(async () => {
             render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
         })
 
         const actionMenus = await screen.findAllByRole('button', { name: /more actions/i })
         fireEvent.click(actionMenus[0])
-        fireEvent.click(await screen.findByText('Edit Recording Script'))
 
-        expect(await screen.findByText('Suggest from voice qualities')).toBeInTheDocument()
+        expect(screen.queryByText('Edit Recording Script')).not.toBeInTheDocument()
+        expect(screen.queryByText('Voice Settings')).not.toBeInTheDocument()
+        expect(screen.queryByText('Edit Metadata')).not.toBeInTheDocument()
+        expect(screen.queryByText('Open in Voice Lab')).not.toBeInTheDocument()
+        expect(screen.queryByText('Delete Voice (all variants)')).not.toBeInTheDocument()
+        expect(screen.getByText('Rename Voice')).toBeInTheDocument()
+        expect(screen.getByText('Export Voice Bundle')).toBeInTheDocument()
     })
 
-    it('wires the catalog card "Voice Settings" action to open the standalone Voice Settings drawer (not the Script Editor)', async () => {
-        // Phase 12 backlog: per-voice plugin settings were relocated out of the Script
-        // Editor drawer into their own drawer, reached via a distinct "Voice Settings"
-        // action menu item. This exercises the full path: catalog card action menu
-        // → state.setEditingProfile/setIsVoiceSettingsOpen → VoicesModals → VoiceSettingsPanel drawer.
+    it('exposes Set as App Default and Delete as overflow-menu items (task 002: consolidated into the kebab, not direct card actions)', async () => {
         await act(async () => {
             render(<MemoryRouter><VoicesTab {...mockProps} /></MemoryRouter>)
         })
 
-        const actionMenus = await screen.findAllByRole('button', { name: /more actions/i })
-        fireEvent.click(actionMenus[0])
-        fireEvent.click(await screen.findByText('Voice Settings'))
-
-        expect(await screen.findByText(/Voice Settings:/)).toBeInTheDocument()
-        expect(screen.queryByText('Suggest from voice qualities')).not.toBeInTheDocument()
+        const menuTriggers = await screen.findAllByRole('button', { name: /more actions/i })
+        fireEvent.click(menuTriggers[0])
+        expect(await screen.findByText('Set as App Default')).toBeInTheDocument()
+        expect(await screen.findByText('Delete')).toBeInTheDocument()
     })
 
     it('filters voices by engine', async () => {
@@ -447,5 +405,27 @@ describe('resolveEditingVoiceMetadata', () => {
         expect(
             resolveEditingVoiceMetadata(editingProfile, [group], new Map(), [taggedMetadata])
         ).toEqual(taggedMetadata)
+    })
+})
+
+// ---------------------------------------------------------------------------
+// CLASS/GENDER/AGE filter options — task 005: sourced from
+// design-docs/specs/voice-taxonomy.json, not the old hand-duplicated subset
+// (which was missing the `not-applicable` gender value and had drifted labels).
+// ---------------------------------------------------------------------------
+describe('CLASS/GENDER/AGE facet options (taxonomy-sourced)', () => {
+    const jsonSection = (key: string) => (rawVoiceTaxonomy as any).sections.find((s: any) => s.key === key)
+
+    it('CLASS options match voice-taxonomy.json\'s class section exactly', () => {
+        expect(CLASS_OPTIONS).toEqual(jsonSection('class').values)
+    })
+
+    it('GENDER options match voice-taxonomy.json\'s gender section exactly, including not-applicable', () => {
+        expect(GENDER_OPTIONS).toEqual(jsonSection('gender').values)
+        expect(GENDER_OPTIONS).toContainEqual({ id: 'not-applicable', label: 'Not applicable (non-human)' })
+    })
+
+    it('AGE options match voice-taxonomy.json\'s age section exactly', () => {
+        expect(AGE_OPTIONS).toEqual(jsonSection('age').values)
     })
 })

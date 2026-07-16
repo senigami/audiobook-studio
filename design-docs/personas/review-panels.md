@@ -5,9 +5,9 @@ Use these panels when you need a fast adversarial pass without rereading the ful
 ## Panel discipline (applies to every panel below)
 
 - **Stay in lens.** Each persona speaks only from its own goals, friction points, and red flags (cite them — "F3", "red flag: unexplained status change"). A persona with no stake in the question says "no stake" and yields; that is a valid, useful answer, not a failure to contribute.
-- **Disagreement is the product.** When personas conflict (Emma wants zero casting input; Alex wants explicit approval gates), report the conflict as a named trade-off with both stakes stated — never average it into a mushy middle recommendation. The owner resolves trade-offs; panels surface them.
-- **Concrete over taste.** A finding must name the user-visible harm and the moment it occurs ("Emma cancels a completing job because the bar paused at 'assembling'"), not a preference ("this feels cluttered").
-- **Weighting:** Rosa (28) is the primary persona — her blockers outweigh other personas' preferences. Accessibility-floor findings (29, 30, 32, 43) are vetoes, not votes: they can't be traded away by majority.
+- **Disagreement is the product.** When personas conflict (the Casual Listener wants zero casting input; the Casting Director wants explicit approval gates), report the conflict as a named trade-off with both stakes stated — never average it into a mushy middle recommendation. The owner resolves trade-offs; panels surface them.
+- **Concrete over taste.** A finding must name the user-visible harm and the moment it occurs ("the Casual Listener cancels a completing job because the bar paused at 'assembling'"), not a preference ("this feels cluttered").
+- **Weighting:** the Nontechnical Author (28) is the primary persona — their blockers outweigh other personas' preferences. Accessibility-floor findings (29, 30, 32, 43) are vetoes, not votes: they can't be traded away by majority.
 
 ## First-Run And Onboarding
 

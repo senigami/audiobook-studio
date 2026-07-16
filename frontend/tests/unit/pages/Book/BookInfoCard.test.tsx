@@ -132,27 +132,34 @@ describe('BookInfoCard metadata', () => {
     expect(screen.getByRole('textbox', { name: 'Series name' })).toHaveClass('inline-edit-input');
   });
 
-  it('shows runtime only when rendered chapters exist and no unrendered chapters remain', () => {
-    renderCard({ hasRendered: true, hasUnrendered: false, totalPredicted: 5400 });
+  // Runtime/Predicted are shown persistently in the app-shell breadcrumb
+  // (BookIdentityLine) across every stage tab, so this card intentionally
+  // does not repeat those numbers -- only status + Created date.
+  it('shows a Rendered status chip (not Runtime/Predicted) when fully rendered', () => {
+    renderCard({ hasRendered: true, hasUnrendered: false });
 
-    expect(screen.getByText(/Runtime 1h 0m/)).toBeInTheDocument();
+    expect(screen.getByText('Rendered')).toBeInTheDocument();
+    expect(screen.queryByText(/Runtime/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Predicted/)).not.toBeInTheDocument();
     expect(screen.getByText(/Created/)).toBeInTheDocument();
   });
 
-  it('shows predicted only when chapters still remain unrendered', () => {
-    renderCard({ hasRendered: false, hasUnrendered: true, totalRuntime: 0, totalPredicted: 5400 });
+  it('shows a "No segments yet" status chip (not Runtime/Predicted) when nothing is rendered', () => {
+    renderCard({ hasRendered: false, hasUnrendered: true });
 
+    expect(screen.getByText('No segments yet')).toBeInTheDocument();
     expect(screen.queryByText(/Runtime/)).not.toBeInTheDocument();
-    expect(screen.getByText(/Predicted 1h 30m/)).toBeInTheDocument();
+    expect(screen.queryByText(/Predicted/)).not.toBeInTheDocument();
     expect(screen.getByText(/Created/)).toBeInTheDocument();
   });
 
-  it('shows both runtime and predicted when the book is partially rendered', () => {
+  it('shows no status chip, only Created, when partially rendered', () => {
     renderCard({ hasRendered: true, hasUnrendered: true });
 
-    expect(screen.getByText(/Runtime 1h 0m/)).toBeInTheDocument();
-    expect(screen.getByText(/Predicted 1h 30m/)).toBeInTheDocument();
+    expect(screen.queryByText('Rendered')).not.toBeInTheDocument();
+    expect(screen.queryByText('No segments yet')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Runtime/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Predicted/)).not.toBeInTheDocument();
     expect(screen.getByText(/Created/)).toBeInTheDocument();
   });
 });

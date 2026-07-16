@@ -41,21 +41,25 @@ if [ -z "$FRONTEND_PORT" ]; then
     exit 1
 fi
 
+# Backend/frontend still talk to each other over loopback (proxy runs on this
+# machine regardless of which address a browser used to reach it) — only the
+# listen host below controls whether other machines on the network can connect.
+DEV_HOST="${AUDIOBOOK_STUDIO_HOST:-0.0.0.0}"
 export VITE_BACKEND_URL="http://127.0.0.1:${BACKEND_PORT}"
 export VITE_BACKEND_WS_URL="ws://127.0.0.1:${BACKEND_PORT}"
 export VITE_FRONTEND_PORT="$FRONTEND_PORT"
 
 # Start Backend
-echo "Starting Backend (Uvicorn) on ${VITE_BACKEND_URL}..."
+echo "Starting Backend (Uvicorn) on http://127.0.0.1:${BACKEND_PORT} (listening on ${DEV_HOST})..."
 cd "$PROJECT_ROOT"
 source venv/bin/activate
-uvicorn run:app --host 127.0.0.1 --port "$BACKEND_PORT" --reload &
+uvicorn run:app --host "$DEV_HOST" --port "$BACKEND_PORT" --reload &
 BACKEND_PID=$!
 
 # Start Frontend
-echo "Starting Frontend (Vite) on http://127.0.0.1:${FRONTEND_PORT}/ with backend proxy ${VITE_BACKEND_URL}..."
+echo "Starting Frontend (Vite) on http://127.0.0.1:${FRONTEND_PORT}/ (listening on ${DEV_HOST}) with backend proxy ${VITE_BACKEND_URL}..."
 cd "$PROJECT_ROOT/frontend"
-npm run dev -- --host 127.0.0.1 --port "$FRONTEND_PORT" --strictPort &
+npm run dev -- --host "$DEV_HOST" --port "$FRONTEND_PORT" --strictPort &
 FRONTEND_PID=$!
 
 # Wait for both processes

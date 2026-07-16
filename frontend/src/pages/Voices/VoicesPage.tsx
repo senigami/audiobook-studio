@@ -13,32 +13,20 @@ import { HuggingFaceDiscover } from '@/pages/Voices/components/HuggingFaceDiscov
 import { MetadataEditorModal } from '@/pages/Voices/components/MetadataEditorModal';
 import { getDefaultEngineId, isVoiceProfileSelectable } from '@/utils/voiceProfiles';
 import { api } from '@/api';
+import { emitToast, TOAST_VISIBLE_MS } from '@/utils/toast';
+import { getSection } from '@/pages/Voices/components/metadata/taxonomy';
 
 // ---------------------------------------------------------------------------
-// Taxonomy facet options for class/gender/age (subset used as filter pills)
+// Taxonomy facet options for class/gender/age — sourced from
+// design-docs/specs/voice-taxonomy.json (via the bundled metadata/taxonomy.ts
+// mirror; a direct JSON import isn't reachable here — the file lives outside
+// frontend/'s tsconfig `include` root, so `tsc -b` fails to resolve it) rather
+// than a hand-duplicated subset, so additions/renames in the taxonomy (e.g.
+// the `not-applicable` gender value) show up here automatically.
 // ---------------------------------------------------------------------------
-const CLASS_OPTIONS = [
-    { id: 'human', label: 'Human' },
-    { id: 'synthetic', label: 'Synthetic' },
-    { id: 'creature', label: 'Creature' },
-    { id: 'character', label: 'Character' },
-    { id: 'deity', label: 'Deity' },
-];
-const GENDER_OPTIONS = [
-    { id: 'feminine', label: 'Feminine' },
-    { id: 'masculine', label: 'Masculine' },
-    { id: 'neutral', label: 'Neutral' },
-    { id: 'ambiguous', label: 'Ambiguous' },
-];
-const AGE_OPTIONS = [
-    { id: 'child', label: 'Child' },
-    { id: 'teen', label: 'Teen' },
-    { id: 'young-adult', label: 'Young adult' },
-    { id: 'adult', label: 'Adult' },
-    { id: 'middle-aged', label: 'Middle-aged' },
-    { id: 'senior', label: 'Senior' },
-    { id: 'ageless', label: 'Ageless' },
-];
+export const CLASS_OPTIONS = getSection('class')?.values ?? [];
+export const GENDER_OPTIONS = getSection('gender')?.values ?? [];
+export const AGE_OPTIONS = getSection('age')?.values ?? [];
 
 /**
  * Resolve the VoiceMetadata for `editingProfile` — reuses the exact id-first/name-fallback
@@ -84,6 +72,30 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
     const [voicesTab, setVoicesTab] = useState<VoicesTabId>('local');
 
     // ---------------------------------------------------------------------------
+    // Bulk select mode — persona fast-follow (Large Catalog Curator): every
+    // destructive/organizational action was previously one-card-at-a-time via
+    // each card's overflow menu. Selection is a Set of voice-group ids (the
+    // same id space as VoicesTabContent's `voice.id`).
+    // ---------------------------------------------------------------------------
+    const [selectMode, setSelectMode] = useState(false);
+    const [selectedVoiceIds, setSelectedVoiceIds] = useState<Set<string>>(new Set());
+    const pendingBulkDeletesRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handleToggleSelectMode = useCallback(() => {
+        setSelectMode(prev => !prev);
+        setSelectedVoiceIds(new Set());
+    }, []);
+
+    const handleToggleVoiceSelect = useCallback((voiceId: string) => {
+        setSelectedVoiceIds(prev => {
+            const next = new Set(prev);
+            if (next.has(voiceId)) next.delete(voiceId);
+            else next.add(voiceId);
+            return next;
+        });
+    }, []);
+
+    // ---------------------------------------------------------------------------
     // Voice metadata — fetched from GET /api/voices/ (Phase C endpoint)
     // ---------------------------------------------------------------------------
     const [voiceMetadataList, setVoiceMetadataList] = useState<VoiceMetadata[]>([]);
@@ -108,6 +120,15 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         [voiceMetadataList]
     );
 
+    // Free-form tag filter options — derived from live voice metadata (not the
+    // fixed taxonomy vocabulary), same pattern as VariantFilterBar's
+    // performance_tags chip derivation: dedupe + sort whatever tags currently
+    // exist across the catalog.
+    const tagFilterOptions = useMemo(() => {
+        const allTags = Array.from(new Set(voiceMetadataList.flatMap(m => m.tags ?? []))).sort();
+        return allTags.map(tag => ({ id: tag, label: tag }));
+    }, [voiceMetadataList]);
+
     const management = useVoiceManagement(
         onRefresh,
         state.activeSpeakerProfiles,
@@ -127,7 +148,72 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
         classFilter: state.classFilter,
         genderFilter: state.genderFilter,
         ageFilter: state.ageFilter,
+        tagFilter: state.tagFilter,
     });
+
+    // Bulk delete/export operate on the same (id, name, profiles.length) shape
+    // VoicesTabContent already derives per-voice; look it up from the active list.
+    const findSelectedVoice = useCallback(
+        (id: string) => data.allVoices.find(v => v.id === id),
+        [data.allVoices]
+    );
+
+    const handleBulkExport = useCallback(() => {
+        const ids = Array.from(selectedVoiceIds);
+        const names = ids.map(id => findSelectedVoice(id)?.name).filter((n): n is string => Boolean(n));
+        // One tab per voice, staggered slightly so browsers don't treat the
+        // burst as a popup-blocker-worthy flood — mirrors the existing
+        // single-voice export flow (handleConfirmExportVoice), just fanned out
+        // client-side since no batch export endpoint exists yet.
+        names.forEach((name, i) => {
+            setTimeout(() => window.open(api.exportVoiceBundleUrl(name, false), '_blank'), i * 150);
+        });
+    }, [selectedVoiceIds, findSelectedVoice]);
+
+    const handleBulkDelete = useCallback(() => {
+        const ids = Array.from(selectedVoiceIds);
+        const targets = ids
+            .map(id => findSelectedVoice(id))
+            .filter((v): v is { id: string; name: string; profiles: SpeakerProfile[] } => Boolean(v));
+        if (targets.length === 0) return;
+
+        state.handleRequestConfirm({
+            title: 'Delete voices?',
+            message: `Delete ${targets.length} voice${targets.length !== 1 ? 's' : ''} and all their variants? This cannot be undone.`,
+            isDestructive: true,
+            onConfirm: () => {
+                // Deferred delete + one aggregate "Undo" toast (mirrors the
+                // single-voice pattern in useVoiceManagement.handleDelete) —
+                // the actual DELETE calls fire only once the toast's undo
+                // window elapses.
+                if (pendingBulkDeletesRef.current) clearTimeout(pendingBulkDeletesRef.current);
+                pendingBulkDeletesRef.current = setTimeout(async () => {
+                    pendingBulkDeletesRef.current = null;
+                    await Promise.all(targets.map(v => {
+                        const deleteUrl = v.id
+                            ? `/api/speakers/${v.id}`
+                            : `/api/speaker-profiles/${encodeURIComponent(v.profiles[0]?.name || '')}`;
+                        return fetch(deleteUrl, { method: 'DELETE' }).catch(err => {
+                            console.error('Failed to delete voice', v.name, err);
+                        });
+                    }));
+                    onRefresh();
+                }, TOAST_VISIBLE_MS);
+
+                emitToast(`Deleted ${targets.length} voice${targets.length !== 1 ? 's' : ''}.`, {
+                    label: 'Undo',
+                    onClick: () => {
+                        if (pendingBulkDeletesRef.current) {
+                            clearTimeout(pendingBulkDeletesRef.current);
+                            pendingBulkDeletesRef.current = null;
+                        }
+                    },
+                });
+                setSelectedVoiceIds(new Set());
+                setSelectMode(false);
+            },
+        });
+    }, [selectedVoiceIds, findSelectedVoice, state, onRefresh]);
 
     const actions = useVoicesTabActions({
         state,
@@ -145,13 +231,6 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
             ?? { id: voiceGroupId, name: voiceName, is_untagged: true };
         setMetadataEditorVoice(meta);
     }, [voiceMetadataMap, voiceMetadataList]);
-
-    // See resolveEditingVoiceMetadata above — drives ScriptEditor's "Suggest from voice
-    // qualities" button (INV-4).
-    const editingVoiceMetadata = useMemo<VoiceMetadata | undefined>(
-        () => resolveEditingVoiceMetadata(state.editingProfile, [...data.activeVoices, ...data.disabledVoices], voiceMetadataMap, voiceMetadataList),
-        [state.editingProfile, data.activeVoices, data.disabledVoices, voiceMetadataMap, voiceMetadataList]
-    );
 
     const handleMetadataSaved = useCallback((updated: VoiceMetadata) => {
         setVoiceMetadataList(prev =>
@@ -181,6 +260,9 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 ageFilter={state.ageFilter}
                 setAgeFilter={state.setAgeFilter}
                 ageOptions={AGE_OPTIONS}
+                tagFilter={state.tagFilter}
+                setTagFilter={state.setTagFilter}
+                tagOptions={tagFilterOptions}
                 isImportingVoice={state.isImportingVoice}
                 exportVoiceDisabled={data.exportVoiceOptions.length === 0}
                 importInputRef={state.importInputRef}
@@ -194,6 +276,8 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 onGuideClick={() => state.setShowGuide(true)}
                 activeTab={voicesTab}
                 onTabChange={setVoicesTab}
+                selectMode={selectMode}
+                onToggleSelectMode={handleToggleSelectMode}
             />
 
             {voicesTab === 'local' ? (
@@ -236,17 +320,14 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                     setExpandedVoiceId={state.setExpandedVoiceId}
                     engines={engines}
                     onCreateClick={() => state.setIsCreateModalOpen(true)}
-                    onEditTestText={(profile) => {
-                        state.setEditSurface('script');
-                        state.setEditingProfile(profile);
-                    }}
-                    onEditVoiceSettings={(profile) => {
-                        state.setEditSurface('settings');
-                        state.setEditingProfile(profile);
-                    }}
                     voiceMetadataMap={voiceMetadataMap}
                     onEditMetadata={handleEditMetadata}
                     onNavigateToLab={(id) => navigate(`/voices/${id}`)}
+                    selectMode={selectMode}
+                    selectedIds={selectedVoiceIds}
+                    onToggleSelect={handleToggleVoiceSelect}
+                    onBulkDelete={handleBulkDelete}
+                    onBulkExport={handleBulkExport}
                 />
             ) : (
                 <div style={{ flex: 1, overflowY: 'auto', padding: '2rem' }}>
@@ -299,26 +380,6 @@ export const VoicesTab: React.FC<VoicesTabProps> = ({ onRefresh, speakerProfiles
                 handleMoveVariant={actions.handleMoveVariant}
                 showGuide={state.showGuide}
                 setShowGuide={state.setShowGuide}
-                editingProfile={state.editingProfile}
-                setEditingProfile={state.setEditingProfile}
-                variantName={state.variantName}
-                setVariantName={state.setVariantName}
-                editingEngine={state.editingEngine}
-                setEditingEngine={state.setEditingEngine}
-                testText={state.testText}
-                setTestText={state.setTestText}
-                referenceSample={state.referenceSample}
-                setReferenceSample={state.setReferenceSample}
-                engineVoiceId={state.engineVoiceId}
-                setEngineVoiceId={state.setEngineVoiceId}
-                editingSettings={state.editingSettings}
-                setEditingSettings={state.setEditingSettings}
-                editSurface={state.editSurface}
-                setEditSurface={state.setEditSurface}
-                isSavingText={state.isSavingText}
-                handleResetTestText={actions.handleResetTestText}
-                handleSaveTestText={actions.handleSaveTestText}
-                editingVoiceMetadata={editingVoiceMetadata}
                 confirmConfig={state.confirmConfig}
                 setConfirmConfig={state.setConfirmConfig}
                 exportVoiceName={state.exportVoiceName}

@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { ChevronDown, Cloud, Play, ShieldCheck, Download, Trash2, ShieldAlert, Loader2 } from 'lucide-react';
-import type { TtsEngine } from '@/types';
+import React, { useState, useEffect } from 'react';
+import { ChevronRight, Cloud, Play, ShieldCheck, Download, Trash2, ShieldAlert, Loader2, Blend } from 'lucide-react';
+import type { TtsEngine, Settings } from '@/types';
 import { api } from '@/api';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { PluginTrustModal, type PluginPreviewInfo } from '@/components/overlays/PluginTrustModal';
-import { ToggleButton } from '@/pages/Settings/components/SettingsComponents';
+import { ToggleButton, NumberStepper } from '@/pages/Settings/components/SettingsComponents';
 import { getEngineStatusLabel, getBadgeStyles } from '@/pages/Settings/settingsRouteHelpers';
 import { EngineDevPanel } from '@/pages/Engines/components/EngineDevPanel';
 import { mergeScenarioEngine } from '@/pages/Engines/components/engineScenarioMerge';
@@ -18,14 +18,21 @@ const getErrorMessage = (err: any): string => {
   return err.message || err.error || 'Unknown error';
 };
 
+// Fallback ceiling when a plugin's manifest doesn't declare
+// behavior.max_concurrent_workers — matches the MAX_GLOBAL_CONCURRENT_SYNTHESIS
+// backstop (app/orchestration/scheduler/resources.py:44-46).
+const DEFAULT_ENGINE_CAP_CEILING = 8;
+
 export const EngineCard: React.FC<{
   engine: TtsEngine;
   onUpdate: () => void;
   onShowNotification?: (message: string) => void;
-}> = ({ engine, onUpdate, onShowNotification }) => {
+  settings?: Settings;
+}> = ({ engine, onUpdate, onShowNotification, settings }) => {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [verifyElapsedSec, setVerifyElapsedSec] = useState(0);
   const [installing, setInstalling] = useState(false);
   const [testResult, setTestResult] = useState(engine.last_test);
   const [removing, setRemoving] = useState(false);
@@ -36,6 +43,15 @@ export const EngineCard: React.FC<{
   });
   const [activeScenario, setActiveScenario] = useState<any | null>(null);
   const [devLogs, setDevLogs] = useState<string[]>([]);
+  const [savingCap, setSavingCap] = useState(false);
+  const engineCapCeiling: number =
+    typeof engine.behavior?.max_concurrent_workers === 'number'
+      ? engine.behavior.max_concurrent_workers
+      : DEFAULT_ENGINE_CAP_CEILING;
+  const currentEngineCap = settings?.tts_engine_caps?.[engine.engine_id];
+  const [engineCapInput, setEngineCapInput] = useState<string>(
+    currentEngineCap != null ? String(currentEngineCap) : ''
+  );
 
   const addDevLog = (msg: string) => {
     setDevLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 50));
@@ -48,20 +64,46 @@ export const EngineCard: React.FC<{
     setDevLogs([]);
   }, [engine.last_test, engine.engine_id]);
 
+  useEffect(() => {
+    if (!verifying) {
+      setVerifyElapsedSec(0);
+      return;
+    }
+    const startedAt = performance.now();
+    const tick = () => setVerifyElapsedSec(Math.floor((performance.now() - startedAt) / 1000));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [verifying]);
+
+  useEffect(() => {
+    setEngineCapInput(currentEngineCap != null ? String(currentEngineCap) : '');
+  }, [currentEngineCap, engine.engine_id]);
+
   const displayEngine = activeScenario
     ? mergeScenarioEngine(engine, activeScenario.engine_detail)
     : engine;
 
   const uiMetadata = displayEngine.settings_schema?.['x-ui'];
+  // Single merged status/verification badge — status and verification used to
+  // render as two separate pills that doubled up on the same signal for the
+  // common case (e.g. status "unverified" already means "not ready because
+  // unverified", so a second "UNVERIFIED" pill next to "NOT READY" repeated
+  // it). One badge is now the single source of truth for this card's
+  // readiness, keeping the header to at most 2 indicators (badge + optional
+  // cloud glyph) at any viewport width.
   const tone = displayEngine.status === 'ready'
-    ? 'blue'
+    ? (displayEngine.verified ? 'blue' : 'yellow')
     : displayEngine.status === 'needs_setup' || displayEngine.status === 'unverified'
       ? 'yellow'
       : displayEngine.status === 'invalid_config'
         ? 'red'
         : 'gray';
-  const statusLabel = getEngineStatusLabel(displayEngine.status);
-  const verificationLabel = displayEngine.verified ? 'VERIFIED' : (displayEngine.status === 'not_loaded' ? 'NOT LOADED' : 'UNVERIFIED');
+  const statusLabel = displayEngine.status === 'ready' && !displayEngine.verified
+    ? 'READY · UNVERIFIED'
+    : displayEngine.status === 'unverified'
+      ? 'UNVERIFIED'
+      : getEngineStatusLabel(displayEngine.status);
   const canEnable = displayEngine.can_enable ?? (displayEngine.status === 'ready' || displayEngine.enabled);
   const missingDependencies = Array.isArray(displayEngine.missing_dependencies)
     ? displayEngine.missing_dependencies.filter((dep): dep is string => Boolean(dep && String(dep).trim()))
@@ -135,12 +177,45 @@ export const EngineCard: React.FC<{
     }
   };
 
+  // tts_engine_caps is only read from the JSON body on the backend
+  // (app/api/routers/system.py's form branch doesn't parse it), so this
+  // posts JSON directly rather than going through api.updateEngineSettings
+  // (which writes to the engine's own manifest-declared settings_schema, a
+  // different store — see task 012 findings).
+  const handleSaveEngineCap = async (rawValue: string) => {
+    if (activeScenario) {
+      addDevLog(`Simulated: Concurrency cap saved for ${displayEngine.display_name}.`);
+      return;
+    }
+    const parsed = parseInt(rawValue, 10);
+    if (rawValue.trim() === '' || Number.isNaN(parsed) || parsed < 1) return;
+    const clamped = Math.min(parsed, engineCapCeiling);
+    setEngineCapInput(String(clamped));
+    setSavingCap(true);
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tts_engine_caps: { ...(settings?.tts_engine_caps || {}), [engine.engine_id]: clamped },
+        }),
+      });
+      await onUpdate();
+      onShowNotification?.(`${engine.display_name} concurrency cap saved.`);
+    } catch (err) {
+      console.error('Failed to save engine concurrency cap', err);
+      onShowNotification?.('Failed to save concurrency cap.');
+    } finally {
+      setSavingCap(false);
+    }
+  };
+
   return (
     <details className="engine-card">
       <summary className="engine-card__header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-          <ChevronDown size={17} color="var(--text-muted)" className="details-chevron" />
-          {engine.logo_url && (
+          <ChevronRight size={17} color="var(--text-muted)" className="details-chevron" />
+          {engine.logo_url ? (
             <div className="engine-card__logo">
               <img
                 src={engine.logo_url}
@@ -150,6 +225,13 @@ export const EngineCard: React.FC<{
                    (e.target as HTMLImageElement).style.display = 'none';
                 }}
               />
+            </div>
+          ) : (
+            // No manifest-declared logo (e.g. a composite/orchestrator engine like
+            // Mixed Synthesis that isn't tied to any real vendor's branding) —
+            // render a generic icon so the row still has a scanning anchor.
+            <div className="engine-card__logo engine-card__logo--fallback" data-testid="engine-card-fallback-icon">
+              <Blend size={20} aria-hidden="true" />
             </div>
           )}
           <div>
@@ -172,7 +254,7 @@ export const EngineCard: React.FC<{
             />
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', justifyContent: 'flex-end', rowGap: '0.5rem' }}>
           {displayEngine.cloud && <Cloud size={15} color="var(--warning-text)" />}
           <div style={{ marginRight: '0.5rem' }}>
             <ToggleButton
@@ -208,12 +290,6 @@ export const EngineCard: React.FC<{
             style={getBadgeStyles(tone)}
           >
             {statusLabel}
-          </span>
-          <span
-            className="engine-status-badge"
-            style={getBadgeStyles(displayEngine.verified ? 'blue' : 'gray')}
-          >
-            {verificationLabel}
           </span>
         </div>
 
@@ -290,6 +366,49 @@ export const EngineCard: React.FC<{
 
         <EngineTestSample engine={displayEngine} testResult={testResult} />
 
+        {/* Delegation-only orchestrators (declared via behavior.features) dispatch
+            each segment to a real sub-engine rather than rendering themselves, so
+            a per-engine concurrency cap has no meaning for them. */}
+        {!(Array.isArray(displayEngine.behavior?.features) && displayEngine.behavior.features.includes('segment_orchestration')) && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+            padding: '0.85rem 1rem',
+            borderRadius: '12px',
+            border: '1px solid var(--border)',
+            background: 'var(--surface-light)',
+            marginBottom: '1.25rem',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div>
+            <label htmlFor={`engine-cap-${engine.engine_id}`} style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', display: 'block' }}>
+              Concurrent Renders
+            </label>
+            <p style={{ margin: '0.2rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.8rem', lineHeight: 1.4 }}>
+              Override how many segments this engine may render at once (up to {engineCapCeiling} — engine limit). Takes effect on next app restart.
+            </p>
+          </div>
+          <NumberStepper
+            id={`engine-cap-${engine.engine_id}`}
+            ariaLabel={`${engine.display_name} concurrent render cap`}
+            value={Number(engineCapInput) || 1}
+            displayValue={engineCapInput}
+            min={1}
+            max={engineCapCeiling}
+            disabled={savingCap}
+            onStep={(next) => {
+              setEngineCapInput(String(next));
+              handleSaveEngineCap(String(next));
+            }}
+            onInputChange={(raw) => setEngineCapInput(raw)}
+            onInputBlur={(raw) => handleSaveEngineCap(raw)}
+          />
+        </div>
+        )}
 
         <div className="engine-card__footer">
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -324,7 +443,9 @@ export const EngineCard: React.FC<{
             <button
               type="button"
               className="btn-glass engine-icon-btn"
-              title="Verify this engine using the Studio default voice reference sample. A cold engine may take up to a minute to load its model."
+              title={verifying
+                ? `Verifying… ${verifyElapsedSec}s elapsed. A cold engine may take up to a minute to load its model.`
+                : 'Verify this engine using the Studio default voice reference sample. A cold engine may take up to a minute to load its model.'}
               disabled={saving || verifying || displayEngine.verified}
               onClick={async () => {
                 if (activeScenario) {
@@ -352,7 +473,7 @@ export const EngineCard: React.FC<{
               }}
               style={{ opacity: (displayEngine.verified || verifying) ? 0.7 : 1 }}
             >
-              {verifying ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />} {verifying ? 'Verifying…' : (displayEngine.verified ? 'Verified' : 'Verify')}
+              {verifying ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />} {verifying ? `Verifying… ${verifyElapsedSec}s` : (displayEngine.verified ? 'Verified' : 'Verify')}
             </button>
             {needsDependencyInstall && (
               <button

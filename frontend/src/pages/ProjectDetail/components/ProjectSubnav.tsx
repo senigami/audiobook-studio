@@ -11,13 +11,15 @@ export const ProjectSubnav: React.FC<ProjectSubnavProps> = ({ items, activeId })
   if (items.length === 0) return null;
 
   return (
-    <nav 
-      style={{ 
-        display: 'flex', 
-        gap: '1rem', 
-        padding: '0 0.75rem 0.25rem', 
-        marginBottom: '0.75rem', 
-        borderBottom: '1px solid var(--border)' 
+    <nav
+      style={{
+        display: 'flex',
+        gap: '1rem',
+        padding: '0 0.75rem 0.25rem',
+        marginBottom: '0.75rem',
+        borderBottom: '1px solid var(--border)',
+        overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch'
       }}
     >
       {items.map((item) => {
@@ -38,7 +40,9 @@ export const ProjectSubnav: React.FC<ProjectSubnavProps> = ({ items, activeId })
               borderBottom: isActive ? '2px solid var(--accent)' : '2px solid transparent',
               cursor: 'pointer',
               textDecoration: 'none',
-              transition: 'all 0.2s ease'
+              transition: 'all 0.2s ease',
+              whiteSpace: 'nowrap',
+              flexShrink: 0
             }}
             className={isActive ? '' : 'hover-text-primary'}
           >

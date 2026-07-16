@@ -46,7 +46,11 @@ vi.mock('@/hooks/useChapterPlayback', () => ({
   }),
 }));
 
-const chapterEditorState = vi.hoisted(() => ({ scriptViewData: null as unknown }));
+const chapterEditorState = vi.hoisted(() => ({ scriptViewData: null as unknown, segments: [] as unknown[] }));
+const chapterEditorMocks = vi.hoisted(() => ({
+  handleSave: vi.fn().mockResolvedValue(true),
+  executeQueue: vi.fn(),
+}));
 
 vi.mock('@/hooks/useChapterEditor', () => ({
   useChapterEditor: () => ({
@@ -72,7 +76,7 @@ vi.mock('@/hooks/useChapterEditor', () => ({
     saving: false,
     submitting: false,
     localVoice: '',
-    segments: [],
+    get segments() { return chapterEditorState.segments; },
     characters: [],
     get scriptViewData() { return chapterEditorState.scriptViewData; },
     scriptViewLoading: false,
@@ -83,14 +87,14 @@ vi.mock('@/hooks/useChapterEditor', () => ({
     loadChapter: vi.fn(),
     generatingSegmentJob: null,
     liveSegmentJobIds: new Set<string>(),
-    handleSave: vi.fn().mockResolvedValue(true),
+    handleSave: chapterEditorMocks.handleSave,
     handleVoiceChange: vi.fn(),
     hasRenderedOutput: false,
     handleScriptAssign: vi.fn(),
     handleScriptAssignRange: vi.fn(),
     handleUpdateCharacterColor: vi.fn(),
     handleGenerate: vi.fn(),
-    executeQueue: vi.fn(),
+    executeQueue: chapterEditorMocks.executeQueue,
   }),
 }));
 
@@ -149,6 +153,46 @@ describe('useStudioChapter', () => {
     expect(result.current.isPreviewingResync).toBe(true);
     expect(result.current.isResyncing).toBe(true);
     expect(result.current.exportingFormat).toBe('wav');
+  });
+
+  describe('handleConfirmResync', () => {
+    it('re-queues the chapter (forced rebuild) after a successful resync save', async () => {
+      const { result } = renderHook(() =>
+        useStudioChapter({
+          chapterId: 'chapter-1',
+          projectId: 'project-1',
+          speakerProfiles: [],
+          speakers: [],
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleConfirmResync();
+      });
+
+      expect(chapterEditorMocks.handleSave).toHaveBeenCalledWith('Chapter 1', 'One. Two.');
+      expect(chapterEditorMocks.executeQueue).toHaveBeenCalledWith('', expect.any(Function), expect.any(Function), true);
+      expect(result.current.isPreviewingResync).toBe(false);
+    });
+
+    it('does NOT re-queue when the resync save fails', async () => {
+      chapterEditorMocks.handleSave.mockResolvedValueOnce(false);
+
+      const { result } = renderHook(() =>
+        useStudioChapter({
+          chapterId: 'chapter-1',
+          projectId: 'project-1',
+          speakerProfiles: [],
+          speakers: [],
+        }),
+      );
+
+      await act(async () => {
+        await result.current.handleConfirmResync();
+      });
+
+      expect(chapterEditorMocks.executeQueue).not.toHaveBeenCalled();
+    });
   });
 
   describe('chapterRenderPreparingSegmentIds', () => {
@@ -407,6 +451,67 @@ describe('useStudioChapter', () => {
 
       expect(result.current.chapterRenderDoneSegmentIds.has('S2')).toBe(true);
       expect(result.current.chapterRenderQueuedSegmentIds.has('S2')).toBe(false);
+    });
+
+    it('does not re-gray already-rendered segments from a PRIOR render when resuming without job.segment_ids (2026-07-13 fix)', () => {
+      // Owner report: resuming/continuing a partially-rendered chapter turned
+      // every already-black (done) segment gray the instant the new job's
+      // first segment started pulsing. Root cause: chapterRenderDoneSegmentIds
+      // was sourced ONLY from the live active_segments_map's small rolling
+      // window (a handful of recently-active segments), never from a
+      // segment's own persisted audio_status. The resumed job has no
+      // job.segment_ids (segment_ids: null), so chapterRenderQueuedSegmentIds
+      // falls back to "every render-batch span minus rendering minus
+      // (live-window) done" — which wrongly includes every segment finished
+      // in an EARLIER render, since chapterRenderDoneSegmentIds never knew
+      // about them.
+      chapterEditorState.scriptViewData = {
+        render_batches: [
+          { id: 'B0', span_ids: ['S0'] },
+          { id: 'B1', span_ids: ['S1'] },
+          { id: 'B2', span_ids: ['S2'] },
+          { id: 'B3', span_ids: ['S3'] },
+        ],
+        spans: [],
+      };
+      chapterEditorState.segments = [
+        { id: 'S0', audio_status: 'done', audio_file_path: 'S0.wav' },
+        { id: 'S1', audio_status: 'done', audio_file_path: 'S1.wav' },
+        { id: 'S2', audio_status: 'unprocessed', audio_file_path: null },
+        { id: 'S3', audio_status: 'unprocessed', audio_file_path: null },
+      ];
+      try {
+        const job = makeJob({
+          status: 'running',
+          segment_ids: null,
+          active_segments_map: {
+            S2: { phase: 'rendering', progress: 0.4, eta_seconds: 8 },
+          },
+        });
+
+        const { result } = renderHook(() =>
+          useStudioChapter({
+            chapterId: 'chapter-1',
+            projectId: 'project-1',
+            speakerProfiles: [],
+            speakers: [],
+            job,
+          }),
+        );
+
+        // S0/S1 finished in a prior render -- persisted done, absent from the
+        // live map's small window. They must read as done, never as queued.
+        expect(result.current.chapterRenderDoneSegmentIds.has('S0')).toBe(true);
+        expect(result.current.chapterRenderDoneSegmentIds.has('S1')).toBe(true);
+        expect(result.current.chapterRenderQueuedSegmentIds.has('S0')).toBe(false);
+        expect(result.current.chapterRenderQueuedSegmentIds.has('S1')).toBe(false);
+        // S2 is genuinely rendering right now; S3 is genuinely still queued.
+        expect(result.current.chapterRenderRenderingSegmentIds.has('S2')).toBe(true);
+        expect(result.current.chapterRenderQueuedSegmentIds.has('S3')).toBe(true);
+      } finally {
+        chapterEditorState.scriptViewData = null;
+        chapterEditorState.segments = [];
+      }
     });
 
     it('expands each map entry to its render-batch siblings, matching the legacy single-ID visual contract (INV-1)', () => {

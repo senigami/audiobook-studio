@@ -1,6 +1,6 @@
 # Task 002 — `export_hf_voice_bundle` gains icon.png + generated README.md
 
-Status: pending
+Status: complete — 2026-07-12
 
 ## Goal
 
@@ -136,20 +136,20 @@ acceptable (harmless broken `<img>`), but note it to the owner rather than silen
 
 ## Steps
 
-- [ ] Edit `export_hf_voice_bundle()` per the target contract above (add `icon_bytes` param,
+- [x] Edit `export_hf_voice_bundle()` per the target contract above (add `icon_bytes` param,
       local import of `generate_readme_md`, two new `zf.writestr` calls).
-- [ ] Handle the no-`samples[]` manifest case per the "Verified gap" section above, with its
+- [x] Handle the no-`samples[]` manifest case per the "Verified gap" section above, with its
       widget-asserting test.
-- [ ] Edit `export_hub_voice()` per the router change above.
-- [ ] Update `tests/domain/test_voice_huggingface.py::TestExportHFVoiceBundle::test_export_produces_expected_asvoice_zip_structure`:
+- [x] Edit `export_hub_voice()` per the router change above.
+- [x] Update `tests/domain/test_voice_huggingface.py::TestExportHFVoiceBundle::test_export_produces_expected_asvoice_zip_structure`:
       the current assertion `assert names == {"voice.json", "samples/preview.mp3"}` must become
       `assert names == {"voice.json", "samples/preview.mp3", "README.md"}` (no `icon_bytes` passed
       in that test, so `icon.png` must NOT appear — this is the R1 check that the optional-icon
       path is truly optional).
-- [ ] Add one new test in the same class: `test_export_includes_icon_when_provided` — call
+- [x] Add one new test in the same class: `test_export_includes_icon_when_provided` — call
       `export_hf_voice_bundle(..., icon_bytes=b"fake-png-bytes")` and assert
       `"icon.png" in names` and `zf.read("icon.png") == b"fake-png-bytes"`.
-- [ ] Add one new test: `test_export_readme_reflects_voice_manifest` — call with a
+- [x] Add one new test: `test_export_readme_reflects_voice_manifest` — call with a
       `voice_manifest` containing `name`/`description`/`attributes`, read back
       `zf.read("README.md").decode()`, assert the voice's `name` appears in it (don't assert the
       full generated text verbatim — that couples this test to `generate_readme_md`'s internals,
@@ -163,15 +163,15 @@ missing from the zip), `git stash pop`, confirm they pass.
 
 ## Acceptance criteria
 
-- [ ] `export_hf_voice_bundle` signature matches the target contract exactly.
-- [ ] `./venv/bin/python -m pytest tests/domain/test_voice_huggingface.py -q` — all pass,
+- [x] `export_hf_voice_bundle` signature matches the target contract exactly.
+- [x] `./venv/bin/python -m pytest tests/domain/test_voice_huggingface.py -q` — all pass,
       including the 2 new tests and the updated structure assertion.
-- [ ] `./venv/bin/python -m pytest tests/api/test_api_voices_huggingface.py -q` — still green
+- [x] `./venv/bin/python -m pytest tests/api/test_api_voices_huggingface.py -q` — still green
       (the `/export` endpoint test doesn't assert exact zip contents beyond existence, per current
       `test_export_produces_bundle_for_installed_voice`, but re-check that assumption before
       assuming no change is needed there).
-- [ ] `ruff check app/domain/voices/huggingface.py app/api/routers/voices_huggingface.py` clean.
-- [ ] `git diff app/domain/voices/bundles.py` is empty (INV-HF-4 — this task imports from
+- [x] `ruff check app/domain/voices/huggingface.py app/api/routers/voices_huggingface.py` clean.
+- [x] `git diff app/domain/voices/bundles.py` is empty (INV-HF-4 — this task imports from
       `bundles.py`, never edits it).
 
 ## Dependencies

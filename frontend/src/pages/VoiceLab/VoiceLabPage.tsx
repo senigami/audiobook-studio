@@ -2,35 +2,47 @@
  * VoiceLabPage.tsx — R5-T5
  *
  * Full-page workspace at /voices/:id.
- * Header: ← back link, avatar, name, pills, description, "Edit metadata" button.
- * PhaseStepper driven by getVoicePhase.
- * Body: placeholder section anchors filled by T6–T8.
+ * Header: ← back link, avatar, name, pills, description. Metadata editing
+ * moved inline into the Overview tabpanel (task 002) -- no header trigger
+ * or modal.
+ * Body: placeholder section anchors filled by T6–T8. The Samples/Build/
+ * Test/Ready PhaseStepper (and the rebuild-required alert) moved off this
+ * page and into VariantEditor (user-reported, 2026-07-16) -- each variant
+ * has its own build status, so a single voice-level stepper computed from
+ * whichever profile happened to resolve as "active" was misleading.
  *
  * Data: re-fetches via api.listVoicesWithMetadata + speaker profiles from initialData
  * passed as props from App.tsx (same as VoicesTab).
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { User, ArrowLeft, Pencil } from 'lucide-react';
+import { ArrowLeft, ChevronDown } from 'lucide-react';
 import type { SpeakerProfile, TtsEngine, VoiceMetadata, Job } from '@/types';
 import { api } from '@/api';
-import { VoicePillRow } from '@/pages/Voices/components/VoicePills';
 import { voicePillsFromMetadata } from '@/pages/Voices/components/VoicePills';
-import { getVoicePhase } from '@/pages/Voices/voicePhase';
-import { PhaseStepper } from '@/pages/VoiceLab/components/PhaseStepper';
-import { MetadataEditorModal } from '@/pages/Voices/components/MetadataEditorModal';
-import { VoiceIconControls } from '@/pages/VoiceLab/components/VoiceIconControls';
+import { PublishToHuggingFaceModal } from '@/pages/VoiceLab/components/PublishToHuggingFaceModal';
+import { VoiceDetailHeader } from '@/pages/VoiceLab/components/VoiceDetailHeader';
+import { OverviewTab } from '@/pages/VoiceLab/components/OverviewTab';
+import { VariantsTab } from '@/pages/VoiceLab/components/VariantsTab';
+import { ConfirmModal } from '@/components/overlays/ConfirmModal';
+import { useVoiceManagement } from '@/hooks/useVoiceManagement';
 
-// Sections filled by T6–T8 (lazy imports)
-const SamplesSection = React.lazy(() =>
-    import('@/pages/VoiceLab/components/SamplesSection').then(m => ({ default: m.SamplesSection }))
-);
-const VariantsSection = React.lazy(() =>
-    import('@/pages/VoiceLab/components/VariantsSection').then(m => ({ default: m.VariantsSection }))
-);
-const TestSection = React.lazy(() =>
-    import('@/pages/VoiceLab/components/TestSection').then(m => ({ default: m.TestSection }))
-);
+// NOTE: VoiceIconControls (previously lazy-loaded and rendered directly below
+// the phase stepper) is not rendered in this task. SamplesSection was
+// relocated into the Samples tabpanel by task 003 (via SamplesTab);
+// VariantsSection + VoiceSettingsPanel were relocated into the Variants
+// tabpanel by task 004 (via VariantsTab); TestSection + ScriptEditor's
+// test-text editing UI were relocated/folded into the Test tabpanel by task
+// 005 (via TestTab) -- the old ScriptEditor drawer is retired.
+//
+// voices-variants-round2 task 008 ("retire tabs"): the Samples/Variants/Test
+// tab shell -- the generic ARIA-tabs primitive this page used to mount -- is
+// removed entirely. `VariantsTab` (which composes `VariantsSection`) is now
+// the only navigation surface rendered below the Overview disclosure (task
+// 007). Task 009 then moved engine-config + test-text editing (previously
+// promoted here as a separate Voice Settings panel, and folded into the now-
+// deleted `TestTab`) directly into `VariantEditor`, scoped per-variant --
+// `VariantsTab` no longer needs any settings-related props from this page.
 
 export interface VoiceLabPageProps {
     speakerProfiles: SpeakerProfile[];
@@ -39,10 +51,6 @@ export interface VoiceLabPageProps {
     testProgress: Record<string, { progress: number; started_at?: number }>;
     onRefresh: () => void;
 }
-
-const SectionFallback: React.FC = () => (
-    <div style={{ padding: '1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Loading…</div>
-);
 
 export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
     speakerProfiles,
@@ -54,9 +62,40 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
 
+    // Mobile tag-pill wall fix (HIG review item 4a): at narrow widths, an
+    // untruncated attribute pill row could wrap into ~8 rows. Cap it with
+    // VoicePillRow's existing "+N more" expandable toggle below the same
+    // 640px breakpoint already used elsewhere in this theme (book.css,
+    // publish.css) — desktop layout is untouched.
+    const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 640 : false));
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth <= 640);
+        window.addEventListener('resize', handleResize);
+        handleResize();
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     // Metadata list — hydrated from the metadata endpoint
     const [voiceMetadataList, setVoiceMetadataList] = useState<VoiceMetadata[]>([]);
-    const [metadataEditorOpen, setMetadataEditorOpen] = useState(false);
+    const [publishModalOpen, setPublishModalOpen] = useState(false);
+
+    // Confirm dialog state -- real requestConfirm plumbing for the Variants
+    // tab (task 004 R3 fix), same pattern as VoicesModals.tsx/VoicesPage.tsx's
+    // ConfirmModal + confirmConfig.
+    const [confirmConfig, setConfirmConfig] = useState<{
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        isDestructive?: boolean;
+        isAlert?: boolean;
+    } | null>(null);
+    const requestConfirm = useCallback((config: {
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        isDestructive?: boolean;
+        isAlert?: boolean;
+    }) => setConfirmConfig(config), []);
 
     const fetchMetadata = useCallback(async () => {
         try {
@@ -76,10 +115,25 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
         ? voiceMetadataList.find(m => m.id === id) ?? null
         : null;
 
-    // All profiles belonging to this voice group (by speaker_id matching)
-    const profiles = id
-        ? speakerProfiles.filter(p => p.speaker_id === id)
-        : [];
+    // Memoized: an unmemoized filter() here creates a new array reference every
+    // render, which useVoiceManagement's effect treats as "profiles changed" and
+    // refetches /api/speakers -> setState -> rerender -> refetch, forever.
+    const profiles = useMemo(
+        () => (id ? speakerProfiles.filter(p => p.speaker_id === id) : []),
+        [id, speakerProfiles]
+    );
+
+    // Real rebuild/build-tracking/confirm plumbing for the Variants tab
+    // (task 004 R3 fix) -- the same hook VoicesPage.tsx uses, rather than the
+    // pre-task-001 VoiceLabPage's inert `buildingProfiles={{}}` /
+    // `onBuildNow={async () => false}` / `requestConfirm={() => undefined}`
+    // stubs (confirmed a live bug -- see task 004's completion report).
+    const { buildingProfiles, handleBuildNow } = useVoiceManagement(
+        onRefresh,
+        profiles,
+        requestConfirm,
+        jobs
+    );
 
     // Unknown id → redirect
     useEffect(() => {
@@ -88,7 +142,6 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
         }
     }, [voiceMetadataList, id, navigate]);
 
-    const phase = getVoicePhase(profiles, engines, {});
     const pills = metadata ? voicePillsFromMetadata(metadata) : [];
     const iconUrl = metadata?.image ? `/api/voices/${encodeURIComponent(id!)}/icon` : null;
 
@@ -113,6 +166,18 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
         });
     }, [id, profiles, onRefresh, navigate]);
 
+    // Set default — mirrors hooks/useVoiceManagement.ts's handleSetDefault
+    // (POST /api/settings/default-speaker), inlined here (self-contained,
+    // like handleDelete above) since VoiceLabPage doesn't receive that hook
+    // as a prop today and this task's scope doesn't add new props.
+    const handleSetDefault = useCallback((profileName: string) => {
+        const formData = new URLSearchParams();
+        formData.append('name', profileName);
+        fetch('/api/settings/default-speaker', { method: 'POST', body: formData }).then(resp => {
+            if (resp.ok) onRefresh();
+        });
+    }, [onRefresh]);
+
     const handleMetadataSaved = useCallback((updated: VoiceMetadata) => {
         setVoiceMetadataList(prev =>
             prev.some(m => m.id === updated.id)
@@ -121,7 +186,41 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
         );
     }, []);
 
+    // Overview disclosure default state (owner decision, voice-variants
+    // design-critique follow-up, 2026-07-15): defaults open ONLY when
+    // required metadata fields (class/gender/age) are missing -- otherwise
+    // collapsed. Computed once per voice from its metadata completeness
+    // (mirrors OverviewTab's own `requiredMissing` check) as soon as
+    // metadata for this id is available; a later metadata refresh (e.g.
+    // after Save) must not fight the user's own manual expand/collapse, so
+    // the ref below guards it to run once per voice id, not once per
+    // metadata object.
+    const [overviewOpen, setOverviewOpen] = useState(true);
+    const overviewOpenInitializedFor = useRef<string | null>(null);
+    useEffect(() => {
+        if (!id || !metadata) return;
+        if (overviewOpenInitializedFor.current === id) return;
+        overviewOpenInitializedFor.current = id;
+        const attrs = metadata.attributes;
+        const requiredMissing = !attrs?.class || !attrs?.gender || !attrs?.age;
+        setOverviewOpen(requiredMissing);
+    }, [id, metadata]);
+
     if (!id) return null;
+
+    // Same untagged-voice fallback the modal used to pass through
+    // (`metadata ?? { id, name: id, is_untagged: true }`) so a
+    // not-yet-tagged voice still has a VoiceMetadata shape to edit inline.
+    const overviewVoice: VoiceMetadata = metadata ?? { id, name: id, is_untagged: true };
+
+    // Overview was relocated by task 002 (inline metadata editing, no modal),
+    // then pulled out of the tab shell entirely by task 007 into a standalone
+    // disclosure panel (below, above the Variants section) -- Samples by task
+    // 003; Variants (+ Voice Settings, promoted from the old card's overflow
+    // menu) by task 004; Test (+ ScriptEditor's test-text editing UI, folded
+    // in) by task 005. Task 008 (voices-variants-round2) then removed the
+    // Samples/Variants/Test tab shell entirely -- VariantsTab is now the only
+    // navigation surface rendered directly below the disclosure.
 
     return (
         <div className="voice-lab-page">
@@ -135,186 +234,94 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
                 Voices
             </button>
 
-            {/* Header */}
-            <div className="voice-lab-page__header">
-                {/* Avatar */}
-                <div className="voice-lab-page__avatar">
-                    {iconUrl ? (
-                        <img
-                            src={iconUrl}
-                            alt={`${metadata?.name || 'Voice'} icon`}
-                            style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
-                        />
-                    ) : (
-                        <User size={24} />
-                    )}
+            <VoiceDetailHeader
+                voiceId={id}
+                metadata={metadata}
+                iconUrl={iconUrl}
+                pills={pills}
+                isMobile={isMobile}
+                profiles={profiles}
+                onSetDefault={handleSetDefault}
+                onExport={handleExport}
+                onPublish={() => setPublishModalOpen(true)}
+                onDelete={() => {
+                    requestConfirm({
+                        title: 'Delete voice',
+                        message: `Delete voice '${metadata?.name ?? id}' and all ${profiles.length} variant${profiles.length !== 1 ? 's' : ''}? This cannot be undone.`,
+                        isDestructive: true,
+                        onConfirm: handleDelete,
+                    });
+                }}
+            />
+
+            {/* Voice-level fields (description, languages, class/gender/age,
+                many-value fields, free tags) -- pulled out of the tab shell by
+                task 007 into a standalone disclosure. Default open/collapsed
+                state is metadata-completeness-driven (see overviewOpen above)
+                rather than always-open; the disclosure is otherwise
+                controlled by the user via onToggle. */}
+            <details
+                className="voice-lab-page__overview-disclosure"
+                open={overviewOpen}
+                onToggle={e => setOverviewOpen(e.currentTarget.open)}
+            >
+                <summary className="voice-lab-page__overview-summary">
+                    <ChevronDown size={16} />
+                    Voice details
+                </summary>
+                <div className="voice-lab-page__overview-body">
+                    {/* Bug fix (flagged during round-2 task 007, now user-confirmed live):
+                        OverviewTab seeds its local draft state (attrs/tags/description/
+                        languages) from `voice` at mount, then only re-syncs via an effect
+                        keyed on `voice?.id`. Since `overviewVoice` falls back to
+                        `{ id, name: id, is_untagged: true }` before `voiceMetadataList`
+                        loads, and the real metadata object shares that same `id` once it
+                        arrives, the id-only effect never re-fires -- attrs/description stay
+                        stuck at the empty fallback forever, permanently disabling Save via
+                        requiredMissing. Keying on the loaded/pending transition forces a
+                        clean remount (fresh useState initializers) exactly once real
+                        metadata arrives, instead of patching the resync effect's deps. */}
+                    <OverviewTab key={metadata ? `${id}-loaded` : `${id}-pending`} voice={overviewVoice} onSaved={handleMetadataSaved} />
                 </div>
+            </details>
 
-                {/* Name + pills + description */}
-                <div className="voice-lab-page__header-body">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                        <h1 className="voice-lab-page__name">
-                            {metadata?.name ?? '…'}
-                        </h1>
-                        <button
-                            type="button"
-                            onClick={() => setMetadataEditorOpen(true)}
-                            className="btn-ghost voice-lab-page__edit-meta-btn"
-                            aria-label="Edit metadata"
-                        >
-                            <Pencil size={13} />
-                            Edit metadata
-                        </button>
-                    </div>
+            {/* Task 008 (voices-variants-round2): the Samples/Variants/Test tab
+                shell is retired -- VariantsTab (VariantsSection) is the sole
+                navigation surface below the disclosure above. Task 009 moved
+                the Script action's engine-config/test-text editing in-place
+                into VariantEditor, so selection no longer needs to be lifted
+                here (VariantsSection's own uncontrolled selection state is
+                enough) -- `attributes` is threaded down for the Script
+                panel's test-text seeding (F1.4). */}
+            <VariantsTab
+                speakerName={metadata?.name ?? ''}
+                profiles={profiles}
+                engines={engines}
+                buildingProfiles={buildingProfiles}
+                testProgress={testProgress}
+                onRefresh={onRefresh}
+                onBuildNow={handleBuildNow}
+                requestConfirm={requestConfirm}
+                attributes={metadata?.attributes}
+            />
 
-                    {pills.length > 0 && (
-                        <div style={{ marginTop: '4px' }}>
-                            <VoicePillRow pills={pills} />
-                        </div>
-                    )}
+            {/* Publish to Hugging Face modal */}
+            <PublishToHuggingFaceModal
+                isOpen={publishModalOpen}
+                voiceId={id}
+                voiceName={metadata?.name ?? id}
+                onClose={() => setPublishModalOpen(false)}
+            />
 
-                    {metadata?.description && (
-                        <p className="voice-lab-page__description">{metadata.description}</p>
-                    )}
-
-                    {/* Icon controls — upload + copy prompt */}
-                    <VoiceIconControls
-                        voiceId={id}
-                        metadata={metadata}
-                        onIconUploaded={(imagePath) => {
-                            // Update local metadata to refresh avatar
-                            setVoiceMetadataList(prev =>
-                                prev.map(m => m.id === id ? { ...m, image: imagePath } : m)
-                            );
-                        }}
-                    />
-                </div>
-            </div>
-
-            {/* Phase stepper */}
-            <div className="voice-lab-page__stepper-row">
-                <PhaseStepper phase={phase} />
-            </div>
-
-            <div className="voice-lab-page__sections">
-                {/* Samples section — T6 */}
-                <React.Suspense fallback={<SectionFallback />}>
-                    <SamplesSection
-                        profiles={profiles}
-                        onRefresh={onRefresh}
-                    />
-                </React.Suspense>
-
-                {/* Variants section — T6 */}
-                <React.Suspense fallback={<SectionFallback />}>
-                    <VariantsSection
-                        speakerName={metadata?.name ?? ''}
-                        profiles={profiles}
-                        engines={engines}
-                        buildingProfiles={{}}
-                        testProgress={testProgress}
-                        onRefresh={onRefresh}
-                        onBuildNow={async () => false}
-                        requestConfirm={() => undefined}
-                    />
-                </React.Suspense>
-
-                {/* Test section — T8 */}
-                <React.Suspense fallback={<SectionFallback />}>
-                    <TestSection
-                        profiles={profiles}
-                        engines={engines}
-                        testProgress={testProgress}
-                        jobs={jobs}
-                        onTest={async (name: string) => {
-                            await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}/test`, { method: 'POST' });
-                            onRefresh();
-                        }}
-                        onRefresh={onRefresh}
-                    />
-                </React.Suspense>
-
-                {/* Export + Delete row */}
-                <div className="voice-lab-page__footer-actions">
-                    <div className="voice-lab-page__footer-group">
-                        <span className="voice-lab-section-label">Export</span>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <button
-                                type="button"
-                                onClick={handleExport}
-                                disabled={!metadata?.name}
-                                className="btn-glass"
-                                style={{ height: '36px', padding: '0 16px', fontSize: '0.85rem', borderRadius: '10px' }}
-                            >
-                                Export bundle (.zip)
-                            </button>
-                            {/* HF publish — planned placeholder only */}
-                            <span
-                                title="Publish to Hugging Face — planned"
-                                style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    padding: '4px 10px',
-                                    borderRadius: '999px',
-                                    fontSize: '0.72rem',
-                                    fontWeight: 700,
-                                    background: 'var(--surface-alt)',
-                                    color: 'var(--text-muted)',
-                                    border: '1px solid var(--border)',
-                                    opacity: 0.7,
-                                    cursor: 'default',
-                                    userSelect: 'none',
-                                }}
-                            >
-                                Publish to Hugging Face
-                                <span style={{
-                                    padding: '1px 6px',
-                                    borderRadius: '999px',
-                                    fontSize: '0.6rem',
-                                    fontWeight: 800,
-                                    background: 'var(--warning-tint-bg)',
-                                    color: 'var(--warning-text)',
-                                    letterSpacing: '0.04em',
-                                }}>
-                                    planned
-                                </span>
-                            </span>
-                        </div>
-                    </div>
-
-                    <div className="voice-lab-page__footer-group voice-lab-page__footer-group--danger">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (window.confirm(
-                                    `Delete voice '${metadata?.name ?? id}' and all ${profiles.length} variant${profiles.length !== 1 ? 's' : ''}? This cannot be undone.`
-                                )) {
-                                    handleDelete();
-                                }
-                            }}
-                            className="btn-ghost"
-                            style={{
-                                color: 'var(--error)',
-                                height: '36px',
-                                padding: '0 16px',
-                                fontSize: '0.85rem',
-                                borderRadius: '10px',
-                                border: '1px solid var(--error)',
-                            }}
-                        >
-                            Delete voice
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Metadata editor modal */}
-            <MetadataEditorModal
-                isOpen={metadataEditorOpen}
-                voice={metadata ?? (id ? { id, name: id, is_untagged: true } : null)}
-                onClose={() => setMetadataEditorOpen(false)}
-                onSaved={handleMetadataSaved}
+            {/* Confirm dialog -- backs the Variants tab's requestConfirm (task 004) */}
+            <ConfirmModal
+                isOpen={!!confirmConfig}
+                title={confirmConfig?.title || ''}
+                message={confirmConfig?.message || ''}
+                onConfirm={() => { confirmConfig?.onConfirm(); setConfirmConfig(null); }}
+                onCancel={() => setConfirmConfig(null)}
+                isDestructive={confirmConfig?.isDestructive}
+                isAlert={confirmConfig?.isAlert}
             />
         </div>
     );

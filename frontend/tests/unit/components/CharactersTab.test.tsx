@@ -80,7 +80,7 @@ const mockApi = {
 };
 
 const emitToastMock = vi.fn();
-vi.mock('@/utils/toast', () => ({ emitToast: (...args: unknown[]) => emitToastMock(...args) }));
+vi.mock('@/utils/toast', () => ({ emitToast: (...args: unknown[]) => emitToastMock(...args), TOAST_VISIBLE_MS: 4000 }));
 
 vi.mock('@/api', () => ({ api: mockApi }));
 
@@ -217,8 +217,7 @@ describe('CharactersTab — Suggest voices action', () => {
     expect(screen.queryByDisplayValue('Deputy Boone')).not.toBeInTheDocument();
   });
 
-  it('shows a toast when deleting a character fails, and does not remove the row', async () => {
-    mockApi.deleteCharacter.mockRejectedValueOnce(new Error('delete failed'));
+  it('shows an undo toast immediately on delete, then defers the actual delete', async () => {
     const { CharactersTab } = await import('@/components/CharactersTab');
 
     render(
@@ -235,8 +234,72 @@ describe('CharactersTab — Suggest voices action', () => {
     await waitFor(() => screen.getByRole('dialog'));
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
-    await waitFor(() => expect(emitToastMock).toHaveBeenCalled());
+    // The delete toast (with an Undo action) fires immediately, but the row
+    // and the actual api.deleteCharacter call are both deferred.
+    await waitFor(() => expect(emitToastMock).toHaveBeenCalledWith(
+      expect.stringContaining('Deleted'),
+      expect.objectContaining({ label: 'Undo', onClick: expect.any(Function) })
+    ));
     expect(screen.getByDisplayValue('Sheriff Boone')).toBeInTheDocument();
+    expect(mockApi.deleteCharacter).not.toHaveBeenCalled();
+  });
+
+  it('clicking Undo cancels the deferred delete — the character is never removed', async () => {
+    const { CharactersTab } = await import('@/components/CharactersTab');
+    vi.useFakeTimers();
+
+    render(
+      <CharactersTab
+        projectId="proj-1"
+        speakers={speakers}
+        speakerProfiles={speakerProfiles}
+        engines={engines}
+      />
+    );
+
+    await vi.waitFor(() => expect(screen.getByDisplayValue('Sheriff Boone')).toBeInTheDocument());
+    fireEvent.click(screen.getByTitle('Delete Character'));
+    await vi.waitFor(() => screen.getByRole('dialog'));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    await vi.waitFor(() => expect(emitToastMock).toHaveBeenCalled());
+    const [, action] = emitToastMock.mock.calls[emitToastMock.mock.calls.length - 1];
+    action.onClick();
+
+    await vi.advanceTimersByTimeAsync(4000);
+
+    expect(mockApi.deleteCharacter).not.toHaveBeenCalled();
+    expect(screen.getByDisplayValue('Sheriff Boone')).toBeInTheDocument();
+
+    vi.useRealTimers();
+  });
+
+  it('lets the deferred delete commit if Undo is never clicked, and shows a failure toast if it fails', async () => {
+    mockApi.deleteCharacter.mockRejectedValueOnce(new Error('delete failed'));
+    const { CharactersTab } = await import('@/components/CharactersTab');
+    vi.useFakeTimers();
+
+    render(
+      <CharactersTab
+        projectId="proj-1"
+        speakers={speakers}
+        speakerProfiles={speakerProfiles}
+        engines={engines}
+      />
+    );
+
+    await vi.waitFor(() => expect(screen.getByDisplayValue('Sheriff Boone')).toBeInTheDocument());
+    fireEvent.click(screen.getByTitle('Delete Character'));
+    await vi.waitFor(() => screen.getByRole('dialog'));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
+    await vi.advanceTimersByTimeAsync(4000);
+
+    expect(mockApi.deleteCharacter).toHaveBeenCalledWith('char-1');
+    expect(emitToastMock).toHaveBeenCalledWith('Failed to delete character.');
+    expect(screen.getByDisplayValue('Sheriff Boone')).toBeInTheDocument();
+
+    vi.useRealTimers();
   });
 
   it('renders a Promote action only for chapter-scoped temp characters, and promotes via api.promoteCharacter', async () => {

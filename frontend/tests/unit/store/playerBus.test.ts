@@ -51,6 +51,28 @@ describe('playerBus', () => {
     expect(state.playing).toBe(true);
   });
 
+  // 2b. initialDuration sets duration up front (avoids the "unknown
+  // duration" bootstrap window that PlayerBar's fitsLegibly() treats as
+  // "show the waveform" — dangerous for a multi-hour book-scope file).
+  it('loadAndPlay sets duration from initialDuration when supplied', () => {
+    loadAndPlay({
+      scope: 'book',
+      title: 'Full Audiobook',
+      audioUrl: 'http://example.com/book.mp3',
+      initialDuration: 48540,
+    });
+    expect(getSnapshot().duration).toBe(48540);
+  });
+
+  it('loadAndPlay defaults duration to 0 when initialDuration is omitted', () => {
+    loadAndPlay({
+      scope: 'segment',
+      title: 'Segment 1',
+      audioUrl: 'http://example.com/seg.mp3',
+    });
+    expect(getSnapshot().duration).toBe(0);
+  });
+
   // 3. requestId increments on each loadAndPlay
   it('increments requestId on each loadAndPlay call', () => {
     expect(getSnapshot().requestId).toBe(0);
@@ -240,4 +262,37 @@ describe('playerBus', () => {
   // duration-driven (see playerRepresentation.test.ts for the replacement
   // contract: fitsLegibly()). The `switchScope is not exported` / `altScope is
   // not present on the snapshot` assertions now live there.
+
+  // 20. bookId — marks book-continuous-playback loads (bookContinuousPlayback.ts)
+  // vs. one-off plays (e.g. ChapterTable.tsx), which must never set it.
+  it('defaults bookId to null', () => {
+    expect(getSnapshot().bookId).toBeNull();
+  });
+
+  it('sets bookId when passed to loadAndPlay', () => {
+    loadAndPlay({
+      scope: 'chapter',
+      title: 'Chapter 1',
+      audioUrl: 'http://example.com/ch1.wav',
+      bookId: 'book-1',
+    });
+    expect(getSnapshot().bookId).toBe('book-1');
+  });
+
+  it('resets bookId to null on a subsequent loadAndPlay call that omits it', () => {
+    loadAndPlay({
+      scope: 'chapter',
+      title: 'Chapter 1',
+      audioUrl: 'http://example.com/ch1.wav',
+      bookId: 'book-1',
+    });
+    expect(getSnapshot().bookId).toBe('book-1');
+
+    loadAndPlay({
+      scope: 'segment',
+      title: 'Segment 1',
+      audioUrl: 'http://example.com/seg.mp3',
+    });
+    expect(getSnapshot().bookId).toBeNull();
+  });
 });

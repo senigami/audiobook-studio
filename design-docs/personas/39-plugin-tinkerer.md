@@ -1,4 +1,4 @@
-# 39 · "Victor Zhang" — Plugin Tinkerer  ☆ INFERRED
+# 39 · Plugin Tinkerer  ☆ INFERRED
 
 **Identity:** "A technically literate hobbyist who treats TTS plugins like a curated collection — methodically tested, categorized by genre fit, and always one bad manifest away from a broken install."
 
@@ -26,8 +26,8 @@
 ## Top friction points *(INFERRED)*
 - **F1 — Silent manifest rejection:** Plugin loads without an error but produces no voices in the casting panel; no validation feedback points to the broken field
 - **F2 — Preview requires a project:** Can't hear a plugin's output without setting up a project, casting a character, and queuing a job — full ceremony for a one-line test
-- **F3 — Fault ambiguity on failure:** Queue shows "render failed" with a generic message; Victor can't tell if the plugin subprocess crashed, returned bad audio, or if Studio's bridge rejected the response
-- **F4 — No reload path:** After fixing a manifest field, there is no "reload plugin" action; Victor must restart the whole app to pick up the change
+- **F3 — Fault ambiguity on failure:** Queue shows "render failed" with a generic message; the Plugin Tinkerer can't tell if the plugin subprocess crashed, returned bad audio, or if Studio's bridge rejected the response
+- **F4 — No reload path:** After fixing a manifest field, there is no "reload plugin" action; the Plugin Tinkerer must restart the whole app to pick up the change
 
 ## What they need from the studio
 - Manifest validation with field-level error messages shown in the plugin detail panel

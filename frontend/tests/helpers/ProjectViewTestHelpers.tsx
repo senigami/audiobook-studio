@@ -5,7 +5,7 @@ import { ProjectView } from '@/pages/ProjectDetail/ProjectDetailPage';
 export const stripMotionProps = (props: Record<string, unknown>) => {
   const {
     initial, animate, exit, transition, whileHover, whileTap, whileDrag,
-    layout, layoutId, drag, dragListener, dragConstraints, dragElastic, onReorder,
+    layout, layoutId, drag, dragListener, dragControls, dragConstraints, dragElastic, onReorder,
     ...domProps
   } = props;
   return domProps;

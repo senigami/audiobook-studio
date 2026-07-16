@@ -1,26 +1,31 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.9.5
+spec_version: 1.9.7
 status: active
-updated: 2026-07-05
+updated: 2026-07-11
 sources:
   - app/api/ws.py
   - app/api/contracts/events.py
   - app/db/state_jobs.py
   - app/orchestration/progress/service.py
+  - app/orchestration/progress/eta.py
   - app/orchestration/scheduler/orchestrator_helpers.py
+  - app/orchestration/scheduler/orchestrator_publish.py
   - app/db/performance.py
   - frontend/src/api/contracts/liveEvents.ts
   - frontend/src/store/studioSocketBus.ts
   - frontend/src/hooks/useQueueSync.ts
   - frontend/src/hooks/useJobs.ts
+  - frontend/src/hooks/useSegmentInventory.ts
 ```
 
 ## Changelog
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.9.7   | 2026-07-11 | **Bracketed ETA under parallelism wired onto `chapters.progress` (W-PAR task 013 — closes 1.9.3 Known gaps §7 for the ETA half).** `ProgressService` now maintains a per-job `BracketedEtaTracker`, fed real segment completions at the existing SEGMENT_SAVED transition inside `publish()` (pool key = engine, chars = `active_render_group_weight`, wall-seconds = a per-segment start-time stamp taken at first observation in `enrich()`). `build_chapter_progress_event` gained additive `eta_low_seconds`/`eta_high_seconds`/`eta_display` params, only populated once a job's tracker exists (i.e. after its first real segment completion) — before that, the fields are entirely absent, never `null` placeholders. The no-fabrication guard (`"estimating…"`, both bounds `None`) is preserved end-to-end until >= 3 completions. `engine_id` is now also threaded through `ProgressService.publish`/`orchestrator_publish._publish` (previously never threaded — a pre-existing gap this task closes as a prerequisite) so the tracker's pool key reflects the real active engine rather than always falling back to a single `"default"` pool. The pre-existing single-value `etaSeconds` computation is completely untouched — cap=1 parity confirmed by the pinned `test_eta_bracket_and_engine_cap.py::TestBracketedEtaCap1Parity` tests, still passing. `ChapterSynthesisTask.stalled_segments` (task 005) is unaffected and remains the other, still-open half of the original 1.9.3 gap note. |
+| 1.9.6   | 2026-07-11 | **`active_segments_map` entries gain `'failed'` phase, `char_count`, and `engine_id` (W-PAR task 008).** Backend: `ChapterSynthesisTask._on_child_segment_tick` (`app/orchestration/tasks/segment_synthesis.py`) now writes `phase: "failed"` for a segment whose retry-once policy has been exhausted (`final=True` only from the `as_completed` loop's authoritative post-retry outcome — never from a mid-render marker tick, so a first-attempt failure still eligible for its one permitted retry keeps popping, not fabricating a premature permanent-failure signal). Every entry (`preparing`/`rendering`/`done`/`failed`) now also carries a best-effort `char_count`, looked up per-segment by `segment_id` via `_segment_char_count` — **never** the render-group's combined `text_length` (a group can merge several manuscript segments up to the engine's chunk limit; using the group total would inflate every segment folded into a multi-segment group). `char_count`/`engine_id` are additive and optional; no wire-shape change for existing consumers that don't read them. Frontend: `ActiveSegmentMapEntry` (`frontend/src/types/index.ts`) updated to match; `frontend/src/hooks/useSegmentInventory.ts` merges this map with the chapter's full script-view segment list to hydrate `SegmentRenderMonitor` on the Activity page (dev-gated). |
 | 1.9.5   | 2026-07-05 | **`active_segments_map` now also rides `chapters.progress` (the missing "delivery leg").** `build_chapter_progress_event` previously had no `active_segments_map` parameter — the field could reach `queue_item_status` but never `chapter_progress`, and a map-only update (no status change) never triggers `queue.items` either (gated on `status_changed`/`terminal_reset`), so the field was structurally unreachable by the frontend for any mid-render tick regardless of how often the backend wrote it. Same shape as the existing `queue_item_status` field (snake_case, additive). Companion fix, `queue-jobs.md` 1.11.4: the map is now populated event-driven (per-child tick, diff-gated) instead of only at group-completion boundaries, which were structurally always empty. |
 | 1.9.4   | 2026-07-04 | **`groupedProgress` now populated by the chapter fan-out (W-PAR enable-gate) — no wire-shape change.** `ChapterSynthesisTask._publish_progress` (`app/orchestration/tasks/segment_synthesis.py`) now computes a size-weighted ratio (`done_chars / total_chars`, weighted by each child's in-memory `group["text_length"]`) and threads it through the ALREADY-DEFINED `grouped_progress` kwarg on `ProgressService.publish`, so `groupedProgress` (defined since before 1.9.0) is populated on the `chapters.progress`/`queue.items` frames a chapter fan-out emits — order-independent (weighted by completed manuscript-TEXT size, not completion sequence or segment count) and computed with no dependency on mid-render DB status-write timing. The count-based `progress` field is unchanged and still emitted alongside it. Also (same change, `queue-jobs.md` 1.11.0): ephemeral per-child fan-out `TaskContext`s (`ephemeral=True`) no longer emit any JOB-scoped frame or durable state: `ProgressService.publish(..., ephemeral=True)` suppresses `jobs.lifecycle`, `queue.items`, and `chapters.progress` emissions, and `orchestrator_publish._publish` skips all durable job-state writes (`put_job`/`update_job`) — a chapter fan-out's job/queue/chapter frames now come ONLY from the parent `ChapterSynthesisTask`'s own publish calls, never from a per-child phantom job row. **SEGMENT-scoped frames from children are deliberately preserved (review-ratchet fix, same change):** `segments.progress` ticks and the prev→new `SEGMENT_SAVED` transition frame still emit through the child's publish, because the frontend keys the live per-segment progress bar by REAL segment id (`setSegmentProgress` in `useJobs.ts`) — the phantom job id was never load-bearing for those frames, and suppressing the whole child publish killed mid-render segment-bar animation for every fan-out chapter (pinned by `tests/orchestration/test_ephemeral_child_no_durable_job.py::test_ephemeral_children_still_emit_segment_frames_but_no_job_scoped_frames`). The additive `active_segments_map` per-segment visibility (1.9.0–1.9.2) is likewise unaffected (parent-owned aggregation). |
 | 1.9.3   | 2026-07-03 | **W-PAR task 007 — spec reconciliation gate; bracketed-ETA and `stalled_segments` documented as computed-but-not-yet-wired (Known gaps §7).** No wire-shape change in this version: `BracketedEtaTracker` (rolling-throughput / bottleneck-pool ETA model, `app/orchestration/progress/eta.py`) and `ChapterSynthesisTask.stalled_segments` (task 005) both exist and are unit-tested, but are not yet threaded onto any live event frame or consumed by any client type. Recorded explicitly per CLAUDE.md's "resolve drift explicitly, never silently" rather than either fabricating aspirational wire fields or silently deferring without a paper trail. `active_segments_map` (1.9.0–1.9.2) is unaffected and remains fully live-wired. |
@@ -181,11 +186,13 @@ interface QueueItemPayload {
   producedChars?: number | null;
   producedSegmentCount?: number | null;
   active_segments_map?: Record<string, {           // W-PAR 003, C2 contract (1.9.0)
-    phase: 'preparing' | 'rendering' | 'done';
+    phase: 'preparing' | 'rendering' | 'done' | 'failed';  // 'failed' added 1.9.6 (W-PAR 008)
     progress: number;                              // 0.0–1.0
     eta_seconds: number | null;
     reason_code?: string;
     indeterminate?: boolean;
+    char_count?: number;                            // 1.9.6 — real per-segment length, never the group total
+    engine_id?: string;                             // 1.9.6 — best-effort
   }> | null;
 }
 ```
@@ -202,6 +209,10 @@ the field can be entirely omitted without changing any other behavior).
 `phase`/`indeterminate` are mandatory when an entry is present — `preparing`
 must be observable before `rendering` so the frontend's preparing/load pulse
 is not dropped (generalizes the W-MIX-LA single-segment load attribution).
+`'failed'` (1.9.6, W-PAR 008) is written only for a genuinely, permanently
+failed segment (retry-once policy exhausted) — never for a first-attempt
+failure still eligible for its one permitted retry, which still pops the
+entry as before.
 
 ### `chapters.progress` / `chapter_progress`
 
@@ -216,12 +227,27 @@ interface ChapterProgressPayload {
   renderGroupCount: number | null;
   completedRenderGroups: number | null;
   active_segments_map?: Record<string, {   // W-PAR 008 escaped-defect fix (1.9.5) — additive, snake_case, same C2 shape as queue_item_status
-    phase: 'preparing' | 'rendering' | 'done';
+    phase: 'preparing' | 'rendering' | 'done' | 'failed';  // 'failed' added 1.9.6 (W-PAR 008)
     progress: number;
     eta_seconds: number | null;
+    char_count?: number;                                   // 1.9.6
+    engine_id?: string;                                    // 1.9.6
   }>;
+  eta_low_seconds?: number | null;   // 1.9.7 (W-PAR task 013) — bracketed throughput ETA (§4A.11)
+  eta_high_seconds?: number | null;  // 1.9.7 — omitted entirely until this job's first segment
+                                      // completion; both null (with eta_display: "estimating…")
+                                      // until >= 3 completions (no-fabrication guard)
+  eta_display?: string;              // 1.9.7 — "estimating…" | "~{N} s" | "~{low}–{high} s"
 }
 ```
+
+`eta_low_seconds`/`eta_high_seconds`/`eta_display` are additive-only (snake_case, same
+convention as `active_segments_map`) and computed by a per-job `BracketedEtaTracker`
+(`app/orchestration/progress/eta.py`) fed by real segment completions inside
+`ProgressService.publish`'s SEGMENT_SAVED transition — see `progress-presentation.md`
+§4A.11 for the full model and no-fabrication-guard contract. The pre-existing single-value
+`etaSeconds` field above is completely unaffected (byte-identical at `cap=1`, pinned by
+`tests/orchestration/test_eta_bracket_and_engine_cap.py::TestBracketedEtaCap1Parity`).
 
 ### `segments.progress` / `segment_progress`
 
@@ -828,18 +854,24 @@ Rules:
    backward compatibility. This is not yet normalized; clients should read whichever
    is present.
 
-7. **Bracketed ETA (`eta_low_seconds`/`eta_high_seconds`/`eta_display`) and
-   `stalled_segments` are computed but not yet on the wire (W-PAR task 007).**
-   `app.orchestration.progress.eta.BracketedEtaTracker` implements the rolling-
-   throughput / bottleneck-pool bracket model (reduces exactly to today's
-   single-stream CPS at cap=1) and `ChapterSynthesisTask.stalled_segments`
-   (task 005) computes the stalled-child list from the heartbeat monitor —
-   both are unit-tested and available to callers, but neither is threaded
-   through `ProgressService.enrich()` / the chapter-progress event builder
-   onto a live frame yet. No client type or UI currently expects these
-   fields. Wiring them into the live payload (and the corresponding
-   `progress-presentation.md` bracket-display UI) is left as explicit
-   follow-up work rather than bolted onto this task's already-large surface
-   area — flagging it here per the "resolve drift explicitly, never
-   silently" rule rather than documenting aspirational wire behavior that
-   isn't actually emitted.
+7. **Bracketed ETA now wired (W-PAR task 013); `stalled_segments` remains an
+   open gap.** `app.orchestration.progress.eta.BracketedEtaTracker` is now fed
+   real segment completions from `ProgressService.publish`'s SEGMENT_SAVED
+   transition (per job, per-engine pool key) and its `bracket()` output rides
+   the `chapters.progress` frame as `eta_low_seconds`/`eta_high_seconds`/
+   `eta_display` (see the `chapters.progress` payload shape above and
+   `progress-presentation.md` §4A.11). No client type currently reads these
+   fields yet — the render-monitor bracket-display UI is separate follow-up
+   work, tracked in `design-docs/plans/active/parallel-segment-rendering/`.
+   Known limitation (flagged, not silently worked around): the pool key is
+   the job's `engine_id` (now threaded through `ProgressService.publish` and
+   `orchestrator_publish._publish`), but declared-cap resolution for a pool
+   the tracker has never seen before falls back to `1` (single-stream,
+   conservative) whenever the engine's manifest can't be read — this never
+   fabricates an inflated bracket, but it does mean a genuinely-parallel
+   render (`cap > 1`) with a not-yet-cached pool can still show a collapsed
+   single-value ETA for its first segment of that pool.
+   `ChapterSynthesisTask.stalled_segments` (task 005) computes the
+   stalled-child list from the heartbeat monitor and is still unit-tested but
+   not threaded onto any live frame — that half of the original gap note is
+   unchanged and remains explicit follow-up work.

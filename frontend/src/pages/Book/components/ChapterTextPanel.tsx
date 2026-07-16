@@ -53,6 +53,15 @@ interface ChapterTextPanelProps {
    * real safety net either way.
    */
   variant?: 'gated' | 'immediate';
+  /**
+   * Whether to render the panel's own chapter-title heading. Defaults to
+   * `true` for the Contents/Manuscript-stage usage, which has no other
+   * title nearby. DirectorsConsole's Write mode passes `false` —
+   * `ChapterWorkspaceHeader` (rendered once, above the whole console)
+   * already shows the chapter title, so this heading duplicated it within
+   * ~140px (design-critique HIG finding).
+   */
+  showTitle?: boolean;
 }
 
 function sentenceCount(text: string): number {
@@ -89,7 +98,7 @@ function SaveChip({ state }: { state: ReturnType<typeof useChapterText>['saveSta
   return <span className="chapter-text-panel__chip">editing</span>;
 }
 
-export function ChapterTextPanel({ chapter, onSaved, onDirtyChange, variant = 'gated' }: ChapterTextPanelProps) {
+export function ChapterTextPanel({ chapter, onSaved, onDirtyChange, variant = 'gated', showTitle = true }: ChapterTextPanelProps) {
   const chapterText = useChapterText(chapter, onSaved);
   const [showUnlockWarning, setShowUnlockWarning] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
@@ -148,7 +157,7 @@ export function ChapterTextPanel({ chapter, onSaved, onDirtyChange, variant = 'g
       <div className="chapter-text-panel__header">
         <div>
           <span className="chapter-text-panel__eyebrow">{eyebrowLabel(chapterText.lifecycle)}</span>
-          <h2>{chapterText.chapter?.title || chapter.title}</h2>
+          {showTitle && <h2>{chapterText.chapter?.title || chapter.title}</h2>}
         </div>
         {!canEditDirectly && (
           <button type="button" className="btn-ghost" onClick={() => setShowUnlockWarning(true)}>

@@ -1,8 +1,8 @@
-# 30 · "Lily Chen" — Accessibility QA  ☆ INFERRED
+# 30 · Accessibility QA  ☆ INFERRED
 
 **Identity:** "A professional a11y consultant who audits web apps for WCAG 2.1 AA compliance and evaluates Audiobook Studio as a potential tool for clients who rely on assistive technology or keyboard-only navigation."
 
-> **Distinct from [29 Michael](29-screen-reader-producer.md):** both surface the same failures (icon-only controls, focus traps, color-only status), but Michael is a *lived-experience* AT user testing whether he can do real work, while Lily is a *compliance auditor* who frames findings by WCAG criterion (1.4.1, 2.4.11, 1.4.10, 2.5.8) and needs a VPAT. Use Michael for "can the workflow be completed"; use Lily for "does it pass the standard."
+> **Distinct from [29 the Screen Reader Producer](29-screen-reader-producer.md):** both surface the same failures (icon-only controls, focus traps, color-only status), but the Screen Reader Producer is a *lived-experience* AT user testing whether they can do real work, while the Accessibility QA persona is a *compliance auditor* who frames findings by WCAG criterion (1.4.1, 2.4.11, 1.4.10, 2.5.8) and needs a VPAT. Use the Screen Reader Producer for "can the workflow be completed"; use the Accessibility QA persona for "does it pass the standard."
 
 ## Goals
 - Verify that all interactive workflows are completable with keyboard only, no mouse required
@@ -14,8 +14,8 @@
 ## Context & environment *(INFERRED)*
 - Works as an independent a11y consultant; audits 4–6 apps per quarter on behalf of enterprise clients who publish content to accessibility-sensitive audiences
 - Tests with keyboard only (no mouse), ChromeVox for basic screen reader coverage, and browser zoom at 200% to stress layout reflow
-- Was referred to Audiobook Studio by a publishing-house client who wanted to know if their editorial team could use it; the app had no accessibility documentation or VPAT, so the client asked her to audit it before committing to a license
-- Approaches the app as an adversary: her job is to find failure modes before a real user with a disability does
+- Was referred to Audiobook Studio by a publishing-house client who wanted to know if their editorial team could use it; the app had no accessibility documentation or VPAT, so the client asked them to audit it before committing to a license
+- Approaches the app as an adversary: their job is to find failure modes before a real user with a disability does
 
 ## Key workflow moments
 - **Initial orientation sweep:** Tabs through the app shell once with no mouse to establish whether landmarks exist, whether skip-nav links are present, and whether focus indicators are visible at all zoom levels

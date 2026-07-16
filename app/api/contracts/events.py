@@ -505,6 +505,9 @@ def build_chapter_progress_event(
     indeterminate: bool | None = None,
     loading_elapsed_seconds: float | None = None,
     active_segments_map: dict | None = None,
+    eta_low_seconds: int | None = None,
+    eta_high_seconds: int | None = None,
+    eta_display: str | None = None,
 ) -> dict:
     """Build a chapters.progress topic envelope."""
     canonical_command = normalize_to_canonical_command(reason_code, status, has_segment_support)
@@ -554,6 +557,15 @@ def build_chapter_progress_event(
         payload["etaUpdatedAt"] = resolved_eta_updated_at
     if updated_at is not None:
         payload["updatedAt"] = updated_at
+    if eta_display is not None:
+        # W-PAR task 013 (§4A.11): bracketed throughput ETA under parallelism
+        # (BracketedEtaTracker). Additive-only, snake_case (same convention as
+        # active_segments_map above) — no client type expects these fields
+        # before this task, and eta_seconds/etaSeconds above is unchanged, so
+        # cap=1 wire behavior is byte-identical to before this task.
+        payload["eta_low_seconds"] = eta_low_seconds
+        payload["eta_high_seconds"] = eta_high_seconds
+        payload["eta_display"] = eta_display
     resolved_source = source or _resolve_source_path()
     return build_studio_event(
         topic="chapters.progress",

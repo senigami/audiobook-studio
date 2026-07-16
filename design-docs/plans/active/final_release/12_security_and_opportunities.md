@@ -56,20 +56,8 @@ Audited `app/api/tts_api.py` (the external "Studio as a TTS gateway" sub-app at 
 
 ## Part 2 — Product opportunities (post-release backlog, owner to cherry-pick)
 
-Ranked by value-for-effort for the audiobook-author audience:
-
-1. **ACX loudness QA + normalization (M)** — ffmpeg `loudnorm` analysis per chapter, pass/warn/fail column, optional EBU R128 normalize at assembly. Makes Studio output upload-ready for Audible/ACX. Lives in `app/engines/audio_qa.py` + assembly option.
-2. **Voice A/B audition panel (S–M)** — render one test sentence across 2–4 variants in parallel, inline compare/accept. Natural fit with the casting work in doc 04.
-3. **Keyboard-driven render loop (S)** — shortcuts for render-segment / play-last / next / flag in the Chapter Editor; frontend-only. Pairs with doc 10 U5.
-4. **Silence trim & breath control (S)** — `silenceremove` post-step with per-project aggressiveness setting.
-5. **Pronunciation lexicon (M)** — per-project + global word→pronunciation map applied pre-synthesis; "test pronunciation" button in the Voice Lab. Huge for fantasy/technical names.
-6. **Diff-aware re-render (M)** — hash rendered text per segment; after edits queue only changed segments. Extends the existing revision-safe artifact model.
-7. **Dialogue detection & cast suggestions (M)** — regex/light-NLP speaker attribution feeding the Characters tab and the doc 04 casting recommendations, no cloud LLM required.
-8. **Onboarding tour (S)** — first-run guided path to first audio; complements doc 10 U13.
-9. **Local insights dashboard (S)** — words/hours produced, render speed trends, voice usage; all from existing DB, zero telemetry.
-10. **Listening review mode with annotations (L)** — waveform playback, timestamped issue notes that convert to re-render jobs. The biggest workflow gap, but large.
-    - *First step (owner request, 2026-06-11):* a **waveform visualization spike** — determine what's needed to render a waveform with a playhead bar on the VCR-style segment player (and anywhere else audio appears), level of effort, and where it's practical (short segment audio: yes; very long chapter audio: evaluate downsampled peaks or skip). Spike only — no implementation commitment yet.
-11. **Project templates (S)** — save/restore structure + cast + settings for series authors.
-12. **Export presets (M)** — named ACX/podcast/M4B/custom output configs at assembly.
-13. **Crash-recovery checkpoints (M)** — persist task state periodically; on boot offer resume/discard for interrupted jobs (extends existing startup reconciliation).
-14. **SSML-lite performance markup (M–L)** — `[pause:1s]`, `[whisper]` inline tags normalized to a `SpeakAnnotation` model; engines declare support via manifest capabilities (slots into the doc 02 contract).
+**Moved 2026-07-14 to [`design-docs/plans/post_release_backlog.md`](../../post_release_backlog.md)**
+— the canonical, standalone home for post-2.0 ideas (this doc's Part 1 security content is
+release-scoped and stays here; product-opportunity ideas don't belong mixed in with security
+findings, and `active/` gets archived once the release ships while the backlog should persist).
+Add new post-release ideas there, not here.

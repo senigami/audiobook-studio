@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -308,7 +308,7 @@ class TestHFHubClientUpload:
         with patch("huggingface_hub.HfApi"):
             client = HFHubClient()
             with pytest.raises(ValueError):
-                client.upload_files("bad id", [], tags=[], token=HFToken(value="x"))
+                client.upload_files("bad id", Path("/tmp/whatever"), tags=[], token=HFToken(value="x"))
 
     def test_upload_files_requires_a_token(self):
         from app.domain.voices.huggingface import HFHubClient, HFToken
@@ -316,43 +316,42 @@ class TestHFHubClientUpload:
         with patch("huggingface_hub.HfApi"):
             client = HFHubClient()
             with pytest.raises(ValueError):
-                client.upload_files("someone/voice", [], tags=[], token=HFToken(value=""))
+                client.upload_files("someone/voice", Path("/tmp/whatever"), tags=[], token=HFToken(value=""))
 
-    def test_upload_files_creates_repo_and_uploads_each_file(self, tmp_path):
+    def test_upload_files_creates_repo_and_uploads_folder(self, tmp_path):
         from app.domain.voices.huggingface import HFHubClient, HFToken
 
-        sample_file = tmp_path / "voice.json"
-        sample_file.write_text("{}")
+        (tmp_path / "voice.json").write_text("{}")
 
-        with patch("huggingface_hub.HfApi") as MockHfApi, patch("huggingface_hub.ModelCard") as MockModelCard:
+        with patch("huggingface_hub.HfApi") as MockHfApi:
             instance = MockHfApi.return_value
-            instance.upload_file.return_value = SimpleNamespace(oid="abc123")
-            mock_card = MagicMock()
-            MockModelCard.from_template.return_value = mock_card
+            instance.upload_folder.return_value = SimpleNamespace(oid="abc123")
 
             client = HFHubClient()
             commit_id = client.upload_files(
-                "someone/voice", [sample_file], tags=["as-narrator"], token=HFToken(value="secret-token")
+                "someone/voice", tmp_path, tags=["as-narrator"], token=HFToken(value="secret-token")
             )
 
         instance.create_repo.assert_called_once()
-        instance.upload_file.assert_called_once()
+        assert instance.create_repo.call_args.kwargs["repo_type"] == "model"
+        instance.upload_folder.assert_called_once()
+        assert instance.upload_folder.call_args.kwargs["folder_path"] == str(tmp_path)
+        assert instance.upload_folder.call_args.kwargs["repo_type"] == "model"
         assert commit_id == "abc123"
 
-    def test_upload_files_never_logs_or_returns_token(self, caplog):
+    def test_upload_files_never_logs_or_returns_token(self, caplog, tmp_path):
         import logging
 
         from app.domain.voices.huggingface import HFHubClient, HFToken
 
-        with patch("huggingface_hub.HfApi") as MockHfApi, patch("huggingface_hub.ModelCard") as MockModelCard:
+        with patch("huggingface_hub.HfApi") as MockHfApi:
             instance = MockHfApi.return_value
-            instance.upload_file.return_value = SimpleNamespace(oid="abc123")
-            MockModelCard.from_template.return_value = MagicMock()
+            instance.upload_folder.return_value = SimpleNamespace(oid="abc123")
 
             client = HFHubClient()
             with caplog.at_level(logging.DEBUG):
                 commit_id = client.upload_files(
-                    "someone/voice", [], tags=[], token=HFToken(value="super-secret-hf-token")
+                    "someone/voice", tmp_path, tags=[], token=HFToken(value="super-secret-hf-token")
                 )
 
         assert "super-secret-hf-token" not in caplog.text

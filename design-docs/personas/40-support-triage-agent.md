@@ -1,4 +1,4 @@
-# 40 · "Jenny Park" — Support Triage Agent  ☆ INFERRED
+# 40 · Support Triage Agent  ☆ INFERRED
 
 **Identity:** "A support professional who needs the app to do half the diagnostic work for her — structured failure context, traceable job provenance, and state she can share without asking a user to open DevTools."
 
@@ -24,11 +24,11 @@
 - **Pattern recognition:** Scans recent failed jobs to see if multiple users are hitting the same error class, surfaced without opening each job individually
 
 ## Top friction points *(INFERRED)*
-- **F1 — Generic error messages:** Queue shows "render failed" with no segment context, no plugin attribution, no timestamp precision; Jenny has to guess what actually happened
-- **F2 — No shareable diagnostic state:** There is no export or copy action for job failure details; Jenny pastes text manually from whatever the UI surfaces
+- **F1 — Generic error messages:** Queue shows "render failed" with no segment context, no plugin attribution, no timestamp precision; the Support Triage Agent has to guess what actually happened
+- **F2 — No shareable diagnostic state:** There is no export or copy action for job failure details; they paste text manually from whatever the UI surfaces
 - **F3 — Ephemeral job history:** Completed or failed jobs disappear from the queue view after some retention window; by the time a ticket arrives, the job is gone
 - **F4 — User error looks like app error:** A user uploading a zero-byte audio sample produces an error that reads identically to an engine crash; triage requires knowing the input was bad, not the engine
-- **F5 — No cross-job summary:** Failed jobs across projects are not aggregated anywhere; Jenny opens projects one at a time hunting for the failure
+- **F5 — No cross-job summary:** Failed jobs across projects are not aggregated anywhere; the Support Triage Agent opens projects one at a time hunting for the failure
 
 ## What they need from the studio
 - Structured failure messages with three fields: what failed, which component failed it (plugin name + version, or orchestrator), and which segment triggered it

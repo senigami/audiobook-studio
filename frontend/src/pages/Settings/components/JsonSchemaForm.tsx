@@ -216,6 +216,8 @@ export const JsonSchemaForm: React.FC<{
                   borderRadius: '10px',
                   border: '1px solid var(--border)',
                   background: 'var(--background)',
+                  color: 'var(--text-primary)',
+                  colorScheme: 'light dark',
                   fontSize: '0.85rem',
                   width: '100%',
                   cursor: isLocked ? 'not-allowed' : 'pointer'

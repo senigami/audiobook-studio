@@ -1,4 +1,4 @@
-# 25 · "Phil Garrett" — Migration & Recovery Operator  ☆ INFERRED
+# 25 · Migration & Recovery Operator  ☆ INFERRED
 
 **Identity:** "An enterprise deployment specialist who runs Studio upgrades for large libraries and needs every migration to be explicit, auditable, and safe to abort midway without leaving projects in a partially migrated state."
 
@@ -12,10 +12,10 @@
 ## Context & environment *(INFERRED)*
 - Linux server running Studio headlessly; occasionally accesses the web UI from a separate workstation for visual verification
 - Came to Audiobook Studio through enterprise licensing: manages installations for publishing houses with libraries of 50–200 projects
-- Work pattern: upgrades are scheduled maintenance windows; Phil runs them off-hours, verifies each project opens cleanly, then hands back to producers the next morning
+- Work pattern: upgrades are scheduled maintenance windows; the Migration & Recovery Operator runs them off-hours, verifies each project opens cleanly, then hands back to producers the next morning
 
 ## Key workflow moments
-- **Pre-migration audit:** Before running migrations, exports a list of all project IDs and their current schema versions so he can diff against post-migration state
+- **Pre-migration audit:** Before running migrations, exports a list of all project IDs and their current schema versions so they can diff against post-migration state
 - **Migration execution:** Starts the app (which triggers `boot_studio()` → explicit DB migration), watches the log output for per-migration step confirmations, and checks for any warning about rows that could not be migrated
 - **Artifact verification:** After migration, opens a sample of projects — especially ones with unusual segment counts or legacy character data — and confirms chapters render the segment list without errors
 - **Legacy flag sweep:** Checks for any state.json keys or SQLite columns that were deprecated in this release (e.g., old `span_start`/`span_end` schema) and confirms they are no longer surfaced in the UI
@@ -25,7 +25,7 @@
 - **F1 — No per-migration step log:** The migration runner logs a single "migrations applied" line; there is no structured output showing which migration ran, how many rows it touched, and whether any rows were skipped with a reason
 - **F2 — Mixed old/new state sources after abort:** If a migration aborts after partially updating SQLite but before updating state.json, the two sources disagree; there is no reconciliation report and no documented safe re-run path
 - **F3 — Legacy flags resurfacing:** Occasionally a project loaded after migration still has a deprecated field populated (e.g., a legacy voice ID format) that was not swept by the migration; this only surfaces as a rendering error, not during migration
-- **F4 — No dry-run mode:** Phil cannot preview what a migration will do without actually running it; he works from the source code to estimate impact, which is slow and error-prone at scale
+- **F4 — No dry-run mode:** The Migration & Recovery Operator cannot preview what a migration will do without actually running it; they work from the source code to estimate impact, which is slow and error-prone at scale
 - **F5 — Cutover documentation lives in code, not a migration manifest:** Understanding what changed requires reading the migration function in `app/db/`, not a structured changelog that operators can reference without a dev environment
 
 ## What they need from the studio

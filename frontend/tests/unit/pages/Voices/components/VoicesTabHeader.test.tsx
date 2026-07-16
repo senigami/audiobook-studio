@@ -1,10 +1,11 @@
 /**
- * VoicesTabHeader.test.tsx — R5-T4 (updated)
+ * VoicesTabHeader.test.tsx — R5-T4, updated for task 005 (MultiSelect facet filters)
  * Tests: toolbar buttons (wide/compact), tab pills render, Discover tab shows placeholder
- * (no network call), facet chip selection calls setClassFilter.
+ * (no network call), CLASS/GENDER/AGE/TAGS render as MultiSelects with array-based
+ * (OR-within-facet) onChange callbacks.
  */
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { VoicesTabHeader } from '@/pages/Voices/components/VoicesTabHeader';
 import { DiscoverPlaceholder } from '@/pages/Voices/components/DiscoverPlaceholder';
@@ -96,42 +97,65 @@ describe('VoicesTabHeader', () => {
 
     it('hides search/facet row when Discover tab is active', () => {
         render(<VoicesTabHeader {...baseProps} activeTab="discover" classOptions={[{ id: 'human', label: 'Human' }]} />);
-        // CLASS label should not appear in discover tab
-        expect(screen.queryByText('CLASS')).not.toBeInTheDocument();
+        // CLASS MultiSelect trigger should not appear in discover tab
+        expect(screen.queryByRole('combobox', { name: 'CLASS' })).not.toBeInTheDocument();
     });
 
     // ---------------------------------------------------------------------------
-    // Facet chip selection
+    // Facet MultiSelects — array-based state, OR-within-facet (task 005)
     // ---------------------------------------------------------------------------
 
-    it('clicking a class chip calls setClassFilter with the option id', () => {
-        const setClassFilter = vi.fn();
+    it('renders CLASS/GENDER/AGE as compact MultiSelects in a single row (not stacked button rows)', () => {
         render(
             <VoicesTabHeader
                 {...baseProps}
                 classOptions={[{ id: 'human', label: 'Human' }]}
-                setClassFilter={setClassFilter}
+                genderOptions={[{ id: 'feminine', label: 'Feminine' }]}
+                ageOptions={[{ id: 'adult', label: 'Adult' }]}
             />,
         );
-        fireEvent.click(screen.getByRole('button', { name: 'Human' }));
-        expect(setClassFilter).toHaveBeenCalledWith('human');
+        const row = document.querySelector('.voice-facet-filter-row');
+        expect(row).not.toBeNull();
+        expect(within(row as HTMLElement).getByRole('combobox', { name: 'CLASS' })).toBeInTheDocument();
+        expect(within(row as HTMLElement).getByRole('combobox', { name: 'GENDER' })).toBeInTheDocument();
+        expect(within(row as HTMLElement).getByRole('combobox', { name: 'AGE' })).toBeInTheDocument();
     });
 
-    it('clicking an active class chip calls setClassFilter with empty string (deselect)', () => {
+    it('selecting a class option calls setClassFilter with the option id appended (OR-within-facet)', () => {
         const setClassFilter = vi.fn();
         render(
             <VoicesTabHeader
                 {...baseProps}
-                classFilter="human"
+                classFilter={['synthetic']}
+                classOptions={[{ id: 'human', label: 'Human' }, { id: 'synthetic', label: 'Synthetic / AI' }]}
+                setClassFilter={setClassFilter}
+            />,
+        );
+        // The MultiSelect trigger is a role="combobox" element; the chips' remove
+        // controls are separate real <button>s, so the combobox role uniquely
+        // identifies the trigger regardless of the current selection label.
+        const trigger = screen.getByTestId('class-facet-filter').querySelector('[role="combobox"]');
+        fireEvent.click(trigger as HTMLElement);
+        fireEvent.click(screen.getByRole('option', { name: 'Human' }));
+        expect(setClassFilter).toHaveBeenCalledWith(['synthetic', 'human']);
+    });
+
+    it('deselecting an already-selected class option calls setClassFilter with it removed', () => {
+        const setClassFilter = vi.fn();
+        render(
+            <VoicesTabHeader
+                {...baseProps}
+                classFilter={['human']}
                 classOptions={[{ id: 'human', label: 'Human' }]}
                 setClassFilter={setClassFilter}
             />,
         );
-        fireEvent.click(screen.getByRole('button', { name: 'Human' }));
-        expect(setClassFilter).toHaveBeenCalledWith('');
+        // Selected options render as removable chips on the trigger itself
+        fireEvent.click(screen.getByRole('button', { name: 'Remove Human' }));
+        expect(setClassFilter).toHaveBeenCalledWith([]);
     });
 
-    it('clicking a gender chip calls setGenderFilter', () => {
+    it('selecting a gender option calls setGenderFilter', () => {
         const setGenderFilter = vi.fn();
         render(
             <VoicesTabHeader
@@ -140,11 +164,12 @@ describe('VoicesTabHeader', () => {
                 setGenderFilter={setGenderFilter}
             />,
         );
-        fireEvent.click(screen.getByRole('button', { name: 'Feminine' }));
-        expect(setGenderFilter).toHaveBeenCalledWith('feminine');
+        fireEvent.click(screen.getByRole('combobox', { name: 'GENDER' }));
+        fireEvent.click(screen.getByRole('option', { name: 'Feminine' }));
+        expect(setGenderFilter).toHaveBeenCalledWith(['feminine']);
     });
 
-    it('clicking an age chip calls setAgeFilter', () => {
+    it('selecting an age option calls setAgeFilter', () => {
         const setAgeFilter = vi.fn();
         render(
             <VoicesTabHeader
@@ -153,8 +178,82 @@ describe('VoicesTabHeader', () => {
                 setAgeFilter={setAgeFilter}
             />,
         );
-        fireEvent.click(screen.getByRole('button', { name: 'Adult' }));
-        expect(setAgeFilter).toHaveBeenCalledWith('adult');
+        fireEvent.click(screen.getByRole('combobox', { name: 'AGE' }));
+        fireEvent.click(screen.getByRole('option', { name: 'Adult' }));
+        expect(setAgeFilter).toHaveBeenCalledWith(['adult']);
+    });
+
+    // ---------------------------------------------------------------------------
+    // Free-form tag filter — separate MultiSelect, visually distinguished by a
+    // divider from the three fixed-vocabulary facets (task 005)
+    // ---------------------------------------------------------------------------
+
+    it('renders a separate tag MultiSelect, visually divided from the fixed-vocabulary facets', () => {
+        render(
+            <VoicesTabHeader
+                {...baseProps}
+                classOptions={[{ id: 'human', label: 'Human' }]}
+                tagOptions={[{ id: 'raspy', label: 'raspy' }]}
+            />,
+        );
+        expect(screen.getByRole('combobox', { name: 'CLASS' })).toBeInTheDocument();
+        expect(screen.getByRole('combobox', { name: 'TAGS' })).toBeInTheDocument();
+        const row = document.querySelector('.voice-facet-filter-row');
+        expect(row?.querySelector('.voice-facet-divider')).not.toBeNull();
+    });
+
+    it('selecting a tag option calls setTagFilter', () => {
+        const setTagFilter = vi.fn();
+        render(
+            <VoicesTabHeader
+                {...baseProps}
+                tagOptions={[{ id: 'raspy', label: 'raspy' }]}
+                setTagFilter={setTagFilter}
+            />,
+        );
+        fireEvent.click(screen.getByRole('combobox', { name: 'TAGS' }));
+        fireEvent.click(screen.getByRole('option', { name: 'raspy' }));
+        expect(setTagFilter).toHaveBeenCalledWith(['raspy']);
+    });
+
+    it('omits the tag MultiSelect when no tag options are derived from live data', () => {
+        render(<VoicesTabHeader {...baseProps} classOptions={[{ id: 'human', label: 'Human' }]} />);
+        expect(screen.queryByRole('combobox', { name: 'TAGS' })).not.toBeInTheDocument();
+    });
+
+    // -----------------------------------------------------------------------
+    // H-5 (design-critique follow-up): CLASS/GENDER/AGE selected chips tint to
+    // their facet's pill hue; the free-form TAGS filter stays neutral/generic.
+    // -----------------------------------------------------------------------
+
+    it('tints selected CLASS/GENDER/AGE chips to their facet pill hue, and leaves TAGS generic', () => {
+        render(
+            <VoicesTabHeader
+                {...baseProps}
+                classFilter={['human']}
+                classOptions={[{ id: 'human', label: 'Human' }]}
+                genderFilter={['feminine']}
+                genderOptions={[{ id: 'feminine', label: 'Feminine' }]}
+                ageFilter={['adult']}
+                ageOptions={[{ id: 'adult', label: 'Adult' }]}
+                tagFilter={['raspy']}
+                tagOptions={[{ id: 'raspy', label: 'raspy' }]}
+            />,
+        );
+        const classChip = screen.getByText('Human').closest('span');
+        const genderChip = screen.getByText('Feminine').closest('span');
+        const ageChip = screen.getByText('Adult').closest('span');
+        const tagChip = screen.getByText('raspy').closest('span');
+
+        expect(classChip).toHaveAttribute('data-category', 'class');
+        expect(genderChip).toHaveAttribute('data-category', 'gender');
+        expect(ageChip).toHaveAttribute('data-category', 'age');
+        expect(tagChip).not.toHaveAttribute('data-category');
+
+        expect(classChip).toHaveStyle({ background: 'var(--pill-class-bg)', color: 'var(--pill-class-text)' });
+        expect(genderChip).toHaveStyle({ background: 'var(--pill-gender-bg)', color: 'var(--pill-gender-text)' });
+        expect(ageChip).toHaveStyle({ background: 'var(--pill-age-bg)', color: 'var(--pill-age-text)' });
+        expect(tagChip).toHaveStyle({ background: 'var(--accent-glow)', color: 'var(--accent)' });
     });
 });
 

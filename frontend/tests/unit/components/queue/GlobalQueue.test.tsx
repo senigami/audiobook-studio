@@ -277,7 +277,9 @@ describe('GlobalQueue', () => {
         expect(await screen.findByText('Building voice for Dark Fantasy: Default')).toBeTruthy();
         expect(screen.getByText('Voice Preview')).toBeTruthy();
         expect(screen.getByText('26.4s')).toBeTruthy();
-        expect(screen.getByText('400 chars • 1 segments')).toBeTruthy();
+        // Singular: produced_segment_count is 1, so the label must read
+        // "1 segment" not "1 segments" (pluralization fix).
+        expect(screen.getByText('400 chars • 1 segment')).toBeTruthy();
     })
 
     it('calls clear completed from ActionMenu', async () => {
@@ -294,11 +296,20 @@ describe('GlobalQueue', () => {
 
     it('calls removeProcessingQueue when a queued job is cancelled', async () => {
         render(<GlobalQueue queue={mockJobs as any[]} />)
-        
+
         const removeBtns = await screen.findAllByRole('button', { name: /Cancel Job/i })
         // Click the first one (assume the first row's remove button)
+        vi.useFakeTimers();
         fireEvent.click(removeBtns[0])
-        
+
+        // Removal is now deferred behind the undo-toast window (task 011) —
+        // the actual request only fires once that window elapses.
+        await act(async () => {
+            vi.advanceTimersByTime(4000);
+            await Promise.resolve();
+        });
+        vi.useRealTimers();
+
         expect(api.removeProcessingQueue).toHaveBeenCalled()
     })
 

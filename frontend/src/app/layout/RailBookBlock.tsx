@@ -1,38 +1,55 @@
 import { useSyncExternalStore } from 'react';
-import { NavLink, useLocation, useMatch, useNavigate } from 'react-router-dom';
-import { RefreshCw, Trash2 } from 'lucide-react';
-import { ActionMenu } from '@/components/ui/ActionMenu';
-import { StatusOrb } from '@/components/ui/StatusOrb';
-import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
+import { NavLink, useMatch, useNavigate } from 'react-router-dom';
+import type { Chapter, Job } from '@/types';
 import {
   getBookIdentitySnapshot,
   subscribeBookIdentity,
 } from '@/app/layout/bookIdentityStore';
-import { BOOK_STAGE_LABELS, BOOK_STAGES, type BookStage } from '@/pages/Book/lib/stages';
-import { pickRelevantJob } from '@/utils/jobSelection';
-import type { Chapter, Job } from '@/types';
-
-function getActiveStage(pathname: string): BookStage | null {
-  const stage = pathname.split('/').filter(Boolean)[2];
-  return BOOK_STAGES.includes(stage as BookStage) ? stage as BookStage : null;
-}
-
-function pickChapterJob(chapter: Chapter, projectId: string, jobs: Record<string, Job>): Job | undefined {
-  return pickRelevantJob(
-    Object.values(jobs).filter((job) =>
-      job.project_id === projectId &&
-      (job.chapter_id === chapter.id || job.chapter_file?.includes(chapter.id)),
-    ),
-  );
-}
+import { BOOK_STAGE_LABELS, BOOK_STAGES } from '@/pages/Book/lib/stages';
 
 interface RailBookBlockProps {
   compact?: boolean;
 }
 
+// Ambient "N of M chapters done" / "N rendering" glance — persona fast-follow
+// (Oliver/deadline-editor finding, contextual-left-nav sign-off round 4):
+// removing the rail's permanent chapter list also removed the only place to
+// see render progress without opening the Contents page. Mirrors
+// ChapterWorkspaceHeader's isChapterFullyRendered/rendering criteria.
+function summarizeChapterProgress(
+  chapters: Chapter[] | undefined,
+  jobs: Record<string, Job> | undefined,
+): { done: number; total: number; rendering: number } | null {
+  if (!chapters || chapters.length === 0) return null;
+  let done = 0;
+  let rendering = 0;
+  for (const chapter of chapters) {
+    const total = chapter.total_segments_count;
+    const doneSegments = chapter.done_segments_count;
+    const fullyRendered =
+      chapter.audio_status === 'done' ||
+      (typeof total === 'number' && typeof doneSegments === 'number' && total > 0 && doneSegments >= total);
+    if (fullyRendered) {
+      done += 1;
+      continue;
+    }
+    const hasActiveJob = jobs
+      ? Object.values(jobs).some(
+          (job) =>
+            job.project_id === chapter.project_id &&
+            (job.chapter_id === chapter.id || job.chapter_file?.includes(chapter.id)) &&
+            (job.status === 'queued' || job.status === 'preparing' || job.status === 'running' || job.status === 'finalizing'),
+        )
+      : false;
+    if (hasActiveJob || chapter.audio_status === 'processing') {
+      rendering += 1;
+    }
+  }
+  return { done, total: chapters.length, rendering };
+}
+
 export function RailBookBlock({ compact = false }: RailBookBlockProps) {
   const match = useMatch('/book/:bookId/*');
-  const location = useLocation();
   const navigate = useNavigate();
   const identity = useSyncExternalStore(
     subscribeBookIdentity,
@@ -43,6 +60,8 @@ export function RailBookBlock({ compact = false }: RailBookBlockProps) {
   if (!match || !identity) {
     return null;
   }
+
+  const progress = summarizeChapterProgress(identity.chapters, identity.jobs);
 
   // Collapsed: show a single centred book cover thumbnail beneath the Library icon.
   if (compact) {
@@ -63,20 +82,6 @@ export function RailBookBlock({ compact = false }: RailBookBlockProps) {
     );
   }
 
-  const activeStage = getActiveStage(location.pathname);
-  // Show chapter list in the rail when on the Contents tab or inside a chapter workspace.
-  const isChapterWorkspace = /\/book\/[^/]+\/chapter\/[^/]+/.test(location.pathname);
-  const showChapters = activeStage === 'contents' || isChapterWorkspace;
-  const chapters = identity.chapters || [];
-  const jobs = identity.jobs || {};
-  const actions = identity.actions || {};
-  // Determine the active chapter: workspace route carries it as a path segment;
-  // contents tab uses the ?chapter= query param for legacy compat.
-  const workspaceChapterId = isChapterWorkspace ? location.pathname.split('/chapter/')[1] ?? null : null;
-  const activeChapterId = showChapters
-    ? workspaceChapterId ?? new URLSearchParams(location.search).get('chapter') ?? chapters[0]?.id ?? null
-    : null;
-
   return (
     <section className="rail-book-block" aria-label="Current book">
       {/* Book title row */}
@@ -91,111 +96,29 @@ export function RailBookBlock({ compact = false }: RailBookBlockProps) {
         <span className="rail-book-block__title">{identity.title}</span>
       </button>
 
-      {/* Stage links — indented under tree line */}
+      {progress && (
+        <p className="rail-book-block__progress" aria-label={`${progress.done} of ${progress.total} chapters done${progress.rendering > 0 ? `, ${progress.rendering} rendering` : ''}`}>
+          <span>{progress.done} of {progress.total} done</span>
+          {progress.rendering > 0 && (
+            <span className="rail-book-block__progress-rendering">{progress.rendering} rendering</span>
+          )}
+        </p>
+      )}
+
+      {/* Stage links — fixed set, no chapter expansion */}
       <div className="rail-book-block__stages" aria-label="Book stages">
         {BOOK_STAGES.map((stage) => (
-          <div key={stage} className="rail-book-block__stage-group">
-            <NavLink
-              to={`/book/${identity.id}/${stage}`}
-              className={({ isActive }) =>
-                isActive ? 'rail-book-block__stage rail-book-block__stage--active' : 'rail-book-block__stage'
-              }
-            >
-              {BOOK_STAGE_LABELS[stage]}
-            </NavLink>
-
-            {/* Contents tab and chapter workspace expand chapters inline. */}
-            {stage === 'contents' && showChapters ? (
-              <div className="rail-book-block__chapters" aria-label="Chapters">
-                {chapters.map((chapter, index) => {
-            const activeJob = pickChapterJob(chapter, identity.id, jobs);
-            const queuePending = !activeJob && chapter.audio_status === 'processing';
-            const selected = activeChapterId === chapter.id;
-
-            return (
-              <div
-                key={chapter.id}
-                className={selected
-                  ? 'rail-book-block__chapter-wrap rail-book-block__chapter-wrap--active'
-                  : 'rail-book-block__chapter-wrap'}
-                data-testid={`rail-book-row-${chapter.id}`}
-              >
-                <button
-                  type="button"
-                  className={selected
-                    ? 'rail-book-block__chapter rail-book-block__chapter--active'
-                    : 'rail-book-block__chapter'}
-                  onClick={() => navigate(`/book/${identity.id}/chapter/${chapter.id}`)}
-                  aria-label={`${index + 1}. ${chapter.title}`}
-                >
-                  <div className="rail-book-block__chapter-main">
-                    <StatusOrb
-                      chap={chapter}
-                      activeJob={activeJob}
-                      queuePending={queuePending}
-                      doneSegments={chapter.done_segments_count}
-                      totalSegments={chapter.total_segments_count}
-                      size={15}
-                    />
-                    <span className="rail-book-block__chapter-index">{index + 1}.</span>
-                    <span className="rail-book-block__chapter-title">{chapter.title}</span>
-                  </div>
-                </button>
-
-                {selected ? (
-                  <div className="rail-book-block__chapter-actions">
-                    <ActionMenu
-                      items={[
-                        {
-                          label: 'Queue',
-                          icon: RefreshCw,
-                          disabled: identity.anyEnginesEnabled === false,
-                          onClick: () => actions.onQueueChapter?.(chapter),
-                        },
-                        {
-                          label: 'Reset audio',
-                          icon: RefreshCw,
-                          onClick: () => actions.onResetAudio?.(chapter.id),
-                        },
-                        {
-                          label: 'Delete',
-                          icon: Trash2,
-                          isDestructive: true,
-                          onClick: () => actions.onDeleteChapter?.(chapter.id),
-                        },
-                      ]}
-                    />
-                  </div>
-                ) : null}
-
-                {activeJob ? (
-                  <div
-                    className="rail-book-block__progress"
-                    data-testid={`rail-book-progress-${chapter.id}`}
-                  >
-                    <PredictiveProgressBar
-                      progress={activeJob.progress ?? 0}
-                      startedAt={activeJob.started_at}
-                      etaSeconds={activeJob.eta_seconds}
-                      etaBasis={activeJob.eta_basis}
-                      updatedAt={activeJob.updated_at}
-                      persistenceKey={activeJob.id}
-                      status={activeJob.status}
-                      state={activeJob.status === 'error' ? 'failed' : activeJob.status as any}
-                      label={activeJob.reason_code === 'LOADING_MODEL' && activeJob.status === 'preparing' ? 'loading voice model…' : activeJob.status}
-                      predictive
-                      allowBackwardProgress={false}
-                    />
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-                </div>
-              ) : null}
-            </div>
-          ))}
-        </div>
+          <NavLink
+            key={stage}
+            to={`/book/${identity.id}/${stage}`}
+            className={({ isActive }) =>
+              isActive ? 'rail-book-block__stage rail-book-block__stage--active' : 'rail-book-block__stage'
+            }
+          >
+            {BOOK_STAGE_LABELS[stage]}
+          </NavLink>
+        ))}
+      </div>
     </section>
   );
 }

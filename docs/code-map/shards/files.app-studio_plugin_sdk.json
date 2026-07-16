@@ -1,0 +1,162 @@
+{
+  "files": {
+    "app/studio_plugin_sdk/__init__.py": {
+      "purpose": "Public SDK namespace for plugin handlers and TTS engine implementations",
+      "exports": [
+        {
+          "name": "StudioTTSEngine, TTSRequest, TTSResult, TimingEvent, VerificationResult, VoiceProcessingHooks, SynthesisPlan, StudioPluginContext, JobSpec, JobResult",
+          "kind": "class"
+        },
+        {
+          "name": "get_plugin_ctx",
+          "kind": "function",
+          "contract": "(engine_id) -> StudioPluginContext; lazy singleton cached per engine_id (PL-1, 2026-07-04)"
+        },
+        {
+          "name": "load_settings_schema",
+          "kind": "function",
+          "contract": "(schema_path, *, engine_name, cache=True) -> dict; cache=False for live-reload (voxtral), default True caches forever (xtts) (PL-3, 2026-07-04)"
+        }
+      ],
+      "calls": [
+        "app/engines/voice/base.py#StudioTTSEngine",
+        "app/engines/voice/sdk.py#*",
+        "app/studio_plugin_sdk/context.py#*",
+        "app/studio_plugin_sdk/plugin_utils.py#get_plugin_ctx,load_settings_schema"
+      ],
+      "called_by": [
+        "app/orchestration/tasks/synthesis.py",
+        "app/tts_server/plugin_loader.py",
+        "plugins/tts_mixed/handler.py",
+        "plugins/tts_voxtral/plugin/studio/app_adapter.py",
+        "plugins/tts_voxtral/plugin/studio/handler.py",
+        "plugins/tts_voxtral/plugin/studio/segments.py",
+        "plugins/tts_xtts/plugin/studio/app_adapter.py",
+        "plugins/tts_xtts/plugin/studio/bake.py",
+        "plugins/tts_xtts/plugin/studio/handler.py",
+        "plugins/tts_xtts/plugin/studio/segments.py",
+        "plugins/tts_xtts/plugin/studio/standard_handler.py",
+        "plugins/tts_xtts/plugin/studio/voice_adapter.py"
+      ],
+      "notes": [
+        "registered in sys.modules by plugin_loader.py for cross-process visibility"
+      ],
+      "calls_inferred": []
+    },
+    "app/studio_plugin_sdk/_import_utils.py": {
+      "purpose": "Shared plugin import utility for synthetic package module hierarchy creation",
+      "exports": [
+        {
+          "name": "ensure_plugin_package_hierarchy",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "extracted from duplicate implementations to avoid cross-plugin namespace collisions"
+      ],
+      "calls_inferred": []
+    },
+    "app/studio_plugin_sdk/context.py": {
+      "purpose": "Plugin SDK context object and job dataclasses; exposes 13 service groups via late imports",
+      "exports": [
+        {
+          "name": "JobSpec, JobResult",
+          "kind": "dataclass"
+        },
+        {
+          "name": "StudioPluginContext",
+          "kind": "class",
+          "contract": "wraps 13 app.* service groups: update_job_progress, emit_segment_started/saved/progress, get_speaker_wavs, build_chunk_groups, generate_via_bridge, get_behavior, is_cancelled, update_segment, run_voice_job, resolve_voice_preview_inputs etc.; group_needs_render(group, pdir, *, force_rerender=False) -> bool (PL-2, 2026-07-04): single shared reuse-gate replacing 3 near-identical _group_needs_render locals (xtts/voxtral bake, mixed handler), standardizes on the stricter validated-artifact check + per-segment DB status"
+        },
+        {
+          "name": "MAX_SEGMENT_DURATION_SECONDS, _validated_wav_duration_seconds, _is_valid_segment_artifact",
+          "kind": "constant/function",
+          "contract": "PL-2 (2026-07-04): validated-artifact-metadata gate moved here from plugins/tts_mixed/handler.py; exists+non-zero-size, and when parseable as WAV via stdlib wave, header duration must be 0<d<=3600s"
+        }
+      ],
+      "calls": [
+        "app/api/ws.py#broadcast_*",
+        "app/core/config.py",
+        "app/db/chapters.py",
+        "app/db/queue.py",
+        "app/db/segments.py#*",
+        "app/db/speakers.py#*",
+        "app/db/state_jobs.py#update_job",
+        "app/domain/chunk_groups.py#build_chunk_groups",
+        "app/engines/audio_ops.py#*",
+        "app/engines/behavior.py#*",
+        "app/engines/voice_engines.py",
+        "app/jobs/handlers/bridge_helpers.py#generate_via_bridge",
+        "app/jobs/worker_voice.py",
+        "app/tts_server/plugin_loader.py",
+        "app/utils/text/textops_cleaning.py",
+        "app/utils/text/textops_splitting.py"
+      ],
+      "called_by": [
+        "app/tts_server/plugin_loader.py"
+      ],
+      "notes": [
+        "all app.* imports late-imported inside wrapper methods to enforce zero side effects on import",
+        "2026-07-04 follow-up: standard_handler.py's _group_is_done upgraded to the same validated-artifact standard via a new is_valid_segment_artifact(path) public wrapper around _is_valid_segment_artifact -- closes queue-jobs.md \u00a73.7's residual drift (spec now 1.11.2), no known reuse-gate drift remains across any of the 4 render paths"
+      ],
+      "calls_inferred": []
+    },
+    "app/studio_plugin_sdk/errors.py": {
+      "purpose": "Plugin SDK exception hierarchy with cross-compatible BridgeError",
+      "exports": [
+        {
+          "name": "StudioException, BridgeError, ValidationError",
+          "kind": "exception"
+        }
+      ],
+      "calls": [
+        "app/engines/errors.py#EngineBridgeError"
+      ],
+      "called_by": [
+        "app/tts_server/plugin_loader.py",
+        "plugins/tts_voxtral/plugin/studio/bake.py",
+        "plugins/tts_voxtral/plugin/studio/segments.py",
+        "plugins/tts_xtts/plugin/studio/bake.py",
+        "plugins/tts_xtts/plugin/studio/segments.py",
+        "plugins/tts_xtts/plugin/studio/standard_handler.py"
+      ],
+      "notes": [
+        "BridgeError dual-inherits for compatibility with EngineBridgeError"
+      ],
+      "calls_inferred": []
+    },
+    "app/studio_plugin_sdk/plugin_utils.py": {
+      "purpose": "Shared plugin-side helpers: PL-1 context factory + PL-3 settings-schema loader + PL-2 segment-marker output handler factory",
+      "exports": [
+        {
+          "name": "get_plugin_ctx",
+          "kind": "function",
+          "contract": "(engine_id) -> StudioPluginContext; one lazy instance per engine_id, cached forever, never shared across engine_ids"
+        },
+        {
+          "name": "load_settings_schema",
+          "kind": "function",
+          "contract": "(schema_path, *, engine_name, cache=True) -> dict; reads+parses JSON, returns {} and logs a warning on missing/malformed file (never caches a failure); cache=True (default) caches successful parses forever (xtts's original behavior), cache=False re-reads every call (voxtral's original live-reload behavior) -- the two plugins' pre-merge _load_settings_schema()s were NOT behaviorally identical, this param preserves both exactly"
+        },
+        {
+          "name": "make_segment_output_handler",
+          "kind": "function",
+          "contract": "(*, on_output, cancel_check, path_to_group, update_seg, completed_groups, total_groups, update_job_fn, jid, progress_formula, on_group_completed=noop, on_group_started=noop, emit_on_save=True) -> on_output closure; parses [SEGMENT_SAVED]/[START_SEGMENT]/[PROGRESS] markers with the I17 cancel-guard reproduced byte-for-byte; replaces 4 duplicated on_output closures (xtts+voxtral bake/segments). progress_formula is caller-supplied (linear vs weighted) so the shared code never branches on engine_id"
+        }
+      ],
+      "calls": [
+        "app/studio_plugin_sdk/context.py#StudioPluginContext",
+        "app/studio_plugin_sdk/context.py#StudioPluginContext.group_needs_render"
+      ],
+      "called_by": [],
+      "notes": [
+        "extracted from 9 duplicated _get_ctx() lazy-singleton blocks (PL-1) and 2 duplicated _load_settings_schema()s (PL-3), 2026-07-04",
+        "tts_mixed/handler.py additionally keeps its own separate _ctx_instance/set_ctx() injection hook (live, called from app/orchestration/tasks/synthesis.py) -- untouched by this factory; harmless because StudioPluginContext is stateless (holds only engine_id)",
+        "PL-2 (2026-07-04): make_segment_output_handler added, replacing 4 duplicated on_output closures; two genuine non-formula behavioral differences preserved as explicit params (on_group_completed/on_group_started hooks for xtts's j.* mutations; emit_on_save=False for voxtral segments.py's SEGMENT_SAVED-skips-update_job asymmetry) rather than inferred from engine_id"
+      ],
+      "calls_inferred": []
+    }
+  }
+}

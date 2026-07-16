@@ -1,7 +1,7 @@
 # Voice Bundle & Voice Directory Contract
 
 ```
-spec_version: 1.5.1
+spec_version: 1.12.0
 status: active
 sources:
   - app/domain/voices/manifest.py
@@ -21,6 +21,14 @@ sources:
 > **TL;DR:** Voice assets live in a versioned two-level directory (`{VoiceName}/{VariantName}/`); portable bundles are zips with the same layout; all preview audio is MP3, reference samples are WAV, render output is WAV.
 
 ## Changelog
+
+| 1.12.0  | 2026-07-15 | §11 spec sync for voices-variants-round2 (tasks 001–009): the 4-tab Voice Lab shell (Overview/Samples/Variants/Test, `VoiceDetailTabs`) is retired — §11 status note, §11.2's page-composition table, and the icon-controls row now describe the shipped shape: a `<details open>` disclosure panel (voice-level metadata, ex-`OverviewTab`) above a single variant switcher (`VariantsSection`/`VariantsTab`) rendering one `VariantEditor`, which now also owns per-variant engine-config, test-text, and Record-mode sample capture (previously spread across the deleted `TestTab`/`SamplesTab`). Icon upload/replace moved off the old standalone Overview-tab section onto `VoiceDetailHeader`'s avatar directly (`useIconUpload`, upload/replace button + drag-and-drop on the image); the "copy icon prompt" button (§11.2, unchanged behavior) now sits next to it there instead of in `IconUpload.tsx`/Overview tab. §11.1's catalog-card content set corrected to match `VoiceCatalogCard`: default-voice status renders as a star badge (not a text pill), the avatar's ▶/⏸ preview is a hover/focus-reveal overlay (not a separate inline element), Build (or the phase-appropriate primary CTA) is the sole always-visible action button, and the ⋯ `ActionMenu` is Rename Voice / Export Voice Bundle / Set as App Default / Delete. No data-shape, bundle-contract, or taxonomy change — presentation-only correction. |
+| 1.11.0  | 2026-07-15 | §11.1's "Copy icon prompt" bullet incorrectly claimed catalog-card scope; the feature is Voice-Lab-only (owner decision, restated here to close DC-013). Restored the never-mounted icon-prompt affordance as an icon-only button next to the existing icon upload control in the Voice Lab Overview tab (`IconUpload.tsx`), reusing `buildIconPrompt()` (`frontend/src/pages/VoiceLab/iconPrompt.ts`, unchanged) unmodified. Hover/keyboard-focus reveals the built prompt via a native `title` tooltip; click copies to the clipboard, with a visible error on a rejected clipboard write. The orphaned old `VoiceIconControls.tsx` implementation (a separate "Copy icon prompt" text button, zero live imports) was deleted rather than re-mounted. |
+| 1.10.0  | 2026-07-15 | Added `performance_tags` (array, optional) to §4.2 variant `profile.json` schema — per-variant, user-extensible tone/pace descriptors, normalized server-side (`.strip().lower().replace(' ', '-')`, de-duplicated) in `update_speaker_settings`. Distinct from the character-level `attributes.tone`/`.pace` closed enum. Writable through the existing `POST /api/speaker-profiles/{name}/settings` allowlist and surfaced by both `get_speaker_settings` and `list_speaker_profiles`. |
+| 1.9.0   | 2026-07-12 | Owner follow-up to 1.8.0's "residual, flagged, not fixed" note: a resolved-variant with no `sample.mp3` no longer exports a 0-byte sample. `POST /api/voices/huggingface/export` now checks the variant's sample first; if missing, it submits the same sample-generation job the Voice Lab "Test"/"Generate" button does (`app/api/routers/voices_helpers.submit_sample_test_job()`, extracted from `voices_actions.py`'s `/{name}/test` endpoint so both routes share one implementation — not duplicated) and returns `{"status": "generating", "job_id", "message"}` instead of a bundle. `POST /upload` (which calls export internally) propagates the same signal rather than trying to upload a bundle that was never built. The Voice Lab Publish modal shows a "Generating sample…" state and auto-retries the publish every 4s (bounded at 20 attempts, ~80s) until the job completes, then proceeds automatically — no separate manual step. Verified live: the extracted job-submission function produces an identical response (job id + correct audio_url) via the pre-existing `/test` endpoint against real voice data, confirming the extraction preserved behavior exactly. |
+| 1.8.0   | 2026-07-12 | Closes task 004 (engine-asset inclusion) of `design-docs/plans/active/huggingface_voice_upload/` — the owner directly resolved the scoping question this session rather than leaving it deferred: a published sample must come from the same variant whose engine asset (`latent.pth`) is published, never mixed across variants/models. New `_resolve_publish_variant()` helper (`app/api/routers/voices_huggingface.py`) picks one variant using the exact same default-variant fallback chain as `bundles.export_voice_bundle` (`state.json`'s `default_variant` → a directory literally named `Default` → first alphabetically); both the sample and any `MODEL_ASSET_NAMES` file are now read from that one variant. `export_hf_voice_bundle()` gains `engine_assets` (writes `assets/<engine_id>/<filename>`, additive/optional) and `sample_engine_id` (appends a `## Sample` section to the generated README naming the model, without modifying `bundles.generate_readme_md`). **Also fixed in the same change** (surfaced while resolving the variant question): the export endpoint's sample lookup previously checked the voice root for `samples/preview.mp3`/`sample.mp3`, paths that don't exist on any real installed voice — samples live inside each variant's own subdirectory — so every real export had silently shipped a 0-byte sample and a README with no playable `widget:` block; confirmed via a live re-export of a real voice both before (0 bytes, no widget) and after (265KB sample, widget present) this fix. The plan's additive `variant_name` override (option (b)) was not built — not requested; only always-resolve-the-default-variant (option (a)) shipped. |
+| 1.7.0   | 2026-07-12 | Closes `design-docs/plans/active/huggingface_voice_upload/` tasks 002 and 003 (task 004 remains owner-gated, untouched). **002:** `export_hf_voice_bundle()` (`app/domain/voices/huggingface.py`) now includes the generated `README.md` (reusing `bundles.generate_readme_md`, not duplicating it) and the voice's `icon.png` when present, both additive/optional. When a real sample is being published but the local `voice.json` has no `samples[]` (the common case — only the v1-schema migration ever wrote it), the export synthesizes a `{"path": "samples/preview.mp3", "primary": true}` entry for both the bundle's `voice.json` and the README, so the on-Hub manifest and its own model-card widget agree with each other instead of shipping a non-playable card. **003:** `HFHubClient.upload_files()` switched from N sequential `upload_file()` calls keyed on filename (flattened structure, non-atomic, plus a separate best-effort tag-card push) to one `HfApi.upload_folder()` call — one atomic commit, directory structure preserved (`samples/preview.mp3` no longer becomes `preview.mp3` at repo root), `repo_type="model"` now explicit on both `create_repo` and `upload_folder`. Signature change (`files: list[Path]` → `folder_path: Path`) rippled through `upload_voice_to_hub()` and the `/upload` router (which now passes its extracted bundle directory straight through instead of building a flattened file list). **Frontend wiring completed in the same change:** a new Settings → General → Publishing panel to configure the `huggingface_token` (redacted round-trip, matches the existing `_SECRET_FIELDS` pattern); Voice Lab's "Publish to Hugging Face" control replaced from a disabled "planned" placeholder pill with a real button opening a modal (repo-id input → `POST /api/voices/huggingface/upload` → success state with a Hub link + commit id, or the 422/502 error message surfaced verbatim). Verified live against the real backend: the no-token 422 path, and a real export producing a zip containing `voice.json` + `samples/preview.mp3` + `README.md` + `icon.png`. |
+| 1.6.0   | 2026-07-12 | §11 icon upload closes two real gaps found while implementing the D2 crop UI. (1) **`GET /api/voices/{id}/icon` didn't exist** — only the upload `POST` was ever built, so every icon `<img>` in the catalog/Voice Lab had 404'd since the feature originally shipped; added `GET /api/voices/{id}/icon` (`app/api/routers/voices_metadata.py`, `find_secure_file`-contained, 404 when no icon uploaded) actually serving the saved PNG. (2) D2's "crop UI (or error if non-square)" was previously only the reject branch; a non-square source image now opens `IconCropModal` (drag-to-reposition + zoom-slider, canvas-cropped client-side to a square PNG) instead of round-tripping to the server for a 422 — square sources still upload directly, unchanged. Confirms PNG (not JPG) is and remains the correct icon format per this spec and `docs/user-guide/voice-tags-icons.md`; a stale TASKS.md checklist item referencing "JPG" was a wording error, not a spec conflict. |
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
@@ -137,6 +145,7 @@ voices/
 | `variant_name` | string | Yes      | Must match the parent directory name                 |
 | `engine`       | string | Yes      | Engine plugin ID that owns this variant              |
 | `speaker_id`   | string | Yes      | Stable UUID linking variant to a Speaker DB record   |
+| `performance_tags` | array of strings | No | User-extensible per-variant performance tags (tone/pace descriptors), distinct from the character-level `attributes.tone` |
 
 **MUST NOT** branch on `engine` value in core queue/route/UI code; engine-specific behavior belongs in the engine plugin.
 
@@ -298,14 +307,25 @@ visual rule (pill tints, category colours) it **cross-references**
 
 > **Status — shipped.** The Voice Lab page (`frontend/src/pages/VoiceLab/VoiceLabPage.tsx`)
 > exists as a routed production page at `/voices/:id`. It includes the full header (back
-> link, avatar, name, pill row, description, "Edit metadata" button), a `PhaseStepper`
-> driven by `getVoicePhase`, and lazy-loaded body sections:
-> `SamplesSection`, `VariantsSection`, `TestSection`, and `VoiceIconControls` — all
-> implemented under `frontend/src/pages/VoiceLab/components/`.
+> link, avatar, name, pill row, description), a `PhaseStepper` driven by `getVoicePhase`,
+> and a body of exactly two regions: a `<details open>` disclosure panel holding
+> voice-level metadata (`OverviewTab`, inline-editable, no separate Save modal) and,
+> below it, a single variant switcher + `VariantEditor` (`VariantsTab`/`VariantsSection`)
+> — the default variant sorted first and selected on load. The prior 4-tab shell
+> (`Overview`/`Samples`/`Variants`/`Test`, `VoiceDetailTabs`) and its `SamplesTab`/`TestTab`
+> panels are deleted; `VariantEditor` now also owns per-variant engine-config, test-text
+> (with seeded defaults), and Record-mode sample capture, which previously lived in those
+> retired tabs.
 >
 > The icon-upload backend also exists — `POST /api/voices/{id}/icon`
-> (`app/api/routers/voices_metadata.py`, multipart image, 1:1 aspect enforced) — and is
-> wired to `VoiceIconControls`.
+> (`app/api/routers/voices_metadata.py`, multipart image, 1:1 aspect enforced) and
+> `GET /api/voices/{id}/icon` (serves the saved PNG, 404 if none uploaded) — and is now
+> wired directly onto `VoiceDetailHeader`'s avatar (`useIconUpload`, `frontend/src/pages/
+> VoiceLab/components/VoiceDetailHeader.tsx`): an upload/replace button plus drag-and-drop
+> onto the avatar image itself, folded off the old standalone Overview-tab icon section.
+> The icon-only "copy icon prompt" button (§11.2) sits next to it there. A non-square
+> source opens a client-side crop modal (drag + zoom, canvas-cropped to a square PNG)
+> rather than being rejected outright.
 >
 > Canonical design sources: `design-docs/plans/reference/site_experience_north_star.md` §5 + decision Q4 (U8
 > card content set) and `design-docs/plans/reference/site_redesign_rollout/07_phase_r5_platform.md`.
@@ -317,23 +337,19 @@ content set is:
 
 | Element                | Source                                                      | Notes                                                                 |
 |------------------------|-------------------------------------------------------------|-----------------------------------------------------------------------|
-| Voice icon             | Uploaded image (`POST /api/voices/{id}/icon`)               | 1:1; falls back to a generated initial/placeholder when none uploaded |
+| Voice icon             | Uploaded image (`POST /api/voices/{id}/icon`)               | 1:1; falls back to a generated initial/placeholder when none uploaded; a ▶/⏸ preview control is a hover/focus-reveal overlay on the avatar (always-tabbable, gated by CSS opacity — never `display:none`), not a separate inline element |
+| Default-voice indicator | App-default flag                                            | A star badge (top-left), not a text pill                              |
 | Attribute pills        | Taxonomy values from §8 (e.g. class/gender/age)             | Category-tinted — tint presentation rules live in `design-system.md`  |
 | One-line description   | Voice metadata `description`                                | Single line; truncates with ellipsis                                  |
-| ▶ Preview              | `sample.mp3` / `samples/preview.mp3` (§2)                   | Inline play; never the WAV references                                 |
-| Primary CTA            | One **phase-appropriate** action                            | The single CTA for the voice's current phase (Samples→Build→Test→Ready) |
-| Overflow menu (⋯)      | Secondary actions (rename, delete, edit metadata, move, …)  | Everything not the primary CTA                                        |
+| Primary CTA            | One **phase-appropriate** action                            | Build (or the phase-appropriate CTA) — the sole always-visible action button |
+| Overflow menu (⋯)      | `ActionMenu`: Rename Voice / Export Voice Bundle / Set as App Default / Delete | Everything not the primary CTA                                        |
 
 - **Pill tints** are a presentation concern owned by `design-docs/specs/design-system.md`
   (category → tint mapping); this spec only states that the pill **values** are the §8
   taxonomy attributes. Untagged voices still render (warning affordance per §8), they
   MUST NOT error.
-- **Copy icon prompt (doc 04 C6).** Beside the icon, the UI exposes a copyable
-  image-generation prompt built by **frontend string templating** from the voice's
-  attributes (§8) + description, with a fixed style preamble so user-generated icons stay
-  visually uniform across the catalog. This is pure client-side templating —
-  **no image generation and no API call happen inside Studio.** The same builder is used
-  in the Voice Lab header (§11.2).
+- **Copy icon prompt is Voice-Lab-only**, not part of the catalog card content set — see
+  §11.2.
 
 **MUST** drive the catalog card's preview from MP3 preview audio, never the WAV
 reference samples (§2).
@@ -351,14 +367,12 @@ Page composition:
 
 | Region              | Content                                                                                          |
 |---------------------|--------------------------------------------------------------------------------------------------|
-| Header              | ← Voices back link, voice icon, name, full pill row (§8), description, "Edit metadata" affordance |
+| Header              | ← Voices back link, voice icon (with upload/replace button + drag-and-drop directly on the avatar, `VoiceDetailHeader.tsx`) + icon-only copy-icon-prompt button, name, full pill row (§8), description. Metadata editing has no header trigger/modal — it's inline in the disclosure panel below. |
 | Phase stepper       | Four steps **Samples → Build → Test → Ready**; past = done, active = filled, future = muted      |
-| Sample manager      | List / play / delete / drop-zone upload of reference samples                                     |
-| Variants            | One row per variant (§3/§4.2); **per-variant engine settings**; the **default variant is starred** |
-| Engine settings     | Engine-owned settings for the selected variant (never engine-ID branching in core UI per §4.2)   |
-| Test strip          | Synthesize-and-listen against the current variant/settings                                       |
+| Overview disclosure | `<details open>` panel (ex-`OverviewTab`): voice-level metadata (class/gender/age/tags/description), inline-editable with an explicit Save, no separate modal |
+| Variant switcher    | One tab per variant (§3/§4.2), default variant sorted first and selected on load; renders a single `VariantEditor` for the selected variant |
+| Variant editor      | Per-variant, scoped to the switcher's current selection: reference-sample manager (list/play/delete/drop-zone upload + Record-mode capture), **engine settings** (engine-owned, never engine-ID branching in core UI per §4.2), and a test strip (synthesize-and-listen against the variant's current settings, with seeded test text) |
 | Export              | Portable bundle `.zip` (§6) **or** HuggingFace publish                                            |
-| Icon controls       | Icon upload (`POST /api/voices/{id}/icon`) + "📋 Copy icon prompt" (the §11.1 builder)            |
 
 - The phase shown by the stepper and the catalog card's primary CTA derive from the same
   voice-phase computation (Samples→Build→Test→Ready); they MUST agree.

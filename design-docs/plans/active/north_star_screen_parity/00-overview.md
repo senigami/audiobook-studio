@@ -77,12 +77,22 @@ These were real forks found during research — the owner has now decided both.
    pending task 010 Step 3's research gate confirming the store actually supports this query shape.
    See task `010`.
 3. **Should Library's "Continue" section and per-project status exist, and where does the data
-   come from?** The demo shows an always-current-user info section (a "Continue" row with
-   progress/ETA/status per book) that live has no visual equivalent for, and no persisted field
-   for on the `Project` type. Research (task `005`/`006`) must first determine whether this is
-   *derivable* from existing chapter/render data before any schema change is proposed — this plan
-   does not authorize a schema/API change on its own; if derivation isn't possible, the task stops
-   and surfaces that back to the owner rather than improvising a persisted field.
+   come from? DECIDED (2026-07-11) — ship a partial 3-state status pill, no schema change.**
+   Research (task `005`) found the status *is* cheaply derivable, but only partially: a single new
+   aggregate SQL query in `app/db/projects.py::list_projects()` (chapters LEFT JOIN'd to a
+   per-chapter segment-count subquery, grouped by project, same shape as the existing
+   `_segment_counts_sql` helper in `app/db/chapters.py`) can distinguish "drafting" (no chapter has
+   been chunked into segments yet) / "casting" (some progress, not fully rendered) / "rendered"
+   (every chapter's `audio_status` is `'done'`) — all from data already in the DB, in the Library
+   page's existing single fetch, no N+1. The demo's full 5-state set (+ "Studio" actively-rendering,
+   + "Published" assembled) is **not** derivable this way: "Studio" needs a live-job signal (no
+   DB-tracked "is this project's render job running right now" column — would need a new
+   subscription/polling architecture) and "Published" needs an assembled-audiobook check (currently
+   only available via a per-project filesystem/API round-trip — an N+1 if done for every card).
+   **Owner decision:** ship the derivable 3 states now (task `005`); leave Studio/Published
+   out of scope for this plan rather than block the pill on solving the harder pair. The "Continue"
+   section (progress/ETA per book) remains task `006`'s separate, still-open question — it depends
+   on the same underlying data as this decision but was kept out of task 005's scope.
 
 ## Non-goals worth naming explicitly
 

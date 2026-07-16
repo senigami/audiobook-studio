@@ -1,8 +1,9 @@
 import { useMemo, useState, type KeyboardEvent } from 'react';
-import { ChevronDown, ChevronUp, Plus, ArrowUpCircle, Trash2, MoreVertical, Ban, UserPlus } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, ArrowUpCircle, Trash2, MoreVertical, Ban, UserPlus, Play, Pause } from 'lucide-react';
 import { ColorSwatchPicker } from '@/components/forms/ColorSwatchPicker';
 import { VoiceProfileSelect } from '@/pages/ChapterEditor/components/VoiceProfileSelect';
 import { ActionMenu } from '@/components/ui/ActionMenu';
+import { usePlayerBus, loadAndPlay, pause as pauseBus } from '@/store/playerBus';
 import type { Character, ChapterSegment, Speaker, SpeakerProfile, TtsEngine } from '@/types';
 import type { VoiceOption } from '@/utils/voiceProfiles';
 import {
@@ -145,6 +146,7 @@ function CharacterRow({
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [labelFocused, setLabelFocused] = useState(false);
+  const playerBus = usePlayerBus();
 
   const charProfile = speakerProfiles.find((p) => p.name === char.speaker_profile_name);
   const baseName = (char.speaker_profile_name ?? '').split(' - ')[0];
@@ -314,40 +316,77 @@ function CharacterRow({
               else disabledReason = `Engine ${variantEngineLabel} is ${engine.status.replace('_', ' ')}`;
             }
 
+            // Inline audition (persona fast-follow: Casting Director) — a play/pause
+            // button per candidate variant so two voices can be compared without
+            // leaving the chapter. Reuses the same global player-bus idiom as
+            // VoiceCatalogCard's preview button (ADR-0010): a single "now playing"
+            // slot means clicking candidate B naturally interrupts candidate A —
+            // sequential audition for free, no new playback state to manage.
+            const previewUrl = variant.preview_url ?? null;
+            const isPlayingPreview =
+              playerBus.scope === 'preview' &&
+              playerBus.audioUrl === previewUrl &&
+              playerBus.playing;
+            const handlePreviewToggle = (event: React.MouseEvent) => {
+              event.stopPropagation();
+              if (!previewUrl) return;
+              if (isPlayingPreview) {
+                pauseBus();
+              } else {
+                loadAndPlay({
+                  scope: 'preview',
+                  title: `${char.name} — ${getVariantDisplayName(variant)}`,
+                  subtitle: 'Voice preview',
+                  audioUrl: previewUrl,
+                });
+              }
+            };
+
             return (
-              <button
-                key={variant.name}
-                type="button"
-                onClick={() => {
-                  if (allowDisarm && selectedCharacterId === char.id && selectedProfileName === variant.name) {
-                    onVariantDisarm();
-                    return;
-                  }
-                  onVariantSelect(variant.name);
-                }}
-                disabled={false}
-                title={disabledReason || undefined}
-                className="cast-palette__variant-btn"
-                style={{
-                  border: `1px solid ${isVariantSelected ? char.color : 'transparent'}`,
-                  background: isVariantSelected ? `${char.color}10` : 'transparent',
-                  opacity: !selectable ? 0.4 : 0.8,
-                }}
-              >
-                <div
-                  className="cast-palette__variant-dot"
-                  style={{
-                    border: `1.5px solid ${char.color}`,
-                    background: isVariantSelected ? char.color : 'transparent',
+              <div key={variant.name} className="cast-palette__variant-row">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (allowDisarm && selectedCharacterId === char.id && selectedProfileName === variant.name) {
+                      onVariantDisarm();
+                      return;
+                    }
+                    onVariantSelect(variant.name);
                   }}
-                />
-                <div className="cast-palette__variant-text" style={{ fontWeight: isVariantSelected ? 600 : 400 }}>
-                  <span className="cast-palette__variant-label">
-                    {getVariantDisplayName(variant)}
-                  </span>
-                  {!selectable && <Ban size={10} aria-hidden="true" className="cast-palette__variant-ban-icon" />}
-                </div>
-              </button>
+                  disabled={false}
+                  title={disabledReason || undefined}
+                  className="cast-palette__variant-btn"
+                  style={{
+                    border: `1px solid ${isVariantSelected ? char.color : 'transparent'}`,
+                    background: isVariantSelected ? `${char.color}10` : 'transparent',
+                    opacity: !selectable ? 0.4 : 0.8,
+                  }}
+                >
+                  <div
+                    className="cast-palette__variant-dot"
+                    style={{
+                      border: `1.5px solid ${char.color}`,
+                      background: isVariantSelected ? char.color : 'transparent',
+                    }}
+                  />
+                  <div className="cast-palette__variant-text" style={{ fontWeight: isVariantSelected ? 600 : 400 }}>
+                    <span className="cast-palette__variant-label">
+                      {getVariantDisplayName(variant)}
+                    </span>
+                    {!selectable && <Ban size={10} aria-hidden="true" className="cast-palette__variant-ban-icon" />}
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePreviewToggle}
+                  disabled={!previewUrl}
+                  aria-label={isPlayingPreview ? `Pause ${getVariantDisplayName(variant)} preview` : `Play ${getVariantDisplayName(variant)} preview`}
+                  title={previewUrl ? 'Play preview' : 'No preview available'}
+                  className="cast-palette__variant-play-btn"
+                >
+                  {isPlayingPreview ? <Pause size={11} aria-hidden="true" /> : <Play size={11} aria-hidden="true" />}
+                </button>
+              </div>
             );
           })}
         </div>

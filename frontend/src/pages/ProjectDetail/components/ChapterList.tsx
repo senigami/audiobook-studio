@@ -1,5 +1,5 @@
 import React from 'react';
-import { Reorder } from 'framer-motion';
+import { Reorder, useDragControls } from 'framer-motion';
 import { FileText, GripVertical, CheckSquare, Square, RefreshCw, Zap, Video, Download, Trash2, Loader2, Play, Pause } from 'lucide-react';
 import { usePlayerBus, loadAndPlay, play, pause } from '@/store/playerBus';
 import { InlineEdit } from '@/components/forms/InlineEdit';
@@ -8,6 +8,9 @@ import { StatusOrb } from '@/components/ui/StatusOrb';
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 import type { Chapter, Job, TtsEngine } from '@/types';
 import { isMainQueueSegmentItem, shouldShowIndeterminateProgress } from '@/utils/jobSelection';
+import './ChapterList.css';
+
+const RECENT_COMPLETION_WINDOW_SECONDS = 60;
 
 interface ChapterListProps {
   chapters: Chapter[];
@@ -30,6 +33,303 @@ interface ChapterListProps {
   engines?: TtsEngine[];
 }
 
+interface ChapterRowProps {
+  chap: Chapter;
+  idx: number;
+  totalChapters: number;
+  projectId: string;
+  isAssemblyMode: boolean;
+  selectedChapters: Set<string>;
+  onSelectChapter: (id: string) => void;
+  onEditChapter: (id: string) => void;
+  onRenameChapter: (id: string, newTitle: string) => Promise<void>;
+  onQueueChapter: (chap: Chapter, rebuild?: boolean) => void;
+  onResetAudio: (id: string) => void;
+  onDeleteChapter: (id: string) => void;
+  onExportSample: (chap: Chapter) => void;
+  isExporting: string | null;
+  anyEnginesEnabled: boolean;
+  engines: TtsEngine[];
+  pickActiveJob: (chapterId: string, includeRecentDone?: boolean) => Job | null;
+  openMenuRowId: string | null;
+  setOpenMenuRowId: (id: string | null) => void;
+}
+
+const ChapterRow: React.FC<ChapterRowProps> = ({
+  chap,
+  idx,
+  totalChapters,
+  projectId,
+  isAssemblyMode,
+  selectedChapters,
+  onSelectChapter,
+  onEditChapter,
+  onRenameChapter,
+  onQueueChapter,
+  onResetAudio,
+  onDeleteChapter,
+  onExportSample,
+  isExporting,
+  anyEnginesEnabled,
+  engines,
+  pickActiveJob,
+  openMenuRowId,
+  setOpenMenuRowId,
+}) => {
+  const dragControls = useDragControls();
+  const playerBus = usePlayerBus();
+
+  const hasChapterAudio = !!(chap.has_wav || chap.has_mp3 || chap.has_m4a);
+  const activeJob = pickActiveJob(chap.id, !hasChapterAudio && chap.audio_status !== 'processing');
+  const isRecentDone = activeJob?.status === 'done' && !!activeJob?.finished_at && ((Date.now() / 1000) - activeJob.finished_at) <= RECENT_COMPLETION_WINDOW_SECONDS;
+  const displayStatus = isRecentDone && !hasChapterAudio ? 'finalizing' : activeJob?.status;
+  const renderGroupCount = activeJob?.render_group_count ?? 0;
+  const completedRenderGroups = activeJob?.completed_render_groups ?? 0;
+  const activeRenderGroupIndex = activeJob?.active_render_group_index ?? 0;
+  const totalRenderWeight = activeJob?.total_render_weight ?? 0;
+  const completedRenderWeight = activeJob?.completed_render_weight ?? 0;
+  const activeRenderGroupWeight = activeJob?.active_render_group_weight ?? 0;
+  const liveRenderBlockIsActive = !!activeJob && (
+    !!activeJob.active_segment_id ||
+    !!activeJob.active_render_batch_id ||
+    typeof activeJob.active_render_batch_progress === 'number'
+  );
+  const activeGroupProgress = activeRenderGroupIndex > completedRenderGroups
+    ? Math.max(0, Math.min(activeJob?.active_segment_progress ?? 0, 1))
+    : 0;
+  const isGroupedChapterJob = !!activeJob && renderGroupCount > 0 && !isMainQueueSegmentItem(activeJob);
+  const weightedGroupedProgress = totalRenderWeight > 0
+    ? (((completedRenderWeight + (activeRenderGroupWeight * activeGroupProgress)) / totalRenderWeight) * 0.9)
+    : 0;
+  const backendGroupedProgress = activeJob?.grouped_progress ?? 0;
+  const progressValue = displayStatus === 'finalizing'
+    ? 1
+    : activeJob ? Math.max(activeJob.progress ?? 0, backendGroupedProgress, weightedGroupedProgress) : 0;
+  const engineMeta = engines.find(e => e.engine_id === activeJob?.engine);
+  const showIndeterminateProgress = !!activeJob && shouldShowIndeterminateProgress({ ...activeJob, engineMeta });
+  const isMenuOpen = openMenuRowId === chap.id;
+  const isFullyRendered = hasChapterAudio;
+  const queuePending = !activeJob && chap.audio_status === 'processing';
+  const queueActionLabel = isFullyRendered
+    ? 'Rebuild Audio'
+    : (chap.done_segments_count || 0) > 0 && (chap.done_segments_count || 0) < (chap.total_segments_count || 0)
+      ? 'Queue Remaining'
+      : 'Queue Chapter';
+  const isLoadingModel = activeJob?.reason_code === 'LOADING_MODEL' && displayStatus === 'preparing';
+  const queueStatus = activeJob
+    ? (displayStatus === 'queued'
+      ? 'Queued'
+      : isLoadingModel
+        ? 'Loading model'
+      : displayStatus === 'preparing'
+        ? 'Preparing'
+      : displayStatus === 'running'
+          ? (liveRenderBlockIsActive ? 'Rendering' : 'Processing')
+          : displayStatus === 'finalizing'
+            ? 'Finalizing'
+            : null)
+    : queuePending
+      ? 'Queued'
+      : chap.audio_status === 'processing'
+        ? 'Processing'
+        : null;
+  const isQueued = queueStatus === 'Queued';
+
+  return (
+    <Reorder.Item
+        key={chap.id} value={chap}
+        className={`chapter-row ${isMenuOpen ? 'is-menu-open' : ''}`}
+        initial={{ opacity: 0 }} animate={{ opacity: 1, backgroundColor: isMenuOpen ? 'var(--as-info-tint)' : 'var(--surface)' }}
+        style={{ padding: '0.4rem 1.25rem', borderBottom: idx === totalChapters - 1 ? 'none' : '1px solid var(--border)', display: 'flex', gap: '1rem', alignItems: 'center', cursor: 'default', position: 'relative', zIndex: (activeJob || isMenuOpen) ? 5 : 1 }}
+        dragListener={false}
+        dragControls={dragControls}
+        onClick={() => isAssemblyMode && chap.audio_status === 'done' && onSelectChapter(chap.id)}
+    >
+      {!isAssemblyMode && (
+        <div
+          className="drag-handle"
+          style={{ position: 'absolute', left: '-7px', top: '50%', transform: 'translateY(-50%)', cursor: 'grab', color: 'var(--text-muted)', background: 'var(--surface)', borderRadius: '4px', padding: '4px 0', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', zIndex: 10 }}
+          onPointerDown={(e) => dragControls.start(e)}
+        >
+          <GripVertical size={14} />
+        </div>
+      )}
+
+      <div className="chapter-row-meta" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: '30px', flexShrink: 0 }}>
+        {isAssemblyMode && (
+          <div style={{ color: chap.audio_status === 'done' ? 'var(--accent)' : 'var(--border)', cursor: chap.audio_status === 'done' ? 'pointer' : 'not-allowed' }}>
+            {selectedChapters.has(chap.id) && chap.audio_status === 'done' ? <CheckSquare size={18} /> : <Square size={18} />}
+          </div>
+        )}
+        <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--surface-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', fontSize: '0.75rem', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>{idx + 1}</div>
+        {!isAssemblyMode && (
+          <StatusOrb chap={chap} activeJob={activeJob ?? undefined} queuePending={queuePending} doneSegments={chap.done_segments_count} totalSegments={chap.total_segments_count} />
+        )}
+      </div>
+
+      <div className="chapter-row-title" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', opacity: isAssemblyMode && chap.audio_status !== 'done' ? 0.4 : 1, cursor: isAssemblyMode ? 'default' : 'pointer', minWidth: '150px', flex: '1 1 0' }} onClick={() => !isAssemblyMode && onEditChapter(chap.id)}>
+        <InlineEdit
+          value={chap.title}
+          onSave={(newTitle) => onRenameChapter(chap.id, newTitle)}
+          disabled={isAssemblyMode}
+          style={{ fontWeight: 500, fontSize: '0.95rem' }}
+        />
+        {queueStatus && (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            padding: '0.2rem 0.55rem',
+            borderRadius: '999px',
+            background: isQueued ? 'var(--accent)' : 'var(--accent-tint)',
+            color: isQueued ? 'white' : 'var(--accent)',
+            fontSize: '0.7rem',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.04em',
+            border: '1px solid var(--accent)',
+            whiteSpace: 'nowrap',
+            boxShadow: isQueued ? '0 0 0 1px var(--accent-glow)' : 'none'
+          }}>
+            {queueStatus}
+          </span>
+        )}
+      </div>
+
+      <div className="chapter-row-actions" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1rem', flex: '2 1 0', minWidth: 0, flexWrap: 'wrap' }}>
+        {activeJob ? (
+            <div style={{ width: '100%', maxWidth: '600px' }}>
+                <PredictiveProgressBar
+                  dataTestId="chapter-list-progress-bar"
+                  progress={progressValue}
+                  startedAt={activeJob.started_at}
+                  etaSeconds={activeJob.eta_seconds}
+                  etaBasis={activeJob.eta_basis ?? (activeJob.eta_seconds != null ? 'remaining_from_update' : undefined)}
+                  updatedAt={activeJob.updated_at}
+                  persistenceKey={activeJob.id}
+                  status={showIndeterminateProgress ? 'preparing' : displayStatus}
+                  state={
+                    displayStatus === 'preparing'
+                      ? 'preparing'
+                      : displayStatus === 'finalizing'
+                        ? 'finalizing'
+                        : displayStatus === 'running'
+                          ? (liveRenderBlockIsActive ? 'running' : 'processing')
+                          : (displayStatus === 'error' ? 'failed' : displayStatus as any)
+                  }
+                  label={isLoadingModel ? 'loading voice model…' : displayStatus}
+                  predictive={true}
+                  allowBackwardProgress={!isGroupedChapterJob}
+                  checkpointMode={isGroupedChapterJob ? 'queue' : (isMainQueueSegmentItem(activeJob) ? 'segment' : 'default')}
+                  transitionTickCount={
+                    isGroupedChapterJob
+                        ? 12
+                        : isMainQueueSegmentItem(activeJob)
+                        ? 3
+                        : 8
+                  }
+                  backwardTransitionTickCount={2}
+                  tickMs={250}
+                />
+            </div>
+        ) : hasChapterAudio && !isAssemblyMode ? (() => {
+            const audioPath = chap.audio_file_path || 'chapter.wav';
+            const audioUrl = `/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=${encodeURIComponent(audioPath)}`;
+            const isCurrentChapterAudio = playerBus.scope === 'chapter' && playerBus.audioUrl === audioUrl;
+            const isChapterPlaying = isCurrentChapterAudio && playerBus.playing;
+
+            return (
+              <button
+                onClick={e => {
+                  e.stopPropagation();
+                  if (isCurrentChapterAudio) {
+                    if (isChapterPlaying) {
+                      pause();
+                    } else {
+                      play();
+                    }
+                  } else {
+                    loadAndPlay({
+                      scope: 'chapter',
+                      title: chap.title || 'Chapter Audio',
+                      subtitle: `Chapter ${idx + 1}`,
+                      audioUrl,
+                    });
+                  }
+                }}
+                className="btn-ghost"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.4rem 0.8rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.85rem',
+                  height: '36px',
+                }}
+                title={isChapterPlaying ? 'Pause Chapter Audio' : 'Play Chapter Audio'}
+              >
+                {isChapterPlaying ? <Pause size={14} /> : <Play size={14} />}
+                {isChapterPlaying ? 'Pause' : 'Play Audio'}
+              </button>
+            );
+          })() : (
+          <div className="chapter-row-wordcount" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+            <span>{chap.word_count ?? 0} words</span>
+            <span>•</span>
+            <span>{chap.char_count ?? 0} chars</span>
+          </div>
+        )}
+
+
+        {!isAssemblyMode && (
+          <>
+            <div style={{ display: 'flex', gap: '0.15rem', borderLeft: '1px solid var(--border)', paddingLeft: '1rem' }}>
+              <button
+                onClick={e => { e.stopPropagation(); onQueueChapter(chap, isFullyRendered); }}
+                className="btn-ghost"
+                disabled={chap.audio_status === 'processing' || !anyEnginesEnabled}
+                title={!anyEnginesEnabled ? 'All TTS engines are disabled in Settings' : (chap.audio_status === 'processing' ? 'Processing' : queueActionLabel)}
+                aria-label={!anyEnginesEnabled ? 'All TTS engines are disabled in Settings' : (chap.audio_status === 'processing' ? 'Processing' : queueActionLabel)}
+                style={{ padding: '0.4rem', color: anyEnginesEnabled ? 'var(--accent)' : 'var(--text-muted)' }}
+              >
+                <Zap size={16} />
+              </button>
+              <button onClick={e => { e.stopPropagation(); onEditChapter(chap.id); }} className="btn-ghost" aria-label="Open chapter editor" style={{ padding: '0.4rem', color: 'var(--text-secondary)' }}><FileText size={16} /></button>
+            </div>
+            <ActionMenu
+              onOpenChange={open => setOpenMenuRowId(open ? chap.id : null)}
+              items={[
+                ...([
+                  {
+                    label: queueActionLabel,
+                    icon: RefreshCw,
+                    disabled: !anyEnginesEnabled,
+                    title: !anyEnginesEnabled ? 'All engines disabled' : undefined,
+                    onClick: () => onQueueChapter(chap, isFullyRendered)
+                  }
+                ].filter(() => {
+                  const isStale = chap.text_last_modified && chap.audio_generated_at && (chap.text_last_modified > chap.audio_generated_at);
+                  const isPartial = (chap.done_segments_count || 0) > 0 && (chap.done_segments_count || 0) < (chap.total_segments_count || 0) && !chap.has_wav;
+                  return isStale || isPartial || (chap.audio_status !== 'processing' && !chap.has_wav && !activeJob);
+                })),
+                { label: isExporting === chap.id ? 'Generating...' : 'Export Video Sample', icon: isExporting === chap.id ? Loader2 : Video, disabled: chap.audio_status !== 'done' || isExporting !== null, onClick: () => onExportSample(chap) },
+                ...(hasChapterAudio && chap.audio_file_path ? [{ label: 'Download Audio', icon: Download, onClick: () => { const path = chap.audio_file_path; if (!path) return; const link = document.createElement('a'); link.href = `/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=${path}`; link.download = `${chap.title}${path.substring(path.lastIndexOf('.'))}`; link.click(); } }] : []),
+                { isDivider: true },
+                { label: 'Reset Audio', icon: RefreshCw, onClick: () => onResetAudio(chap.id) },
+                { label: 'Delete Chapter', icon: Trash2, isDestructive: true, onClick: () => onDeleteChapter(chap.id) }
+              ]}
+            />
+          </>
+        )}
+      </div>
+    </Reorder.Item>
+  );
+};
+
 export const ChapterList: React.FC<ChapterListProps> = ({
   chapters,
   projectId,
@@ -49,9 +349,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
   anyEnginesEnabled = true,
   engines = []
 }) => {
-  const RECENT_COMPLETION_WINDOW_SECONDS = 60;
   const [openMenuRowId, setOpenMenuRowId] = React.useState<string | null>(null);
-  const playerBus = usePlayerBus();
 
   const pickActiveJob = React.useCallback((chapterId: string, includeRecentDone = false) => {
     const liveStatuses = new Set(['running', 'preparing', 'finalizing', 'queued']);
@@ -98,257 +396,32 @@ export const ChapterList: React.FC<ChapterListProps> = ({
           <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Select All Chapters</span>
         </div>
       )}
-      
+
       <Reorder.Group axis="y" values={chapters} onReorder={onReorder} style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
-        {chapters.map((chap, idx) => {
-          const hasChapterAudio = !!(chap.has_wav || chap.has_mp3 || chap.has_m4a);
-          const activeJob = pickActiveJob(chap.id, !hasChapterAudio && chap.audio_status !== 'processing');
-          const isRecentDone = activeJob?.status === 'done' && !!activeJob?.finished_at && ((Date.now() / 1000) - activeJob.finished_at) <= RECENT_COMPLETION_WINDOW_SECONDS;
-          const displayStatus = isRecentDone && !hasChapterAudio ? 'finalizing' : activeJob?.status;
-          const renderGroupCount = activeJob?.render_group_count ?? 0;
-          const completedRenderGroups = activeJob?.completed_render_groups ?? 0;
-          const activeRenderGroupIndex = activeJob?.active_render_group_index ?? 0;
-          const totalRenderWeight = activeJob?.total_render_weight ?? 0;
-          const completedRenderWeight = activeJob?.completed_render_weight ?? 0;
-          const activeRenderGroupWeight = activeJob?.active_render_group_weight ?? 0;
-          const liveRenderBlockIsActive = !!activeJob && (
-            !!activeJob.active_segment_id ||
-            !!activeJob.active_render_batch_id ||
-            typeof activeJob.active_render_batch_progress === 'number'
-          );
-          const activeGroupProgress = activeRenderGroupIndex > completedRenderGroups
-            ? Math.max(0, Math.min(activeJob?.active_segment_progress ?? 0, 1))
-            : 0;
-          const isGroupedChapterJob = !!activeJob && renderGroupCount > 0 && !isMainQueueSegmentItem(activeJob);
-          const weightedGroupedProgress = totalRenderWeight > 0
-            ? (((completedRenderWeight + (activeRenderGroupWeight * activeGroupProgress)) / totalRenderWeight) * 0.9)
-            : 0;
-          const backendGroupedProgress = activeJob?.grouped_progress ?? 0;
-          const progressValue = displayStatus === 'finalizing'
-            ? 1
-            : activeJob ? Math.max(activeJob.progress ?? 0, backendGroupedProgress, weightedGroupedProgress) : 0;
-          const engineMeta = engines.find(e => e.engine_id === activeJob?.engine);
-          const showIndeterminateProgress = !!activeJob && shouldShowIndeterminateProgress({ ...activeJob, engineMeta });
-          const isMenuOpen = openMenuRowId === chap.id;
-          const isFullyRendered = hasChapterAudio;
-          const queuePending = !activeJob && chap.audio_status === 'processing';
-          const queueActionLabel = isFullyRendered
-            ? 'Rebuild Audio'
-            : (chap.done_segments_count || 0) > 0 && (chap.done_segments_count || 0) < (chap.total_segments_count || 0)
-              ? 'Queue Remaining'
-              : 'Queue Chapter';
-          const isLoadingModel = activeJob?.reason_code === 'LOADING_MODEL' && displayStatus === 'preparing';
-          const queueStatus = activeJob
-            ? (displayStatus === 'queued'
-              ? 'Queued'
-              : isLoadingModel
-                ? 'Loading model'
-              : displayStatus === 'preparing'
-                ? 'Preparing'
-              : displayStatus === 'running'
-                  ? (liveRenderBlockIsActive ? 'Rendering' : 'Processing')
-                  : displayStatus === 'finalizing'
-                    ? 'Finalizing'
-                    : null)
-            : queuePending
-              ? 'Queued'
-              : chap.audio_status === 'processing'
-                ? 'Processing'
-                : null;
-          const isQueued = queueStatus === 'Queued';
-
-          return (
-            <Reorder.Item 
-                key={chap.id} value={chap} 
-                className={`chapter-row ${isMenuOpen ? 'is-menu-open' : ''}`}
-                initial={{ opacity: 0 }} animate={{ opacity: 1, backgroundColor: isMenuOpen ? 'var(--as-info-tint)' : 'var(--surface)' }}
-                style={{ padding: '0.4rem 1.25rem', borderBottom: idx === chapters.length - 1 ? 'none' : '1px solid var(--border)', display: 'flex', gap: '1rem', alignItems: 'center', cursor: 'grab', position: 'relative', zIndex: (activeJob || isMenuOpen) ? 5 : 1 }}
-                dragListener={!isAssemblyMode}
-                onClick={() => isAssemblyMode && chap.audio_status === 'done' && onSelectChapter(chap.id)}
-            >
-              {!isAssemblyMode && (
-                <div className="drag-handle" style={{ position: 'absolute', left: '-7px', top: '50%', transform: 'translateY(-50%)', cursor: 'grab', color: 'var(--text-muted)', background: 'var(--surface)', borderRadius: '4px', padding: '4px 0', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', zIndex: 10 }}>
-                  <GripVertical size={14} />
-                </div>
-              )}
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: '30px', flexShrink: 0 }}>
-                {isAssemblyMode && (
-                  <div style={{ color: chap.audio_status === 'done' ? 'var(--accent)' : 'var(--border)', cursor: chap.audio_status === 'done' ? 'pointer' : 'not-allowed' }}>
-                    {selectedChapters.has(chap.id) && chap.audio_status === 'done' ? <CheckSquare size={18} /> : <Square size={18} />}
-                  </div>
-                )}
-                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--surface-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600', fontSize: '0.75rem', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>{idx + 1}</div>
-              </div>
-
-              {!isAssemblyMode && (
-                <ActionMenu 
-                  onOpenChange={(open) => setOpenMenuRowId(open ? chap.id : null)}
-                  trigger={<StatusOrb chap={chap} activeJob={activeJob} queuePending={queuePending} doneSegments={chap.done_segments_count} totalSegments={chap.total_segments_count} />}
-                  items={[
-                    { 
-                      label: queueActionLabel, 
-                      icon: RefreshCw, 
-                      disabled: !anyEnginesEnabled,
-                      title: !anyEnginesEnabled ? 'All engines disabled' : undefined,
-                      onClick: () => onQueueChapter(chap, isFullyRendered)
-                    }
-                  ].filter(() => {
-                    const isStale = chap.text_last_modified && chap.audio_generated_at && (chap.text_last_modified > chap.audio_generated_at);
-                    const isPartial = (chap.done_segments_count || 0) > 0 && (chap.done_segments_count || 0) < (chap.total_segments_count || 0) && !chap.has_wav;
-                    return isStale || isPartial || (chap.audio_status !== 'processing' && !chap.has_wav && !activeJob);
-                  })}
-                />
-              )}
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', opacity: isAssemblyMode && chap.audio_status !== 'done' ? 0.4 : 1, cursor: isAssemblyMode ? 'default' : 'pointer', minWidth: '150px', flex: '1 1 0' }} onClick={() => !isAssemblyMode && onEditChapter(chap.id)}>
-                <InlineEdit
-                  value={chap.title}
-                  onSave={(newTitle) => onRenameChapter(chap.id, newTitle)}
-                  disabled={isAssemblyMode}
-                  style={{ fontWeight: 500, fontSize: '0.95rem' }}
-                />
-                {queueStatus && (
-                  <span style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.35rem',
-                    padding: '0.2rem 0.55rem',
-                    borderRadius: '999px',
-                    background: isQueued ? 'var(--accent)' : 'var(--accent-tint)',
-                    color: isQueued ? 'white' : 'var(--accent)',
-                    fontSize: '0.7rem',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.04em',
-                    border: '1px solid var(--accent)',
-                    whiteSpace: 'nowrap',
-                    boxShadow: isQueued ? '0 0 0 1px var(--accent-glow)' : 'none'
-                  }}>
-                    {queueStatus}
-                  </span>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1rem', flex: '2 1 0', minWidth: 0 }}>
-                {activeJob ? (
-                    <div style={{ width: '100%', maxWidth: '600px' }}>
-                        <PredictiveProgressBar
-                          dataTestId="chapter-list-progress-bar"
-                          progress={progressValue}
-                          startedAt={activeJob.started_at}
-                          etaSeconds={activeJob.eta_seconds}
-                          etaBasis={activeJob.eta_basis ?? (activeJob.eta_seconds != null ? 'remaining_from_update' : undefined)}
-                          updatedAt={activeJob.updated_at}
-                          persistenceKey={activeJob.id}
-                          status={showIndeterminateProgress ? 'preparing' : displayStatus}
-                          state={
-                            displayStatus === 'preparing'
-                              ? 'preparing'
-                              : displayStatus === 'finalizing'
-                                ? 'finalizing'
-                                : displayStatus === 'running'
-                                  ? (liveRenderBlockIsActive ? 'running' : 'processing')
-                                  : (displayStatus === 'error' ? 'failed' : displayStatus as any)
-                          }
-                          label={isLoadingModel ? 'loading voice model…' : displayStatus}
-                          predictive={true}
-                          allowBackwardProgress={!isGroupedChapterJob}
-                          checkpointMode={isGroupedChapterJob ? 'queue' : (isMainQueueSegmentItem(activeJob) ? 'segment' : 'default')}
-                          transitionTickCount={
-                            isGroupedChapterJob
-                                ? 12
-                                : isMainQueueSegmentItem(activeJob)
-                                ? 3
-                                : 8
-                          }
-                          backwardTransitionTickCount={2}
-                          tickMs={250}
-                        />
-                    </div>
-                ) : hasChapterAudio && !isAssemblyMode ? (() => {
-                    const audioPath = chap.audio_file_path || 'chapter.wav';
-                    const audioUrl = `/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=${encodeURIComponent(audioPath)}`;
-                    const isCurrentChapterAudio = playerBus.scope === 'chapter' && playerBus.audioUrl === audioUrl;
-                    const isChapterPlaying = isCurrentChapterAudio && playerBus.playing;
-
-                    return (
-                      <button
-                        onClick={e => {
-                          e.stopPropagation();
-                          if (isCurrentChapterAudio) {
-                            if (isChapterPlaying) {
-                              pause();
-                            } else {
-                              play();
-                            }
-                          } else {
-                            loadAndPlay({
-                              scope: 'chapter',
-                              title: chap.title || 'Chapter Audio',
-                              subtitle: `Chapter ${idx + 1}`,
-                              audioUrl,
-                            });
-                          }
-                        }}
-                        className="btn-ghost"
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.4rem',
-                          padding: '0.4rem 0.8rem',
-                          borderRadius: '8px',
-                          border: '1px solid var(--border)',
-                          background: 'var(--surface)',
-                          color: 'var(--text-primary)',
-                          fontSize: '0.85rem',
-                          height: '36px',
-                        }}
-                        title={isChapterPlaying ? 'Pause Chapter Audio' : 'Play Chapter Audio'}
-                      >
-                        {isChapterPlaying ? <Pause size={14} /> : <Play size={14} />}
-                        {isChapterPlaying ? 'Pause' : 'Play Audio'}
-                      </button>
-                    );
-                  })() : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    <span>{chap.word_count ?? 0} words</span>
-                    <span>•</span>
-                    <span>{chap.char_count ?? 0} chars</span>
-                  </div>
-                )}
-
-                
-                {!isAssemblyMode && (
-                  <>
-                    <div style={{ display: 'flex', gap: '0.15rem', borderLeft: '1px solid var(--border)', paddingLeft: '1rem' }}>
-                      <button 
-                        onClick={e => { e.stopPropagation(); onQueueChapter(chap, isFullyRendered); }}
-                        className="btn-ghost" 
-                        disabled={chap.audio_status === 'processing' || !anyEnginesEnabled} 
-                        title={!anyEnginesEnabled ? 'All TTS engines are disabled in Settings' : (chap.audio_status === 'processing' ? 'Processing' : queueActionLabel)}
-                        style={{ padding: '0.4rem', color: anyEnginesEnabled ? 'var(--accent)' : 'var(--text-muted)' }}
-                      >
-                        <Zap size={16} />
-                      </button>
-                      <button onClick={e => { e.stopPropagation(); onEditChapter(chap.id); }} className="btn-ghost" style={{ padding: '0.4rem', color: 'var(--text-secondary)' }}><FileText size={16} /></button>
-                    </div>
-                    <ActionMenu 
-                      onOpenChange={open => setOpenMenuRowId(open ? chap.id : null)}
-                      items={[
-                        { label: isExporting === chap.id ? 'Generating...' : 'Export Video Sample', icon: isExporting === chap.id ? Loader2 : Video, disabled: chap.audio_status !== 'done' || isExporting !== null, onClick: () => onExportSample(chap) },
-                        ...(hasChapterAudio && chap.audio_file_path ? [{ label: 'Download Audio', icon: Download, onClick: () => { const path = chap.audio_file_path; if (!path) return; const link = document.createElement('a'); link.href = `/api/projects/${projectId}/chapters/${chap.id}/assets/audio?filename=${path}`; link.download = `${chap.title}${path.substring(path.lastIndexOf('.'))}`; link.click(); } }] : []),
-                        { isDivider: true },
-                        { label: 'Reset Audio', icon: RefreshCw, onClick: () => onResetAudio(chap.id) },
-                        { label: 'Delete Chapter', icon: Trash2, isDestructive: true, onClick: () => onDeleteChapter(chap.id) }
-                      ]}
-                    />
-                  </>
-                )}
-              </div>
-            </Reorder.Item>
-          );
-        })}
+        {chapters.map((chap, idx) => (
+          <ChapterRow
+            key={chap.id}
+            chap={chap}
+            idx={idx}
+            totalChapters={chapters.length}
+            projectId={projectId}
+            isAssemblyMode={isAssemblyMode}
+            selectedChapters={selectedChapters}
+            onSelectChapter={onSelectChapter}
+            onEditChapter={onEditChapter}
+            onRenameChapter={onRenameChapter}
+            onQueueChapter={onQueueChapter}
+            onResetAudio={onResetAudio}
+            onDeleteChapter={onDeleteChapter}
+            onExportSample={onExportSample}
+            isExporting={isExporting}
+            anyEnginesEnabled={anyEnginesEnabled}
+            engines={engines}
+            pickActiveJob={pickActiveJob}
+            openMenuRowId={openMenuRowId}
+            setOpenMenuRowId={setOpenMenuRowId}
+          />
+        ))}
       </Reorder.Group>
     </div>
   );

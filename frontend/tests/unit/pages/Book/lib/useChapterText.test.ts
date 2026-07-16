@@ -8,6 +8,7 @@ vi.mock('@/api', () => ({
   api: {
     fetchChapter: vi.fn(),
     updateChapter: vi.fn(),
+    addProcessingQueue: vi.fn(),
   },
 }));
 
@@ -47,6 +48,7 @@ describe('useChapterText — flush on unmount', () => {
       status: 'ok',
       chapter: { ...draftChapter, text_content: 'Updated text' },
     });
+    vi.mocked(api.addProcessingQueue).mockResolvedValue({ status: 'ok' });
   });
 
   afterEach(() => {
@@ -117,5 +119,62 @@ describe('useChapterText — flush on unmount', () => {
 
     // No flush should have happened.
     expect(api.updateChapter).not.toHaveBeenCalled();
+  });
+});
+
+describe('useChapterText — confirmResync queue submission', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.fetchChapter).mockResolvedValue(producedChapter);
+    vi.mocked(api.updateChapter).mockResolvedValue({
+      status: 'ok',
+      chapter: { ...producedChapter, text_content: 'Resynced text' },
+    });
+    vi.mocked(api.addProcessingQueue).mockResolvedValue({ status: 'ok' });
+  });
+
+  it('re-queues the chapter (forced rebuild) after a successful resync save', async () => {
+    const { result } = renderHook(() => useChapterText(producedChapter));
+    await act(async () => {});
+
+    act(() => {
+      result.current.setText('Resynced text');
+    });
+
+    let success: boolean | undefined;
+    await act(async () => {
+      success = await result.current.confirmResync();
+    });
+
+    expect(success).toBe(true);
+    expect(api.updateChapter).toHaveBeenCalledWith('ch-produced', { text_content: 'Resynced text' });
+    expect(api.addProcessingQueue).toHaveBeenCalledWith(
+      producedChapter.project_id,
+      producedChapter.id,
+      0,
+      producedChapter.speaker_profile_name || undefined,
+      true,
+    );
+  });
+
+  it('still resolves true when the queue re-submission fails, but logs the error', async () => {
+    vi.mocked(api.addProcessingQueue).mockRejectedValue(new Error('queue unavailable'));
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { result } = renderHook(() => useChapterText(producedChapter));
+    await act(async () => {});
+
+    act(() => {
+      result.current.setText('Resynced text');
+    });
+
+    let success: boolean | undefined;
+    await act(async () => {
+      success = await result.current.confirmResync();
+    });
+
+    expect(success).toBe(true);
+    expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to queue chapter after resync', expect.any(Error));
+    consoleErrorSpy.mockRestore();
   });
 });

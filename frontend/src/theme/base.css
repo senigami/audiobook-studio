@@ -18,6 +18,15 @@
     animation-duration: 4s !important;
     animation-iteration-count: infinite !important;
   }
+  /* Route-change fade/slide (U14) is non-essential motion — collapse it. Framer
+     Motion drives this animation via JS rather than a CSS transition/animation,
+     so App.tsx also short-circuits the motion values themselves (matchMedia
+     check, no new hook needed for a one-off page-load read); this class is the
+     CSS-only backstop for the wrapper's own transition/animation properties. */
+  .route-transition {
+    transition: none !important;
+    animation: none !important;
+  }
   /* Functional/essential motion exemption: loading spinners and indeterminate
      progress (preparing/finalizing barber-pole) are the SOLE cue distinguishing
      "working" from "hung" — freezing them is worse than the motion. WCAG 2.3.3

@@ -17,6 +17,13 @@ export interface PlayerBusState {
   queue: { hasPrev: boolean; hasNext: boolean };
   requestId: number;     // increments on every loadAndPlay
   seekRequestId: number; // increments on every seek() call
+  /**
+   * Set when this playback belongs to a book's continuous chapter
+   * auto-advance queue (bookContinuousPlayback.ts). null for any load that
+   * doesn't pass one — e.g. a one-off "Play Chapter Audio" click in
+   * ChapterTable.tsx — so it's never stale from a prior book session.
+   */
+  bookId: string | null;
 }
 
 export interface LoadAndPlayOptions {
@@ -24,12 +31,36 @@ export interface LoadAndPlayOptions {
   title: string;
   subtitle?: string;
   audioUrl: string;
+  /** See PlayerBusState.bookId. Omit for non-book playback. */
+  bookId?: string;
   onEnded?: () => void;
   onPrev?: () => void;
   onNext?: () => void;
   onError?: () => void;
   hasPrev?: boolean;
   hasNext?: boolean;
+  /**
+   * Known duration in seconds, supplied by the caller when already available
+   * (e.g. backend metadata) so the player never passes through `duration: 0`
+   * — the "unknown duration" state that PlayerBar's fitsLegibly() treats as
+   * "show the waveform" (see playerRepresentation.ts). Without this, a
+   * multi-hour book-scope file goes through that optimistic window until
+   * the browser's own <audio> loadedmetadata fires, during which
+   * WaveformStrip can start a full wavesurfer decode of the entire file —
+   * for a multi-hour audiobook that's enough memory/CPU to hang or crash
+   * the tab, not just render briefly wrong. Omit only when the real
+   * duration genuinely isn't known yet (segment/chapter playback, where the
+   * file is small enough that the bootstrap window is harmless).
+   */
+  initialDuration?: number;
+  /**
+   * Whether playback should start immediately once loaded. Defaults to
+   * `true` (existing behavior for every other caller). Booth mode passes
+   * `false` — entering a mode must never auto-start playback on its own
+   * (Apple HIG: no unsolicited audio); the track loads ready-to-play and the
+   * user presses Play in the persistent PlayerBar themselves.
+   */
+  autoplay?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -47,6 +78,7 @@ const IDLE_STATE: PlayerBusState = {
   queue: { hasPrev: false, hasNext: false },
   requestId: 0,
   seekRequestId: 0,
+  bookId: null,
 };
 
 let state: PlayerBusState = { ...IDLE_STATE, queue: { ...IDLE_STATE.queue } };
@@ -92,14 +124,15 @@ export function loadAndPlay(opts: LoadAndPlayOptions): void {
     title: opts.title,
     subtitle: opts.subtitle,
     audioUrl: opts.audioUrl,
-    playing: true,
+    playing: opts.autoplay ?? true,
     position: 0,
-    duration: 0,
+    duration: opts.initialDuration ?? 0,
     queue: {
       hasPrev: opts.hasPrev ?? false,
       hasNext: opts.hasNext ?? false,
     },
     requestId: nextRequestId++,
+    bookId: opts.bookId ?? null,
   });
 }
 
@@ -131,6 +164,7 @@ export function reportTime(position: number, duration: number): void {
 }
 
 export function notifyEnded(): void {
+  setState({ playing: false });
   callbacks.onEnded?.();
 }
 

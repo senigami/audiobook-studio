@@ -18,6 +18,7 @@ from app.core import config
 from app.db.projects import create_project
 from app.db.chapters import create_chapter
 from app.api.routers import chapters_assets as chapters_assets_module
+from app.engines import audio_ops as audio_ops_module
 from app.engines.audio_ops import SIDECAR_VERSION
 
 
@@ -79,7 +80,7 @@ def test_peaks_route_computes_and_caches_on_first_request(clean_db, client, monk
         call_count["n"] += 1
         return _sidecar_for(path)
 
-    monkeypatch.setattr(chapters_assets_module, "compute_peaks_sidecar", fake_compute)
+    monkeypatch.setattr(audio_ops_module, "compute_peaks_sidecar", fake_compute)
 
     response = client.get(
         f"/api/projects/{pid}/chapters/{cid}/assets/peaks",
@@ -105,7 +106,7 @@ def test_peaks_route_serves_cached_sidecar_without_recompute(clean_db, client, m
     def fail_if_called(path):
         raise AssertionError("compute_peaks_sidecar must not run for a fresh cached sidecar")
 
-    monkeypatch.setattr(chapters_assets_module, "compute_peaks_sidecar", fail_if_called)
+    monkeypatch.setattr(audio_ops_module, "compute_peaks_sidecar", fail_if_called)
 
     response = client.get(
         f"/api/projects/{pid}/chapters/{cid}/assets/peaks",
@@ -132,7 +133,7 @@ def test_peaks_route_recomputes_on_stale_stat(clean_db, client, monkeypatch):
         call_count["n"] += 1
         return _sidecar_for(path)  # matches the real, current stat
 
-    monkeypatch.setattr(chapters_assets_module, "compute_peaks_sidecar", fake_compute)
+    monkeypatch.setattr(audio_ops_module, "compute_peaks_sidecar", fake_compute)
 
     response = client.get(
         f"/api/projects/{pid}/chapters/{cid}/assets/peaks",
@@ -162,7 +163,7 @@ def test_peaks_route_recomputes_on_version_mismatch(clean_db, client, monkeypatc
         call_count["n"] += 1
         return _sidecar_for(path)
 
-    monkeypatch.setattr(chapters_assets_module, "compute_peaks_sidecar", fake_compute)
+    monkeypatch.setattr(audio_ops_module, "compute_peaks_sidecar", fake_compute)
 
     response = client.get(
         f"/api/projects/{pid}/chapters/{cid}/assets/peaks",
@@ -193,7 +194,7 @@ def test_peaks_route_compute_failure_returns_404_not_500(clean_db, client, monke
     cid = create_chapter(pid, "C1", "T1")
     wav_path = _make_chapter_wav(pid, cid)
 
-    monkeypatch.setattr(chapters_assets_module, "compute_peaks_sidecar", lambda path: None)
+    monkeypatch.setattr(audio_ops_module, "compute_peaks_sidecar", lambda path: None)
 
     response = client.get(
         f"/api/projects/{pid}/chapters/{cid}/assets/peaks",
@@ -230,12 +231,12 @@ def test_peaks_route_serves_peaks_even_when_cache_write_fails(clean_db, client, 
     def fake_compute(path):
         return _sidecar_for(path)
 
-    monkeypatch.setattr(chapters_assets_module, "compute_peaks_sidecar", fake_compute)
+    monkeypatch.setattr(audio_ops_module, "compute_peaks_sidecar", fake_compute)
 
     def boom(*args, **kwargs):
         raise OSError("disk full")
 
-    monkeypatch.setattr(chapters_assets_module.os, "replace", boom)
+    monkeypatch.setattr(audio_ops_module.os, "replace", boom)
 
     response = client.get(
         f"/api/projects/{pid}/chapters/{cid}/assets/peaks",
@@ -285,7 +286,7 @@ def test_peaks_route_concurrent_requests_compute_at_most_once(clean_db, client, 
         call_count["n"] += 1
         return _sidecar_for(path)
 
-    monkeypatch.setattr(chapters_assets_module, "compute_peaks_sidecar", fake_compute)
+    monkeypatch.setattr(audio_ops_module, "compute_peaks_sidecar", fake_compute)
 
     lock = chapters_assets_module._get_peaks_lock(str(wav_resolved))
     lock.acquire()

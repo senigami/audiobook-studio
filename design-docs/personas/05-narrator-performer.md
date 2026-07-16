@@ -1,4 +1,4 @@
-# 05 · "James 'Jimmy' Calloway" — Narrator Performer  ☆ INFERRED
+# 05 · Narrator Performer  ☆ INFERRED
 
 **Identity:** "Before I walk into a session I need to know exactly how to say every character's name, what each voice sounds like, and which lines the director flagged for special delivery — and I need all of that in one place, not scattered across three documents and two emails."
 
@@ -24,7 +24,7 @@
 ## Top friction points *(INFERRED)*
 - **F1 — No consolidated session brief:** There's no single view that shows all of a chapter's performance notes, phonetic flags, and pickup items together — he has to hunt through individual segment editors or work from a parallel document the director prepared manually
 - **F2 — Voice preview buried in casting panel:** To hear a character's voice sample he has to leave the chapter editor, navigate to the voices library or casting panel, find the character, and play the sample — a slow round-trip that breaks session prep flow
-- **F3 — No phonetic annotation display:** The app shows segment text as-is; if a producer or editor has attached a phonetic note to a word, it's not surfaced in the chapter editor where Jimmy is reading
+- **F3 — No phonetic annotation display:** The app shows segment text as-is; if a producer or editor has attached a phonetic note to a word, it's not surfaced in the chapter editor where the Narrator Performer is reading
 - **F4 — No pickup filter:** There's no way to filter the chapter view to show only flagged or pickup-marked segments; he sees the full chapter regardless of what needs attention
 - **F5 — Revision visibility requires memory:** If a chapter was revised since his last session, nothing in the editor highlights changed segments — he has to rely on the director telling him what moved
 

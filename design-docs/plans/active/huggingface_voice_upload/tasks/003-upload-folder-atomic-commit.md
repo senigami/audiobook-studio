@@ -1,6 +1,6 @@
 # Task 003 — Switch upload from per-file loop to `upload_folder()` (atomic, structure-preserving)
 
-Status: pending
+Status: complete — 2026-07-12
 
 ## Goal
 
@@ -266,16 +266,16 @@ old code still calling `upload_file` in a loop), `git stash pop`, confirm green.
 
 ## Acceptance criteria
 
-- [ ] `HFHubClientProtocol.upload_files` and `HFHubClient.upload_files` both take `folder_path: Path`.
-- [ ] `HFHubClient.upload_files` calls `self._api.upload_folder(...)` exactly once, with
+- [x] `HFHubClientProtocol.upload_files` and `HFHubClient.upload_files` both take `folder_path: Path`.
+- [x] `HFHubClient.upload_files` calls `self._api.upload_folder(...)` exactly once, with
       `repo_type="model"` passed explicitly on both `create_repo` and `upload_folder`.
-- [ ] The `ModelCard.from_template`/`push_to_hub` fallback block is deleted.
-- [ ] `upload_hub_voice` passes `extract_dir` directly — no `loose_files` list construction.
-- [ ] `./venv/bin/python -m pytest tests/domain/test_voice_huggingface_client.py tests/api/test_api_voices_huggingface.py -q` — all green.
-- [ ] `./venv/bin/python -m pytest -q` (full suite) — green.
-- [ ] `ruff check app/domain/voices/huggingface.py app/api/routers/voices_huggingface.py` clean.
-- [ ] `git diff app/domain/voices/bundles.py` empty (INV-HF-4).
-- [ ] INV-HF-1 (token never logged/returned) still verified by
+- [x] The `ModelCard.from_template`/`push_to_hub` fallback block is deleted.
+- [x] `upload_hub_voice` passes `extract_dir` directly — no `loose_files` list construction.
+- [x] `./venv/bin/python -m pytest tests/domain/test_voice_huggingface_client.py tests/api/test_api_voices_huggingface.py -q` — all green.
+- [x] `./venv/bin/python -m pytest -q` (full suite) — green.
+- [x] `ruff check app/domain/voices/huggingface.py app/api/routers/voices_huggingface.py` clean.
+- [x] `git diff app/domain/voices/bundles.py` empty (INV-HF-4).
+- [x] INV-HF-1 (token never logged/returned) still verified by
       `test_upload_files_never_logs_or_returns_token` and the token-security test file.
 
 ## Dependencies

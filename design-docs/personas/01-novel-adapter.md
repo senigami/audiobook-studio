@@ -1,4 +1,4 @@
-# 01 · "Morgan Chen" — Novel Adapter  ☆ INFERRED
+# 01 · Novel Adapter  ☆ INFERRED
 
 **Identity:** "Every sentence was written to land a certain way. I need to see where the adaptation is fighting my intent before I commit to a voice."
 
@@ -25,7 +25,7 @@
 - **Export check:** Before final export, listens to the chapter transitions to confirm the book has a consistent feel
 
 ## Top friction points *(INFERRED)*
-- **F1 — Attribution bleeds:** The app reads "she said" as narration in some sentences and as a separate character segment in others; Morgan gets inconsistent voice assignments without understanding why
+- **F1 — Attribution bleeds:** The app reads "she said" as narration in some sentences and as a separate character segment in others; the Novel Adapter gets inconsistent voice assignments without understanding why
 - **F2 — No delivery annotation:** She can feel when a line should be slower or more hushed, but there's no way to encode that intent — the engine uses the same default delivery for everything
 - **F3 — Shallow character profiles:** A character who speaks in 47 segments has only a name and a color in the character panel — no backstory, no voice guidance, no notes she's added
 - **F4 — Stale renders are silent:** When she reassigns a character's voice, she has no clear indicator of which already-rendered chapters are now stale and need re-rendering

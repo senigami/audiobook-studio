@@ -53,6 +53,7 @@ Gate cleared (M-PAR-3 confirmed). See [01-map.md](01-map.md)'s "Phase 2" section
 | [011](tasks/011-monitor-peek-strip.md) | Peek-strip progressive disclosure | M | 008 | Build the missing Level-2 "opt-in peek strip" → Level-3 expand transition; auto-appear at N≥2 active, dismissible. |
 | [012](tasks/012-cap-configuration-ui.md) | Cap configuration UI (global stepper + per-engine override) | N | none | Upgrade `GeneralSettingsPanel`'s binary 1/2 toggle to a numeric stepper; add a per-engine `tts_engine_caps` override on `EngineCard`, clamped to `engine.behavior.max_concurrent_workers`. Independent of 008-011. |
 | [013](tasks/013-bracketed-eta-wiring.md) | Wire `BracketedEtaTracker` into a live event | O | 008 (for monitor use; independently valuable to Phase 1's chapter ETA too) | Connect the already-built, unit-tested `BracketedEtaTracker` to an actual live frame — currently produces nothing any consumer reads. |
+| [014](tasks/014-live-cap-admission.md) | Live per-engine cap admission (added 2026-07-11) | N (extends) | none | Closes the gap 012 deliberately defers: a cap change (however written) has no live effect on already-queued/in-flight work until a process restart, because `ResourceClaim.cap` freezes the *effective* cap at construction and `EngineClassSemaphore` is grow-only. Separates the manifest ceiling (still grow-only) from a live limit resolved fresh on every admission attempt; adds `GET`/`PUT /api/engines/{id}/concurrency`. Independent of 008-013; optionally consumed by 012's UI once both land. |
 
 ### Phase 2 dependency graph
 
@@ -64,6 +65,7 @@ M-PAR-3 (done)
 
 009 ─────────────────────► (fully independent)
 012 ─────────────────────► (fully independent)
+014 ─────────────────────► (fully independent; 012 may optionally consume its API once both land)
 ```
 
 ### Phase 2 milestones
@@ -72,7 +74,31 @@ M-PAR-3 (done)
 - **M-PAR2-2 — "interactive + accessible":** 009, 010, 011 done. Milestone announcements, popover detail, and progressive disclosure all real.
 - **M-PAR2-3 — "configurable":** 012 done. The cap-confusion this session diagnosed is closed with a real UI.
 - **M-PAR2-4 — "honest ETA":** 013 done. Bracketed ETA reaches a live frame.
-- **Phase 2 complete** when all of 008-013 are done AND the monitor is un-gated from `useDevMode()` for real users (a final task-013-adjacent step: remove the dev gate once 008 lands and is verified live).
+- **M-PAR2-5 — "changes actually take effect live":** 014 done. A cap change reaches admission within one retry cycle, no restart required, no in-flight work evicted.
+- **Phase 2 complete** when all of 008-014 are done AND the monitor is un-gated from `useDevMode()` for real users (a final task-013-adjacent step: remove the dev gate once 008 lands and is verified live).
+
+## Workloads (Phase 3 — multi-job rows, added 2026-07-12)
+
+Phase 2 complete but scoped to one job at a time; this closes that gap. See [11-phase3-multi-job-rows.md](11-phase3-multi-job-rows.md) and [01-map.md](01-map.md)'s "Phase 3" section for parts Q-R, connections, invariants M8-M10, and risks R-J/R-K.
+
+| Task | Title | Part(s) | Depends on | Gist |
+|---|---|---|---|---|
+| [015](tasks/015-multi-job-render-monitor-rows.md) | Multi-job render-monitor rows | Q | Phase 2 (done) | Move the `SegmentPeekStrip`/`SegmentRenderMonitor` mount from `ActivityPage.tsx` page-singleton into each `QueueItem.tsx` row, so every concurrently-rendering job gets its own strip. Also fixes the stale "010/011 handle choosing among several" comment. |
+| [016](tasks/016-segment-inventory-fetch-dedupe.md) | `useSegmentInventory` fetch dedupe | R | none | Fix the effect re-fetching `GET /script-view` on every `active_segments_map` tick — fetch once per `chapterId`, merge the live map client-side via `useMemo` instead. Independent of 015 but should land in the same phase (015 multiplies its urgency). |
+
+### Phase 3 dependency graph
+
+```
+Phase 2 (done)
+ └─► 015 (independent of 016; either order)
+     016 ─────────────────► (fully independent; recommended same phase as 015)
+```
+
+### Phase 3 milestones
+
+- **M-PAR3-1 — "one strip per job":** 015 done. N concurrently-rendering jobs show N independent strips.
+- **M-PAR3-2 — "fetch scales with chapters, not ticks":** 016 done. `GET /script-view` fires once per chapter render, not once per progress tick.
+- **Phase 3 complete** when both 015 and 016 are done and green-gated.
 
 ## Cross-references
 

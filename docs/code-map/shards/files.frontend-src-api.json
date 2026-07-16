@@ -1,0 +1,276 @@
+{
+  "files": {
+    "frontend/src/api/client.ts": {
+      "purpose": "API client factory and demo shim loader",
+      "exports": [
+        {
+          "name": "createApiClient, createMockApiClient",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts",
+        "frontend/src/demo/demoApiShim.ts"
+      ],
+      "called_by": [
+        "frontend/src/app/providers/index.tsx"
+      ],
+      "notes": [
+        "must NOT statically import @/demo/ to keep shim out of main bundle"
+      ],
+      "calls_inferred": [
+        "@/api/index",
+        "@/demo/demoApiShim#installDemoApiShim"
+      ]
+    },
+    "frontend/src/api/contracts/events.ts": {
+      "purpose": "Event contract type definitions for normalized WebSocket progress events",
+      "exports": [
+        {
+          "name": "StudioJobStatus, StudioJobEventScope, StudioJobClassification, StudioEtaConfidence, StudioEtaBasis, TtsLogLineMarker, StudioJobEvent, TtsLogLineEvent, JobsSnapshotRequest, JobsSnapshot",
+          "kind": "type"
+        },
+        {
+          "name": "isStudioJobEvent, isTtsLogLineEvent",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Voices/components/VoicePreviewPanel.tsx",
+        "frontend/src/store/live-jobs.ts"
+      ],
+      "notes": [
+        "lower-level than liveEvents.ts"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/api/contracts/liveEvents.ts": {
+      "purpose": "Typed WebSocket frame contract: envelope, topics/kinds/payloads, normalization, confidence fallback",
+      "exports": [
+        {
+          "name": "StudioSocketEnvelope, LiveEventTopic, LiveEventCategory, LiveEventSubscriber, LiveEventKind, LiveEventBase, QueueItemPayload, ChapterProgressPayload, SegmentProgressPayload, TtsLogPayload, VoiceTestPayload, LiveEvent",
+          "kind": "type"
+        },
+        {
+          "name": "computeProgressConfidence, normalizeStudioSocketEnvelope, appendLiveEventSubscriber",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "frontend/src/constants/audio.ts"
+      ],
+      "called_by": [
+        "frontend/src/components/LiveOutputTable.tsx",
+        "frontend/src/config/liveEventConsumers.ts",
+        "frontend/src/config/liveEventTopics.ts",
+        "frontend/src/hooks/useLiveTtsLogLines.ts",
+        "frontend/src/store/liveEventAuditStore.ts",
+        "frontend/src/store/studioSocketBus.ts",
+        "frontend/src/utils/queueEventDispatcher.ts"
+      ],
+      "notes": [
+        "\u00a74A frames carry backend-authoritative confidence; client fallback only for non-\u00a74A frames",
+        "no zero-special fabrication"
+      ],
+      "calls_inferred": [
+        "@/constants/audio#CHUNK_CHAR_LIMIT"
+      ]
+    },
+    "frontend/src/api/contracts/peaksSidecar.ts": {
+      "purpose": "Contract type + validator for the server-computed peaks sidecar JSON served at GET .../assets/peaks (app/engines/audio_ops.py#compute_peaks_sidecar's schema).",
+      "exports": [
+        {
+          "name": "PeaksSidecar",
+          "kind": "type",
+          "contract": "{version: typeof CURRENT_SIDECAR_VERSION (=2), peaks:number[], duration_sec, sample_rate, channels, peaks_per_sec, source:{filename,size_bytes,mtime_ns}}"
+        },
+        {
+          "name": "parsePeaksSidecar",
+          "kind": "function",
+          "contract": "(json: unknown) -> number[]|null; validates version===CURRENT_SIDECAR_VERSION and every peak in [0,1] -- returns null (never throws) on any shape/version/range mismatch."
+        },
+        {
+          "name": "CURRENT_SIDECAR_VERSION",
+          "kind": "const",
+          "contract": "=2. Must be bumped in lockstep with SIDECAR_VERSION in app/engines/audio_ops.py."
+        }
+      ],
+      "calls": [],
+      "calls_inferred": [],
+      "called_by": [
+        "frontend/src/api/fetchPeaksSidecar.ts"
+      ],
+      "notes": [
+        "Added 2026-07-10, audio_player_completion_004 task 008.",
+        "2026-07-12 BUG FOUND+FIXED: this file hardcoded version:1 from when it was written, but the backend bumped SIDECAR_VERSION to 2 on 2026-07-10 (density increase) -- silently rejected every real sidecar payload for 2+ days, the actual root cause of long chapters never showing waveform tape detail (confirmed via live network capture of a real version:2 200 OK being discarded client-side). Now validates against the exported CURRENT_SIDECAR_VERSION constant instead of a hardcoded literal."
+      ]
+    },
+    "frontend/src/api/fetchPeaksSidecar.ts": {
+      "purpose": "Fetches and validates the server-computed peaks sidecar for a chapter audio URL, for PlayerBar's over-duration-cap tape rendering.",
+      "exports": [
+        {
+          "name": "derivePeaksUrl",
+          "kind": "function",
+          "contract": "(audioUrl) -> string|null; string-replaces /assets/audio -> /assets/peaks (same filename query param); null for non-chapter-asset-shaped URLs (segment/preview/sample) so callers never fire a request for them."
+        },
+        {
+          "name": "fetchPeaksSidecar",
+          "kind": "function",
+          "contract": "(audioUrl) -> Promise<number[]|null>; fetch + parsePeaksSidecar; null (never throws) on any non-matching URL, non-2xx response, or malformed payload."
+        }
+      ],
+      "calls": [
+        "frontend/src/api/contracts/peaksSidecar.ts#parsePeaksSidecar"
+      ],
+      "calls_inferred": [],
+      "called_by": [
+        "frontend/src/app/layout/PlayerBar.tsx"
+      ],
+      "notes": [
+        "Added 2026-07-10, audio_player_completion_004 task 008."
+      ]
+    },
+    "frontend/src/api/hydration/index.ts": {
+      "purpose": "Merges live WebSocket overlays with canonical queue snapshots",
+      "exports": [
+        {
+          "name": "HydrationSource, HydrationSnapshot, HydrationCoordinator",
+          "kind": "type"
+        },
+        {
+          "name": "createHydrationCoordinator, selectActiveQueueCount",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "frontend/src/store/live-jobs.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/jobSelection.ts"
+      ],
+      "called_by": [
+        "frontend/src/app/providers/index.tsx",
+        "frontend/src/hooks/useQueueSync.ts"
+      ],
+      "notes": [
+        "FINALIZING_HOLD_ENGINES=['mixed']",
+        "terminal overlays held 30s before removal",
+        "merge path threads active_segments_map alongside existing overlay fields (W-PAR 006)"
+      ],
+      "calls_inferred": [
+        "@/store/live-jobs#*",
+        "@/types#*",
+        "@/utils/jobSelection#*"
+      ]
+    },
+    "frontend/src/api/index.ts": {
+      "purpose": "Unified REST API client with fetch-based transport and response parsing",
+      "exports": [
+        {
+          "name": "parseApiResponse",
+          "kind": "function"
+        },
+        {
+          "name": "api",
+          "kind": "const",
+          "contract": "~62 endpoints (added fetchSystemResources, fetchChapters already existed)"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/types.ts",
+        "frontend/src/constants/api.ts",
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/api/client.ts",
+        "frontend/src/components/CharactersTab.tsx",
+        "frontend/src/components/ProjectBackupsPanel.tsx",
+        "frontend/src/hooks/chapter/useChapterAssignments.ts",
+        "frontend/src/hooks/chapter/useChapterLoader.ts",
+        "frontend/src/hooks/chapter/useChapterPersistence.ts",
+        "frontend/src/hooks/chapter/useChapterQueue.ts",
+        "frontend/src/hooks/useChapterAnalysis.ts",
+        "frontend/src/hooks/useGlobalQueue.ts",
+        "frontend/src/hooks/useProjectActions.ts",
+        "frontend/src/hooks/useProjectLibrary.ts",
+        "frontend/src/hooks/useQueueSync.ts",
+        "frontend/src/hooks/useRenderGroups.ts",
+        "frontend/src/hooks/useVoicesTabActions.ts",
+        "frontend/src/pages/Activity/components/ProductionTallyCard.tsx",
+        "frontend/src/pages/Book/components/LexiconPanel.tsx",
+        "frontend/src/pages/Book/lib/useChapterText.ts",
+        "frontend/src/pages/Book/stages/ContentsStage.tsx",
+        "frontend/src/pages/Book/stages/ManuscriptStage.tsx",
+        "frontend/src/pages/Book/studio/useStudioChapter.ts",
+        "frontend/src/pages/Book/useBookData.ts",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/index.tsx",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/ReviseTool/index.tsx",
+        "frontend/src/pages/Engines/EnginesPage.tsx",
+        "frontend/src/pages/Engines/components/EngineCard.tsx",
+        "frontend/src/pages/Engines/components/EngineDevPanel.tsx",
+        "frontend/src/pages/Engines/components/EnginesPanel.tsx",
+        "frontend/src/pages/Engines/components/OfficialRegistryPanel.tsx",
+        "frontend/src/pages/Engines/components/ServerDiagnostics.tsx",
+        "frontend/src/pages/Engines/components/VoiceModulesPanel.tsx",
+        "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx",
+        "frontend/src/pages/Settings/components/AboutSettingsPanel.tsx",
+        "frontend/src/pages/Settings/components/SettingsComponents.tsx",
+        "frontend/src/pages/VoiceLab/VoiceLabPage.tsx",
+        "frontend/src/pages/Voices/VoicesPage.tsx",
+        "frontend/src/pages/Voices/components/MetadataEditorModal.tsx",
+        "frontend/src/pages/Voices/components/metadata/IconUpload.tsx",
+        "frontend/src/hooks/useVariantVersions.ts",
+        "frontend/src/pages/Voices/components/VersionAbPanel.tsx"
+      ],
+      "notes": [
+        "2026-07-15 (voice-variant version-history tasks 004/005/007): added listVoiceVersions(name), promoteVoiceVersion(name, versionId), runVersionAbTest(name, versionAId, versionBId, testText) wrapping GET/POST .../versions, .../versions/{id}/promote, .../versions/ab-test.",
+        "2026-07-12: Added fetchEngineConcurrency() + EngineConcurrencyEntry/EngineConcurrencyResponse types wrapping GET /api/engines/concurrency.",
+        "2026-07-12: uploadHfVoice's return type widened to a discriminated union: {status:'ok', hub_id, commit_id} | {status:'generating', job_id, message}.",
+        "script-view endpoints use cache:'no-store'",
+        "409 responses carry expected_base_revision_id",
+        "2026-07-08: createProject/updateProject data param gained series_position?: number|null; updateProject appends an explicit '' when the value is null (clearing) rather than omitting the field, so the clear round-trips through FormData instead of being silently dropped (createProject only appends the field when defined/non-null, matching optional-create semantics).",
+        "2026-07-09 (Task 004): updateProject()'s data param gained an optional `description?: string`, appended to the outgoing FormData with an explicit `data.description !== undefined` check (not truthy-only) so an empty-string clear round-trips, mirroring the series_position precedent.",
+        "2026-07-10: updateSegment's data param gained an optional text_content field (Revise mode's commit path) \u2014 additive, backend already accepted it via update_segment's untyped **updates.",
+        "2026-07-10: Unified REST API client with fetch-based transport and response parsing",
+        "2026-07-10: fetchChapter(chapterId, projectId?) now appends ?project_id=... when a projectId is supplied.",
+        "2026-07-12: added SystemResourcesResponse type + api.fetchSystemResources() (GET /api/system/resources)."
+      ],
+      "calls_inferred": [
+        "@/api/types#RenderGroupsResponse",
+        "@/constants/api#DEFAULT_VOICE_SENTINEL",
+        "@/types#*"
+      ]
+    },
+    "frontend/src/api/queries/index.ts": {
+      "purpose": "Query boundary for canonical entity loading (not yet implemented)",
+      "exports": [
+        {
+          "name": "createStudioQueries",
+          "kind": "function",
+          "contract": "throws 'not implemented'"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "placeholder deferred to phase C"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/api/types.ts": {
+      "purpose": "Shared API response types for Studio 2.0",
+      "exports": [
+        {
+          "name": "RenderGroup, RenderGroupsResponse",
+          "kind": "type"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/api/index.ts"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    }
+  }
+}

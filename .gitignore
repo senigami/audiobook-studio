@@ -181,6 +181,9 @@ plugins/*/assets/last_test.json
 # session memory (agent-local, not project history)
 /.memory/
 
+# cross-session claim files (agent-local, ephemeral -- which session is touching what right now)
+/.agent/active-work/
+
 # SQLite backups produced by cleanup steps
 *.db.bak
 *.sqlite.bak

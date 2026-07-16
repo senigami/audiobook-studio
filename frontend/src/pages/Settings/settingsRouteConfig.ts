@@ -22,7 +22,7 @@ export const SETTINGS_TABS: SettingsTab[] = [
     id: 'general',
     label: 'General',
     path: '/settings',
-    description: 'Core synthesis defaults and maintenance actions.',
+    description: 'Appearance, synthesis defaults, and developer options.',
     icon: SlidersHorizontal,
   },
   {

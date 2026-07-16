@@ -1,0 +1,17 @@
+{
+  "plan": "design-docs/plans/active/parallel-segment-rendering",
+  "updated": "2026-07-12T09:41:00Z",
+  "slices": {
+    "008-segment-inventory-hydration": { "state": "accepted", "note": "live-render verification still pending owner" },
+    "009-monitor-milestone-a11y": { "state": "accepted" },
+    "010-monitor-interaction-popover": { "state": "accepted" },
+    "011-monitor-peek-strip": { "state": "accepted", "note": "light/dark visual verification still pending owner" },
+    "012-cap-configuration-ui": { "state": "accepted", "note": "manual restart verification (XTTS=4) still pending owner" },
+    "013-bracketed-eta-wiring": { "state": "accepted", "note": "live-render verification still pending owner" },
+    "014-live-cap-admission": { "state": "accepted" },
+    "015-multi-job-render-monitor-rows": { "state": "complete", "note": "two-concurrent-jobs visual verification (light/dark) still pending owner" },
+    "016-segment-inventory-fetch-dedupe": { "state": "complete" }
+  },
+  "green_gate": "passed",
+  "review_rounds": []
+}

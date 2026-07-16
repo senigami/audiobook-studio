@@ -40,8 +40,8 @@ Then, as the panel:
 4. Conflicts: each disagreement as a named trade-off — who wins and who pays
    under each option.
 5. Verdict: the option that survives, OR "owner call" with the single question
-   that decides it. Rosa (28) blockers outweigh preferences; accessibility-floor
-   findings are vetoes, not votes.
+   that decides it. The Nontechnical Author (28)'s blockers outweigh preferences;
+   accessibility-floor findings are vetoes, not votes.
 
 Do not manufacture consensus. A 4–2 split with clear stakes is a better output
 than unanimous mush.

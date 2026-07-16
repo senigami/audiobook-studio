@@ -324,6 +324,17 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
             "chapter_post_start_window": None,
             "chapter_wall_duration": None,
             "synthesis_duration_seconds": None,
+            # Per-group (segment_id, real_engine, chars, duration_seconds)
+            # samples parsed from [SEGMENT_ENGINE_SAMPLE] markers — populated
+            # only for "mixed" jobs (each group resolves its own real engine;
+            # "mixed" itself never synthesizes, ADR-0004). Consumed once, in
+            # this same dispatch, by _record_render_stats_inner to attribute
+            # calibration samples to the real per-group engines instead of
+            # writing a single bogus engine="mixed" row. In-memory only: it
+            # is fully consumed before this call returns, so it does not need
+            # cross-restart persistence the way scalar accumulators like
+            # sum_segment_render_seconds do.
+            "mixed_segment_samples": [],
         }
         segment_starts = {}
         segment_announced = {}
@@ -598,11 +609,53 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                 # synthesis duration (it raises otherwise — the "Failed to record
                 # render performance sample" traceback the user saw). Skip it
                 # quietly; the produced-metadata finalize below still runs.
-                if (synthesis_dur is not None and synthesis_dur > 0) or (
+                job_engine_id = str(payload.get("engine_id") or getattr(task, "engine_id", ""))
+
+                if job_engine_id == "mixed":
+                    # "Mixed" is a job-level container label, never a real
+                    # synthesizing engine (ADR-0004) — never record a sample
+                    # under engine="mixed". Attribute each group's render
+                    # time to the REAL engine that rendered it instead, using
+                    # the [SEGMENT_ENGINE_SAMPLE] facts the mixed handler
+                    # emitted per group (see plugins/tts_mixed/handler.py's
+                    # render_one_group). No fallback to the old single
+                    # "mixed" row — a build too old to emit the marker (or a
+                    # chapter where every group was reused/cached, so nothing
+                    # actually synthesized) simply records nothing, rather
+                    # than silently corrupting calibration.
+                    mixed_samples = timing.get("mixed_segment_samples") or []
+                    if mixed_samples:
+                        for sample in mixed_samples:
+                            record_render_sample(
+                                engine=sample["engine"],
+                                tts_model=tts_model,
+                                chars=sample["chars"],
+                                word_count=0,
+                                segment_count=1,
+                                duration_seconds=round(sample["duration_seconds"], 2),
+                                job_id=context.task_id,
+                                project_id=context.project_id,
+                                chapter_id=context.chapter_id,
+                                speaker_profile=payload.get("voice_profile_id"),
+                                render_group_count=1,
+                                started_at=started_at,
+                                completed_at=completed_at_val,
+                                synthesis_duration_seconds=sample["duration_seconds"],
+                            )
+                    else:
+                        logger.warning(
+                            "Mixed job %s completed with no per-group "
+                            "[SEGMENT_ENGINE_SAMPLE] attribution available "
+                            "(stale engine build, or every group was reused) "
+                            "— skipping render performance sample rather than "
+                            "recording it under engine=\"mixed\".",
+                            context.task_id,
+                        )
+                elif (synthesis_dur is not None and synthesis_dur > 0) or (
                     sum_segment_render_seconds is not None and sum_segment_render_seconds > 0
                 ):
                     record_render_sample(
-                        engine=str(payload.get("engine_id") or getattr(task, "engine_id", "")),
+                        engine=job_engine_id,
                         tts_model=tts_model,
                         chars=chars,
                         word_count=word_count,
@@ -1594,6 +1647,32 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                 except (IndexError, ValueError):
                     pass
 
+            if matched_marker == "SEGMENT_ENGINE_SAMPLE" or "[SEGMENT_ENGINE_SAMPLE]" in line:
+                # Mixed-only per-group attribution facts (plugins/tts_mixed/
+                # handler.py's render_one_group): "{segment_id} {engine}
+                # {chars} {duration_seconds}" — four whitespace tokens,
+                # matching the [SEGMENT_SAVED] parsing convention above.
+                # Cancelled renders must not attribute partial/garbage work
+                # to the real engine's calibration baseline (mirrors the
+                # SEGMENT_SAVED cancellation guard above).
+                if getattr(task, "_cancelled", False):
+                    return
+                try:
+                    tokens = line.split("[SEGMENT_ENGINE_SAMPLE]")[1].strip().split()
+                    seg_id_tok, engine_tok, chars_tok, duration_tok = tokens[0], tokens[1], tokens[2], tokens[3]
+                    timing.setdefault("mixed_segment_samples", []).append({
+                        "segment_id": seg_id_tok,
+                        "engine": engine_tok,
+                        "chars": int(chars_tok),
+                        "duration_seconds": float(duration_tok),
+                    })
+                except (IndexError, ValueError):
+                    logger.warning(
+                        "Malformed [SEGMENT_ENGINE_SAMPLE] marker for task %s: %r",
+                        context.task_id,
+                        line,
+                    )
+
             if matched_marker == "CHAPTER_SYNTHESIS_COMPLETE":
                 if timing.get("chapter_render_completed_at") is None:
                     timing["chapter_render_completed_at"] = now_time
@@ -1892,4 +1971,9 @@ def _claim_to_dict(claim: object | None) -> dict[str, object]:
         # W-PAR task 007 (Fable finding): propagate engine_id so reserve/release
         # can enforce the per-engine-id ceiling alongside the class-level gate.
         "engine_id": getattr(claim, "engine_id", ""),
+        # W-PAR task 014: propagate the manifest ceiling separately from `cap`
+        # so `reserve_task_resources` can resolve a live, settings-driven
+        # admission limit fresh on every call without ever treating `cap`
+        # itself as anything but the structural ceiling.
+        "manifest_max": getattr(claim, "manifest_max", 1),
     }

@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { deriveNavigationState } from '@/app/layout/StudioShell';
 
 describe('navigation mapping', () => {
-  it('identifies the library (home) route', () => {
+  it('identifies the welcome (home) route', () => {
     const state = deriveNavigationState('/');
-    expect(state.routeKind).toBe('library');
+    expect(state.routeKind).toBe('welcome');
     expect(state.activeGlobalId).toBe('library');
   });
 

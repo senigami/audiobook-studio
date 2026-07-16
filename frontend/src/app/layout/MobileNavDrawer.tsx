@@ -37,6 +37,8 @@ export function MobileNavDrawer({ open, onClose, queueCount }: MobileNavDrawerPr
         ref={drawerRef}
         className="mobile-nav-drawer"
         aria-label="Mobile navigation"
+        role="dialog"
+        aria-modal="true"
         onKeyDown={(e) => {
           if (e.key === 'Escape') onClose();
         }}

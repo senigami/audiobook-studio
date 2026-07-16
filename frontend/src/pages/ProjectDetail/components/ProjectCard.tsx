@@ -1,8 +1,12 @@
-import React from 'react';
-import { Book, Calendar, Clock, User } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Book, Clock, User, FolderOpen, Trash2, Play, Pause } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ActionMenu } from '@/components/ui/ActionMenu';
-import type { Project } from '@/types';
+import { ProjectStatusPill } from '@/components/ui/ProjectStatusPill';
+import { usePlayerBus, play, pause } from '@/store/playerBus';
+import { buildChapterQueue, playBookContinuous, useAutoSaveResumePosition } from '@/store/bookContinuousPlayback';
+import { api } from '@/api';
+import type { Project, Chapter } from '@/types';
 
 interface ProjectCardProps {
     project: Project;
@@ -23,6 +27,42 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
     onDelete,
     formatDate
 }) => {
+    // Lazily discover this project's rendered chapters so the hover-play
+    // overlay can drive chapter-by-chapter continuous playback. Fetched
+    // once, the first time the card is hovered (matches the hover-reveal
+    // affordance rather than an upfront N-project fan-out on library load).
+    const [chapters, setChapters] = useState<Chapter[] | null>(null);
+    const fetchedRef = useRef(false);
+
+    useEffect(() => {
+        if (!isHovered || fetchedRef.current) return;
+        fetchedRef.current = true;
+        api.fetchChapters(project.id)
+            .then((data: Chapter[]) => setChapters(data || []))
+            .catch(() => setChapters([]));
+    }, [isHovered, project.id]);
+
+    const queue = useMemo(() => buildChapterQueue(chapters ?? []), [chapters]);
+    const playerBus = usePlayerBus();
+    const isThisBookLoaded = playerBus.scope === 'chapter' && playerBus.bookId === project.id;
+    const isThisBookPlaying = isThisBookLoaded && playerBus.playing;
+
+    useAutoSaveResumePosition(project.id, queue);
+
+    const handlePlayClick = (event: React.MouseEvent) => {
+        event.stopPropagation();
+        if (queue.length === 0) return;
+        if (isThisBookLoaded) {
+            if (isThisBookPlaying) {
+                pause();
+            } else {
+                play();
+            }
+        } else {
+            playBookContinuous(project.id, project.name, queue);
+        }
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -112,26 +152,22 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                         </div>
                     </>
                 ) : (
-                    <div style={{ 
-                        width: '100%', 
-                        height: '100%', 
-                        display: 'flex', 
+                    <div style={{
+                        width: '100%',
+                        height: 'calc(100% - 16px)',
+                        margin: '8px',
+                        display: 'flex',
                         flexDirection: 'column',
-                        alignItems: 'center', 
+                        alignItems: 'center',
                         justifyContent: 'center',
                         gap: '12px',
-                        background: 'linear-gradient(135deg, var(--as-info-tint) 0%, var(--surface) 100%)'
+                        background: 'var(--surface-alt)',
+                        border: '1px dashed var(--border)',
+                        borderRadius: '6px'
                     }}>
-                        <div style={{
-                            position: 'absolute',
-                            inset: 0,
-                            opacity: 0.08,
-                            background: `repeating-linear-gradient(45deg, var(--accent) 0, var(--accent) 1px, transparent 0, transparent 4px)`,
-                            backgroundSize: '8px 8px'
-                        }} />
-                        <Book size={48} color="var(--accent)" style={{ opacity: 0.25, position: 'relative', zIndex: 1 }} />
-                        <div style={{ position: 'relative', zIndex: 1, fontSize: '0.7rem', color: 'var(--accent)', fontWeight: 700, opacity: 0.6, letterSpacing: '0.05em' }}>
-                            ADD COVER
+                        <Book size={40} color="var(--text-muted)" style={{ opacity: 0.4 }} />
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, opacity: 0.7, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                            Add cover
                         </div>
                     </div>
                 )}
@@ -152,28 +188,90 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
                         pointerEvents: isHovered ? 'auto' : 'none'
                     }}
                 >
-                    <ActionMenu onDelete={() => {
-                        onDelete(project.id, project.name);
-                    }} />
+                    <ActionMenu items={[
+                        { label: 'Open', icon: FolderOpen, onClick: () => onClick(project.id) },
+                        { label: 'Delete', icon: Trash2, onClick: () => onDelete(project.id, project.name), isDestructive: true }
+                    ]} />
+                </motion.div>
+
+                {/* Hover-reveal play control. A ▶ here must mean "play audio" —
+                    when nothing is assembled yet it renders disabled with a
+                    tooltip rather than silently redirecting to Publish. */}
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{
+                        opacity: isHovered ? 1 : 0,
+                        scale: isHovered ? 1 : 0.9
+                    }}
+                    transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                    style={{
+                        position: 'absolute',
+                        inset: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 15,
+                        pointerEvents: isHovered ? 'auto' : 'none'
+                    }}
+                >
+                    {chapters !== null && (() => {
+                        const canPlay = queue.length > 0;
+                        return (
+                            <button
+                                type="button"
+                                onClick={handlePlayClick}
+                                disabled={!canPlay}
+                                aria-label={`Play ${project.name}`}
+                                title={canPlay ? undefined : 'Nothing rendered yet'}
+                                style={{
+                                    width: '48px',
+                                    height: '48px',
+                                    borderRadius: '50%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    border: canPlay ? 'none' : '1px solid var(--border)',
+                                    background: canPlay ? 'var(--accent)' : 'var(--surface-glass-white)',
+                                    color: canPlay ? 'var(--text-on-accent)' : 'var(--text-muted)',
+                                    boxShadow: canPlay ? 'var(--shadow-md)' : 'none',
+                                    backdropFilter: canPlay ? undefined : 'blur(4px)',
+                                    cursor: canPlay ? 'pointer' : 'not-allowed',
+                                    opacity: canPlay ? 1 : 0.6
+                                }}
+                            >
+                                {isThisBookPlaying ? <Pause size={20} /> : <Play size={20} style={{ transform: 'translateX(2px)' }} />}
+                            </button>
+                        );
+                    })()}
                 </motion.div>
             </div>
             <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '4px', background: 'var(--surface)', zIndex: 11 }}>
-                <h3 style={{ fontSize: '1rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)' }} title={project.name}>
-                    {project.name}
-                </h3>
-                {project.author ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', rowGap: '0.35rem' }}>
+                    <h3
+                        style={{
+                            flex: '1 1 auto',
+                            minWidth: '80px',
+                            fontSize: '1rem',
+                            fontWeight: 700,
+                            overflow: 'hidden',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            lineHeight: 1.3,
+                            color: 'var(--text-primary)'
+                        }}
+                        title={project.name}
+                    >
+                        {project.name}
+                    </h3>
+                    {project.status && <ProjectStatusPill status={project.status} />}
+                </div>
+                {project.author && (
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500 }}>
                         <User size={14} opacity={0.7} /> {project.author}
                     </p>
-                ) : (
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        No author specified
-                    </p>
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500 }}>
-                        <Calendar size={14} opacity={0.7} /> Created {formatDate(project.created_at)}
-                    </p>
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 500 }}>
                         <Clock size={14} opacity={0.7} /> Updated {formatDate(project.updated_at)}
                     </p>

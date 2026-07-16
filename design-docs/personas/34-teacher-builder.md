@@ -1,4 +1,4 @@
-# 34 · "Maya Robinson" — Teacher Builder  ☆ INFERRED
+# 34 · Teacher Builder  ☆ INFERRED
 
 **Identity:** "A high school English teacher who needs to produce consistent, classroom-ready audio files week after week without reconfiguring anything from scratch."
 
@@ -24,7 +24,7 @@
 - **Reuse:** Wants to start next week's files using the same voice profile and settings without cloning or reconfiguring
 
 ## Top friction points *(INFERRED)*
-- **F1 — No project template or defaults memory:** Maya re-selects the same narrator voice and settings every new project. There is no way to pin a default voice or duplicate a project as a starting template.
+- **F1 — No project template or defaults memory:** The Teacher Builder re-selects the same narrator voice and settings every new project. There is no way to pin a default voice or duplicate a project as a starting template.
 - **F2 — Export path amnesia:** The app does not remember her last export folder. Every export requires navigating back to the same shared drive subfolder.
 - **F3 — Batch status is unclear:** When she queues five chapters and comes back 20 minutes later, there is no simple "3 of 5 done, 1 failed" summary — she has to inspect each job individually in the queue panel.
 - **F4 — Pronunciation correction is buried:** Fixing a mispronounced word requires editing the segment text, re-rendering, and re-exporting rather than an inline pronunciation hint or substitution rule.

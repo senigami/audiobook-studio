@@ -154,6 +154,7 @@
   --success-color: #10b981;                        /* success status color (= --success alias) */
   --accent-focus-ring: rgba(30, 79, 216, 0.08);  /* focus ring glow around inputs */
   --cloud-tint-bg: rgba(14, 165, 233, 0.12);      /* cloud-engine accent tint */
+  --cloud-tint-border: rgba(14, 165, 233, 0.2);   /* cloud-engine surface border */
   --cloud-color: #0ea5e9;                          /* cloud engine icon/text color */
 
   /* Voice attribute pill tint tokens — R5-T1 */
@@ -352,6 +353,7 @@
 
   /* Cloud */
   --cloud-tint-bg:        rgba(14, 165, 233, 0.15);
+  --cloud-tint-border:    rgba(14, 165, 233, 0.3);
   --cloud-color:          #38bdf8;
 
   /* Overlay */

@@ -1,27 +1,61 @@
 import React, { useRef, useState } from 'react';
-import { Upload } from 'lucide-react';
+import { Upload, ClipboardCopy } from 'lucide-react';
+import type { VoiceMetadata } from '@/types';
 import { api } from '@/api';
+import { IconCropModal } from '@/pages/Voices/components/metadata/IconCropModal';
+import { buildIconPrompt } from '@/pages/VoiceLab/iconPrompt';
+
+/** Reads just the natural dimensions of a File, without keeping it decoded in memory. */
+function readImageDimensions(file: File): Promise<{ w: number; h: number }> {
+    return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            resolve({ w: img.naturalWidth, h: img.naturalHeight });
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error('Could not read image'));
+        };
+        img.src = url;
+    });
+}
 
 // ---------------------------------------------------------------------------
-// IconUpload
+// useIconUpload — the upload/drag-drop/copy-prompt mechanics, lifted out of
+// the standalone IconUpload component (voice-variants round 2, task 003) so
+// VoiceDetailHeader can wire the same behavior directly onto its avatar
+// instead of mounting a separate section. IconUpload below is now just this
+// hook plus its original standalone chrome, kept for its own test coverage.
 // ---------------------------------------------------------------------------
-export function IconUpload({
+export function useIconUpload({
     voiceId,
-    currentImagePath,
+    metadata,
     onSuccess,
     onError,
 }: {
     voiceId: string;
-    currentImagePath: string | undefined;
+    metadata?: VoiceMetadata | null;
     onSuccess: (image: string) => void;
     onError: (msg: string) => void;
 }) {
     const [uploading, setUploading] = useState(false);
+    const [cropFile, setCropFile] = useState<File | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const [copyError, setCopyError] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    const handle = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+    const handleCopyPrompt = async () => {
+        setCopyError(null);
+        try {
+            await navigator.clipboard.writeText(buildIconPrompt(metadata ?? null));
+        } catch {
+            setCopyError('Could not copy — clipboard unavailable.');
+        }
+    };
+
+    const doUpload = async (file: File) => {
         setUploading(true);
         try {
             const result = await api.uploadVoiceIcon(voiceId, file);
@@ -35,6 +69,106 @@ export function IconUpload({
         }
     };
 
+    // Shared by both the file-picker input and drag-and-drop — same
+    // dimension-probe / crop-or-upload decision either way (D2).
+    const handleFile = async (file: File) => {
+        try {
+            const { w, h } = await readImageDimensions(file);
+            if (w === h) {
+                await doUpload(file);
+            } else {
+                setCropFile(file);
+                if (inputRef.current) inputRef.current.value = '';
+            }
+        } catch {
+            // Dimension probe failed (corrupt/unsupported file) — fall back
+            // to the server's own validation/error message.
+            await doUpload(file);
+        }
+    };
+
+    const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        await handleFile(file);
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        if (!uploading) setIsDragging(true);
+    };
+
+    const handleDragLeave = () => setIsDragging(false);
+
+    // Reuses this repo's established drag-drop interaction pattern
+    // (dashed-border highlight while dragging, e.g. VoiceDropzone.tsx) —
+    // there's no shared hook for it yet, so the handlers are local here too.
+    const handleDrop = async (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        if (uploading) return;
+        const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith('image/'));
+        if (!file) {
+            onError('Drop an image file (PNG, JPEG, or WebP).');
+            return;
+        }
+        await handleFile(file);
+    };
+
+    const handleCropped = async (croppedFile: File) => {
+        setCropFile(null);
+        await doUpload(croppedFile);
+    };
+
+    return {
+        uploading,
+        cropFile,
+        setCropFile,
+        isDragging,
+        copyError,
+        inputRef,
+        handleCopyPrompt,
+        handleInputChange,
+        handleDragOver,
+        handleDragLeave,
+        handleDrop,
+        handleCropped,
+    };
+}
+
+// ---------------------------------------------------------------------------
+// IconUpload — standalone upload section (drag-drop zone + preview + button).
+// No longer mounted in the app (folded onto VoiceDetailHeader's avatar by
+// task 003), kept as the direct home of this behavior's unit tests.
+// ---------------------------------------------------------------------------
+export function IconUpload({
+    voiceId,
+    currentImagePath,
+    metadata,
+    onSuccess,
+    onError,
+}: {
+    voiceId: string;
+    currentImagePath: string | undefined;
+    metadata?: VoiceMetadata | null;
+    onSuccess: (image: string) => void;
+    onError: (msg: string) => void;
+}) {
+    const {
+        uploading,
+        cropFile,
+        setCropFile,
+        isDragging,
+        copyError,
+        inputRef,
+        handleCopyPrompt,
+        handleInputChange,
+        handleDragOver,
+        handleDragLeave,
+        handleDrop,
+        handleCropped,
+    } = useIconUpload({ voiceId, metadata, onSuccess, onError });
+
     const iconUrl = currentImagePath
         ? `/api/voices/${encodeURIComponent(voiceId)}/icon`
         : null;
@@ -44,7 +178,18 @@ export function IconUpload({
             <label className="metadata-field-label">
                 ICON
             </label>
-            <div className="metadata-icon-upload__row">
+            <div
+                className="metadata-icon-upload__row"
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                style={{
+                    borderRadius: 'var(--radius-card)',
+                    border: isDragging ? '2px dashed var(--accent)' : '2px dashed transparent',
+                    background: isDragging ? 'var(--accent-glow)' : 'transparent',
+                    transition: 'border-color 0.15s ease-out, background-color 0.15s ease-out',
+                }}
+            >
                 <div className="metadata-icon-upload__preview">
                     {iconUrl ? (
                         <img src={iconUrl} alt="Voice icon" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -53,16 +198,34 @@ export function IconUpload({
                     )}
                 </div>
                 <div className="metadata-icon-upload__actions">
-                    <button
-                        type="button"
-                        disabled={uploading}
-                        onClick={() => inputRef.current?.click()}
-                        className="btn-glass metadata-icon-upload__btn"
-                    >
-                        {uploading ? 'Uploading…' : (iconUrl ? 'Replace icon' : 'Upload icon')}
-                    </button>
+                    <div style={{ display: 'flex', gap: 'var(--space-2, 8px)', alignItems: 'center' }}>
+                        <button
+                            type="button"
+                            disabled={uploading}
+                            onClick={() => inputRef.current?.click()}
+                            className="btn-glass metadata-icon-upload__btn"
+                        >
+                            {uploading ? 'Uploading…' : (iconUrl ? 'Replace icon' : 'Upload icon')}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleCopyPrompt}
+                            className="btn-glass metadata-icon-upload__prompt-btn"
+                            aria-label="Copy icon generation prompt"
+                            title={buildIconPrompt(metadata ?? null)}
+                        >
+                            <ClipboardCopy size={14} />
+                        </button>
+                        {copyError && (
+                            <span role="alert" className="metadata-icon-upload__copy-error">
+                                {copyError}
+                            </span>
+                        )}
+                    </div>
                     <p className="metadata-field-hint">
-                        Square image required (1:1). PNG, JPEG, or WebP.
+                        {isDragging
+                            ? 'Drop to upload'
+                            : 'PNG, JPEG, or WebP. Drag and drop, or click to browse. Non-square images can be cropped after selecting.'}
                     </p>
                     <input
                         ref={inputRef}
@@ -70,10 +233,17 @@ export function IconUpload({
                         accept="image/png,image/jpeg,image/webp"
                         aria-label="Upload voice icon"
                         style={{ display: 'none' }}
-                        onChange={handle}
+                        onChange={handleInputChange}
                     />
                 </div>
             </div>
+            {cropFile && (
+                <IconCropModal
+                    file={cropFile}
+                    onCancel={() => setCropFile(null)}
+                    onCropped={handleCropped}
+                />
+            )}
         </div>
     );
 }

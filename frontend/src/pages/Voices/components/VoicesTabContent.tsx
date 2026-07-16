@@ -6,7 +6,7 @@
  * are re-homed to Voice Lab in R5-T5+).
  */
 import React from 'react';
-import { User, Plus, Search } from 'lucide-react';
+import { User, Plus, Search, Trash2, Download } from 'lucide-react';
 import { VoiceCatalogCard } from '@/pages/Voices/components/VoiceCatalogCard';
 import type { SpeakerProfile, Speaker, TtsEngine, VoiceEngine, VoiceMetadata } from '@/types';
 
@@ -30,14 +30,16 @@ interface VoicesTabContentProps {
     setExpandedVoiceId: (id: string | null) => void;
     engines: TtsEngine[];
     onCreateClick: () => void;
-    onEditTestText: (profile: SpeakerProfile) => void;
-    /** Opens the standalone Voice Settings drawer (per-voice plugin controls) — separate from
-     * the Script Editor drawer opened by `onEditTestText`. */
-    onEditVoiceSettings?: (profile: SpeakerProfile) => void;
     voiceMetadataMap?: Map<string, VoiceMetadata>;
     onEditMetadata?: (voiceGroupId: string, voiceName: string) => void;
     /** Navigate to Voice Lab for the given voice id */
     onNavigateToLab?: (voiceId: string) => void;
+    /** Bulk-select mode (delete/export) — all omit-able, card renders normally without them. */
+    selectMode?: boolean;
+    selectedIds?: Set<string>;
+    onToggleSelect?: (voiceId: string) => void;
+    onBulkDelete?: () => void;
+    onBulkExport?: () => void;
 }
 
 export const VoicesTabContent: React.FC<VoicesTabContentProps> = ({
@@ -54,15 +56,36 @@ export const VoicesTabContent: React.FC<VoicesTabContentProps> = ({
     onExportVoice,
     engines,
     onCreateClick,
-    onEditTestText,
-    onEditVoiceSettings,
     voiceMetadataMap,
     onEditMetadata,
     onNavigateToLab,
+    selectMode = false,
+    selectedIds,
+    onToggleSelect,
+    onBulkDelete,
+    onBulkExport,
 }) => {
+    const selectedCount = selectedIds?.size ?? 0;
     return (
         <div style={{ flex: 1, overflowY: 'auto', padding: '2rem' }}>
             <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+                {selectMode && selectedCount > 0 && (
+                    <div className="voices-bulk-toolbar" role="toolbar" aria-label="Bulk voice actions">
+                        <span className="voices-bulk-toolbar__count">{selectedCount} selected</span>
+                        <button type="button" className="btn-glass" onClick={onBulkExport}>
+                            <Download size={14} />
+                            Export {selectedCount}
+                        </button>
+                        <button
+                            type="button"
+                            className="btn-glass hover-bg-destructive"
+                            onClick={onBulkDelete}
+                        >
+                            <Trash2 size={14} />
+                            Delete {selectedCount}
+                        </button>
+                    </div>
+                )}
                 {voices.length === 0 ? (
                     <div style={{
                         padding: '60px',
@@ -136,9 +159,10 @@ export const VoicesTabContent: React.FC<VoicesTabContentProps> = ({
                                     onExportVoice={onExportVoice}
                                     requestConfirm={handleRequestConfirm}
                                     onEditMetadata={() => onEditMetadata?.(voice.id, voice.name)}
-                                    onEditTestText={onEditTestText}
-                                    onEditVoiceSettings={onEditVoiceSettings}
                                     onRefresh={onRefresh}
+                                    selectable={selectMode}
+                                    selected={selectedIds?.has(voice.id) ?? false}
+                                    onToggleSelect={() => onToggleSelect?.(voice.id)}
                                 />
                             );
                         })}

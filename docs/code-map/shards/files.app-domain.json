@@ -1,0 +1,995 @@
+{
+  "files": {
+    "app/domain/__init__.py": {
+      "purpose": "Package marker for Studio 2.0 domain layer",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "app/domain/artifacts/__init__.py": {
+      "purpose": "Package declaration",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "app/domain/artifacts/cache.py": {
+      "purpose": "Immutable artifact cache helpers for publication and manifest sidecar writing",
+      "exports": [
+        {
+          "name": "publish_artifact, _prepare_publish_target, _write_manifest_sidecar",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/domain/artifacts/models.py#RenderArtifactModel"
+      ],
+      "called_by": [],
+      "notes": [
+        "manifest sidecar path: {audio_path}.manifest.json",
+        "descriptive/placeholder; full logic deferred Phase 2"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/artifacts/manifest.py": {
+      "purpose": "Build and validate artifact manifests and request fingerprints",
+      "exports": [
+        {
+          "name": "build_artifact_request_fingerprint, build_artifact_manifest, is_artifact_stale, validate_artifact_manifest",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/domain/artifacts/models.py#*"
+      ],
+      "called_by": [],
+      "notes": [
+        "fingerprint = 'sha256:'+hash; staleness via fingerprint mismatch"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/artifacts/models.py": {
+      "purpose": "Dataclass definitions for render artifacts/manifests/output metadata",
+      "exports": [
+        {
+          "name": "ArtifactOutputModel, RenderArtifactModel, ArtifactManifestModel",
+          "kind": "dataclass"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "RenderArtifactModel is immutable synthesis output record"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/artifacts/repository.py": {
+      "purpose": "Protocol for artifact persistence layer",
+      "exports": [
+        {
+          "name": "ArtifactRepository",
+          "kind": "Protocol",
+          "contract": "get/get_manifest/list_for_chapter/save/save_manifest"
+        }
+      ],
+      "calls": [
+        "app/domain/artifacts/models.py#*"
+      ],
+      "called_by": [],
+      "notes": [
+        "protocol only"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/artifacts/service.py": {
+      "purpose": "Artifact-domain service for validation, reuse decisions, cache publication",
+      "exports": [
+        {
+          "name": "ArtifactService",
+          "kind": "class",
+          "contract": "get_artifact/validate_reuse/publish"
+        },
+        {
+          "name": "create_artifact_service",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/domain/artifacts/cache.py#publish_artifact",
+        "app/domain/artifacts/manifest.py#*",
+        "app/domain/artifacts/models.py#*",
+        "app/domain/artifacts/repository.py#ArtifactRepository"
+      ],
+      "called_by": [],
+      "notes": [
+        "Phase 1 scaffold"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/chapters/__init__.py": {
+      "purpose": "Package declaration re-exporting facade API",
+      "exports": [
+        {
+          "name": "get_script_view_payload, save_script_assignments, compact_script_view",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/domain/chapters/facade.py#*"
+      ],
+      "called_by": [
+        "app/domain/chapters/assets.py",
+        "app/domain/chapters/operations.py"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "app/domain/chapters/assets.py": {
+      "purpose": "Export and resolve chapter audio assets (WAV/MP3)",
+      "exports": [
+        {
+          "name": "export_chapter_audio, _resolve_canonical_wav_path",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/core/__init__.py",
+        "app/db/core.py#_db_lock,get_connection",
+        "app/domain/chapters/__init__.py",
+        "app/engines/audio_ops.py#wav_to_mp3",
+        "app/utils/pathing.py#find_secure_file,secure_join_flat"
+      ],
+      "called_by": [],
+      "notes": [
+        "MP3 conversion atomic via .tmp+replace"
+      ],
+      "calls_inferred": [
+        "app/core/config.py#resolve_chapter_asset_path",
+        "app/domain/chapters/helpers.py#*"
+      ]
+    },
+    "app/domain/chapters/facade.py": {
+      "purpose": "Re-exports public Chapter domain API for Phase 7 bridge",
+      "exports": [
+        {
+          "name": "get_script_view_payload, save_script_assignments, compact_script_view, export_chapter_audio, RevisionMismatch",
+          "kind": "function/exception"
+        }
+      ],
+      "calls": [
+        "app/domain/chapters/assets.py#*",
+        "app/domain/chapters/helpers.py#*",
+        "app/domain/chapters/operations.py#*"
+      ],
+      "called_by": [],
+      "notes": [
+        "compatibility layer"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/chapters/helpers.py": {
+      "purpose": "Low-level chapter/segment query and normalization helpers",
+      "exports": [
+        {
+          "name": "RevisionMismatch",
+          "kind": "exception"
+        },
+        {
+          "name": "_load_chapter_row, _load_segment_rows, _normalize_segment_status, _aggregate_status, _clean_optional_text, _resolved_speaker_profile_name, _segment_assignment, _segment_contains_paragraph_break, _stable_batch_id, _build_base_revision_id, _resolve_engine_from_profile",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/db/core.py#get_connection",
+        "app/db/speakers.py#get_speaker_settings"
+      ],
+      "called_by": [],
+      "notes": [
+        "_build_base_revision_id excludes audio_status deliberately"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/chapters/models.py": {
+      "purpose": "Dataclass for chapter metadata and revision tracking",
+      "exports": [
+        {
+          "name": "ChapterModel",
+          "kind": "dataclass"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "app/api/routers/projects_helpers.py"
+      ],
+      "notes": [
+        "tracks source_revision and active_draft_revision"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/chapters/operations.py": {
+      "purpose": "Chapter script view orchestration, segment assignment, synchronization",
+      "exports": [
+        {
+          "name": "get_script_view_payload, save_script_assignments, get_resync_preview, compact_script_view, _build_script_batch, _apply_range_assignment, _split_segment_at_offset",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/db/chapters_cleanup.py#cleanup_chapter_audio_files",
+        "app/db/core.py#_db_lock,get_connection",
+        "app/db/nlp.py",
+        "app/db/segments.py#sync_chapter_segments",
+        "app/domain/chapters/__init__.py",
+        "app/engines/behavior.py",
+        "app/engines/bridge.py#create_voice_bridge",
+        "app/utils/render_trace.py",
+        "app/utils/text/textops.py#sanitize_text,compute_chapter_metrics"
+      ],
+      "called_by": [],
+      "notes": [
+        "base_revision_id excludes audio_status to avoid false conflicts",
+        "range assignments surgically split segments at char offsets"
+      ],
+      "calls_inferred": [
+        "app/db/speakers.py#get_speaker_settings",
+        "app/domain/chapters/helpers.py#*"
+      ]
+    },
+    "app/domain/chapters/repository.py": {
+      "purpose": "Protocol for chapter persistence layer",
+      "exports": [
+        {
+          "name": "ChapterRepository",
+          "kind": "Protocol",
+          "contract": "get/list_by_project/save"
+        }
+      ],
+      "calls": [
+        "app/domain/chapters/models.py#ChapterModel"
+      ],
+      "called_by": [],
+      "notes": [
+        "protocol only"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/chunk_groups.py": {
+      "purpose": "Chunk grouping for batch synthesis: groups segments by character/profile/engine within chunk limits",
+      "exports": [
+        {
+          "name": "load_chunk_segments, resolve_segment_profile_name, build_chunk_groups, get_chunk_group_indexes_for_segment_ids, format_chunk_group_label, build_chapter_queue_title, build_segment_job_title",
+          "kind": "function"
+        },
+        {
+          "name": "build_script_entry_for_group",
+          "kind": "function",
+          "contract": "R2 extraction: per-group script-entry building (id/ids/save_path/weight/text/engine/speaker_wav/voice_profile_dir), shared by generation.py's chapter script builder and the per-child synthetic-task path"
+        }
+      ],
+      "calls": [
+        "app/db/core.py#get_connection",
+        "app/db/speakers.py",
+        "app/engines/behavior.py#get_text_chunk_limit",
+        "app/engines/voice_engines.py#resolve_profile_engine",
+        "app/utils/text/textops.py"
+      ],
+      "called_by": [],
+      "notes": [
+        "groups coalesce adjacent segments with same character/profile/engine",
+        "1-indexed labels/indexes"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/demo_bundle.py": {
+      "purpose": "Demo bundle restoration (ZIP extract) with safety validation and CLI",
+      "exports": [
+        {
+          "name": "demo_restore_needed, restore_demo_bundle, main",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "allowed top-level ZIP entries: audiobook_studio.db, projects, voices",
+        "path validation forbids absolute/./../empty parts"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/jobs/__init__.py": {
+      "purpose": "Package marker for job domain",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "app/domain/jobs/models.py": {
+      "purpose": "Canonical job state model independent of live progress/worker assumptions",
+      "exports": [
+        {
+          "name": "JobModel",
+          "kind": "dataclass"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "all timestamps UTC"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/jobs/repository.py": {
+      "purpose": "Protocol boundary for canonical job record persistence",
+      "exports": [
+        {
+          "name": "JobRepository",
+          "kind": "Protocol",
+          "contract": "get/list_active/save"
+        }
+      ],
+      "calls": [
+        "app/domain/jobs/models.py#JobModel"
+      ],
+      "called_by": [],
+      "notes": [
+        "protocol only"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/jobs/service.py": {
+      "purpose": "Job domain service for canonical job state reads (Phase 1 scaffold)",
+      "exports": [
+        {
+          "name": "JobService",
+          "kind": "class",
+          "contract": "get_job raises NotImplementedError"
+        },
+        {
+          "name": "create_job_service",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/domain/jobs/models.py#JobModel",
+        "app/domain/jobs/repository.py#JobRepository"
+      ],
+      "called_by": [],
+      "notes": [
+        "scaffold"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/projects/__init__.py": {
+      "purpose": "Package declaration",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "direct imports preferred"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/projects/exports.py": {
+      "purpose": "Build project export intents and artifact descriptors",
+      "exports": [
+        {
+          "name": "build_project_export_manifest, resolve_project_export_inputs",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/domain/projects/models.py#*"
+      ],
+      "called_by": [],
+      "notes": [
+        "placeholder for future artifact domain integration"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/projects/manifest.py": {
+      "purpose": "Load/save/migrate project manifest.json with storage versioning",
+      "exports": [
+        {
+          "name": "get_project_manifest_path, load_project_manifest, save_project_manifest, get_storage_version",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/storage/manager.py#get_storage_manager",
+        "app/utils/pathing.py#secure_join_flat"
+      ],
+      "called_by": [],
+      "notes": [
+        "CURRENT_STORAGE_VERSION=2",
+        "atomic writes via tmp+replace"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/projects/migration.py": {
+      "purpose": "Migrate projects from v1 flat layout to v2 nested chapter folders",
+      "exports": [
+        {
+          "name": "migrate_project_to_v2",
+          "kind": "function",
+          "contract": "returns bool"
+        }
+      ],
+      "calls": [
+        "app/core/__init__.py",
+        "app/db/chapters.py#list_chapters",
+        "app/db/projects.py#get_project",
+        "app/db/segments.py#*",
+        "app/domain/projects/manifest.py#*",
+        "app/storage/manager.py#get_storage_manager"
+      ],
+      "called_by": [],
+      "notes": [
+        "Rule 8/9 trusted-root enumeration before file ops",
+        "cleans up legacy dirs only after success"
+      ],
+      "calls_inferred": [
+        "app/core/config.py#PROJECTS_DIR"
+      ]
+    },
+    "app/domain/projects/models.py": {
+      "purpose": "Dataclass definitions for projects, snapshots, exports, backups",
+      "exports": [
+        {
+          "name": "ProjectModel, ProjectSnapshotModel, ProjectExportManifestModel, ProjectBackupBundleModel, StoredBackupModel",
+          "kind": "dataclass"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "ProjectModel.name aliases .title"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/projects/repository.py": {
+      "purpose": "Protocol for project persistence layer",
+      "exports": [
+        {
+          "name": "ProjectRepository",
+          "kind": "Protocol",
+          "contract": "get/list_all/save/delete/get_snapshot/save_snapshot/list_snapshots"
+        }
+      ],
+      "calls": [
+        "app/domain/projects/models.py#*"
+      ],
+      "called_by": [],
+      "notes": [
+        "protocol only"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/projects/service.py": {
+      "purpose": "Project-domain service for creation, snapshots, exports, backups",
+      "exports": [
+        {
+          "name": "ProjectService",
+          "kind": "class",
+          "contract": "list_projects/get_project/prepare_project_defaults/create_snapshot/build_export_manifest/create_backup_bundle"
+        },
+        {
+          "name": "create_project_service",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/domain/chapters/repository.py#ChapterRepository",
+        "app/domain/projects/exports.py#build_project_export_manifest",
+        "app/domain/projects/models.py#*",
+        "app/domain/projects/repository.py#ProjectRepository",
+        "app/domain/projects/snapshots.py#build_project_snapshot"
+      ],
+      "called_by": [],
+      "notes": [
+        "Phase 1 scaffold: NotImplementedError"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/projects/snapshots.py": {
+      "purpose": "Build revision-safe snapshots for reload/export/restore flows",
+      "exports": [
+        {
+          "name": "build_project_snapshot, validate_project_snapshot",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/domain/projects/models.py#*"
+      ],
+      "called_by": [],
+      "notes": [
+        "snapshot ID deterministic SHA256",
+        "rejects absolute paths in metadata"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/settings/__init__.py": {
+      "purpose": "Package declaration",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "app/domain/settings/models.py": {
+      "purpose": "Dataclass for settings ownership and effective merged settings",
+      "exports": [
+        {
+          "name": "SettingsOwnershipModel, EffectiveSettingsModel, describe_settings_ownership",
+          "kind": "dataclass/function"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "SettingsOwnershipModel frozen"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/settings/ownership.py": {
+      "purpose": "Build and describe settings ownership hierarchy for scope precedence",
+      "exports": [
+        {
+          "name": "build_settings_ownership_chain",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/domain/settings/models.py#*"
+      ],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "app/domain/settings/repository.py": {
+      "purpose": "Protocol for settings persistence layer",
+      "exports": [
+        {
+          "name": "SettingsRepository",
+          "kind": "Protocol",
+          "contract": "get_global/get_project/get_module/get_profile_preview"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "protocol only"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/settings/service.py": {
+      "purpose": "Settings-domain service for scoped settings lookup",
+      "exports": [
+        {
+          "name": "SettingsService",
+          "kind": "class",
+          "contract": "describe_ownership/get_effective_settings"
+        },
+        {
+          "name": "create_settings_service",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/domain/settings/models.py#*",
+        "app/domain/settings/ownership.py#build_settings_ownership_chain",
+        "app/domain/settings/repository.py#SettingsRepository"
+      ],
+      "called_by": [],
+      "notes": [
+        "Phase 1 scaffold",
+        "scope chain: global(0)<project(1)<module(2)<profile_preview(3)"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/text/__init__.py": {
+      "purpose": "Package marker for text domain",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "app/domain/text/analysis.py": {
+      "purpose": "Text analysis for rendering prep (Phase 1 scaffold)",
+      "exports": [
+        {
+          "name": "analyze_text_for_rendering",
+          "kind": "function",
+          "contract": "raises NotImplementedError"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "placeholder only"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/text/pronunciation.py": {
+      "purpose": "Pronunciation override lookup (Phase 1 scaffold)",
+      "exports": [
+        {
+          "name": "build_pronunciation_overrides",
+          "kind": "function",
+          "contract": "raises NotImplementedError"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "placeholder only"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/text/sanitization.py": {
+      "purpose": "Text sanitization before synthesis prep (Phase 1 scaffold)",
+      "exports": [
+        {
+          "name": "sanitize_render_text",
+          "kind": "function",
+          "contract": "raises NotImplementedError"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "placeholder only"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/voices/__init__.py": {
+      "purpose": "Package marker with import discipline note",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "prefer direct imports from concrete modules"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/voices/bundles.py": {
+      "purpose": "Voice bundle export/import (ZIP) with strict schema validation",
+      "exports": [
+        {
+          "name": "export_voice_bundle, import_voice_bundle, validate_voice_manifest_strict, generate_readme_md, VoiceBundleError",
+          "kind": "function/class"
+        }
+      ],
+      "calls": [
+        "app/core/config.py",
+        "app/db/speakers.py#get_speaker_settings",
+        "app/domain/voices/manifest.py#*",
+        "app/engines/behavior.py#get_test_sample_name"
+      ],
+      "called_by": [],
+      "notes": [
+        "export drops operational fields (version/default_variant/_untagged/_taxonomy_version)",
+        "import uses staging dir to avoid partial extraction",
+        "generate_readme_md()'s array_fields gained language/style -> as-language-*/as-style-* HF tags (Phase G, 2026-07-04)"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/voices/compatibility.py": {
+      "purpose": "Voice profile/engine compatibility validation rules",
+      "exports": [
+        {
+          "name": "validate_voice_compatibility",
+          "kind": "function",
+          "contract": "raises ValueError on incompatibility"
+        }
+      ],
+      "calls": [
+        "app/domain/voices/models.py#*"
+      ],
+      "called_by": [],
+      "notes": [
+        "lenient on engine_id mismatch if profile has default"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/voices/huggingface.py": {
+      "purpose": "HuggingFace Hub voice import/export flow -- LIVE, wired by voices_huggingface router (was: foundation scaffold, zero live callers)",
+      "exports": [
+        {
+          "name": "HFToken",
+          "kind": "class",
+          "contract": "frozen dataclass; repr/str redacted (asdict/pickle NOT redacted \u2014 documented+tested limitation)"
+        },
+        {
+          "name": "HFVoiceCardMetadata, HFSearchResult, HFConsentDecision",
+          "kind": "class"
+        },
+        {
+          "name": "HFHubClientProtocol, HFHubClient",
+          "kind": "class",
+          "contract": "mockable network boundary; HFHubClient itself raises NotImplementedError (live-network stub)"
+        },
+        {
+          "name": "search_voices, inspect_card, check_consent, download_voice_files, build_voice_asset_from_download, annotate_from_card, export_hf_voice_bundle, upload_voice_to_hub",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/core/config.py",
+        "app/utils/pathing.py#safe_basename",
+        "app/utils/pathing.py#safe_join_flat"
+      ],
+      "called_by": [],
+      "notes": [
+        "2026-07-12: export_hf_voice_bundle() gains icon_bytes param; now writes README.md (via bundles.generate_readme_md, local import) and icon.png (when provided) into the export zip, both additive/optional. When sample_mp3_bytes is non-empty but voice_manifest lacks samples[], synthesizes a {path, primary} entry into both the written voice.json and the README input so the on-Hub manifest and its own widget block agree. HFHubClientProtocol.upload_files and HFHubClient.upload_files signature changed files: list[Path] -> folder_path: Path; implementation switched from N sequential upload_file() calls (path_in_repo=name, flattening structure) + a best-effort ModelCard tag-push fallback, to one HfApi.upload_folder() call (one atomic commit, structure preserved), repo_type='model' now explicit on both create_repo and upload_folder. upload_voice_to_hub's folder_path param renamed/passthrough, log line updated.",
+        "2026-07-12: export_hf_voice_bundle gains engine_assets: dict[str, list[tuple[str, bytes]]] | None and sample_engine_id: str | None params. When engine_assets is given, writes each engine's files under assets/<engine_id>/ in the export zip (omitted entirely, not an empty dir, when there are no resolvable assets). When sample_engine_id is given, appends a '## Sample' section to the generated README noting which engine/model produced the sample, without modifying bundles.generate_readme_md.",
+        "deliberately does NOT define VoiceProvenance; uses its own local HFVoiceCardMetadata, decoupled from app/domain/voices/taxonomy.py#validate_provenance_strict pending a future integration pass",
+        "export_hf_voice_bundle uses safe_join_flat on bundle_name \u2014 rejects path-traversal from a Hub-derived/user-typed name",
+        "annotate_from_card's returned dict includes 'license', which update_voice_metadata does NOT accept \u2014 a future caller must route it separately",
+        "STATUS (2026-07-04): LIVE -- real HFHubClient implementation makes genuine HTTPS calls via huggingface_hub; validate_hub_id (strict regex, fullmatch) gates every call as an SSRF/path-injection guard",
+        "download_files hardening (2026-07-04): filters to an audio/manifest extension allowlist BEFORE download, caps at MAX_DOWNLOAD_FILES=20, independently validates every filename via safe_basename (not relying solely on the huggingface_hub library's own sanitization) -- accepted gap: no per-file/total byte-size cap yet",
+        "provenance populated on import as {source:'imported', author, consent_ack, created_at} -- correctly matches the REAL schema (not the pre-implementation plan's source='huggingface'/hub_id shape a sibling demo mockup mistakenly used)",
+        "does NOT call build_voice_asset (app/engines/bridge.py's build_voice_asset is a pre-existing NotImplementedError stub) -- import registers a new voice profile with raw samples; the user still uses the existing async Build job"
+      ],
+      "calls_inferred": [
+        "huggingface_hub.HfApi",
+        "huggingface_hub.ModelCard",
+        "huggingface_hub.hf_hub_download"
+      ]
+    },
+    "app/domain/voices/manifest.py": {
+      "purpose": "Disk I/O for voice.json/profile.json/state.json with path traversal protection",
+      "exports": [
+        {
+          "name": "load_voice_manifest, save_voice_manifest, load_and_validate_voice_manifest, load_voice_state, save_voice_state, load_variant_manifest, save_variant_manifest, get_voice_storage_version, get_voice_manifest_path, get_variant_manifest_path",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/core/config.py#VOICES_DIR",
+        "app/domain/voices/taxonomy.py#check_taxonomy_version,validate_and_degrade_attributes"
+      ],
+      "called_by": [
+        "app/api/routers/voices_helpers.py",
+        "app/api/routers/voices_huggingface.py",
+        "app/api/routers/voices_management.py",
+        "app/db/speaker_paths.py",
+        "app/db/speakers.py"
+      ],
+      "notes": [
+        "all reads/writes validate against VOICES_DIR trusted root via realpath+startswith",
+        "loads lenient, saves strict"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/voices/metadata.py": {
+      "purpose": "Voice metadata query, search, casting recommendations, manifest mutations",
+      "exports": [
+        {
+          "name": "find_voice_dir_by_id, list_voices_with_metadata, get_voice_metadata, update_voice_metadata, search_voices, cast_voices",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/domain/voices/manifest.py#*",
+        "app/domain/voices/taxonomy.py#validate_attributes_strict",
+        "app/domain/voices/taxonomy.py#validate_provenance_strict",
+        "app/utils/pathing.py#find_secure_file"
+      ],
+      "called_by": [],
+      "notes": [
+        "voice ID fallback: manifest id -> dirname slug",
+        "casting scoring: class/gender/age 0.25 each + tone/timbre/accent 0.05 each, fallback floor 0.1",
+        "update_voice_metadata accepts an optional provenance kwarg (whole-block replace on write, not merge)",
+        "raises RuntimeError (mapped to 500 by the router) when save_voice_manifest returns False \u2014 previously silently served stale pre-write data under a 200",
+        "search_voices() gained language/style OR-within-field params (Phase G, 2026-07-04), same pattern as tone/timbre/use_case"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/voices/migration.py": {
+      "purpose": "Voice storage v1->v2 flat-to-nested migration + voice.json schema v0->v1.0 migration",
+      "exports": [
+        {
+          "name": "migrate_voices_to_v2, migrate_voice_variant, migrate_voices_to_v1_schema",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/core/__init__.py",
+        "app/domain/voices/manifest.py#*"
+      ],
+      "called_by": [
+        "app/api/routers/voices_management.py"
+      ],
+      "notes": [
+        "idempotent, thread-safe acquire_lock",
+        "v1->v2: flat voice/{name} -> nested voice/{name}/{variant}/"
+      ],
+      "calls_inferred": [
+        "app/core/config.py#VOICES_DIR"
+      ]
+    },
+    "app/domain/voices/models.py": {
+      "purpose": "Dataclass models for voice profiles/assets/variants/preview requests",
+      "exports": [
+        {
+          "name": "VoiceModel, VariantModel, VoiceProfileModel, VoiceAssetModel, VoicePreviewRequestModel",
+          "kind": "dataclass"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "plain dataclasses, no business logic"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/voices/preview.py": {
+      "purpose": "Voice preview request routing through engine bridge with error normalization",
+      "exports": [
+        {
+          "name": "preview_voice_profile",
+          "kind": "function",
+          "contract": "VoicePreviewRequestModel -> dict; routes through bridge, normalizes engine errors"
+        }
+      ],
+      "calls": [
+        "app/domain/voices/models.py#VoicePreviewRequestModel",
+        "app/engines/bridge.py#create_voice_bridge",
+        "app/engines/errors.py#*"
+      ],
+      "called_by": [],
+      "notes": [
+        "strips path separators from error messages",
+        "never raises"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/voices/repository.py": {
+      "purpose": "Protocol boundary for voice profile/asset persistence",
+      "exports": [
+        {
+          "name": "VoiceRepository",
+          "kind": "Protocol",
+          "contract": "get_profile/list_profiles/save_profile/get_asset/list_assets_for_profile/save_asset"
+        }
+      ],
+      "calls": [
+        "app/domain/voices/models.py#*"
+      ],
+      "called_by": [],
+      "notes": [
+        "protocol only, no implementation"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/voices/samples.py": {
+      "purpose": "Voice sample request building and engine resolution",
+      "exports": [
+        {
+          "name": "build_voice_sample_request",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/domain/voices/models.py#*"
+      ],
+      "called_by": [
+        "app/domain/voices/service.py"
+      ],
+      "notes": [
+        "engine resolution: explicit engine_id or profile.default_engine_id"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/voices/service.py": {
+      "purpose": "Voice domain service facade for profile CRUD, compatibility, preview",
+      "exports": [
+        {
+          "name": "VoiceService",
+          "kind": "class",
+          "contract": "list_voice_profiles/get_voice_profile/validate_profile_engine_compatibility/run_preview"
+        },
+        {
+          "name": "create_voice_service",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/domain/voices/compatibility.py#validate_voice_compatibility",
+        "app/domain/voices/models.py#*",
+        "app/domain/voices/preview.py#preview_voice_profile",
+        "app/domain/voices/repository.py#VoiceRepository",
+        "app/domain/voices/samples.py"
+      ],
+      "called_by": [],
+      "notes": [
+        "Phase 1 scaffold: methods raise NotImplementedError",
+        "forbidden: app.db.speakers, app.jobs, app.engines.voice_engines"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/voices/taxonomy.py": {
+      "purpose": "Controlled-vocabulary validation for voice attributes with lenient degrading",
+      "exports": [
+        {
+          "name": "check_taxonomy_version, validate_and_degrade_attributes, validate_attributes_strict, get_valid_values",
+          "kind": "function"
+        },
+        {
+          "name": "validate_provenance_strict",
+          "kind": "function",
+          "contract": "source must be one of recorded/cloned/imported/designed; free-form string fields (author, created_at) capped at 512 chars; unknown fields rejected (422), never demoted"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "required: class/gender/age",
+        "unknown enum values demoted to tags with normalization",
+        "Phase G (2026-07-04): SUPPORTED_TAXONOMY_VERSION bumped 1.0->2.0 for language/style many-optional attributes; no function-shape change (taxonomy.json-driven, flows through automatically)"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/voices/recording_archetypes.py": {
+      "purpose": "New module. Python port of recordingPromptSuggester.ts's scoring algorithm (identical weights/thresholds: CLASS/GENDER/AGE/PACE match points, TONE/TIMBRE jaccard-overlap weights, CLOSE_THRESHOLD=6, EX",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-12: NEW FILE \u2014 New module. Python port of recordingPromptSuggester.ts's scoring algorithm (identical weights/thresholds: CLASS/GENDER/AGE/PACE match points, TONE/TIMBRE jaccard-overlap weights, CLOSE_THRESHOLD=6, EXACT_THRESHOLD=10, MAX_SCORE=12), reading the same voice_archetypes.json reference dataset. Exposes suggest_sample_text(attrs) -> str | None, returning a match only at close/exact confidence, None otherwise (never a composed guess)."
+      ]
+    },
+    "app/domain/voices/variant_versions.py": {
+      "purpose": "Version history for a voice variant's live sample state. A 'version' is a point-in-time snapshot of a variant directory's live *.wav samples plus its sample.mp3 artifact, recorded under versions/v-<unix-timestamp>-<8-hex-shortid>/. versions/versions.json tracks the ordered list plus which one is 'active'. Pure file mechanics -- never calls into settings persistence (update_speaker_settings) or triggers rebuilds; callers own that.",
+      "exports": [
+        {
+          "name": "snapshot_current_as_version",
+          "kind": "function",
+          "contract": "(variant_dir, *, engine_id, test_text, voice_job_settings=None) -> version_id; snapshots current state, does NOT touch active_version_id"
+        },
+        {
+          "name": "record_new_version",
+          "kind": "function",
+          "contract": "(variant_dir, *, engine_id, test_text, voice_job_settings=None) -> version_id; snapshots and sets active_version_id"
+        },
+        {
+          "name": "list_versions",
+          "kind": "function",
+          "contract": "(variant_dir) -> list[dict], oldest-first"
+        },
+        {
+          "name": "get_version",
+          "kind": "function",
+          "contract": "(variant_dir, version_id) -> dict | None"
+        },
+        {
+          "name": "get_active_version_id",
+          "kind": "function",
+          "contract": "(variant_dir) -> str | None"
+        },
+        {
+          "name": "promote_version",
+          "kind": "function",
+          "contract": "(variant_dir, version_id) -> bool; restores a version's samples/artifact as live state and marks it active"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "app/api/routers/voices_actions.py",
+        "app/api/routers/voices_versions.py",
+        "app/orchestration/tasks/sample_build.py"
+      ],
+      "notes": [
+        "2026-07-15 (voice-variant version-history task001, NEW FILE): all path construction goes through an internal _contained() containment check (resolve + relative_to) before any write, matching the repo's path-containment invariant even though this module sits under app/domain (not a route handler).",
+        "versions/ is never misdetected as a sibling variant by voices_helpers._voice_dirs_map() (covered by tests/domain/test_variant_versions.py)."
+      ],
+      "calls_inferred": []
+    }
+  }
+}

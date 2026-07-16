@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 from app.engines.models import EngineManifestModel
 from plugins.tts_xtts.plugin.studio.app_adapter import XttsVoiceEngine
@@ -17,9 +18,14 @@ def test_xtts_app_adapter_synthesize_reports_duration_sec(tmp_path, monkeypatch)
     )
     output_path = tmp_path / "chapter.wav"
 
+    mock_ctx = MagicMock()
+    mock_ctx.resolve_voice_preview_inputs.return_value = {
+        "voice_ref": "speaker.wav",
+        "voice_profile_dir": str(tmp_path),
+    }
     monkeypatch.setattr(
-        "plugins.tts_xtts.plugin.studio.app_adapter.resolve_voice_preview_inputs",
-        lambda _profile_id: ("speaker.wav", tmp_path),
+        "plugins.tts_xtts.plugin.studio.app_adapter._get_ctx",
+        lambda: mock_ctx,
     )
 
     def fake_generate_script(

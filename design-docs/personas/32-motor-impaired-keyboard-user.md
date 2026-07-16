@@ -1,4 +1,4 @@
-# 32 · "Diane Morales" — Motor-Impaired Keyboard User  ☆ INFERRED
+# 32 · Motor-Impaired Keyboard User  ☆ INFERRED
 
 **Identity:** "A professional editor with limited hand mobility who uses a trackball and keyboard combination, cannot drag or perform precision small-target clicks, and depends on every critical action having a forgiving, reachable, non-pointer path."
 
@@ -6,13 +6,13 @@
 - Complete segment ordering, voice assignment, and render submission without any drag-to-reorder interaction
 - Reach every interactive control with a click target large enough that a trackball can reliably land on it
 - Use keyboard shortcuts for repeated actions (play segment, advance to next, retry render) to reduce pointer use
-- Avoid hover-dependent menus that disappear before she can stabilize her trackball cursor
+- Avoid hover-dependent menus that disappear before they can stabilize their trackball cursor
 - Complete a full chapter review session without hand fatigue from accumulated small-target errors
 
 ## Context & environment *(INFERRED)*
 - Has limited hand mobility due to a repetitive strain injury sustained during a decade of audio editing; uses a Kensington Expert trackball and avoids prolonged pointer use
 - Works as a freelance editor and project manager for a mid-sized indie publisher; was assigned to Audiobook Studio when the publisher started producing in-house audiobooks
-- Can click reliably on targets above approximately 40px but misses smaller targets frequently; drag-and-drop is effectively unavailable — she cannot maintain button press while moving the cursor
+- Can click reliably on targets above approximately 40px but misses smaller targets frequently; drag-and-drop is effectively unavailable — they cannot maintain button press while moving the cursor
 - Has developed keyboard-first habits from years of audio editing in DAWs; expects every action that is performed repeatedly in a workflow to have a keyboard equivalent or shortcut
 
 ## Key workflow moments
@@ -25,9 +25,9 @@
 ## Top friction points *(INFERRED)*
 - **F1 — Drag-only segment reorder:** Segment list that supports reordering exclusively via mouse drag — no keyboard alternative, no move-up/move-down button, no accessible drag handle with arrow-key support — a complete blocker
 - **F2 — Undersized hit targets:** Icon buttons in the segment row action area (play, retry, delete) rendered at 24×24px or smaller with no padding extension, requiring repeated precision attempts per action
-- **F3 — Hover-reveal action menus:** Secondary action menus that appear only on row hover and dismiss when the pointer leaves the row boundaries — with a trackball, Diane frequently overshoots the row and the menu vanishes before she can click an item
-- **F4 — No keyboard shortcut for high-frequency actions:** No documented or discoverable keyboard shortcut for Play Segment, Next Segment, Retry Render, or Approve Segment — actions she performs hundreds of times per chapter review session
-- **F5 — Scroll position reset on state change:** Segment list that scrolls back to the top when a render completes or a segment status updates, forcing her to re-navigate to her position after every background event
+- **F3 — Hover-reveal action menus:** Secondary action menus that appear only on row hover and dismiss when the pointer leaves the row boundaries — with a trackball, the Motor-Impaired Keyboard User frequently overshoots the row and the menu vanishes before they can click an item
+- **F4 — No keyboard shortcut for high-frequency actions:** No documented or discoverable keyboard shortcut for Play Segment, Next Segment, Retry Render, or Approve Segment — actions they perform hundreds of times per chapter review session
+- **F5 — Scroll position reset on state change:** Segment list that scrolls back to the top when a render completes or a segment status updates, forcing them to re-navigate to their position after every background event
 
 ## What they need from the studio
 - Keyboard-accessible reorder for every list that supports drag reordering (Up/Down buttons or arrow key support on focused list items)

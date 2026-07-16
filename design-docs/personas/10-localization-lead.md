@@ -1,6 +1,6 @@
-# 10 · "Isabel Costa" — Localization Lead  ☆ INFERRED
+# 10 · Localization Lead  ☆ INFERRED
 
-**Identity:** "Isabel adapts Portuguese audiobooks for the Brazilian market and needs the app to hold language, voice, and character assignments together across locales without silently breaking one when she edits another."
+**Identity:** "The Localization Lead adapts Portuguese audiobooks for the Brazilian market and needs the app to hold language, voice, and character assignments together across locales without silently breaking one when they edit another."
 
 ## Goals
 - Manage a localized copy of a project without overwriting or polluting the source
@@ -24,10 +24,10 @@
 - **Locale review pass:** Plays back chapters to catch pronunciation errors on names, idioms, or culturally adapted references; flags individual segments for re-render
 
 ## Top friction points *(INFERRED)*
-- **F1 — No locale-scoped voice assignment:** Voice assignments are per character globally; there is no concept of "this voice for this character in this locale," so Isabel either duplicates the whole character record or manually re-casts every time she opens the localized project
+- **F1 — No locale-scoped voice assignment:** Voice assignments are per character globally; there is no concept of "this voice for this character in this locale," so the Localization Lead either duplicates the whole character record or manually re-casts every time they open the localized project
 - **F2 — Mixed-language segments have no language tag:** Segments are plain text with no inline language marker; the TTS engine applies the project-level language setting to everything, producing badly accented English dialogue rendered in Portuguese phoneme rules
-- **F3 — Project duplication is structural, not locale-aware:** Duplicating a project copies everything, but the copy has no persistent link to the source; if the source is re-cast or the producer fixes a voice, Isabel's localized copy doesn't inherit the change
-- **F4 — Name and proper noun pronunciation is per-character, not per-locale:** A character named "Sebastião" may have correct phoneme hints set in the source project but those hints assume European Portuguese; Isabel has no place to enter a Brazilian Portuguese pronunciation variant
+- **F3 — Project duplication is structural, not locale-aware:** Duplicating a project copies everything, but the copy has no persistent link to the source; if the source is re-cast or the producer fixes a voice, the Localization Lead's localized copy doesn't inherit the change
+- **F4 — Name and proper noun pronunciation is per-character, not per-locale:** A character named "Sebastião" may have correct phoneme hints set in the source project but those hints assume European Portuguese; the Localization Lead has no place to enter a Brazilian Portuguese pronunciation variant
 - **F5 — RTL and special characters are untested territory:** The segment editor may handle ç, ã, and ê correctly, but mixed-script segments with right-to-left text components (if the manuscript has Arabic quotations, for example) have no guaranteed behavior
 
 ## What they need from the studio

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PlayerBar, TAPE_DURATION_CAP_SEC } from '@/app/layout/PlayerBar';
 import * as playerBus from '@/store/playerBus';
 import { DURATION_BOOTSTRAP } from '@/app/layout/playerRepresentation';
+import { CURRENT_SIDECAR_VERSION } from '@/api/contracts/peaksSidecar';
 
 // Mock wavesurfer.js so it doesn't try to decode real audio in jsdom
 vi.mock('wavesurfer.js', () => ({
@@ -175,12 +176,97 @@ describe('PlayerBar', () => {
     render(<PlayerBar />);
     fireResize(600); // 1 px/sec at 600s — below the legibility floor
 
-    const slider = screen.getByRole('slider') as HTMLInputElement;
+    const slider = screen.getByLabelText('Seek progress') as HTMLInputElement;
     expect(slider.value).toBe('10');
     expect(slider.max).toBe('600');
 
     fireEvent.change(slider, { target: { value: '50' } });
     expect(playerBus.getSnapshot().position).toBe(50);
+  });
+
+  // Volume control (owner-requested, 2026-07-16): the global player used to
+  // always play at the system/OS volume with no way to adjust it.
+  describe('volume control', () => {
+    beforeEach(() => {
+      localStorage.removeItem('studio-player-volume');
+    });
+
+    afterEach(() => {
+      localStorage.removeItem('studio-player-volume');
+    });
+
+    it('defaults to full volume and applies it to the audio element', () => {
+      playerBus.loadAndPlay({
+        scope: 'chapter',
+        title: 'Chapter 1',
+        audioUrl: 'https://example.com/audio.mp3',
+      });
+
+      const { container } = render(<PlayerBar />);
+      const slider = screen.getByLabelText('Volume level') as HTMLInputElement;
+      expect(slider.value).toBe('1');
+
+      const audio = container.querySelector('audio') as HTMLAudioElement;
+      expect(audio.volume).toBe(1);
+    });
+
+    it('changing the volume slider updates the audio element and persists the level', () => {
+      playerBus.loadAndPlay({
+        scope: 'chapter',
+        title: 'Chapter 1',
+        audioUrl: 'https://example.com/audio.mp3',
+      });
+
+      const { container } = render(<PlayerBar />);
+      const slider = screen.getByLabelText('Volume level') as HTMLInputElement;
+      const audio = container.querySelector('audio') as HTMLAudioElement;
+
+      fireEvent.change(slider, { target: { value: '0.4' } });
+
+      expect(audio.volume).toBeCloseTo(0.4);
+      expect(localStorage.getItem('studio-player-volume')).toBe('0.4');
+    });
+
+    it('mute toggle silences the player and restores the prior level on unmute', () => {
+      playerBus.loadAndPlay({
+        scope: 'chapter',
+        title: 'Chapter 1',
+        audioUrl: 'https://example.com/audio.mp3',
+      });
+
+      const { container } = render(<PlayerBar />);
+      const audio = container.querySelector('audio') as HTMLAudioElement;
+      const slider = screen.getByLabelText('Volume level') as HTMLInputElement;
+
+      fireEvent.change(slider, { target: { value: '0.6' } });
+      expect(audio.volume).toBeCloseTo(0.6);
+
+      const muteButton = screen.getByLabelText('Mute');
+      fireEvent.click(muteButton);
+      expect(audio.volume).toBe(0);
+      expect(screen.getByLabelText('Unmute')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByLabelText('Unmute'));
+      expect(audio.volume).toBeCloseTo(0.6);
+      expect(screen.getByLabelText('Mute')).toBeInTheDocument();
+    });
+
+    it('loads a persisted volume preference on mount', () => {
+      localStorage.setItem('studio-player-volume', '0.25');
+
+      playerBus.loadAndPlay({
+        scope: 'chapter',
+        title: 'Chapter 1',
+        audioUrl: 'https://example.com/audio.mp3',
+      });
+
+      const { container } = render(<PlayerBar />);
+      const slider = screen.getByLabelText('Volume level') as HTMLInputElement;
+      const audio = container.querySelector('audio') as HTMLAudioElement;
+
+      expect(slider.value).toBe('0.25');
+      expect(audio.volume).toBeCloseTo(0.25);
+    });
   });
 
   it('renders all 5 VCR transport controls plus Stop', () => {
@@ -321,7 +407,7 @@ describe('PlayerBar', () => {
       fireResize(600); // 60 px/sec — well above the legibility floor
 
       expect(screen.getByTestId('waveform-strip')).toBeInTheDocument();
-      expect(screen.queryByRole('slider')).toBeNull();
+      expect(screen.queryByLabelText('Seek progress')).toBeNull();
     });
 
     it('long clip renders a plain seek slider and no waveform, even for a segment', () => {
@@ -335,7 +421,7 @@ describe('PlayerBar', () => {
       render(<PlayerBar />);
       fireResize(600); // 1 px/sec — below the legibility floor
 
-      expect(screen.getByRole('slider')).toBeInTheDocument();
+      expect(screen.getByLabelText('Seek progress')).toBeInTheDocument();
       expect(screen.queryByTestId('waveform-strip')).toBeNull();
     });
 
@@ -350,7 +436,7 @@ describe('PlayerBar', () => {
       render(<PlayerBar />);
       fireResize(600);
 
-      expect(screen.getByRole('slider')).toBeInTheDocument();
+      expect(screen.getByLabelText('Seek progress')).toBeInTheDocument();
       expect(screen.queryByTestId('waveform-strip')).toBeNull();
     });
 
@@ -365,7 +451,7 @@ describe('PlayerBar', () => {
       render(<PlayerBar />);
       // No fireResize() — measuredWidth stays 0, so the bootstrap threshold applies.
 
-      expect(screen.getByRole('slider')).toBeInTheDocument();
+      expect(screen.getByLabelText('Seek progress')).toBeInTheDocument();
       expect(screen.queryByTestId('waveform-strip')).toBeNull();
     });
 
@@ -386,7 +472,7 @@ describe('PlayerBar', () => {
       act(() => { fireEvent.click(toggle); });
 
       expect(screen.queryByTestId('waveform-strip')).toBeNull();
-      expect(screen.getByRole('slider')).toBeInTheDocument();
+      expect(screen.getByLabelText('Seek progress')).toBeInTheDocument();
       // duration=10 is under TAPE_DURATION_CAP_SEC, so once flipped to the bar
       // representation the toggle becomes the tape-open control (task 001),
       // not a plain "Show waveform" re-flip — that label is reserved for
@@ -417,13 +503,13 @@ describe('PlayerBar', () => {
         await Promise.resolve();
       });
 
-      expect(screen.getByRole('slider')).toBeInTheDocument();
+      expect(screen.getByLabelText('Seek progress')).toBeInTheDocument();
       const toggle = screen.getByLabelText('Show waveform');
 
       act(() => { fireEvent.click(toggle); });
 
       expect(screen.getByTestId('waveform-strip')).toBeInTheDocument();
-      expect(screen.queryByRole('slider')).toBeNull();
+      expect(screen.queryByLabelText('Seek progress')).toBeNull();
     });
 
     it('resets the forceWave override to the duration default on a new source (requestId bump)', () => {
@@ -439,7 +525,7 @@ describe('PlayerBar', () => {
 
       // Flip short clip's waveform to a bar via the override.
       act(() => { fireEvent.click(screen.getByLabelText('Show progress bar')); });
-      expect(screen.getByRole('slider')).toBeInTheDocument();
+      expect(screen.getByLabelText('Seek progress')).toBeInTheDocument();
 
       // Loading a new (also short) source should clear the override and fall
       // back to the duration default (waveform), not stay forced to bar.
@@ -530,7 +616,7 @@ describe('PlayerBar', () => {
         ok: true,
         json: () =>
           Promise.resolve({
-            version: 1,
+            version: CURRENT_SIDECAR_VERSION,
             peaks: [0, 0.5, 1],
             duration_sec: 700,
             sample_rate: 44100,

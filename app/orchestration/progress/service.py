@@ -14,6 +14,7 @@ from collections.abc import Callable, Mapping
 from .broadcaster import broadcast_progress
 from .emit_gate import EmitGateMixin
 from .eta import (
+    BracketedEtaTracker,
     EtaSampleRing,
     N_MATURE,
     apply_eta_ceiling,
@@ -45,6 +46,39 @@ def _resolve_source(default: str, depth: int = 1) -> str:
             depth += 1
     except (AttributeError, ValueError):
         return default
+
+
+def _resolve_pool_cap(engine_id: str) -> int:
+    """Resolve the declared concurrency cap for a `BracketedEtaTracker` pool.
+
+    W-PAR task 013 (bracketed-ETA wiring): mirrors the manifest-max +
+    live-settings resolution `ClaimingSynthesisTask`-style callers already use
+    for admission (`app.orchestration.scheduler.cap_settings.resolve_effective_cap`),
+    so the ETA bracket's `global_cap`/`effective_cps` model reflects the SAME
+    cap the scheduler actually enforces — not a re-derived or guessed value.
+
+    Falls back to ``1`` (single-stream, conservative) when the engine id is
+    empty or its manifest cannot be read — matches the project's no-fabrication
+    principle: an unresolvable cap must never inflate the optimistic bracket.
+    """
+    if not engine_id:
+        return 1
+    try:
+        import json  # noqa: PLC0415
+
+        from app.orchestration.scheduler.cap_settings import resolve_effective_cap  # noqa: PLC0415
+        from app.tts_server.plugin_loader import (  # noqa: PLC0415
+            get_manifest_max_concurrent_workers,
+            get_plugin_dir,
+        )
+
+        plugin_dir = get_plugin_dir(engine_id)
+        manifest_path = plugin_dir / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.is_file() else {}
+        manifest_max = get_manifest_max_concurrent_workers(manifest)
+        return resolve_effective_cap(engine_id=engine_id, manifest_max=manifest_max)
+    except Exception:
+        return 1
 
 
 class ProgressService(EmitGateMixin):
@@ -91,6 +125,19 @@ class ProgressService(EmitGateMixin):
         self._segment_base_conf: dict[str, float] = {}
         # Per-job timestamp of last ETA sample (wall seconds).
         self._eta_last_sample_time: dict[str, float] = {}
+        # W-PAR task 013: per-job BracketedEtaTracker (§4A.11), lazily created
+        # at the job's first real segment completion. Keyed by job_id; evicted
+        # alongside the other per-job ETA state on queued/terminal cleanup.
+        self._bracket_trackers: dict[str, BracketedEtaTracker] = {}
+        # Per-job cache of pool (engine) -> declared concurrency cap, populated
+        # as each segment STARTS (in enrich()) so the tracker can be
+        # constructed with real caps at first completion instead of the
+        # tracker's own conservative cap=1 default for an unconfigured pool.
+        self._bracket_pool_caps: dict[str, dict[str, int]] = {}
+        # Per-segment wall-clock start time (segment_id -> wall seconds),
+        # set once at first observation and consumed (popped) at the
+        # segment's completion to compute `wall_seconds` for record_completion.
+        self._segment_start_wall: dict[str, float] = {}
         # RLock guards per-job state R-M-W (leaf lock — MUST NOT be held while
         # calling into app.db.state_jobs or any function that acquires _STATE_LOCK;
         # see D7 deadlock constraint in the task spec).
@@ -197,6 +244,7 @@ class ProgressService(EmitGateMixin):
         indeterminate: bool | None = None,
         loading_elapsed_seconds: float | None = None,
         ephemeral: bool = False,
+        engine_id: str | None = None,
     ) -> dict[str, object] | None:
         """Publish normalized progress updates for queue and chapter surfaces.
 
@@ -226,6 +274,10 @@ class ProgressService(EmitGateMixin):
                 (segments.progress ticks and the prev→new SEGMENT_SAVED
                 transition), which are keyed by real segment ids and carry the
                 live per-segment progress bar.
+            engine_id: Optional active engine identifier for this job (W-PAR
+                task 013 — feeds the per-pool key for `BracketedEtaTracker`
+                bracket wiring; also read by the existing §4A.10 segment
+                decay-handoff baseline lookup).
 
         Returns:
             dict[str, object] | None: The emitted payload, or ``None`` when the
@@ -271,6 +323,7 @@ class ProgressService(EmitGateMixin):
             char_count=char_count,
             indeterminate=indeterminate,
             loading_elapsed_seconds=loading_elapsed_seconds,
+            engine_id=engine_id,
         )
 
         # Atomic emit gate (FIX 8): claim the emit slot atomically so two threads
@@ -403,6 +456,32 @@ class ProgressService(EmitGateMixin):
             )
             self.broadcaster(payload=seg_event, channel="jobs")
 
+            # W-PAR task 013: feed the just-finished segment into this job's
+            # BracketedEtaTracker (§4A.11). Only real completions count — a
+            # failed/cancelled segment carries no honest throughput signal, so
+            # it is deliberately excluded from the rolling-throughput window.
+            if seg_status == "done":
+                seg_chars = previous.get("active_render_group_weight")
+                with self._lock:
+                    seg_start = self._segment_start_wall.pop(prev_active_segment_id, None)
+                if (
+                    isinstance(seg_chars, (int, float))
+                    and seg_chars > 0
+                    and seg_start is not None
+                ):
+                    seg_wall = max(0.0, self.wall_clock() - float(seg_start))
+                    if seg_wall > 0:
+                        pool = str(previous.get("engine_id") or previous.get("engine") or "default")
+                        with self._lock:
+                            tracker = self._bracket_trackers.get(job_id)
+                            if tracker is None:
+                                pool_caps = dict(self._bracket_pool_caps.get(job_id, {}))
+                                tracker = BracketedEtaTracker(pool_caps=pool_caps)
+                                self._bracket_trackers[job_id] = tracker
+                            tracker.record_completion(
+                                pool=pool, chars_completed=float(seg_chars), wall_seconds=seg_wall,
+                            )
+
         # D7 leaf-lock: post-emit bookkeeping writes — no state_jobs call inside.
         with self._lock:
             self._last_payload_by_job[job_id] = payload
@@ -420,6 +499,10 @@ class ProgressService(EmitGateMixin):
                 for seg_id in seg_ids:
                     self._segment_eta_rings.pop(seg_id, None)
                     self._segment_base_conf.pop(seg_id, None)
+                    self._segment_start_wall.pop(seg_id, None)
+                # W-PAR task 013: evict this job's bracket tracker + pool-cap cache.
+                self._bracket_trackers.pop(job_id, None)
+                self._bracket_pool_caps.pop(job_id, None)
             # FIX 3: terminal-status cleanup — evict per-job ETA state AFTER the
             # terminal frame has been emitted so done/failed/cancelled jobs don't
             # leak _eta_rings/_segment_eta_rings/_job_segment_ids for the lifetime
@@ -434,6 +517,10 @@ class ProgressService(EmitGateMixin):
                 for seg_id in seg_ids:
                     self._segment_eta_rings.pop(seg_id, None)
                     self._segment_base_conf.pop(seg_id, None)
+                    self._segment_start_wall.pop(seg_id, None)
+                # W-PAR task 013: evict this job's bracket tracker + pool-cap cache.
+                self._bracket_trackers.pop(job_id, None)
+                self._bracket_pool_caps.pop(job_id, None)
 
         # 1. Segment progress tick (first)
         if new_active_segment_id is not None or scope == "segment":
@@ -542,6 +629,30 @@ class ProgressService(EmitGateMixin):
         ) and not ephemeral
         if is_chapter_progress:
             from app.api.contracts.events import build_chapter_progress_event  # noqa: PLC0415
+
+            # W-PAR task 013 (§4A.11): surface the bracketed throughput ETA
+            # alongside the existing single-value eta_seconds. Only computed
+            # once this job's tracker exists (i.e. at least one real segment
+            # completion has been recorded) and never on a terminal frame —
+            # mirrors the existing eta_seconds terminal-clear behavior just
+            # above. Before 3 completions this yields eta_display=
+            # "estimating…" with both bounds None — the tracker's own
+            # no-fabrication guard — never a numeric bracket.
+            bracket_result = None
+            if status not in {"done", "failed", "cancelled"}:
+                with self._lock:
+                    tracker = self._bracket_trackers.get(job_id)
+                if tracker is not None:
+                    char_count = payload.get("char_count")
+                    progress_val = payload.get("progress")
+                    if (
+                        isinstance(char_count, (int, float))
+                        and char_count > 0
+                        and isinstance(progress_val, (int, float))
+                    ):
+                        remaining_chars = max(0.0, float(char_count) * (1.0 - float(progress_val)))
+                        bracket_result = tracker.bracket(remaining_chars=remaining_chars)
+
             chap_event = build_chapter_progress_event(
                 chapter_id=chapter_id or "",
                 status=status,
@@ -561,6 +672,9 @@ class ProgressService(EmitGateMixin):
                 confidence=payload.get("eta_confidence"),
                 indeterminate=payload.get("indeterminate") if isinstance(payload.get("indeterminate"), bool) else None,
                 loading_elapsed_seconds=payload.get("loading_elapsed_seconds"),
+                eta_low_seconds=bracket_result.eta_low_seconds if bracket_result is not None else None,
+                eta_high_seconds=bracket_result.eta_high_seconds if bracket_result is not None else None,
+                eta_display=bracket_result.eta_display if bracket_result is not None else None,
             )
             self.broadcaster(payload=chap_event, channel="jobs")
 
@@ -745,6 +859,22 @@ class ProgressService(EmitGateMixin):
             else None
         )
 
+        # W-PAR task 013: resolve this segment's declared pool cap OUTSIDE the
+        # leaf lock (D7) — `_resolve_pool_cap` reads live settings via
+        # `app.db.state.get_settings()`, which must never be called while
+        # holding `self._lock`. Check-then-set below (inside the lock) avoids
+        # a duplicate resolve on a race; harmless even if it does race, since
+        # the cap rarely changes mid-render.
+        _bracket_segment_is_new = False
+        if sample and active_segment_id is not None:
+            with self._lock:
+                _bracket_segment_is_new = active_segment_id not in self._segment_start_wall
+        _bracket_pool_key: str | None = None
+        _bracket_pool_cap: int | None = None
+        if _bracket_segment_is_new:
+            _bracket_pool_key = str(payload.get("engine_id") or payload.get("engine") or "default")
+            _bracket_pool_cap = _resolve_pool_cap(_bracket_pool_key)
+
         # D7 leaf-lock: _eta_rings + _segment_eta_rings + _eta_last_sample_time R-M-W.
         # No state_jobs call inside this block.
         # FIX 2: ring_velocity is captured INSIDE the lock so no other thread can
@@ -754,6 +884,20 @@ class ProgressService(EmitGateMixin):
         # as zero samples to avoid permanent leaky entries for unseen job_ids.
         ring_velocity: float | None = None  # captured inside the lock (FIX 2)
         with self._lock:
+            if (
+                sample
+                and active_segment_id is not None
+                and active_segment_id not in self._segment_start_wall
+            ):
+                # W-PAR task 013: stamp this segment's start wall-time (used to
+                # compute wall_seconds for BracketedEtaTracker.record_completion
+                # at segment end) and cache its resolved pool cap.
+                self._segment_start_wall[active_segment_id] = now_wall
+                if _bracket_pool_key is not None and _bracket_pool_cap is not None:
+                    self._bracket_pool_caps.setdefault(job_id, {}).setdefault(
+                        _bracket_pool_key, _bracket_pool_cap
+                    )
+
             if sample:
                 ring = self._eta_rings.setdefault(job_id, EtaSampleRing())
             else:
@@ -1125,6 +1269,7 @@ class ProgressService(EmitGateMixin):
         char_count: int | None = None,
         indeterminate: bool | None = None,
         loading_elapsed_seconds: float | None = None,
+        engine_id: str | None = None,
     ) -> dict[str, object]:
         """Thin wrapper: build the structural payload shell then apply enrich().
 
@@ -1208,6 +1353,8 @@ class ProgressService(EmitGateMixin):
             payload["char_count"] = int(char_count)
         if indeterminate is not None:
             payload["indeterminate"] = bool(indeterminate)
+        if engine_id is not None:
+            payload["engine_id"] = engine_id
         if loading_elapsed_seconds is not None:
             payload["loading_elapsed_seconds"] = round(float(loading_elapsed_seconds), 1)
 

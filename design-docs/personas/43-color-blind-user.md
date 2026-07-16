@@ -1,4 +1,4 @@
-# 43 · "Marcus Liang" — Color-Blind / Low-Vision User  ☆ INFERRED
+# 43 · Color-Blind / Low-Vision User  ☆ INFERRED
 
 **Identity:** "I can see everything on the screen, but when the app uses color as the only signal I genuinely cannot tell whether a render succeeded or failed."
 

@@ -3,7 +3,7 @@ import { EnginesPanel } from '@/pages/Engines/components/EnginesPanel';
 import { ServerDiagnostics } from '@/pages/Engines/components/ServerDiagnostics';
 import { VoiceModulesPanel } from '@/pages/Engines/components/VoiceModulesPanel';
 import { api } from '@/api';
-import type { TtsEngine } from '@/types';
+import type { TtsEngine, Settings } from '@/types';
 
 type EnginesTab = 'engines' | 'module-settings';
 
@@ -11,6 +11,7 @@ interface EnginesPageProps {
   startupReady?: boolean;
   onRefresh?: () => void | Promise<void>;
   onShowNotification?: (message: string) => void;
+  settings?: Settings;
 }
 
 const tabStyle = (active: boolean): React.CSSProperties => ({
@@ -25,7 +26,7 @@ const tabStyle = (active: boolean): React.CSSProperties => ({
   transition: 'all 0.15s ease',
 });
 
-export const EnginesPage: React.FC<EnginesPageProps> = ({ startupReady = true, onRefresh, onShowNotification }) => {
+export const EnginesPage: React.FC<EnginesPageProps> = ({ startupReady = true, onRefresh, onShowNotification, settings }) => {
   const [activeTab, setActiveTab] = useState<EnginesTab>('engines');
   const [engines, setEngines] = useState<TtsEngine[]>([]);
   const [enginesLoading, setEnginesLoading] = useState(false);
@@ -95,6 +96,7 @@ export const EnginesPage: React.FC<EnginesPageProps> = ({ startupReady = true, o
             startupReady={startupReady}
             onRefresh={handleRefreshAll}
             onShowNotification={onShowNotification}
+            settings={settings}
           />
         </>
       )}

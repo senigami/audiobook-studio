@@ -1,4 +1,4 @@
-# 16 · "Jake Morrison" — Power User  ☆ INFERRED
+# 16 · Power User  ☆ INFERRED
 
 **Identity:** "I process 12 chapters a day. Every extra click is a decision I've already made a hundred times."
 
@@ -25,7 +25,7 @@
 - **End-of-day reset:** Clears completed chapters, archives finished projects, queues tomorrow's work — expects the app state to persist cleanly across a restart
 
 ## Top friction points *(INFERRED)*
-- **F1 — Queue progress lies:** "Preparing..." can mean 5 seconds or 5 minutes with no way to tell the difference. In a 200-segment chapter, the progress indicator is routinely meaningless. Jake needs segment counts (42/200 rendered), not spinners.
+- **F1 — Queue progress lies:** "Preparing..." can mean 5 seconds or 5 minutes with no way to tell the difference. In a 200-segment chapter, the progress indicator is routinely meaningless. The Power User needs segment counts (42/200 rendered), not spinners.
 - **F2 — Reconnect resets position:** After a network hiccup, a page reload, or a browser tab swap, the active chapter selection and any unsaved review marks are gone. He has to manually re-find his place in a 50-chapter project.
 - **F3 — No per-chapter voice override:** If chapter 12 needs a different voice assignment for one character (a flashback, a different speaker register), there's no way to override without affecting the whole book casting.
 - **F4 — Retry is all-or-nothing:** Retrying a failed chapter retries all segments including the 90% that succeeded. "Retry failed only" doesn't exist as a button — he has to wait through successful re-renders to get to the one that broke.

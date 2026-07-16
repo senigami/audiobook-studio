@@ -1,6 +1,7 @@
 # Task 010 — DECISION + implement: Contents tab fate
 
-Status: pending — decision recorded, ready for Step 2b (after Step 2b's precondition check)
+Status: Gate 1 (Option B, ContentsStage simplification) and Gate 2 (bookmark panels, both
+surfaces) both landed 2026-07-11. See "Gate 2 — what was actually built" below.
 
 Risk: quality-sensitive
 
@@ -152,3 +153,47 @@ None on other tasks in this plan.
 
 Do not touch the Backups tab (task 009) in this task, even though both are book-level tab
 decisions — resolve independently.
+
+## Gate 2 — what was actually built (2026-07-11)
+
+Verified `panes/book.tsx:69-191` and `store/bookmarks.ts` directly (per Step 3's research gate)
+before writing UI code. Finding: `store/bookmarks.ts`'s own header comment says
+"Cross-book chapter bookmarks" and its `Bookmark` shape (`bookId`, `chapterId`, `label`,
+`createdAt`) already supports both a per-book filter and an unfiltered cross-book query — it
+already exports a `useBookBookmarks(bookId)` hook (pre-existing but unused) alongside the
+existing `useBookmarks()` (all books, already used by `ChapterWorkspaceHeader.tsx` from task 008).
+The demo's `GlobalBookmarkPanel` genuinely spans two different named books
+(`bm.book === 'The Whispering Vale'` check inside its `handleJump`, with entries visibly from a
+second book) — i.e. the demo's "global" really does mean cross-book, contradicting this task's
+original "cross-chapter, not cross-book" naming correction. Brought back to the owner, who
+resolved it by asking for **both** surfaces rather than picking one — see BACKGROUND in the
+Gate 2 dispatch for the exact framing. Built:
+
+1. **Book-scoped panel** — `ContentsBookmarksPanel` (local to
+   `frontend/src/pages/Book/stages/ContentsStage.tsx`), using `useBookBookmarks(bookId)`. Shows
+   only this book's bookmarks across all its chapters; never another book's.
+2. **Library-wide panel** — `frontend/src/pages/ProjectLibrary/components/LibraryBookmarksPanel.tsx`,
+   using `useBookmarks()` (unfiltered), rendered on `ProjectLibraryPage.tsx` between the greeting
+   header and `LibraryControls`. Each row's secondary text is the owning book's title (looked up
+   from the `projects` list already loaded by the page).
+
+Both reuse a new shared presentational component, `frontend/src/components/BookmarkList.tsx`
+(row = label + optional secondary + remove button), and `store/bookmarks.ts` as the single data
+source — no second bookmark data model was created. New CSS: `.bookmarks-panel*` /
+`.bookmark-list*` classes in `frontend/src/theme/components/shared.css` (the pre-existing
+`ChapterWorkspaceHeader` bookmarks dropdown from task 008 turned out to have no CSS of its own —
+left untouched, not folded into the new shared classes, to keep this change scoped).
+
+Tests (TDD, all watched red before implementation): `frontend/tests/unit/components/BookmarkList.test.tsx`
+(new), `frontend/tests/unit/store/bookmarks.test.ts` (added `useBookBookmarks` coverage — passed
+immediately since the hook pre-existed; not a bug-fix, so no R1 revert-check applies),
+`frontend/tests/unit/pages/Book/stages/ContentsStage.test.tsx` (+4),
+`frontend/tests/unit/pages/ProjectLibrary/ProjectLibraryPage.test.tsx` (+3). Full suite: 223 files /
+1872 tests passing; lint 0 errors (39 pre-existing warnings, none new); build clean.
+
+**Judgment call flagged for the owner:** the library-wide panel is new scope beyond this task's
+original text (task 010 only ever discussed the Contents tab). It has no task file of its own —
+recommend either (a) a short retroactive entry in this file (done, above) plus a `TASKS.md` line
+noting it shipped under task 010's umbrella, or (b) a new task number if the plan's convention is
+one task per shipped surface. Did not edit `TASKS.md` per this dispatch's constraints — flagging
+for the orchestrator to decide and record.

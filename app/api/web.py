@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 import sys
 import threading
 import logging
@@ -11,7 +12,7 @@ from fastapi.responses import JSONResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..core.config import (
-    VOICES_DIR, COVER_DIR, PROJECTS_DIR,
+    VOICES_DIR, COVER_DIR, PROJECTS_DIR, TRANSIENT_DIR,
     FRONTEND_DIST, get_project_cover_dir, get_project_m4b_dir,
 )
 from ..db import init_db
@@ -192,7 +193,7 @@ def get_voice_preview_hardened(full_path: str):
         raise HTTPException(status_code=404)
 
     filename = parts[-1]
-    if filename.lower() not in ("sample.mp3", "sample.wav"):
+    if filename.lower() not in ("sample.mp3", "sample.wav", "artifact.mp3"):
         raise HTTPException(status_code=404)
 
     # Use _contained_file to handle the relative path from VOICES_DIR (could be nested)
@@ -206,6 +207,27 @@ def get_voice_preview_hardened(full_path: str):
 def get_legacy_cover_output(filename: str):
     """Legacy route for shared covers in the shared upload directory's covers subfolder."""
     file_path = _contained_root_file(COVER_DIR, filename)
+    if not file_path:
+        raise HTTPException(status_code=404)
+    return FileResponse(file_path)
+
+
+_AB_TEST_JOB_ID_RE = re.compile(r"^abtest-[0-9a-f]{8}$")
+
+
+@app.get("/out/voice-ab-test/{job_id}/{filename}")
+def get_voice_ab_test_render(job_id: str, filename: str):
+    """Serve a scratch A/B-test render (voice-variant version history feature).
+
+    These are one-off comparison renders under TRANSIENT_DIR, never the
+    canonical voice tree — job_id is validated against the exact format the
+    A/B endpoint generates before any path is constructed.
+    """
+    if not _AB_TEST_JOB_ID_RE.match(job_id) or filename.lower() != "render.mp3":
+        raise HTTPException(status_code=404)
+
+    root = TRANSIENT_DIR / "voice-ab-test"
+    file_path = _contained_file(root, f"{job_id}/{filename}")
     if not file_path:
         raise HTTPException(status_code=404)
     return FileResponse(file_path)

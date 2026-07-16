@@ -3,6 +3,7 @@ import { Play, Square, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import { PredictiveProgressBar, resetPredictiveProgressMemory, type PredictiveProgressDebugSnapshot } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 import { buildSegmentProgressBarProps } from '@/components/progress/progressBarContracts';
 import { FieldLabel, MetricGrid } from '@tests/helpers/ProgressBarTestHelpers';
+import '@/pages/DevProgressBar/DevProgressBarPage.css';
 
 type SegmentDebugStatus = 'running' | 'done' | 'cancelled';
 
@@ -139,7 +140,7 @@ export const SegmentContractDebugPanel: React.FC = () => {
         <PredictiveProgressBar key={key} {...progressBarProps} />
       </div>
 
-      <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'minmax(260px, 0.8fr) minmax(320px, 1.2fr)' }}>
+      <div className="dev-progress-bar-page__segment-columns">
         <div style={{ display: 'grid', gap: '0.75rem' }}>
           <label style={{ display: 'grid', gap: '0.35rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>

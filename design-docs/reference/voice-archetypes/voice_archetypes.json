@@ -1,6 +1,6 @@
 {
   "title": "Voice Archetype → Appearance & Recording Prompt Guide",
-  "description": "Curated voice-quality combinations (Class, Gender, Age, Tone, Timbre, Pace) mapped to a likely appearance/creature type and a recording prompt to capture the vocal nuance. Source taxonomy: design-docs/specs/voice-taxonomy.json (v2.0).",
+  "description": "Curated voice-quality combinations (Class, Gender, Age, Tone, Timbre, Pace) mapped to a likely appearance/creature type and a recording prompt to capture the vocal nuance. Source taxonomy: design-docs/specs/voice-taxonomy.json (v2.0) Includes a short 'Voice Sample Text' line per archetype for TTS-generated voice-sample previews, distinct from the longer human-recording-prompt paragraph.",
   "source_taxonomy": "design-docs/specs/voice-taxonomy.json",
   "headers_original": [
     "Archetype Name",
@@ -13,6 +13,7 @@
     "Appearance / Creature Type",
     "Appearance Description",
     "Recording Prompt",
+    "Voice Sample Text",
     "Direction Note"
   ],
   "headers_key": [
@@ -26,6 +27,7 @@
     "appearance_creature_type",
     "appearance_description",
     "recording_prompt",
+    "sample_text",
     "direction_note"
   ],
   "archetypes": [
@@ -40,6 +42,7 @@
       "appearance_creature_type": "Human — fireside storyteller",
       "appearance_description": "A cozy fireside figure in a hand-knit cardigan, soft rounded features, reading glasses pushed up into greying hair — the kind of person who remembers how you take your tea.",
       "recording_prompt": "\"Come closer, and let me tell you how it really happened. The old dog nuzzled the basket of warm bread, and nobody had the heart to say no. By the time the kettle sang, we'd already forgiven each other.\"",
+      "sample_text": "Come sit by the fire a while — I've got a story that's just waiting to be told, and it gets better every time I tell it.",
       "direction_note": "Let warmth bloom on the open vowels, as if you're smiling through every sentence."
     },
     {
@@ -53,6 +56,7 @@
       "appearance_creature_type": "Human — broadcast anchor",
       "appearance_description": "Sharp-suited anchor-desk presence, close-cropped grey hair, unblinking eye contact with the camera, posture like a plumb line.",
       "recording_prompt": "\"Tonight's top story: officials confirmed the bridge closure will extend through Tuesday. Crews report steady progress, though delays remain likely during peak commuter hours. We'll have updates as the situation develops.\"",
+      "sample_text": "Good evening. We begin tonight with breaking developments that are already reshaping the story on the ground.",
       "direction_note": "Hit every consonant like a headline — no syllable allowed to blur."
     },
     {
@@ -66,6 +70,7 @@
       "appearance_creature_type": "Human — hardboiled detective",
       "appearance_description": "Trench coat collar up, five-o'clock shadow, a cigarette that never quite gets lit, eyes that have already guessed the ending.",
       "recording_prompt": "\"Sure, the dame said she'd never seen the gun before. Sure, and the rain never falls twice on the same street corner. I'd bet my last nickel she's lying, and I never bet against a sure thing.\"",
+      "sample_text": "Everybody in this town's got a story. Most of them are lies, and the rest are just lies that pay better.",
       "direction_note": "Drag the pace half a beat behind the words, like you already know how this ends."
     },
     {
@@ -79,6 +84,7 @@
       "appearance_creature_type": "Human — livestream hype host",
       "appearance_description": "Ring-light glow, backwards cap, hands never still, the kind of grin that's audible before he even opens his mouth.",
       "recording_prompt": "\"Okay okay okay, are you ready for this?! Because we are about to smash the biggest giveaway of the year, and I am not exaggerating one single bit! Smash that button, drop a comment, let's GO!\"",
+      "sample_text": "Alright, let's go, let's go, let's GO — this is the moment you've all been waiting for, and it does not disappoint!",
       "direction_note": "Push the pitch up at the end of every clause like you can't wait for the next one."
     },
     {
@@ -92,6 +98,7 @@
       "appearance_creature_type": "Human — bedtime-story narrator",
       "appearance_description": "Dim lamplight, an oatmeal-colored cardigan, hands folded loosely around a well-worn storybook, voice pitched for a room that's already half asleep.",
       "recording_prompt": "\"The little fox curled beneath the willow tree, and the moon pulled her blanket of clouds up close. Somewhere far off, an owl hushed the wind. Sleep now; the story will still be here in the morning.\"",
+      "sample_text": "Close your eyes now. The stars are already out, and the story will wait patiently until morning.",
       "direction_note": "Let each sentence trail softly downward, like you're tucking it in."
     },
     {
@@ -105,6 +112,7 @@
       "appearance_creature_type": "Human — fantasy/action hero",
       "appearance_description": "Square-jawed, wind-tousled hair, standing at the edge of a cliff with a hand already reaching for the hilt of something important.",
       "recording_prompt": "\"We didn't come this far to fail now. Raise your shields, hold the line, and remember — every one of us chose to be here. When the gate breaks, we break it right back.\"",
+      "sample_text": "This is the line we hold. Whatever comes next, we face it together, and we do not step back.",
       "direction_note": "Let your chest lead the sound, as if you're rallying troops behind you."
     },
     {
@@ -118,6 +126,7 @@
       "appearance_creature_type": "Human — cold antagonist",
       "appearance_description": "Immaculate black coat, a smile that never reaches the eyes, fingers steepled while he waits for you to realize you've already lost.",
       "recording_prompt": "\"You still think this is a negotiation. How charming. I've already won — I simply enjoy watching you catch up. Go on, struggle a little more; it's the only entertainment I get these days.\"",
+      "sample_text": "You still think this ends well for you. That's the sweetest part — watching you believe it, right up until you don't.",
       "direction_note": "Savor the consonants like they're a private joke only you understand."
     },
     {
@@ -131,6 +140,7 @@
       "appearance_creature_type": "Human — training-video presenter",
       "appearance_description": "Neutral blazer, tidy desk setup, an approachable smile calibrated for a corporate training thumbnail.",
       "recording_prompt": "\"In this module, we'll cover three key steps: preparing your workspace, reviewing the checklist, and submitting your report. Take a moment to pause the video if you need to catch up. Ready? Let's continue.\"",
+      "sample_text": "In this next module, we'll walk through the process step by step, so by the end you'll feel confident applying it yourself.",
       "direction_note": "Keep the energy level and even, like a patient tour guide who's said this a hundred times but still means it."
     },
     {
@@ -144,6 +154,7 @@
       "appearance_creature_type": "Human — comic-relief confidante",
       "appearance_description": "Oversized hoop earrings, scrunched nose mid-laugh, phone in one hand and zero patience for nonsense in the other.",
       "recording_prompt": "\"Wait, you texted him WHAT at 2 a.m.? Girl. No. We are fixing this immediately, chop chop. Grab your coat, grab the good snacks, and let's go pretend this never happened.\"",
+      "sample_text": "Okay wait, back up — you did WHAT? No, no, sit down, I need every single detail before I say a word.",
       "direction_note": "Let the pitch skitter up and down like you're mid-gossip, never settling on one note."
     },
     {
@@ -157,6 +168,7 @@
       "appearance_creature_type": "Human — sage mentor",
       "appearance_description": "Weathered hands folded over a walking stick, deep-set eyes that have watched several decades of other people's mistakes, unhurried in every gesture.",
       "recording_prompt": "\"Patience, child. The river doesn't rush to reach the sea; it simply never stops moving. Learn that, and the rest of what troubles you will settle on its own.\"",
+      "sample_text": "I've made every mistake you're about to make, and a few you haven't thought of yet. Sit. Let's talk.",
       "direction_note": "Let long pauses do half the work — wisdom should never sound rushed."
     },
     {
@@ -170,6 +182,7 @@
       "appearance_creature_type": "Human — nature-doc voice",
       "appearance_description": "Unseen presence — tweed elbow patches, a study lined with field notebooks, a voice built for wide aerial shots.",
       "recording_prompt": "\"Deep beneath the ice, a slow migration has continued unchanged for ten thousand years. Few have ever witnessed it. Tonight, for the first time, we bring you closer than anyone thought possible.\"",
+      "sample_text": "Deep beneath the canopy, a world moves in rhythms older than anything we've built — patient, unseen, and utterly indifferent to us.",
       "direction_note": "Let each sentence land like a camera slowly pulling back to reveal scale."
     },
     {
@@ -183,6 +196,7 @@
       "appearance_creature_type": "Human — young explorer",
       "appearance_description": "Scraped knees, a backwards baseball cap, a homemade compass clutched like a treasure map, breathless from running the whole way here.",
       "recording_prompt": "\"Wait wait wait, I found it! The secret door was behind the bookshelf the whole entire time! Come on, hurry, before my sister figures out where we went!\"",
+      "sample_text": "I found it! I actually found it! Come on, come ON, we have to see what's inside before anyone else does!",
       "direction_note": "Let the excitement spill over the ends of words, like you can barely get the sentence out fast enough."
     },
     {
@@ -196,6 +210,7 @@
       "appearance_creature_type": "Human — radio-booth voice",
       "appearance_description": "Headphones draped around the neck, half-lit studio glow, a slow smile you can hear even with your eyes closed.",
       "recording_prompt": "\"It's late, it's quiet, and it's just you and me for the next hour. Pour something slow, dim the lights if you've got them, and let this next one wrap around the room.\"",
+      "sample_text": "It's late, the city's gone quiet, and this next one's for anyone still awake and thinking about somebody.",
       "direction_note": "Let the words melt into each other, never clipping a single ending."
     },
     {
@@ -209,6 +224,7 @@
       "appearance_creature_type": "Human — military instructor",
       "appearance_description": "Buzzcut, jaw like a closed fist, boots planted shoulder-width apart, veins standing out on his neck before he's even started shouting.",
       "recording_prompt": "\"Drop and give me twenty, right now, not tomorrow! I want boots laced, packs zipped, and mouths shut in ten seconds flat! Move, move, MOVE!\"",
+      "sample_text": "On your feet! I did not say rest, I said ON YOUR FEET — we move when I say we move, not one second sooner!",
       "direction_note": "Bark each command from the diaphragm, cutting words off hard at the end."
     },
     {
@@ -222,6 +238,7 @@
       "appearance_creature_type": "Human — short-form content creator",
       "appearance_description": "Ring-light selfie glow, oversized hoodie, phone held at the exact practiced angle, mid-sentence before the camera even finishes focusing.",
       "recording_prompt": "\"Okay so this hack literally changed my life and nobody is talking about it enough. You just twist it, snap it, and boom, done, easiest thing ever. Like and follow if you actually tried it!\"",
+      "sample_text": "Okay so this is actually insane, you guys are NOT ready for what just happened, wait for it—",
       "direction_note": "Keep it breathless and immediate, like you're narrating your own reaction in real time."
     },
     {
@@ -235,6 +252,7 @@
       "appearance_creature_type": "Human — reflective essayist",
       "appearance_description": "Rain-streaked window light, a cup of tea gone cold, a notebook of crossed-out lines, shoulders drawn slightly inward.",
       "recording_prompt": "\"The house still smells like her, faintly, in the hallway near the coats. I keep the porch light on though no one's coming home. Some habits outlive the reason for them.\"",
+      "sample_text": "Some days the rain says everything I couldn't, and I just sit here, letting it finish my sentences for me.",
       "direction_note": "Let the breath show between phrases, like the words are costing you something to say."
     },
     {
@@ -248,6 +266,7 @@
       "appearance_creature_type": "Rock troll",
       "appearance_description": "A hulking, moss-crusted figure built from cracked granite plates, knuckles dragging like boulders, lichen growing in the seams of his shoulders.",
       "recording_prompt": "\"Cross bridge, troll crush. Simple rule. Little goat learn hard way, little goat learn quick way — troll no care which. Rocks remember every footstep; troll remember longer.\"",
+      "sample_text": "You. Small thing. Move, or I move you — makes no difference to the mountain either way.",
       "direction_note": "Grind each word out slow and low, like stone scraping against stone."
     },
     {
@@ -261,6 +280,7 @@
       "appearance_creature_type": "Giant",
       "appearance_description": "A mountain given legs — bronze pauldrons the size of cart wheels, a war-horn slung across a chest wide enough to shelter a wagon.",
       "recording_prompt": "\"Sound the horn! Let the valley itself hear us coming! No wall built by small hands has ever held against a giant's stride!\"",
+      "sample_text": "SOUND THE HORN. Let them hear it in the valley below, and let them know exactly what's coming.",
       "direction_note": "Let the low end fill the whole room before the next word arrives."
     },
     {
@@ -274,6 +294,7 @@
       "appearance_creature_type": "Fairy",
       "appearance_description": "Dragonfly wings dusted with pollen, a dandelion-fluff halo of hair, perched on a mushroom cap and never quite standing still.",
       "recording_prompt": "\"Ooh, pick that one, pick that one, the pink petal, quick quick quick! We'll thread it with dewdrops and it'll sparkle for simply ages!\"",
+      "sample_text": "Ooh, ooh, follow me, follow me — the dew's just settled and the whole garden's sparkling, come see, come see!",
       "direction_note": "Let the pitch flit upward at the end of every little phrase, like you're hovering, never landing."
     },
     {
@@ -287,6 +308,7 @@
       "appearance_creature_type": "Zombie / undead",
       "appearance_description": "Grey, sunken cheeks, tattered burial cloth hanging loose on a frame gone gaunt, movements a half-beat behind where the body wants to go.",
       "recording_prompt": "\"Hungry. Always hungry. Was a name once, before the dirt. Walk. Walk. Walk. Forgot what for.\"",
+      "sample_text": "Another day. Another shuffle to nowhere in particular. At least the sun stopped bothering me a century ago.",
       "direction_note": "Let each word drop out of you like it costs the last of your air."
     },
     {
@@ -300,6 +322,7 @@
       "appearance_creature_type": "Cosmic narrator-god",
       "appearance_description": "A face assembled from drifting starlight and shadow, no fixed form, words seeming to arrive from every direction of a vast dark room at once.",
       "recording_prompt": "\"Before light, there was only the question of light. Before time, there was only the patience to wait for it. You are here because I allowed a single second to pass.\"",
+      "sample_text": "You call it darkness because you have no other word for what was here before the light arrived, uninvited.",
       "direction_note": "Let silence stretch before each sentence, as if the words have existed longer than you have."
     },
     {
@@ -313,6 +336,7 @@
       "appearance_creature_type": "Angel",
       "appearance_description": "Wings folded like tempered glass catching the light, robes that seem lit from within, a stillness that makes the air around her feel safer.",
       "recording_prompt": "\"You are not alone here, and you never were. Set down what you've been carrying — I have you now. Rest; I will keep watch until the light returns.\"",
+      "sample_text": "You are not alone in this, and you never were. Rest now — I have you.",
       "direction_note": "Let the warmth ring through the clear tone like sun through stained glass."
     },
     {
@@ -326,6 +350,7 @@
       "appearance_creature_type": "Gnome",
       "appearance_description": "A stout figure barely knee-high, pointed red cap askew, beard full of twigs and stolen trinkets, boots that squeak with every hurried step.",
       "recording_prompt": "\"Psst! Over here, over here, behind the toadstool! I've got a shortcut, a proper shortcut, quicker than the crow and twice as clever!\"",
+      "sample_text": "Oho, lost your way, did you? Lucky for you I know every root and hollow in this wood — for a small toll, of course.",
       "direction_note": "Keep the nasal buzz bright and quick, like you're always halfway to a joke."
     },
     {
@@ -339,6 +364,7 @@
       "appearance_creature_type": "Goblin",
       "appearance_description": "Hunched and wiry, patchwork leather scavenged from a dozen owners, ears too big for his skull and a grin with several teeth missing.",
       "recording_prompt": "\"Ooh, shiny. Mine now, obviously. Finders keepers, losers cry about it later — that's the rule, I just made it up, but it's still the rule.\"",
+      "sample_text": "Shiny thing. Yours? Not anymore — finders keepers, that's the rule, I just made it up, works great.",
       "direction_note": "Snap the consonants sharp and greedy, like you're already reaching for the next thing."
     },
     {
@@ -352,6 +378,7 @@
       "appearance_creature_type": "Dwarf",
       "appearance_description": "Barrel-chested, braided beard clasped in iron rings, forearms like anvils, boots planted as if the mountain itself agreed to hold him up.",
       "recording_prompt": "\"This tunnel was carved by my grandfather's grandfather, and it will outlast every one of us standing here. Respect the stone, and the stone respects you back. Now — who's thirsty?\"",
+      "sample_text": "Built this hall with my own two hands, stone by stone, and it'll still be standing long after the rest of you.",
       "direction_note": "Let the low register settle like weight, unhurried and immovable."
     },
     {
@@ -365,6 +392,7 @@
       "appearance_creature_type": "Witch / crone",
       "appearance_description": "Hunched over a bubbling cauldron, warts and all, a shawl of dried herbs and small bones, fingernails curled like withered roots.",
       "recording_prompt": "\"Ehehe, come closer dearie, closer still — the potion needs just one more little thing. A pinch of newt, a drop of spite, and oh, your voice would do nicely.\"",
+      "sample_text": "Ehehe, come closer dearie, the cauldron's just about ready, and I do so love a fresh ingredient.",
       "direction_note": "Let the pace lurch unpredictably, cackling faster then slowing to a wicked drawl."
     },
     {
@@ -378,6 +406,7 @@
       "appearance_creature_type": "Siren",
       "appearance_description": "Scales shimmering faintly at the hairline, hair perpetually damp as if just risen from black water, a stillness that draws the eye before the voice even starts.",
       "recording_prompt": "\"Closer now. The water's warmer than it looks, I promise you that much. Just a few more steps... you won't need to swim back.\"",
+      "sample_text": "Come closer to the water's edge. I promise, the song is even sweeter once you're in.",
       "direction_note": "Let every word pull the listener forward like a slow undertow."
     },
     {
@@ -391,6 +420,7 @@
       "appearance_creature_type": "Ghost",
       "appearance_description": "Translucent at the edges, a Victorian collar frayed to lace, feet that never quite touch the floorboards she's still haunting.",
       "recording_prompt": "\"I left the candle burning for him. Thirty years, and it's still burning. Can you feel how cold this room gets, or is it only me who remembers?\"",
+      "sample_text": "You left the door open again. I do wish you wouldn't — it lets the cold in, and I do so hate the cold.",
       "direction_note": "Let the breath outweigh the voice, like the words are barely holding together."
     },
     {
@@ -404,6 +434,7 @@
       "appearance_creature_type": "Dragon",
       "appearance_description": "Scales like tarnished bronze plate armor, a jaw that could swallow a wagon whole, smoke curling lazily from nostrils that haven't needed to hurry in a thousand years.",
       "recording_prompt": "\"Kingdoms rise, kingdoms fall, and still I am here, patient as the mountain beneath me. Bring me gold, or bring me nothing — either way, I will still be waiting when you're gone.\"",
+      "sample_text": "You come into MY mountain, uninvited, and expect to leave with your life? How refreshingly optimistic.",
       "direction_note": "Let each syllable rumble with contained heat, like restraint is the scariest part."
     },
     {
@@ -417,6 +448,7 @@
       "appearance_creature_type": "Demon",
       "appearance_description": "Impeccably tailored in charcoal and crimson, horns filed to a polite point, a handshake that's somehow already a signature.",
       "recording_prompt": "\"Oh, don't sign in such a hurry — savor it. Everything you want is right here on this one line, and everything you owe is just... details. Shall we?\"",
+      "sample_text": "Now, now — no need to sign anything just yet. Let's just talk, shall we? I think you'll find the terms... generous.",
       "direction_note": "Let charm slide over every syllable, so the danger only shows in retrospect."
     },
     {
@@ -430,6 +462,7 @@
       "appearance_creature_type": "Pixie / sprite",
       "appearance_description": "No bigger than a thumb, wings like stained-glass fragments, hair that changes color when she's excited — which is constantly.",
       "recording_prompt": "\"Tickle tickle tickle, catch me if you can, you can't, you can't, nobody ever can! Ooh, shiny button, is that for me? It's for me now!\"",
+      "sample_text": "Hehe, catch me if you can — oh, oh, you almost got me, do it again, do it again!",
       "direction_note": "Let the giggle bubble up mid-word, never quite finishing a sentence in a straight line."
     },
     {
@@ -443,6 +476,7 @@
       "appearance_creature_type": "Golem",
       "appearance_description": "Hewn from raw quarry stone bound with glowing rune-seams, joints that grind visible dust with every motion, expressionless carved features.",
       "recording_prompt": "\"Command. Received. Protect the gate. Protect the gate. Enemy detected — enemy... will be... removed.\"",
+      "sample_text": "Command. Received. Proceeding — as instructed, until instructed otherwise.",
       "direction_note": "Let each word land with a full stop, like gears clicking into place one at a time."
     },
     {
@@ -456,6 +490,7 @@
       "appearance_creature_type": "Banshee",
       "appearance_description": "Trailing grey shroud that never touches the ground, hair whipped by a wind only she feels, a mouth that opens wider than a face should allow.",
       "recording_prompt": "\"Someone in this house will not see morning. I have already begun to grieve them. Can you hear it, the sound that means it's you?\"",
+      "sample_text": "They will hear me before they see me, and by then, it is already far too late for them.",
       "direction_note": "Let the volume swell suddenly then collapse to a whisper, like grief you can't control."
     },
     {
@@ -469,6 +504,7 @@
       "appearance_creature_type": "Elf",
       "appearance_description": "Silver hair braided with living vines, ears tapering to fine points, eyes that seem to focus on something centuries away.",
       "recording_prompt": "\"The trees remember the war you've only read about. Sit, and I will tell you what the roots told me. It will take longer than you expect — truth usually does.\"",
+      "sample_text": "I have watched empires rise and forget themselves within a single one of your lifetimes. Patience, child. Patience.",
       "direction_note": "Let the clarity ring like a struck bell, unhurried and precise."
     },
     {
@@ -482,6 +518,7 @@
       "appearance_creature_type": "Robot / AI assistant",
       "appearance_description": "A faint blue interface glow with no fixed body, waveform pulses syncing to each syllable, every surface polished to a sterile, functional shine.",
       "recording_prompt": "\"Task received. Processing input across three parameters. Confidence level: ninety-eight percent. Awaiting your next command.\"",
+      "sample_text": "Query received. Processing. All parameters within expected range — proceeding as configured.",
       "direction_note": "Keep the rhythm perfectly even, with no rise or fall between words."
     },
     {
@@ -495,6 +532,7 @@
       "appearance_creature_type": "Android / robot",
       "appearance_description": "Chassis paneling scuffed from years of service, a flickering eye-light that stutters mid-sentence, joints that whir audibly when it turns its head.",
       "recording_prompt": "\"Wel-welcome to- to Sector Seven. Your order is- is ready. Please- disregard the previous- the previous forty error messages.\"",
+      "sample_text": "Systems nomin— nominal. Apologies. Re-routing around the — the fault. Continuing.",
       "direction_note": "Let the pace stutter unevenly, snapping back to normal speed mid-phrase like a signal correcting itself."
     },
     {
@@ -508,6 +546,7 @@
       "appearance_creature_type": "Jester",
       "appearance_description": "Motley in three clashing colors, bells stitched into pointed shoes, a painted grin that doesn't always match what's underneath it.",
       "recording_prompt": "\"Oh, your majesty wants the truth? How delightfully expensive of you. Very well: the duke is a fool, the treasury is empty, and your crown is on backwards. You're welcome!\"",
+      "sample_text": "Oh, did I say something wrong? Terribly sorry, Your Majesty — shall I say it again, only louder this time?",
       "direction_note": "Bounce the pace unpredictably, like every sentence is secretly a punchline setup."
     },
     {
@@ -521,6 +560,7 @@
       "appearance_creature_type": "Clockwork puppet / marionette",
       "appearance_description": "Painted porcelain features fixed in a permanent smile, a brass key protruding from its back, joints that click audibly at each gesture.",
       "recording_prompt": "\"Wind me up, wind me up, and I'll dance until you stop! Tick tock, tick tock, that's the only song I know! Again? Again? Again!\"",
+      "sample_text": "Wound. Ready. Waiting for the hand that turns the key — as I always am, and always will be.",
       "direction_note": "Keep the rhythm metronome-steady, like the words themselves are wound by a key."
     },
     {
@@ -534,6 +574,7 @@
       "appearance_creature_type": "Ogre",
       "appearance_description": "Slab-muscled and lopsided, tusks jutting from an underbite, a club dragging a groove in the dirt behind him wherever he lumbers.",
       "recording_prompt": "\"Boss say pay up. You no pay up, boss say I get creative. Ogre very creative. Ogre also very impatient.\"",
+      "sample_text": "Boss says you owe. I don't care how, I don't care when — I just care that you do.",
       "direction_note": "Let the words come slow and heavy, like thinking itself takes physical effort."
     }
   ]

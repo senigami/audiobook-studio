@@ -3,7 +3,8 @@
  * (design-docs/specs/progress-presentation.md §7A/§8, invariants M1-M3).
  */
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   SegmentRenderMonitor,
@@ -154,5 +155,153 @@ describe('SegmentRenderMonitor — M2 failure cue is not hue-only', () => {
     const crosshatch = container.querySelector('.segment-render-monitor__crosshatch');
     expect(crosshatch).not.toBeNull();
     expect(screen.getByText(/1 failed/i)).toBeInTheDocument();
+  });
+});
+
+describe('SegmentRenderMonitor — §7A milestone aria-live region', () => {
+  function getLiveRegion(container: HTMLElement): HTMLElement {
+    const region = container.querySelector('[aria-live="polite"]');
+    expect(region).not.toBeNull();
+    return region as HTMLElement;
+  }
+
+  it('announces "Rendering started" as soon as the monitor mounts', () => {
+    mockMatchMedia(false);
+    const segments = makeSegments(60, Array.from({ length: 60 }, () => ({ phase: 'preparing' as const, progress: 0 })));
+    const { container } = render(<SegmentRenderMonitor segments={segments} cap={3} />);
+    expect(getLiveRegion(container).textContent).toMatch(/rendering started/i);
+  });
+
+  it('announces only at coarse thresholds (not per-segment), at 25%-of-60 cadence', () => {
+    mockMatchMedia(false);
+    const base = makeSegments(60, Array.from({ length: 60 }, () => ({ phase: 'preparing' as const, progress: 0 })));
+    const { container, rerender } = render(<SegmentRenderMonitor segments={base} cap={3} />);
+    const region = getLiveRegion(container);
+    const seenAnnouncements = new Set<string>([region.textContent ?? '']);
+
+    // Step doneCount from 1 to 59, one segment at a time — a per-tick update
+    // storm. The live region text must change far less often than 59 times.
+    for (let done = 1; done <= 59; done += 1) {
+      const stepped = base.map((s, i) => (i < done ? { ...s, phase: 'done' as const, progress: 1 } : s));
+      rerender(<SegmentRenderMonitor segments={stepped} cap={3} />);
+      seenAnnouncements.add(region.textContent ?? '');
+    }
+
+    // Only a handful of distinct announcements should have fired across 59
+    // per-segment updates (start + ~3 thresholds), never one per segment.
+    expect(seenAnnouncements.size).toBeLessThan(10);
+    const joined = Array.from(seenAnnouncements).join(' | ');
+    // 25%-of-60 cadence lands on 15 (25%), 30 (50%), 45 (75%) segments done.
+    expect(joined).toMatch(/15 of 60 segments complete/i);
+    expect(joined).toMatch(/30 of 60 segments complete/i);
+  });
+
+  it('announces completion, including a failed-count variant, without per-segment noise', () => {
+    mockMatchMedia(false);
+    const segments = makeSegments(20, Array.from({ length: 20 }, (_, i) => (i === 0 ? { phase: 'failed' as const, progress: 0.5 } : { phase: 'done' as const, progress: 1 })));
+    const { container, rerender } = render(
+      <SegmentRenderMonitor
+        segments={segments.map((s, i) => (i === 0 ? s : { ...s, phase: 'preparing' as const, progress: 0 }))}
+        cap={3}
+      />,
+    );
+    const region = getLiveRegion(container);
+    rerender(<SegmentRenderMonitor segments={segments} cap={3} />);
+    expect(region.textContent).toMatch(/rendering complete/i);
+    expect(region.textContent).toMatch(/1 segment failed/i);
+  });
+
+  it('does not re-announce the same threshold on unrelated re-renders', () => {
+    mockMatchMedia(false);
+    const segments = makeSegments(60, Array.from({ length: 60 }, (_, i) => (i < 15 ? { phase: 'done' as const } : { phase: 'preparing' as const, progress: 0 })));
+    const { container, rerender } = render(<SegmentRenderMonitor segments={segments} cap={3} />);
+    const region = getLiveRegion(container);
+    const first = region.textContent;
+    // Re-render with an identical segment set (e.g. a parent re-render caused
+    // by an unrelated state change) — must not re-fire the same milestone.
+    rerender(<SegmentRenderMonitor segments={[...segments]} cap={3} />);
+    expect(region.textContent).toBe(first);
+  });
+});
+
+describe('SegmentRenderMonitor — task 010 popover interaction (mouse)', () => {
+  it('opens a non-aria-hidden popover with segment detail when a block is clicked', () => {
+    mockMatchMedia(false);
+    const segments = makeSegments(12, [{ phase: 'failed', progress: 0.4, engineId: 'xtts', reasonCode: 'engine_timeout' }]);
+    const { container } = render(<SegmentRenderMonitor segments={segments} cap={3} />);
+
+    const strip = container.querySelector('[role="img"]');
+    const firstBlock = strip?.querySelector('[aria-hidden="true"]') as HTMLElement;
+    expect(firstBlock).toBeTruthy();
+    fireEvent.click(firstBlock);
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).not.toHaveAttribute('aria-hidden');
+    expect(within(dialog).getByText(/Failed/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/xtts/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/engine_timeout/i)).toBeInTheDocument();
+  });
+
+  it('shows a Retry button in the popover only for a failed segment, and wires it to onRetry', () => {
+    mockMatchMedia(false);
+    const onRetry = vi.fn();
+    const segments = makeSegments(12, [{ phase: 'failed', progress: 0.4 }]);
+    const { container } = render(<SegmentRenderMonitor segments={segments} cap={3} onRetry={onRetry} />);
+
+    const strip = container.querySelector('[role="img"]');
+    const failedBlock = strip?.querySelectorAll('[aria-hidden="true"]')[0] as HTMLElement;
+    fireEvent.click(failedBlock);
+
+    const dialog = screen.getByRole('dialog');
+    const retryBtn = within(dialog).getByRole('button', { name: /retry/i });
+    fireEvent.click(retryBtn);
+    expect(onRetry).toHaveBeenCalledWith('seg-0');
+    // Retrying closes the popover.
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('does not show a Retry button when the caller has no retry path wired', () => {
+    mockMatchMedia(false);
+    const segments = makeSegments(12, [{ phase: 'failed', progress: 0.4 }]);
+    const { container } = render(<SegmentRenderMonitor segments={segments} cap={3} />);
+    const strip = container.querySelector('[role="img"]');
+    const failedBlock = strip?.querySelectorAll('[aria-hidden="true"]')[0] as HTMLElement;
+    fireEvent.click(failedBlock);
+    expect(screen.queryByRole('button', { name: /retry/i })).toBeNull();
+  });
+});
+
+describe('SegmentRenderMonitor — task 010 M6 keyboard-reachable equivalent', () => {
+  it('reaches the same detail/retry action via the accessible table, never touching the aria-hidden block field', async () => {
+    mockMatchMedia(false);
+    const onRetry = vi.fn();
+    const user = userEvent.setup();
+    const segments = makeSegments(12, [{ phase: 'failed', progress: 0.4, engineId: 'xtts', reasonCode: 'engine_timeout' }]);
+    render(<SegmentRenderMonitor segments={segments} cap={3} onRetry={onRetry} />);
+
+    // Keyboard-only: tab to the first row's "Details" button in the accessible
+    // table and activate it — no click/interaction with the aria-hidden block
+    // field anywhere in this test.
+    await user.tab();
+    const detailsButtons = screen.getAllByRole('button', { name: /details/i });
+    // The first Details button belongs to segment 0 (the failed one).
+    detailsButtons[0].focus();
+    expect(detailsButtons[0]).toHaveFocus();
+    await user.keyboard('{Enter}');
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).not.toHaveAttribute('aria-hidden');
+    expect(within(dialog).getByText(/engine_timeout/i)).toBeInTheDocument();
+
+    // The table's own "Retry" button (not the popover's) also reaches the
+    // same action, keyboard-only.
+    const tableRetryButtons = screen.getAllByRole('button', { name: /retry/i });
+    // One retry button lives in the popover, one in the table row — both call
+    // the same onRetry. Use the table row's (last rendered under the <table>).
+    const tableRetry = tableRetryButtons.find((btn) => btn.closest('table'));
+    expect(tableRetry).toBeTruthy();
+    tableRetry!.focus();
+    await user.keyboard('{Enter}');
+    expect(onRetry).toHaveBeenCalledWith('seg-0');
   });
 });

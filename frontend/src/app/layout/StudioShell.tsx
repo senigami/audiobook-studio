@@ -42,7 +42,11 @@ export const deriveNavigationState = (pathname: string, search?: string, project
   let activeProjectSubnavId: string | undefined;
 
   if (pathname === '/') {
-    routeKind = 'library';
+    // "/" is the Welcome splash (frontend/src/pages/Welcome/WelcomePage.tsx),
+    // distinct from "/library" (ProjectLibrary) — both previously collapsed
+    // onto routeKind 'library', which made the TopBar breadcrumb read
+    // "Library" on the root/first-run screen too (design-review fix).
+    routeKind = 'welcome';
     activeGlobalId = 'library';
   } else if (pathname === '/queue') {
     routeKind = 'queue';
@@ -50,6 +54,15 @@ export const deriveNavigationState = (pathname: string, search?: string, project
   } else if (pathname === '/voices') {
     routeKind = 'voices';
     activeGlobalId = 'voices';
+  } else if (parts[0] === 'activity') {
+    routeKind = 'activity';
+    activeGlobalId = 'activity';
+  } else if (parts[0] === 'engines') {
+    routeKind = 'engines';
+    activeGlobalId = 'engines';
+  } else if (parts[0] === 'integrations') {
+    routeKind = 'integrations';
+    activeGlobalId = 'integrations';
   } else if (parts[0] === 'settings') {
     routeKind = 'settings';
     activeGlobalId = 'settings';

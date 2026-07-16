@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Play, Pause, SkipForward, SkipBack, Square, Rewind, FastForward, AudioLines, Waves, GalleryHorizontalEnd } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Square, Rewind, FastForward, AudioLines, Waves, GalleryHorizontalEnd, Volume2, Volume1, VolumeX } from 'lucide-react';
 import { usePlayerBus, seek, play, pause, stop, skip, reportTime, notifyEnded, notifyError, notifyPrev, notifyNext } from '@/store/playerBus';
 import { WaveformStrip } from './WaveformStrip';
 import { WaveformTape } from './WaveformTape';
@@ -14,6 +14,32 @@ import { fetchPeaksSidecar } from '@/api/fetchPeaksSidecar';
  * when to fetch a server-computed peaks sidecar instead.
  */
 export const TAPE_DURATION_CAP_SEC = 600;
+
+// Owner-requested (2026-07-16): the global player had no volume control, so
+// it always played at the OS/system volume. Persisted across sessions like
+// the theme preference (utils/theme.ts's STORAGE_KEY pattern), since
+// PlayerBar is a single app-lifetime instance and the user's chosen level
+// should survive a reload, not just a track change.
+const VOLUME_STORAGE_KEY = 'studio-player-volume';
+
+function loadVolumePref(): number {
+  try {
+    const raw = localStorage.getItem(VOLUME_STORAGE_KEY);
+    if (raw === null) return 1;
+    const parsed = parseFloat(raw);
+    return Number.isFinite(parsed) ? Math.min(1, Math.max(0, parsed)) : 1;
+  } catch {
+    return 1;
+  }
+}
+
+function saveVolumePref(volume: number): void {
+  try {
+    localStorage.setItem(VOLUME_STORAGE_KEY, String(volume));
+  } catch {
+    // ignore storage errors (e.g. private browsing quota)
+  }
+}
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds) || seconds === Infinity || seconds < 0) return '00:00';
@@ -53,6 +79,12 @@ export const PlayerBar: React.FC = () => {
   // far-right toggle lets the user flip it. The override resets to the duration
   // default whenever a new source loads (requestId bumps).
   const [forceWave, setForceWave] = useState<boolean | null>(null);
+
+  // Volume (owner-requested, 2026-07-16): 0-1, persisted across sessions.
+  // `prevVolumeRef` remembers the last non-zero level so the mute toggle can
+  // restore it, same as a normal media player's mute button.
+  const [volume, setVolume] = useState<number>(() => loadVolumePref());
+  const prevVolumeRef = useRef<number>(volume > 0 ? volume : 1);
 
   const [tapeOpen, setTapeOpen] = useState<boolean>(false);
   const [windowSec, setWindowSec] = useState<TapeZoomPreset>(30);
@@ -173,6 +205,16 @@ export const PlayerBar: React.FC = () => {
     }
   }, [audioUrl, playing, requestId]);
 
+  // Apply volume to the underlying element whenever it changes, and also
+  // when a fresh <audio> node mounts (audioEl) so a newly-loaded track
+  // immediately reflects the persisted/chosen level rather than the
+  // browser's own default of 1.
+  useEffect(() => {
+    if (audioEl) {
+      audioEl.volume = volume;
+    }
+  }, [audioEl, volume]);
+
   // Dedicated seek effect: fires whenever seek() increments seekRequestId,
   // moves currentTime without fighting the timeupdate reporter.
   useEffect(() => {
@@ -223,6 +265,19 @@ export const PlayerBar: React.FC = () => {
     if (audioRef.current) {
       audioRef.current.currentTime = val;
     }
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseFloat(e.target.value);
+    if (val > 0) prevVolumeRef.current = val;
+    setVolume(val);
+    saveVolumePref(val);
+  };
+
+  const handleMuteToggle = () => {
+    const next = volume > 0 ? 0 : (prevVolumeRef.current || 1);
+    setVolume(next);
+    saveVolumePref(next);
   };
 
   // Default representation is duration-driven (scope-blind); forceWave
@@ -374,6 +429,31 @@ export const PlayerBar: React.FC = () => {
         <span className="player-time-display">
           {formatTime(position)} / {formatTime(duration)}
         </span>
+
+        {/* Volume control (owner-requested, 2026-07-16): mute toggle + level
+            slider, same as a normal media player — the global player used to
+            always play at the system/OS volume with no way to adjust it. */}
+        <div className="player-bar-volume" role="group" aria-label="Volume">
+          <button
+            type="button"
+            className="player-btn"
+            onClick={handleMuteToggle}
+            aria-label={volume === 0 ? 'Unmute' : 'Mute'}
+            aria-pressed={volume === 0}
+          >
+            {volume === 0 ? <VolumeX size={16} /> : volume < 0.5 ? <Volume1 size={16} /> : <Volume2 size={16} />}
+          </button>
+          <input
+            type="range"
+            className="player-volume-slider"
+            min={0}
+            max={1}
+            step={0.01}
+            value={volume}
+            onChange={handleVolumeChange}
+            aria-label="Volume level"
+          />
+        </div>
 
         {/* Representation override — defaults to duration fit, flip waveform ↔ bar on demand */}
         <button

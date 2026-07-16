@@ -1,0 +1,218 @@
+{
+  "files": {
+    "frontend/src/store/annotations.ts": {
+      "purpose": "Segment annotations persisted to localStorage with React hook",
+      "exports": [
+        {
+          "name": "Annotation, getAnnotations, saveAnnotation, deleteAnnotation, useAnnotations",
+          "kind": "type/fn/hook"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/AnnotationsPanel.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/store/bookmarks.ts": {
+      "purpose": "Cross-book chapter bookmarks with localStorage persistence",
+      "exports": [
+        {
+          "name": "Bookmark, getBookmarks, addBookmark, removeBookmark, renameBookmark, useBookmarks, useBookBookmarks, upsertAutoResumeBookmark, getAutoResumeBookmark, clearAutoResumeBookmark",
+          "kind": "type/fn/hook"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Book/components/ChapterWorkspaceHeader.tsx",
+        "frontend/src/pages/Book/stages/ContentsStage.tsx",
+        "frontend/src/pages/ProjectLibrary/components/LibraryBookmarksPanel.tsx",
+        "frontend/src/store/bookContinuousPlayback.ts",
+        "frontend/src/pages/Book/components/ContinueListeningCard.tsx",
+        "frontend/src/pages/ProjectLibrary/components/LibraryBookmarksPanel.tsx"
+      ],
+      "notes": [
+        "2026-07-11 (task 010 Gate 2): the pre-existing useBookBookmarks(bookId) hook (previously dead/unused) is now consumed by ContentsStage; useBookmarks() (previously only used by ChapterWorkspaceHeader) is now also consumed by LibraryBookmarksPanel.",
+        "2026-07-12: Bookmark gained optional kind?:'auto'|'user' (undefined=='user', backward compatible) + positionSeconds?:number. New upsertAutoResumeBookmark/getAutoResumeBookmark/clearAutoResumeBookmark reuse this store for whole-book continuous-playback resume state instead of a parallel data model. The kind:'auto' marker is filtered out of every user-facing list: useBookBookmarks (this file) and LibraryBookmarksPanel.tsx (filters useBookmarks() locally, since that hook is intentionally raw/cross-book)."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/store/editor-session.ts": {
+      "purpose": "Contract skeleton for Chapter Editor session state (not yet implemented)",
+      "exports": [
+        {
+          "name": "EditorSessionStore, createEditorSessionStore",
+          "kind": "type/fn",
+          "contract": "throws not implemented"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/store/live-jobs.ts": {
+      "purpose": "Client-side live job overlay state with event merging and monotonicity rules",
+      "exports": [
+        {
+          "name": "OverlayDelta, LiveOverlayState, createLiveJobsStore",
+          "kind": "type/fn"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/contracts/events.ts",
+        "frontend/src/utils/jobSelection.ts"
+      ],
+      "called_by": [
+        "frontend/src/api/hydration/index.ts",
+        "frontend/src/hooks/useQueueSync.ts"
+      ],
+      "notes": [
+        "stale event rejection, status precedence, monotonic progress",
+        "OverlayDelta threads active_segments_map (W-PAR 006, additive C2 contract) alongside StudioJobEvent"
+      ],
+      "calls_inferred": [
+        "frontend/src/utils/jobSelection#isSegmentScopedJob"
+      ]
+    },
+    "frontend/src/store/liveEventAuditStore.ts": {
+      "purpose": "Ring-buffer audit log of socket frames for live-event debugging",
+      "exports": [
+        {
+          "name": "recordLiveEventEnvelope, recordLiveEventSubscriberObservation, subscribeLiveEventAudit, subscribeThrottled, getLiveEventAuditSnapshot, getLiveEventAuditRecordByFrameId, clearLiveEventAudit, resetLiveEventAuditForTests",
+          "kind": "fn"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/contracts/liveEvents.ts"
+      ],
+      "called_by": [
+        "frontend/src/components/LiveOutputTable.tsx",
+        "frontend/src/hooks/useJobs.ts",
+        "frontend/src/hooks/useLiveTtsLogLines.ts",
+        "frontend/src/hooks/useQueueSync.ts",
+        "frontend/src/pages/LiveOutput/LiveOutputPage.tsx",
+        "frontend/src/store/studioSocketBus.ts",
+        "frontend/src/utils/queueItemDebugPayload.ts"
+      ],
+      "notes": [
+        "ring buffer cap 200 entries",
+        "rAF-throttled listener P1"
+      ],
+      "calls_inferred": [
+        "frontend/src/api/contracts/liveEvents#normalizeStudioSocketEnvelope,appendLiveEventSubscriber"
+      ]
+    },
+    "frontend/src/store/notifications.ts": {
+      "purpose": "Contract skeleton for notifications store (not yet implemented)",
+      "exports": [
+        {
+          "name": "NotificationsStore, createNotificationsStore",
+          "kind": "type/fn",
+          "contract": "throws not implemented"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/app/providers/index.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/store/playerBus.ts": {
+      "purpose": "Audio player state machine with scope switching and queue navigation",
+      "exports": [
+        {
+          "name": "PlayerScope, AltScope, PlayerBusState, loadAndPlay, switchScope, play, pause, stop, seek, skip, reportTime, notifyEnded, notifyError, notifyPrev, notifyNext, usePlayerBus",
+          "kind": "type/fn/hook",
+          "contract": "PlayerScope = 'segment' | 'chapter' | 'preview' | 'book' (2026-07-09T21:03Z, Task 001: added 'book' for the Continue Listening card's full-audiobook playback; purely additive, no scope-branching logic anywhere in this file, PlayerBar.tsx, or playerRepresentation.ts) Added 2026-07-12: LoadAndPlayOptions.initialDuration?: number (seeds duration up front instead of 0, skipping PlayerBar's unknown-duration bootstrap window -- fixes a crash risk for any caller with a known-large duration). PlayerBusState/LoadAndPlayOptions.bookId?: string|null -- loadAndPlay always sets bookId=opts.bookId??null; distinguishes 'this chapter is part of a book's continuous auto-advance queue' (bookContinuousPlayback.ts) from a one-off chapter play (ChapterTable.tsx, never sets it)."
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/app/layout/AppShell.tsx",
+        "frontend/src/app/layout/PlayerBar.tsx",
+        "frontend/src/hooks/useChapterPlayback.ts",
+        "frontend/src/hooks/useVariantActions.ts",
+        "frontend/src/pages/Book/components/ChapterTable.tsx",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/useBoothPlayback.ts",
+        "frontend/src/pages/Engines/components/EngineTestSample.tsx",
+        "frontend/src/pages/ProjectDetail/components/ChapterList.tsx",
+        "frontend/src/pages/Voices/components/VoiceCatalogCard.tsx",
+        "frontend/src/store/bookContinuousPlayback.ts",
+        "frontend/src/pages/Book/components/ContinueListeningCard.tsx"
+      ],
+      "notes": [
+        "2026-07-14: Added optional `autoplay` field to LoadAndPlayOptions (default true); loadAndPlay now sets `playing: opts.autoplay ?? true` instead of always true.",
+        "requestId increments on loadAndPlay",
+        "W1 (2026-07-03): AltScope type, altScope field, and switchScope() removed entirely -- scope is now purely informational, drives no bus behavior",
+        "2026-07-09T21:03Z: PlayerScope extended with 'book' (Task 001 of book_tab_front_door) so ContinueListeningCard.tsx can loadAndPlay() an assembled audiobook into the existing global player bar.",
+        "2026-07-12: two features added independently that both close the same crash-risk class (a multi-hour file's duration=0 bootstrap letting WaveformStrip attempt a full browser decode) -- initialDuration (any caller with known duration) and bookId (lets whole-book playback become genuinely chapter-sequenced instead of one giant assembled file, see bookContinuousPlayback.ts)."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/store/studioSocketBus.ts": {
+      "purpose": "Centralized WebSocket message bus with pub-sub listeners",
+      "exports": [
+        {
+          "name": "publishStudioSocketMessage, subscribeStudioSocketMessages, getStudioSocketConnected, setStudioSocketConnected, subscribeStudioSocketConnected, setStudioSocketSender, sendStudioSocketMessage, resetStudioSocketBusForTests",
+          "kind": "fn"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/contracts/liveEvents.ts",
+        "frontend/src/store/liveEventAuditStore.ts"
+      ],
+      "called_by": [
+        "frontend/src/hooks/useJobs.ts",
+        "frontend/src/hooks/useProgressBarTest.ts",
+        "frontend/src/hooks/useQueueSync.ts",
+        "frontend/src/hooks/useStudioSocketConnection.ts",
+        "frontend/src/hooks/useStudioSocketTransport.ts",
+        "frontend/src/pages/DevProgressBar/components/ProgressBarDebugPanel.tsx",
+        "frontend/src/utils/runtimeDebug.ts",
+        "frontend/src/utils/segmentsProgressProjector.ts"
+      ],
+      "notes": [
+        "every frame audited before filtering"
+      ],
+      "calls_inferred": [
+        "frontend/src/store/liveEventAuditStore#recordLiveEventEnvelope"
+      ]
+    },
+    "frontend/src/store/bookContinuousPlayback.ts": {
+      "purpose": "Chapter-by-chapter auto-advancing whole-book playback engine with auto-saved resume position -- replaces loading the assembled audiobook file as one clip",
+      "exports": [
+        {
+          "name": "buildChapterQueue",
+          "kind": "function",
+          "contract": "(chapters) -> BookChapterQueueEntry[]{chapterId,title,audioUrl}. Pure filter to only rendered chapters (audio_file_path set), book order preserved. URL built identically to ChapterTable.tsx's per-chapter play button."
+        },
+        {
+          "name": "playBookContinuous",
+          "kind": "function",
+          "contract": "(bookId, bookTitle, queue) -> void. Resumes from getAutoResumeBookmark if its chapter is still in queue (seeks after loadAndPlay), else starts at index 0. Wires onPrev/onNext/onEnded to a CLOSURE-scoped (not module-global) index. Last chapter's onEnded calls clearAutoResumeBookmark + stop() instead of looping to chapter 1."
+        },
+        {
+          "name": "useAutoSaveResumePosition",
+          "kind": "hook",
+          "contract": "(bookId, queue) -> void. Subscribes to playerBus; persists via upsertAutoResumeBookmark only when playerBus.bookId===bookId && playing, throttled to ~once/5s via a useRef timestamp (not setInterval/setTimeout)."
+        }
+      ],
+      "calls": [
+        "frontend/src/store/bookmarks.ts#getAutoResumeBookmark,upsertAutoResumeBookmark,clearAutoResumeBookmark",
+        "frontend/src/store/playerBus.ts#loadAndPlay,seek,stop,subscribe,getSnapshot"
+      ],
+      "calls_inferred": [],
+      "called_by": [
+        "frontend/src/pages/Book/components/ContinueListeningCard.tsx",
+        "frontend/src/pages/ProjectDetail/components/ProjectCard.tsx"
+      ],
+      "flows": [],
+      "notes": [
+        "2026-07-12: added per owner design call (auto-save continuously, skip unrendered chapters silently) as a follow-up to a confirmed crash (multi-hour assembled audiobook file could hang/crash the tab via PlayerBar's unknown-duration bootstrap). Matches audio-player.md's own long-standing 'book playback, chapters sequenced via onEnded' line (\u00a74.1), which had never actually been implemented until this change. Spec bumped to 1.6.9 (\u00a74.2)."
+      ]
+    }
+  }
+}

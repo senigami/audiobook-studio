@@ -89,6 +89,7 @@ M-PAR-3 (parts G/H above) is owner-confirmed live (segments render in parallel, 
 | M | Progressive disclosure (peek strip) | `ActivityPage.tsx` or a new `RenderMonitorPeekStrip.tsx` | The design doc's Level 2 ("opt-in peek strip") doesn't exist today — the shipped component is an all-or-nothing Level-3 field. Build the peek→expand transition; auto-appear at N≥2 concurrently-active segments, dismissible, not re-surfaced every session. |
 | N | Cap configuration UI | `frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx` (already has a **binary 1/2 toggle** for `tts_parallel_cap` — upgrade to a numeric stepper), `frontend/src/pages/Engines/components/EngineCard.tsx` (new per-engine override control for `tts_engine_caps[engine_id]`, using the already-available `engine.behavior.max_concurrent_workers` as the displayed ceiling) | Closes the exact "why is my manifest edit to 4 having no effect" gap surfaced this session — `tts_parallel_cap` currently only has a 1↔2 toggle in the UI; `tts_engine_caps` has **zero** frontend consumer despite being fully wired server-side. |
 | O | ETA wiring | `app/orchestration/progress/eta.py` (`BracketedEtaTracker`, built 2026-07-04, **never wired into any live event builder** — confirmed gap), whatever event builder feeds the chapter/monitor ETA | The monitor's ETA display needs `BracketedEtaTracker` actually connected to a live frame; today it's built and unit-tested but produces nothing an event consumes. |
+| P | Live cap admission (added 2026-07-11) | `app/orchestration/scheduler/resources.py` (`EngineClassSemaphore.try_acquire`, `ResourceClaim`, `reserve_task_resources`/`release_task_resources`), `app/orchestration/scheduler/cap_settings.py` (`resolve_effective_cap`, reused not reimplemented), `app/orchestration/tasks/synthesis.py` (`_manifest_resource_claim`), `app/db/state_settings.py` (new `set_engine_cap`), new `GET`/`PUT /api/engines/{id}/concurrency` in `app/api/routers/engines.py` | Closes the deeper gap N's UI deliberately defers: even with N's honest cap UI, a cap change has no live effect on already-queued/in-flight work — `ResourceClaim.cap` freezes the effective cap at construction, and the semaphore is grow-only. Separates the manifest ceiling (still grow-only) from a live limit resolved fresh on every admission attempt. |
 
 ### New connections (Phase 2)
 
@@ -97,17 +98,45 @@ M-PAR-3 (parts G/H above) is owner-confirmed live (segments render in parallel, 
 - **N is independent of J/K/L/M** — it's a settings/config UI change with no dependency on the monitor's data pipeline, and can be built in parallel. It directly closes the cap-configuration confusion diagnosed this session (`TASKS.md`'s W-PAR entry, 2026-07-10).
 - **O ↔ J.** The monitor's ETA display is meaningless without O; but O is also independently valuable to Phase 1's existing chapter-level ETA display (not monitor-specific) — building O benefits both.
 - **K is fully independent** — a self-contained fix to the existing component, no data-pipeline dependency.
+- **P ↔ N.** P is the backend half of the same cap-configuration story N's UI opens — N makes the setting writable and honest about its ceiling; P makes writing it actually do something to live/queued work. P is independent of N technically (N's existing raw-`POST /api/settings` write path keeps working unchanged even without P), but the two are only a complete fix together. P is otherwise fully independent of J/K/L/M/O — no shared files, no ordering constraint.
 
 ### New invariants (Phase 2, extending M1-M3 from progress-presentation.md §7A)
 
 - **M4 — No second data source of truth.** J's segment inventory + enrichment must not create a parallel/competing progress channel — it enriches the existing `active_segments_map` field (INV-9 from Phase 1 applies here too) and reuses the existing script-view segment fetch, not a new WS topic.
 - **M5 — Cap UI never exceeds the manifest ceiling.** N's numeric stepper/per-engine override must clamp its own input to `engine.behavior.max_concurrent_workers` (already available client-side) — do not let the UI accept a value `resolve_effective_cap` will silently reclamp; that's exactly the confusing-three-knobs problem this closes, not a new instance of it.
 - **M6 — Popover never replaces the accessible table.** L's popover is a decoration-layer convenience; `SegmentAccessibleTable` remains the authoritative keyboard/screen-reader surface (per the existing M-series dual-layer a11y rule) — every popover affordance needs a table-reachable equivalent.
+- **M7 — A live cap change reaches admission within one retry cycle, never requires a restart, and never evicts in-flight work.** P's whole purpose. `ensure_min_cap` is called only with the manifest ceiling, never with a live/effective value, so a shrink can never accidentally regrow via the existing grow-only path; a shrink blocks new admissions without touching already-admitted tasks (`release()` never consults cap).
 
 ### New risks
 
 - **R-G — `active_segments_map`'s `phase` type has no `'failed'` value anywhere on the wire today** (confirmed: zero backend writes of `phase: 'failed'`). J must either add it end-to-end (backend emit → contract → frontend type) or define a clear client-side inference rule — do not half-implement (a `'failed'` UI state with no backend source is a fabricated-looking status, which this project's progress-no-fabrication principle forbids).
 - **R-H — Two places already write `POST /api/settings`-driven cap UI** (the existing binary toggle in `GeneralSettingsPanel` and the new per-engine control in `EngineCard`) — per the research, `tts_engine_caps`/`tts_parallel_cap` are **only parsed from the JSON-body branch** of the settings endpoint, not the form-encoded branch. N's tasks must follow the existing raw-JSON-fetch pattern (`updateParallelCap`'s shape) exactly, not the form-encoded helpers used for other settings, or the new UI will silently no-op.
+- **R-I — P's per-child segment admission is unverified (added 2026-07-11).** The chapter-parent `ThreadPoolExecutor`'s pool sizing (`generation.py:286-288`) was confirmed to use the manifest ceiling correctly under P's design, but whether individual child segment dispatches are separately reserved through `reserve_task_resources` (making a mid-chapter shrink actually throttle them) was NOT traced before this task was written — task 014 makes tracing this a mandatory first step, not an assumption.
+
+## New parts (Phase 3, added 2026-07-12)
+
+| # | Part | Files | Responsibility |
+|---|---|---|---|
+| Q | Per-row monitor mount | `frontend/src/components/queue/QueueItem.tsx`, `frontend/src/pages/Activity/ActivityPage.tsx` | Move the `SegmentPeekStrip`/`SegmentRenderMonitor` pair from a page-level singleton (driven by one `activeJob`) into each `activeJobs` row in `GlobalQueue.tsx`, so N concurrently-rendering jobs each get their own strip beneath their own progress bar, matching the North Star (`SegmentRenderStrip.tsx`). |
+| R | Segment-inventory fetch dedupe | `frontend/src/hooks/useSegmentInventory.ts` | Fix the effect at line 81 (`[chapterId, engineId, activeSegmentsMap]`) so `GET /script-view` fires once per `chapterId`, not once per progress tick — merge the live `active_segments_map` into the fetched base inventory client-side instead of re-fetching. |
+
+### New connections (Phase 3)
+
+- **Q depends on J (Phase 2 real hydration)** — already satisfied, J shipped 2026-07-11. Q is purely a mount-point change: `useSegmentInventory`, `SegmentPeekStrip`, and `SegmentRenderMonitor` are reused unmodified (confirmed their prop interfaces are generic — `segments`/`activeCount`/callbacks, no page-singleton assumption baked in).
+- **Q and R are independent of each other** — Q changes *where* the hook is called (once per row instead of once per page); R changes *how often* the hook's internal effect fires. Either can land first; R is lower-risk to land first since it has no visible UI surface to regress.
+- **Q multiplies R's urgency.** Today the refetch-per-tick issue (R) is bounded to at most one `useSegmentInventory` instance (the single active job) by the `devMode` gate. Once Q moves the hook to per-row, an N-job Activity page would run N concurrent instances of the same refetch-per-tick pattern — R should land in the same phase as Q, not deferred, even though technically independent.
+- **Q must not regress `QueueItem`'s existing layout invariants** — `PredictiveProgressBar` (lines 521-552) is the existing anchor; the strip mounts directly after it (line 553), inside the same `flex:1` container, not as a sibling that could reflow the row's other elements (status badge, remove button).
+
+### New invariants (Phase 3)
+
+- **M8 — One `useSegmentInventory` instance per rendering job, not per page.** Q's core change. A page showing 3 concurrently-rendering jobs must produce 3 independent hook instances, each scoped to its own `chapterId`/`activeSegmentsMap`, not a shared/pooled one — no cross-job state bleed.
+- **M9 — `useSegmentInventory`'s network fetch is keyed on `chapterId` alone; `active_segments_map` only ever merges into already-fetched state, never re-triggers the fetch.** R's core change. The effect's dependency array must drop `activeSegmentsMap` (and `engineId`, if unused in the request) from the fetch-triggering condition; a separate, cheap merge step (not a new network call) applies the live map to the fetched base segments on every tick.
+- **M10 — Only `activeJobs` rows get a strip; `pendingJobs`/history rows never do.** Matches Phase 2's `ACTIVE_STATUSES` gate (`queued`, `preparing`, `running`, `finalizing`) — Q must reuse that same status set (or the equivalent already inlined in `QueueItem.tsx`, e.g. `isTrulyActive`), not invent a second one.
+
+### New risks
+
+- **R-J — `QueueItem.tsx` is 556 lines and already inlines its own status-set logic (`isTrulyActive`, `isRunningOrProcessing`) rather than importing `ACTIVE_STATUSES` from `ActivityPage.tsx`.** Q must confirm which existing inline check (if any) is equivalent to `ACTIVE_STATUSES` before gating the strip on it — a mismatch (e.g. `QueueItem` treating `'processing'` as active when `ACTIVE_STATUSES` doesn't) would show a strip Phase 2's own logic wouldn't have shown for the same job.
+- **R-K — `ActivityPage.tsx`'s stale comment (lines 54-58) explicitly claims the "popover/peek-strip UI for choosing among several is a later task (010/011), out of scope here"** — this is factually wrong now (010/011 never built multi-job choosing) and must be corrected as part of Q's change, not left to drift further once Q actually does add multi-job support.
 
 ## Map links out
 
@@ -115,3 +144,4 @@ M-PAR-3 (parts G/H above) is owner-confirmed live (segments render in parallel, 
 - Subsumes W5 from [mixed-synthesis-fused-proposal](../mixed-synthesis-fused-proposal/00-overview.md) (§Scope, Layer 4).
 - Architecture contracts: `design-docs/specs/{system-architecture,queue-jobs,data-model,live-events,progress-presentation}.md`; `.agent/rules/modular_architecture.md`.
 - Phase-2 visualizer design: [10-phase2-render-monitor.md](10-phase2-render-monitor.md).
+- Phase-3 multi-job rows design: [11-phase3-multi-job-rows.md](11-phase3-multi-job-rows.md).

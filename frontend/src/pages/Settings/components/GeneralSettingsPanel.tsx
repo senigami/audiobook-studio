@@ -1,10 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { ShieldCheck, PlugZap, Music, Palette, FlaskConical, Layers } from 'lucide-react';
+import { ShieldCheck, PlugZap, Music, Palette, FlaskConical, Layers, KeyRound } from 'lucide-react';
 import type { Settings as AppSettings, SpeakerProfile, TtsEngine, Speaker } from '@/types';
 import { buildVoiceOptions } from '@/utils/voiceProfiles';
-import { SettingCard, ToggleButton } from '@/pages/Settings/components/SettingsComponents';
+import { SettingCard, ToggleButton, NumberStepper } from '@/pages/Settings/components/SettingsComponents';
 import { loadThemePref, saveThemePref, type Theme } from '@/utils/theme';
 import { isDevModeEnabled, setDevModeEnabled, useDevMode } from '@/utils/devMode';
+
+// Matches the MAX_GLOBAL_CONCURRENT_SYNTHESIS backstop (app/orchestration/scheduler/resources.py:44-46).
+const MAX_GLOBAL_PARALLEL_CAP = 8;
 
 interface GeneralSettingsPanelProps {
   settings: AppSettings | undefined;
@@ -26,6 +29,8 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>(loadThemePref);
   const devMode = useDevMode();
+  const [hfTokenInput, setHfTokenInput] = useState('');
+  const hfTokenConfigured = settings?.huggingface_token === '***';
 
   const handleThemeChange = (val: Theme) => {
     setTheme(val);
@@ -72,6 +77,25 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
     }
   };
 
+  const saveHfToken = async (value: string) => {
+    setSavingKey('huggingface_token');
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ huggingface_token: value }),
+      });
+      setHfTokenInput('');
+      onRefresh();
+      onShowNotification?.(value ? 'Hugging Face token saved.' : 'Hugging Face token cleared.');
+    } catch (error) {
+      console.error('Failed to update setting', error);
+      onShowNotification?.('Settings update failed. Please try again.');
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
   const updateStringSetting = async (key: 'default_engine' | 'default_speaker_profile', value: string) => {
     setSavingKey(key);
     try {
@@ -108,13 +132,13 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
           lineHeight: 1.5,
         }}
       >
-        Engines &amp; Integrations live under <strong style={{ color: 'var(--accent)' }}>Platform</strong> — Settings is intentionally thin.
+        Engines and integrations are managed under <strong style={{ color: 'var(--accent)' }}>Platform</strong>.
       </div>
 
       {/* Appearance section */}
       <section>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <h3 style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+          <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
             Appearance
           </h3>
         </div>
@@ -151,7 +175,7 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
       {/* Developer section */}
       <section>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <h3 style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+          <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
             Developer
           </h3>
         </div>
@@ -173,7 +197,7 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
 
       <section>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-        <h3 style={{ fontSize: '0.85rem', fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+        <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
           Core Synthesis Defaults
         </h3>
         <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontWeight: 700 }}>
@@ -207,16 +231,25 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
                   borderRadius: '8px',
                   border: '1px solid var(--border)',
                   background: 'var(--surface)',
+                  color: 'var(--text-primary)',
                   fontSize: '0.85rem',
                   fontWeight: 800,
                   minWidth: '140px',
                 }}
               >
-                {engines.map(eng => (
-                  <option key={eng.engine_id} value={eng.engine_id}>
-                    {eng.display_name} {eng.cloud ? '(Cloud)' : eng.local ? '(Local)' : ''}
-                  </option>
-                ))}
+                {engines.map(eng => {
+                  // Some plugin manifests (e.g. XTTS) already bake a "(Local)"/
+                  // "(Cloud)" suffix into display_name; don't double it up for
+                  // those while still labeling engines whose manifest doesn't.
+                  const suffix = eng.cloud ? '(Cloud)' : eng.local ? '(Local)' : '';
+                  const hasSuffix = suffix && eng.display_name?.trim().endsWith(suffix);
+                  const label = suffix && !hasSuffix ? `${eng.display_name} ${suffix}` : eng.display_name;
+                  return (
+                    <option key={eng.engine_id} value={eng.engine_id}>
+                      {label}
+                    </option>
+                  );
+                })}
                 {engines.length === 0 && (
                   <option value="">(No engines loaded)</option>
                 )}
@@ -237,6 +270,7 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
                   borderRadius: '8px',
                   border: '1px solid var(--border)',
                   background: 'var(--surface)',
+                  color: 'var(--text-primary)',
                   fontSize: '0.85rem',
                   fontWeight: 800,
                   minWidth: '140px',
@@ -259,13 +293,87 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
           <SettingCard
             icon={Layers}
             title="Parallel Segment Rendering"
-            description="Render multiple segments at once when the engine allows it. Turn off to force strictly one-at-a-time (sequential) rendering."
+            description="How many segments Studio may render at once, across all engines. Set to 1 to force strictly one-at-a-time (sequential) rendering."
             action={
-              <ToggleButton
-                enabled={(settings?.tts_parallel_cap ?? 1) > 1}
-                busy={savingKey === 'tts_parallel_cap'}
-                onClick={() => updateParallelCap((settings?.tts_parallel_cap ?? 1) > 1 ? 1 : 2)}
+              <NumberStepper
+                ariaLabel="Max concurrent segment renders"
+                value={settings?.tts_parallel_cap ?? 1}
+                min={1}
+                max={MAX_GLOBAL_PARALLEL_CAP}
+                disabled={savingKey === 'tts_parallel_cap'}
+                onStep={(next) => updateParallelCap(next)}
+                onInputChange={(raw) => {
+                  const parsed = parseInt(raw, 10);
+                  if (Number.isNaN(parsed)) return;
+                  const clamped = Math.min(MAX_GLOBAL_PARALLEL_CAP, Math.max(1, parsed));
+                  updateParallelCap(clamped);
+                }}
               />
+            }
+          />
+        </div>
+      </section>
+
+      {/* Publishing section */}
+      <section>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+            Publishing
+          </h3>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+          <SettingCard
+            icon={KeyRound}
+            title="Hugging Face Access Token"
+            description={
+              hfTokenConfigured
+                ? 'Configured. Used to publish voices to Hugging Face from Voice Lab. Enter a new token to replace it, or save an empty field to clear it.'
+                : 'Required to publish voices to Hugging Face from Voice Lab. Create a token with write access at huggingface.co/settings/tokens.'
+            }
+            action={
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {hfTokenConfigured && (
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      color: 'var(--success)',
+                      background: 'var(--success-tint-bg, var(--accent-glow))',
+                      padding: '2px 8px',
+                      borderRadius: '999px',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Configured
+                  </span>
+                )}
+                <input
+                  type="password"
+                  aria-label="Hugging Face access token"
+                  placeholder={hfTokenConfigured ? 'Replace token…' : 'hf_...'}
+                  value={hfTokenInput}
+                  disabled={savingKey === 'huggingface_token'}
+                  onChange={(e) => setHfTokenInput(e.target.value)}
+                  style={{
+                    width: '200px',
+                    padding: '0.45rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.85rem',
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn-glass"
+                  disabled={savingKey === 'huggingface_token' || (!hfTokenInput && !hfTokenConfigured)}
+                  onClick={() => saveHfToken(hfTokenInput)}
+                  style={{ padding: '0.45rem 0.9rem', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 700 }}
+                >
+                  {savingKey === 'huggingface_token' ? 'Saving…' : hfTokenInput ? 'Save' : 'Clear'}
+                </button>
+              </div>
             }
           />
         </div>

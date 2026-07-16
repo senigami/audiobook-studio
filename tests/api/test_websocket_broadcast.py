@@ -1677,7 +1677,15 @@ def test_put_job_broadcasts_job_lifecycle_on_queued(monkeypatch):
     assert job_id == "job-queued-test"
     assert updates["reason_code"] is None
     assert updates["previous_status"] is None
-    assert updates["status_changed"] is False
+    # 2026-07-13 fix: a brand-new job's first put_job() must report
+    # status_changed=True (there IS a real transition — from "did not exist"
+    # to "queued") so broadcast_job_updated's `(status_changed or prev_status
+    # is None or terminal_reset)` gate actually fires the jobs.lifecycle
+    # broadcast the frontend needs to create the job's row immediately. The
+    # old False here was the bug itself: it silently suppressed that
+    # broadcast, so a freshly queued job stayed invisible in the Global Queue
+    # UI until some later, unrelated status transition finally announced it.
+    assert updates["status_changed"] is True
     assert current_job["status"] == "queued"
 
 

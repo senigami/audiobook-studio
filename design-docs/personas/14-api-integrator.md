@@ -1,6 +1,6 @@
-# 14 · "Kenji Watanabe" — API Integrator  ☆ INFERRED
+# 14 · API Integrator  ☆ INFERRED
 
-**Identity:** "Kenji treats every API boundary as a contract to be stress-tested — he needs Studio's endpoints, WebSocket events, and failure envelopes to be explicit enough that he can build reliable automation around them without reading the source."
+**Identity:** "I treat every API boundary as a contract to be stress-tested — I need Studio's endpoints, WebSocket events, and failure envelopes to be explicit enough that I can build reliable automation around them without reading the source."
 
 ## Goals
 - Submit synthesis jobs programmatically via the TTS API (`/api/v1/tts`) and track them through the queue without touching the UI
@@ -18,13 +18,13 @@
 ## Key workflow moments
 - **Submitting a job via API:** POST to `/api/v1/tts` with an `Authorization: Bearer` key, a text payload, a voice ID, and engine preferences — expects a job ID back immediately, not a synchronous response
 - **Tracking job progress over WebSocket:** Subscribes to `/ws`, filters on job ID, expects event frames with `type`, `job_id`, `progress`, and `eta_seconds` fields — needs the frame schema documented and stable across minor versions
-- **Handling partial failures:** A chunk fails mid-synthesis; Kenji needs the event stream to tell him which segment failed and whether the job is retryable or terminal before he decides to resubmit
+- **Handling partial failures:** A chunk fails mid-synthesis; the API Integrator needs the event stream to tell them which segment failed and whether the job is retryable or terminal before they decide to resubmit
 - **Validating a new plugin's contract:** Installs a plugin by dropping it in `plugins/`, restarts the TTS server, then hits `GET /engines` or equivalent to confirm the engine registered and its manifest-declared limits match what the API enforces
-- **Rate-limit behavior:** The API enforces rate limits via `app/core/security.py`; Kenji needs the 429 response to include a `Retry-After` header he can use directly, not just an error message
+- **Rate-limit behavior:** The API enforces rate limits via `app/core/security.py`; they need the 429 response to include a `Retry-After` header they can use directly, not just an error message
 
 ## Top friction points *(INFERRED)*
-- **F1 — WebSocket frame shape is undocumented:** Progress events are consumed by the frontend via `liveEvents.ts` but there is no published JSON schema for external consumers; Kenji reverse-engineers the frame format from the frontend source or by watching the socket
-- **F2 — Incomplete payload accepted silently:** The API accepts a synthesis request that is missing optional-but-expected fields (e.g., voice ID fallback behavior) and silently applies defaults; Kenji only discovers the default behavior when the audio comes back wrong
+- **F1 — WebSocket frame shape is undocumented:** Progress events are consumed by the frontend via `liveEvents.ts` but there is no published JSON schema for external consumers; the API Integrator reverse-engineers the frame format from the frontend source or by watching the socket
+- **F2 — Incomplete payload accepted silently:** The API accepts a synthesis request that is missing optional-but-expected fields (e.g., voice ID fallback behavior) and silently applies defaults; they only discover the default behavior when the audio comes back wrong
 - **F3 — Plugin capability mismatch not surfaced at request time:** A plugin declares `text_chunk_limit: 500` in its manifest but the API does not reject or warn on a 2000-character payload — it either silently truncates or fails mid-job
 - **F4 — No canonical error code taxonomy:** HTTP errors return varied JSON shapes; some have `detail`, some have `error`, some have both; retry logic requires pattern-matching against message strings rather than stable numeric codes
 - **F5 — TTS server restart is invisible to API consumers:** When the watchdog restarts the TTS subprocess, in-flight jobs may silently re-queue or drop; the API does not emit a disruption event that external consumers can detect and act on

@@ -1,6 +1,6 @@
 # Task 012 — Update demo mock: Engines Module-Settings tab, orphaned ManuscriptPane, studio.tsx note
 
-Status: pending
+Status: done (2026-07-11)
 
 Risk: none (demo-only files, zero live-app risk)
 
@@ -57,13 +57,13 @@ reader doesn't have to re-derive this plan's research from scratch.
 
 ## Acceptance criteria
 
-- [ ] Part A done or explicitly deferred with a reason.
-- [ ] Part B done per task 010's actual decision, or explicitly deferred if 010 is still pending.
-- [ ] Part C: comment added to `studio.tsx`.
-- [ ] `npm -C frontend run build` (the app build, not `build:demo`) stays clean — demo files are
+- [x] Part A done or explicitly deferred with a reason.
+- [x] Part B done per task 010's actual decision, or explicitly deferred if 010 is still pending.
+- [x] Part C: comment added to `studio.tsx`.
+- [x] `npm -C frontend run build` (the app build, not `build:demo`) stays clean — demo files are
       still part of the frontend TypeScript project even though they're not shipped in the main
       bundle.
-- [ ] `build:demo` is NOT run as part of this task unless explicitly requested — per this project's
+- [x] `build:demo` is NOT run as part of this task unless explicitly requested — per this project's
       standing convention that demo builds are decoupled from regular work.
 
 ## Map links
@@ -77,3 +77,32 @@ Part B depends on task 010's decision.
 ## Out of scope
 
 Do not touch any live-app file in this task — it is demo-only by definition.
+
+## Execution record (2026-07-11)
+
+Confirmed task 010's decision status before starting: task 010's file records Gate 1 (Option B
+executed, live's Contents tab simplified to a pure chapter board) and Gate 2 (bookmark panels)
+both landed 2026-07-11 — so Part B was unblocked.
+
+- **Part A** — done. `EnginesPane` in `frontend/src/demo/stages/siteMockup/panes/platform.tsx` now
+  has a `role="tablist"` with "Engines"/"Module Settings" tabs matching live's `EnginesPage.tsx`
+  (commit `2ec47472`) structure and labels. Chose the "add a real (if lighter) tab structure" branch
+  rather than a comment-only note, per this task's "err toward keeping the mock honest" guidance —
+  but the "Module Settings" tab content is intentionally a lighter representative view (sanitize
+  toggles + a pointer to each engine's inline settings) rather than a full port of live's
+  `JsonSchemaForm`-per-engine dynamic rendering; documented as such in a comment above `EnginesPane`.
+- **Part B** — done. Deleted the orphaned `ManuscriptPane` export from `panes/book.tsx`, along with
+  its only-consumer `AddChapterModal` helper and the ManuscriptPane-only lifecycle
+  types/constants/component (`ChapterLifecycle`, `MANUSCRIPT_CHAPTERS`, `LIFECYCLE_VARIANT`,
+  `LIFECYCLE_ORB`, `LifecyclePill`) and now-unused lucide imports (`Upload`, `Lock`,
+  `MoreHorizontal`). Left a pointer comment to this decision record in the deleted block's place.
+- **Part C** — done. Added a top-of-file comment to `panes/studio.tsx` noting it's superseded by
+  `directorsConsole.tsx` for mode structure (confirmed not mounted — only its
+  `STUDIO_FOLLOW_DURATION_SEC` constant is re-exported/used elsewhere), while its bookmark/lexicon/
+  contents-dropdown designs were separately ported to live via `ChapterWorkspaceHeader.tsx`/
+  `BookLayout.tsx`.
+
+Verification: `npm -C frontend run build` clean; `npm -C frontend run lint` clean for touched files
+(39 pre-existing warnings elsewhere in the repo, 0 new, 0 errors). `build:demo` intentionally not
+run, per repo convention. Code-map changelog-queue entry appended:
+`docs/code-map/queue/2026-07-11-task012-demo-side-cleanup.json`.

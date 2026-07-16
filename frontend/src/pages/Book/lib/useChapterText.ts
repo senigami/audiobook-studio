@@ -129,6 +129,22 @@ export function useChapterText(chapter: Chapter | null, onSaved?: () => Promise<
       setLoadedChapter(result.chapter);
       setPreviewData(null);
       setSaveState('saved');
+      // Resyncing an already-produced chapter's text invalidates its
+      // existing render, so committing also re-queues the chapter
+      // (force=true, mirroring the "Rebuild Audio" path), matching the
+      // established queue-submission call (see useProjectActions'
+      // handleQueueChapter / useChapterQueue's executeQueue).
+      try {
+        await api.addProcessingQueue(
+          result.chapter.project_id,
+          result.chapter.id,
+          0,
+          result.chapter.speaker_profile_name || undefined,
+          true,
+        );
+      } catch (queueError) {
+        console.error('Failed to queue chapter after resync', queueError);
+      }
       await onSaved?.();
       return true;
     } catch (error) {

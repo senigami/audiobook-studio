@@ -27,27 +27,33 @@
  * keyboard users always have the full per-segment detail, even when the
  * visual strip has degraded to a summary bar.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { SegmentBlockRow, PHASE_LABEL } from './SegmentBlockRow';
+import type { SegmentRenderPhase, SegmentRenderMonitorSegment } from './SegmentBlockRow';
 
-export type SegmentRenderPhase = 'preparing' | 'rendering' | 'done' | 'failed';
-
-export interface SegmentRenderMonitorSegment {
-  id: string;
-  /** Character count — drives block width (a manuscript map, not render time). */
-  charCount: number;
-  phase: SegmentRenderPhase;
-  /** 0..1, meaningful while phase === 'rendering' (or partially credited on 'failed'). */
-  progress: number;
-  engineId?: string;
-}
+// Task 011: the segment types and the reduced-motion gate now live in
+// `SegmentBlockRow.tsx` (the shared block-encoding primitive) — re-exported
+// here for back-compat with existing callers/tests importing from this file.
+export type { SegmentRenderPhase, SegmentRenderMonitorSegment };
 
 export interface SegmentRenderMonitorProps {
   segments: SegmentRenderMonitorSegment[];
   /** Per-engine concurrency cap — used only for the summary/caption text. */
   cap: number;
+  /**
+   * Task 010: retry a single segment. Wired by the caller to
+   * `api.generateSegments([segmentId])` — the only per-segment (re)generation
+   * entry point this repo has today (there is no server-side "retry" verb;
+   * re-queuing generation for the same segment id is the real granularity).
+   * Omitted entirely (no button rendered) when the caller has no retry path.
+   */
+  onRetry?: (segmentId: string) => void;
 }
 
-const FULL_STRIP_MIN = 10;
+// Exported (task 011): the peek strip's eligibility gate on `ActivityPage`
+// reuses this same "is there enough segments for the full field to be worth
+// expanding into" threshold, rather than a second hardcoded 10.
+export const FULL_STRIP_MIN = 10;
 const SUMMARY_THRESHOLD = 60;
 
 // ---------------------------------------------------------------------------
@@ -63,39 +69,6 @@ export function charWeightedProgress(segments: SegmentRenderMonitorSegment[]): n
     return sum;
   }, 0);
   return filled / total;
-}
-
-function useReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-  );
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const m = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const onChange = () => setReduced(m.matches);
-    m.addEventListener('change', onChange);
-    return () => m.removeEventListener('change', onChange);
-  }, []);
-  return reduced;
-}
-
-function blockStyle(s: SegmentRenderMonitorSegment): React.CSSProperties {
-  const base: React.CSSProperties = {
-    flexGrow: s.charCount,
-    flexBasis: 0,
-    minWidth: 6, // §7A: ~6px minimum in production (the demo uses 3px for its narrow panel)
-    height: '100%',
-    position: 'relative',
-    overflow: 'hidden',
-  };
-  if (s.phase === 'preparing') return { ...base, background: 'var(--accent-tint-bg)' };
-  if (s.phase === 'done') return { ...base, background: 'var(--accent)' };
-  if (s.phase === 'failed') {
-    return { ...base, background: 'var(--surface)', boxShadow: 'inset 0 0 0 1px var(--action-danger)' };
-  }
-  // rendering — teal track comes from .segment-render-monitor__block--active; the
-  // blue inner fill is drawn as a separate child, advancing over it.
-  return base;
 }
 
 const ProgressBar: React.FC<{ pct: number }> = ({ pct }) => (
@@ -120,23 +93,22 @@ const ProgressBar: React.FC<{ pct: number }> = ({ pct }) => (
   </div>
 );
 
-const PHASE_LABEL: Record<SegmentRenderPhase, string> = {
-  preparing: 'Preparing',
-  rendering: 'Rendering',
-  done: 'Done',
-  failed: 'Failed',
-};
-
 /**
  * The always-present accessible fallback: one row per segment. This is the
  * real keyboard/screen-reader surface (§7A "Accessibility (dual-layer)") — it
  * is rendered regardless of whether the visual strip shows the full block
  * field or the degraded summary bar.
+ *
+ * Task 010 (M6): also the keyboard-reachable path to the same detail/retry
+ * the block-strip popover offers — the strip's blocks are `aria-hidden`, so
+ * this "Details"/"Retry" row action must never be the popover's only door in.
  */
-const SegmentAccessibleTable: React.FC<{ segments: SegmentRenderMonitorSegment[]; collapsedByDefault: boolean }> = ({
-  segments,
-  collapsedByDefault,
-}) => {
+const SegmentAccessibleTable: React.FC<{
+  segments: SegmentRenderMonitorSegment[];
+  collapsedByDefault: boolean;
+  onOpenDetail: (segmentId: string, triggerEl: HTMLElement) => void;
+  onRetry?: (segmentId: string) => void;
+}> = ({ segments, collapsedByDefault, onOpenDetail, onRetry }) => {
   const table = (
     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--type-micro)' }}>
       <caption style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
@@ -148,6 +120,7 @@ const SegmentAccessibleTable: React.FC<{ segments: SegmentRenderMonitorSegment[]
           <th scope="col" style={{ textAlign: 'left', padding: '4px 8px' }}>State</th>
           <th scope="col" style={{ textAlign: 'left', padding: '4px 8px' }}>Progress</th>
           <th scope="col" style={{ textAlign: 'left', padding: '4px 8px' }}>Engine</th>
+          <th scope="col" style={{ textAlign: 'left', padding: '4px 8px' }}>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -159,6 +132,41 @@ const SegmentAccessibleTable: React.FC<{ segments: SegmentRenderMonitorSegment[]
               {s.phase === 'done' ? '100%' : `${Math.round(s.progress * 100)}%`}
             </td>
             <td style={{ padding: '4px 8px' }}>{s.engineId ?? '—'}</td>
+            <td style={{ padding: '4px 8px' }}>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  type="button"
+                  onClick={(e) => onOpenDetail(s.id, e.currentTarget)}
+                  style={{
+                    fontSize: 'var(--type-micro)',
+                    padding: '2px 8px',
+                    borderRadius: 6,
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Details
+                </button>
+                {s.phase === 'failed' && onRetry && (
+                  <button
+                    type="button"
+                    onClick={() => onRetry(s.id)}
+                    style={{
+                      fontSize: 'var(--type-micro)',
+                      padding: '2px 8px',
+                      borderRadius: 6,
+                      border: '1px solid var(--action-danger)',
+                      background: 'var(--surface)',
+                      color: 'var(--action-danger)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Retry
+                  </button>
+                )}
+              </div>
+            </td>
           </tr>
         ))}
       </tbody>
@@ -182,21 +190,202 @@ const SegmentAccessibleTable: React.FC<{ segments: SegmentRenderMonitorSegment[]
   );
 };
 
-export const SegmentRenderMonitor: React.FC<SegmentRenderMonitorProps> = ({ segments, cap }) => {
-  const reduced = useReducedMotion();
+/**
+ * Anchored per-segment detail popover (task 010, design doc "Select block →
+ * inline popover detail"). Positioning follows the same lightweight,
+ * container-relative `getBoundingClientRect` pattern as the selection popover
+ * in `ScriptView.tsx` (no dedicated popover primitive exists in this repo to
+ * reuse instead — this stays local to the file rather than inventing a new
+ * shared component for a single caller).
+ *
+ * Not `aria-hidden` — only the decorative block field is. This is a real,
+ * screen-reader-visible dialog when open.
+ */
+const SegmentDetailPopover: React.FC<{
+  segment: SegmentRenderMonitorSegment;
+  index: number;
+  elapsedSeconds: number | null;
+  top: number;
+  left: number;
+  onRetry?: () => void;
+  onClose: () => void;
+}> = ({ segment, index, elapsedSeconds, top, left, onRetry, onClose }) => (
+  <div
+    role="dialog"
+    aria-label={`Segment ${index + 1} detail`}
+    className="segment-render-monitor__popover"
+    style={{ position: 'absolute', top, left, transform: 'translateX(-50%)', zIndex: 1000 }}
+  >
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+      <strong style={{ fontSize: 'var(--type-micro)' }}>Segment {index + 1}</strong>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close segment detail"
+        style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 'var(--type-micro)' }}
+      >
+        ✕
+      </button>
+    </div>
+    <dl style={{ margin: '4px 0 0', fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>
+      <div><dt style={{ display: 'inline' }}>Phase: </dt><dd style={{ display: 'inline', margin: 0 }}>{PHASE_LABEL[segment.phase]}</dd></div>
+      <div><dt style={{ display: 'inline' }}>Engine: </dt><dd style={{ display: 'inline', margin: 0 }}>{segment.engineId ?? '—'}</dd></div>
+      <div>
+        <dt style={{ display: 'inline' }}>Elapsed: </dt>
+        <dd style={{ display: 'inline', margin: 0 }}>{elapsedSeconds != null ? `${elapsedSeconds}s` : '—'}</dd>
+      </div>
+      {segment.phase === 'failed' && (
+        <div><dt style={{ display: 'inline' }}>Reason: </dt><dd style={{ display: 'inline', margin: 0 }}>{segment.reasonCode ?? 'unknown'}</dd></div>
+      )}
+    </dl>
+    {segment.phase === 'failed' && onRetry && (
+      <button
+        type="button"
+        onClick={onRetry}
+        style={{
+          marginTop: 8,
+          padding: '4px 10px',
+          borderRadius: 6,
+          border: '1px solid var(--action-danger)',
+          background: 'var(--surface)',
+          color: 'var(--action-danger)',
+          cursor: 'pointer',
+          fontSize: 'var(--type-micro)',
+        }}
+      >
+        Retry
+      </button>
+    )}
+  </div>
+);
+
+export const SegmentRenderMonitor: React.FC<SegmentRenderMonitorProps> = ({ segments, cap, onRetry }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Task 010 — "elapsed time" for the detail popover/table. `ActiveSegmentMapEntry`
+  // carries no started_at timestamp on the wire, so there is no true server-tracked
+  // per-segment duration to show; this tracks only the time THIS client has
+  // observed the segment in a non-terminal working state (rendering/failed) as a
+  // client-side proxy, reset once the segment returns to preparing or reaches done.
+  const segmentStartTimesRef = useRef<Map<string, number>>(new Map());
+  useEffect(() => {
+    const starts = segmentStartTimesRef.current;
+    const liveIds = new Set(segments.map((s) => s.id));
+    segments.forEach((s) => {
+      if (s.phase === 'rendering' || s.phase === 'failed') {
+        if (!starts.has(s.id)) starts.set(s.id, Date.now());
+      } else {
+        starts.delete(s.id);
+      }
+    });
+    Array.from(starts.keys()).forEach((id) => {
+      if (!liveIds.has(id)) starts.delete(id);
+    });
+  }, [segments]);
+
+  const [popover, setPopover] = useState<{ segmentId: string; top: number; left: number } | null>(null);
+
+  const openPopoverFor = (segmentId: string, triggerEl: HTMLElement | null) => {
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    const triggerRect = triggerEl?.getBoundingClientRect();
+    if (containerRect && triggerRect) {
+      setPopover({
+        segmentId,
+        top: triggerRect.top - containerRect.top - 8,
+        left: triggerRect.left - containerRect.left + triggerRect.width / 2,
+      });
+    } else {
+      setPopover({ segmentId, top: 0, left: 0 });
+    }
+  };
+  const closePopover = () => setPopover(null);
+  const handleRetry = (segmentId: string) => {
+    onRetry?.(segmentId);
+    closePopover();
+  };
+
+  useEffect(() => {
+    if (!popover) return undefined;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closePopover();
+    };
+    const onMouseDown = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        closePopover();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('mousedown', onMouseDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('mousedown', onMouseDown);
+    };
+  }, [popover]);
+
+  const total = segments.length;
+  const doneCount = segments.filter((s) => s.phase === 'done').length;
+  // Only segments actually in-flight right now count as "rendering in
+  // parallel" — 'preparing' means not-yet-started (queued), not concurrent.
+  const activeCount = segments.filter((s) => s.phase === 'rendering').length;
+  const failedCount = segments.filter((s) => s.phase === 'failed').length;
+  const complete = total > 0 && doneCount === total;
+  const pct = Math.round(charWeightedProgress(segments) * 100);
+  const isSummary = total > SUMMARY_THRESHOLD;
+
+  // ---------------------------------------------------------------------
+  // §7A "Accessibility (dual-layer)" — a milestone-only aria-live region.
+  // The block field above is a decoration layer (aria-hidden); this is the
+  // *other* half of the dual-layer contract: chapter start/complete and
+  // coarse threshold counts, NEVER a per-segment/per-tick announcement
+  // (that would spam a screen-reader user for the entire render duration).
+  // Threshold cadence is proportional to segment count — every 10 segments
+  // or every 25%, whichever is coarser (fewer announcements) — so small
+  // renders don't get spammed either.
+  // ---------------------------------------------------------------------
+  const [announcement, setAnnouncement] = useState('');
+  const startedRef = useRef(false);
+  const completedRef = useRef(false);
+  const lastThresholdRef = useRef(0);
+  // A job is settled (for announcement purposes) once every segment has
+  // reached a terminal state (done or failed) — a permanently-failed
+  // segment still ends the render, so completion must still be announced.
+  const allSettled = total > 0 && doneCount + failedCount === total;
+
+  useEffect(() => {
+    if (total < FULL_STRIP_MIN) return;
+
+    if (!startedRef.current) {
+      startedRef.current = true;
+      setAnnouncement('Rendering started');
+    }
+
+    if (allSettled) {
+      if (!completedRef.current) {
+        completedRef.current = true;
+        setAnnouncement(
+          failedCount > 0
+            ? `Rendering complete, ${failedCount} segment${failedCount === 1 ? '' : 's'} failed`
+            : 'Rendering complete',
+        );
+      }
+      return;
+    }
+
+    // Threshold cadence is based on the raw segment-count fraction (matching
+    // the "25 of 60" example), not the char-weighted display percentage.
+    const countPct = (doneCount / total) * 100;
+    const thresholdStep = Math.max(25, Math.ceil((10 / total) * 100));
+    const threshold = Math.floor(countPct / thresholdStep) * thresholdStep;
+    if (threshold > 0 && threshold !== lastThresholdRef.current) {
+      lastThresholdRef.current = threshold;
+      setAnnouncement(`${doneCount} of ${total} segments complete`);
+    }
+  }, [total, doneCount, allSettled, failedCount]);
 
   // §7A "Motion & scale": < 10 segments — omit the field entirely.
   if (segments.length < FULL_STRIP_MIN) {
     return null;
   }
-
-  const total = segments.length;
-  const doneCount = segments.filter((s) => s.phase === 'done').length;
-  const activeCount = segments.filter((s) => s.phase === 'preparing' || s.phase === 'rendering' || s.phase === 'failed').length;
-  const failedCount = segments.filter((s) => s.phase === 'failed').length;
-  const complete = doneCount === total;
-  const pct = Math.round(charWeightedProgress(segments) * 100);
-  const isSummary = total > SUMMARY_THRESHOLD;
 
   const caption = complete
     ? `Render complete · ${total} segments`
@@ -206,8 +395,21 @@ export const SegmentRenderMonitor: React.FC<SegmentRenderMonitorProps> = ({ segm
     ? `Render complete, ${total} segments`
     : `Rendering ${doneCount} of ${total} segments, ${activeCount} in parallel`;
 
+  const popoverSegment = popover ? segments.find((s) => s.id === popover.segmentId) ?? null : null;
+  const popoverIndex = popover ? segments.findIndex((s) => s.id === popover.segmentId) : -1;
+  const popoverElapsedSeconds = popover
+    ? (() => {
+        const start = segmentStartTimesRef.current.get(popover.segmentId);
+        return start != null ? Math.max(0, Math.round((Date.now() - start) / 1000)) : null;
+      })()
+    : null;
+
   return (
-    <div className="segment-render-monitor" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <div
+      ref={containerRef}
+      className="segment-render-monitor"
+      style={{ display: 'flex', flexDirection: 'column', gap: 4, position: 'relative' }}
+    >
       {/* Aggregate bar — M1: derived from the same char-weighted segment set below. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <ProgressBar pct={pct} />
@@ -249,51 +451,50 @@ export const SegmentRenderMonitor: React.FC<SegmentRenderMonitorProps> = ({ segm
           )}
         </div>
       ) : (
-        // 10 - ~60 segments: full block field.
-        <div
-          role="img"
-          aria-label={ariaLabel}
-          style={{
-            display: 'flex', gap: 0, height: 10, width: '100%',
-            borderRadius: 3, overflow: 'hidden', background: 'var(--surface-alt)',
-          }}
-        >
-          {segments.map((s) => {
-            const titleState = s.phase === 'rendering' ? `rendering ${Math.round(s.progress * 100)}%` : PHASE_LABEL[s.phase].toLowerCase();
-            const activeClass = s.phase === 'rendering' && !reduced ? 'segment-render-monitor__block--active' : undefined;
-            const prepClass = s.phase === 'preparing' && !reduced ? 'segment-render-monitor__block--preparing' : undefined;
-            return (
-              <div
-                key={s.id}
-                aria-hidden="true"
-                title={`Segment · ${s.charCount} chars · ${titleState}`}
-                className={activeClass ?? prepClass}
-                style={blockStyle(s)}
-              >
-                {s.phase === 'rendering' && (
-                  <div
-                    style={{ width: `${s.progress * 100}%`, height: '100%', background: 'var(--accent)' }}
-                  />
-                )}
-                {s.phase === 'failed' && (
-                  // M2 — non-hue failure cue: a diagonal crosshatch pattern layered
-                  // over the block, in addition to (not instead of) the danger border.
-                  <div
-                    className="segment-render-monitor__crosshatch"
-                    style={{ width: '100%', height: '100%' }}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
+        // 10 - ~60 segments: full block field. Task 011 — shared with the
+        // peek strip's condensed row via `SegmentBlockRow` (no second
+        // implementation of the block encoding).
+        <SegmentBlockRow
+          segments={segments}
+          height={10}
+          ariaLabel={ariaLabel}
+          onBlockClick={openPopoverFor}
+        />
       )}
 
       <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>{caption}</span>
 
       {/* Accessible fallback — always present. Collapsed behind <details> once the
-          visual strip has degraded to the summary bar; otherwise rendered inline. */}
-      <SegmentAccessibleTable segments={segments} collapsedByDefault={isSummary} />
+          visual strip has degraded to the summary bar; otherwise rendered inline.
+          Task 010 (M6): also the keyboard-reachable "Details"/"Retry" path — the
+          only door in for keyboard/screen-reader users, since the block field
+          above is aria-hidden. */}
+      <SegmentAccessibleTable
+        segments={segments}
+        collapsedByDefault={isSummary}
+        onOpenDetail={openPopoverFor}
+        onRetry={onRetry ? handleRetry : undefined}
+      />
+
+      {/* Task 010 — per-segment detail popover. Not aria-hidden: only the
+          decorative block field above stays aria-hidden. */}
+      {popoverSegment && popoverIndex >= 0 && (
+        <SegmentDetailPopover
+          segment={popoverSegment}
+          index={popoverIndex}
+          elapsedSeconds={popoverElapsedSeconds}
+          top={popover!.top}
+          left={popover!.left}
+          onRetry={onRetry && popoverSegment.phase === 'failed' ? () => handleRetry(popoverSegment.id) : undefined}
+          onClose={closePopover}
+        />
+      )}
+
+      {/* §7A dual-layer a11y — milestone-only announcement (start / coarse
+          thresholds / completion). Never updated per-segment. */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </div>
     </div>
   );
 };

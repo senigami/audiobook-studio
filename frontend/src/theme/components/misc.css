@@ -217,3 +217,51 @@ input[type="radio"] {
     animation: none !important;
   }
 }
+
+/* Task 010 — per-segment detail popover, anchored the same way ScriptView's
+   selection popover is (container-relative absolute position). */
+.segment-render-monitor__popover {
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  padding: 8px 10px;
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  min-width: 160px;
+}
+
+/* ---------------------------------------------------------------------------
+   Project status pill (task 005, north_star_screen_parity)
+
+   Reuses the same rounded-pill visual language as ChapterTable's
+   `.chapter-table__pill--*` lifecycle pill (book.css) — same shape, same
+   tint/text-color pairing per state — scoped under its own class names
+   because it labels a *project*-level status, not a chapter's. */
+.project-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.5rem;
+  width: fit-content;
+  padding: 0 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-round);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.project-status-pill--drafting {
+  background: var(--surface-alt);
+  color: var(--text-muted);
+}
+
+.project-status-pill--casting {
+  background: var(--warning-tint-bg);
+  color: var(--warning-text);
+}
+
+.project-status-pill--rendered {
+  background: var(--success-tint-bg);
+  color: var(--success-text);
+}

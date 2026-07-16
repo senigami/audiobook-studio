@@ -1,4 +1,4 @@
-# 36 · "Sofia Andrade" — Multilingual Author  ☆ INFERRED
+# 36 · Multilingual Author  ☆ INFERRED
 
 **Identity:** "A literary fiction author who writes across three languages and needs the app to handle language boundaries explicitly and predictably — not silently fall back to the wrong voice."
 
@@ -24,8 +24,8 @@
 - **Fallback inspection:** When the engine doesn't support a language, expects an explicit warning that names the affected segments and the fallback behavior — never silent degradation
 
 ## Top friction points *(INFERRED)*
-- **F1 — Language detection is opaque:** Sofia cannot see which language the app detected per segment before rendering. She discovers errors only after listening to the output, which means re-renders on long chapters.
-- **F2 — Fallback is silent and wrong:** When the active engine doesn't have a Portuguese voice, the app falls back to an English-accented voice without warning. Sofia has shipped audio with the wrong accent because she missed the silent downgrade.
+- **F1 — Language detection is opaque:** The Multilingual Author cannot see which language the app detected per segment before rendering. She discovers errors only after listening to the output, which means re-renders on long chapters.
+- **F2 — Fallback is silent and wrong:** When the active engine doesn't have a Portuguese voice, the app falls back to an English-accented voice without warning. the Multilingual Author has shipped audio with the wrong accent because they missed the silent downgrade.
 - **F3 — Language is a plugin-level setting, not a casting concept:** Switching the language for a segment or voice requires digging into plugin settings rather than working at the casting panel where character-to-voice assignment lives.
 - **F4 — No per-segment language override in the editor:** Correcting a misdetected language requires editing the segment metadata in a way the chapter editor doesn't visibly surface. The path is unclear and varies by engine.
 
@@ -52,4 +52,4 @@
 - Plugin settings override voice assignments without surfacing the conflict to the user
 - Playback position in the audio does not correspond to segments in the editor, making review slow
 
-**Evidence basis:** INFERRED. Interview multilingual authors, translators producing audiobook adaptations, and spoken-word performers who work across languages to validate whether segment-level language tags are sufficient or whether Sofia's workflow requires phrase-level granularity within a single segment.
+**Evidence basis:** INFERRED. Interview multilingual authors, translators producing audiobook adaptations, and spoken-word performers who work across languages to validate whether segment-level language tags are sufficient or whether the Multilingual Author's workflow requires phrase-level granularity within a single segment.

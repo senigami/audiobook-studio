@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { GlassInput } from '@/components/forms/GlassInput';
 import { VoiceProfileSelect } from '@/pages/ChapterEditor/components/VoiceProfileSelect';
 import type { VoiceOption } from '@/utils/voiceProfiles';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface TempCharacterModalProps {
   isOpen: boolean;
@@ -14,6 +15,8 @@ interface TempCharacterModalProps {
 export function TempCharacterModal({ isOpen, onClose, availableVoices, onCreate }: TempCharacterModalProps) {
   const [name, setName] = useState('');
   const [voice, setVoice] = useState('');
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -55,6 +58,9 @@ export function TempCharacterModal({ isOpen, onClose, availableVoices, onCreate 
       onClick={onClose}
     >
       <motion.div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         onClick={(e) => e.stopPropagation()}

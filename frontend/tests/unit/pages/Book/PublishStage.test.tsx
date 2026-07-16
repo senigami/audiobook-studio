@@ -108,14 +108,14 @@ describe('PublishStage', () => {
     } as any);
   });
 
-  it('mounts assemblies, progress, backups, and book info in Publish', async () => {
+  it('mounts assemblies, progress, and book info in Publish (backups live in the Backups tab)', async () => {
     render(<PublishStage />);
 
     expect(screen.getByRole('region', { name: 'Publish' })).toBeInTheDocument();
     expect(screen.getByText((content) => content.includes('Assembling Book One'))).toBeInTheDocument();
     expect(screen.getByText('Project Assemblies')).toBeInTheDocument();
     expect(screen.getByText('Book One Assembly')).toBeInTheDocument();
-    expect(screen.getByText('Project Backups')).toBeInTheDocument();
+    expect(screen.queryByText('Project Backups')).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Book identity' })).toBeInTheDocument();
   });
 

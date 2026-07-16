@@ -1,8 +1,8 @@
 # 10 — Phase 2: Render Monitor (BitTorrent-style)
 
-**Status: Phase 2 — design captured + demo reference implementation built (2026-06-28); production build not scheduled**
+**Status: Phase 2 built and accepted (tasks 008–016, see [status.json](status.json), `green_gate: passed`, as of 2026-07-12).** Several tasks still carry a "live-render verification still pending owner" note — the production monitor (segment inventory hydration, milestone a11y, interaction popover, peek strip, cap config UI, bracketed ETA, live cap admission, multi-job rows) is implemented and gate-passed, but end-to-end concurrent-render visual behavior has not yet been confirmed by the owner in a real render.
 
-Fast-follow after Phase 1 (M-PAR-3). This document captures the design converged in the 2026-06-26 fusion panel so it is not lost, plus the refinements proven by the 2026-06-28 demo mock. Build the production monitor once the Phase 1 parallel backend + frontend multi-active (tasks 001–007) are stable and the M-PAR-3 invariant suite is green. The binding presentation contract is mirrored in `design-docs/specs/progress-presentation.md` §7A (invariants M1–M3).
+This document captures the design converged in the 2026-06-26 fusion panel, plus the refinements proven by the 2026-06-28 demo mock, as background for that build. The binding presentation contract is mirrored in `design-docs/specs/progress-presentation.md` §7A (invariants M1–M3).
 
 ---
 
@@ -126,8 +126,8 @@ Jake and Marta personas are the target for these controls. Rosa persona must nev
 
 These were flagged as unresolved in the 2026-06-26 fusion panel and must be answered before implementation starts:
 
-1. **Exact view thresholds.** The degrade-to-bar threshold is currently "~60 segments" and the virtualize threshold is "> ~60". Pin exact numbers after user testing or owner decision. Also: at what segment count does the peek strip auto-appear without user opt-in?
-2. **Dedicated screen vs inline.** The current design commits to an inline block field (inside the chapter panel, expandable). Is there a scenario where a dedicated full-screen monitor view is warranted (e.g. very long chapters, a "production room" mode)? Owner decision pending.
+1. **Exact view thresholds — RESOLVED 2026-07-12 (owner).** The per-segment ("BitTorrent-style") monitor is a secondary/opt-in detail view, not the default — the standard progress bar is the default at any segment count. So there is no threshold to tune: the monitor never auto-degrades or auto-appears; it's always something the user explicitly opens for more detail. Peek strip and monitor both follow this — explicit opt-in only, never automatic (resolves open question 4 the same way). *(Data pulled 2026-07-12 from two real user DBs: real chapters run 471-958 segments, far past the old "~60" assumption — this is what made clear the threshold-tuning framing was wrong; the fix is to not gate on a threshold at all.)*
+2. **Dedicated screen vs inline — RESOLVED 2026-07-12 (owner, via #1).** No dedicated full-screen mode for v2.0 — an inline expandable block, opened on demand, is sufficient since it's already an opt-in detail view rather than a default. Revisit only if post-ship feedback specifically asks for a "production room" mode.
 3. **ETA calibration cap.** ≥ 3 completions is the Phase 1 threshold (task 007). Does the monitor need a tighter or looser threshold for the bracketed display? Same question for the per-engine breakdown ETA.
 4. **Peek strip trigger.** Does the peek strip auto-appear when N ≥ 2 segments are concurrently active (parallelism detected), or only on explicit user opt-in? Trade-off: auto-appear is discoverable but may surprise users who did not raise the cap.
 5. **Popover vs inline row.** Is per-segment detail better in a popover anchored to the block, or as an expanded row below the block field? The popover approach is currently preferred; validate against the accessible table interaction.

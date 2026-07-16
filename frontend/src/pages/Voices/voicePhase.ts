@@ -71,7 +71,7 @@ export function getStatusInfo(
 // Phase type
 // ---------------------------------------------------------------------------
 
-export type VoicePhase = 'samples' | 'build' | 'test' | 'ready';
+export type VoicePhase = 'samples' | 'build' | 'building' | 'test' | 'ready';
 
 // Status label → phase mapping
 const LABEL_TO_PHASE: Record<string, VoicePhase> = {
@@ -82,7 +82,10 @@ const LABEL_TO_PHASE: Record<string, VoicePhase> = {
     'REBUILD REQUIRED': 'build',
     'SETTINGS CHANGED': 'build',
     'SAMPLES MISSING': 'build',
-    'BUILDING...': 'build',
+    // Distinct in-flight phase — kept separate from the idle "build" phase so
+    // the catalog card's primary CTA can reflect the actual in-progress state
+    // instead of continuing to read "Build voice" while a build is running.
+    'BUILDING...': 'building',
     'PREVIEW STALE': 'test',
     'READY': 'ready',
     'DISABLED': 'ready',
@@ -128,6 +131,8 @@ export function getPrimaryCta(phase: VoicePhase): PrimaryCta {
             return { label: 'Add samples', intent: 'navigate' };
         case 'build':
             return { label: 'Build voice', intent: 'build' };
+        case 'building':
+            return { label: 'Building…', intent: 'build' };
         case 'test':
             return { label: 'Test voice', intent: 'test' };
         case 'ready':

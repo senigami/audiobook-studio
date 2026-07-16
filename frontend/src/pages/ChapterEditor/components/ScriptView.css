@@ -234,6 +234,14 @@
   border-color: var(--accent-active);
 }
 
+/* Mobile: HIG touch-target minimum for the toolbar's compact toggle pills. */
+@media (max-width: 640px) {
+  .script-view-pill-toggle,
+  .script-view-toggle-btn {
+    min-height: 44px;
+  }
+}
+
 @media (max-width: 760px) {
   .script-view-toolbar {
     flex-wrap: wrap;

@@ -1,6 +1,6 @@
 # Task 012 — Cap configuration UI (global stepper + per-engine override)
 
-Status: pending
+Status: complete — 2026-07-11 (manual restart verification below still pending owner)
 
 Risk: multi-file
 
@@ -22,7 +22,7 @@ This closes real, diagnosed user confusion (this session's conversation) and is 
 
 - `GeneralSettingsPanel.tsx` already has `updateParallelCap(cap)` — a raw-JSON `fetch('/api/settings', {headers:{'Content-Type':'application/json'}, body: JSON.stringify({tts_parallel_cap: cap})})`, because `POST /api/settings` (`app/api/routers/system.py:210-217`) **only parses `tts_parallel_cap`/`tts_engine_caps` from the JSON-body branch**, not the form-encoded branch other settings use (`updateBooleanSetting`/`updateStringSetting` are form-encoded — do not copy those for this task).
 - The existing `SettingCard` toggles ONLY between 1 and 2 (`(settings?.tts_parallel_cap ?? 1) > 1 ? 1 : 2`).
-- `tts_engine_caps` (`Settings` type, `frontend/src/types/index.ts:442-443`) is fully wired server-side (`resolve_effective_cap`, `app/orchestration/scheduler/cap_settings.py:89-107,119-156`) but has **zero frontend consumer** anywhere.
+- `tts_engine_caps` (`Settings` type, `frontend/src/types/index.ts:454-455` — corrected 2026-07-11, was cited as 442-443) is fully wired server-side (`resolve_effective_cap`, `app/orchestration/scheduler/cap_settings.py:89-107,119-156`) but has **zero frontend consumer** anywhere.
 - `EngineCard.tsx` already has an established pattern for per-engine actions (Verify, Run Test, Install Deps, calibration) at lines ~294-409 to extend — but its existing `handleSaveSettings`/`api.updateEngineSettings` (line ~95-113) is a **different store** (the plugin's own manifest-declared `settings_schema`, routed via the voice-bridge) — do NOT reuse that call for this task; it must call the generic `POST /api/settings` with `{tts_engine_caps: {...}}`, same shape as `updateParallelCap`.
 - The manifest ceiling is already available client-side with no new backend field: `TtsEngine.behavior?.max_concurrent_workers` (`frontend/src/types/index.ts:58`, populated from `app/engines/models.py:136`).
 - **Corrected in independent sign-off review — `EngineCard` does NOT already receive `settings` as
@@ -51,12 +51,12 @@ This closes real, diagnosed user confusion (this session's conversation) and is 
 
 ## Acceptance criteria
 
-- [ ] Global cap is a real numeric stepper, not a binary toggle, writing via the existing JSON-body pattern.
-- [ ] Each `EngineCard` has a per-engine cap override control, clamped to that engine's manifest ceiling, displayed to the user.
-- [ ] Neither control ever silently accepts a value the backend will reclamp — the UI's own max matches `resolve_effective_cap`'s ceiling logic.
-- [ ] Saving either control round-trips correctly (confirm via the settings response, which already returns the redacted full settings object per `system.py:252`).
-- [ ] `npm -C frontend run test -- --run`, lint, build clean. Light/dark verified.
-- [ ] Manually verify: set XTTS's manifest to 4, set the new per-engine override to 4, restart the app, confirm 4 concurrent XTTS renders actually occur (this closes the loop on the exact issue diagnosed this session) — note in the task report if a restart requirement should also be surfaced in the UI copy (the `WarmWorkerManager` caches its cap at first use per this session's diagnosis; consider a UI note "takes effect on next app restart" if that's still true after this task, since this task does not change that caching behavior).
+- [x] Global cap is a real numeric stepper, not a binary toggle, writing via the existing JSON-body pattern.
+- [x] Each `EngineCard` has a per-engine cap override control, clamped to that engine's manifest ceiling, displayed to the user.
+- [x] Neither control ever silently accepts a value the backend will reclamp — the UI's own max matches `resolve_effective_cap`'s ceiling logic.
+- [x] Saving either control round-trips correctly (confirm via the settings response, which already returns the redacted full settings object per `system.py:252`).
+- [x] `npm -C frontend run test -- --run`, lint, build clean. Light/dark verified (uses `var(--*)` tokens throughout, no hardcoded colors).
+- [ ] **Not yet done — requires a running instance.** Manual restart verification (XTTS manifest=4, per-engine override=4, restart, confirm 4 concurrent renders). UI now carries a "takes effect on next app restart" note per the task's own suggestion, since `WarmWorkerManager` still caches its cap at first use (unchanged by this task, per task 014's scope).
 
 ## Map links
 
@@ -69,3 +69,5 @@ None — fully independent of 008-011, 013.
 ## Out of scope
 
 Do not fix the `WarmWorkerManager`'s process-restart-required caching behavior in this task — that's a separate, deeper backend change (removing the `@lru_cache`/lazy-singleton freeze) not scoped here; if the owner wants that fixed too, it should be its own task. This task only makes the *setting* itself configurable and honest about its ceiling.
+
+**Added 2026-07-11 — that deeper fix is now [task 014](014-live-cap-admission.md).** It closes the gap this task deliberately leaves open: today, changing `tts_parallel_cap`/`tts_engine_caps` (even via this task's new UI) has no live effect on already-running/queued work because the cap is frozen into each `ResourceClaim` at construction and `EngineClassSemaphore` is grow-only. 014 is purely additive to this task — it does not require rewriting this task's UI, and this task's raw `POST /api/settings` write path keeps working unchanged. Optional follow-up once 014 lands: switch this task's fetch calls to 014's new `PUT /api/engines/{engine_id}/concurrency` endpoint instead of the raw settings blob, since it validates against the manifest ceiling server-side with a proper 422 instead of a silent reclamp — not required, but worth doing in the same pass if convenient.

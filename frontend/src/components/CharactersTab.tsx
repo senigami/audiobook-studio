@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { Character, Speaker, SpeakerProfile, TtsEngine, VoiceMetadata } from '@/types';
 import { api } from '@/api';
 import { Plus, Trash2, User as UserIcon, Sparkles } from 'lucide-react';
@@ -7,7 +7,7 @@ import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { CastingSuggestionsModal } from '@/components/CastingSuggestionsModal';
 import { VoiceProfileSelect } from '@/pages/ChapterEditor/components/VoiceProfileSelect';
 import { buildVoiceOptions } from '@/utils/voiceProfiles';
-import { emitToast } from '@/utils/toast';
+import { emitToast, TOAST_VISIBLE_MS } from '@/utils/toast';
 
 interface CharactersTabProps {
   projectId: string;
@@ -38,6 +38,11 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
   // AI casting — "Suggest voices for this character" (POST /api/voices/cast)
   const [voiceMetadataList, setVoiceMetadataList] = useState<VoiceMetadata[]>([]);
   const [castingCharacter, setCastingCharacter] = useState<Character | null>(null);
+
+  // Pending, undoable character deletes keyed by character id — the actual
+  // delete request (and its row removal) is deferred until the toast's undo
+  // window elapses.
+  const pendingDeletesRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const loadCharacters = async () => {
     setLoading(true);
@@ -143,14 +148,34 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
       title: 'Delete Character',
       message: `Delete character "${name}"? All assigned sentences will revert to the default speaker.`,
       isDestructive: true,
-      onConfirm: async () => {
-        try {
-          await api.deleteCharacter(id);
-          setCharacters(prev => prev.filter(c => c.id !== id));
-        } catch (e) {
-          console.error("Failed to delete character", e);
-          emitToast('Failed to delete character.');
-        }
+      onConfirm: () => {
+        // The confirm dialog already gates this, but the delete itself is
+        // still deferred so "Undo" on the toast can cancel it before the
+        // backend delete (and the row removal) ever happens.
+        const existingPending = pendingDeletesRef.current[id];
+        if (existingPending) clearTimeout(existingPending);
+
+        pendingDeletesRef.current[id] = setTimeout(async () => {
+          delete pendingDeletesRef.current[id];
+          try {
+            await api.deleteCharacter(id);
+            setCharacters(prev => prev.filter(c => c.id !== id));
+          } catch (e) {
+            console.error("Failed to delete character", e);
+            emitToast('Failed to delete character.');
+          }
+        }, TOAST_VISIBLE_MS);
+
+        emitToast(`Deleted "${name}".`, {
+          label: 'Undo',
+          onClick: () => {
+            const pending = pendingDeletesRef.current[id];
+            if (pending) {
+              clearTimeout(pending);
+              delete pendingDeletesRef.current[id];
+            }
+          }
+        });
       }
     });
   };
@@ -184,7 +209,7 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
             </label>
             <input
               type="text"
-              className="input-field"
+              className="form-input"
               value={newName}
               onChange={e => setNewName(e.target.value)}
               placeholder="e.g. Wizard, Captain..."
@@ -262,7 +287,7 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
                       type="text"
                       defaultValue={char.name}
                       onBlur={(e) => { if (e.target.value !== char.name) handleUpdateName(char.id, e.target.value); }}
-                      className="input-field"
+                      className="form-input"
                       aria-label={`Character name: ${char.name}`}
                       style={{ background: 'transparent', border: 'none', padding: 0, fontWeight: 600, fontSize: '1rem', color: 'var(--text-primary)', boxShadow: 'none', width: '100%' }}
                   />

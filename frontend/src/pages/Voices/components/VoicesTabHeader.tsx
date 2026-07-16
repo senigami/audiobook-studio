@@ -1,16 +1,26 @@
 /**
- * VoicesTabHeader.tsx — R5-T4
+ * VoicesTabHeader.tsx — R5-T4 (+ task 005: compact MultiSelect filter bar)
  *
  * Restyles the existing header controls with:
  * - "My Voices" / "🤗 Discover" tab pills row at the top
- * - Active facet chips (class/gender/age) use pill tint tokens from T1
+ * - CLASS/GENDER/AGE render as three compact MultiSelects in a single row
+ *   (task 005) instead of stacked toggle-button rows; a fourth, visually
+ *   separated MultiSelect covers the free-form tag filter.
  * - Toolbar buttons remain right-aligned
  * ALL existing controls and their handlers are preserved (R-C).
+ *
+ * H-5 (design-critique follow-up): CLASS/GENDER/AGE pass their matching
+ * `category` to `MultiSelect` so selected chips pick up the same
+ * `--pill-{category}-*` hue as the `VoicePill`s rendered elsewhere on this
+ * page (indigo/pink/amber, design-system.md §5) instead of one generic
+ * accent color for every facet. The free-form TAGS MultiSelect omits
+ * `category` and stays neutral, matching how free tags render as ghost pills.
  */
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Info, Upload, Download } from 'lucide-react';
+import { Search, Plus, Info, Upload, Download, CheckSquare } from 'lucide-react';
 import { GlassInput } from '@/components/forms/GlassInput';
 import { GhostButton } from '@/components/ui/GhostButton';
+import MultiSelect from '@/components/forms/MultiSelect';
 import type { VoiceEngine } from '@/types';
 
 const COMPACT_TOOLBAR_WIDTH = 960;
@@ -25,15 +35,19 @@ interface VoicesTabHeaderProps {
     engineFilter: 'all' | 'disabled' | VoiceEngine;
     setEngineFilter: (filter: 'all' | 'disabled' | VoiceEngine) => void;
     engineFilterOptions: Array<{ key: 'all' | 'disabled' | VoiceEngine; label: string }>;
-    classFilter?: string;
-    setClassFilter?: (v: string) => void;
+    classFilter?: string[];
+    setClassFilter?: (v: string[]) => void;
     classOptions?: FacetOption[];
-    genderFilter?: string;
-    setGenderFilter?: (v: string) => void;
+    genderFilter?: string[];
+    setGenderFilter?: (v: string[]) => void;
     genderOptions?: FacetOption[];
-    ageFilter?: string;
-    setAgeFilter?: (v: string) => void;
+    ageFilter?: string[];
+    setAgeFilter?: (v: string[]) => void;
     ageOptions?: FacetOption[];
+    /** Free-form tag filter — not sourced from the taxonomy, visually separated from the three above. */
+    tagFilter?: string[];
+    setTagFilter?: (v: string[]) => void;
+    tagOptions?: FacetOption[];
     isImportingVoice: boolean;
     exportVoiceDisabled: boolean;
     importInputRef: React.RefObject<HTMLInputElement | null>;
@@ -44,14 +58,10 @@ interface VoicesTabHeaderProps {
     /** Active tab; defaults to 'local' if not provided */
     activeTab?: VoicesTab;
     onTabChange?: (tab: VoicesTab) => void;
+    /** Multi-select mode toggle (bulk delete/export) — omit to hide the control entirely. */
+    selectMode?: boolean;
+    onToggleSelectMode?: () => void;
 }
-
-// Active chip styles per facet category — re-use pill tint tokens from R5-T1
-const ACTIVE_CHIP_STYLE: Record<'class' | 'gender' | 'age', { bg: string; border: string; color: string }> = {
-    class:  { bg: 'var(--pill-class-bg)',  border: 'var(--pill-class-border)',  color: 'var(--pill-class-text)' },
-    gender: { bg: 'var(--pill-gender-bg)', border: 'var(--pill-gender-border)', color: 'var(--pill-gender-text)' },
-    age:    { bg: 'var(--pill-age-bg)',    border: 'var(--pill-age-border)',    color: 'var(--pill-age-text)' },
-};
 
 export const VoicesTabHeader: React.FC<VoicesTabHeaderProps> = ({
     searchQuery,
@@ -59,15 +69,18 @@ export const VoicesTabHeader: React.FC<VoicesTabHeaderProps> = ({
     engineFilter,
     setEngineFilter,
     engineFilterOptions,
-    classFilter = '',
+    classFilter = [],
     setClassFilter,
     classOptions = [],
-    genderFilter = '',
+    genderFilter = [],
     setGenderFilter,
     genderOptions = [],
-    ageFilter = '',
+    ageFilter = [],
     setAgeFilter,
     ageOptions = [],
+    tagFilter = [],
+    setTagFilter,
+    tagOptions = [],
     isImportingVoice,
     exportVoiceDisabled,
     importInputRef,
@@ -77,6 +90,8 @@ export const VoicesTabHeader: React.FC<VoicesTabHeaderProps> = ({
     onGuideClick,
     activeTab = 'local',
     onTabChange,
+    selectMode = false,
+    onToggleSelectMode,
 }) => {
     const [windowWidth, setWindowWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1200));
     const isCompactToolbar = windowWidth < COMPACT_TOOLBAR_WIDTH;
@@ -154,6 +169,16 @@ export const VoicesTabHeader: React.FC<VoicesTabHeaderProps> = ({
                         ariaLabel="New Voice"
                         title="New Voice"
                     />
+                    {onToggleSelectMode && activeTab === 'local' && (
+                        <GhostButton
+                            onClick={onToggleSelectMode}
+                            icon={CheckSquare}
+                            label={isCompactToolbar ? undefined : (selectMode ? 'Cancel Select' : 'Select')}
+                            ariaLabel={selectMode ? 'Cancel voice selection' : 'Select voices'}
+                            title={selectMode ? 'Cancel voice selection' : 'Select voices'}
+                            isActive={selectMode}
+                        />
+                    )}
                     <div className="mobile-hide voices-toolbar-divider" />
                     <GhostButton
                         onClick={onGuideClick}
@@ -205,84 +230,62 @@ export const VoicesTabHeader: React.FC<VoicesTabHeaderProps> = ({
                         })}
                     </div>
 
-                    {/* Facet chips — class / gender / age (use pill tint tokens when active) */}
-                    {(classOptions.length > 0 || genderOptions.length > 0 || ageOptions.length > 0) && (
-                        <div className="voice-chip-row">
+                    {/* Facet filters — task 005: three compact taxonomy-sourced MultiSelects
+                        (CLASS/GENDER/AGE, OR-within-facet) side-by-side, plus a free-form
+                        tag MultiSelect visually separated by a vertical divider. */}
+                    {(classOptions.length > 0 || genderOptions.length > 0 || ageOptions.length > 0 || tagOptions.length > 0) && (
+                        <div className="voice-facet-filter-row" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                             {classOptions.length > 0 && (
-                                <>
-                                    <span className="voice-facet-label">CLASS</span>
-                                    {classOptions.map(opt => {
-                                        const active = classFilter === opt.id;
-                                        const tint = ACTIVE_CHIP_STYLE.class;
-                                        return (
-                                            <button
-                                                key={opt.id}
-                                                type="button"
-                                                onClick={() => setClassFilter?.(active ? '' : opt.id)}
-                                                aria-pressed={active}
-                                                className="voice-facet-chip"
-                                                style={{
-                                                    border: `1px solid ${active ? tint.border : 'var(--border)'}`,
-                                                    background: active ? tint.bg : 'var(--surface-white)',
-                                                    color: active ? tint.color : 'var(--text-primary)',
-                                                }}
-                                            >
-                                                {opt.label}
-                                            </button>
-                                        );
-                                    })}
-                                    {genderOptions.length > 0 && <span className="voice-facet-divider" />}
-                                </>
+                                <div data-testid="class-facet-filter" style={{ width: '160px' }}>
+                                    <MultiSelect
+                                        options={classOptions}
+                                        value={classFilter}
+                                        onChange={(v) => setClassFilter?.(v)}
+                                        placeholder="Class"
+                                        label="CLASS"
+                                        category="class"
+                                    />
+                                </div>
                             )}
                             {genderOptions.length > 0 && (
-                                <>
-                                    <span className="voice-facet-label">GENDER</span>
-                                    {genderOptions.map(opt => {
-                                        const active = genderFilter === opt.id;
-                                        const tint = ACTIVE_CHIP_STYLE.gender;
-                                        return (
-                                            <button
-                                                key={opt.id}
-                                                type="button"
-                                                onClick={() => setGenderFilter?.(active ? '' : opt.id)}
-                                                aria-pressed={active}
-                                                className="voice-facet-chip"
-                                                style={{
-                                                    border: `1px solid ${active ? tint.border : 'var(--border)'}`,
-                                                    background: active ? tint.bg : 'var(--surface-white)',
-                                                    color: active ? tint.color : 'var(--text-primary)',
-                                                }}
-                                            >
-                                                {opt.label}
-                                            </button>
-                                        );
-                                    })}
-                                    {ageOptions.length > 0 && <span className="voice-facet-divider" />}
-                                </>
+                                <div data-testid="gender-facet-filter" style={{ width: '160px' }}>
+                                    <MultiSelect
+                                        options={genderOptions}
+                                        value={genderFilter}
+                                        onChange={(v) => setGenderFilter?.(v)}
+                                        placeholder="Gender"
+                                        label="GENDER"
+                                        category="gender"
+                                    />
+                                </div>
                             )}
                             {ageOptions.length > 0 && (
+                                <div data-testid="age-facet-filter" style={{ width: '160px' }}>
+                                    <MultiSelect
+                                        options={ageOptions}
+                                        value={ageFilter}
+                                        onChange={(v) => setAgeFilter?.(v)}
+                                        placeholder="Age"
+                                        label="AGE"
+                                        category="age"
+                                    />
+                                </div>
+                            )}
+                            {tagOptions.length > 0 && (
                                 <>
-                                    <span className="voice-facet-label">AGE</span>
-                                    {ageOptions.map(opt => {
-                                        const active = ageFilter === opt.id;
-                                        const tint = ACTIVE_CHIP_STYLE.age;
-                                        return (
-                                            <button
-                                                key={opt.id}
-                                                type="button"
-                                                onClick={() => setAgeFilter?.(active ? '' : opt.id)}
-                                                aria-pressed={active}
-                                                className="voice-facet-chip"
-                                                style={{
-                                                    border: `1px solid ${active ? tint.border : 'var(--border)'}`,
-                                                    background: active ? tint.bg : 'var(--surface-white)',
-                                                    color: active ? tint.color : 'var(--text-primary)',
-                                                }}
-                                            >
-                                                {opt.label}
-                                            </button>
-                                        );
-                                    })}
+                                    <span className="voice-facet-divider" aria-hidden="true" />
+                                    <div data-testid="tag-facet-filter" style={{ width: '160px' }}>
+                                        {/* Free-form tag filter stays neutral/generic — no `category`,
+                                            matching how free tags render as ghost pills (no facet hue)
+                                            per design-system.md §5 (H-5). */}
+                                        <MultiSelect
+                                            options={tagOptions}
+                                            value={tagFilter}
+                                            onChange={(v) => setTagFilter?.(v)}
+                                            placeholder="Tags"
+                                            label="TAGS"
+                                        />
+                                    </div>
                                 </>
                             )}
                         </div>

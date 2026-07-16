@@ -311,7 +311,9 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
           flexDirection: 'column',
           flex: editingChapterId ? 1 : 'none',
           minHeight: 0,
-          padding: '0 2.5rem',
+          minWidth: 0,
+          padding: 'clamp(0px, 4vw, 2.5rem)',
+          paddingTop: 0,
           paddingBottom: editingChapterId ? 0 : '4rem',
           gap: editingChapterId ? 0 : '1.5rem'
         }}
@@ -415,8 +417,8 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
               />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>{isAssemblyMode ? 'Select Chapters for Assembly' : 'Chapters'}</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>{isAssemblyMode ? 'Select Chapters for Assembly' : `${chapters.length} Chapter${chapters.length === 1 ? '' : 's'}`}</h3>
                   <div className="project-action-bar" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                     {isAssemblyMode ? (
                       <>
@@ -432,6 +434,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
                           }}
                           className="btn-ghost"
                           title={showTooltips ? "Assemble Project" : undefined}
+                          aria-label="Assemble Project"
                           style={{ border: '1px solid var(--border)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                         >
                           <Book size={16} /> <span className="hide-on-mobile">Assemble Project</span>
@@ -441,6 +444,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
                           className="btn-ghost"
                           disabled={!anyEnginesEnabled}
                           title={!anyEnginesEnabled ? 'All TTS engines are disabled in Settings' : (showTooltips ? 'Queue all unprocessed chapters' : undefined)}
+                          aria-label="Queue all unprocessed chapters"
                           style={{ border: '1px solid var(--border)', color: anyEnginesEnabled ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                         >
                           <Zap size={16} /> <span className="hide-on-mobile">Queue Remaining</span>
@@ -453,7 +457,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
                                 onChange={handleProjectVoiceChange}
                                 options={mergedVoices}
                                 defaultLabel={projectDefaultVoiceLabel}
-                                style={{ background: 'transparent', border: 'none', padding: '0.25rem 0', maxWidth: '150px' }}
+                                style={{ background: 'transparent', border: 'none', padding: '0.25rem 0', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                             />
                         </div>
 
@@ -461,6 +465,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
                             onClick={() => handleReorderChapters([...chapters].sort((a,b) => a.title.localeCompare(b.title, undefined, {numeric: true})))}
                             className="btn-ghost"
                             title={showTooltips ? "Sort A-Z" : undefined}
+                            aria-label="Sort chapters A-Z"
                             style={{ border: '1px solid var(--border)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                         >
                             <ArrowUpDown size={16} /> <span className="hide-on-mobile">Sort</span>
@@ -470,6 +475,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
                             onClick={() => setShowAddModal(true)}
                             className="btn-primary"
                             title={showTooltips ? "Add Chapter" : undefined}
+                            aria-label="Add Chapter"
                             style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                         >
                             <Plus size={16} /> <span className="hide-on-mobile">Add Chapter</span>

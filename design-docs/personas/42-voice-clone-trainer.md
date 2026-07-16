@@ -1,4 +1,4 @@
-# 42 · "Grace Okafor" — Voice-Clone Trainer  ☆ INFERRED
+# 42 · Voice-Clone Trainer  ☆ INFERRED
 
 **Identity:** "I'm trying to reproduce a specific person's voice, and every time the clone sounds wrong I need to know whether it's the samples, the engine, or something I can't fix."
 

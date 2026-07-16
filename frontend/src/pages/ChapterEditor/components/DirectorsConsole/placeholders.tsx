@@ -18,7 +18,8 @@ export const CastingCallPlaceholder: DirectorsTool = {
   label: 'Casting Call',
   icon: Radar,
   component: CastingCallBody,
-  demoPlaceholder: true
+  demoPlaceholder: true,
+  group: 'tool'
 };
 
 const ScriptSupervisorBody: React.FC = () => <ToolStub icon={ClipboardList} label="Script Supervisor" />;
@@ -28,7 +29,8 @@ export const ScriptSupervisorPlaceholder: DirectorsTool = {
   label: 'Script Supervisor',
   icon: ClipboardList,
   component: ScriptSupervisorBody,
-  demoPlaceholder: true
+  demoPlaceholder: true,
+  group: 'tool'
 };
 
 const PluginBody: React.FC = () => <ToolStub icon={Puzzle} label="Plugin" />;
@@ -38,5 +40,6 @@ export const PluginPlaceholder: DirectorsTool = {
   label: 'Plugin',
   icon: Puzzle,
   component: PluginBody,
-  demoPlaceholder: true
+  demoPlaceholder: true,
+  group: 'tool'
 };

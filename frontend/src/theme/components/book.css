@@ -21,7 +21,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.25rem;
+  min-height: 2.75rem; /* 44px — HIG minimum tap target for tab/nav items */
   padding: 0.45rem 0.8rem;
   border-radius: var(--radius-button);
   color: var(--text-secondary);
@@ -115,21 +115,28 @@
   align-items: center;
   gap: 0.25rem;
   padding: 0.3rem 0.6rem;
+  min-height: 44px;
   border: 1px solid var(--border);
-  background: var(--surface);
+  /* Filled (not flat) so it reads as a pressable control next to the plain-text
+     title/back-button, not a section heading (persona fast-follow: Rosa/
+     nontechnical-author, contextual-left-nav sign-off round 4). */
+  background: var(--surface-alt);
   border-radius: var(--radius-button);
+  box-shadow: var(--shadow-sm);
   font-size: var(--type-caption);
   font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
   transition: color var(--dur-fast) var(--ease-standard),
-              border-color var(--dur-fast) var(--ease-standard);
+              border-color var(--dur-fast) var(--ease-standard),
+              background var(--dur-fast) var(--ease-standard);
 }
 
 .chapter-workspace-header__switcher-trigger:hover,
 .chapter-workspace-header__switcher-trigger--open {
   color: var(--accent);
   border-color: var(--accent);
+  background: var(--accent-glow);
 }
 
 /* Chapter dropdown panel */
@@ -150,6 +157,8 @@
 
 .workspace-chapter-dropdown__item {
   width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
   border: 0;
   background: transparent;
   font-family: inherit;
@@ -157,7 +166,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-3);
   cursor: pointer;
   color: var(--text-primary);
   font-size: var(--type-caption);
@@ -172,6 +181,19 @@
   background: var(--accent-glow);
   color: var(--accent);
   font-weight: 700;
+}
+
+/* Focus-visible ring (INV-NAV-7 / round-4 addition 5): converting rows from
+   native <button> to role="option" divs drops the browser's default focus
+   ring, so this is now explicit. Kept visually distinct from the
+   active/selected state above (outline ring + surface-alt fill vs. the
+   active state's accent-glow fill + bold accent text) and holds a >=3:1
+   contrast boundary against the row background via the solid --accent
+   outline (WCAG 1.4.11). */
+.workspace-chapter-dropdown__item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--surface-alt);
 }
 
 .workspace-chapter-dropdown__num {
@@ -199,8 +221,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  /* INV-NAV-6 / round-4 addition 4: 44x44px effective hit area — the visual
+     icon (14px) stays the same size, only the button's own box grows. */
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--border);
   background: var(--surface);
   border-radius: var(--radius-button);
@@ -225,6 +249,81 @@
 .chapter-workspace-header__nav-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+.chapter-workspace-header__nav-btn--active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+
+/* Small corner count badge on the bookmarks-list toggle — replaces an
+   inline "Bookmarks" text label that collided/wrapped against its icon at
+   1280px (design-critique HIG finding); the button is icon-only like its
+   row neighbors, with the count as a compact badge instead. */
+.chapter-workspace-header__nav-btn--badged {
+  position: relative;
+  overflow: visible;
+}
+
+.chapter-workspace-header__nav-btn-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 14px;
+  padding: 0 3px;
+  border-radius: var(--radius-round);
+  background: var(--accent);
+  color: var(--on-action);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+}
+
+/* Trailing dockable-panel toggle(s) (e.g. Lexicon), folded into the same
+   toolbar row as the rest of the header — see rightSlot prop. */
+.chapter-workspace-header__right-slot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.chapter-workspace-header__panel-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: var(--type-caption);
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color var(--dur-fast) var(--ease-standard),
+              border-color var(--dur-fast) var(--ease-standard),
+              background var(--dur-fast) var(--ease-standard);
+}
+
+.chapter-workspace-header__panel-toggle:hover,
+.chapter-workspace-header__panel-toggle[data-active] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+
+/* Mobile: HIG touch-target minimum (44x44pt) for the workspace header's
+   icon-only controls. `.chapter-workspace-header__nav-btn` and the switcher
+   trigger are already 44x44px / min-height:44px at all sizes (see above) —
+   only `.chapter-workspace-header__back` (out of scope for this hardening
+   pass) still needs the mobile-only bump. */
+@media (max-width: 640px) {
+  .chapter-workspace-header__back {
+    min-height: 44px;
+  }
 }
 
 /* ─── End Chapter Workspace ─────────────────────────────────────── */
@@ -913,6 +1012,16 @@
   cursor: pointer;
 }
 
+/* Mobile: HIG touch-target minimum for the compact chapter action bar. */
+@media (max-width: 640px) {
+  .studio-header-actions__commit,
+  .studio-header-actions__nav-btn,
+  .studio-header-actions__export-trigger,
+  .studio-header-actions__debug {
+    min-height: 44px;
+  }
+}
+
 /* ─── ResyncPreviewModal ────────────────────────────────────────── */
 
 .resync-modal-overlay {
@@ -1328,9 +1437,16 @@
   margin-top: var(--space-1);
 }
 
-.cast-palette__variant-btn {
-  width: 100%;
+.cast-palette__variant-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin-top: var(--space-1);
+}
+
+.cast-palette__variant-btn {
+  flex: 1;
+  min-width: 0;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -1340,7 +1456,31 @@
   text-align: left;
   cursor: pointer;
   transition: all 0.2s;
-  min-width: 0;
+}
+
+.cast-palette__variant-play-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.cast-palette__variant-play-btn:hover:not(:disabled) {
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.cast-palette__variant-play-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 .cast-palette__variant-dot {
@@ -1464,6 +1604,13 @@
   font-family: inherit;
   font-size: var(--type-micro);
   font-weight: 600;
+}
+
+/* Mobile: HIG touch-target minimum for the cast palette's compact add button. */
+@media (max-width: 640px) {
+  .cast-palette__empty-add-btn {
+    min-height: 44px;
+  }
 }
 
 .cast-palette__temp-wrap {

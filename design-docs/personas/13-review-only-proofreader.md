@@ -1,6 +1,6 @@
-# 13 · "Tom Fletcher" — Review-Only Proofreader  ☆ INFERRED
+# 13 · Review-Only Proofreader  ☆ INFERRED
 
-**Identity:** "Tom needs to move through rendered audio quickly, flag specific segments for retakes, and leave the project exactly as he found it — his job ends at the annotation, not the fix."
+**Identity:** "I need to move through rendered audio quickly, flag specific segments for retakes, and leave the project exactly as I found it — my job ends at the annotation, not the fix."
 
 ## Goals
 - Listen to rendered chapter audio in sequence without triggering any render or edit workflow
@@ -10,30 +10,30 @@
 - Stay in a read-only posture throughout — no accidental queue submissions, no voice changes
 
 ## Context & environment *(INFERRED)*
-- MacBook Pro, shared with the production team; Tom logs in under a separate macOS user account
-- Brought in by a publisher who already has Audiobook Studio set up; Tom has never configured the app
+- MacBook Pro, shared with the production team; the Review-Only Proofreader logs in under a separate macOS user account
+- Brought in by a publisher who already has Audiobook Studio set up; they have never configured the app
 - Opens a specific chapter URL the producer sends him, reviews it, adds notes, closes the tab
 - Works in short 30–60 minute sessions, often reviewing one chapter at a time across several days
 
 ## Key workflow moments
-- **Opening a chapter for review:** Tom expects to land directly in the chapter's audio playback view with no modal prompts, no onboarding, and no queue activity
+- **Opening a chapter for review:** the Review-Only Proofreader expects to land directly in the chapter's audio playback view with no modal prompts, no onboarding, and no queue activity
 - **Navigating to a specific segment:** He skips around by segment — jumping to the third paragraph of a section is a basic need, not an advanced one
 - **Flagging a retake:** He attaches a short note ("mispronounced 'Beauchamp'", "pace too fast") to the segment and expects it to persist without a save gesture
 - **Checking prior flags:** He needs to see all flags for the chapter in one list so he can confirm he hasn't missed anything before signing off
 - **Leaving without touching render state:** Closing the tab or navigating away should never ask him to confirm, save, or resume anything render-related
 
 ## Top friction points *(INFERRED)*
-- **F1 — Review mode looks editable:** The chapter editor's text view and voice paint controls are visible in the same viewport; Tom regularly hovers over segment controls and second-guesses whether clicking will change something
+- **F1 — Review mode looks editable:** The chapter editor's text view and voice paint controls are visible in the same viewport; they regularly hover over segment controls and second-guess whether clicking will change something
 - **F2 — No segment-level navigation anchor:** Jumping to segment 47 of 120 in a long chapter requires scrolling; there is no "go to segment" field or a stable URL hash per segment
-- **F3 — Queue status panel creates false urgency:** The queue/ETA panel updates in real time for other jobs running on the same machine; Tom sees render progress bars and worries he has triggered something
+- **F3 — Queue status panel creates false urgency:** The queue/ETA panel updates in real time for other jobs running on the same machine; the Review-Only Proofreader sees render progress bars and worries they have triggered something
 - **F4 — Flags feel ephemeral:** There is no dedicated annotation surface; comments added to segments are mixed in with production notes and there is no clear "reviewer sign-off" state
-- **F5 — No review-scoped view of chapter completion:** Tom cannot tell at a glance which segments have been reviewed and flagged versus which he has not yet listened to
+- **F5 — No review-scoped view of chapter completion:** they cannot tell at a glance which segments have been reviewed and flagged versus which they have not yet listened to
 
 ## What they need from the studio
 - A narrow review mode or view that hides all render controls, casting, and queue panels
 - Segment-level playback with keyboard navigation (next / previous segment, replay current)
 - Persistent retake flags tied to segment IDs, visible in a sidebar list sorted by position
-- A chapter-level review status indicator (e.g., "reviewed by Tom · 3 flags · 2026-06-24")
+- A chapter-level review status indicator (e.g., "reviewed by the Review-Only Proofreader · 3 flags · 2026-06-24")
 - Clear visual separation between read-only annotation actions and production actions
 
 ## Review lens — questions they ask of any screen

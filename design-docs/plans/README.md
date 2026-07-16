@@ -14,12 +14,16 @@ clean and each plan's role is obvious. Old paths → new paths are in [MOVE_MAP.
   done/pending markers are point-in-time snapshots that go stale, so don't trust them for status.
 - **[COMPLETED_WORK_REPORT.md](COMPLETED_WORK_REPORT.md)** — the mirror: what's already shipped
   (v1→v2 narrative for wiki / changelog).
+- **[post_release_backlog.md](post_release_backlog.md)** — **post-2.0 ideas, not yet scoped.**
+  Not gating the v2.0.0 release and not tracked in TASKS.md until the owner picks one to
+  schedule. Add new post-release ideas here as they come up.
 
 ## Folder structure
 
 | Folder | Meaning |
 |--------|---------|
 | `TASKS.md` | **Live status** — the one checklist to check or update; every other doc defers to it. |
+| `post_release_backlog.md` | Post-2.0 ideas, not yet scoped or gating — a raw capture list, not a to-do list. |
 | `master_fix_plan/` | The structural map (workstream connections, invariants, sub-plan routing) — not a status source. |
 | `active/` | Plans with **open work**, each an authoritative data source the master points at. |
 | `reference/` | **Done/superseded** plans kept because a spec or active plan **cites them as provenance**. Not a to-do list. |

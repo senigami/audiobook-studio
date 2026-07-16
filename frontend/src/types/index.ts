@@ -8,11 +8,16 @@ export type JobClassification = 'job' | 'chapter' | 'segment';
  * consumed verbatim from the chapter progress frame.
  */
 export interface ActiveSegmentMapEntry {
-  phase: 'preparing' | 'rendering' | 'done';
+  phase: 'preparing' | 'rendering' | 'done' | 'failed';
   progress: number;
   eta_seconds: number | null;
   reason_code?: string;
   indeterminate?: boolean;
+  /** Real per-segment character count (task 008) — never the render group's
+   * combined total; see `app/orchestration/tasks/segment_synthesis.py`'s
+   * `_segment_char_count`. */
+  char_count?: number;
+  engine_id?: string;
 }
 
 export interface TtsEngine {
@@ -62,6 +67,13 @@ export interface TtsEngine {
 
 export type Status = 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled' | 'error';
 
+// Task 005 (north_star_screen_parity) — partial 3-state workflow status,
+// derived server-side (app/db/projects.py::list_projects) from chapter
+// lifecycle aggregates. "Studio" (actively rendering) and "Published"
+// (assembled) are intentionally not represented — see design-docs/plans/
+// active/north_star_screen_parity/tasks/005-library-project-status.md.
+export type ProjectStatus = 'drafting' | 'casting' | 'rendered';
+
 export interface Project {
   id: string;
   name: string;
@@ -74,6 +86,11 @@ export interface Project {
   created_at: number;
   updated_at: number;
   chapter_map?: Record<string, any>;
+  status?: ProjectStatus;
+  /** Total chapter count, for deriving a static rendered-fraction progress (task 006). */
+  chapter_count?: number;
+  /** Chapters whose audio_status is 'done', for the same rendered-fraction calc. */
+  chapters_rendered_count?: number;
 }
 
 export interface Character {
@@ -258,6 +275,18 @@ export interface SpeakerProfile {
   is_ready?: boolean;
   readiness_message?: string;
   settings?: Record<string, any>;
+  version_count?: number;
+  performance_tags?: string[];
+  /** Per-variant default flag (task 005) — the character's default variant for bundle
+   * export. Distinct from `is_default` (the app-wide default speaker profile). */
+  is_variant_default?: boolean;
+  /** Per-variant performance qualities (owner-requested, 2026-07-16) — moved off
+   * voice-level VoiceAttributes since these describe how THIS recording performs,
+   * which can genuinely differ between two variants of the same voice (unlike
+   * class/gender/age, which stay voice-level). */
+  tone?: string[];
+  timbre?: string[];
+  pace?: string;
 }
 
 export interface Speaker {
@@ -441,6 +470,8 @@ export interface Settings {
   mistral_api_key?: string;
   tts_parallel_cap?: number;
   tts_engine_caps?: Record<string, number>;
+  /** Redacted by the backend: '***' when set, '' when unset. The real value is never sent to the frontend. */
+  huggingface_token?: string;
 }
 
 export interface Audiobook {
@@ -493,6 +524,8 @@ export interface GlobalState {
     startup_ready?: boolean;
     startup_message?: string;
     startup_detail?: string;
+    local_url?: string;
+    network_url?: string | null;
   };
 }
 

@@ -1,0 +1,840 @@
+{
+  "files": {
+    "frontend/src/pages/Voices/VoicesPage.tsx": {
+      "purpose": "Main voices management page with tab selection, search, filtering, voice CRUD",
+      "exports": [
+        {
+          "name": "VoicesTab",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts",
+        "frontend/src/components/VoicesModals.tsx",
+        "frontend/src/hooks/useVoiceManagement.ts",
+        "frontend/src/hooks/useVoicesData.ts",
+        "frontend/src/hooks/useVoicesTabActions.ts",
+        "frontend/src/hooks/useVoicesTabState.ts",
+        "frontend/src/pages/Voices/components/HuggingFaceDiscover.tsx",
+        "frontend/src/pages/Voices/components/MetadataEditorModal.tsx",
+        "frontend/src/pages/Voices/components/VoicesTabContent.tsx",
+        "frontend/src/pages/Voices/components/VoicesTabHeader.tsx",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/voiceProfiles.ts",
+        "frontend/src/pages/Voices/components/metadata/taxonomy.ts"
+      ],
+      "called_by": [
+        "frontend/src/app/App.tsx"
+      ],
+      "notes": [
+        "2026-07-15 (voices-variants-round2 task005): CLASS_OPTIONS/GENDER_OPTIONS/AGE_OPTIONS now derive from taxonomy.ts's getSection('class'/'gender'/'age')?.values instead of hardcoded arrays; added a tagFilterOptions memo (dedupe+sort of live VoiceMetadata.tags) and wired tagFilter/tagOptions through to useVoicesData/VoicesTabHeader. classFilter/genderFilter/ageFilter changed from string to string[] (OR-within-facet, AND-across-facets).",
+        "2026-07-15: Removed the onEditTestText/onEditVoiceSettings callbacks (previously set state.editingProfile/editSurface) and the editingVoiceMetadata memo/prop that only fed the now-removed drawers; stopped passing drawer-only props to VoicesModals.",
+        "2026-07-10: new editingVoiceMetadata memo resolves the VoiceMetadata for state.editingProfile (id-first/name-fallback, same convention as handleEditMetadata), passed to VoicesModals to drive ScriptEditor's Suggest button.",
+        "2026-07-09: Fixed editingVoiceMetadata: was matching the currently-open Script Editor profile via `group.profiles.includes(state.editingProfile)` reference-equality, which silently went stale whenever any unrelated refetchHome() (any job_completed/queue_paused websocket event app-wide) replaced speakerProfiles with new object references. Extracted the resolution into an exported pure function `resolveEditingVoiceMetadata(editingProfile, voiceGroups, voiceMetadataMap, voiceMetadataList)` that matches on the stable `profile.name` primitive (same key already used by handleUpdateSettings/rename/reset-test-text elsewhere in this file) instead of object identity.",
+        "2026-07-09: `onEditTestText` now explicitly sets isVoiceSettingsOpen=false before setEditingProfile (opens Script Editor drawer); new `onEditVoiceSettings` callback sets isVoiceSettingsOpen=true before setEditingProfile (opens Voice Settings drawer). Both passed down to VoicesTabContent; isVoiceSettingsOpen/setIsVoiceSettingsOpen passed to VoicesModals.",
+        "2026-07-10: Main voices management page with tab selection, search, filtering, voice CRUD"
+      ],
+      "calls_inferred": [
+        "hooks/useVoiceManagement",
+        "hooks/useVoicesData",
+        "hooks/useVoicesTabActions",
+        "hooks/useVoicesTabState",
+        "pages/Voices/components/*"
+      ]
+    },
+    "frontend/src/pages/Voices/components/DiscoverPlaceholder.tsx": {
+      "purpose": "Planned Hugging Face discover tab placeholder (no HF integration)",
+      "exports": [
+        {
+          "name": "DiscoverPlaceholder",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "no network calls made"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/components/MetadataEditorModal.tsx": {
+      "purpose": "Full-featured modal for voice attribute/description/tags/languages/icon editing",
+      "exports": [
+        {
+          "name": "MetadataEditorModal",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts",
+        "frontend/src/hooks/useFocusTrap.ts",
+        "frontend/src/pages/Voices/components/metadata/IconUpload.tsx",
+        "frontend/src/pages/Voices/components/metadata/ManySelect.tsx",
+        "frontend/src/pages/Voices/components/metadata/OneSelect.tsx",
+        "frontend/src/pages/Voices/components/metadata/TagsInput.tsx",
+        "frontend/src/pages/Voices/components/metadata/taxonomy.ts",
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/VoiceLab/VoiceLabPage.tsx",
+        "frontend/src/pages/Voices/VoicesPage.tsx"
+      ],
+      "notes": [
+        "taxonomy from voice-taxonomy.json v1.0 bundled at build time",
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+      ],
+      "calls_inferred": [
+        "api#patchVoiceMetadata,uploadVoiceIcon",
+        "frontend/src/pages/Voices/components/metadata/IconUpload#*",
+        "frontend/src/pages/Voices/components/metadata/ManySelect#*",
+        "frontend/src/pages/Voices/components/metadata/OneSelect#*",
+        "frontend/src/pages/Voices/components/metadata/TagsInput#*",
+        "frontend/src/pages/Voices/components/metadata/chip#*",
+        "frontend/src/pages/Voices/components/metadata/taxonomy#*",
+        "hooks/useFocusTrap"
+      ]
+    },
+    "frontend/src/pages/Voices/components/NarratorCard.tsx": {
+      "purpose": "Expandable card showing speaker header + variant tabs (legacy, retired in R6)",
+      "exports": [
+        {
+          "name": "NarratorCard",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/ui/ActionMenu.tsx",
+        "frontend/src/pages/Voices/components/VariantEditor.tsx",
+        "frontend/src/pages/Voices/voicePhase.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/voiceProfiles.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/components/index.ts"
+      ],
+      "notes": [
+        "2026-07-15 (voices-variants-round2 task009): removed the onEditTestText prop and its forwarding to VariantEditor (VariantEditor's Script action now toggles an in-place panel instead of being driven by a parent callback). NarratorCard itself remains retired/unmounted (R6).",
+        "retired in R6 after all capabilities re-homed to Voice Lab"
+      ],
+      "calls_inferred": [
+        "pages/Voices/components/VariantEditor",
+        "pages/Voices/voicePhase#getStatusInfo"
+      ]
+    },
+    "frontend/src/pages/Voices/components/SampleManager.tsx": {
+      "purpose": "Expandable samples list with drag-drop upload, play/delete controls",
+      "exports": [
+        {
+          "name": "SampleManager",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts",
+        "frontend/src/hooks/useDragDropHighlight.ts#useDragDropHighlight"
+      ],
+      "called_by": [
+        "frontend/src/pages/VoiceLab/components/SamplesSection.tsx",
+        "frontend/src/pages/Voices/components/VariantEditor.tsx"
+      ],
+      "notes": [
+        "2026-07-14: Removed the redundant 'WAV' format-label span next to each sample filename.",
+        "2026-07-08: drag-drop highlight state/handlers now delegate to the shared useDragDropHighlight(uploadFiles) hook instead of local isDragging/onDragOver/onDragLeave/onDrop handlers (pure refactor, same upload behavior).",
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/components/ScriptEditor.tsx": {
+      "purpose": "Section for editing variant label, engine, plugin settings, reference sample, test text",
+      "exports": [
+        {
+          "name": "ScriptEditor",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/forms/GlassInput.tsx",
+        "frontend/src/pages/Settings/components/JsonSchemaForm.tsx",
+        "frontend/src/pages/Voices/components/metadata/recordingPromptSuggester",
+        "frontend/src/pages/Voices/components/metadata/recordingPromptSuggester.ts",
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/components/index.ts"
+      ],
+      "notes": [
+        "2026-07-15 (voices-variants-round2 review-fixes): variantName/onVariantNameChange made optional -- the VARIANT NAME field only renders when a caller wires onVariantNameChange. VariantEditor.tsx now wires it (reproducing the retired TestTab's default-vs-non-default routing: default variant profiles POST to /variant-name, non-default profiles POST to /rename), restoring variant renaming that task 009's VariantEditor absorption had dropped.",
+        "2026-07-10: gained an optional `attributes?: VoiceAttributes` prop and a 'Suggest from voice qualities' button beside Reset to Default, calling suggestRecordingPrompt(attributes) and filling testText via the existing onTestTextChange (does not auto-save). Disabled when attributes absent/untagged.",
+        "2026-07-09: Removed the 'PLUGIN SETTINGS' JsonSchemaForm block (and the now-unused `settings`/`onSettingsChange` props + JsonSchemaForm import + top-level activeEngine/synthesisSettings locals). ScriptEditor now covers only variant name, engine assignment, reference sample/voice asset id, help/privacy text, and the test-text script itself \u2014 no longer plugin settings.",
+        "2026-07-10: Section for editing variant label, engine, plugin settings, reference sample, test text",
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+      ],
+      "calls_inferred": [
+        "pages/Settings/components/JsonSchemaForm"
+      ]
+    },
+    "frontend/src/pages/Voices/components/VariantEditor.tsx": {
+      "purpose": "The single full-surface editor for one voice variant: play/speed/samples, performance_tags/tone/timbre/pace (per-variant, TagAutocompleteInput/SearchableSelect), version history + promote + A/B compare, and (since round2 task009) engine config, test-text/Script, and Record-mode sample capture -- all behind a chrome-demoted ActionMenu (Script, Rebuild-or-Generate, Record samples, a divider, Move Variant, Delete Variant).",
+      "exports": [
+        {
+          "name": "VariantEditor",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/hooks/useVariantActions.ts",
+        "frontend/src/pages/Voices/components/SampleManager.tsx",
+        "frontend/src/pages/Voices/components/VoiceUtils.tsx",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/voiceProfiles.ts",
+        "frontend/src/pages/Voices/components/VersionHistoryPanel.tsx",
+        "frontend/src/pages/Voices/components/VoiceSettingsPanel.tsx",
+        "frontend/src/pages/Voices/components/metadata/TagAutocompleteInput.tsx",
+        "frontend/src/pages/Voices/components/metadata/taxonomy.ts",
+        "frontend/src/components/forms/SearchableSelect.tsx",
+        "frontend/src/components/ui/ActionMenu.tsx",
+        "frontend/src/components/ui/EngineBadge.tsx",
+        "frontend/src/pages/VoiceLab/components/record/ArchetypePicker.tsx",
+        "frontend/src/pages/VoiceLab/components/record/RecordingCueCard.tsx",
+        "frontend/src/pages/VoiceLab/components/record/TakeManager.tsx",
+        "frontend/src/pages/VoiceLab/components/PhaseStepper.tsx",
+        "frontend/src/pages/Voices/voicePhase.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/VoiceLab/components/VariantsSection.tsx",
+        "frontend/src/pages/Voices/components/NarratorCard.tsx",
+        "frontend/src/pages/Voices/components/index.ts"
+      ],
+      "notes": [
+        "2026-07-16: Added a per-variant performance-attrs row -- TagAutocompleteInput for tone/timbre, SearchableSelect for pace -- each writing through handleSavePerformanceAttr() (one key at a time, same pattern as performance_tags).",
+        "2026-07-15 (round2 task009): Absorbed engine-config editing (engine select, reference sample, remote voice asset id, per-engine synthesis settings) and test-text editing in-place (a Script disclosure toggled from the ActionMenu, composing ScriptEditor + VoiceSettingsPanel), plus the Record-mode sample-capture flow (ArchetypePicker/RecordingCueCard/TakeManager, migrated from the now-deleted SamplesTab, scoped to this actual variant instead of hardcoded profiles[0]). Removed the onEditTestText prop entirely.",
+        "2026-07-15 (task007/012): Mounted VersionHistoryPanel between renderControls() and the footer. Added a useReducedMotion() guard on the play-pulse animation; Move Variant's icon changed from RefreshCw to ArrowRightLeft (was misleadingly shared with Rebuild); engine badge now renders via the shared EngineBadge component (fixing a pre-existing invalid-CSS-border bug where `${color}33` was appended to an already-var()-wrapped color).",
+        "2026-07-15 (task009 chrome demotion): the always-visible footer (Move/Delete) and header (Script/Rebuild-or-Generate) buttons were replaced by a single ActionMenu (MoreVertical trigger, 'More actions'); Play, speed, and performance_tags chips remain always-visible outside it.",
+        "2026-07-15 (task007): Added handleSaveTags() POSTing { performance_tags } to the settings-write endpoint; renders TagAutocompleteInput below the header, seeded from profile.performance_tags plus sibling-variant tagSuggestions and a starter vocabulary.",
+        "2026-07-15 (round2 review-fixes): Wired variantName/onVariantNameChange into the inline ScriptEditor (restores variant renaming, routes through /variant-name for the default variant and /rename otherwise).",
+        "2026-07-14: Added a variant-name label (getVariantDisplayName) to each variant row's header.",
+        "2026-07-10 ST-3 styling-separation: 31 inline style={{}} occurrences converted to new .variant-editor__* (BEM) classes in theme/components/voice-lab.css; 6 genuinely-dynamic style objects kept inline, trimmed to only their dynamic properties. No behavior/markup change."
+      ],
+      "calls_inferred": [
+        "hooks/useVariantActions",
+        "pages/Voices/components/SampleManager",
+        "pages/Voices/components/VoiceUtils#SpeedPopover"
+      ]
+    },
+    "frontend/src/pages/Voices/components/VoiceCatalogCard.tsx": {
+      "purpose": "Grid card for the Voices catalog. Header row: star + avatar in a left column (default-star inline above the avatar, no longer an absolutely-positioned card badge) and name + engine badge in a right column; VoicePillRow renders on its own full-width row below the header (not squeezed into the name column); description spans the full card width below that. Play (the avatar's overlay button, always-tabbable per INV-FOCUS) is the sole always-visible action -- it plays existing preview audio, and falls back to triggering a build only when there's genuinely no preview yet; Build voice is also its own explicit top-right ActionMenu item (Rename/Export/Set as App Default/Delete) for direct access regardless of Play's fallback. The card body has a plain (no role/tabIndex) onClick that navigates to Voice Lab for clicks in its dead space, deferring to any nested interactive element (play button, pills toggle, untagged badge) via closest('button, [role=\"button\"], a') so it doesn't reintroduce the invalid nested-interactive-content bug A11Y-3 fixed.",
+      "exports": [
+        {
+          "name": "VoiceCatalogCard",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/ui/ActionMenu.tsx",
+        "frontend/src/pages/Voices/components/VoicePills.tsx",
+        "frontend/src/pages/Voices/voicePhase.ts",
+        "frontend/src/store/playerBus.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/voiceProfiles.ts",
+        "frontend/src/components/ui/EngineBadge.tsx"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/components/VoicesTabContent.tsx"
+      ],
+      "notes": [
+        "2026-07-16 (user-reported, catalog-card layout rework): reworked header row to star+avatar left / name+engine right (was fully centered stack); pills moved to a full-width row of their own below the header (was cramped into the name column, wrapping easily) -- .voices-catalog-grid's minmax widened 220px->300px so 3 pills + \"+N\" overflow fit one line; card body gained a plain onClick-to-navigate (name-only click wasn't discoverable to mouse users) that defers to nested interactive elements via closest(); Play folded Build in as a build-when-needed fallback, then corrected so it only builds when `!previewUrl` (not merely `cta.intent === 'build'`, which is also true for an already-playable voice flagged is_rebuild_required) -- Build is restored as its own kebab item so both paths coexist; default-star pinned to the card's true top-left corner (position: absolute against .voice-catalog-card) instead of sitting inline in the body's content padding.",
+        "2026-07-16 (owner-corrected): Play's job is to play, not build -- falls back to triggering a build only when there is genuinely no audio yet; Build restored to the ActionMenu kebab; default-star pinned to the true card corner.",
+        "2026-07-15 (a11y3/A11Y-3): removed the single role=\"button\" card-body wrapper (was nesting the avatar's play button, VoicePillRow's own toggle button, and UntaggedBadge's click target -- invalid ARIA). The navigate/toggle-selection affordance now lives on a real <button> wrapping just the voice name (data-testid voice-catalog-card-name-btn); the body wrapper (voice-catalog-card-body) is now a plain non-interactive div.",
+        "2026-07-15 (round2 task001): fixed a live P1 bug -- the avatar <img src> was built from the raw metadata.image path instead of routing through /api/voices/{id}/icon like every other icon consumer.",
+        "2026-07-15 (round2 task002): consolidated actions -- Build is now the sole always-visible action; default status renders as a star (top-left) instead of a text pill; the kebab holds Rename/Export/Set as App Default/Delete; Play became a hover/focus-reveal overlay on the avatar itself (INV-FOCUS).",
+        "2026-07-15 (round2 task005): engine badge now renders via the shared EngineBadge component (size='sm') instead of a hand-rolled span.",
+        "2026-07-15: Overflow menu slimmed to Rename/Export/Delete; added a direct 'Set Default' button in the actions row; removed onEditTestText/onEditVoiceSettings props (onEditMetadata kept -- still drives the untagged-badge click).",
+        "2026-07-14: CTA button disables + spins on phase==='building'; handleCta guards re-entry and emits a toast via emitToast on successful onBuildNow; card body wrapped in a clickable/keyboard div (data-testid voice-catalog-card-body) calling onNavigateToLab; ActionMenu gained an 'Open in Voice Lab' item.",
+        "2026-07-09: Added optional `onEditVoiceSettings` prop and a new 'Voice Settings' item (SlidersHorizontal icon) in the \u22ef ActionMenu, placed alongside 'Edit Recording Script'. Fires `onEditVoiceSettings?.(defaultProfile)` the same way the existing script-editor item fires `onEditTestText`.",
+        "2026-07-10: Added optional `onEditTestText?: (profile: SpeakerProfile) => void` prop; destructured it and added a new 'Edit Recording Script' ActionMenu item (Mic icon, placed after 'Edit Metadata') that calls onEditTestText with the same `defaultProfile` already used by 'Set as Default'. Updated the file-header comment listing ActionMenu items."
+      ],
+      "calls_inferred": [
+        "pages/Voices/components/VoicePills#*",
+        "pages/Voices/voicePhase#*",
+        "store/playerBus#*"
+      ]
+    },
+    "frontend/src/pages/Voices/components/VoiceModals.tsx": {
+      "purpose": "Composite modal container for voice CRUD modals",
+      "exports": [
+        {
+          "name": "NewVoiceModal, RenameVoiceModal, AddVariantModal, MoveVariantModal",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/forms/GlassInput.tsx",
+        "frontend/src/components/forms/SearchableSelect.tsx",
+        "frontend/src/components/forms/VoiceDropzone.tsx",
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/components/index.ts"
+      ],
+      "notes": [
+        "2026-07-14: Adopted useFocusTrap independently in all 4 modal components: NewVoiceModal, RenameVoiceModal, AddVariantModal, MoveVariantModal.",
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+      ],
+      "calls_inferred": [
+        "components/forms/GlassInput,VoiceDropzone,SearchableSelect"
+      ]
+    },
+    "frontend/src/pages/Voices/components/VoicePills.tsx": {
+      "purpose": "Reusable pill system for voice attribute display",
+      "exports": [
+        {
+          "name": "voicePillsFromMetadata, VoicePill, VoicePillRow, UntaggedBadge, categoryForAttributeKey, PillSpec, PillCategory",
+          "kind": "function/component/type"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/demo/styleguide/StyleguidePage.tsx",
+        "frontend/src/pages/VoiceLab/VoiceLabPage.tsx",
+        "frontend/src/pages/Voices/components/VoiceCatalogCard.tsx"
+      ],
+      "notes": [
+        "2026-07-15 (round2 plan-coverage F3.1/F3.2): added and exported categoryForAttributeKey(key): PillCategory -- the core-key -> hue mapping this file already used internally, now shared so OneSelect/ManySelect/OverviewTab/chip.tsx can derive a field's pill hue instead of re-deriving it.",
+        "2026-07-15 (voice-variant-tagging-and-ia task006): extended PillSpec with an optional onRemove callback; VoicePill renders a remove \u00d7 button when a spec provides it (backward-compatible -- read-only rendering unchanged for callers that omit it).",
+        "2026-07-15 (voice-variant-tagging-and-ia task001 token hygiene): hardcoded padding/fontSize/gap values on VoicePill, VoicePillRow's +N/collapse buttons, and UntaggedBadge replaced with --space-*/--type-* tokens; +N/collapse buttons' aria-expanded now reflects real state."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/components/VoicePreviewPanel.tsx": {
+      "purpose": "Stub for future preview panel",
+      "exports": [
+        {
+          "name": "VoicePreviewPanel",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/contracts/events.ts"
+      ],
+      "called_by": [],
+      "notes": [
+        "intentionally hollow"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/components/VoiceSettingsPanel.tsx": {
+      "purpose": "Presentational drawer panel for a voice's plugin-defined per-variant synthesis settings (JsonSchemaForm filtered to engine.behavior.synthesis_settings), extracted out of ScriptEditor.tsx; reached via the voice catalog card's 'Voice Settings' action-menu item.",
+      "exports": [
+        {
+          "name": "VoiceSettingsPanel",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/JsonSchemaForm.tsx"
+      ],
+      "called_by": [
+        "frontend/src/components/VoicesModals.tsx"
+      ],
+      "notes": [
+        "2026-07-09: New component \u2014 plugin settings form relocated here from ScriptEditor.tsx (design-docs/plans/active/master_agnostic_tasks.md line 93)."
+      ]
+    },
+    "frontend/src/pages/Voices/components/VoiceUtils.tsx": {
+      "purpose": "Reusable drawer + speed popover components",
+      "exports": [
+        {
+          "name": "Drawer, SpeedPopover",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/hooks/useFocusTrap.ts"
+      ],
+      "called_by": [
+        "frontend/src/app/App.tsx",
+        "frontend/src/pages/Voices/components/VariantEditor.tsx",
+        "frontend/src/pages/Voices/components/index.ts"
+      ],
+      "notes": [
+        "2026-07-14: Added clampDrawerWidth() helper (floors to DRAWER_MIN_WIDTH=380 even when 90vw < 380) and used it for both ArrowLeft/ArrowRight keyboard handlers (was Math.min/Math.max unclamped in one direction). Added isResizeDisabled state (viewport < 768px OR pointer:coarse via matchMedia) that conditionally omits the resize-handle div entirely (no more 12px dead-zone eating backdrop taps) and forces the drawer to width:100% as a full sheet."
+      ],
+      "calls_inferred": [
+        "hooks/useFocusTrap"
+      ]
+    },
+    "frontend/src/pages/Voices/components/VoicesTabContent.tsx": {
+      "purpose": "Grid of VoiceCatalogCards for filtered voices with empty states",
+      "exports": [
+        {
+          "name": "VoicesTabContent",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/Voices/components/VoiceCatalogCard.tsx",
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/VoicesPage.tsx"
+      ],
+      "notes": [
+        "2026-07-15: Removed onEditTestText/onEditVoiceSettings props and their forwarding to VoiceCatalogCard.",
+        "2026-07-09: Added optional `onEditVoiceSettings` prop, forwarded to VoiceCatalogCard alongside the existing `onEditTestText`.",
+        "2026-07-10: Destructured the already-declared `onEditTestText` prop (previously accepted in the props interface but silently dropped) and forwards it to the rendered `<VoiceCatalogCard onEditTestText={onEditTestText} .../>`, alongside the existing onEditMetadata wiring."
+      ],
+      "calls_inferred": [
+        "pages/Voices/components/VoiceCatalogCard"
+      ]
+    },
+    "frontend/src/pages/Voices/components/VoicesTabHeader.tsx": {
+      "purpose": "Header with Local/Discover tabs, search, engine filter, facet chips, toolbar",
+      "exports": [
+        {
+          "name": "VoicesTabHeader, VoicesTab",
+          "kind": "component/type"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/forms/GlassInput.tsx",
+        "frontend/src/components/ui/GhostButton.tsx",
+        "frontend/src/types/index.ts",
+        "frontend/src/components/forms/MultiSelect.tsx"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/VoicesPage.tsx"
+      ],
+      "notes": [
+        "2026-07-15 (a11y3/H-5): CLASS/GENDER/AGE MultiSelects now pass category=\"class\"/\"gender\"/\"age\" so their selected chips match the VoicePill hues used elsewhere on the page; the free-form TAGS MultiSelect deliberately omits category and stays generic.",
+        "2026-07-15 (round2 task005): CLASS/GENDER/AGE toggle-button rows replaced by three compact MultiSelects (task 004's new primitive) sourced from taxonomy.ts, plus a fourth MultiSelect for a free-form tag filter.",
+        "2026-07-10 ST-3 styling-separation: repeated/static inline style={{}} props converted to token-based CSS classes; no behavior/markup change."
+      ],
+      "calls_inferred": [
+        "components/forms/GlassInput",
+        "components/ui/GhostButton"
+      ]
+    },
+    "frontend/src/pages/Voices/components/index.ts": {
+      "purpose": "Barrel export for Voices components submodule",
+      "exports": [
+        {
+          "name": "*",
+          "kind": "re-export",
+          "contract": "VoiceUtils, VariantEditor, NarratorCard, VoiceModals, ScriptEditor"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/Voices/components/NarratorCard.tsx",
+        "frontend/src/pages/Voices/components/ScriptEditor.tsx",
+        "frontend/src/pages/Voices/components/VariantEditor.tsx",
+        "frontend/src/pages/Voices/components/VoiceModals.tsx",
+        "frontend/src/pages/Voices/components/VoiceUtils.tsx"
+      ],
+      "called_by": [
+        "frontend/src/components/VoicesModals.tsx"
+      ],
+      "notes": [
+        "2026-07-09: Barrel export added for VoiceSettingsPanel."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/components/metadata/IconUpload.tsx": {
+      "purpose": "Voice icon upload control, split out of MetadataEditorModal",
+      "exports": [
+        {
+          "name": "useIconUpload",
+          "kind": "hook"
+        },
+        {
+          "name": "IconUpload",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/components/MetadataEditorModal.tsx"
+      ],
+      "notes": [
+        "2026-07-15 (round2 task003): all upload/drag-drop/dimension-probe/copy-prompt mechanics extracted into an exported useIconUpload({voiceId, metadata, onSuccess, onError}) hook; IconUpload the component is now a thin consumer, kept in place (no longer mounted from OverviewTab -- VoiceDetailHeader now hosts the avatar upload/drop target directly).",
+        "2026-07-15 (voice-variant-tagging-and-ia task001): restored an orphaned 'copy icon generation prompt' affordance (icon-only button, clipboard-copy via buildIconPrompt() from VoiceLab/iconPrompt.ts) that VoiceIconControls.tsx (now deleted) had previously implemented; new optional metadata prop feeds the prompt builder.",
+        "2026-07-12: Extracted the file-picker's dimension-probe/crop-or-upload decision into a shared handleFile() used by both the <input onChange> and a new onDrop handler on .metadata-icon-upload__row. Added onDragOver/onDragLeave/onDrop with isDragging state driving a dashed accent-blue border + glow highlight + 'Drop to upload' hint text swap. A dropped non-image file surfaces an error via onError rather than being silently ignored.",
+        "2026-07-12: Square images still upload directly (unchanged fast path). Non-square images now open IconCropModal instead of round-tripping to the server for a 422. Falls back to a direct upload attempt (surfacing the server's own error) if the client-side dimension probe itself fails."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/components/metadata/ManySelect.tsx": {
+      "purpose": "Multi-select taxonomy field control, split out of MetadataEditorModal",
+      "exports": [
+        {
+          "name": "ManySelect",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/Voices/components/metadata/chip.tsx",
+        "frontend/src/pages/Voices/components/metadata/taxonomy.ts",
+        "frontend/src/pages/Voices/components/VoicePills.tsx"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/components/MetadataEditorModal.tsx"
+      ],
+      "notes": [
+        "2026-07-15 (round2 plan-coverage F3.1/F3.2): section header color now tints to var(--pill-{category}-text) via categoryForAttributeKey(section.key); that category is also passed through to chip() so active chips match their pill hue instead of a generic accent."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/components/metadata/OneSelect.tsx": {
+      "purpose": "Single-select taxonomy field control, split out of MetadataEditorModal",
+      "exports": [
+        {
+          "name": "OneSelect",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/Voices/components/metadata/chip.tsx",
+        "frontend/src/pages/Voices/components/metadata/taxonomy.ts",
+        "frontend/src/pages/Voices/components/VoicePills.tsx"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/components/MetadataEditorModal.tsx"
+      ],
+      "notes": [
+        "2026-07-15 (round2 plan-coverage F3.1/F3.2): same header-tint + chip(category) treatment as ManySelect.tsx, via categoryForAttributeKey(section.key)."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/components/metadata/TagsInput.tsx": {
+      "purpose": "Free-text tags input control for voice metadata, split out of MetadataEditorModal",
+      "exports": [
+        {
+          "name": "TagsInput",
+          "kind": "component"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Voices/components/MetadataEditorModal.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/components/metadata/chip.tsx": {
+      "purpose": "Chip render helper for voice metadata tag/attribute display, split out of MetadataEditorModal",
+      "exports": [
+        {
+          "name": "chip",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/Voices/components/VoicePills.tsx"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/components/metadata/ManySelect.tsx",
+        "frontend/src/pages/Voices/components/metadata/OneSelect.tsx"
+      ],
+      "notes": [
+        "2026-07-15 (round2 plan-coverage F3.2): chip() takes a new optional category?: PillCategory param -- when provided, the active/selected state paints with that facet's --pill-{category}-bg/-border/-text tokens instead of a generic --accent fill; callers that omit it (free-form tag chips) keep the prior styling."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/components/metadata/recordingArchetypes.ts": {
+      "purpose": "Frontend-bundled copy of the 39 curated voice archetype rows (design-docs/reference/voice-archetypes/voice_archetypes.json) \u2014 hand-maintained TS const, same bundling convention as taxonomy.ts.",
+      "exports": [
+        {
+          "name": "recordingArchetypes",
+          "kind": "const"
+        },
+        {
+          "name": "RecordingArchetype",
+          "kind": "type"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Voices/components/metadata/recordingPromptSuggester.ts",
+        "frontend/src/pages/Voices/components/metadata/ArchetypeQuickPick.tsx"
+      ],
+      "notes": [
+        "2026-07-12: Regenerated from voice_archetypes.json: RecordingArchetype interface gains sample_text: string; every one of the 39 records gets the new field.",
+        "Update both this const and the source JSON when the archetype table changes.",
+        "2026-07-10: Frontend-bundled copy of the 39 curated voice archetype rows (design-docs/reference/voice-archetypes/voice_archetypes.json) \u2014 hand-maintained TS const, same bundling convention as taxonomy.ts."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/components/metadata/recordingFragments.ts": {
+      "purpose": "Frontend-bundled copy of the 52 tone/timbre phrase fragments (28 Tone + 24 Timbre, design-docs/reference/voice-archetypes/tone_timbre_fragments.json) \u2014 raw material for the composed-fallback recording-prompt path.",
+      "exports": [
+        {
+          "name": "getFragment",
+          "kind": "fn"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Voices/components/metadata/recordingPromptSuggester.ts"
+      ],
+      "notes": [
+        "Update both this const and the source JSON when a fragment changes.",
+        "2026-07-10: Frontend-bundled copy of the 52 tone/timbre phrase fragments (28 Tone + 24 Timbre, design-docs/reference/voice-archetypes/tone_timbre_fragments.json) \u2014 raw material for the composed-fallback recording-prompt path."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/components/metadata/recordingPromptSuggester.ts": {
+      "purpose": "findMatchingArchetype(attrs) scores VoiceAttributes against the 39 archetypes (class/gender/age exact-match + tone/timbre Jaccard overlap + pace) and returns the best match at/above CLOSE_THRESHOLD, or null -- extracted (2026-07-16) as the shared scoring primitive so iconPrompt.ts's buildIconPrompt() and this file's own suggestRecordingPrompt() agree on what counts as a close/exact archetype match instead of maintaining two scoring implementations. suggestRecordingPrompt(attrs) builds on it: exact/close match returns that archetype's prompt verbatim (confidence 'exact'/'close'), otherwise composes a fallback from a Class-opening line + Pace-cue + tone/timbre fragments. Both pure, no API call.",
+      "exports": [
+        {
+          "name": "findMatchingArchetype",
+          "kind": "fn"
+        },
+        {
+          "name": "suggestRecordingPrompt",
+          "kind": "fn"
+        },
+        {
+          "name": "SuggestionResult",
+          "kind": "type"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/Voices/components/metadata/recordingArchetypes.ts",
+        "frontend/src/pages/Voices/components/metadata/recordingFragments.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/components/ScriptEditor.tsx",
+        "frontend/src/pages/VoiceLab/iconPrompt.ts"
+      ],
+      "notes": [
+        "2026-07-16 (user-reported gap): scoring logic split out of suggestRecordingPrompt into findMatchingArchetype(attrs) -- both consumers of the archetype table (this file's own suggestRecordingPrompt and iconPrompt.ts's buildIconPrompt) now share one scoring implementation.",
+        "2026-07-12: SuggestionResult gains sampleText: string | null. suggestRecordingPrompt() returns the matched archetype's sample_text when confidence is close/exact; composeFallback() (the no-close-match path) always returns sampleText: null -- deliberately no composed fallback for spoken sample text, since an invented line is worse than leaving whatever's already set alone.",
+        "Returns null when attrs is absent/empty \u2014 caller (ScriptEditor.tsx) disables its Suggest button in that case rather than showing a generic suggestion.",
+        "Thresholds are named constants (EXACT_THRESHOLD=10, CLOSE_THRESHOLD=6 of a 12-point max) validated against the real 39-archetype data before tests were written.",
+        "2026-07-10: suggestRecordingPrompt(attrs) \u2014 scores VoiceAttributes against the 39 archetypes (class/gender/age exact-match + tone/timbre Jaccard overlap + pace); exact/close match returns that archetype's prompt verbatim, otherwise composes a fallback from a Class-opening line + Pace-cue + tone/timbre fragments. Pure, no API call \u2014 mirrors iconPrompt.ts's buildIconPrompt() pattern."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/components/metadata/taxonomy.ts": {
+      "purpose": "Voice metadata taxonomy vocabulary and section lookup, split out of MetadataEditorModal",
+      "exports": [
+        {
+          "name": "TaxonomySection",
+          "kind": "type"
+        },
+        {
+          "name": "taxonomy",
+          "kind": "const"
+        },
+        {
+          "name": "getSection",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Voices/components/MetadataEditorModal.tsx",
+        "frontend/src/pages/Voices/components/metadata/ManySelect.tsx",
+        "frontend/src/pages/Voices/components/metadata/OneSelect.tsx"
+      ],
+      "notes": [
+        "2026-07-15 (round2 task005): fixed a label drift -- gender 'not-applicable' was 'Not applicable', voice-taxonomy.json says 'Not applicable (non-human)'; now byte-identical to the JSON for class/gender/age."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/voicePhase.ts": {
+      "purpose": "Pure voice status/phase derivation logic",
+      "exports": [
+        {
+          "name": "getStatusInfo, getVoicePhase, getPrimaryCta, StatusInfo, PrimaryCta, VoicePhase",
+          "kind": "function/type"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/voiceProfiles.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/VoiceLab/components/PhaseStepper.tsx",
+        "frontend/src/pages/Voices/components/NarratorCard.tsx",
+        "frontend/src/pages/Voices/components/VoiceCatalogCard.tsx",
+        "frontend/src/pages/Voices/components/VariantEditor.tsx"
+      ],
+      "notes": [
+        "2026-07-16 (user-reported): VoiceLabPage.tsx no longer calls getVoicePhase (the voice-level PhaseStepper was removed); VariantEditor.tsx now calls it per-variant (passing [profile]) alongside its own PhaseStepper mount.",
+        "2026-07-14: VoicePhase gained a 'building' member distinct from 'build'; LABEL_TO_PHASE maps 'BUILDING...' to it; getPrimaryCta returns {label:'Building\u2026', intent:'build'} for it."
+      ],
+      "calls_inferred": [
+        "utils/voiceProfiles#*"
+      ]
+    },
+    "frontend/src/pages/Voices/components/metadata/IconCropModal.tsx": {
+      "purpose": "New component. Drag-to-reposition + zoom-slider crop UI over a fixed square viewport; canvas-crops to a 512x512 PNG File on Apply. No external cropper dependency.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-12: NEW FILE \u2014 New component. Drag-to-reposition + zoom-slider crop UI over a fixed square viewport; canvas-crops to a 512x512 PNG File on Apply. No external cropper dependency."
+      ]
+    },
+    "frontend/src/pages/Voices/components/VoiceUtils.css": {
+      "purpose": "New file: removes the drawer's left border on mobile/touch full-width sheet mode.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New file: removes the drawer's left border on mobile/touch full-width sheet mode."
+      ]
+    },
+    "frontend/src/pages/Voices/components/VariantFilterBar.tsx": {
+      "purpose": "Toggleable performance_tags filter-chip bar (DC-003), rendered above VariantSwitcher only in rail mode (>4 variants). OR-within-facet toggle filtering; renders null when no profile has any performance_tags.",
+      "exports": [
+        {
+          "name": "VariantFilterBar",
+          "kind": "component"
+        },
+        {
+          "name": "VariantFilterBarProps",
+          "kind": "type"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/Voices/components/metadata/chip.tsx"
+      ],
+      "called_by": [
+        "frontend/src/pages/VoiceLab/components/VariantsSection.tsx"
+      ],
+      "notes": [
+        "2026-07-15 (voice-variant-tagging-and-ia task010): NEW FILE. Reuses chip() (ManySelect's toggle-chip helper) rather than TagAutocompleteInput's type-to-add styling, since these chips are only ever toggled."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/components/VariantSwitcher.tsx": {
+      "purpose": "Count-based single-select variant switcher: horizontal roving-tabindex strip (<=4 variants) or vertical rail (>4). Modeled as role=listbox/option (not tablist/tab, fixed 2026-07-15 ARIA remodel) with roving-tabindex extended to each row's nested play/default-star controls. Each row: name, engine.speed, read-only performance_tags chips (max 2), play/pause via playerBus, and a per-variant default-star (BadgeCheck icon, distinct from VoiceCatalogCard's app-default Star).",
+      "exports": [
+        {
+          "name": "VariantSwitcher",
+          "kind": "component"
+        },
+        {
+          "name": "VariantSwitcherProps",
+          "kind": "type"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/Voices/components/VoicePills.tsx",
+        "frontend/src/store/playerBus.ts",
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/VoiceLab/components/VariantsSection.tsx"
+      ],
+      "notes": [
+        "2026-07-15 (task008, NEW FILE): count-based strip/rail switcher, not yet wired into VariantsSection at creation (task 009 wired it).",
+        "2026-07-15 (ARIA remodel, independent design-critique follow-up, supersedes the file's own former INV-SWITCHER-UNCHANGED note): role=tablist/tab -> role=listbox/option (fixed A11Y-1 phantom aria-controls and A11Y-2 nested controls always tabIndex=0 regardless of row state); play/default-star controls bumped 24px -> 44px (A11Y-4, WCAG 2.5.5).",
+        "2026-07-15 (a11y3/H-4 follow-up): default-star icon changed from lucide Star to BadgeCheck so it no longer shares an icon shape with VoiceCatalogCard's app-default Star badge (previously differentiated by color alone)."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/components/VersionAbPanel.tsx": {
+      "purpose": "A/B comparison panel for two recorded variant versions: shared test-passage textarea, 'Run comparison' triggers POST .../versions/ab-test, then each side resolves to playable audio -- either an immediate cached artifact.mp3 URL or a polled fresh render at the predictable /out/voice-ab-test/{job_id}/render.mp3 static route.",
+      "exports": [
+        {
+          "name": "VersionAbPanel",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/hooks/useVariantVersions.ts",
+        "frontend/src/store/playerBus.ts",
+        "frontend/src/utils/format.ts",
+        "frontend/src/api/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/components/VersionHistoryPanel.tsx"
+      ],
+      "notes": [
+        "2026-07-15 (task005, NEW FILE): job-mode fallback originally polled listVoiceVersions/has_artifact.",
+        "2026-07-15 (ab-review-fix): has_artifact-based polling replaced by polling GET /api/processing_queue for the submitted job_id's status; on 'done' the audio_url becomes /out/voice-ab-test/{job_id}/render.mp3 (served by app/api/web.py's new static route). Also cancels in-flight poll timers on re-run.",
+        "2026-07-15 (final-review): added pollRunIdRef generation counter -- clearTimeout only cancels scheduled ticks, not one already awaiting the queue fetch, so ticks re-check the run id at tick start and after every await and bail on mismatch (prevents a stale in-flight tick from a prior run overwriting the current run's state). Poll timeout raised 30s -> 120s (cold-engine renders); failed/cancelled/timeout now surface a visible error instead of terminating silently."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/components/VersionHistoryPanel.tsx": {
+      "purpose": "Collapsible 'Version history (N)' panel for a variant: per-version timestamp/engine-badge/sample-count/Active-or-Promote row (Promote routes through requestConfirm, isDestructive:false); zero-versions state shows a single muted 'History starts with the next rebuild' line instead of a collapsible section. A 2-version checkbox selection renders VersionAbPanel inline for comparison.",
+      "exports": [
+        {
+          "name": "VersionHistoryPanel",
+          "kind": "component"
+        }
+      ],
+      "calls": [
+        "frontend/src/hooks/useVariantVersions.ts",
+        "frontend/src/pages/Voices/components/VersionAbPanel.tsx",
+        "frontend/src/utils/format.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/components/VariantEditor.tsx"
+      ],
+      "notes": [
+        "2026-07-15 (task007, NEW FILE): mounted in VariantEditor between renderControls() and the footer; no new props added to VariantEditor beyond wiring onRefresh/requestConfirm."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/components/metadata/TagAutocompleteInput.tsx": {
+      "purpose": "Label + pills + a '+' trigger that opens a compact search popover for adding/removing tag-like values (performance_tags, tone, timbre, and OverviewTab's style/use_case/quality many-value fields). Popover opens with the full suggestion list visible (no typing required); picking a suggestion or typing free text both commit and close it immediately.",
+      "exports": [
+        {
+          "name": "TagAutocompleteInput",
+          "kind": "component"
+        },
+        {
+          "name": "TagAutocompleteInputProps",
+          "kind": "type"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/Voices/components/VoicePills.tsx"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/components/VariantEditor.tsx",
+        "frontend/src/pages/Voices/components/VariantFilterBar.tsx",
+        "frontend/src/pages/VoiceLab/components/OverviewTab.tsx"
+      ],
+      "notes": [
+        "2026-07-15 (task006, NEW FILE): merged TagsInput's commit/normalize/backspace-remove mechanics with ManySelect's suggestion-chip styling; committed tags render via VoicePillRow (PillSpec.onRemove). Originally an always-open pill+textbox row.",
+        "2026-07-16 (owner-requested MUI-style redesign): rewritten from an always-open textbox to a plus-trigger + popover -- click '+' opens a search popover with the full suggestion list already visible; commitValue() closes the popover. onChange/tags contract unchanged, so existing callers (VariantEditor, OverviewTab) needed no code changes, only updated tests (open the popover before interacting with the search input)."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/components/metadata/ArchetypeQuickPick.tsx": {
+      "purpose": "Shared combobox over the 39-row voice archetype table (recordingArchetypes.ts): picking an archetype name fills class/gender/age/tone/timbre/pace at once. Bare picker with no local selection state -- the caller's own fields are the only source of truth. Owner-confirmed: a pick OVERWRITES all six fields unconditionally (a deliberate reset), never merges with whatever was already set.",
+      "exports": [
+        {
+          "name": "ArchetypeQuickPick",
+          "kind": "component"
+        },
+        {
+          "name": "ArchetypeQuickPickFields, ArchetypeQuickPickProps",
+          "kind": "type"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/forms/SearchableSelect.tsx",
+        "frontend/src/pages/Voices/components/metadata/recordingArchetypes.ts",
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/VoiceLab/components/OverviewTab.tsx",
+        "frontend/src/pages/VoiceLab/components/record/ArchetypePicker.tsx"
+      ],
+      "notes": [
+        "2026-07-16 (owner-requested, NEW FILE): wired into OverviewTab.tsx (above the ATTRIBUTES section, overwrites class/gender/age -- tone/timbre/pace since moved to per-variant VariantEditor editing by the later 0c7a97bd commit) and ArchetypePicker.tsx (above its 6 fields, overwrites all six, a fast start for a Record-mode session)."
+      ],
+      "calls_inferred": []
+    }
+  }
+}

@@ -15,6 +15,7 @@ from ...orchestration.scheduler.resources import is_paused, set_paused
 from ...db import list_speakers
 from ...db.performance import get_render_stats, reset_render_stats
 from ...db.models import Job
+from ...engines.system_resources import sample_resources
 from ...utils.pathing import safe_basename, safe_join_flat
 from ..utils import read_preview
 # Compatibility for tests that monkeypatch these
@@ -26,6 +27,24 @@ logger = logging.getLogger(__name__)
 _SECRET_FIELDS = {"tts_api_key", "huggingface_token"}
 # Sentinel returned to the client when a secret field is set.
 _REDACTED = "***"
+
+
+def _detect_lan_ip() -> Optional[str]:
+    """Best-effort local network IP for this machine.
+
+    Opens a UDP socket toward a public address without sending any packets
+    (UDP ``connect`` only asks the OS to pick an outbound route) purely to
+    read back which local interface/IP the OS would use — the standard
+    dependency-free trick for "what's my LAN IP".
+    """
+    import socket
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("8.8.8.8", 80))
+            return sock.getsockname()[0]
+    except OSError:
+        return None
 
 
 def _redact_settings(settings: dict) -> dict:
@@ -45,6 +64,15 @@ def get_voices_dir() -> Path:
     return VOICES_DIR
 
 router = APIRouter(prefix="/api", tags=["system"])
+
+
+@router.get("/system/resources")
+def get_system_resources() -> dict:
+    """Best-effort snapshot of host CPU/RAM/VRAM usage.
+
+    VRAM fields are null when no NVIDIA GPU / nvidia-smi is available.
+    """
+    return sample_resources()
 
 
 def _build_runtime_services(request: Request) -> list[dict[str, Any]]:
@@ -132,6 +160,8 @@ def api_home(
     else:
         backend_mode = "Managed Subprocess (Starting/Initializing)"
 
+    lan_ip = _detect_lan_ip()
+
     startup_ready = bool(watchdog and watchdog.is_healthy())
     if not watchdog:
         startup_message = "Starting Audiobook Studio Services"
@@ -165,6 +195,8 @@ def api_home(
             "startup_ready": startup_ready,
             "startup_message": startup_message,
             "startup_detail": startup_detail,
+            "local_url": f"http://127.0.0.1:{request.url.port}" if request.url.port else "http://127.0.0.1",
+            "network_url": f"http://{lan_ip}:{request.url.port}" if (lan_ip and request.url.port) else None,
         },
         "runtime_services": _build_runtime_services(request),
         "narrator_ok": any(

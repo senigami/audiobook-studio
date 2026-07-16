@@ -135,7 +135,16 @@ const getSimulatedDeps = (urlOrFile: string) => {
   }
 };
 
+// Live `EnginesPage.tsx` (post commit 2ec47472) splits this surface into two tabs — "Engines"
+// (server diagnostics + registry + install) and "Module Settings" (per-engine schema-driven
+// settings via `VoiceModulesPanel`/`JsonSchemaForm`). This mock mirrors that tab structure below,
+// but keeps the "Module Settings" tab as a lighter representative view (the existing sanitize
+// toggles + a pointer to each engine's inline settings in the Engines tab) rather than fully
+// duplicating `JsonSchemaForm`'s dynamic schema rendering — a full 1:1 port wasn't judged worth
+// the added mock complexity for a settings surface that's identical in spirit (per-engine config
+// knobs), just reachable one click deeper here than in live.
 export const EnginesPane: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'engines' | 'module-settings'>('engines');
   const [xttsExpanded, setXttsExpanded] = useState(false);
   const [voxtralExpanded, setVoxtralExpanded] = useState(true);
   const [sanitizeToggles, setSanitizeToggles] = useState<boolean[]>(SANITIZE_TOGGLES.map(t => t.on));
@@ -515,6 +524,57 @@ export const EnginesPane: React.FC = () => {
         )}
       />
 
+      <div
+        role="tablist"
+        aria-label="Engines sections"
+        style={{
+          display: 'flex',
+          gap: 4,
+          alignSelf: 'flex-start',
+          background: 'var(--surface-alt)',
+          border: '1px solid var(--border)',
+          borderRadius: 10,
+          padding: 4,
+        }}
+      >
+        <button
+          role="tab"
+          aria-selected={activeTab === 'engines'}
+          onClick={() => setActiveTab('engines')}
+          style={{
+            padding: '0.4rem 0.9rem',
+            borderRadius: 8,
+            fontWeight: 700,
+            fontSize: 'var(--type-caption)',
+            border: 'none',
+            cursor: 'pointer',
+            background: activeTab === 'engines' ? 'var(--accent)' : 'transparent',
+            color: activeTab === 'engines' ? 'var(--text-on-accent)' : 'var(--text-muted)',
+          }}
+        >
+          Engines
+        </button>
+        <button
+          role="tab"
+          aria-selected={activeTab === 'module-settings'}
+          onClick={() => setActiveTab('module-settings')}
+          style={{
+            padding: '0.4rem 0.9rem',
+            borderRadius: 8,
+            fontWeight: 700,
+            fontSize: 'var(--type-caption)',
+            border: 'none',
+            cursor: 'pointer',
+            background: activeTab === 'module-settings' ? 'var(--accent)' : 'transparent',
+            color: activeTab === 'module-settings' ? 'var(--text-on-accent)' : 'var(--text-muted)',
+          }}
+        >
+          Module Settings
+        </button>
+      </div>
+
+      {activeTab === 'engines' && (
+        <>
       <Row gap={8} style={{ alignItems: 'stretch', flexWrap: 'wrap' }}>
         {[
           { label: 'Installed engines', value: `${installedEngineIds.length + customInstalledPlugins.length}`, detail: '2 verified, 1 built-in', chip: 'ready' },
@@ -1082,6 +1142,56 @@ export const EnginesPane: React.FC = () => {
           )}
         </Col>
       </Row>
+        </>
+      )}
+
+      {activeTab === 'module-settings' && (
+        <Col gap={10}>
+          <Card style={{ borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
+            <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', background: 'var(--surface-alt)' }}>
+              <div style={{ fontSize: 'var(--type-micro)', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Per-engine settings</div>
+            </div>
+            <div style={{ padding: '10px 12px' }}>
+              <p style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', margin: '0 0 8px' }}>
+                Each installed engine&apos;s schema-driven settings (speed, temperature, cloud calibration, etc.)
+                live inline under that engine&apos;s expandable row on the <strong>Engines</strong> tab — expand
+                &quot;Neural Voice Engine&quot; or &quot;Voxtral (Mistral AI)&quot; there to edit them.
+              </p>
+            </div>
+          </Card>
+
+          <Card style={{ borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
+            <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', background: 'var(--surface-alt)' }}>
+              <div style={{ fontSize: 'var(--type-micro)', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Text cleanup (sanitize) overrides</div>
+            </div>
+            <div style={{ padding: '10px 12px' }}>
+              <Row gap={5} style={{ flexWrap: 'wrap' }}>
+                {SANITIZE_TOGGLES.map((tog, i) => (
+                  <button
+                    key={tog.label}
+                    onClick={() => toggleSanitize(i)}
+                    aria-pressed={sanitizeToggles[i]}
+                    aria-label={`Toggle ${tog.label} sanitization`}
+                    style={{
+                      cursor: 'pointer', fontSize: 'var(--type-micro)', padding: '2px 7px', borderRadius: 'var(--radius-round)',
+                      border: `1px solid ${sanitizeToggles[i] ? 'var(--accent-tint-border)' : 'var(--border)'}`,
+                      background: sanitizeToggles[i] ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
+                      color: sanitizeToggles[i] ? 'var(--accent)' : 'var(--text-muted)',
+                      display: 'inline-flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {sanitizeToggles[i]
+                      ? <Check size={9} />
+                      : <X size={9} />}
+                    {tog.label}
+                  </button>
+                ))}
+              </Row>
+              <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: 5 }}>per-engine category overrides</div>
+            </div>
+          </Card>
+        </Col>
+      )}
 
       {/* Install Modal Overlay */}
       {showInstallModal && (

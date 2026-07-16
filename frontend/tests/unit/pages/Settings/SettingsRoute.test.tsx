@@ -271,7 +271,12 @@ describe('SettingsRoute', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'ON' })[0]);
+    // ToggleButton is an ARIA switch (role="switch") rendered as a track/knob
+    // control, not an "ON"/"OFF" text pill. The first *enabled* switch here is
+    // "Stability Mode" (Developer Mode, rendered first in the DOM, defaults
+    // off) — `checked: true` targets it the same way the old `{ name: 'ON' }`
+    // text match used to.
+    fireEvent.click(screen.getAllByRole('switch', { checked: true })[0]);
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
@@ -299,11 +304,10 @@ describe('SettingsRoute', () => {
     expect(screen.getByText(/1,234 words/i)).toBeTruthy();
     expect(screen.getByText(/5,678 characters/i)).toBeTruthy();
     expect(screen.getByText(/Tally since/i)).toBeTruthy();
-    expect(screen.getAllByText('Backend API').length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/127.0.0.1:8000/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText('online').length).toBeGreaterThan(0);
-    expect(screen.getByText('Orchestrator')).toBeTruthy();
-    expect(screen.getByText('Studio 2.0')).toBeTruthy();
+    // "Backend API" and "Orchestrator" are internals rows gated behind
+    // Developer Mode (off by default here) — see design-critique P2 #3.
+    expect(screen.queryByText('Backend API')).toBeNull();
+    expect(screen.queryByText('Orchestrator')).toBeNull();
     expect(screen.getByText('Reset')).toBeTruthy();
     expect(screen.getByText('TTS Server')).toBeTruthy();
     expect(screen.getByText(/healthy/i)).toBeTruthy();

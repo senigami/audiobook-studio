@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, PenLine } from 'lucide-react';
 import type { DirectorsTool } from '../types';
@@ -57,11 +57,6 @@ const ReviseToolBody: React.FC = () => {
   const [longSegmentIds, setLongSegmentIds] = useState<Set<string>>(new Set());
 
   const resolvedChapterId = searchParams.get('chapter') || chapters[0]?.id || null;
-
-  const selectedChapter = useMemo(
-    () => chapters.find((chapter) => chapter.id === resolvedChapterId) || null,
-    [chapters, resolvedChapterId],
-  );
 
   // Stale-response guard: if the user switches chapters quickly, an earlier
   // chapter's fetch can resolve AFTER a later chapter's, silently overwriting
@@ -219,7 +214,9 @@ const ReviseToolBody: React.FC = () => {
   return (
     <div className="revise-tool" data-testid="revise-tool">
       <div className="revise-tool__topbar">
-        <h2 className="revise-tool__title">{selectedChapter?.title || 'Revise'}</h2>
+        {/* No title here: ChapterWorkspaceHeader (rendered once, above the
+            whole console) already shows the chapter title — repeating it
+            here duplicated it within ~140px (design-critique HIG finding). */}
         {editingId ? (
           <div className="revise-tool__banner" role="status">
             Editing — save to re-render this section.

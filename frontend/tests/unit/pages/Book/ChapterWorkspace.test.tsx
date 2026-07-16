@@ -159,10 +159,10 @@ describe('ChapterWorkspace', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Switch chapter' }));
 
-    // All three chapters should be listed in the menu
-    expect(screen.getByRole('menuitem', { name: /Chapter One/i })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: /Chapter Two/i })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: /Chapter Three/i })).toBeInTheDocument();
+    // All three chapters should be listed in the listbox
+    expect(screen.getByRole('option', { name: /Chapter One/i })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Chapter Two/i })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Chapter Three/i })).toBeInTheDocument();
   });
 
   it('selecting a chapter from the dropdown navigates to that chapter route', async () => {
@@ -173,7 +173,7 @@ describe('ChapterWorkspace', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Switch chapter' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: /Chapter Three/i }));
+    fireEvent.click(screen.getByRole('option', { name: /Chapter Three/i }));
 
     await waitFor(() => {
       expect(screen.getByTestId('pathname')).toHaveTextContent('/book/book-1/chapter/c3');

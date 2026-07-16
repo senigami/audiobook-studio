@@ -332,25 +332,40 @@ all pass, but these need your eyes / a live backend the local preview doesn't ha
 3. Queue drawer opens from anywhere without losing your place; Activity page shows now/history/stats.
 
 **Book pipeline**
-4. Open a book → lands in Studio; the 5 stage tabs work and sync with the rail; /project & /chapter
-   old URLs redirect in.
-5. Studio: book view is primary (prose + speaker underlines), the Cast palette paints voices onto
-   sentences, and the "Narrator (default)" brush UN-assigns a sentence back to narrator.
-6. Studio segment/analysis count shows RENDER GROUPS (e.g. 4), not raw sentences (e.g. 9).
-7. Casting: "Narrator (default)" is the pinned, non-deletable FIRST row; changing its voice sets the
-   project default and PERSISTS across reload. (R2 spot-confirm.)
+4. Open a book → lands on the Book tab; the 6 stage tabs (Book/Contents/Cast/Lexicon/Publish/Backups)
+   work and sync with the rail; /project & /chapter old URLs redirect in.
+   [terminology note: originally "5 stage tabs" — the Contents/Cast/Lexicon rename plus the
+   Director's Console activation settled the tab list at 6; updated to reflect the current final
+   count.]
+5. Chapter Workspace: book view is primary (prose + speaker underlines); opening the Director's
+   Console's Cast tool paints voices onto sentences, and the "Narrator (default)" brush UN-assigns a
+   sentence back to narrator.
+   [terminology note: this item originally said "Studio: book view is primary... the Cast palette
+   paints voices" — that was the old per-chapter `StudioStage` paint-assignment behavior, which now
+   lives in the `CastTool` inside the Chapter Workspace's Director's Console. This is NOT the
+   book-level "Cast" tab (the casting roster) referenced in item 7 below — the two are distinct
+   surfaces that happen to share the word "Cast".]
+6. Chapter Workspace segment/analysis count shows RENDER GROUPS (e.g. 4), not raw sentences (e.g. 9).
+   [terminology note: was "Studio segment/analysis count" — same per-chapter workspace as item 5,
+   not the book-level Cast tab.]
+7. Cast (book-level tab): "Narrator (default)" is the pinned, non-deletable FIRST row; changing its
+   voice sets the project default and PERSISTS across reload. (R2 spot-confirm.)
+   [terminology note: was "Casting" — renamed to "Cast" per the current `stages.ts` tab list.]
 8. Publish: book-info edits, cover change, assembly select→confirm, backups — all PERSIST on reload;
    audiobook downloads work. (R2 spot-confirm.)
-9. Manuscript: Draft chapters edit freely; a rendered chapter requires the Edit-text unlock warning;
+9. Contents: Draft chapters edit freely; a rendered chapter requires the Edit-text unlock warning;
    Focus mode; Queue Remaining button (re-homed in R6).
+   [terminology note: was "Manuscript" — renamed to "Contents" per the current book-level tab list.]
 
 **Audio / player bar (needs rendered audio)**
 10. ONE bottom player bar owns ALL playback; it's hidden when nothing is loaded; scope chip; seek +
     skip-back actually move the playhead; playing a voice sample/preview, a chapter, and a segment
     never overlap (single owner).
-11. Review: load a rendered chapter → text follows playback (current sentence highlighted, tap to
-    seek); add a §N annotation and confirm it persists per-chapter (not bleeding across chapters);
-    "Re-render section" shows progress and surfaces errors.
+11. Director's Console — Booth: load a rendered chapter → text follows playback (current sentence
+    highlighted, tap to seek); add a §N annotation and confirm it persists per-chapter (not bleeding
+    across chapters); "Re-render section" shows progress and surfaces errors.
+    [terminology note: was "Review" (the old stand-alone stage tab) — that surface is now the
+    Director's Console's Booth mode, a faithful port per `BoothTool/index.tsx`.]
 
 **Platform pages**
 12. Voices: catalog cards (icon, attribute pills, ▶ preview, phase CTA, overflow); click a card →
@@ -361,8 +376,9 @@ all pass, but these need your eyes / a live backend the local preview doesn't ha
 14. Integrations page = the API guide. Settings is thin (General/About/Developer);
     /settings/engines and /settings/api redirect to the new pages.
 
-**Dark mode**: toggle dark and re-check the new surfaces (player bar, Review, Voice Lab, catalog,
-Engines, Integrations) — report any light-only leftovers.
+**Dark mode**: toggle dark and re-check the new surfaces (player bar, Director's Console Booth mode,
+Voice Lab, catalog, Engines, Integrations) — report any light-only leftovers.
+[terminology note: was "Review" — see item 11's note.]
 
 **Known deferred / not done (intentional)**
 - R6-T10 dead-code retirement (ProjectDetail/ChapterEditor chain) — deferred to a SUPERVISED session
@@ -382,5 +398,7 @@ Engines, Integrations) — report any light-only leftovers.
     rendered audio; clicking swaps the loaded audio. CAVEAT (v1): it registers the FIRST rendered
     segment, not the scroll-highlighted one — fine for validating the mechanism; refine later if you
     want it to track the active segment.
-18. Review panel no longer has its own competing transport — playback is driven entirely by the
-    global bar (single owner). The panel keeps text follow-along + tap-to-seek + Regenerate + Load&Play.
+18. Booth panel (Director's Console) no longer has its own competing transport — playback is driven
+    entirely by the global bar (single owner). The panel keeps text follow-along + tap-to-seek +
+    Regenerate + Load&Play.
+    [terminology note: was "Review panel" — see item 11's note.]

@@ -14,9 +14,21 @@ export interface Bookmark {
   chapterId: string;
   label: string;
   createdAt: number;
+  /**
+   * 'auto' marks the internal auto-resume marker (one per book, never shown
+   * in user-facing bookmark lists). Undefined/omitted is equivalent to
+   * 'user' — existing stored bookmarks predate this field and must keep
+   * behaving exactly as user bookmarks do today.
+   */
+  kind?: 'auto' | 'user';
+  /** Playback position in seconds. Currently only set on the auto-resume marker. */
+  positionSeconds?: number;
 }
 
 const STORAGE_KEY = 'audiobook-factory:bookmarks';
+
+/** Internal label for the auto-resume marker — never shown to the user. */
+const AUTO_RESUME_LABEL = '__auto_resume__';
 
 // ---------------------------------------------------------------------------
 // Internal module state — initialised lazily on first read, not at import time
@@ -124,6 +136,51 @@ export function renameBookmark(id: string, label: string): void {
 }
 
 /**
+ * Create or update the single internal "auto-resume" marker for a book —
+ * the foundation for "continue where you left off, chapter by chapter"
+ * playback. Never shown in user-facing bookmark lists (see useBookBookmarks).
+ */
+export function upsertAutoResumeBookmark(bookId: string, chapterId: string, positionSeconds: number): void {
+  const existing = load().find((bm) => bm.bookId === bookId && bm.kind === 'auto');
+  if (existing) {
+    const next = load().map((bm) =>
+      bm.id === existing.id ? { ...bm, chapterId, positionSeconds, createdAt: Date.now() } : bm,
+    );
+    save(next);
+    emit();
+    return;
+  }
+  const bm: Bookmark = {
+    id: `bm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    bookId,
+    chapterId,
+    label: AUTO_RESUME_LABEL,
+    createdAt: Date.now(),
+    kind: 'auto',
+    positionSeconds,
+  };
+  const next = [bm, ...load()];
+  save(next);
+  emit();
+}
+
+/** Returns the auto-resume marker for a book, or null if none exists. */
+export function getAutoResumeBookmark(bookId: string): Bookmark | null {
+  return load().find((bm) => bm.bookId === bookId && bm.kind === 'auto') ?? null;
+}
+
+/**
+ * Remove the auto-resume marker for a book (e.g. when the book finishes
+ * playing entirely, so "Continue Listening" resets to starting fresh).
+ * No-op if none exists.
+ */
+export function clearAutoResumeBookmark(bookId: string): void {
+  const next = load().filter((bm) => !(bm.bookId === bookId && bm.kind === 'auto'));
+  save(next);
+  emit();
+}
+
+/**
  * React hook — returns the live bookmarks array.
  * Re-renders whenever any bookmark is added, removed, or renamed.
  */
@@ -132,11 +189,12 @@ export function useBookmarks(): Bookmark[] {
 }
 
 /**
- * React hook — returns only bookmarks for a specific book.
+ * React hook — returns only user-facing bookmarks for a specific book.
+ * Excludes the internal 'auto' (auto-resume) marker — see upsertAutoResumeBookmark.
  */
 export function useBookBookmarks(bookId: string): Bookmark[] {
   const all = useSyncExternalStore(subscribeBookmarks, getBookmarks);
-  return useMemo(() => all.filter((bm) => bm.bookId === bookId), [all, bookId]);
+  return useMemo(() => all.filter((bm) => bm.bookId === bookId && bm.kind !== 'auto'), [all, bookId]);
 }
 
 /** Reset in-memory cache (used in tests via localStorage.clear() + invalidate). */

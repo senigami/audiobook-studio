@@ -137,6 +137,74 @@ def test_voice_build_orchestration_e2e(voices_root):
     assert "input.wav" in settings["built_samples"]
     assert settings["preview_engine"] == "xtts"
 
+def test_voice_build_records_new_version(voices_root):
+    """A successful SampleBuildTask.run() records the build as an active version."""
+    import hashlib
+    from app.domain.voices import variant_versions
+
+    profile_root = voices_root / "VersionSpeaker"
+    profile_root.mkdir(parents=True, exist_ok=True)
+    (profile_root / "voice.json").write_text(json.dumps({"version": 2, "name": "VersionSpeaker"}))
+    profile_dir = profile_root / "Default"
+    profile_dir.mkdir()
+    (profile_dir / "profile.json").write_text(json.dumps({
+        "variant_name": "Default",
+        "engine": "xtts"
+    }))
+
+    mock_progress = MagicMock()
+    mock_bridge = MagicMock()
+
+    def fake_synthesize(req):
+        out_path = Path(req["output_path"])
+        out_path.write_text("synthetic audio")
+        return {"status": "ok", "audio_path": str(out_path)}
+
+    mock_bridge.synthesize.side_effect = fake_synthesize
+
+    def fake_wav_to_mp3(in_wav, out_mp3, on_output=None, cancel_check=None):
+        out_mp3.write_text("mp3 audio")
+        return 0
+
+    orchestrator = TaskOrchestrator(
+        progress_service=mock_progress,
+        voice_bridge=mock_bridge
+    )
+
+    jid = f"build-{uuid.uuid4().hex[:8]}"
+    output_path = profile_dir / "sample.wav"
+
+    task = SampleBuildTask(
+        task_id=jid,
+        speaker_profile="VersionSpeaker",
+        engine_id="xtts",
+        output_path=output_path,
+        test_text="This is a versioned build.",
+        voice_job_settings={"speed": 1.0}
+    )
+
+    with timeout_after(5, "voice build orchestration should not hang"), \
+         patch("app.orchestration.scheduler.orchestrator.create_orchestrator", return_value=orchestrator), \
+         patch("app.engines.bridge.create_voice_bridge", return_value=mock_bridge), \
+         patch("app.engines.audio_ops.wav_to_mp3", side_effect=fake_wav_to_mp3):
+
+        result = task.run()
+        assert result.status == "completed", f"Task failed: {result.message}"
+
+    active_version_id = variant_versions.get_active_version_id(profile_dir)
+    assert active_version_id is not None
+
+    version = variant_versions.get_version(profile_dir, active_version_id)
+    assert version is not None
+    assert version["engine_id"] == "xtts"
+    assert version["test_text"] == "This is a versioned build."
+
+    mp3_path = profile_dir / "sample.mp3"
+    version_artifact_path = profile_dir / "versions" / active_version_id / "artifact.mp3"
+    assert version_artifact_path.exists()
+    assert hashlib.sha256(version_artifact_path.read_bytes()).hexdigest() == hashlib.sha256(mp3_path.read_bytes()).hexdigest()
+
+
 def test_voice_test_orchestration_e2e(voices_root):
     # 1. Setup V2 voice profile
     profile_root = voices_root / "TestSpeaker"

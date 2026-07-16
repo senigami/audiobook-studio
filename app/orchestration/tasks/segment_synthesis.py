@@ -656,9 +656,32 @@ class ChapterSynthesisTask(StudioTask):
     # `isActiveJobPreparing` contract (useStudioChapter.ts).
     _PREPARING_REASON_CODES = frozenset({"SEGMENT_PENDING", "LOADING_MODEL"})
 
+    def _segment_char_count(self, segment_id: str | None) -> int | None:
+        """Return a real segment's OWN character count, looked up by its
+        ``segment_id`` from the in-memory chunk groups this render's children
+        were built from (task 008).
+
+        Deliberately never reads a render-group's combined ``text_length``
+        (``group["text_length"]``/``_child_char_len``) — a group can merge
+        several contiguous manuscript segments up to the engine's chunk
+        limit (``build_chunk_groups``), so using the group total here would
+        silently inflate every segment folded into a multi-segment group to
+        the group's combined length, which is exactly the fabricated-looking
+        data this task's own risk note (R-G) forbids. Returns ``None`` when
+        ``segment_id`` isn't found (e.g. no children built yet, or a caller
+        without chapter-fan-out context) so entries stay additive-only.
+        """
+        if not segment_id:
+            return None
+        for child in self._children:
+            for segment in (child.group or {}).get("segments") or []:
+                if segment.get("id") == segment_id:
+                    return len(segment.get("text_content") or "") or None
+        return None
+
     def _on_child_segment_tick(
         self, *, segment_id: str | None, status: str | None, progress: float | None, eta_seconds: int | None,
-        reason_code: str | None = None,
+        reason_code: str | None = None, final: bool = False,
     ) -> None:
         """Update the live active_segments_map from a child's own progress
         tick (2026-07-05, escaped defect fix) — the event-driven replacement
@@ -674,18 +697,37 @@ class ChapterSynthesisTask(StudioTask):
         class); the ``update_job`` call itself happens OUTSIDE the lock (I/O
         should never happen while holding a lock another thread needs) and
         is naturally serialized by ``app.db.state``'s own internal
-        ``_STATE_LOCK``. A failed/cancelled status REMOVES the entry — a
-        segment that did not finish must not keep showing as "rendering"
-        (this is also called explicitly from the ``as_completed`` loop below
-        for every terminal outcome, since not every terminal transition
-        necessarily arrives via a marker tick). A successful (done/completed)
-        status instead LEAVES a transient ``phase="done"`` marker (2026-07-07
-        fix, escaped defect) — see the ``is_success`` branch below for why.
+        ``_STATE_LOCK``. A cancelled status, or a non-final failed status
+        (still eligible for the retry-once policy), REMOVES the entry — a
+        segment that did not finish must not keep showing as "rendering". A
+        successful (done/completed) status instead LEAVES a transient
+        ``phase="done"`` marker (2026-07-07 fix, escaped defect) — see the
+        ``is_success`` branch below for why.
+
+        ``final=True`` (task 008, R-G): marks this call as the authoritative
+        terminal outcome for the segment — set ONLY by the ``as_completed``
+        loop below, after ``_run_child_with_retry`` has already exhausted the
+        one permitted retry. A ``status="failed"`` tick with ``final=True``
+        therefore represents a genuinely, permanently failed segment and
+        writes (never pops) a ``phase="failed"`` entry so the frontend can
+        show it as failed rather than silently vanishing from the map. A
+        non-final ``"failed"`` (e.g. a marker-driven tick during the FIRST
+        attempt, before the retry-once policy has had a chance to run) still
+        pops — writing ``phase="failed"`` at that point would be premature
+        (this project's progress-no-fabrication principle forbids
+        half-implemented/fabricated-looking status).
+
+        Every entry also carries a best-effort ``char_count`` (task 008),
+        looked up per-segment via ``_segment_char_count`` — never the
+        render-group's combined ``text_length`` (see that method's docstring
+        for why).
         """
         if not _EMIT_ACTIVE_SEGMENTS_MAP or not segment_id:
             return
         is_success = status in {"done", "completed"}
+        is_final_failure = final and status == "failed"
         terminal = is_success or status in {"failed", "cancelled"}
+        char_count = self._segment_char_count(segment_id)
         changed = False
         with self._children_lock:
             if is_success:
@@ -706,6 +748,19 @@ class ChapterSynthesisTask(StudioTask):
                 # refetch; `_clear_active_segments_map` wipes the whole map
                 # at the render's terminal outcome regardless.
                 entry = {"phase": "done", "progress": 1.0, "eta_seconds": 0}
+                if char_count is not None:
+                    entry["char_count"] = char_count
+                if self._live_segments_map.get(segment_id) != entry:
+                    self._live_segments_map[segment_id] = entry
+                    changed = True
+            elif is_final_failure:
+                entry = {
+                    "phase": "failed",
+                    "progress": round(progress or 0.0, 2),
+                    "eta_seconds": eta_seconds,
+                }
+                if char_count is not None:
+                    entry["char_count"] = char_count
                 if self._live_segments_map.get(segment_id) != entry:
                     self._live_segments_map[segment_id] = entry
                     changed = True
@@ -733,6 +788,8 @@ class ChapterSynthesisTask(StudioTask):
                     "progress": round(progress or 0.0, 2),
                     "eta_seconds": eta_seconds,
                 }
+                if char_count is not None:
+                    entry["char_count"] = char_count
                 if self._live_segments_map.get(segment_id) != entry:
                     self._live_segments_map[segment_id] = entry
                     changed = True
@@ -1195,12 +1252,19 @@ class ChapterSynthesisTask(StudioTask):
                     # whatever _on_child_segment_tick calls happened during
                     # the render. It MUST carry the child's REAL outcome
                     # (review fix, 2026-07-07): a completed child leaves the
-                    # transient "done" marker, but a failed/cancelled child
-                    # pops — a hardcoded "done" here would light a
+                    # transient "done" marker; a cancelled child pops; a
+                    # failed child now (task 008) writes a "failed" entry
+                    # instead — a hardcoded "done" here would light a
                     # permanently-failed segment as successfully finished for
-                    # the rest of the render.
+                    # the rest of the render. ``final=True``: this is the
+                    # authoritative post-retry outcome (the as_completed
+                    # future only resolves once `_run_child_with_retry` has
+                    # already exhausted the one permitted retry), so a
+                    # "failed" status here is genuinely permanent, not a
+                    # premature first-attempt failure.
                     self._on_child_segment_tick(
                         segment_id=_leader_id(final_child), status=result.status, progress=1.0, eta_seconds=None,
+                        final=True,
                     )
 
                     if result.status == "cancelled" or self.stop_event.is_set():

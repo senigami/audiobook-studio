@@ -1,18 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-
-const TOAST_VISIBLE_MS = 4000;
+import { TOAST_VISIBLE_MS, type ToastAction } from '@/utils/toast';
 
 export interface ToastState {
   message: string;
   visible: boolean;
-  action?: { label: string; onClick: () => void };
+  action?: ToastAction;
 }
 
 export const useToast = () => {
   const [toast, setToast] = useState<ToastState | null>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showToast = useCallback((message: string, action?: { label: string; onClick: () => void }) => {
+  const showToast = useCallback((message: string, action?: ToastAction) => {
     // Clear any pending timeout before setting a new one
     if (toastTimeoutRef.current !== null) {
       clearTimeout(toastTimeoutRef.current);

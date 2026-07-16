@@ -41,12 +41,14 @@ const TIE_ARCHETYPE_A: RecordingArchetype = {
     appearance_creature_type: '',
     appearance_description: '',
     recording_prompt: 'PROMPT FROM TIE A',
+    sample_text: 'SAMPLE FROM TIE A',
     direction_note: 'NOTE FROM TIE A',
 };
 const TIE_ARCHETYPE_B: RecordingArchetype = {
     ...TIE_ARCHETYPE_A,
     archetype_name: 'Tie B (second in array)',
     recording_prompt: 'PROMPT FROM TIE B',
+    sample_text: 'SAMPLE FROM TIE B',
     direction_note: 'NOTE FROM TIE B',
 };
 const TIE_ATTRS: VoiceAttributes = {
@@ -73,6 +75,7 @@ const EXACT_BOUNDARY_ARCHETYPE: RecordingArchetype = {
     appearance_creature_type: '',
     appearance_description: '',
     recording_prompt: 'PROMPT FROM EXACT BOUNDARY',
+    sample_text: 'SAMPLE FROM EXACT BOUNDARY',
     direction_note: 'NOTE FROM EXACT BOUNDARY',
 };
 const EXACT_BOUNDARY_ATTRS: VoiceAttributes = {
@@ -99,6 +102,7 @@ const CLOSE_BOUNDARY_ARCHETYPE: RecordingArchetype = {
     appearance_creature_type: '',
     appearance_description: '',
     recording_prompt: 'PROMPT FROM CLOSE BOUNDARY',
+    sample_text: 'SAMPLE FROM CLOSE BOUNDARY',
     direction_note: 'NOTE FROM CLOSE BOUNDARY',
 };
 const CLOSE_BOUNDARY_ATTRS: VoiceAttributes = {

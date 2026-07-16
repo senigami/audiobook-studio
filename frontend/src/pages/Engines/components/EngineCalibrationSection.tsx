@@ -28,16 +28,24 @@ export const EngineCalibrationChip: React.FC<{
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.35rem' }}>
+    <div
+      data-testid="calibration-chip"
+      style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.35rem' }}
+    >
       <span
-        data-testid="calibration-chip"
         className="engine-calibration-chip__value"
+        style={{ whiteSpace: 'nowrap' }}
       >
         {Number(engine.calibrated_cps).toFixed(1)} chars/s
-        {engine.calibration_confidence_percent !== undefined && engine.calibration_confidence_percent !== null
-          ? ` · ${engine.calibration_confidence_percent >= 70 ? 'high' : 'low'} confidence`
-          : ''}
       </span>
+      {engine.calibration_confidence_percent !== undefined && engine.calibration_confidence_percent !== null && (
+        <span
+          className="engine-calibration-chip__value"
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          {engine.calibration_confidence_percent >= 70 ? 'high' : 'low'} confidence
+        </span>
+      )}
       <button
         type="button"
         aria-label="Reset calibration baseline"
@@ -88,7 +96,7 @@ export const EngineCalibrationSection: React.FC<{
           title="Reset the calibration history for this engine."
           disabled={saving || !hasCalibrationSummary}
           onClick={onResetCalibration}
-          style={{ padding: '0.45rem 0.75rem', borderRadius: '10px', fontSize: '0.78rem', fontWeight: 800 }}
+          style={{ padding: '0.45rem 0.75rem', borderRadius: '10px', minHeight: 44, fontSize: '0.78rem', fontWeight: 800 }}
         >
           Reset Baseline
         </button>
@@ -101,8 +109,8 @@ export const EngineCalibrationSection: React.FC<{
           gap: '0.75rem',
           padding: '0.85rem 1rem',
           borderRadius: '12px',
-          border: isLowConfidence ? '1px solid var(--warning-tint-border)' : '1px solid var(--accent-focus-ring)',
-          background: isLowConfidence ? 'var(--warning-tint-bg)' : 'var(--surface-glass-half)',
+          border: isLowConfidence ? '1px solid var(--warning-tint-border)' : '1px solid var(--border)',
+          background: isLowConfidence ? 'var(--warning-tint-bg)' : 'var(--surface)',
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.28rem' }}>

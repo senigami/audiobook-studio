@@ -234,6 +234,48 @@ def list_speaker_profiles():
             default_speaker = names[0] if len(sorted_items) > 0 else None
             state.update_settings({"default_speaker_profile": default_speaker})
 
+    # Cache the resolved default-variant name per voice root so state.json is
+    # only read once per character, not once per variant profile.
+    _voice_default_variant_cache: Dict[str, Optional[str]] = {}
+
+    def _default_variant_name_for_root(voice_root: Path) -> Optional[str]:
+        """Same fallback chain as `voices_huggingface._resolve_publish_variant`:
+        state.json's default_variant -> a directory literally named "Default"
+        -> first alphabetically. Kept in sync deliberately (Connection 3) so the
+        catalog/switcher view never disagrees with what gets exported."""
+        cache_key = str(voice_root)
+        if cache_key in _voice_default_variant_cache:
+            return _voice_default_variant_cache[cache_key]
+
+        from ...domain.voices.manifest import load_voice_state
+
+        variant_dirs = sorted(
+            (entry for entry in voice_root.iterdir() if entry.is_dir() and (entry / "profile.json").exists()),
+            key=lambda p: p.name.lower(),
+        )
+        if not variant_dirs:
+            _voice_default_variant_cache[cache_key] = None
+            return None
+
+        voice_state = load_voice_state(voice_root)
+        default_variant = voice_state.get("default_variant")
+        resolved_name = None
+        if default_variant:
+            for entry in variant_dirs:
+                if entry.name == default_variant:
+                    resolved_name = entry.name
+                    break
+        if resolved_name is None:
+            for entry in variant_dirs:
+                if entry.name == "Default":
+                    resolved_name = entry.name
+                    break
+        if resolved_name is None:
+            resolved_name = variant_dirs[0].name
+
+        _voice_default_variant_cache[cache_key] = resolved_name
+        return resolved_name
+
     profiles = []
     for name, d in sorted_items:
         raw_wavs = sorted([f.name for f in d.glob("*.wav") if f.name != "sample.wav"])
@@ -246,6 +288,15 @@ def list_speaker_profiles():
             is_new = w not in built_samples
             samples.append({"name": w, "is_new": is_new})
             if is_new: is_rebuild_required = True
+
+        # Nested v2 layout (voice.json wraps N variant subdirs under one root) is
+        # the only shape `default_variant` applies to; a flat legacy profile has
+        # no siblings, so it's trivially "the default".
+        voice_root = d.parent
+        if pathing.find_secure_file(voice_root, "voice.json"):
+            is_variant_default = d.name == _default_variant_name_for_root(voice_root)
+        else:
+            is_variant_default = True
 
         preview_url = voices_helpers._voice_preview_url(name)
         preview_signature_stale = False
@@ -303,6 +354,11 @@ def list_speaker_profiles():
             "speaker_id": spk_settings.get("speaker_id"),
             "variant_name": spk_settings.get("variant_name"),
             "engine": spk_settings.get("engine") or "",
+            "performance_tags": spk_settings.get("performance_tags", []),
+            "tone": spk_settings.get("tone", []),
+            "timbre": spk_settings.get("timbre", []),
+            "pace": spk_settings.get("pace", ""),
+            "is_variant_default": is_variant_default,
             "voice_asset_id": spk_settings.get("voice_asset_id"),
             "model": spk_settings.get("model"),
             "reference_sample": spk_settings.get("reference_sample"),

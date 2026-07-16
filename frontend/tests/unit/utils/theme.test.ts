@@ -96,8 +96,8 @@ describe('loadThemePref / saveThemePref round-trip', () => {
     localStorage.clear();
   });
 
-  it('loadThemePref returns "system" when nothing is stored', () => {
-    expect(loadThemePref()).toBe('system');
+  it('loadThemePref returns "light" when nothing is stored (owner-requested default, 2026-07-16)', () => {
+    expect(loadThemePref()).toBe('light');
   });
 
   it('saveThemePref persists the value; loadThemePref reads it back', () => {

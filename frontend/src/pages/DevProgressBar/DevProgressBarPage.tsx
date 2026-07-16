@@ -6,6 +6,7 @@ import { ProgressBarLaunchPanel } from '@/pages/DevProgressBar/components/Progre
 import { ProgressBarUpdatePanel } from '@/pages/DevProgressBar/components/ProgressBarUpdatePanel';
 import { ProgressBarDebugPanel } from '@/pages/DevProgressBar/components/ProgressBarDebugPanel';
 import { SegmentContractDebugPanel } from '@/pages/DevProgressBar/components/SegmentContractDebugPanel';
+import '@/pages/DevProgressBar/DevProgressBarPage.css';
 
 export const ProgressBarTestPage: React.FC = () => {
   const {
@@ -52,7 +53,7 @@ export const ProgressBarTestPage: React.FC = () => {
 
       <SegmentContractDebugPanel />
 
-      <div style={{ display: 'grid', gap: '1.25rem', gridTemplateColumns: 'minmax(320px, 0.95fr) minmax(360px, 1.05fr)' }}>
+      <div className="dev-progress-bar-page__columns">
         <section style={{
           padding: '1.25rem',
           borderRadius: '18px',

@@ -193,6 +193,6 @@ jobs:
             curl -s http://localhost:4173 > /dev/null && break
             sleep 1
           done
-          PLAYWRIGHT_NO_WEB_SERVER=1 npx playwright test tests/e2e/a11y/axe.spec.ts \
+          PLAYWRIGHT_NO_WEB_SERVER=1 npx playwright test tests/e2e/a11y/axe.spec.ts tests/e2e/a11y/mobile_mode_gate.spec.ts \
             --project=chromium --reporter=list || true
           kill $PREVIEW_PID || true

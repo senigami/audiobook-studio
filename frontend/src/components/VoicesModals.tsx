@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Speaker, SpeakerProfile, VoiceEngine, TtsEngine, VoiceMetadata } from '@/types';
+import type { Speaker, SpeakerProfile, VoiceEngine, TtsEngine } from '@/types';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { RecordingGuide } from '@/components/RecordingGuide';
 import {
@@ -7,9 +7,7 @@ import {
     RenameVoiceModal,
     AddVariantModal,
     MoveVariantModal,
-    Drawer,
-    ScriptEditor,
-    VoiceSettingsPanel
+    Drawer
 } from '@/pages/Voices/components';
 import { getVariantDisplayName } from '@/utils/voiceProfiles';
 
@@ -60,31 +58,6 @@ interface VoicesModalsProps {
     // Guide Drawer
     showGuide: boolean;
     setShowGuide: (show: boolean) => void;
-
-    // Script Editor Drawer
-    editingProfile: SpeakerProfile | null;
-    setEditingProfile: (profile: SpeakerProfile | null) => void;
-    variantName: string;
-    setVariantName: (name: string) => void;
-    editingEngine: VoiceEngine;
-    setEditingEngine: (engine: VoiceEngine) => void;
-    testText: string;
-    setTestText: (text: string) => void;
-    referenceSample: string;
-    setReferenceSample: (sample: string) => void;
-    engineVoiceId: string;
-    setEngineVoiceId: (voiceId: string) => void;
-    editingSettings: Record<string, any>;
-    setEditingSettings: (settings: Record<string, any>) => void;
-    /** Which drawer `editingProfile`'s edit session should surface as — the Script Editor
-     * (test-text/engine) or the Voice Settings drawer (per-voice plugin controls). */
-    editSurface: 'script' | 'settings' | null;
-    setEditSurface: (surface: 'script' | 'settings' | null) => void;
-    isSavingText: boolean;
-    handleResetTestText: () => void;
-    handleSaveTestText: () => void;
-    /** Resolved `VoiceMetadata` for `editingProfile` (id-first, name-fallback — see `VoicesPage.tsx`) — drives ScriptEditor's "Suggest from voice qualities" button. */
-    editingVoiceMetadata?: VoiceMetadata;
 
     // Global Confirm
     confirmConfig: any;
@@ -154,52 +127,12 @@ export const VoicesModals: React.FC<VoicesModalsProps> = (props) => {
                 onSubmit={props.handleMoveVariant}
             />
 
-            <Drawer 
-                isOpen={props.showGuide} 
-                onClose={() => props.setShowGuide(false)} 
+            <Drawer
+                isOpen={props.showGuide}
+                onClose={() => props.setShowGuide(false)}
                 title="Recording Guide"
             >
                 <RecordingGuide />
-            </Drawer>
-
-            <Drawer
-                isOpen={!!props.editingProfile && props.editSurface === 'script'}
-                onClose={() => props.setEditingProfile(null)}
-                title={`Edit: ${props.variantName || getVariantDisplayName(props.editingProfile)}`}
-            >
-                <ScriptEditor
-                    variantName={props.variantName}
-                    onVariantNameChange={props.setVariantName}
-                    engine={props.editingEngine}
-                    onEngineChange={props.setEditingEngine}
-                    engines={props.engines}
-                    testText={props.testText}
-                    onTestTextChange={props.setTestText}
-                    referenceSample={props.referenceSample}
-                    onReferenceSampleChange={props.setReferenceSample}
-                    availableSamples={props.editingProfile?.samples || []}
-                    engineVoiceId={props.engineVoiceId}
-                    onEngineVoiceIdChange={props.setEngineVoiceId}
-                    onResetTestText={props.handleResetTestText}
-                    onSave={props.handleSaveTestText}
-                    isSaving={props.isSavingText}
-                    attributes={props.editingVoiceMetadata?.attributes}
-                />
-            </Drawer>
-
-            <Drawer
-                isOpen={!!props.editingProfile && props.editSurface === 'settings'}
-                onClose={() => props.setEditingProfile(null)}
-                title={`Voice Settings: ${props.variantName || getVariantDisplayName(props.editingProfile)}`}
-            >
-                <VoiceSettingsPanel
-                    engine={props.editingEngine}
-                    engines={props.engines}
-                    settings={props.editingSettings}
-                    onSettingsChange={props.setEditingSettings}
-                    isSaving={props.isSavingText}
-                    onSave={props.handleSaveTestText}
-                />
             </Drawer>
 
             {props.exportVoiceName && (

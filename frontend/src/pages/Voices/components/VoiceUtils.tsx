@@ -3,6 +3,21 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, FileEdit } from 'lucide-react';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import './VoiceUtils.css';
+
+const DRAWER_MIN_WIDTH = 380;
+/** Below this viewport width (and always for touch/coarse pointers) the drawer
+ * renders as a full-width sheet — the mouse-driven resize handle is disabled
+ * rather than trying to make a 12px drag strip usable with a finger. */
+const DRAWER_MOBILE_BREAKPOINT = 768;
+
+function clampDrawerWidth(width: number): number {
+    const max = Math.floor(window.innerWidth * 0.9);
+    // On narrow viewports max (90vw) can fall below the 380px minimum —
+    // always honor the floor so a single keypress can't push the drawer
+    // under its own minimum clamp.
+    return Math.max(DRAWER_MIN_WIDTH, Math.min(width, Math.max(max, DRAWER_MIN_WIDTH)));
+}
 
 // --- Drawer ---
 
@@ -19,23 +34,47 @@ export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, title, children
     const drawerRef = useRef<HTMLDivElement>(null);
     useFocusTrap(drawerRef, isOpen);
 
+    // Resize handle is desktop mouse+keyboard only: below the mobile breakpoint,
+    // or on any coarse (touch) pointer, the drawer becomes a full-width sheet
+    // and the 12px drag strip is disabled so it can't eat backdrop-close taps.
+    const [isResizeDisabled, setIsResizeDisabled] = useState(() =>
+        typeof window !== 'undefined'
+            ? window.innerWidth < DRAWER_MOBILE_BREAKPOINT || window.matchMedia('(pointer: coarse)').matches
+            : false
+    );
+
+    useEffect(() => {
+        const coarseQuery = window.matchMedia('(pointer: coarse)');
+        const update = () => {
+            setIsResizeDisabled(window.innerWidth < DRAWER_MOBILE_BREAKPOINT || coarseQuery.matches);
+        };
+        update();
+        window.addEventListener('resize', update);
+        coarseQuery.addEventListener('change', update);
+        return () => {
+            window.removeEventListener('resize', update);
+            coarseQuery.removeEventListener('change', update);
+        };
+    }, []);
+
     const startResizing = useCallback((e: React.MouseEvent) => {
+        if (isResizeDisabled) return;
         e.preventDefault();
         setIsResizing(true);
-    }, []);
+    }, [isResizeDisabled]);
 
     const stopResizing = useCallback(() => {
         setIsResizing(false);
     }, []);
 
     const resize = useCallback((e: MouseEvent) => {
-        if (isResizing) {
+        if (isResizing && !isResizeDisabled) {
             const newWidth = window.innerWidth - e.clientX;
-            if (newWidth >= 380 && newWidth <= window.innerWidth * 0.9) {
+            if (newWidth >= DRAWER_MIN_WIDTH && newWidth <= window.innerWidth * 0.9) {
                 setWidth(newWidth);
             }
         }
-    }, [isResizing]);
+    }, [isResizing, isResizeDisabled]);
 
     useEffect(() => {
         if (isResizing) {
@@ -78,13 +117,14 @@ export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, title, children
                         exit={{ x: '100%' }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
                         onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+                        className="drawer-panel"
                         style={{
                             position: 'fixed',
                             top: 0,
                             right: 0,
                             bottom: 0,
-                            width: `${width}px`,
-                            maxWidth: '95vw',
+                            width: isResizeDisabled ? '100%' : `${width}px`,
+                            maxWidth: isResizeDisabled ? '100%' : '95vw',
                             background: 'var(--surface)',
                             boxShadow: 'var(--shadow-lg)',
                             zIndex: 2001,
@@ -94,16 +134,17 @@ export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, title, children
                             userSelect: isResizing ? 'none' : 'auto'
                         }}
                     >
+                        {!isResizeDisabled && (
                         <div
                             onMouseDown={startResizing}
                             onKeyDown={(e) => {
-                                if (e.key === 'ArrowLeft') setWidth(w => Math.min(w + 20, Math.floor(window.innerWidth * 0.9)));
-                                if (e.key === 'ArrowRight') setWidth(w => Math.max(w - 20, 380));
+                                if (e.key === 'ArrowLeft') setWidth(w => clampDrawerWidth(w + 20));
+                                if (e.key === 'ArrowRight') setWidth(w => clampDrawerWidth(w - 20));
                             }}
                             role="separator"
                             aria-orientation="vertical"
                             aria-valuenow={width}
-                            aria-valuemin={380}
+                            aria-valuemin={DRAWER_MIN_WIDTH}
                             aria-valuemax={Math.floor(window.innerWidth * 0.9)}
                             aria-label="Resize drawer"
                             tabIndex={0}
@@ -143,6 +184,7 @@ export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, title, children
                                 ))}
                             </div>
                         </div>
+                        )}
 
                         <div style={{
                             padding: '1.5rem',

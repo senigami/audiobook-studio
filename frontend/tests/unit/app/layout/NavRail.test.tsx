@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { NavRail } from '@/app/layout/NavRail';
@@ -138,22 +138,94 @@ describe('NavRail', () => {
     expect(screen.getByRole('button', { name: 'Dark mode' })).toBeTruthy();
   });
 
-  it('renders the hover overlay without changing the persisted collapse flag', () => {
-    localStorage.setItem(RAIL_STORAGE_KEY, 'true');
+  it('renders the hover overlay after a dwell delay, without changing the persisted collapse flag', () => {
+    vi.useFakeTimers();
+    try {
+      localStorage.setItem(RAIL_STORAGE_KEY, 'true');
 
-    render(
-      <MemoryRouter initialEntries={['/']}>
-        <NavRail />
-      </MemoryRouter>,
-    );
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <NavRail />
+        </MemoryRouter>,
+      );
 
-    const nav = screen.getByRole('navigation', { name: 'Primary' });
-    expect(document.querySelector('.nav-rail__overlay')).toBeNull();
+      const nav = screen.getByRole('navigation', { name: 'Primary' });
+      expect(document.querySelector('.nav-rail__overlay')).toBeNull();
 
-    fireEvent.mouseEnter(nav);
+      fireEvent.mouseEnter(nav);
 
-    expect(document.querySelector('.nav-rail__overlay')).toBeTruthy();
-    expect(localStorage.getItem(RAIL_STORAGE_KEY)).toBe('true');
-    expect(screen.getByText('CREATE')).toBeTruthy();
+      // A quick pass-through shouldn't trigger it — nothing mounts immediately.
+      expect(document.querySelector('.nav-rail__overlay')).toBeNull();
+
+      act(() => {
+        vi.advanceTimersByTime(220);
+      });
+
+      expect(document.querySelector('.nav-rail__overlay')).toBeTruthy();
+      expect(localStorage.getItem(RAIL_STORAGE_KEY)).toBe('true');
+      expect(screen.getByText('CREATE')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not expand on a quick mouse pass-through (enter then leave before the dwell delay)', () => {
+    vi.useFakeTimers();
+    try {
+      localStorage.setItem(RAIL_STORAGE_KEY, 'true');
+
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <NavRail />
+        </MemoryRouter>,
+      );
+
+      const nav = screen.getByRole('navigation', { name: 'Primary' });
+
+      fireEvent.mouseEnter(nav);
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
+      fireEvent.mouseLeave(nav);
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+
+      expect(document.querySelector('.nav-rail__overlay')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps the overlay open briefly after the pointer leaves (exit delay)', () => {
+    vi.useFakeTimers();
+    try {
+      localStorage.setItem(RAIL_STORAGE_KEY, 'true');
+
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <NavRail />
+        </MemoryRouter>,
+      );
+
+      const nav = screen.getByRole('navigation', { name: 'Primary' });
+
+      fireEvent.mouseEnter(nav);
+      act(() => {
+        vi.advanceTimersByTime(220);
+      });
+      expect(document.querySelector('.nav-rail__overlay')).toBeTruthy();
+
+      fireEvent.mouseLeave(nav);
+      // Still present immediately after leaving — exit is debounced, not instant.
+      expect(document.querySelector('.nav-rail__overlay')).toBeTruthy();
+
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      expect(document.querySelector('.nav-rail__overlay')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

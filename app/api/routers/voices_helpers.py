@@ -20,6 +20,7 @@ from ...db.speakers import (
     get_speaker_settings,
     update_speaker_settings,
     DEFAULT_SPEAKER_TEST_TEXT,
+    profile_has_custom_test_text,
 )
 from ...engines.bridge import create_voice_bridge
 from ...core import config
@@ -305,6 +306,106 @@ def _voice_job_title(name: str, action: str = "Building voice for", include_vari
     if include_variant:
         return f"{action} {speaker_name}: {variant_name}"
     return f"{action} {speaker_name}"
+
+def submit_sample_test_job(name: str, background_tasks) -> dict:
+    """Submit a sample-generation job for a speaker profile.
+
+    Shared by ``POST /{name}/test`` (voices_actions.py) and the Hugging
+    Face publish flow (voices_huggingface.py) -- generating a fresh sample
+    is the exact same job either way, so this is the one place that builds
+    and submits it. Returns a plain result dict rather than a FastAPI
+    response, since it's called both from a route handler and from plain
+    internal Python code:
+
+    - ``{"ok": True, "job_id": ..., "audio_url": ...}`` once queued.
+    - ``{"ok": False, "status_code": ..., "message": ...}`` when the
+      profile can't be tested yet (no engine configured/enabled, or no
+      generation material) or its directory can't be found.
+    """
+    from ...db import models, state
+    from ...db.queue import upsert_queue_row
+    from ...orchestration.scheduler.orchestrator import create_orchestrator
+    from ...orchestration.tasks.sample_test import SampleTestTask
+
+    settings = get_speaker_settings(name)
+    engine = settings.get("engine") or ""
+    if not engine:
+        return {"ok": False, "status_code": 400, "message": "No TTS engine is configured for this profile."}
+    if not _is_engine_active(engine):
+        return {"ok": False, "status_code": 400, "message": f"Engine {engine} is not enabled in Settings."}
+    if not _voice_has_generation_material(name):
+        return {
+            "ok": False,
+            "status_code": 400,
+            "message": "Add at least one sample or keep a latent before testing this voice.",
+        }
+
+    pdir = _existing_voice_profile_dir(name)
+    if not pdir:
+        return {"ok": False, "status_code": 404, "message": "Voice profile directory not found"}
+
+    if not profile_has_custom_test_text(name):
+        # Never customized -- see if this voice's tagged attributes match an
+        # archetype closely enough to suggest a better-than-generic sample line
+        # than DEFAULT_SPEAKER_TEST_TEXT. `pdir` is either the voice root itself
+        # (single-variant profiles) or a variant subdirectory, so the voice
+        # manifest (attributes live there, not in profile.json) could be at
+        # either `pdir` or `pdir.parent` -- check both.
+        from ...domain.voices.manifest import load_voice_manifest
+        from ...domain.voices.recording_archetypes import suggest_sample_text
+
+        attributes = None
+        for candidate in (pdir, pdir.parent):
+            manifest = load_voice_manifest(candidate)
+            if manifest.get("attributes"):
+                attributes = manifest["attributes"]
+                break
+
+        suggested_text = suggest_sample_text(attributes) if attributes else None
+        if suggested_text:
+            update_speaker_settings(name, test_text=suggested_text)
+            settings = get_speaker_settings(name)
+
+    jid = f"test-{uuid.uuid4().hex[:8]}"
+    j = models.Job(
+        id=jid,
+        engine="voice_test",
+        chapter_file="",
+        status="queued",
+        created_at=time.time(),
+        speaker_profile=name,
+        custom_title=_voice_job_title(name),
+    )
+    state.put_job(j)
+    upsert_queue_row(jid, status="queued", custom_title=j.custom_title, engine="voice_test")
+
+    orchestrator = create_orchestrator()
+    task = SampleTestTask(
+        task_id=jid,
+        speaker_profile=name,
+        engine_id=engine,
+        output_path=pdir / "sample.wav",
+        voice_profile_dir=pdir,
+        test_text=settings["test_text"],
+        voice_job_settings=settings,
+        custom_title=_voice_job_title(name),
+    )
+    background_tasks.add_task(orchestrator.submit, task)
+
+    preview_url = _voice_preview_url(name)
+    try:
+        root = get_voices_dir()
+        rel_path = pdir.relative_to(root)
+        url_path = rel_path.as_posix()
+    except (ValueError, AttributeError):
+        url_path = name
+
+    return {
+        "ok": True,
+        "job_id": jid,
+        "audio_url": preview_url or f"/out/voices/{url_path}/sample.mp3",
+    }
+
 
 def delete_speaker_sample(
     name: str,

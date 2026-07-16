@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import array
+import json
+import logging
 import math
+import os
 import subprocess
 from pathlib import Path
 from typing import Any, Callable
 
 from app.core.config import MP3_QUALITY
 from app.utils.subprocess_utils import probe_audio_duration, probe_audio_stream_info
+
+logger = logging.getLogger(__name__)
 
 
 def wav_to_mp3(
@@ -246,3 +251,84 @@ def compute_peaks_sidecar(wav_path: Path) -> dict | None:
         }
     except (OSError, subprocess.SubprocessError, ValueError):
         return None
+
+
+def peaks_sidecar_path(wav_path: Path) -> Path:
+    """Return the canonical peaks-sidecar path for ``wav_path`` (sibling ``.peaks.json``)."""
+    return wav_path.with_suffix(".peaks.json")
+
+
+def _read_fresh_sidecar(sidecar_path: Path, stat: os.stat_result) -> dict | None:
+    """Return the cached sidecar dict iff it exists and is fresh, else None.
+
+    "Fresh" means the cached sidecar's stamped version/size/mtime match
+    ``stat`` (the WAV's current stat) — any mismatch (stale re-render or a
+    ``SIDECAR_VERSION`` bump) is treated as stale so callers recompute rather
+    than serve stale data. Unreadable/corrupt cache files degrade to None.
+    """
+    if not sidecar_path.exists():
+        return None
+    try:
+        existing = json.loads(sidecar_path.read_text())
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
+    src = existing.get("source", {})
+    if (
+        existing.get("version") == SIDECAR_VERSION
+        and src.get("size_bytes") == stat.st_size
+        and src.get("mtime_ns") == stat.st_mtime_ns
+    ):
+        return existing
+    return None
+
+
+def _atomic_write_sidecar(sidecar_path: Path, sidecar: dict) -> None:
+    """Best-effort atomic write of a peaks sidecar (write ``.json.tmp`` → ``os.replace``).
+
+    Caching is best-effort: a failed write (disk full, permission, temp-path
+    race) is logged and swallowed so callers still keep the freshly computed
+    peaks rather than discarding a valid result or surfacing an error.
+    """
+    try:
+        tmp_path = sidecar_path.with_suffix(".json.tmp")
+        tmp_path.write_text(json.dumps(sidecar))
+        os.replace(tmp_path, sidecar_path)
+    except OSError:
+        logger.warning("Failed to write peaks sidecar at %s", sidecar_path, exc_info=True)
+
+
+def ensure_peaks_sidecar(wav_path: Path, sidecar_path: Path | None = None) -> dict | None:
+    """Return a fresh peaks sidecar for ``wav_path``, computing + caching on miss.
+
+    Single implementation of the sidecar cache format (freshness check +
+    atomic write) shared by the lazy GET-route helper
+    (``_load_or_compute_peaks_sidecar``) and the render-time finalization hook.
+
+    Returns the sidecar dict (a fresh cached one or a freshly computed one) or
+    None when the WAV is unreadable or peaks cannot be computed. Never raises
+    past ``compute_peaks_sidecar``'s own None contract.
+
+    Not internally locked: the GET route wraps it in a per-WAV-path lock to
+    serialize concurrent requests; the render hook fires once per render so
+    needs no lock.
+    """
+    if sidecar_path is None:
+        sidecar_path = peaks_sidecar_path(wav_path)
+
+    # The WAV can be deleted/replaced between a caller's exists() check and
+    # this stat by a concurrent re-render; a missing file degrades to None.
+    try:
+        stat = wav_path.stat()
+    except OSError:
+        return None
+
+    fresh = _read_fresh_sidecar(sidecar_path, stat)
+    if fresh is not None:
+        return fresh
+
+    sidecar = compute_peaks_sidecar(wav_path)
+    if sidecar is None:
+        return None
+
+    _atomic_write_sidecar(sidecar_path, sidecar)
+    return sidecar

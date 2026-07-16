@@ -1,4 +1,4 @@
-# 02 · "David Park" — Dialogue Playwright  ☆ INFERRED
+# 02 · Dialogue Playwright  ☆ INFERRED
 
 **Identity:** "I write plays meant to be heard, not read — every bracket and colon in my script is a performance instruction, and if your parser flattens my stage directions into dialogue, you've just put garbage in my actors' mouths."
 

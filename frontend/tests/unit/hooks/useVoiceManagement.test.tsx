@@ -95,6 +95,49 @@ describe('useVoiceManagement', () => {
     });
   });
 
+  // Owner-reported (2026-07-16): "after I rebuild, the samples are still
+  // labeled as new" -- root cause was two separate useEffects both watching
+  // `jobs`, where the first silently cleared a just-completed build's
+  // buildingProfiles entry before the second (which alone called onRefresh)
+  // ever saw the transition, so the profile list (and its is_new/
+  // is_rebuild_required flags) never refreshed after a rebuild finished.
+  it('calls onRefresh when a tracked build job transitions to done', async () => {
+    const initialProps: { jobs: Record<string, any> } = {
+      jobs: {
+        'job-1': {
+          id: 'job-1',
+          engine: 'voice_build',
+          speaker_profile: 'Voice 1',
+          status: 'running',
+        } as any,
+      },
+    };
+    const { result, rerender } = renderHook(
+      ({ jobs }: { jobs: Record<string, any> }) => useVoiceManagement(onRefresh, speakerProfiles, requestConfirm, jobs),
+      { initialProps }
+    );
+
+    await waitFor(() => {
+      expect(result.current.buildingProfiles['Voice 1']).toBe(true);
+    });
+
+    rerender({
+      jobs: {
+        'job-1': {
+          id: 'job-1',
+          engine: 'voice_build',
+          speaker_profile: 'Voice 1',
+          status: 'done',
+        } as any,
+      },
+    });
+
+    await waitFor(() => {
+      expect(onRefresh).toHaveBeenCalled();
+    });
+    expect(result.current.buildingProfiles['Voice 1']).toBeUndefined();
+  });
+
   it('handles buildNow failure with error formatting', async () => {
     const errorResponse = { detail: [{ msg: 'Rebuild failed' }] };
     (global.fetch as any).mockResolvedValue({
@@ -157,16 +200,64 @@ describe('useVoiceManagement', () => {
     window.removeEventListener(APP_TOAST_EVENT, toastHandler);
   });
 
-  it('handles handleDelete', async () => {
+  it('handles handleDelete — defers the actual delete behind an undo toast', async () => {
+    const toastHandler = vi.fn();
+    window.addEventListener(APP_TOAST_EVENT, toastHandler);
+
     const { result } = renderHook(() => useVoiceManagement(onRefresh, speakerProfiles, requestConfirm));
 
+    vi.useFakeTimers();
     await act(async () => {
       await result.current.handleDelete('Voice 1');
     });
+
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/speaker-profiles/Voice%201', {
+      method: 'DELETE',
+    });
+    expect(toastHandler).toHaveBeenCalledTimes(1);
+    const detail = (toastHandler.mock.calls[0][0] as CustomEvent).detail;
+    expect(detail.message).toMatch(/deleted voice "voice 1"/i);
+    expect(detail.action).toEqual({ label: 'Undo', onClick: expect.any(Function) });
+
+    await act(async () => {
+      vi.advanceTimersByTime(4000);
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
 
     expect(global.fetch).toHaveBeenCalledWith('/api/speaker-profiles/Voice%201', {
       method: 'DELETE',
     });
     expect(onRefresh).toHaveBeenCalled();
+
+    window.removeEventListener(APP_TOAST_EVENT, toastHandler);
+  });
+
+  it('cancels the deferred voice delete when Undo is clicked', async () => {
+    const toastHandler = vi.fn();
+    window.addEventListener(APP_TOAST_EVENT, toastHandler);
+
+    const { result } = renderHook(() => useVoiceManagement(onRefresh, speakerProfiles, requestConfirm));
+
+    vi.useFakeTimers();
+    await act(async () => {
+      await result.current.handleDelete('Voice 1');
+    });
+
+    const detail = (toastHandler.mock.calls[0][0] as CustomEvent).detail;
+    detail.action.onClick();
+
+    await act(async () => {
+      vi.advanceTimersByTime(4000);
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
+
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/speaker-profiles/Voice%201', {
+      method: 'DELETE',
+    });
+    expect(onRefresh).not.toHaveBeenCalled();
+
+    window.removeEventListener(APP_TOAST_EVENT, toastHandler);
   });
 });

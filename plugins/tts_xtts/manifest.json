@@ -7,7 +7,7 @@
   "event_envelope_version": "1.0",
   "engine_id": "xtts",
   "display_name": "XTTS (Local)",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "min_studio": "2.0.0",
   "entry_class": "interface:XttsPlugin",
   "app_adapter_class": "XttsVoiceEngine",
@@ -45,7 +45,7 @@
       "top_k",
       "top_p"
     ],
-    "max_concurrent_workers": 2,
+    "max_concurrent_workers": 8,
     "text_chunk_limit": 500,
     "text_split_target": 450,
     "sanitize_categories": ["quotes", "acronyms", "fractions", "dashes", "punct_spacing", "ascii", "terminal"],

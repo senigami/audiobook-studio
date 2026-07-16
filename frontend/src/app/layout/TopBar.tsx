@@ -23,14 +23,19 @@ const ROUTE_KIND_LABELS: Record<string, string> = {
   queue: 'Queue',
   voices: 'Voices',
   settings: 'Settings',
+  activity: 'Activity',
+  engines: 'Engines',
+  integrations: 'Integrations',
 };
 
-function getDefaultBreadcrumbLabel(shellState?: TopBarShellState): string {
+// Returns undefined (rather than a guessed fallback) when the route kind has
+// no known label — showing no breadcrumb is preferable to showing a wrong one.
+function getDefaultBreadcrumbLabel(shellState?: TopBarShellState): string | undefined {
   if (!shellState) {
     return 'Library';
   }
 
-  return ROUTE_KIND_LABELS[shellState.navigation.routeKind] ?? 'Library';
+  return ROUTE_KIND_LABELS[shellState.navigation.routeKind];
 }
 
 function getConnectionState(status?: TopBarShellState['hydration']['status']): {
@@ -108,12 +113,11 @@ export function TopBar({
             <span className="top-bar__breadcrumb-caret" aria-hidden="true"><ChevronRight size={14} /></span>
             <span className="top-bar__crumb-current">{stageLabel}</span>
           </>
-        ) : (
-          <>
-            <span className="top-bar__breadcrumb-label">{breadcrumb ?? defaultBreadcrumb}</span>
-            <span className="top-bar__breadcrumb-caret" aria-hidden="true"><ChevronRight size={14} /></span>
-          </>
-        )}
+        ) : breadcrumb ?? defaultBreadcrumb ? (
+          // Single-level breadcrumb: no following segment, so no trailing caret —
+          // Apple navigation bars never show a separator pointing at nothing.
+          <span className="top-bar__breadcrumb-label">{breadcrumb ?? defaultBreadcrumb}</span>
+        ) : null}
       </nav>
 
       <div className="top-bar__spacer" />

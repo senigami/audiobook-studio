@@ -1,0 +1,868 @@
+{
+  "files": {
+    "frontend/src/hooks/chapter/useChapterAssignments.ts": {
+      "purpose": "Script span/range assignment to characters with optimistic updates and revision-conflict handling",
+      "exports": [
+        {
+          "name": "useChapterAssignments",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts",
+        "frontend/src/hooks/chapter/useChapterEditorState.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/chapterEditorHelpers.ts"
+      ],
+      "called_by": [
+        "frontend/src/hooks/useChapterEditor.ts"
+      ],
+      "notes": [
+        "B2 fix: latestRevisionIdRef tracks base_revision_id synchronously"
+      ],
+      "calls_inferred": [
+        "frontend/src/api#api.saveScriptAssignments"
+      ]
+    },
+    "frontend/src/hooks/chapter/useChapterEditorState.ts": {
+      "purpose": "Chapter editor core state container",
+      "exports": [
+        {
+          "name": "useChapterEditorState",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/hooks/useChapterAnalysis.ts",
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/hooks/chapter/useChapterAssignments.ts",
+        "frontend/src/hooks/chapter/useChapterLoader.ts",
+        "frontend/src/hooks/chapter/useChapterPersistence.ts",
+        "frontend/src/hooks/chapter/useChapterQueue.ts",
+        "frontend/src/hooks/useChapterEditor.ts"
+      ],
+      "notes": [
+        "2026-07-10: Added chapterNotFound/setChapterNotFound state, threaded through the hook's returned state object."
+      ],
+      "calls_inferred": [
+        "frontend/src/hooks/useChapterAnalysis#*"
+      ]
+    },
+    "frontend/src/hooks/chapter/useChapterLoader.ts": {
+      "purpose": "Chapter data fetch with timing instrumentation, segment freshness tracking, completion polling",
+      "exports": [
+        {
+          "name": "useChapterLoader",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts",
+        "frontend/src/hooks/chapter/useChapterEditorState.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/jobSelection.ts",
+        "frontend/src/utils/runtimeDebug.ts"
+      ],
+      "called_by": [
+        "frontend/src/hooks/useChapterEditor.ts"
+      ],
+      "notes": [
+        "2026-07-09: loadChapter() now calls api.fetchChapter(chapterId) (GET /api/chapters/{id}, ~700B/~4ms) instead of api.fetchChapters(projectId) + Array.find (GET /api/projects/{id}/chapters, ~780KB/~60-100ms for the measured 28-chapter book \u2014 the full list including every OTHER chapter's full text_content). This loader runs on mount, on every websocket chapter-update/segment-update tick, and on every 1s completion-poll tick (up to 30x per render), so the old code re-transferred the whole project's chapter text repeatedly just to read one chapter's fields. Minor behavior note: the single-chapter endpoint doesn't cross-check project_id the way `chapters.find(c => c.id === chapterId)` implicitly did \u2014 not exercised by real navigation (chapterId is always routing-scoped) so left as-is.",
+        "2026-07-10: Passes projectId to api.fetchChapter. On a 404 (error.status === 404) the catch block now clears chapter/segments/characters/scriptViewData and sets a new chapterNotFound flag instead of leaving stale state on screen with only a console.error."
+      ],
+      "calls_inferred": [
+        "frontend/src/api#*",
+        "frontend/src/utils/jobSelection#pickRelevantJob"
+      ]
+    },
+    "frontend/src/hooks/chapter/useChapterPersistence.ts": {
+      "purpose": "Chapter title/text save with segment re-fetch and analysis re-run",
+      "exports": [
+        {
+          "name": "useChapterPersistence",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts",
+        "frontend/src/hooks/chapter/useChapterEditorState.ts"
+      ],
+      "called_by": [
+        "frontend/src/hooks/useChapterEditor.ts"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/api#api.updateChapter,fetchSegments,fetchScriptView,updateCharacter"
+      ]
+    },
+    "frontend/src/hooks/chapter/useChapterQueue.ts": {
+      "purpose": "Segment-level and chapter-level queue submission with voice validation",
+      "exports": [
+        {
+          "name": "useChapterQueue",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts",
+        "frontend/src/hooks/chapter/useChapterEditorState.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/chapterEditorHelpers.ts",
+        "frontend/src/utils/jobSelection.ts",
+        "frontend/src/utils/runtimeDebug.ts",
+        "frontend/src/utils/voiceProfiles.ts"
+      ],
+      "called_by": [
+        "frontend/src/hooks/useChapterEditor.ts"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/api#api.generateSegments,addProcessingQueue",
+        "frontend/src/utils/chapterEditorHelpers#resolveVoiceEngineStatus"
+      ]
+    },
+    "frontend/src/hooks/useAnimatedSegmentProgress.ts": {
+      "purpose": "Per-segment-id animated interpolation lanes for the concurrent chapter-fanout map path",
+      "exports": [
+        {
+          "name": "useAnimatedSegmentProgress",
+          "kind": "hook",
+          "contract": "activeSegmentsMap -> Record<segmentId, animatedProgress>; one independent ProgressLane per rendering-phase entry, anchored at each entry's latest real (progress, eta_seconds) and interpolated toward the ETA end-time between real frames; no positive eta -> lane holds (no fabricated motion); untouched entries left alone so a sibling's in-flight animation is never disturbed by another segment's frame"
+        }
+      ],
+      "calls": [
+        "frontend/src/components/progress/PredictiveProgressBar/predictiveProgressBarLane.ts#resolveEndAtMs,getLaneProgress"
+      ],
+      "calls_inferred": [],
+      "called_by": [],
+      "notes": [
+        "Added 2026-07-06 to restore progress-presentation.md spec \u00a77 H5 (text fill follows ANIMATED display progress, never raw stepped event data) for N concurrently-rendering segments -- reuses the bar's existing lane math and 250ms tickMs cadence rather than inventing new interpolation logic. One shared setInterval keyed on a boolean so frame-identity churn never resets the timer."
+      ]
+    },
+    "frontend/src/hooks/useChapterAnalysis.ts": {
+      "purpose": "Text analysis with debounce, abort-controller cancellation, voice chunk loading",
+      "exports": [
+        {
+          "name": "useChapterAnalysis",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/hooks/chapter/useChapterEditorState.ts"
+      ],
+      "notes": [
+        "1s debounce"
+      ],
+      "calls_inferred": [
+        "frontend/src/api#api.analyzeChapter"
+      ]
+    },
+    "frontend/src/hooks/useChapterEditor.ts": {
+      "purpose": "Composite hook orchestrating chapter state, loader, persistence, assignments, queue",
+      "exports": [
+        {
+          "name": "useChapterEditor",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/hooks/chapter/useChapterAssignments.ts",
+        "frontend/src/hooks/chapter/useChapterEditorState.ts",
+        "frontend/src/hooks/chapter/useChapterLoader.ts",
+        "frontend/src/hooks/chapter/useChapterPersistence.ts",
+        "frontend/src/hooks/chapter/useChapterQueue.ts",
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Book/studio/useStudioChapter.ts"
+      ],
+      "notes": [
+        "composition pattern: chains 5 sub-hooks",
+        "2026-07-10: Re-exports chapterNotFound from state so consumers (ChapterEditorPage via useStudioChapter) can see it; ChapterEditorPage's existing `if (!chapter) return <div>Chapter not found.</div>` already covers surfacing the not-found state once chapter is cleared."
+      ],
+      "calls_inferred": [
+        "frontend/src/hooks/chapter/*"
+      ]
+    },
+    "frontend/src/hooks/useChapterPlayback.ts": {
+      "purpose": "Segment playback control, audio group resolution, skimming, auto-generation on demand",
+      "exports": [
+        {
+          "name": "useChapterPlayback",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/store/playerBus.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/chunkGroups.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Book/studio/useStudioChapter.ts"
+      ],
+      "notes": [
+        "2026-07-10 (audio_player_completion_004 tasks 004-005): playSegment now normalizes the raw per-segment queue to one entry per BLOCK (buildBlockQueue, sole membership source = getGroupSegmentIds) before storing playbackQueueRef -- fixes a real bug where manual Prev/Next (global PlayerBar skip buttons) restarted a multi-segment block instead of navigating between blocks. Deleted the old onEnded audio_file_path-equality walk (dead code against a block-leader queue). onPrev: restart-current-block-first, step back a block only when position < 1.0s into it (owner-confirmed). blockMembersRef preserves full block membership for highlighting/missing-audio detection alongside the leader-only nav queue. loadAndPlay now also sets subtitle: `Block N of M`. playSegment's exported signature and useStudioChapter.ts/playerBus.ts are unchanged (INV-4 held)."
+      ],
+      "calls_inferred": [
+        "frontend/src/store/playerBus#*"
+      ]
+    },
+    "frontend/src/hooks/useChapterRedirect.ts": {
+      "purpose": "Resolves the parent project for a legacy /chapter/:id deep link",
+      "exports": [
+        {
+          "name": "useChapterRedirect",
+          "kind": "hook",
+          "contract": "() -> {chapterIdFromRoute, chapterRouteData, chapterRouteLoading}"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts#api.fetchChapter",
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [],
+      "notes": [
+        "LF-5 (2026-07-05): extracted verbatim from App.tsx, including the cancellation-flag cleanup"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/hooks/useDeferredWhileHeld.ts": {
+      "purpose": "Latest-wins deferred value: buffer changes while held=true",
+      "exports": [
+        {
+          "name": "useDeferredWhileHeld",
+          "kind": "hook"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Book/studio/useStudioChapter.ts"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/hooks/useDragDropHighlight.ts": {
+      "purpose": "Shared drag-and-drop file-drop highlight state/handlers (isDragging + dragDropProps spread) for any drop target",
+      "exports": [
+        {
+          "name": "useDragDropHighlight",
+          "kind": "hook",
+          "contract": "(onDropFiles: (files: FileList) => void|Promise<void>) \u2192 { isDragging, resetDragState, dragDropProps: {onDragEnter,onDragOver,onDragLeave,onDrop} }"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "added 2026-07-08. hasFileDrag() gates on dataTransfer.types.includes('Files') so non-file drags (text selections) don't trigger the highlight; dragDepthRef counts nested dragenter/dragleave so isDragging doesn't flicker when a child element is entered/left during a drag."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/hooks/useFocusTrap.ts": {
+      "purpose": "Modal focus trap: traps Tab/Shift-Tab, focuses first element, restores on close",
+      "exports": [
+        {
+          "name": "useFocusTrap",
+          "kind": "hook"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/components/CastingSuggestionsModal.tsx",
+        "frontend/src/components/overlays/ConfirmModal.tsx",
+        "frontend/src/components/overlays/PluginTrustModal.tsx",
+        "frontend/src/pages/Voices/components/MetadataEditorModal.tsx",
+        "frontend/src/pages/Voices/components/VoiceUtils.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/hooks/useGlobalQueue.ts": {
+      "purpose": "Queue UI state, pause toggle, reorder, remove, drag handling",
+      "exports": [
+        {
+          "name": "useGlobalQueue",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts",
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/components/queue/GlobalQueue.tsx"
+      ],
+      "notes": [
+        "2026-07-14: handleRemove(id) no longer calls api.cancelChapterGeneration/api.removeProcessingQueue immediately; it schedules the request via setTimeout(TOAST_VISIBLE_MS) tracked in a pendingRemovesRef keyed by job id, and emits a 'Removed \"<title>\" from queue.' toast with an Undo action that clearTimeouts the pending request (same pattern as useProjectActions.handleDeleteChapter / useVoiceManagement.handleDelete). Deviation from the task doc's literal 'exact files' list: the actual removal request lives in this hook, not GlobalQueue.tsx/QueueItem.tsx directly, so the hook needed the edit (see task file's Deviation note)."
+      ],
+      "calls_inferred": [
+        "frontend/src/api#api.toggleQueuePause,reorderProcessingQueue,cancelChapterGeneration,removeProcessingQueue"
+      ]
+    },
+    "frontend/src/hooks/useInitialData.ts": {
+      "purpose": "Bootstrap global state poll: retries until startup_ready=true",
+      "exports": [
+        {
+          "name": "useInitialData",
+          "kind": "hook",
+          "contract": "returns {data, loading, error, refetch}"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/app/App.tsx"
+      ],
+      "notes": [
+        "STARTUP_RETRY_MS=1000, REFETCH_DEBOUNCE_MS=300",
+        "F15 (2026-07-04): added an `error` string state (cleared on success, set on any fetch failure); fetchHome now checks res.ok before parsing JSON (an HTTP error status with a valid JSON/HTML body previously resolved normally and was silently treated as valid data)"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/hooks/useJobs.ts": {
+      "purpose": "Central job state and live event subscription for queue/progress tracking",
+      "exports": [
+        {
+          "name": "useJobs, resetGlobalSegmentProgressUpdates",
+          "kind": "hook/fn"
+        }
+      ],
+      "calls": [
+        "frontend/src/hooks/useStudioSocketConnection.ts",
+        "frontend/src/store/liveEventAuditStore.ts",
+        "frontend/src/store/studioSocketBus.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/jobEventAdapters.ts",
+        "frontend/src/utils/jobEventUtils.ts",
+        "frontend/src/utils/jobUpdateReducer.ts",
+        "frontend/src/utils/runtimeDebug.ts",
+        "frontend/src/utils/segmentsProgressProjector.ts"
+      ],
+      "called_by": [
+        "frontend/src/app/App.tsx"
+      ],
+      "notes": [
+        "overlays (chapters.progress,voice.test) must not create job rows",
+        "segmentProgress entries now also capture eta_seconds/status/updated_at (2026-07-05) \u2014 previously discarded data from the segments.progress stream that useStudioChapter.ts now consumes as an active_segments_map fallback"
+      ],
+      "calls_inferred": [
+        "frontend/src/hooks/useStudioSocketConnection#*",
+        "frontend/src/store/liveEventAuditStore#*",
+        "frontend/src/store/studioSocketBus#*",
+        "frontend/src/utils/jobEventAdapters#*",
+        "frontend/src/utils/jobUpdateReducer#applyJobUpdated",
+        "frontend/src/utils/segmentsProgressProjector#*"
+      ]
+    },
+    "frontend/src/hooks/useLiveTtsLogLines.ts": {
+      "purpose": "Live TTS log line collection and deduplication from audit store",
+      "exports": [
+        {
+          "name": "useLiveTtsLogLines",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/contracts/liveEvents.ts",
+        "frontend/src/store/liveEventAuditStore.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Engines/components/EnginesPanel.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/store/liveEventAuditStore#*"
+      ]
+    },
+    "frontend/src/hooks/useNow.ts": {
+      "purpose": "Deduplicated 1-second clock: N mounted hooks share one interval via ref-counting",
+      "exports": [
+        {
+          "name": "useNow, resetUseNowForTests",
+          "kind": "hook/fn"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/components/queue/QueueStats.tsx"
+      ],
+      "notes": [
+        "P6 optimization"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/hooks/useProgressBarTest.ts": {
+      "purpose": "Test harness for progress bar visualization with manual/socket/config updates",
+      "exports": [
+        {
+          "name": "useProgressBarTest",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/../tests/helpers/ProgressBarTestHelpers.tsx",
+        "frontend/src/../tests/helpers/ProgressBarTestTypes.ts",
+        "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx",
+        "frontend/src/store/studioSocketBus.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/DevProgressBar/DevProgressBarPage.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar#resetPredictiveProgressMemory",
+        "frontend/src/store/studioSocketBus#*"
+      ]
+    },
+    "frontend/src/hooks/useProjectActions.ts": {
+      "purpose": "Project chapter/audiobook CRUD, queue submission, assembly, backup management",
+      "exports": [
+        {
+          "name": "useProjectActions",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts",
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Book/useBookData.ts",
+        "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx"
+      ],
+      "notes": [
+        "2026-07-14: handleDeleteChapter(chapterId) defers api.deleteChapter + onDataRefresh behind the same setTimeout/pendingChapterDeletesRef pattern; emits 'Chapter deleted.' with Undo. Returns true immediately (callers never used the previous resolved boolean).",
+        "2026-07-08: handleUpdateProject's data param gained optional series_position?: number|null, forwarded to api.updateProject as series_position ?? null.",
+        "2026-07-09 (Task 004): handleUpdateProject()'s parameter type gained `description?: string`, forwarded in the same call to api.updateProject(...).",
+        "2026-07-09: handleCreateChapter's catch block now also calls emitToast(\"Couldn't create chapter. Please try again.\") in addition to console.error, so any caller of this hook (ContentsStage, ManuscriptStage, ProjectDetailPage) gets user-visible feedback on API failure."
+      ],
+      "calls_inferred": [
+        "frontend/src/api#*"
+      ]
+    },
+    "frontend/src/hooks/useProjectLibrary.ts": {
+      "purpose": "Project CRUD, sorting/filtering, modal state, drag-drop file handling, deletion confirmation, series suggestions",
+      "exports": [
+        {
+          "name": "useProjectLibrary",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/toast.ts#emitToast",
+        "frontend/src/utils/seriesPosition.ts#parseSeriesPositionInput"
+      ],
+      "called_by": [
+        "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx"
+      ],
+      "notes": [
+        "2026-07-14: confirmDelete() closes the delete modal immediately but defers api.deleteProject + loadProjects behind setTimeout/pendingProjectDeleteRef; emits 'Project deleted.' with Undo.",
+        "2026-07-08: existingSeries (deduped, sorted project.series list) and suggestedSeriesPosition (max existing series_position + 1, falling back to a numeric suffix parsed from an existing title in the same series) auto-fill the new seriesPosition field until the user edits it directly (seriesPositionTouched); sortOption gained 'series-asc' (series name asc, then series_position asc, then title asc, blanks last); handleCreateProject validates seriesPosition via parseSeriesPositionInput and emitToast()s on a parse error instead of submitting; new handleOpenProjectDetails(projectId) navigates to /project/:id/details.",
+        "2026-07-11 (task 005): added statusFilter state ('all'|'in-progress', default 'all') and filteredProjects (sortedProjects filtered to status 'drafting'|'casting' when statusFilter is 'in-progress'); both returned alongside sortedProjects."
+      ],
+      "calls_inferred": [
+        "frontend/src/api#api.fetchProjects,createProject,deleteProject"
+      ]
+    },
+    "frontend/src/hooks/useQueueStatusHoldTimer.ts": {
+      "purpose": "Hold/release timing for queue status display",
+      "exports": [
+        {
+          "name": "useQueueStatusHoldTimer",
+          "kind": "hook"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "400ms hold window"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/hooks/useQueueSync.ts": {
+      "purpose": "Synchronized queue state from API snapshots and live event overlays",
+      "exports": [
+        {
+          "name": "useQueueSync",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/hydration/index.ts",
+        "frontend/src/api/index.ts",
+        "frontend/src/hooks/useStudioSocketConnection.ts",
+        "frontend/src/store/live-jobs.ts",
+        "frontend/src/store/liveEventAuditStore.ts",
+        "frontend/src/store/studioSocketBus.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/queueEventDispatcher.ts",
+        "frontend/src/utils/queueOverlayFields.ts",
+        "frontend/src/utils/runtimeDebug.ts"
+      ],
+      "called_by": [
+        "frontend/src/app/App.tsx"
+      ],
+      "notes": [
+        "F3 pattern: pending events buffered before first snapshot"
+      ],
+      "calls_inferred": [
+        "frontend/src/api/hydration#*",
+        "frontend/src/store/live-jobs#createLiveJobsStore",
+        "frontend/src/store/studioSocketBus#*",
+        "frontend/src/utils/queueEventDispatcher#dispatchQueueEvent"
+      ]
+    },
+    "frontend/src/hooks/useRenderGroups.ts": {
+      "purpose": "Fetch and memoize render group assignments",
+      "exports": [
+        {
+          "name": "useRenderGroups",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Book/studio/useStudioChapter.ts",
+        "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/index.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/api#api.fetchChapterRenderGroups"
+      ]
+    },
+    "frontend/src/hooks/useSegmentHandoffQueue.ts": {
+      "purpose": "Display-layer segment queueing: defers segment swaps while progress bar animates to 100%",
+      "exports": [
+        {
+          "name": "useSegmentHandoffQueue, getHandoffTransitions, clearHandoffTransitions, recordExternalHandoffEvent",
+          "kind": "hook/fn"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx",
+        "frontend/src/pages/Book/studio/useStudioChapter.ts"
+      ],
+      "notes": [
+        "state machine: IDLE->COMPLETING->flush",
+        "COMPLETION_HOLD_MS=500"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/hooks/useStartupOverlay.ts": {
+      "purpose": "Delays startup-message copy reveal so a fast (<180ms) load never flashes it",
+      "exports": [
+        {
+          "name": "useStartupOverlay",
+          "kind": "hook",
+          "contract": "(initialLoading: boolean) -> showStartupCopy: boolean"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "LF-5 (2026-07-05): extracted verbatim from App.tsx"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/hooks/useStudioSocketConnection.ts": {
+      "purpose": "Boolean connected state synced from external socket bus store",
+      "exports": [
+        {
+          "name": "useStudioSocketConnection",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/store/studioSocketBus.ts"
+      ],
+      "called_by": [
+        "frontend/src/hooks/useJobs.ts",
+        "frontend/src/hooks/useQueueSync.ts",
+        "frontend/src/pages/LiveOutput/LiveOutputPage.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/store/studioSocketBus#getStudioSocketConnected,subscribeStudioSocketConnected"
+      ]
+    },
+    "frontend/src/hooks/useStudioSocketTransport.ts": {
+      "purpose": "WebSocket connection bridge publishing messages and syncing connected state to bus",
+      "exports": [
+        {
+          "name": "useStudioSocketTransport",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/hooks/useWebSocket.ts",
+        "frontend/src/store/studioSocketBus.ts"
+      ],
+      "called_by": [
+        "frontend/src/app/App.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/hooks/useWebSocket#useWebSocket",
+        "frontend/src/store/studioSocketBus#*"
+      ]
+    },
+    "frontend/src/hooks/useToast.ts": {
+      "purpose": "Toast state/timing: showToast/dismissToast, 4s auto-hide, unmount cleanup",
+      "exports": [
+        {
+          "name": "useToast",
+          "kind": "hook",
+          "contract": "() -> {toast, showToast(message, action?), dismissToast()}"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: ToastState.action and showToast's action param now use the shared ToastAction type imported from utils/toast.ts instead of an inline duplicate; TOAST_VISIBLE_MS also now imported from there rather than locally defined.",
+        "LF-5 (2026-07-05): extracted verbatim from App.tsx"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/hooks/useVariantActions.ts": {
+      "purpose": "Voice variant preview playback, speed adjustment, sample upload/delete, test triggering",
+      "exports": [
+        {
+          "name": "useVariantActions",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/store/playerBus.ts",
+        "frontend/src/types/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/VoiceLab/components/SamplesSection.tsx",
+        "frontend/src/pages/Voices/components/VariantEditor.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": [
+        "frontend/src/store/playerBus#*"
+      ]
+    },
+    "frontend/src/hooks/useVoiceManagement.ts": {
+      "purpose": "Voice CRUD, build job tracking, test invocation, engine/settings updates",
+      "exports": [
+        {
+          "name": "useVoiceManagement",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/toast.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/VoicesPage.tsx"
+      ],
+      "notes": [
+        "2026-07-16 (bug fix, owner-reported 'after I rebuild, the samples are still labeled as new'): merged two separate useEffects that both watched `jobs` into one. Previously the first (declared first) silently cleared a just-completed build job's buildingProfiles entry as a side effect of its own bookkeeping, so the second effect (which alone called onRefresh()) never saw the transition -- the profile list's is_new/is_rebuild_required flags never refreshed after a rebuild finished. The single merged effect now adds in-flight voice_build jobs and, on any terminal status, both clears buildingProfiles AND calls onRefresh() in the same pass.",
+        "2026-07-14: handleDelete(name) no longer calls DELETE /api/speaker-profiles/{name} immediately; it schedules the request via setTimeout(TOAST_VISIBLE_MS) tracked in a pendingDeletesRef keyed by name, and emits a 'Deleted voice \"name\".' toast with an Undo action that clearTimeouts the pending request.",
+        "2026-07-10: profile-settings save failure path now emits a user-visible toast (emitToast) in addition to console.error, on both non-ok response and thrown error. (Uncovered drift \u2014 no queue entry named this file; found via direct diff scan against synced_commit.)"
+      ],
+      "calls_inferred": [
+        "frontend/src/api#*"
+      ]
+    },
+    "frontend/src/hooks/useVoicesData.ts": {
+      "purpose": "Voice grouping, filtering (array-based OR-within-facet class/gender/age plus a free-form tag filter, AND-across-facets), metadata projection for voice management UI",
+      "exports": [
+        {
+          "name": "useVoicesData",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/voiceProfiles.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/VoicesPage.tsx"
+      ],
+      "notes": [
+        "2026-07-15 (round2 task005): filter predicates changed from single-value equality to array-based OR-within-facet (classFilter.includes(...) etc.), plus a new matchesTags predicate. Combination stays AND across facets.",
+        "2026-07-14: engineFilterOptions' 'all' chip label now uses activeVoices.length instead of activeSpeakerProfiles.length."
+      ],
+      "calls_inferred": [
+        "frontend/src/utils/voiceProfiles#*"
+      ]
+    },
+    "frontend/src/hooks/useVoicesTabActions.ts": {
+      "purpose": "Complex voice operations: test-text save, voice/variant create, rename, move, export/import",
+      "exports": [
+        {
+          "name": "useVoicesTabActions",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts",
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/voiceProfiles.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/VoicesPage.tsx"
+      ],
+      "notes": [
+        "2026-07-15: Removed handleSaveTestText/handleResetTestText (only caller was the removed VoicesModals drawers) and now-unused imports/destructures."
+      ],
+      "calls_inferred": [
+        "frontend/src/api#api.exportVoiceBundleUrl,importVoiceBundle"
+      ]
+    },
+    "frontend/src/hooks/useVoicesTabState.ts": {
+      "purpose": "UI state container for voice management tab (modals, filters, editing, sorting)",
+      "exports": [
+        {
+          "name": "useVoicesTabState",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/types/index.ts",
+        "frontend/src/utils/voiceProfiles.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/VoicesPage.tsx"
+      ],
+      "notes": [
+        "2026-07-15 (round2 task005): classFilter/genderFilter/ageFilter changed from string to string[]; added tagFilter/setTagFilter (string[]).",
+        "2026-07-15: Removed editingProfile/testText/variantName/editingEngine/referenceSample/engineVoiceId/editingSettings/editSurface/isSavingText state and its sync effect -- only consumer was the removed drawer wiring.",
+        "2026-07-09: Added `isVoiceSettingsOpen`/`setIsVoiceSettingsOpen` state, reset to false whenever `editingProfile` is cleared. Determines whether the shared editing session (editingProfile + its loaded testText/engine/settings/etc.) surfaces as the Script Editor drawer or the new Voice Settings drawer."
+      ],
+      "calls_inferred": [
+        "frontend/src/utils/voiceProfiles#*"
+      ]
+    },
+    "frontend/src/hooks/useWebSocket.ts": {
+      "purpose": "Generic WebSocket reconnect loop with ref-based message callback",
+      "exports": [
+        {
+          "name": "useWebSocket",
+          "kind": "hook"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/hooks/useStudioSocketTransport.ts"
+      ],
+      "notes": [
+        "5s reconnect delay"
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/hooks/useSegmentInventory.ts": {
+      "purpose": "Fetches api.fetchScriptView(chapterId) once per active job's chapter_id and merges each ScriptSpan with the live active_segments_map entry for its id, producing SegmentRenderMonitorSegment[] for SegmentRenderMonitor (present entry -> real phase/progress/char_count; absent -> 'done'/1 if span.status==='done' else 'preparing'/0). Request-id guarded against stale responses, mirroring useRenderGroups.ts's pattern.",
+      "exports": [
+        {
+          "name": "useSegmentInventory",
+          "kind": "hook"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts#fetchScriptView"
+      ],
+      "called_by": [
+        "frontend/src/components/queue/QueueItem.tsx"
+      ],
+      "notes": [
+        "2026-07-13: isDone check corrected from span.status === 'done' to span.status === 'rendered'; doc comment updated to explain the backend contract (audio_status='done' -> span.status='rendered').",
+        "Task 008 (2026-07-11): new hook closing the fixture-fed gap in SegmentRenderMonitor's real-data hydration.",
+        "Task 010 (2026-07-11): maps ActiveSegmentMapEntry.reason_code -> SegmentRenderMonitorSegment.reasonCode, and prefers liveEntry.engine_id (task 008 field) over the job-level engine as the per-segment engineId when present.",
+        "2026-07-12 (task 016, fetch dedupe): split the single combined effect into a fetch effect keyed only on [chapterId] (stores raw spans in baseSpans) + a useMemo([baseSpans, activeSegmentsMap, engineId]) that runs the merge -- api.fetchScriptView calls dropped from ~once-per-progress-tick to once-per-chapterId. Public {segments, loading} contract unchanged. Now instantiated per-row by QueueItem.tsx (task 015) instead of once at ActivityPage.tsx."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/hooks/useSystemResourceSamples.ts": {
+      "purpose": "Polls GET /api/system/resources every 2s and keeps a rolling client-side buffer for the Activity page's live resource-strip sparklines",
+      "exports": [
+        {
+          "name": "useSystemResourceSamples",
+          "kind": "hook",
+          "contract": "() -> {samples: SystemResourceSample[], hasVram: boolean}. Buffer capped ~30 samples (60s window). hasVram flips false only after 2 CONSECUTIVE missing-vram responses (anti-flicker on a single dropped sample). Clears interval on unmount."
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts#fetchSystemResources"
+      ],
+      "calls_inferred": [],
+      "called_by": [
+        "frontend/src/pages/Activity/ActivityPage.tsx"
+      ],
+      "flows": [],
+      "notes": [
+        "2026-07-12: stateless REST poll, no backend history storage -- sparkline history lives entirely client-side in this hook's buffer."
+      ]
+    },
+    "frontend/src/hooks/useEngineConcurrency.ts": {
+      "purpose": "New hook. Polls GET /api/engines/concurrency every 5s, exposes engine_id -> effective_cap. Keeps the previous map on a fetch failure (never clears it to empty).",
+      "exports": [
+        {
+          "name": "useEngineConcurrency",
+          "kind": "unknown"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-12: NEW FILE \u2014 New hook. Polls GET /api/engines/concurrency every 5s, exposes engine_id -> effective_cap. Keeps the previous map on a fetch failure (never clears it to empty)."
+      ]
+    },
+    "frontend/src/hooks/useMediaQuery.ts": {
+      "purpose": "New hook: useMediaQuery(query: string): boolean, subscribes to window.matchMedia(query) change events via useSyncExternalStore, same pattern as useDevMode.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-14: NEW FILE \u2014 New hook: useMediaQuery(query: string): boolean, subscribes to window.matchMedia(query) change events via useSyncExternalStore, same pattern as useDevMode."
+      ]
+    },
+    "frontend/src/hooks/useMicRecorder.ts": {
+      "purpose": "New hook. getUserMedia request -> MediaRecorder lifecycle -> AudioContext/AnalyserNode level metering (RMS over time-domain samples, converted to dBFS, floored at -60dB) -> running elapsedMs timer. st",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-07-15: NEW FILE \u2014 New hook. getUserMedia request -> MediaRecorder lifecycle -> AudioContext/AnalyserNode level metering (RMS over time-domain samples, converted to dBFS, floored at -60dB) -> running elapsedMs timer. start()/stop()/reset() plus full teardown (stream tracks stopped, AudioContext closed, intervals cleared) on unmount."
+      ]
+    },
+    "frontend/src/hooks/useVariantVersions.ts": {
+      "purpose": "Wraps api.listVoiceVersions/promoteVoiceVersion with load/error state; exposes versions/loading/error/refresh/promote. promote() calls the API then refresh()es on {status:'ok'}; falls back to [] when the response has no versions field.",
+      "exports": [
+        {
+          "name": "useVariantVersions",
+          "kind": "hook"
+        },
+        {
+          "name": "VoiceVersion",
+          "kind": "type"
+        }
+      ],
+      "calls": [
+        "frontend/src/api/index.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Voices/components/VersionAbPanel.tsx",
+        "frontend/src/pages/Voices/components/VersionHistoryPanel.tsx"
+      ],
+      "notes": [
+        "2026-07-15 (voice-variant version-history task007, NEW FILE): fetches versions via api.listVoiceVersions on mount/voiceName change."
+      ],
+      "calls_inferred": []
+    }
+  }
+}

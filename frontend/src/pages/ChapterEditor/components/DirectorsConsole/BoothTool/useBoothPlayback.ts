@@ -64,14 +64,20 @@ export function useBoothPlayback({
   }, [isCurrentChapterPlaying, playerBus.position, playerBus.duration, segmentTimeRanges]);
 
   /**
-   * Load and play a chapter render. The player is scope-agnostic
+   * Load a chapter render onto the player bus. The player is scope-agnostic
    * (audio-player.md 1.6.0) — there is no segment/chapter toggle to register.
+   *
+   * `autoplay` defaults to `true` for callers that explicitly ask for
+   * play-immediately behavior, but Booth's own mode-entry effect always
+   * passes `false` — entering the mode must load the track ready-to-play
+   * (paused), never start it on its own.
    */
-  const playChapter = (audioUrl: string, title: string) => {
+  const playChapter = (audioUrl: string, title: string, autoplay: boolean = true) => {
     loadAndPlay({
       scope: 'chapter',
       title,
       audioUrl,
+      autoplay,
     });
   };
 

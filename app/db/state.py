@@ -17,6 +17,7 @@ from .state_settings import (
     _default_state,
     get_settings,
     update_settings,
+    set_engine_cap,
 )
 from .state_performance import (
     _default_performance_metrics,
@@ -48,6 +49,7 @@ __all__ = [
     "_default_state",
     "get_settings",
     "update_settings",
+    "set_engine_cap",
     "_default_performance_metrics",
     "get_performance_metrics",
     "update_performance_metrics",

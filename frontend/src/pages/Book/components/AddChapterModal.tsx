@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Trash2 } from 'lucide-react';
 import { emitToast } from '@/utils/toast';
 import { getChapterImportError, isSupportedChapterImportFile } from '@/pages/Book/lib/chapterImport';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface AddChapterModalProps {
   isOpen: boolean;
@@ -16,6 +17,8 @@ export const AddChapterModal: React.FC<AddChapterModalProps> = ({ isOpen, onClos
   const [text, setText] = React.useState('');
   const [file, setFile] = React.useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, isOpen);
 
   const handleFileChange = (nextFile: File | null) => {
     if (!nextFile) {
@@ -37,7 +40,7 @@ export const AddChapterModal: React.FC<AddChapterModalProps> = ({ isOpen, onClos
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--overlay-backdrop)', backdropFilter: 'blur(4px)' }}>
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-panel" style={{ width: '100%', maxWidth: '600px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', border: '1px solid var(--border)' }}>
+        <motion.div ref={dialogRef} role="dialog" aria-modal="true" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-panel" style={{ width: '100%', maxWidth: '600px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', border: '1px solid var(--border)' }}>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Add New Chapter</h3>
             <form onSubmit={(e) => { e.preventDefault(); if (!trimmedTitle) return; onSubmit(trimmedTitle, text, file); }} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 <div>

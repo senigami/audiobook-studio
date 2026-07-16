@@ -4,7 +4,6 @@ import { BookIdentityStrip } from '@/pages/Book/components/BookIdentityStrip';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
 import { AssemblyPanel } from '@/pages/ProjectDetail/components/AssemblyPanel';
 import { AssemblyProgress } from '@/pages/ProjectDetail/components/AssemblyProgress';
-import { ProjectBackupsPanel } from '@/components/ProjectBackupsPanel';
 import { deriveChapterLifecycle } from '@/pages/Book/lib/chapterLifecycle';
 import { formatFileSize, formatLength, formatRelativeTime } from '@/utils/format';
 import { pickRelevantJob } from '@/utils/jobSelection';
@@ -107,14 +106,6 @@ export function PublishStage() {
             formatRelativeTime={formatRelativeTime}
           />
         )}
-
-        <ProjectBackupsPanel
-          projectId={project.id}
-          onSaveBackup={actions.handleSaveBackup}
-          onDeleteBackup={actions.handleDeleteBackup}
-          onUpdateMetadata={actions.handleUpdateBackupMetadata}
-          submitting={actions.submitting}
-        />
       </div>
 
       <aside className="publish-stage__sidebar">

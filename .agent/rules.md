@@ -19,6 +19,7 @@ Use the smallest rule set that matches the task.
 1. For plan, rollout, or documentation changes, read [`workflow.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/workflow.md) and usually [`modular_architecture.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/modular_architecture.md).
 1. For code review, PR review, or review-comment triage, read [`code-review.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/code-review.md) plus the domain-specific frontend/backend rules for the changed files.
 1. Before and after **any** review, of any kind or size — ad-hoc, `review-adversarial`, `review-pr`, a `fusion-reasoning` panel, or `review-gate` (Fable) — read [`review-learning.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/review-learning.md) and load the matching `docs/checklists/*.md` file(s); every confirmed finding must feed a checklist update in the same change.
+1. When a `SessionStart`/`PreToolUse` hook context mentions another active session's file claim, or before any git operation that could discard uncommitted work in a shared working tree (stash, reset --hard, checkout -- ), read [`session-claims.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/session-claims.md).
 
 ## What Matters Most
 

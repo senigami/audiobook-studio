@@ -25,15 +25,16 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
   compact = false
 }) => {
   return (
-    <header style={{ 
+    <header className="project-header" style={{
         padding: compact ? '0rem 0' : '1rem 0',
-        display: 'flex', 
+        display: 'flex',
         gap: compact ? '1rem' : '2rem',
         alignItems: 'center',
-        flexShrink: 0
+        flexShrink: 0,
+        flexWrap: 'wrap'
     }}>
       {!compact && (
-        <div 
+        <div
             onClick={() => project.cover_image_path ? onShowCover() : null}
             style={{
                 height: '200px',
@@ -65,7 +66,7 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
       )}
 
       {/* Project Metadata */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <div style={{ flex: '1 1 200px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {compact ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <span style={{ 
@@ -93,20 +94,20 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
                   </div>
               </div>
               
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
-                  <h2 style={{ fontSize: '2.5rem', fontWeight: 700, lineHeight: 1.1 }}>{project.name}</h2>
-                  <button 
-                    onClick={onEditMetadata} 
-                    className="btn-ghost" 
-                    style={{ padding: '0.5rem', color: 'var(--text-secondary)' }}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem', minWidth: 0 }}>
+                  <h2 style={{ fontSize: 'clamp(1.5rem, 6vw, 2.5rem)', fontWeight: 700, lineHeight: 1.15, minWidth: 0, overflowWrap: 'break-word' }}>{project.name}</h2>
+                  <button
+                    onClick={onEditMetadata}
+                    className="btn-ghost"
+                    style={{ padding: '0.5rem', color: 'var(--text-secondary)', flexShrink: 0 }}
                     title="Edit Project Metadata"
                   >
                       <Edit3 size={18} />
                   </button>
               </div>
               {project.author && <p style={{ fontSize: '1.1rem', color: 'var(--text-muted)' }}>by {project.author}</p>}
-              
-              <div style={{ display: 'flex', gap: '2rem', marginTop: '1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+
+              <div style={{ display: 'flex', gap: '2rem', rowGap: '0.5rem', marginTop: '1rem', color: 'var(--text-secondary)', fontSize: '0.85rem', flexWrap: 'wrap' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <Clock size={16} /> 
                       <span>Runtime: <strong style={{ color: 'var(--text-primary)' }}>{formatLength(totalRuntime)}</strong> {hasUnrendered && (totalPredicted === null ? ' (Predicted: Unavailable)' : (totalRuntime < totalPredicted && ` (Predicted: ${formatLength(totalPredicted)})`))}</span>

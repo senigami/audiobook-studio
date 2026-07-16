@@ -82,8 +82,9 @@ describe('useProjectActions', () => {
     expect(onDataRefresh).toHaveBeenCalled();
   });
 
-  it('handles deleteChapter', async () => {
+  it('handles deleteChapter — defers the actual delete behind an undo toast', async () => {
     (api.deleteChapter as any).mockResolvedValue({ status: 'success' });
+    const toastSpy = vi.spyOn(toast, 'emitToast').mockImplementation(() => undefined);
     const { result } = renderHook(() => useProjectActions(projectId, onDataRefresh, navigate));
 
     let success;
@@ -92,8 +93,43 @@ describe('useProjectActions', () => {
     });
 
     expect(success).toBe(true);
+    // The delete is deferred — not called yet.
+    expect(api.deleteChapter).not.toHaveBeenCalled();
+    expect(onDataRefresh).not.toHaveBeenCalled();
+    expect(toastSpy).toHaveBeenCalledWith(
+      'Chapter deleted.',
+      expect.objectContaining({ label: 'Undo', onClick: expect.any(Function) })
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(4000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
     expect(api.deleteChapter).toHaveBeenCalledWith('chap1');
     expect(onDataRefresh).toHaveBeenCalled();
+  });
+
+  it('cancels the deferred chapter delete when Undo is clicked', async () => {
+    (api.deleteChapter as any).mockResolvedValue({ status: 'success' });
+    const toastSpy = vi.spyOn(toast, 'emitToast').mockImplementation(() => undefined);
+    const { result } = renderHook(() => useProjectActions(projectId, onDataRefresh, navigate));
+
+    await act(async () => {
+      await result.current.handleDeleteChapter('chap1');
+    });
+
+    const [, action] = toastSpy.mock.calls[toastSpy.mock.calls.length - 1];
+    (action as any).onClick();
+
+    await act(async () => {
+      vi.advanceTimersByTime(4000);
+      await Promise.resolve();
+    });
+
+    expect(api.deleteChapter).not.toHaveBeenCalled();
+    expect(onDataRefresh).not.toHaveBeenCalled();
   });
 
   it('handles reorderChapters with debounce', async () => {

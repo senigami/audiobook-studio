@@ -20,6 +20,12 @@ interface NavRailProps {
   queueCount?: number;
 }
 
+// A quick mouse pass-through over the 64px collapsed rail shouldn't flash the
+// overlay open and shut — only a deliberate hover (dwell) should trigger it,
+// and a brief moment of leaving shouldn't instantly snap it closed either.
+const HOVER_EXPAND_DELAY_MS = 220;
+const HOVER_COLLAPSE_DELAY_MS = 200;
+
 export function NavRail({ queueCount }: NavRailProps) {
   const collapsed = useRailCollapsed();
   const railWidth = useRailWidth();
@@ -27,6 +33,16 @@ export function NavRail({ queueCount }: NavRailProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [hoverExpanded, setHoverExpanded] = useState(false);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearHoverTimeout = useCallback(() => {
+    if (hoverTimeoutRef.current !== null) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => clearHoverTimeout, [clearHoverTimeout]);
   const [isResizing, setIsResizing] = useState(false);
   const dragStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const bodyStylesRef = useRef<{ userSelect: string; cursor: string } | null>(null);
@@ -227,12 +243,19 @@ export function NavRail({ queueCount }: NavRailProps) {
       aria-label="Primary"
       style={{ '--nav-rail-expanded-width': `${railWidth}px` } as CSSProperties}
       onMouseEnter={() => {
-        if (collapsed) {
-          setHoverExpanded(true);
+        if (!collapsed) {
+          return;
         }
+        clearHoverTimeout();
+        hoverTimeoutRef.current = setTimeout(() => {
+          setHoverExpanded(true);
+        }, HOVER_EXPAND_DELAY_MS);
       }}
       onMouseLeave={() => {
-        setHoverExpanded(false);
+        clearHoverTimeout();
+        hoverTimeoutRef.current = setTimeout(() => {
+          setHoverExpanded(false);
+        }, HOVER_COLLAPSE_DELAY_MS);
       }}
     >
       <div className="nav-rail__panel" aria-hidden={showOverlay ? true : undefined}>

@@ -1,6 +1,6 @@
 # Parallel Segment Rendering — plan folder
 
-**Status:** **M-PAR-1 shipped dark** (001 + 004 done 2026-06-26, cap=1 = no behavior change); 002/003/005/006/007 pending; **resume gated on W-MIX-LA 007** (spec recon + owner 👁). G0 softened 2026-06-29: synthesis core owner-verified ("best it's ever done"); remaining G0 item = owner sign-off to raise cap > 1. · **Created:** 2026-06-26 · **Workstream tag:** W-PAR · **Master:** [TASKS.md](../../TASKS.md)
+**Status:** **Parallel rendering is the shipped default, cap > 1** (owner directive, 2026-07-06 — see `app/orchestration/scheduler/resources.py` `_engine_class_admission_enabled`). Phase 1 (001–007) and Phase 2 (008–016, render-monitor UI: segment inventory hydration, milestone a11y, interaction popover, peek strip, cap config UI, bracketed ETA, live cap admission, multi-job rows) are all built and `accepted`/`complete` per [status.json](status.json), `green_gate: passed`. Several tasks (008, 011, 012, 013, 015) still carry a **"live-render verification still pending owner"** note in status.json — the code is in and gate-passed, but nobody has confirmed the concurrent-render visual behavior end-to-end in a real render yet. · **Created:** 2026-06-26 · **Workstream tag:** W-PAR · **Master:** [TASKS.md](../../TASKS.md)
 
 ## What this is
 

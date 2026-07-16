@@ -1,6 +1,6 @@
-# 08 · "Derek Cho" — Mastering Engineer  ☆ INFERRED
+# 08 · Mastering Engineer  ☆ INFERRED
 
-**Identity:** "Derek is the last quality gate before distribution — he needs to know the WAV files from Audiobook Studio are technically clean before he wastes time importing garbage into his DAW."
+**Identity:** "The Mastering Engineer is the last quality gate before distribution — they need to know the WAV files from Audiobook Studio are technically clean before they waste time importing garbage into their DAW."
 
 ## Goals
 - Verify loudness consistency across chapters before starting a mastering session
@@ -24,9 +24,9 @@
 - **Post-export check:** Confirms the exported folder matches what the manifest said — no phantom extras, no missing chapters
 
 ## Top friction points *(INFERRED)*
-- **F1 — No audio quality surface:** The app reports render success/failure but does not expose loudness levels, peak values, or silence detection; Derek has no signal to act on before importing
-- **F2 — Segment granularity mismatch:** Everything in the queue panel is at the segment level; Derek thinks in chapters and has no chapter-level rollup view of audio quality or render completeness
-- **F3 — Export has no manifest:** The WAV export drops files in a folder with no accompanying summary; Derek manually counts files against the chapter list to check completeness
+- **F1 — No audio quality surface:** The app reports render success/failure but does not expose loudness levels, peak values, or silence detection; the Mastering Engineer has no signal to act on before importing
+- **F2 — Segment granularity mismatch:** Everything in the queue panel is at the segment level; the Mastering Engineer thinks in chapters and has no chapter-level rollup view of audio quality or render completeness
+- **F3 — Export has no manifest:** The WAV export drops files in a folder with no accompanying summary; the Mastering Engineer manually counts files against the chapter list to check completeness
 - **F4 — Silent rendering failures:** A segment that failed mid-render may produce a short or empty WAV that passes file-existence checks; the app has no duration-based validation to surface this
 
 ## What they need from the studio

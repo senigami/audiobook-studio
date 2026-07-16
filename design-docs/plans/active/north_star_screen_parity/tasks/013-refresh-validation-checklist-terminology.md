@@ -1,6 +1,34 @@
 # Task 013 — Refresh terminology in the R1-18 owner-validation checklist
 
-Status: pending
+Status: done
+
+## Execution notes (2026-07-11)
+
+Updated items 4-9, 11, 18, and the "Dark mode" line in
+`reference/site_redesign_rollout/99_progress_log.md`. Each renamed item got an inline
+`[terminology note: ...]` explaining the old→new mapping, since these are read by the owner
+during an actual validation walkthrough and the disambiguation matters:
+
+- Item 4: "lands in Studio" → "lands on the Book tab"; "5 stage tabs" → "6 stage tabs
+  (Book/Contents/Cast/Lexicon/Publish/Backups)" — confirmed final via `frontend/src/pages/Book/lib/stages.ts`
+  (`BOOK_STAGES` = book/contents/cast/lexicon/publish/backups).
+- Item 5: "Studio: ... Cast palette paints voices" → "Chapter Workspace: ... Director's Console's
+  Cast tool paints voices" — this was the OLD per-chapter `StudioStage` paint-assignment behavior,
+  now `CastTool` inside `DirectorsConsole` (confirmed via
+  `frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx`). Explicitly
+  flagged as distinct from the book-level "Cast" tab in item 7 (same word, two different surfaces).
+- Item 6: "Studio segment/analysis count" → "Chapter Workspace segment/analysis count" (same
+  surface as item 5).
+- Item 7: "Casting" → "Cast (book-level tab)" per `stages.ts`.
+- Item 9: "Manuscript" → "Contents" per `stages.ts`.
+- Item 11 + Dark-mode line + item 18: "Review" (stand-alone stage/panel) → "Director's Console —
+  Booth" / "Booth mode" / "Booth panel". Confirmed `BoothTool/index.tsx` is a "faithful port" of
+  the old Review stage's follow-along + annotations + re-render-progress behavior, so no
+  structural change to flag — pure rename.
+
+No items were flagged as structurally changed beyond rename; all mapped cleanly to a current
+equivalent. Lines 1-322 (historical phase log) and everything before the edited block were left
+untouched (verified via `git diff --stat`, first changed line is 332).
 
 Risk: none
 
