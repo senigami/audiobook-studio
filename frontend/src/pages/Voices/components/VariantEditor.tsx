@@ -359,6 +359,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                 playingSample={playingSample}
                 handlePlaySample={handlePlaySample}
                 handleDeleteSample={handleDeleteSample}
+                onRecordClick={() => setIsRecordModeOpen(v => !v)}
             />
 
             {isRecordModeOpen && (

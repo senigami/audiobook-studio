@@ -257,6 +257,17 @@ describe('VariantEditor', () => {
             expect(screen.queryByRole('button', { name: /skip/i })).not.toBeInTheDocument();
         });
 
+        it('the mic button next to the samples upload "+" also toggles record-mode (owner-requested, 2026-07-16)', () => {
+            render(<VariantEditor {...baseProps} profile={softProfile} />);
+            expect(screen.queryByText(/skip/i)).not.toBeInTheDocument();
+
+            fireEvent.click(screen.getByRole('button', { name: 'Record a sample' }));
+            expect(screen.getByRole('button', { name: /skip/i })).toBeInTheDocument();
+
+            fireEvent.click(screen.getByRole('button', { name: 'Record a sample' }));
+            expect(screen.queryByRole('button', { name: /skip/i })).not.toBeInTheDocument();
+        });
+
         it('clicking Move Variant calls onMoveVariant with the profile', () => {
             const onMoveVariant = vi.fn();
             render(<VariantEditor {...baseProps} onMoveVariant={onMoveVariant} profile={softProfile} />);

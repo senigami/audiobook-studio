@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Music, Upload, Plus, ChevronUp, Play, Pause, X, AlertTriangle } from 'lucide-react';
+import { Music, Upload, Plus, Mic, ChevronUp, Play, Pause, X, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { SpeakerProfile } from '@/types';
 import { useDragDropHighlight } from '@/hooks/useDragDropHighlight';
@@ -14,6 +14,11 @@ interface SampleManagerProps {
     playingSample: string | null;
     handlePlaySample: (s: string) => void;
     handleDeleteSample: (s: string) => void;
+    /** Owner-requested (2026-07-16): a mic button next to the upload "+" so
+     *  jumping into the recording booth for this variant doesn't require the
+     *  overflow menu -- both paths toggle the same Record-mode state. Omit to
+     *  hide the button (no recording flow available for this caller). */
+    onRecordClick?: () => void;
 }
 
 export const SampleManager: React.FC<SampleManagerProps> = ({
@@ -25,7 +30,8 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
     uploadFiles,
     playingSample,
     handlePlaySample,
-    handleDeleteSample
+    handleDeleteSample,
+    onRecordClick,
 }) => {
     const [hoveredSampleIdx, setHoveredSampleIdx] = useState<number | null>(null);
     const { isDragging, dragDropProps } = useDragDropHighlight(uploadFiles);
@@ -90,6 +96,22 @@ export const SampleManager: React.FC<SampleManagerProps> = ({
                     >
                         <Plus size={16} />
                     </button>
+
+                    {onRecordClick && (
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                onRecordClick();
+                            }}
+                            className="btn-ghost hover-bg-subtle sample-manager__record-btn"
+                            title="Record a sample"
+                            aria-label="Record a sample"
+                        >
+                            <Mic size={16} />
+                        </button>
+                    )}
 
                     <button
                         type="button"
