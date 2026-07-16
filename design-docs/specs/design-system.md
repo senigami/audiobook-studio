@@ -1,7 +1,7 @@
 # Design System
 
 ```
-spec_version: 1.15.0
+spec_version: 1.16.0
 status: active
 created: 2026-06-13
 updated: 2026-07-15
@@ -42,6 +42,7 @@ sources:
 
 | Version | Date       | Change |
 |---------|------------|--------|
+| 1.16.0 | 2026-07-15 | **Plan-coverage follow-up fixes (F3.1/F3.2/F5.7, `docs/design-critique/voices-variants-round2/01-findings.md`).** §5 Gestalt-match: `OneSelect`/`ManySelect`/`OverviewTab`'s CLASS/GENDER/AGE/ACCENT/PACE/etc. section headers now tint to the same `--pill-{category}-text` hue their values render as pills under (`categoryForAttributeKey()`, new export on `VoicePills.tsx`), instead of uniform muted-grey — computed contrast holds well above AA on `--surface`/`--surface-alt` in both themes (see §2.4 pairs; the header sits on the page surface, not the pill's own tinted background, so it was re-verified against that surface rather than reusing the pill-on-pill-bg numbers already in §2.4). The metadata editor's active chip (`chip.tsx`) now takes an optional facet `category` and paints its active state with that facet's `--pill-*` tokens instead of a single generic `--accent` for every field, matching `VoicePill`'s own rendering. §8.4: the "44px hit-area for compact icon buttons is a tracked follow-up" note is resolved for the voice-catalog-card play overlay — see below. |
 | 1.15.0 | 2026-07-15 | **Spec sync for voices-variants-round2 (tasks 001–009).** §6 registers the new `MultiSelect` primitive (`components/forms/MultiSelect.tsx` — compact multi-value combobox, chip trigger + checkbox-style panel; MUST be used for new multi-value filter/selects rather than a bespoke chip-toggle row). §5's pill-taxonomy adoption status corrected from **target** to **current**: `--pill-*` tokens are confirmed live on the real Voices page via `VoicePillRow`/`voicePillsFromMetadata` (`VoicePills.tsx`), consumed by `VoiceCatalogCard` and the Voice Lab header — the "not yet wired into the real Voices page" line was stale (the site-mockup demo stage remains the origin of the pattern, but real-page adoption has since shipped). Noted the Voice Lab page's IA changed from a 4-tab shell (Overview/Samples/Variants/Test) to a `<details>` disclosure panel (voice-level metadata) above a single variant switcher + `VariantEditor` (which now also owns per-variant engine-config, test-text, and Record-mode sample capture) — the old tab shell and its `TestTab`/`SamplesTab` are deleted; no other section of this doc referenced the retired tabs by name. |
 | 1.14.0 | 2026-07-10 | **Styling-separation plan complete (ST-1–ST-4) — `components.css` domain split + shared classes + CI guard.** `theme/components.css` (4,440-line monolith) split into 11 domain-scoped files under `theme/components/` (`core.css`, `nav.css`, `book.css`, `book-tabs.css`, `publish.css`, `activity.css`, `shared.css`, `player.css`, `voice-lab.css`, `review-tools.css`, `misc.css`), assembled via `@import` in `theme/index.css` in the exact original cascade order (pure move; cascade is load-bearing, non-contiguous `shared.css`/`misc.css` kept separate for that reason). Added 6 shared label classes to `core.css` (`.label-micro-muted`, `.label-micro-muted-strong`, `.label-caption-strong`, `.label-micro-muted-italic`, `.label-uppercase-sm`, `.label-uppercase-md`) replacing ~100 repeated inline `style={{...}}` patterns. Converted ~470 `style={{...}}` occurrences to classes across 20 hotspot files (`CastPalette`, `ProjectLibraryPage`, `VoiceModals`, `GlobalQueue`, `ResyncPreviewModal`, `OfficialRegistryPanel`, `VariantEditor`, `WelcomePage`, `ScriptEditor`, `LiveOutputPage`, `MetadataEditorModal` + 5 metadata subcomponents, `EngineCard` + 3 Engines subcomponents, `VoicesTabHeader`, `SampleManager`); bare literals with an exact `tokens.css` match were substituted for the token as part of each move (no rule/DOM/behavior changes). Added a CI regression guard (`scripts/check_hardcoded_styles.py`, wired into `.github/workflows/ci.yml`) that fails on new hardcoded hex/rgb color literals in `style={{}}` blocks across `frontend/src` (excluding `demo/` and `tokens.css`), in `theme/components/*.css`, and in 5 named co-located stylesheets this plan added — a named-file scope, not a repo-wide CSS scan (other pre-existing stylesheets may have violations this guard doesn't police) — and on raw px spacing values that exactly match a `--space-*` token in the 20 converted files (the equivalent `rem` form is a known, documented gap, not covered). §7 Responsive and the sources list updated to reference `theme/components/` (directory) instead of the retired `theme/components.css` file. Corrected 2026-07-10 (adversarial review) from an earlier overstated "anywhere in frontend/src" / "repo-wide" claim. |
 | 1.0.0   | 2026-06-13 | Initial canonical spec for the frontend design system |
@@ -155,6 +156,11 @@ When a new visual state needs a color, add the token (with both `:root` and `[da
 | `--pill-gender-text` #be185d | `--pill-gender-bg` | 5.35 | AA |
 | `--pill-age-text` #92400e | `--pill-age-bg` | 6.56 | AA |
 | `--pill-extended-text` #0f766e | `--pill-extended-bg` | 5.00 | AA |
+| `--pill-class-text` #4338ca | `--surface` #ffffff | 7.90 | AAA |
+| `--pill-gender-text` #be185d | `--surface` #ffffff | 6.04 | AA |
+| `--pill-age-text` #92400e | `--surface` #ffffff | 7.09 | AA |
+| `--pill-extended-text` #0f766e | `--surface` #ffffff | 5.47 | AA |
+| `--pill-extended-text` #0f766e | `--surface-alt` #f0f3f9 | 4.92 | AA |
 
 **Dark theme**
 
@@ -175,6 +181,10 @@ When a new visual state needs a color, add the token (with both `:root` and `[da
 | `--pill-gender-text` #f9a8d4 | `--pill-gender-bg` | 7.70 | AAA |
 | `--pill-age-text` #fcd34d | `--pill-age-bg` | 9.07 | AAA |
 | `--pill-extended-text` #5eead4 | `--pill-extended-bg` | 8.91 | AAA |
+| `--pill-class-text` #a5b4fc | `--surface` #1a1d27 | 8.43 | AAA |
+| `--pill-gender-text` #f9a8d4 | `--surface` #1a1d27 | 9.27 | AAA |
+| `--pill-age-text` #fcd34d | `--surface` #1a1d27 | 11.66 | AAA |
+| `--pill-extended-text` #5eead4 | `--surface` #1a1d27 | 11.37 | AAA |
 
 **Binding rules & known borderline pairs:**
 
@@ -182,6 +192,7 @@ When a new visual state needs a color, add the token (with both `:root` and `[da
 - ✓ **RESOLVED — dark-mode `--text-muted`:** `--text-muted` #8b95a8 on `--surface` #1a1d27 is now **5.57:1** (AA). The prior failure (#6b7280, 3.48:1) is resolved by the P1 dark text ladder update. `--text-muted` may now be used for body text in dark mode.
 - ⚠ **`--text-subtle` is chrome/large-only in both themes:** #64748b on surface (light) = 4.76 and #6b7a92 on surface (dark) = 3.86. The dark value meets AA only for large text (≥ 24px or ≥ 18.66px bold) and UI elements (≥ 3:1). **`--text-subtle` MUST NOT carry body text in either theme** — use `--text-muted` or `--text-secondary` instead.
 - `--text-muted` in **light** mode (#5c6a80) is 5.49 on `--surface` and 4.94 on `--surface-alt` — both pass AA.
+- **`--pill-*-text` on `--surface`/`--surface-alt` (F3.1):** attribute section headers (`OneSelect`/`ManySelect`/`OverviewTab`) tint their label text directly with a facet's `--pill-*-text` token so the header hue matches its pills — a different pairing than the pill's own `-text`-on`-bg` rows above, since the header sits on the page surface, not the pill's tinted background. Every facet clears AA on both surfaces in both themes (light low: `--pill-extended-text` on `--surface-alt` = 4.92; dark low: `--pill-class-text` on `--surface` = 8.43).
 - Every other pair meets AA (most AAA). **New colors MUST be added as tokens whose *composited* contrast meets AA in both themes** — verify before adding, not after.
 
 ---
@@ -352,7 +363,7 @@ Color contrast is delivered through the token system: text and surface tokens ar
 
 ### 8.4 The five UI states (binding)
 
-**44px minimum touch target (current):** form controls (`input`, `select`, `textarea`) have `min-height: 44px` enforced in `base.css` (INV-6). The blanket `button` `min-height: 44px` was **removed** because it deformed compact icon/transport buttons (e.g. `.player-btn`, voice-card buttons) — standard buttons rely on their padding (~40px natural height), and a 44px hit-area for compact icon buttons is a tracked follow-up rather than a blanket `min-height`. This satisfies WCAG 2.5.5 Target Size (AA, 24×24px minimum) for form controls. New form controls MUST not undercut 44px.
+**44px minimum touch target (current):** form controls (`input`, `select`, `textarea`) have `min-height: 44px` enforced in `base.css` (INV-6). The blanket `button` `min-height: 44px` was **removed** because it deformed compact icon/transport buttons (e.g. `.player-btn`, voice-card buttons) — standard buttons rely on their padding (~40px natural height), and a 44px hit-area for compact icon buttons is a tracked follow-up rather than a blanket `min-height`. This satisfies WCAG 2.5.5 Target Size (AA, 24×24px minimum) for form controls. New form controls MUST not undercut 44px. **Resolved instance:** the voice-catalog-card play/pause overlay button (`.voice-catalog-card__avatar-play-btn`, `voice-lab.css`) grew from 24px to 44px once its avatar doubled as a play target, and the avatar itself grew 40px → 56px to give that 44px button clearance (F5.7).
 
 From `.agent/rules/frontend-ux.md`: every meaningful screen change MUST account for these states, and each MUST be user-meaningful and testable by role/label/visible behavior (not a bare spinner):
 

@@ -1,5 +1,6 @@
 import { chip } from './chip';
 import type { TaxonomySection } from './taxonomy';
+import { categoryForAttributeKey } from '../VoicePills';
 
 // ---------------------------------------------------------------------------
 // ManySelect — multi-value taxonomy field
@@ -21,14 +22,17 @@ export function ManySelect({
             onChange([...selected, id]);
         }
     };
+    // F3.1: tint the section header to match the pill hue its values render
+    // under (design-system.md §5).
+    const category = categoryForAttributeKey(section.key);
     return (
         <div className="metadata-field">
-            <label className="metadata-field-label">
+            <label className="metadata-field-label" style={{ color: `var(--pill-${category}-text)` }}>
                 {section.label.toUpperCase()}
             </label>
             <div className="metadata-chip-row">
                 {section.values.map(opt =>
-                    chip(opt.label, selected.includes(opt.id), () => toggle(opt.id))
+                    chip(opt.label, selected.includes(opt.id), () => toggle(opt.id), undefined, category)
                 )}
             </div>
         </div>

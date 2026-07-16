@@ -73,4 +73,15 @@ describe('OverviewTab', () => {
 
         expect(screen.getByRole('button', { name: /Saving|Save/ })).not.toBeDisabled();
     });
+
+    // F3.1 (design-critique/voices-variants-round2): the CLASS/GENDER/AGE
+    // combobox headers must be tinted to match their pill hue, same as the
+    // summary pills at the top of the page (VoiceDetailHeader), so the
+    // section header visually maps to its category.
+    it('tints the CLASS/GENDER/AGE combobox headers to match their pill hues', () => {
+        render(<OverviewTab voice={mockVoice} onSaved={vi.fn()} />);
+        expect(screen.getByText('CLASS')).toHaveStyle({ color: 'var(--pill-class-text)' });
+        expect(screen.getByText('GENDER')).toHaveStyle({ color: 'var(--pill-gender-text)' });
+        expect(screen.getByText('AGE')).toHaveStyle({ color: 'var(--pill-age-text)' });
+    });
 });

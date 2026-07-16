@@ -88,8 +88,13 @@
 
 .voice-catalog-card__avatar {
   position: relative;
-  width: 40px;
-  height: 40px;
+  /* F5.7: was 40px. Once the avatar doubled as a play/drop target (task 002)
+     its 24px overlay button was under the WCAG 2.5.5 44px touch-target
+     floor even at full size; enlarging the avatar to 56px gives the
+     44px play button (below) real headroom to clear that floor without
+     the overlay's tap area exceeding the visible circle. */
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: var(--accent-tint-bg);
   border: 1px solid var(--accent-tint-border);
@@ -110,8 +115,11 @@
   position: absolute;
   inset: 0;
   margin: auto;
-  width: 24px;
-  height: 24px;
+  /* F5.7: grow the tappable button area to the WCAG 2.5.5 44px floor (was
+     24px) — the icon itself (see JSX, Play/Pause size=14) stays small; only
+     the button's own hit area grows. Fits inside the 56px avatar above. */
+  width: 44px;
+  height: 44px;
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -1530,12 +1538,14 @@
     font-size: 0.75rem;
   }
 
-  /* Play overlay: grow the tappable circle on touch viewports (task 002) — it's
-     reachable via tap regardless of hover per INV-FOCUS, so touch users need a real
-     target, not just the desktop hover-reveal size. */
+  /* Play overlay: reachable via tap regardless of hover per INV-FOCUS, so touch
+     users need a real target. The base rule (F5.7) already grows this to the
+     44px WCAG 2.5.5 floor — this override previously shrank it back to 30px,
+     which would have regressed the floor on touch viewports, so it now just
+     confirms the same 44px target rather than shrinking it. */
   .voice-catalog-card__avatar-play-btn {
-    width: 30px;
-    height: 30px;
+    width: 44px;
+    height: 44px;
   }
 
   /* Variant editor controls row: play button + speed pill + engine badge +

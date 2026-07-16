@@ -32,6 +32,7 @@ import { api } from '@/api';
 import { getSection } from '@/pages/Voices/components/metadata/taxonomy';
 import { OneSelect } from '@/pages/Voices/components/metadata/OneSelect';
 import { ManySelect } from '@/pages/Voices/components/metadata/ManySelect';
+import { categoryForAttributeKey } from '@/pages/Voices/components/VoicePills';
 import SearchableSelect from '@/components/forms/SearchableSelect';
 import { TagsInput } from '@/pages/Voices/components/metadata/TagsInput';
 
@@ -138,9 +139,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ voice, onSaved }) => {
             {comboboxFields.map(key => {
                 const section = getSection(key);
                 if (!section) return null;
+                // F3.1: tint the header to match this field's pill hue
+                // (design-system.md §5) so it visually maps to the
+                // corresponding summary pill above.
+                const category = categoryForAttributeKey(section.key);
                 return (
                     <div className="metadata-field" key={key}>
-                        <label className="metadata-field-label">
+                        <label className="metadata-field-label" style={{ color: `var(--pill-${category}-text)` }}>
                             {section.label.toUpperCase()}
                             <span style={{ color: 'var(--error)', marginLeft: '2px' }}>*</span>
                         </label>

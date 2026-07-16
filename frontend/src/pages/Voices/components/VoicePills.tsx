@@ -50,6 +50,17 @@ const CORE_KEYS: Record<string, PillCategory> = {
 const SKIP_KEYS = new Set(['id', 'name', 'description', 'image', 'languages', 'tags', 'is_untagged']);
 
 /**
+ * Map a taxonomy/attribute field key (e.g. "class", "accent", "tone") to the
+ * same PillCategory `voicePillsFromMetadata` would render it under. Shared by
+ * anything that needs a section header or active-chip state to visually
+ * match its corresponding pill hue (F3.1/F3.2, design-system.md §5) —
+ * OneSelect/ManySelect/OverviewTab reuse this rather than re-deriving it.
+ */
+export function categoryForAttributeKey(key: string): PillCategory {
+    return CORE_KEYS[key] ?? 'extended';
+}
+
+/**
  * Walk a VoiceMetadata object dynamically:
  * - known core keys → their category hue
  * - any other scalar attribute field → extended hue
