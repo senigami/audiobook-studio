@@ -21,15 +21,20 @@
   box-shadow: var(--shadow-sm);
 }
 
-/* Owner-requested layout (2026-07-16): the star now sits inline directly above
-   the avatar in the card's header row, not absolutely positioned against the
-   card corner (the select-checkbox no longer needs to dodge it). */
+/* Pinned to the card's actual top-left corner (user-reported follow-up,
+   2026-07-16: an earlier revision moved this inline next to the avatar,
+   which read as "indented," not "far upper left"). Same absolute-position
+   convention as the kebab's opposite corner. */
 .voice-catalog-card__default-star {
+  position: absolute;
+  top: 6px;
+  left: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--as-amber);
   pointer-events: none;
+  z-index: 1;
 }
 
 /* Overflow-menu (kebab) wrapper — top-right corner, exclusive of the default star. */

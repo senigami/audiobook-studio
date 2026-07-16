@@ -33,7 +33,7 @@
  * regardless of hover state.
  */
 import React from 'react';
-import { User, Star, Download, FileEdit, Trash2, Play, Pause, Loader2 } from 'lucide-react';
+import { User, Star, Download, FileEdit, Trash2, Play, Pause, Loader2, Hammer } from 'lucide-react';
 import type { Speaker, SpeakerProfile, TtsEngine, VoiceMetadata } from '@/types';
 import { ActionMenu } from '@/components/ui/ActionMenu';
 import { EngineBadge } from '@/components/ui/EngineBadge';
@@ -116,16 +116,19 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
         playerBus.audioUrl === previewUrl &&
         playerBus.playing;
 
-    // Owner-requested (2026-07-16): Build voice is no longer a separate
-    // always-visible CTA — clicking Play now triggers a build first if the
-    // voice isn't built yet, then plays once ready, so the avatar's play
-    // control is the single action a user needs on the card (everything else
-    // lives in the kebab or is reached by clicking through to Voice Lab, per
-    // the card body's own navigate-on-click). Falls through to the ordinary
-    // play/pause toggle once cta.intent isn't 'build' (already built).
+    // Owner-corrected (2026-07-16): Play's job is to play. It only falls back
+    // to triggering a build when there is genuinely no audio to play yet
+    // (`!previewUrl`) — NOT merely because `cta.intent === 'build'`, which
+    // is also true for a voice that already has a valid preview but is
+    // separately flagged `is_rebuild_required` (new samples, settings
+    // changed, etc. — see voicePhase.ts's LABEL_TO_PHASE). The earlier
+    // `cta.intent === 'build'`-only check was wrong: it forced a rebuild
+    // instead of playing existing, perfectly good audio. Build is also its
+    // own explicit "Build voice" kebab item (below) — Play's auto-build is a
+    // convenience fallback for the true no-audio-yet case, not a substitute.
     const handlePreview = () => {
         if (isBuilding) return; // already in flight — button is disabled, but guard direct calls too
-        if (cta.intent === 'build' && defaultProfile) {
+        if (!previewUrl && cta.intent === 'build' && defaultProfile) {
             onBuildNow(defaultProfile.name, [], speaker.id || undefined, defaultProfile.variant_name || undefined)
                 .then(ok => {
                     if (ok) emitToast(`Queued build for ${speaker.name}`);
@@ -143,6 +146,16 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
                 audioUrl: previewUrl,
             });
         }
+    };
+
+    // Explicit Build action for the kebab menu (owner-requested: Build must
+    // stay directly reachable there, not only implied via Play).
+    const handleBuildNowClick = () => {
+        if (isBuilding || !defaultProfile) return;
+        onBuildNow(defaultProfile.name, [], speaker.id || undefined, defaultProfile.variant_name || undefined)
+            .then(ok => {
+                if (ok) emitToast(`Queued build for ${speaker.name}`);
+            });
     };
 
     // Engine badge
@@ -193,11 +206,42 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
                 </label>
             )}
 
-            {/* Overflow menu — top-right. Rename / Export / Set as App Default / Delete
-                (task 002: consolidated out of the always-visible actions row). */}
+            {/* Default status — star badge, pinned to the card's actual top-left corner
+                (user-reported, 2026-07-16: it needs to be "in the far upper left," not
+                indented within the body's content padding alongside the avatar).
+                Absolutely positioned against `.voice-catalog-card` (position: relative),
+                same convention as the kebab's opposite corner. Offset past the
+                select-checkbox's 22px footprint in bulk-select mode so the two never
+                overlap. Status indicator only, not a button — setting default is an
+                action, done via the kebab's "Set as App Default" item.
+                H-4: this app-default `Star` and VariantSwitcher's per-variant-default
+                control differ by icon shape (`Star` vs. `BadgeCheck`), not color alone. */}
+            {hasDefaultProfile && (
+                <span
+                    className="voice-catalog-card__default-star"
+                    aria-label="App default voice"
+                    title="App default voice"
+                    style={selectable ? { left: '34px' } : undefined}
+                >
+                    <Star size={12} fill="currentColor" />
+                </span>
+            )}
+
+            {/* Overflow menu — top-right. Build / Rename / Export / Set as App Default /
+                Delete (task 002: consolidated out of the always-visible actions row;
+                Build restored here explicitly per owner request, 2026-07-16 — Play's
+                auto-build is a convenience fallback for the no-audio-yet case, not a
+                substitute for a direct Build action). */}
             <div className="voice-catalog-card__menu">
                 <ActionMenu
                     items={[
+                        {
+                            label: isBuilding ? 'Building…' : 'Build voice',
+                            icon: isBuilding ? Loader2 : Hammer,
+                            disabled: isBuilding || !defaultProfile,
+                            onClick: handleBuildNowClick,
+                        },
+                        { isDivider: true },
                         {
                             label: 'Rename Voice',
                             icon: FileEdit,
@@ -270,13 +314,8 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
                     (`Star` vs. `BadgeCheck`), not color alone. */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', width: '100%', textAlign: 'left' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                        {hasDefaultProfile && (
-                            <span className="voice-catalog-card__default-star" aria-label="App default voice" title="App default voice">
-                                <Star size={12} fill="currentColor" />
-                            </span>
-                        )}
                         {/* Avatar — hosts the Play/Pause preview overlay (INV-FOCUS, see file header) */}
-                        <div className="voice-catalog-card__avatar" style={{ marginTop: hasDefaultProfile ? '4px' : 0 }}>
+                        <div className="voice-catalog-card__avatar">
                             {iconUrl ? (
                                 <img src={iconUrl} alt={`${speaker.name} icon`} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                             ) : (
@@ -286,16 +325,17 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
                                 type="button"
                                 aria-label={
                                     isBuilding ? 'Building…'
-                                        : cta.intent === 'build' ? 'Build voice'
+                                        : !previewUrl && cta.intent === 'build' ? 'Build voice'
                                             : isPlaying ? 'Pause preview' : 'Play preview'
                                 }
-                                disabled={isBuilding || (cta.intent !== 'build' && !previewUrl)}
+                                disabled={isBuilding || (!previewUrl && cta.intent !== 'build')}
                                 tabIndex={0}
                                 onClick={handlePreview}
                                 className="voice-catalog-card__avatar-play-btn"
                             >
                                 {isBuilding ? <Loader2 size={14} className="animate-spin" />
-                                    : isPlaying ? <Pause size={14} /> : <Play size={14} />}
+                                    : !previewUrl && cta.intent === 'build' ? <Play size={14} />
+                                        : isPlaying ? <Pause size={14} /> : <Play size={14} />}
                             </button>
                         </div>
                     </div>

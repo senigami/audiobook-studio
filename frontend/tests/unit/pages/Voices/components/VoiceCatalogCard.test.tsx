@@ -190,18 +190,17 @@ describe('VoiceCatalogCard', () => {
     });
 
     // ---------------------------------------------------------------------------
-    // CTA labels by phase (2026-07-16: the separate always-visible CTA button
-    // is retired — Play now doubles as Build when the profile isn't built yet;
-    // owner-confirmed "fine with the extra click because clicking play will
-    // also automatically build it if needed". Navigate/test/edit-intent
-    // phases have no CTA of their own anymore — the card body/name click
-    // (tested separately below) already reaches Voice Lab for those.)
+    // Play vs. Build (2026-07-16, owner-corrected): the separate always-visible
+    // CTA button is retired, but Build is explicitly restored as its own kebab
+    // menu item — Play's job is to play; it only falls back to triggering a
+    // build when there is genuinely no audio yet (`!previewUrl`), never merely
+    // because the phase's cta.intent happens to be 'build' (which is also true
+    // for an already-built, playable profile flagged is_rebuild_required).
     // ---------------------------------------------------------------------------
 
-    it('for a READY profile, the avatar play button offers preview (not build)', () => {
+    it('for a READY profile, the avatar play button offers preview, not build', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
         expect(screen.getByRole('button', { name: 'Play preview' })).toBeInTheDocument();
-        expect(screen.queryByRole('button', { name: 'Build voice' })).not.toBeInTheDocument();
     });
 
     it('for a no-samples profile (navigate-intent, no build material), the play button stays disabled', () => {
@@ -210,47 +209,76 @@ describe('VoiceCatalogCard', () => {
         expect(btn).toBeDisabled();
     });
 
-    it('shows "Build voice" CTA for profile with samples but no preview', () => {
-        const profiles = [{ ...readyProfile, preview_url: null, wav_count: 3 }];
+    it('regression: a profile with an existing preview_url but is_rebuild_required still plays on click, it does not force a rebuild', () => {
+        // The bug: cta.intent === 'build' is ALSO true for a profile that's
+        // already built and playable but flagged for a rebuild (new samples,
+        // settings changed, etc. — see voicePhase.ts's LABEL_TO_PHASE). Play
+        // must play the existing audio, not silently substitute a rebuild.
+        const profiles = [{ ...readyProfile, is_rebuild_required: true, rebuild_reasons: ['new_samples'] }];
         render(<VoiceCatalogCard {...baseProps} profiles={profiles} />);
-        expect(screen.getByRole('button', { name: 'Build voice' })).toBeInTheDocument();
-    });
 
-    it('shows a disabled, spinning "Building…" CTA when the profile is in buildingProfiles', () => {
-        const profiles = [{ ...readyProfile, preview_url: null, wav_count: 3 }];
-        render(
-            <VoiceCatalogCard
-                {...baseProps}
-                profiles={profiles}
-                buildingProfiles={{ [profiles[0].name]: true }}
-            />
-        );
-        const btn = screen.getByRole('button', { name: /Building/ });
-        expect(btn).toBeDisabled();
-    });
+        const btn = screen.getByRole('button', { name: 'Play preview' });
+        fireEvent.click(btn);
 
-    it('clicking "Build voice" does not re-trigger onBuildNow while already building', () => {
-        const profiles = [{ ...readyProfile, preview_url: null, wav_count: 3 }];
-        render(
-            <VoiceCatalogCard
-                {...baseProps}
-                profiles={profiles}
-                buildingProfiles={{ [profiles[0].name]: true }}
-            />
-        );
-        fireEvent.click(screen.getByRole('button', { name: /Building/ }));
+        expect(loadAndPlay).toHaveBeenCalledWith(expect.objectContaining({ audioUrl: profiles[0].preview_url }));
         expect(baseProps.onBuildNow).not.toHaveBeenCalled();
     });
 
-    it('clicking "Build voice" calls onBuildNow and, on success, emits a "Queued build" toast', async () => {
+    it('avatar play button shows "Build voice" and triggers a build when there is no preview yet', () => {
+        // Both the avatar play button AND the kebab's Build voice item can
+        // share the accessible name "Build voice" in this state — scope to
+        // the avatar-specific control via its class, not an ambiguous
+        // getByRole (which would match both).
         const profiles = [{ ...readyProfile, preview_url: null, wav_count: 3 }];
+        const { container } = render(<VoiceCatalogCard {...baseProps} profiles={profiles} />);
+
+        const btn = container.querySelector('.voice-catalog-card__avatar-play-btn') as HTMLButtonElement;
+        expect(btn).toHaveAccessibleName('Build voice');
+        fireEvent.click(btn);
+
+        expect(baseProps.onBuildNow).toHaveBeenCalledWith(
+            profiles[0].name, [], 'sp-1', profiles[0].variant_name || undefined
+        );
+    });
+
+    it('avatar play button shows a disabled, spinning "Building…" state while the profile is in buildingProfiles', () => {
+        const profiles = [{ ...readyProfile, preview_url: null, wav_count: 3 }];
+        const { container } = render(
+            <VoiceCatalogCard
+                {...baseProps}
+                profiles={profiles}
+                buildingProfiles={{ [profiles[0].name]: true }}
+            />
+        );
+        const btn = container.querySelector('.voice-catalog-card__avatar-play-btn') as HTMLButtonElement;
+        expect(btn).toHaveAccessibleName('Building…');
+        expect(btn).toBeDisabled();
+    });
+
+    it('Build voice is also reachable and functional as its own kebab menu item, independent of Play', async () => {
+        const profiles = [readyProfile]; // already has a preview_url
         render(<VoiceCatalogCard {...baseProps} profiles={profiles} />);
-        fireEvent.click(screen.getByRole('button', { name: 'Build voice' }));
+
+        fireEvent.click(screen.getByTestId('menu-item-Build voice'));
+
         expect(baseProps.onBuildNow).toHaveBeenCalledWith(
             profiles[0].name, [], 'sp-1', profiles[0].variant_name || undefined
         );
         await new Promise(resolve => setTimeout(resolve, 0));
         expect(emitToast).toHaveBeenCalledWith(expect.stringContaining('Clara Bell'));
+    });
+
+    it('the kebab\'s Build voice item is disabled while already building', () => {
+        const profiles = [{ ...readyProfile, preview_url: null, wav_count: 3 }];
+        render(
+            <VoiceCatalogCard
+                {...baseProps}
+                profiles={profiles}
+                buildingProfiles={{ [profiles[0].name]: true }}
+            />
+        );
+        fireEvent.click(screen.getByTestId('menu-item-Building…'));
+        expect(baseProps.onBuildNow).not.toHaveBeenCalled();
     });
 
     // Navigate/test/edit-intent phases no longer have a distinct CTA button —
@@ -346,8 +374,9 @@ describe('VoiceCatalogCard', () => {
     // Overflow menu — Rename/Export/Set-as-App-Default/Delete (task 002 consolidation)
     // ---------------------------------------------------------------------------
 
-    it('action menu contains Rename/Export/Set-as-App-Default/Delete — Open in Voice Lab/Edit Metadata/Edit Recording Script/Voice Settings remain removed', () => {
+    it('action menu contains Build voice/Rename/Export/Set-as-App-Default/Delete — Open in Voice Lab/Edit Metadata/Edit Recording Script/Voice Settings remain removed', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
+        expect(screen.getByTestId('menu-item-Build voice')).toBeInTheDocument();
         expect(screen.getByTestId('menu-item-Rename Voice')).toBeInTheDocument();
         expect(screen.getByTestId('menu-item-Export Voice Bundle')).toBeInTheDocument();
         expect(screen.getByTestId('menu-item-Set as App Default')).toBeInTheDocument();
