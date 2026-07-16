@@ -275,7 +275,18 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
                     Voice details
                 </summary>
                 <div className="voice-lab-page__overview-body">
-                    <OverviewTab voice={overviewVoice} onSaved={handleMetadataSaved} />
+                    {/* Bug fix (flagged during round-2 task 007, now user-confirmed live):
+                        OverviewTab seeds its local draft state (attrs/tags/description/
+                        languages) from `voice` at mount, then only re-syncs via an effect
+                        keyed on `voice?.id`. Since `overviewVoice` falls back to
+                        `{ id, name: id, is_untagged: true }` before `voiceMetadataList`
+                        loads, and the real metadata object shares that same `id` once it
+                        arrives, the id-only effect never re-fires -- attrs/description stay
+                        stuck at the empty fallback forever, permanently disabling Save via
+                        requiredMissing. Keying on the loaded/pending transition forces a
+                        clean remount (fresh useState initializers) exactly once real
+                        metadata arrives, instead of patching the resync effect's deps. */}
+                    <OverviewTab key={metadata ? `${id}-loaded` : `${id}-pending`} voice={overviewVoice} onSaved={handleMetadataSaved} />
                 </div>
             </details>
 

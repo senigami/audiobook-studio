@@ -202,6 +202,40 @@ describe('VoiceLabPage', () => {
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
+    it('enables Save once async metadata loads with complete required attributes (user-reported: Save appeared permanently unavailable)', async () => {
+        // Regression test: OverviewTab used to seed its local attrs/description
+        // state once at mount, then only re-sync via an effect keyed on
+        // `voice?.id`. Since VoiceLabPage's fallback voice object
+        // (`{ id, name: id, is_untagged: true }`, rendered before
+        // listVoicesWithMetadata resolves) shares the same `id` as the real
+        // metadata once it loads, that effect never re-fired -- attrs stayed
+        // stuck at `{}` forever, permanently disabling Save via
+        // requiredMissing even though mockMetadata below has class/gender/age
+        // all set. This must fail on the pre-fix code (Save stays disabled)
+        // and pass now that OverviewTab remounts on the loading->loaded
+        // transition (VoiceLabPage.tsx's key={metadata ? ... : ...}).
+        (api.patchVoiceMetadata as ReturnType<typeof vi.fn>).mockResolvedValue({ ...mockMetadata });
+        renderAtPath(`/voices/${VOICE_ID}`);
+
+        await waitFor(() => {
+            expect(screen.getByText('Aria Nova')).toBeInTheDocument();
+        });
+
+        await waitFor(() => {
+            const saveBtn = screen.getByRole('button', { name: /^save$/i });
+            expect(saveBtn).not.toBeDisabled();
+        });
+
+        const user = userEvent.setup();
+        await user.click(screen.getByRole('button', { name: /^save$/i }));
+
+        await waitFor(() => {
+            expect(api.patchVoiceMetadata).toHaveBeenCalledWith(VOICE_ID, expect.objectContaining({
+                attributes: expect.objectContaining({ class: 'human', gender: 'feminine', age: 'adult' }),
+            }));
+        });
+    });
+
     it('defaults the Overview disclosure to collapsed when required metadata fields are already complete (2026-07-15 follow-up)', async () => {
         // mockMetadata has class/gender/age all set -- "complete".
         renderAtPath(`/voices/${VOICE_ID}`);
