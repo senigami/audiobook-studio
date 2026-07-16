@@ -138,7 +138,7 @@ describe('VariantsSection', () => {
     it('renders the VariantSwitcher plus exactly ONE VariantEditor, never one per profile', () => {
         render(<VariantsSection {...commonProps} profiles={[defaultProfile, secondProfile]} />);
         // VariantSwitcher renders a tab per profile...
-        expect(screen.getAllByRole('tab')).toHaveLength(2);
+        expect(screen.getAllByRole('option')).toHaveLength(2);
         // ...but only the selected profile's VariantEditor is mounted. Each
         // VariantEditor renders exactly one "More actions" overflow trigger,
         // so counting it ties the assertion to the number of editors mounted.
@@ -153,11 +153,11 @@ describe('VariantsSection', () => {
         render(<VariantsSection {...commonProps} profiles={[softVariant, defaultVariant]} />);
 
         // Default variant tab is selected initially.
-        expect(screen.getByRole('tab', { name: /Default/ })).toHaveAttribute('aria-selected', 'true');
+        expect(screen.getByRole('option', { name: /Default/ })).toHaveAttribute('aria-selected', 'true');
 
         // Switching to the other variant's tab swaps which VariantEditor is mounted.
-        await user.click(screen.getByRole('tab', { name: /Soft/ }));
-        expect(screen.getByRole('tab', { name: /Soft/ })).toHaveAttribute('aria-selected', 'true');
+        await user.click(screen.getByRole('option', { name: /Soft/ }));
+        expect(screen.getByRole('option', { name: /Soft/ })).toHaveAttribute('aria-selected', 'true');
         expect(screen.getAllByTitle('More actions')).toHaveLength(1);
     });
 
@@ -177,11 +177,11 @@ describe('VariantsSection', () => {
         }));
         render(<VariantsSection {...commonProps} profiles={railProfiles} />);
         expect(screen.getByTestId('variant-filter-bar')).toBeInTheDocument();
-        expect(screen.getAllByRole('tab')).toHaveLength(5);
+        expect(screen.getAllByRole('option')).toHaveLength(5);
 
         await user.click(screen.getByRole('button', { name: 'sad' }));
-        expect(screen.getAllByRole('tab')).toHaveLength(1);
-        expect(screen.getByRole('tab', { name: /C/ })).toBeInTheDocument();
+        expect(screen.getAllByRole('option')).toHaveLength(1);
+        expect(screen.getByRole('option', { name: /C/ })).toBeInTheDocument();
     });
 
     it('auto-selects the first remaining visible variant when a filter hides the currently-selected one', async () => {
@@ -198,8 +198,8 @@ describe('VariantsSection', () => {
         // Selected variant defaults to "A" (is_default). Filtering to "sad"
         // hides A, so the detail pane must fall forward onto "C" (the only
         // remaining visible profile) instead of staying pointed at A.
-        expect(screen.getByRole('tab', { name: /A/ })).toHaveAttribute('aria-selected', 'true');
+        expect(screen.getByRole('option', { name: /A/ })).toHaveAttribute('aria-selected', 'true');
         await user.click(screen.getByRole('button', { name: 'sad' }));
-        expect(screen.getByRole('tab', { name: /C/ })).toHaveAttribute('aria-selected', 'true');
+        expect(screen.getByRole('option', { name: /C/ })).toHaveAttribute('aria-selected', 'true');
     });
 });

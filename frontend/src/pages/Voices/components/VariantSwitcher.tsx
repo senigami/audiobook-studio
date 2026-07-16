@@ -1,25 +1,51 @@
 /**
  * VariantSwitcher.tsx — voice-variant-tagging-and-ia task 008
+ * (ARIA re-model: design-critique follow-up, 2026-07-15 — see
+ * docs/code-map/queue/ for the changelog entry)
  *
- * Count-based variant switcher: renders a horizontal roving-tabindex tab
+ * Count-based variant switcher: renders a horizontal roving-tabindex
  * strip when a character has <=4 variants, or a vertical roving-tabindex
  * rail otherwise (see 01-map.md "Parts" > Variant switcher, Connection 7).
  * Both modes share one row subcomponent (name, engine·speed, performance-tag
  * chips, play/pause, default-star) so the two layouts can never drift apart
  * on default-star/tag-chip behavior.
  *
- * Keyboard handling is adapted from `VoiceDetailTabs.tsx`'s roving-tabindex
- * tablist pattern (ArrowLeft/ArrowRight + Home/End, automatic activation,
- * sr-only aria-live announcement) — this component reuses that exact shape,
- * switching to ArrowUp/ArrowDown + `aria-orientation="vertical"` in rail
- * mode per this task's spec.
+ * This is a single-select list of variants, not a set of tab panels — it is
+ * modeled as `role="listbox"` + `role="option"` (matching the existing
+ * listbox/option/roving-tabindex convention in
+ * `ChapterWorkspaceHeader.tsx`'s chapter-switcher dropdown) rather than
+ * `role="tablist"`/`"tab"`. The earlier tab modeling fabricated
+ * `aria-controls="variant-switcher-panel-*"` pointing at an element that
+ * never existed (no matching `VariantEditor` panel had that id/role) — a
+ * real bug, not just a lint nit. The sr-only aria-live announcement below
+ * already tells screen-reader users which variant is now shown, so no
+ * `aria-owns`/panel id was reintroduced to replace it.
+ *
+ * Keyboard handling (ArrowLeft/ArrowRight + Home/End in strip mode,
+ * ArrowUp/ArrowDown + `aria-orientation="vertical"` in rail mode, automatic
+ * activation, sr-only aria-live announcement) is unchanged from the
+ * original tab-pattern version — only the roles/ids changed, not the nav
+ * model. Roving tabindex now also governs the row's nested play/default-star
+ * controls (`tabIndex={isActive ? 0 : -1}` on all three), so an inactive
+ * row contributes zero Tab stops — previously its play button and
+ * default-star were always focusable regardless of row state, producing
+ * 2+ Tab stops per row including inactive ones and defeating the roving
+ * pattern entirely. Arrow to a row to activate it (and its controls);
+ * Tab from there reaches that row's play button, then its default-star,
+ * then exits the widget.
  *
  * The default-star (INV-DEFAULT-1/INV-DEFAULT-2) is deliberately NOT the
  * same visual treatment as selection state, and NOT the same color/label as
  * the unrelated catalog-card global app-default control (task 011).
+ *
+ * H-4 (design-critique follow-up): color alone (accent-blue here vs. amber on
+ * the catalog card's app-default star) isn't a reliable differentiator, so
+ * this control uses a distinct icon shape too — `BadgeCheck` ("primary pick"
+ * within this voice's variants) rather than `Star` ("app default" status,
+ * which stays a `Star` on VoiceCatalogCard).
  */
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Play, Pause, Star } from 'lucide-react';
+import { Play, Pause, BadgeCheck } from 'lucide-react';
 import type { SpeakerProfile } from '@/types';
 import { VoicePillRow, type PillSpec } from '@/pages/Voices/components/VoicePills';
 import { usePlayerBus, loadAndPlay, play, pause } from '@/store/playerBus';
@@ -75,13 +101,12 @@ const VariantSwitcherItem: React.FC<VariantSwitcherItemProps> = ({
     const pills = tagsPillsFor(profile);
 
     return (
-        // role="tab" on a div rather than <button>, so the default-star's real
-        // <button> below is never a nested-button (invalid HTML).
+        // role="option" on a div rather than <button>, so the default-star's
+        // real <button> below is never a nested-button (invalid HTML).
         <div
             ref={registerRef}
-            role="tab"
-            id={`variant-switcher-tab-${profile.name}`}
-            aria-controls={`variant-switcher-panel-${profile.name}`}
+            role="option"
+            id={`variant-switcher-option-${profile.name}`}
             aria-selected={isActive}
             tabIndex={isActive ? 0 : -1}
             className={
@@ -91,9 +116,10 @@ const VariantSwitcherItem: React.FC<VariantSwitcherItemProps> = ({
             }
             onClick={onActivate}
             onKeyDown={(e) => {
-                // `role="tab"` lives on a div here (not a native <button>) so the
-                // default-star's real <button> below is never a nested-button —
-                // restore native button Enter/Space activation semantics.
+                // `role="option"` lives on a div here (not a native <button>) so
+                // the default-star's real <button> below is never a
+                // nested-button — restore native button Enter/Space activation
+                // semantics.
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
                     onActivate();
@@ -121,7 +147,10 @@ const VariantSwitcherItem: React.FC<VariantSwitcherItemProps> = ({
             <span
                 className="variant-switcher__play"
                 role="button"
-                tabIndex={0}
+                // Roving-tabindex extends to this row's nested controls: only
+                // the active row's play button is a Tab stop (an inactive
+                // row contributes zero Tab stops, not 2+ — see file header).
+                tabIndex={isActive ? 0 : -1}
                 aria-label={isPlaying ? `Pause ${label} preview` : `Play ${label} preview`}
                 onClick={onTogglePlay}
                 onKeyDown={(e) => {
@@ -135,8 +164,10 @@ const VariantSwitcherItem: React.FC<VariantSwitcherItemProps> = ({
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    width: 24,
-                    height: 24,
+                    // WCAG 2.5.5 touch-target minimum (was 24px — matches the
+                    // catalog-card play-overlay fix's 44px floor).
+                    width: 44,
+                    height: 44,
                     flexShrink: 0,
                     borderRadius: 'var(--radius-round)',
                     color: 'var(--text-muted)',
@@ -161,6 +192,9 @@ const VariantSwitcherItem: React.FC<VariantSwitcherItemProps> = ({
 
             <button
                 type="button"
+                // Roving-tabindex extends to this row's nested controls: only
+                // the active row's default-star is a Tab stop (see file header).
+                tabIndex={isActive ? 0 : -1}
                 aria-pressed={isDefault}
                 aria-label={`Default variant for ${voiceName}`}
                 onClick={(e) => {
@@ -172,8 +206,10 @@ const VariantSwitcherItem: React.FC<VariantSwitcherItemProps> = ({
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    width: 24,
-                    height: 24,
+                    // WCAG 2.5.5 touch-target minimum (was 24px — matches the
+                    // catalog-card play-overlay fix's 44px floor).
+                    width: 44,
+                    height: 44,
                     flexShrink: 0,
                     padding: 0,
                     border: 'none',
@@ -182,7 +218,7 @@ const VariantSwitcherItem: React.FC<VariantSwitcherItemProps> = ({
                     color: isDefault ? 'var(--accent)' : 'var(--text-muted)',
                 }}
             >
-                <Star size={14} fill={isDefault ? 'var(--accent)' : 'none'} />
+                <BadgeCheck size={14} fill={isDefault ? 'var(--accent)' : 'none'} />
             </button>
         </div>
     );
@@ -215,7 +251,7 @@ export const VariantSwitcher: React.FC<VariantSwitcherProps> = ({
         onSelect(name);
         const profile = profiles.find(p => p.name === name);
         const label = profile?.variant_name || 'Default';
-        setAnnouncement(`${label} panel selected`);
+        setAnnouncement(`${label} selected`);
         if (focusTrigger) itemRefs.current[name]?.focus();
     }, [onSelect, profiles]);
 
@@ -275,7 +311,7 @@ export const VariantSwitcher: React.FC<VariantSwitcherProps> = ({
             data-testid={isStrip ? 'variant-switcher-strip' : 'variant-switcher-rail'}
         >
             <div
-                role="tablist"
+                role="listbox"
                 aria-label={`${voiceName} variants`}
                 aria-orientation={orientation}
                 className="variant-switcher__list"
@@ -312,7 +348,9 @@ export const VariantSwitcher: React.FC<VariantSwitcherProps> = ({
             </div>
 
             {/* sr-only announcement on selection change, mirroring VoiceDetailTabs'
-                convention rather than moving focus off the tablist. */}
+                convention rather than moving focus off the listbox. This is also
+                the accessible association between the selection and the panel
+                rendered below — no aria-controls/aria-owns needed. */}
             <div className="sr-only" role="status" aria-live="polite">
                 {announcement}
             </div>

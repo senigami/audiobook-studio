@@ -1,0 +1,32 @@
+{
+  "date": "2026-07-15",
+  "author": "claude",
+  "summary": "ARIA bug-fix follow-up (independent design-critique + owner decision superseding INV-SWITCHER-UNCHANGED): VariantSwitcher.tsx re-modeled from a fabricated tablist/tab pattern to a real listbox/option pattern, matching ChapterWorkspaceHeader.tsx's existing listbox/option/roving-tabindex convention. Fixed A11Y-1 (phantom aria-controls pointing at a panel id that never existed), A11Y-2 (roving tabindex defeated by nested play/default-star controls that were always tabIndex=0 regardless of row state, producing 2+ Tab stops per row including inactive ones), and A11Y-4 (24px touch targets on the play/default-star controls, under the app's 44px standard).",
+  "files": [
+    {
+      "path": "frontend/src/pages/Voices/components/VariantSwitcher.tsx",
+      "change": "role=\"tablist\" -> role=\"listbox\" on the container; each row role=\"tab\" -> role=\"option\", id renamed variant-switcher-tab-* -> variant-switcher-option-*, fabricated aria-controls=\"variant-switcher-panel-*\" removed entirely (no replacement id/aria-owns added -- the existing sr-only aria-live announcement already covers the accessible association with the rendered VariantEditor panel below, per the file's own doc comment). Nested play span and default-star button: tabIndex changed from unconditional 0 to isActive ? 0 : -1 (roving-tabindex now extends to a row's nested controls, so an inactive row contributes zero Tab stops instead of 2+); both bumped from 24x24px to 44x44px (WCAG 2.5.5 floor, matching the catalog-card play-overlay fix). Keyboard nav model (Arrow/Home/End, sr-only announcement) unchanged. Announcement text changed from '${label} panel selected' to '${label} selected' (no more phantom 'panel' framing).",
+      "contract_changed": true
+    },
+    {
+      "path": "frontend/src/pages/VoiceLab/components/VariantsSection.tsx",
+      "change": "Doc-comment only: updated the stale INV-SWITCHER-UNCHANGED reference to note the invariant is superseded and point at VariantSwitcher.tsx's new file header. No functional change -- VariantSwitcher's external prop contract (profiles/selectedVariantName/onSelect/onSetDefault/voiceName) is unchanged."
+    },
+    {
+      "path": "frontend/tests/unit/pages/Voices/components/VariantSwitcher.test.tsx",
+      "change": "Updated existing assertions from tablist/tab roles to listbox/option. Added: role assertions proving no tablist/tab/aria-controls remain; a test that Tab-from-outside lands on exactly the active option (constructed so the active row is NOT first in DOM, to catch the case where an earlier inactive row's nested controls would otherwise still be reachable first); a test that Arrow-driven selection change hands off Tab-reachability of the nested play/star controls to the newly active row; a touch-target size test (>=44px) asserting the rendered inline style, following VoiceCatalogCard.touchTargets.test.ts's precedent but against inline styles since this component sizes via inline style, not a CSS rule."
+    },
+    {
+      "path": "frontend/tests/unit/pages/VoiceLab/VariantsSection.test.tsx",
+      "change": "Updated getByRole('tab'/...)/getAllByRole('tab') call sites to 'option' to match the new roles (VariantsSection renders VariantSwitcher directly, so its tests query the same roles)."
+    },
+    {
+      "path": "frontend/tests/unit/pages/VoiceLab/VoiceLabPage.test.tsx",
+      "change": "Updated getByRole('tab', ...) call sites targeting the Variants switcher to 'option', and updated the stale 'tablist ... INV-SWITCHER-UNCHANGED' comment to describe the listbox re-model."
+    }
+  ],
+  "out_of_scope_next": [
+    "VariantEditor.tsx was deliberately left untouched -- no id/aria-owns was added to give the panel a formal ARIA relationship to the selected option, since the sr-only live-region announcement already conveys the selection change to screen-reader users and aria-owns has no well-defined semantics for an arbitrary sibling panel under listbox/option. Revisit only if a future audit finds the live-region insufficient.",
+      "A pre-existing, unrelated test failure was observed in tests/unit/pages/Voices/components/VoicesTabContent.test.tsx ('forwards onNavigateToLab to the rendered VoiceCatalogCard (card body click)') -- not touched by this change, not fixed (out of scope); flagged for whoever owns VoiceCatalogCard.tsx's uncommitted in-flight edits on this branch."
+  ]
+}

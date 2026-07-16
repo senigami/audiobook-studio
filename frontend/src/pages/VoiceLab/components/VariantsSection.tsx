@@ -16,8 +16,15 @@
  * touch selection at all; the controlled-selection props stay as a general
  * hook, just unused by that action today.) Omitting both props keeps the
  * original uncontrolled behavior. The default-variant-first sort feeding
- * `VariantSwitcher` (below) is also new in task 008; `VariantSwitcher` itself
- * is unchanged (INV-SWITCHER-UNCHANGED).
+ * `VariantSwitcher` (below) is also new in task 008.
+ *
+ * `VariantSwitcher`'s internals were later re-modeled (design-critique
+ * follow-up, 2026-07-15) from a fabricated tablist/tab pattern to a real
+ * listbox/option pattern, fixing broken ARIA — its external prop contract
+ * used here (`profiles`/`selectedVariantName`/`onSelect`/`onSetDefault`/
+ * `voiceName`) is unchanged, so this file needed no changes beyond this
+ * comment (the earlier INV-SWITCHER-UNCHANGED invariant referenced here is
+ * superseded — see `VariantSwitcher.tsx`'s file header).
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { SpeakerProfile, TtsEngine, VoiceAttributes } from '@/types';
