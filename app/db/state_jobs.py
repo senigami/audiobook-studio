@@ -15,7 +15,8 @@ from .state_job_guards import (
     is_terminal_reset as _is_terminal_reset,
 )
 from .state_helpers import (
-    _STATE_LOCK, _JOB_LISTENERS, _LISTENER_SNAPSHOT_SUPPORT, _load_state_no_lock, _atomic_write_text, get_state_file,
+    _STATE_LOCK, _JOB_LISTENERS, _LISTENER_SNAPSHOT_SUPPORT, _load_state_no_lock,
+    _load_state_for_update_no_lock, _commit_state_no_lock, _atomic_write_text, get_state_file,
     _cache_listener_snapshot_support, STATE_FILE, SAFE_OUTPUT_FILE_RE
 )
 from ..utils.subprocess_utils import probe_audio_duration
@@ -69,7 +70,7 @@ def get_jobs() -> Dict[str, Job]:
 
 def put_job(job: Job) -> None:
     with _STATE_LOCK:
-        state = _load_state_no_lock()
+        state = _load_state_for_update_no_lock()
         state.setdefault("jobs", {})
         if job.status == "finalizing":
             job.status = "running"
@@ -102,7 +103,7 @@ def put_job(job: Job) -> None:
         _snapshot_status_changed = existing_job is None or _snapshot_existing_status != job.status
 
         state["jobs"][job.id] = asdict(job)
-        _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
+        _commit_state_no_lock(state)
 
     if _snapshot_is_terminal_reset:
         try:
@@ -199,7 +200,7 @@ def update_job(job_id: str, force_broadcast: bool = False, source: Optional[str]
     if "status" in updates and updates["status"] == "finalizing":
         updates["status"] = "running"
     with _STATE_LOCK:
-        state = _load_state_no_lock()
+        state = _load_state_for_update_no_lock()
         jobs = state.setdefault("jobs", {})
         j = jobs.get(job_id)
         if not j:
@@ -365,7 +366,7 @@ def update_job(job_id: str, force_broadcast: bool = False, source: Optional[str]
 
         if changed_fields:
             jobs[job_id] = j
-            _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
+            _commit_state_no_lock(state)
             from ..engines.behavior import has_behavior
             if has_behavior(j.get("engine"), "verbose_logging"):
                 logger.info(
@@ -500,7 +501,7 @@ def prune_completed_jobs() -> None:
     We keep a small buffer of recent completions (e.g. 50) to allow UI transitions.
     """
     with _STATE_LOCK:
-        state = _load_state_no_lock()
+        state = _load_state_for_update_no_lock()
         jobs = state.get("jobs", {})
 
         terminal_jobs = [
@@ -516,18 +517,18 @@ def prune_completed_jobs() -> None:
         if to_prune:
             for jid in to_prune:
                 del jobs[jid]
-            _atomic_write_text(STATE_FILE, json.dumps(state, indent=2))
+            _commit_state_no_lock(state)
             logger.debug("Pruned %s terminal jobs from state.json", len(to_prune))
 
 
 def delete_jobs(job_ids: list[str]) -> None:
     with _STATE_LOCK:
-        state = _load_state_no_lock()
+        state = _load_state_for_update_no_lock()
         jobs = state.get("jobs", {})
         for jid in job_ids:
             if jid in jobs:
                 del jobs[jid]
-        _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
+        _commit_state_no_lock(state)
     from ..api.ws import clear_terminal_latch
     for jid in job_ids:
         clear_terminal_latch(jid)
@@ -535,9 +536,9 @@ def delete_jobs(job_ids: list[str]) -> None:
 
 def clear_all_jobs() -> None:
     with _STATE_LOCK:
-        state = _load_state_no_lock()
+        state = _load_state_for_update_no_lock()
         state["jobs"] = {}
-        _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
+        _commit_state_no_lock(state)
     from ..api.ws import clear_terminal_latch
     clear_terminal_latch()
 
@@ -545,13 +546,13 @@ def clear_all_jobs() -> None:
 def purge_jobs_for_chapter(chapter_id: str) -> None:
     """Removes all existing jobs for a specific chapter from the state."""
     with _STATE_LOCK:
-        state = _load_state_no_lock()
+        state = _load_state_for_update_no_lock()
         jobs = state.get("jobs", {})
         to_delete = [jid for jid, jdata in jobs.items() if jdata.get("chapter_id") == chapter_id]
         if to_delete:
             for jid in to_delete:
                 del jobs[jid]
-            _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
+            _commit_state_no_lock(state)
             logger.debug("Purged %s stale jobs for chapter %s", len(to_delete), chapter_id)
 def requeue(job_id: str) -> None:
     """Wipes job metadata and resets status to queued (Clean Slate Protocol).

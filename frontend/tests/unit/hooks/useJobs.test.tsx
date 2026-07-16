@@ -289,7 +289,10 @@ describe('useJobs', () => {
       progress: 0.75,
       eta_seconds: null,
       status: undefined,
-      updated_at: expect.any(Number),
+      // COR-F-3: this frame carries no updatedAt anywhere (payload nor
+      // envelope), so resolveEventUpdatedAt must NOT fabricate Date.now() —
+      // it leaves the timestamp undefined rather than claiming "now".
+      updated_at: undefined,
     });
   });
 
@@ -634,7 +637,8 @@ describe('useJobs', () => {
       progress: 0.85,
       eta_seconds: null,
       status: 'running',
-      updated_at: expect.any(Number),
+      // COR-F-3: no updatedAt anywhere on this frame — must not fabricate Date.now().
+      updated_at: undefined,
     });
   });
 
@@ -668,7 +672,8 @@ describe('useJobs', () => {
       progress: 0.83,
       eta_seconds: null,
       status: 'running',
-      updated_at: expect.any(Number),
+      // COR-F-3: no updatedAt anywhere on this frame — must not fabricate Date.now().
+      updated_at: undefined,
     });
 
     expect(result.current.jobs['job-seg']?.active_segment_progress).toBe(0.83);
@@ -904,7 +909,8 @@ describe('useJobs', () => {
       progress: 0.85,
       eta_seconds: 15,
       status: 'running',
-      updated_at: expect.any(Number),
+      // COR-F-3: no updatedAt anywhere on this frame — must not fabricate Date.now().
+      updated_at: undefined,
     });
 
     // 2. Projected active segment metadata is placed on the chapter job
@@ -995,6 +1001,40 @@ describe('useJobs', () => {
 
     expect(result.current.jobs['job-rollback-ignore']?.status).toBe('done');
     expect(result.current.jobs['job-rollback-ignore']?.progress).toBe(1.0);
+  });
+
+  // COR-F-3: a frame with NO timestamp anywhere (no payload updatedAt/updated_at,
+  // no envelope emittedAt) used to have resolveEventUpdatedAt fabricate
+  // Date.now()/1000 as its updated_at — which always looks like "the newest
+  // thing that ever happened", so jobUpdateReducer's detectNewerRun() treated
+  // it as a genuinely newer run and let a "running" status through, flipping
+  // an already-done job back to running. A late/duplicate no-timestamp frame
+  // must not be able to masquerade as the newest update.
+  it('does not regress a terminal done job to running when a late frame carries no timestamp at all', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-no-ts', status: 'done', progress: 1.0, updated_at: 100, finished_at: 150 } as any] });
+
+    expect(result.current.jobs['job-no-ts']?.status).toBe('done');
+
+    // Published directly (bypassing the `emitEvent` helper, which always stamps
+    // an envelope-level emittedAt) so the frame carries no timestamp claim at
+    // all — the exact "late/duplicate running-overlay frame" scenario.
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'queue.items',
+        eventKind: 'queue_item_status',
+        ids: { jobId: 'job-no-ts' },
+        payload: {
+          status: 'running',
+          progress: 0.15,
+        },
+      });
+    });
+
+    expect(result.current.jobs['job-no-ts']?.status).toBe('done');
+    expect(result.current.jobs['job-no-ts']?.progress).toBe(1.0);
   });
 
   it('updates active_segment_id and active_segment_progress from segments.progress even when the current job status is done and database timestamps are absent', async () => {

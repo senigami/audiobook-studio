@@ -10,6 +10,7 @@ from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request, Backgro
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 
 from app.core.security import verify_api_key, rate_limit
 from app.orchestration.tasks.api_synthesis import ApiSynthesisTask
@@ -202,8 +203,11 @@ async def synthesize(request: SynthesisRequest, req_context: Request, background
     # Threshold for inline vs queued (default 500 chars)
     if len(request.text) < 500:
         try:
-            # For short text, we run synchronously (the orchestrator blocks on dispatch)
-            orchestrator.submit(task)
+            # orchestrator.submit() is fully blocking (admission loop with
+            # time.sleep, HTTP dispatch, retries) — run it off the event loop
+            # so it doesn't stall every other API request, /jobs poll, and
+            # websocket broadcast for the duration of this request (PERF-2).
+            await run_in_threadpool(orchestrator.submit, task)
             if not output_path.exists():
                 raise HTTPException(status_code=500, detail="Synthesis failed to produce output.")
             return FileResponse(

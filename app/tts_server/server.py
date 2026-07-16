@@ -59,7 +59,16 @@ app = FastAPI(
 _state_lock = threading.Lock()
 _plugins: list[LoadedPlugin] = []
 _plugins_dir: Path = PLUGINS_DIR
-_cancelled_tasks: set[str] = set()
+# task_id -> cancellation monotonic timestamp (COR-B-4). A bare set here grew
+# unboundedly over server uptime: the normal cancel->synthesize->discard flow
+# (the /synthesize finally block below) only ever cleans up a task_id that
+# actually reaches /synthesize. A task cancelled but never synthesized (a
+# fan-out child cancelled before its own /synthesize runs, or a job cancelled
+# while still queued) left a permanent entry with no eviction path. Storing a
+# timestamp lets `_sweep_cancelled_tasks` bound growth without changing
+# `_is_task_cancelled`'s semantics for any cancellation within the TTL window.
+_cancelled_tasks: dict[str, float] = {}
+_CANCELLED_TASK_TTL_SECONDS = 300.0
 _ready_port: int | None = None
 
 
@@ -67,6 +76,19 @@ def _is_task_cancelled(task_id: str) -> bool:
     """Thread-safe membership check; _cancelled_tasks is mutated under _state_lock."""
     with _state_lock:
         return task_id in _cancelled_tasks
+
+
+def _sweep_cancelled_tasks(now: float | None = None) -> None:
+    """Evict cancellation markers older than ``_CANCELLED_TASK_TTL_SECONDS``.
+
+    Callers must already hold ``_state_lock`` (this function does not acquire
+    it itself, so it can be composed with the add-then-sweep sequence in
+    ``cancel_task`` under a single critical section).
+    """
+    cutoff = (now if now is not None else time.monotonic()) - _CANCELLED_TASK_TTL_SECONDS
+    stale_ids = [tid for tid, cancelled_at in _cancelled_tasks.items() if cancelled_at < cutoff]
+    for tid in stale_ids:
+        del _cancelled_tasks[tid]
 
 
 def set_ready_port(port: int) -> None:
@@ -505,7 +527,10 @@ def reverify_engine(engine_id: str) -> dict[str, Any]:
 def cancel_task(task_id: str) -> dict[str, Any]:
     """Mark a task as cancelled so the synthesis loop can terminate it."""
     with _state_lock:
-        _cancelled_tasks.add(task_id)
+        _cancelled_tasks[task_id] = time.monotonic()
+        # Bound growth (COR-B-4): sweep stale markers on every new cancellation
+        # instead of only ever discarding on a matching /synthesize call.
+        _sweep_cancelled_tasks()
     logger.info("Task %s marked for cancellation", task_id)
     return {"ok": True, "task_id": task_id}
 
@@ -600,7 +625,7 @@ async def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
         # Cleanup cancellation flag after synthesis attempt
         if body.task_id:
             with _state_lock:
-                _cancelled_tasks.discard(body.task_id)
+                _cancelled_tasks.pop(body.task_id, None)
 
     if not result.ok:
         logger.exception("Synthesis failed for engine %s: %s", body.engine_id, result.error)

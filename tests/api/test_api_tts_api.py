@@ -89,6 +89,59 @@ def test_synthesize_inline(auth_client, monkeypatch, tmp_path):
     assert response.headers["content-type"] == "audio/wav"
     assert response.content == b"fake wav data"
 
+
+def test_synthesize_inline_offloads_submit_to_threadpool(auth_client, monkeypatch, tmp_path):
+    """PERF-2: the inline /synthesize path must run orchestrator.submit() (a
+    fully blocking call — admission loop with time.sleep, HTTP dispatch,
+    retries) off the asyncio event loop via run_in_threadpool, not directly
+    on the async handler. Otherwise it freezes the whole event loop for the
+    request's duration, stalling every other API request, /jobs poll, and
+    websocket broadcast.
+
+    Revert-check (R1): pre-fix, the handler called `orchestrator.submit(task)`
+    directly — `tts_api.run_in_threadpool` is never invoked, so the
+    `threadpool_calls == 1` assertion below fails (0 calls) on that code.
+    """
+    from app.orchestration.scheduler.orchestrator import TaskOrchestrator
+    import app.api.tts_api as tts_api
+
+    out_dir = tmp_path / "transient"
+    out_dir.mkdir()
+    monkeypatch.setattr(tts_api, "TRANSIENT_DIR", out_dir)
+
+    def mock_submit(self, task):
+        out_file = Path(task.output_path)
+        out_file.parent.mkdir(parents=True, exist_ok=True)
+        out_file.write_bytes(b"fake wav data")
+        return task.task_id
+
+    monkeypatch.setattr(TaskOrchestrator, "submit", mock_submit)
+
+    threadpool_calls = []
+    original_run_in_threadpool = tts_api.run_in_threadpool
+
+    async def spy_run_in_threadpool(func, *args, **kwargs):
+        threadpool_calls.append(func)
+        return await original_run_in_threadpool(func, *args, **kwargs)
+
+    # raising=False: on pre-fix code the handler never references this name at
+    # all, so the attribute still needs to exist for the spy to attach to.
+    monkeypatch.setattr(tts_api, "run_in_threadpool", spy_run_in_threadpool, raising=False)
+
+    response = auth_client.post("/api/v1/tts/synthesize", json={
+        "engine_id": "xtts",
+        "text": "Short text",
+        "output_format": "wav",
+    })
+
+    assert response.status_code == 200
+    assert response.content == b"fake wav data"
+    assert len(threadpool_calls) == 1, (
+        "inline /synthesize must call orchestrator.submit() via run_in_threadpool "
+        f"exactly once (off the event loop); got {len(threadpool_calls)} call(s)"
+    )
+
+
 def test_synthesize_queued(auth_client, monkeypatch):
     """POST /synthesize with long text should return a job ID."""
     from app.orchestration.scheduler.orchestrator import TaskOrchestrator

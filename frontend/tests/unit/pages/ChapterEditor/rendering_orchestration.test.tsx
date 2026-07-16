@@ -197,4 +197,150 @@ describe('Chapter Editor Rendering & Queue Orchestration Tests', () => {
 
     vi.useRealTimers();
   });
+
+  // COR-F-1: loadChapter used to unconditionally overwrite the local title/text
+  // draft on every reload (mount, WS chapter-update tick, and each 1s
+  // completion-poll tick). The autosave in useStudioChapter.ts is debounced
+  // 1500ms, so a completion-refresh reload landing inside that window could
+  // revert an unsaved edit before it had a chance to save.
+  it('preserves an unsaved local title/text edit across a completion-refresh reload', async () => {
+    vi.useFakeTimers();
+
+    const mockState: any = {
+      chapter: null,
+      title: '',
+      text: '',
+      setChapter: vi.fn(),
+      setTitle: vi.fn(),
+      setText: vi.fn(),
+      setLocalVoice: vi.fn(),
+      setSegments: vi.fn(),
+      setCharacters: vi.fn(),
+      setScriptViewData: vi.fn(),
+      setGeneratingSegmentIds: vi.fn(),
+      pendingGenerationIdsRef: { current: new Set() },
+      pendingGenerationTimesRef: { current: new Map() },
+      segmentRefreshTimerRef: { current: null },
+      completionPollTimerRef: { current: null },
+      completionPollAttemptsRef: { current: 0 },
+      setLoading: vi.fn(),
+      setScriptViewLoading: vi.fn(),
+      setChapterNotFound: vi.fn(),
+      segments: [],
+    };
+
+    (api.fetchChapter as any).mockResolvedValueOnce({
+      id: 'chap-1',
+      project_id: 'proj-1',
+      title: 'Original Title',
+      text_content: 'Original body',
+    });
+
+    const { result, rerender } = renderHook(
+      ({ state }) => useChapterLoader(state, 'chap-1', 'proj-1', [], undefined, undefined),
+      { initialProps: { state: mockState } }
+    );
+
+    // Mount load resolves and applies the server value (no local edits yet).
+    await act(async () => { await vi.runAllTimersAsync(); });
+    expect(mockState.setTitle).toHaveBeenCalledWith('Original Title');
+    expect(mockState.setText).toHaveBeenCalledWith('Original body');
+
+    // Simulate the resulting local state (what the real setTitle/setText calls
+    // would have produced) and a local, still-unsaved edit on top of it.
+    mockState.title = 'User Edited Title';
+    mockState.text = 'User edited body';
+    rerender({ state: mockState });
+
+    mockState.setTitle.mockClear();
+    mockState.setText.mockClear();
+
+    // Server reflects the pre-edit content — the local edit hasn't saved yet
+    // (autosave is debounced 1500ms) when this completion-refresh reload fires.
+    (api.fetchChapter as any).mockResolvedValueOnce({
+      id: 'chap-1',
+      project_id: 'proj-1',
+      title: 'Original Title',
+      text_content: 'Original body',
+    });
+
+    await act(async () => {
+      await result.current.loadChapter('completion-refresh');
+    });
+
+    expect(mockState.setTitle).not.toHaveBeenCalled();
+    expect(mockState.setText).not.toHaveBeenCalled();
+
+    vi.useRealTimers();
+  });
+
+  // COR-F-1 (legitimate case): with no local edits pending, a genuine
+  // server-side title/text change must still be applied on reload.
+  it('applies a genuine server-side title/text change when there are no local edits', async () => {
+    vi.useFakeTimers();
+
+    const mockState: any = {
+      chapter: null,
+      title: '',
+      text: '',
+      setChapter: vi.fn(),
+      setTitle: vi.fn(),
+      setText: vi.fn(),
+      setLocalVoice: vi.fn(),
+      setSegments: vi.fn(),
+      setCharacters: vi.fn(),
+      setScriptViewData: vi.fn(),
+      setGeneratingSegmentIds: vi.fn(),
+      pendingGenerationIdsRef: { current: new Set() },
+      pendingGenerationTimesRef: { current: new Map() },
+      segmentRefreshTimerRef: { current: null },
+      completionPollTimerRef: { current: null },
+      completionPollAttemptsRef: { current: 0 },
+      setLoading: vi.fn(),
+      setScriptViewLoading: vi.fn(),
+      setChapterNotFound: vi.fn(),
+      segments: [],
+    };
+
+    (api.fetchChapter as any).mockResolvedValueOnce({
+      id: 'chap-1',
+      project_id: 'proj-1',
+      title: 'Original Title',
+      text_content: 'Original body',
+    });
+
+    const { result, rerender } = renderHook(
+      ({ state }) => useChapterLoader(state, 'chap-1', 'proj-1', [], undefined, undefined),
+      { initialProps: { state: mockState } }
+    );
+
+    await act(async () => { await vi.runAllTimersAsync(); });
+    expect(mockState.setTitle).toHaveBeenCalledWith('Original Title');
+
+    // No local edit: the draft mirrors exactly what was just loaded.
+    mockState.title = 'Original Title';
+    mockState.text = 'Original body';
+    rerender({ state: mockState });
+
+    mockState.setTitle.mockClear();
+    mockState.setText.mockClear();
+
+    // Server-side content genuinely changed (e.g. edited elsewhere) since the
+    // last load — this reload must still apply it.
+    (api.fetchChapter as any).mockResolvedValueOnce({
+      id: 'chap-1',
+      project_id: 'proj-1',
+      title: 'New Server Title',
+      text_content: 'New server body',
+    });
+
+    await act(async () => {
+      await result.current.loadChapter('chapter-update');
+    });
+
+    expect(mockState.setTitle).toHaveBeenCalledWith('New Server Title');
+    expect(mockState.setText).toHaveBeenCalledWith('New server body');
+
+    vi.useRealTimers();
+  });
 });
