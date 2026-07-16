@@ -1581,3 +1581,17 @@
   color: var(--text-muted);
   margin: 0;
 }
+
+/* Clipping is a warning, not a hard block (owner-requested, 2026-07-16) --
+   Keep stays enabled, but the verdict line still needs to read as "pay
+   attention" rather than a plain pass/fail line. */
+.record-controls__verdict--warning {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--warning-text);
+}
+
+.record-controls__verdict-icon {
+  flex-shrink: 0;
+}

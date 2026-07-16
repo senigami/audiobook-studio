@@ -65,11 +65,18 @@ class MockAnalyserNode {
 // (called by `RecordControls`'s captured-state effect, task 009) resolves to
 // `ok: true` unless a test overrides `decodeAudioData` itself.
 function makeDefaultDecodedBuffer(): AudioBuffer {
+    return makeToneBuffer(0.3);
+}
+
+// Exported so tests can request a clipping (or otherwise non-default) take
+// via `installMediaRecorderMocks({ decodedBuffer })` -- e.g. `makeToneBuffer(1.0)`
+// produces samples at full scale, which `checkSampleQuality` flags as clipping.
+export function makeToneBuffer(amplitude: number, seconds = 2): AudioBuffer {
     const sampleRate = 44100;
-    const numSamples = sampleRate * 2;
+    const numSamples = Math.round(sampleRate * seconds);
     const data = new Float32Array(numSamples);
     for (let i = 0; i < numSamples; i++) {
-        data[i] = 0.3 * Math.sin((2 * Math.PI * 440 * i) / sampleRate);
+        data[i] = amplitude * Math.sin((2 * Math.PI * 440 * i) / sampleRate);
     }
     return {
         numberOfChannels: 1,
@@ -80,17 +87,23 @@ function makeDefaultDecodedBuffer(): AudioBuffer {
     } as unknown as AudioBuffer;
 }
 
-class MockAudioContext {
-    createMediaStreamSource = vi.fn(() => ({ connect: vi.fn() }));
-    createAnalyser = vi.fn(() => new MockAnalyserNode());
-    decodeAudioData = vi.fn(() => Promise.resolve(makeDefaultDecodedBuffer()));
-    close = vi.fn(() => Promise.resolve());
+function makeMockAudioContextClass(decodedBuffer: AudioBuffer) {
+    return class {
+        createMediaStreamSource = vi.fn(() => ({ connect: vi.fn() }));
+        createAnalyser = vi.fn(() => new MockAnalyserNode());
+        decodeAudioData = vi.fn(() => Promise.resolve(decodedBuffer));
+        close = vi.fn(() => Promise.resolve());
+    };
 }
 
-export function installMediaRecorderMocks({ denyPermission = false }: { denyPermission?: boolean } = {}) {
+export function installMediaRecorderMocks({
+    denyPermission = false,
+    decodedBuffer,
+}: { denyPermission?: boolean; decodedBuffer?: AudioBuffer } = {}) {
     MockMediaRecorder.instances = [];
     resetMockLevel();
 
+    const MockAudioContext = makeMockAudioContextClass(decodedBuffer ?? makeDefaultDecodedBuffer());
     (globalThis as any).MediaRecorder = MockMediaRecorder;
     (globalThis as any).AudioContext = MockAudioContext;
     (window as any).AudioContext = MockAudioContext;

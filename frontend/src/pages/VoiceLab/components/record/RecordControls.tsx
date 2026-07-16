@@ -36,6 +36,7 @@
  * default "in progress" status.
  */
 import { useEffect, useRef, useState } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { useMicRecorder } from '@/hooks/useMicRecorder';
 import { checkSampleQuality, type QualityVerdict } from '@/utils/audio/qualityCheck';
 
@@ -272,13 +273,25 @@ export function RecordControls({ onKeep, onRetake }: { onKeep?: (blob: Blob) => 
             {rec.state === 'captured' && playbackUrl && (
                 <div className="record-controls__captured">
                     <p
-                        className={verdict?.ok === false ? 'record-controls__verdict record-controls__verdict--fail' : 'record-controls__verdict'}
+                        className={
+                            verdict?.ok === false
+                                ? 'record-controls__verdict record-controls__verdict--fail'
+                                : verdict?.hasClipping
+                                    ? 'record-controls__verdict record-controls__verdict--warning'
+                                    : 'record-controls__verdict'
+                        }
                         role={verdict?.ok === false ? 'alert' : undefined}
                     >
+                        {/* Clipping is a warning, not a hard block (owner-requested,
+                            2026-07-16) -- the take is still keepable, so this shows
+                            the warning icon + message but never disables Keep. */}
+                        {verdict?.hasClipping && verdict.ok && (
+                            <AlertTriangle size={14} className="record-controls__verdict-icon" aria-hidden="true" />
+                        )}
                         {verdict === null
                             ? 'Checking recording quality…'
                             : verdict.ok
-                                ? 'Quality check passed.'
+                                ? (verdict.message ?? 'Quality check passed.')
                                 : verdict.message}
                     </p>
 

@@ -44,11 +44,14 @@ describe('checkSampleQuality', () => {
         expect(verdict.message).toMatch(/silent/i);
     });
 
-    it('detects clipping when samples sit at/near +-1.0', async () => {
+    // Owner-requested (2026-07-16): clipping is a warning, not a hard block --
+    // the take is still usable and Keep must stay enabled (ok: true), unlike
+    // the duration/silence hard blocks above.
+    it('flags clipping as a warning (ok: true) rather than blocking, when samples sit at/near +-1.0', async () => {
         // A 2s tone at full amplitude will have peak samples at/near 1.0.
         const verdict = await checkSampleQuality(makeTone(2, 1.0));
         expect(verdict.hasClipping).toBe(true);
-        expect(verdict.ok).toBe(false);
+        expect(verdict.ok).toBe(true);
         expect(verdict.message).toMatch(/clipping/i);
     });
 

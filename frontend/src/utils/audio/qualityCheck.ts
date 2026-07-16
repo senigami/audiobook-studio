@@ -6,6 +6,13 @@
  * run against the decoded `AudioBuffer` before "Keep" is enabled in
  * `TakeManager.tsx`. Returns a full verdict object (not just a boolean) so
  * the UI can show WHY a take failed.
+ *
+ * Owner-requested (2026-07-16): clipping is a WARNING, not a hard block --
+ * the recording is still usable, and the owner wants the choice to keep it
+ * anyway. Duration-too-short and silence remain hard blocks (genuinely
+ * unusable audio, nothing to "keep anyway"). `hasClipping` (already part of
+ * the verdict) is what the UI uses to decide whether to show the warning
+ * styling; `ok` only reflects whether Keep should be disabled.
  */
 
 const MIN_DURATION_SECONDS = 1;
@@ -52,16 +59,6 @@ export async function checkSampleQuality(audioBuffer: AudioBuffer): Promise<Qual
         };
     }
 
-    if (hasClipping) {
-        return {
-            ok: false,
-            durationSeconds,
-            hasClipping,
-            isSilent,
-            message: 'Recording is clipping — audio is too loud. Move back from the mic and retake.',
-        };
-    }
-
     if (isSilent) {
         return {
             ok: false,
@@ -69,6 +66,16 @@ export async function checkSampleQuality(audioBuffer: AudioBuffer): Promise<Qual
             hasClipping,
             isSilent,
             message: 'Recording appears silent — check your microphone and retake.',
+        };
+    }
+
+    if (hasClipping) {
+        return {
+            ok: true,
+            durationSeconds,
+            hasClipping,
+            isSilent,
+            message: 'Recording is clipping — audio is too loud. You can keep it anyway, or move back from the mic and retake.',
         };
     }
 

@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RecordControls } from '@/pages/VoiceLab/components/record/RecordControls';
-import { installMediaRecorderMocks, setMockLevel } from '../../../../../helpers/mediaRecorderMocks';
+import { installMediaRecorderMocks, setMockLevel, makeToneBuffer } from '../../../../../helpers/mediaRecorderMocks';
 
 function getLiveRegionText(container: HTMLElement) {
     return container.querySelector('[aria-live="polite"]')?.textContent ?? '';
@@ -210,6 +210,28 @@ describe('RecordControls', () => {
             });
 
             expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Keep' }));
+        });
+
+        // Owner-requested (2026-07-16): clipping must warn, not block --
+        // Keep stays enabled and clickable even when the take clips.
+        it('warns on a clipping take but keeps Keep enabled and clickable', async () => {
+            const user = userEvent.setup();
+            const onKeep = vi.fn();
+
+            // Full-amplitude tone -> checkSampleQuality flags it as clipping.
+            installMediaRecorderMocks({ decodedBuffer: makeToneBuffer(1.0) });
+
+            render(<RecordControls onKeep={onKeep} />);
+
+            await user.click(screen.getByRole('button', { name: 'Start recording' }));
+            await user.click(screen.getByRole('button', { name: 'Stop recording' }));
+            await screen.findByText(/clipping/i);
+
+            const keepBtn = screen.getByRole('button', { name: 'Keep' });
+            expect(keepBtn).not.toBeDisabled();
+
+            await user.click(keepBtn);
+            expect(onKeep).toHaveBeenCalledTimes(1);
         });
     });
 });
