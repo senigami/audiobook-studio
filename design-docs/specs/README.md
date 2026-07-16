@@ -6,7 +6,7 @@ When a spec and the running code disagree, that is a bug in one or the other; th
 to update the spec (with a version bump and changelog note) or to correct the code. Silently
 accepting the divergence is not acceptable.
 
-Last updated: 2026-07-06
+Last updated: 2026-07-16
 
 ---
 
@@ -26,6 +26,7 @@ Last updated: 2026-07-06
 | [api-conventions.md](api-conventions.md) | REST URL patterns, standard error shape, API key auth, WebSocket protocol, external TTS API; live reads must bypass browser cache (`no-store`); per-book GC on project open | 1.1.0 |
 | [plugin-contract.md](plugin-contract.md) | `StudioTTSEngine` ABC, manifest schema, SDK types, capability flags | 1.4.0 |
 | [engines-and-plugins.md](engines-and-plugins.md) | Plugin discovery, health state machine, verification flow, hot-reload rules | 1.1.2 |
+| [video-sample.md](video-sample.md) | Per-chapter shareable MP4 sample (book cover + capped chapter audio); local-only ffmpeg render, letterboxed visual, Studio-logo fallback, orientation/duration params, `POST /chapters/{id}/export-video` | 1.0.0 |
 | [voice-bundles.md](voice-bundles.md) | Bundle directory structure, MP3/WAV format rules, voice attribute taxonomy, voice catalog + Voice Lab UI | 1.9.0 |
 | [interface-localization.md](interface-localization.md) | Interface localization, locale catalogs, first-run picker, settings selector, locale-aware formatting | 1.0.4 |
 | [voice-tone.md](voice-tone.md) | UI copy conventions: casing (Title Case CTAs / sentence case body), confirm-dialog defaults and verb-first labels, irreversibility messaging, the five UI states, loading/empty/success patterns, form-field label suffixes, ellipsis style, product naming | 1.0.0 |

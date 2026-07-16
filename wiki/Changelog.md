@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Added] - 2026-07-16
+
+### Chapter sample video export
+
+- The per-chapter **"Export Video Sample"** action now produces a real, shareable **MP4** instead of just streaming the raw audio. It pairs the chapter's rendered audio with the **book cover** (the Studio logo stands in when a project has no cover) on a letterboxed dark canvas, and downloads the file for you to post or send. Everything renders **locally** via ffmpeg — nothing is uploaded anywhere.
+- Length is capped (default 30s, max 2 min) and the frame is available as square (1080×1080) or portrait (1080×1920). If ffmpeg isn't installed, the app now says so clearly instead of failing silently.
+- New endpoint `POST /api/chapters/{id}/export-video`; contract in `design-docs/specs/video-sample.md` 1.0.0. Waveform-based clip selection and per-export orientation/length controls are planned follow-ups.
+
 ## [Security] - 2026-07-16
 
 ### Coordinated code review — security hardening (fable cleanup, Tier 0)
