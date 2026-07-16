@@ -690,6 +690,31 @@ above). Two backend items were genuinely undocumented:
   task, no plugin references it) and no matching spec under `design-docs/specs/`. Not fixed here —
   flagged as pre-built future work with no landing spot yet. **Owner: is this still wanted (a
   video-preview feature for voices), and if so what UI/route should call it?**
+- [x] **`app/orchestration/tasks/export.py` (`ExportTask`) + `bake.py` (`BakeTask`)** — MISSED by the
+  original 2026-07-12 sweep despite fitting its definition exactly (complete `StudioTask`s, `task_type`
+  `"export"`/`"bake"`, zero live callers, absent from the orchestrator reconstruction table). Surfaced
+  2026-07-16 by a fable feature-parity comparison. **Both are REDUNDANT with shipped, wired paths**:
+  `ExportTask` (M4B) duplicates `AssemblyTask(is_audiobook=True)` → `handle_audiobook_job` → `assemble_audiobook`
+  (route `POST /projects/{id}/assemble`, in recovery table, live UI) — the shipped path forwards every
+  field ExportTask exposes and adds chapter_titles + recovery reconstruction. `BakeTask` (chapter WAV→MP3)
+  duplicates `export_chapter_audio()` → `wav_to_mp3` (route `POST /chapters/{id}/export-audio`, live UI) —
+  the shipped path adds caching + atomic write + path containment. *(DELETED 2026-07-16 as redundant;
+  capabilities unchanged. Comparison verdict: nothing to port.)*
+- [x] **Latent bug found during that comparison — M4B filename doubled to `<name>.m4b.m4b`.** The wired
+  `handle_audiobook_job` (`app/jobs/handlers/audiobook.py`) re-derived `out_file = f"{chapter_file}.m4b"`
+  from a `chapter_file` that already ended in `.m4b` (it's `Path(output_path).name`), so shipped
+  audiobooks were written (and recorded as `output_mp3`) with a doubled extension. No test exercised the
+  derived filename (the assembly test stubs the render). *(FIXED 2026-07-16: strip the trailing `.m4b`
+  before re-appending; new revert-checked `tests/orchestration/test_audiobook_handler_filename.py`
+  exercises the derived name with a stubbed `assemble_audiobook`, red on pre-fix.)*
+
+### Backlog surfaced by the export/bake comparison (real gaps — do NOT resurrect the dead code)
+- [ ] **Audio loudness normalization / post-render polish** — genuinely unbuilt anywhere (grep: no
+  `loudnorm`/`dynaudnorm`/`-af` in `app/`; `BakeTask`'s "normalization" comment was empty aspiration). If
+  wanted, add it to the shipped `wav_to_mp3` / `export_chapter_audio` chain, not a resurrected task class.
+- [ ] **Async-queued MP3 export** — `export_chapter_audio` is synchronous (runs in the request threadpool;
+  fine at chapter sizes). Only worth an orchestrator-queued variant (with progress/cancel) if bulk export
+  or very-large-chapter encoding becomes a measured latency/threadpool concern.
 
 ## Declined / deferred with rationale *(not doing now — recorded so it isn't re-investigated cold)*
 
