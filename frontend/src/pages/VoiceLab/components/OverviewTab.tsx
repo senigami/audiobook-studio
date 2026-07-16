@@ -65,10 +65,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ voice, onSaved }) => {
     }, []);
 
     // Owner-requested (2026-07-16): picking an archetype overwrites
-    // class/gender/age/tone/timbre/pace unconditionally -- a deliberate
-    // reset, not a merge with whatever was already tagged.
+    // class/gender/age unconditionally -- a deliberate reset, not a merge
+    // with whatever was already tagged. tone/timbre/pace are excluded here
+    // since they moved to per-variant settings (VariantEditor.tsx) and are
+    // no longer part of this voice-level editor.
     const handleArchetypePick = useCallback((fields: ArchetypeQuickPickFields) => {
-        setAttrs(prev => ({ ...prev, ...fields }));
+        const { class: cls, gender, age } = fields;
+        setAttrs(prev => ({ ...prev, class: cls, gender, age }));
     }, []);
 
     const handleSave = async () => {
@@ -101,8 +104,11 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ voice, onSaved }) => {
     if (!voice) return null;
 
     const comboboxFields: Array<keyof VoiceAttributes> = ['class', 'gender', 'age'];
-    const oneFields: Array<keyof VoiceAttributes> = ['accent', 'pace'];
-    const manyFields: Array<keyof VoiceAttributes> = ['language', 'style', 'tone', 'timbre', 'use_case', 'quality'];
+    // tone/timbre/pace moved to per-variant settings (owner-requested,
+    // 2026-07-16) -- see VariantEditor.tsx. class/gender/age/accent/etc.
+    // stay voice-level since they describe the character, not a recording.
+    const oneFields: Array<keyof VoiceAttributes> = ['accent'];
+    const manyFields: Array<keyof VoiceAttributes> = ['language', 'style', 'use_case', 'quality'];
 
     return (
         <div className="overview-tab">

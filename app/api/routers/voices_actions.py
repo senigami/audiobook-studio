@@ -59,7 +59,12 @@ async def api_update_profile_settings(name: str, request: Request):
 
     from ...engines.behavior import get_synthesis_settings_allowlist
     allowed = set(get_synthesis_settings_allowlist(requested_engine))
-    allowed.update({"engine", "test_text", "performance_tags"})
+    # tone/timbre/pace: owner-requested (2026-07-16) move from voice-level
+    # VoiceAttributes to per-variant SpeakerProfile settings -- these describe
+    # how THIS recording performs, which can genuinely differ between two
+    # variants of the same voice, unlike class/gender/age (who the character
+    # is, stays voice-level).
+    allowed.update({"engine", "test_text", "performance_tags", "tone", "timbre", "pace"})
 
     invalid_keys = [k for k in settings if k not in allowed]
     if invalid_keys:

@@ -110,12 +110,16 @@ describe('OverviewTab', () => {
     // suggestions both work the same way here.
     // -----------------------------------------------------------------------
 
-    it('renders TONE as a type-to-filter autocomplete with removable pills, not a toggle-chip row', () => {
-        const voiceWithTone: VoiceMetadata = {
+    // tone/timbre/pace moved to per-variant settings (VariantEditor.tsx,
+    // owner-requested 2026-07-16) -- this now exercises STYLE instead, the
+    // remaining voice-level many-value field, to keep covering the
+    // TagAutocompleteInput pattern in OverviewTab specifically.
+    it('renders STYLE as a type-to-filter autocomplete with removable pills, not a toggle-chip row', () => {
+        const voiceWithStyle: VoiceMetadata = {
             ...mockVoice,
-            attributes: { ...mockVoice.attributes, tone: ['warm'] },
+            attributes: { ...mockVoice.attributes, style: ['warm'] },
         };
-        render(<OverviewTab voice={voiceWithTone} onSaved={vi.fn()} />);
+        render(<OverviewTab voice={voiceWithStyle} onSaved={vi.fn()} />);
 
         // The existing "warm" value renders as a removable pill (a real
         // button with an accessible "Remove warm" label), not a static
@@ -124,7 +128,7 @@ describe('OverviewTab', () => {
 
         // Typing filters taxonomy suggestions and lets you commit either the
         // suggestion or free text.
-        const input = screen.getByLabelText('Add tone');
+        const input = screen.getByLabelText('Add style');
         fireEvent.change(input, { target: { value: 'calm' } });
         fireEvent.keyDown(input, { key: 'Enter' });
         expect(screen.getByRole('button', { name: 'Remove calm' })).toBeInTheDocument();

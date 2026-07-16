@@ -224,6 +224,48 @@ describe('VariantEditor', () => {
         });
     });
 
+    // Per-variant performance qualities (owner-requested, 2026-07-16):
+    // tone/timbre/pace moved off voice-level VoiceAttributes since they
+    // describe how THIS recording performs -- same settings-write pattern
+    // as performance_tags, one key at a time.
+    describe('tone/timbre/pace', () => {
+        beforeEach(() => {
+            vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
+        });
+
+        it('renders existing tone and timbre as removable pills', () => {
+            const profile = { ...softProfile, tone: ['warm'], timbre: ['velvety'] };
+            render(<VariantEditor {...baseProps} profile={profile} />);
+            expect(screen.getByText('warm')).toBeInTheDocument();
+            expect(screen.getByText('velvety')).toBeInTheDocument();
+        });
+
+        it('adding a tone calls the settings-write API with just the tone key, then onRefresh', async () => {
+            const onRefresh = vi.fn();
+            const profile = { ...softProfile, tone: ['warm'] };
+            render(<VariantEditor {...baseProps} onRefresh={onRefresh} profile={profile} />);
+
+            const input = screen.getByLabelText('Add tone');
+            fireEvent.change(input, { target: { value: 'calm' } });
+            fireEvent.keyDown(input, { key: 'Enter' });
+
+            expect(fetch).toHaveBeenCalledWith(
+                `/api/speaker-profiles/${encodeURIComponent(profile.name)}/settings`,
+                expect.objectContaining({
+                    method: 'POST',
+                    body: JSON.stringify({ tone: ['warm', 'calm'] }),
+                })
+            );
+            await vi.waitFor(() => expect(onRefresh).toHaveBeenCalled());
+        });
+
+        it('renders pace as a searchable select bound to the profile value', () => {
+            const profile = { ...softProfile, pace: 'brisk' };
+            render(<VariantEditor {...baseProps} profile={profile} />);
+            expect(screen.getByText('Brisk')).toBeInTheDocument();
+        });
+    });
+
     describe('ActionMenu chrome demotion (task 009)', () => {
         it('includes Script, Record samples, Rebuild, Move Variant, and Delete Variant (destructive) items', () => {
             render(<VariantEditor {...baseProps} profile={softProfile} />);

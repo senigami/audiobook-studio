@@ -120,6 +120,12 @@ def get_speaker_settings(profile_name_or_id: str) -> dict:
         "built_samples": [],
         "engine": "",
         "performance_tags": [],
+        # Per-variant performance qualities (owner-requested, 2026-07-16) --
+        # moved off voice-level VoiceAttributes since these can genuinely
+        # differ between two variants of the same voice.
+        "tone": [],
+        "timbre": [],
+        "pace": "",
     }
     # Resolve to canonical name if it exists
     target_profile = _resolve_existing_profile_name(profile_name_or_id)
@@ -202,17 +208,21 @@ def update_speaker_settings(profile_name: str, **updates) -> bool:
         except Exception:
             meta = {}
 
-    if "performance_tags" in updates and updates["performance_tags"] is not None:
-        normalized_tags = []
-        for tag in updates["performance_tags"]:
-            # INV-TAG-1: normalization MUST match TagAutocompleteInput.tsx's
-            # `raw.trim().toLowerCase().replace(/\s+/g, '-')` exactly — collapse
-            # any run of whitespace (spaces, tabs) to a single dash, not just a
-            # single space, so a direct-API tag matches its UI-entered twin.
-            normalized = re.sub(r"\s+", "-", str(tag).strip().lower())
-            if normalized and normalized not in normalized_tags:
-                normalized_tags.append(normalized)
-        updates["performance_tags"] = normalized_tags
+    # tone/timbre now use the same TagAutocompleteInput.tsx component as
+    # performance_tags (owner-requested, 2026-07-16), so they get the exact
+    # same INV-TAG-1 whitespace normalization for consistency.
+    for _tag_field in ("performance_tags", "tone", "timbre"):
+        if _tag_field in updates and updates[_tag_field] is not None:
+            normalized_tags = []
+            for tag in updates[_tag_field]:
+                # INV-TAG-1: normalization MUST match TagAutocompleteInput.tsx's
+                # `raw.trim().toLowerCase().replace(/\s+/g, '-')` exactly — collapse
+                # any run of whitespace (spaces, tabs) to a single dash, not just a
+                # single space, so a direct-API tag matches its UI-entered twin.
+                normalized = re.sub(r"\s+", "-", str(tag).strip().lower())
+                if normalized and normalized not in normalized_tags:
+                    normalized_tags.append(normalized)
+            updates[_tag_field] = normalized_tags
 
     for k, v in updates.items():
         if v is None:

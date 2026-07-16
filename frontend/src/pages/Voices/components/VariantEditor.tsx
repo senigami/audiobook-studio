@@ -13,6 +13,8 @@ import { ScriptEditor } from '@/pages/Voices/components/ScriptEditor';
 import { VoiceSettingsPanel } from '@/pages/Voices/components/VoiceSettingsPanel';
 import { formatVoiceEngineLabel, getVariantDisplayName, getVoiceProfileEngine, isDefaultVoiceProfile } from '@/utils/voiceProfiles';
 import { TagAutocompleteInput } from '@/pages/Voices/components/metadata/TagAutocompleteInput';
+import { getSection } from '@/pages/Voices/components/metadata/taxonomy';
+import SearchableSelect from '@/components/forms/SearchableSelect';
 import { ActionMenu, type ActionMenuItem } from '@/components/ui/ActionMenu';
 import { EngineBadge } from '@/components/ui/EngineBadge';
 import { ArchetypePicker, type ArchetypeAttrs } from '@/pages/VoiceLab/components/record/ArchetypePicker';
@@ -117,6 +119,26 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
         }
         onRefresh();
     };
+
+    // tone/timbre/pace (owner-requested, 2026-07-16): per-variant performance
+    // qualities, moved off voice-level VoiceAttributes -- same settings
+    // endpoint pattern as performance_tags, one key at a time.
+    const handleSavePerformanceAttr = async (key: 'tone' | 'timbre' | 'pace', value: string[] | string) => {
+        try {
+            await fetch(`/api/speaker-profiles/${encodeURIComponent(profile.name)}/settings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ [key]: value }),
+            });
+        } catch (err) {
+            console.error(`Failed to save ${key}`, err);
+        }
+        onRefresh();
+    };
+
+    const toneSection = getSection('tone');
+    const timbreSection = getSection('timbre');
+    const paceSection = getSection('pace');
 
     const combinedTagSuggestions = Array.from(new Set([...tagSuggestions, ...PERFORMANCE_TAG_STARTER_VOCABULARY]));
 
@@ -522,6 +544,43 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                         suggestions={combinedTagSuggestions}
                         placeholder="Add a performance tag..."
                     />
+                </div>
+
+                {/* Per-variant performance qualities (owner-requested,
+                    2026-07-16): tone/timbre/pace moved here from the
+                    voice-level Overview -- how THIS recording performs, which
+                    can differ between variants of the same voice. */}
+                <div className="variant-editor__performance-attrs-row" style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {toneSection && (
+                        <TagAutocompleteInput
+                            label="Tone"
+                            tags={profile.tone ?? []}
+                            onChange={val => handleSavePerformanceAttr('tone', val)}
+                            suggestions={toneSection.values.map(v => v.label)}
+                            placeholder="Add tone..."
+                        />
+                    )}
+                    {timbreSection && (
+                        <TagAutocompleteInput
+                            label="Timbre"
+                            tags={profile.timbre ?? []}
+                            onChange={val => handleSavePerformanceAttr('timbre', val)}
+                            suggestions={timbreSection.values.map(v => v.label)}
+                            placeholder="Add timbre..."
+                        />
+                    )}
+                    {paceSection && (
+                        <div className="metadata-field">
+                            <label className="metadata-field-label">Pace</label>
+                            <SearchableSelect
+                                options={paceSection.values.map(v => ({ id: v.id, name: v.label }))}
+                                value={profile.pace ?? ''}
+                                onChange={val => handleSavePerformanceAttr('pace', val === 'none' ? '' : val)}
+                                placeholder="Select pace..."
+                                showCreateNew={false}
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
 

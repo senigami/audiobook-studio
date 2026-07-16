@@ -280,6 +280,13 @@ export interface SpeakerProfile {
   /** Per-variant default flag (task 005) — the character's default variant for bundle
    * export. Distinct from `is_default` (the app-wide default speaker profile). */
   is_variant_default?: boolean;
+  /** Per-variant performance qualities (owner-requested, 2026-07-16) — moved off
+   * voice-level VoiceAttributes since these describe how THIS recording performs,
+   * which can genuinely differ between two variants of the same voice (unlike
+   * class/gender/age, which stay voice-level). */
+  tone?: string[];
+  timbre?: string[];
+  pace?: string;
 }
 
 export interface Speaker {

@@ -1,0 +1,32 @@
+{
+  "date": "2026-07-16",
+  "author": "claude",
+  "summary": "Backend half of moving tone/timbre/pace off voice-level VoiceAttributes to per-variant SpeakerProfile settings (owner-requested): these describe how a specific recording performs, which can differ between two variants of the same voice, unlike class/gender/age which stay voice-level. Mirrors the exact pattern performance_tags already established.",
+  "files": [
+    {
+      "path": "app/api/routers/voices_actions.py",
+      "change": "Added tone/timbre/pace to the settings-write allowlist alongside engine/test_text/performance_tags."
+    },
+    {
+      "path": "app/db/speakers_settings.py",
+      "change": "get_speaker_settings() now defaults tone/timbre to [] and pace to '' alongside performance_tags. update_speaker_settings() applies the same INV-TAG-1 whitespace normalization (collapse runs to a single dash) to tone/timbre as performance_tags, since the frontend now edits all three through the same TagAutocompleteInput.tsx component."
+    },
+    {
+      "path": "app/api/routers/voices_management.py",
+      "change": "list_speaker_profiles() now includes tone/timbre/pace per profile, read from spk_settings, alongside performance_tags."
+    },
+    {
+      "path": "frontend/src/types/index.ts",
+      "change": "Added tone?/timbre?/pace? to SpeakerProfile (per-variant, mirrors backend)."
+    },
+    {
+      "path": "frontend/src/pages/Voices/components/VariantEditor.tsx",
+      "change": "Added a per-variant performance-attrs row: TagAutocompleteInput for tone/timbre (suggestions from taxonomy.ts getSection), SearchableSelect for pace -- each writes through handleSavePerformanceAttr() to POST /api/speaker-profiles/{name}/settings with just that one key, same one-key-at-a-time pattern as the existing performance_tags handler."
+    },
+    {
+      "path": "frontend/src/pages/VoiceLab/components/OverviewTab.tsx",
+      "change": "Removed pace from oneFields and tone/timbre from manyFields (moved to per-variant). handleArchetypePick() now only applies class/gender/age from an archetype pick -- tone/timbre/pace are no longer part of this voice-level editor, so archetype-driven values for those fields are dropped rather than written to a hidden, no-longer-displayed part of VoiceAttributes."
+    }
+  ],
+  "flow_impact": "Both backend and frontend halves landed in this change. tone/timbre/pace are now edited exclusively per-variant (VariantEditor.tsx); OverviewTab.tsx's voice-level editor no longer surfaces them. VoiceAttributes (frontend type) and the voice-level DB model still declare tone/timbre/pace fields for schema compatibility, but nothing writes to them anymore from the UI."
+}
