@@ -190,9 +190,12 @@
 }
 
 /* Voices catalog grid wrapper — R5-T3 */
+/* Owner-requested minimum width (2026-07-16): wide enough that the pill row
+   (3 pills + the "+N" overflow, 4 total) never wraps. 220px was too narrow
+   once pills moved to their own full-width row below the avatar. */
 .voices-catalog-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: var(--space-3);
 }
 

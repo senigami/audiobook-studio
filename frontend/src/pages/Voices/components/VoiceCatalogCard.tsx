@@ -366,19 +366,23 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
                                 style={{ marginTop: '2px' }}
                             />
                         )}
-
-                        {/* Pills */}
-                        {pills.length > 0 ? (
-                            <div style={{ display: 'flex', marginTop: '6px', flexWrap: 'wrap' }}>
-                                <VoicePillRow pills={pills} max={3} />
-                            </div>
-                        ) : isUntagged ? (
-                            <div style={{ display: 'flex', marginTop: '6px' }}>
-                                <UntaggedBadge onClick={onEditMetadata} />
-                            </div>
-                        ) : null}
                     </div>
                 </div>
+
+                {/* Pills — full card width, own row below the header row (owner-requested,
+                    2026-07-16: pills were cramped into the narrow name column; they now
+                    start at the card's left edge like the description below, with room
+                    for 3 pills + the "+N" overflow (4 total) without wrapping — see
+                    .voices-catalog-grid's widened minmax in voice-lab.css. */}
+                {pills.length > 0 ? (
+                    <div style={{ display: 'flex', flexWrap: 'nowrap' }}>
+                        <VoicePillRow pills={pills} max={3} />
+                    </div>
+                ) : isUntagged ? (
+                    <div style={{ display: 'flex' }}>
+                        <UntaggedBadge onClick={onEditMetadata} />
+                    </div>
+                ) : null}
 
                 {/* Description — full card width, below the header row. */}
                 {metadata?.description && (
