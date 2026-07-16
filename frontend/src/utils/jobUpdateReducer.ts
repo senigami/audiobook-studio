@@ -55,8 +55,19 @@ export function detectNewerRun(
             ))
         )) ||
         (!hasIncomingDbTimestamps && (
-            (!['done', 'failed', 'cancelled'].includes(oldJob.status || '') || hasOldTimestamps) &&
-            (typeof updates.updated_at === 'number' && (
+            // COR-F-3: a job still in flight (not done/failed/cancelled) legitimately
+            // bounces between rollback statuses with no timestamp at all on most
+            // frames (e.g. a segments.progress SEGMENT_PENDING re-announce mid-chapter
+            // dropping job.status from running back to preparing) — that's an
+            // ordinary same-run fluctuation, not a stale/duplicate delivery, so it's
+            // always treated as "the current run continuing". A TERMINAL old job is
+            // the actually dangerous direction (resurrecting a finished job), so
+            // un-terminating one requires an incoming timestamp that genuinely
+            // advances past the old job's own recorded timestamps — a timestamp-less
+            // frame can never satisfy that and therefore can never masquerade as
+            // newest.
+            !['done', 'failed', 'cancelled'].includes(oldJob.status || '') ||
+            (hasOldTimestamps && typeof updates.updated_at === 'number' && (
                 (typeof oldUpdatedAt !== 'number' || updates.updated_at > oldUpdatedAt) &&
                 (typeof oldFinishedAt !== 'number' || updates.updated_at > oldFinishedAt)
             ))

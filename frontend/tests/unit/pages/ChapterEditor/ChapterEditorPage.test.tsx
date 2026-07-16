@@ -419,12 +419,20 @@ describe('ChapterEditor - Core Orchestration', () => {
         topic: 'segments.progress',
         eventKind: 'segment_progress',
         source: 'backend',
-        emittedAt: 150,
         ids: { jobId: 'job-123', chapterId: mockChapterId, segmentId: 'seg-2' },
         payload: {
           status: 'running',
           progress: 0.5,
           activeSegmentProgress: 0.5,
+          // COR-F-3: the job's existing updated_at is 100 (see the jobs_snapshot
+          // above) — this frame needs its OWN genuinely-newer timestamp to be
+          // allowed to flip a terminal ("done") job's segment back to rendering.
+          // Note this must live in the payload: the socket envelope's top-level
+          // `emittedAt` is not currently propagated through
+          // normalizeStudioSocketEnvelope for studio_event frames (a separate,
+          // pre-existing gap — see COR-F-3 report), so `event.emittedAt` never
+          // reaches resolveEventUpdatedAt in practice.
+          updatedAt: 150,
         }
       });
     });

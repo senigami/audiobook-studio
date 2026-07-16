@@ -22,7 +22,7 @@ def test_heartbeat_eta_stability():
         estimated_end_at=start_time + 10 + 30
     )
 
-    with patch("app.db.state_jobs._load_state_no_lock") as mock_load, \
+    with patch("app.db.state_jobs._load_state_for_update_no_lock") as mock_load, \
          patch("app.db.state_jobs._atomic_write_text"), \
          patch("app.db.state_jobs.prune_completed_jobs"):
 
@@ -70,7 +70,7 @@ def test_post_synthesis_milestones_do_not_reproject_eta():
         estimated_end_at=initial_end_at,
     )
 
-    with patch("app.db.state_jobs._load_state_no_lock") as mock_load, \
+    with patch("app.db.state_jobs._load_state_for_update_no_lock") as mock_load, \
          patch("app.db.state_jobs._atomic_write_text"), \
          patch("app.db.state_jobs.prune_completed_jobs"):
         state = {"jobs": {job_id: initial_job.__dict__.copy()}}
