@@ -49,6 +49,23 @@ describe('ArchetypePicker', () => {
         expect(onSkip).toHaveBeenCalledTimes(1);
     });
 
+    it('picking an archetype from the quick-pick fills all 6 fields at once and updates the connected cue card (owner-requested, 2026-07-16)', () => {
+        render(<PickerWithCueCard />);
+
+        fireEvent.click(screen.getByRole('button', { name: /Pick a voice archetype/i }));
+        fireEvent.click(screen.getByText('Warm Storyteller'));
+
+        expect(screen.getByRole('button', { name: 'Human', pressed: true })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Feminine', pressed: true })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Adult', pressed: true })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Measured', pressed: true })).toBeInTheDocument();
+
+        // The cue card should now show Warm Storyteller's own curated prompt,
+        // not a generic/composed one.
+        const prompt = document.querySelector('.recording-cue-card__prompt')?.textContent;
+        expect(prompt).toContain('Come closer');
+    });
+
     it('selecting a class updates the connected cue card away from the generic skip prompt', () => {
         render(<PickerWithCueCard />);
 

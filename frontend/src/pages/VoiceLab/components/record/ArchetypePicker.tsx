@@ -13,6 +13,7 @@ import type { VoiceAttributes } from '@/types';
 import { getSection } from '@/pages/Voices/components/metadata/taxonomy';
 import { OneSelect } from '@/pages/Voices/components/metadata/OneSelect';
 import { ManySelect } from '@/pages/Voices/components/metadata/ManySelect';
+import { ArchetypeQuickPick } from '@/pages/Voices/components/metadata/ArchetypeQuickPick';
 
 export type ArchetypeAttrs = Pick<VoiceAttributes, 'class' | 'gender' | 'age' | 'tone' | 'timbre' | 'pace'>;
 
@@ -34,6 +35,12 @@ export function ArchetypePicker({
 
     return (
         <div className="archetype-picker">
+            {/* Owner-requested (2026-07-16): same quick-pick as OverviewTab's
+                attribute editor -- picking an archetype overwrites all 6
+                fields below at once, a fast starting point before fine-tuning
+                individual fields for this recording session. */}
+            <ArchetypeQuickPick onPick={fields => onChange({ ...value, ...fields })} />
+
             {ONE_FIELDS.map(key => {
                 const section = getSection(key);
                 if (!section) return null;

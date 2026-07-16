@@ -43,6 +43,24 @@ describe('OverviewTab', () => {
         expect(screen.getByRole('button', { name: 'Adult' })).toBeInTheDocument();
     });
 
+    it('picking an archetype from the quick-pick overwrites class/gender/age even when different values were already set (owner-requested, 2026-07-16)', () => {
+        const differentlyTagged: VoiceMetadata = {
+            ...mockVoice,
+            attributes: { class: 'creature', gender: 'ambiguous', age: 'ageless' },
+        };
+        render(<OverviewTab voice={differentlyTagged} onSaved={vi.fn()} />);
+
+        fireEvent.click(screen.getByRole('button', { name: /Pick a voice archetype/i }));
+        fireEvent.click(screen.getByText('Warm Storyteller'));
+
+        // Warm Storyteller is class=human/gender=feminine/age=adult -- the
+        // comboboxes must now show that, not the original creature/ambiguous/
+        // ageless values (a real overwrite, not a no-op or a merge-only-blanks).
+        expect(screen.getByRole('button', { name: 'Human' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Feminine' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Adult' })).toBeInTheDocument();
+    });
+
     it('does not offer a "Create New" action on the closed-vocabulary comboboxes', () => {
         render(<OverviewTab voice={mockVoice} onSaved={vi.fn()} />);
 

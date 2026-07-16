@@ -35,6 +35,7 @@ import { ManySelect } from '@/pages/Voices/components/metadata/ManySelect';
 import { categoryForAttributeKey } from '@/pages/Voices/components/VoicePills';
 import SearchableSelect from '@/components/forms/SearchableSelect';
 import { TagsInput } from '@/pages/Voices/components/metadata/TagsInput';
+import { ArchetypeQuickPick, type ArchetypeQuickPickFields } from '@/pages/Voices/components/metadata/ArchetypeQuickPick';
 
 export interface OverviewTabProps {
     voice: VoiceMetadata;
@@ -61,6 +62,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ voice, onSaved }) => {
 
     const setAttr = useCallback((key: keyof VoiceAttributes, val: any) => {
         setAttrs(prev => ({ ...prev, [key]: val }));
+    }, []);
+
+    // Owner-requested (2026-07-16): picking an archetype overwrites
+    // class/gender/age/tone/timbre/pace unconditionally -- a deliberate
+    // reset, not a merge with whatever was already tagged.
+    const handleArchetypePick = useCallback((fields: ArchetypeQuickPickFields) => {
+        setAttrs(prev => ({ ...prev, ...fields }));
     }, []);
 
     const handleSave = async () => {
@@ -131,6 +139,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ voice, onSaved }) => {
             </div>
 
             <hr className="metadata-editor-modal__divider" />
+
+            <ArchetypeQuickPick onPick={handleArchetypePick} />
+
             <p className="metadata-field-label" style={{ margin: 0 }}>
                 ATTRIBUTES <span style={{ color: 'var(--error)' }}>*</span> required fields
             </p>
