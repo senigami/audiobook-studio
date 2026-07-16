@@ -27,7 +27,8 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
     const [isOpen, setIsOpen] = useState(false);
     const [highlightedIndex, setHighlightedIndex] = useState(0);
     const containerRef = useRef<HTMLDivElement>(null);
-    const triggerRef = useRef<HTMLButtonElement>(null);
+    const triggerRef = useRef<HTMLDivElement>(null);
+    const listboxId = React.useId();
 
     const toggle = (id: string) => {
         if (value.includes(id)) {
@@ -62,15 +63,23 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
         triggerRef.current?.focus();
     };
 
-    const handleTriggerKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    // Focus stays on the trigger (a focusable combobox element) while the panel
+    // is open, so ALL keyboard navigation is handled here rather than on the
+    // listbox div (which never receives focus). Key events that originate on a
+    // descendant chip "Remove" button are ignored (target !== currentTarget) so
+    // that activating a chip doesn't also toggle the panel.
+    const handleTriggerKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
         if (disabled) return;
-        if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            setIsOpen(true);
-        }
-    };
+        if (event.target !== event.currentTarget) return;
 
-    const handlePanelKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (!isOpen) {
+            if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setIsOpen(true);
+            }
+            return;
+        }
+
         if (event.key === 'ArrowDown') {
             event.preventDefault();
             setHighlightedIndex((prev) => (prev + 1) % Math.max(options.length, 1));
@@ -93,15 +102,22 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
 
     return (
         <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
-            <button
+            {/* The trigger is a focusable combobox element (not a <button>) so
+                that the per-chip "Remove" controls can be real, independently
+                tabbable <button>s — a <button> nested inside a <button> is
+                invalid and the inner one is not keyboard-focusable. Click and
+                keyboard both open/close and drive listbox navigation here. */}
+            <div
                 ref={triggerRef}
-                type="button"
+                role="combobox"
+                tabIndex={disabled ? -1 : 0}
                 onClick={() => !disabled && setIsOpen(!isOpen)}
                 onKeyDown={handleTriggerKeyDown}
-                disabled={disabled}
                 aria-haspopup="listbox"
                 aria-expanded={isOpen}
-                aria-label={selectedOptions.length === 0 ? (label || placeholder) : undefined}
+                aria-controls={isOpen ? listboxId : undefined}
+                aria-disabled={disabled || undefined}
+                aria-label={selectedOptions.length === 0 ? (label || placeholder) : (label || undefined)}
                 className="form-input"
                 style={{
                     display: 'flex',
@@ -138,17 +154,27 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
                                 }}
                             >
                                 {opt.label}
-                                <span
-                                    role="button"
+                                <button
+                                    type="button"
                                     aria-label={`Remove ${opt.label}`}
+                                    disabled={disabled}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         remove(opt.id);
                                     }}
-                                    style={{ display: 'inline-flex', cursor: 'pointer' }}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        padding: 0,
+                                        border: 'none',
+                                        background: 'transparent',
+                                        color: 'inherit',
+                                        cursor: disabled ? 'not-allowed' : 'pointer'
+                                    }}
                                 >
                                     <X size={12} />
-                                </span>
+                                </button>
                             </span>
                         ))
                     )}
@@ -162,7 +188,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
                         flexShrink: 0
                     }}
                 />
-            </button>
+            </div>
 
             <AnimatePresence>
                 {isOpen && (
@@ -170,9 +196,9 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
                         initial={{ opacity: 0, scale: 0.95, y: -10 }}
                         animate={{ opacity: 1, scale: 1, y: 4 }}
                         exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                        id={listboxId}
                         role="listbox"
                         aria-multiselectable="true"
-                        onKeyDown={handlePanelKeyDown}
                         style={{
                             position: 'absolute',
                             top: '100%',

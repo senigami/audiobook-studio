@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi } from 'vitest';
 import MultiSelect from '@/components/forms/MultiSelect';
 
@@ -24,7 +25,7 @@ describe('MultiSelect', () => {
   it('toggles an option on via click', () => {
     const onChange = vi.fn();
     render(<MultiSelect options={options} value={[]} onChange={onChange} label="Pick" />);
-    fireEvent.click(screen.getByRole('button', { name: 'Pick' }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Pick' }));
     fireEvent.click(screen.getByRole('option', { name: 'Option 1' }));
     expect(onChange).toHaveBeenCalledWith(['1']);
   });
@@ -32,7 +33,7 @@ describe('MultiSelect', () => {
   it('toggles an option off via click', () => {
     const onChange = vi.fn();
     render(<MultiSelect options={options} value={['1']} onChange={onChange} />);
-    fireEvent.click(screen.getAllByRole('button')[0]);
+    fireEvent.click(screen.getByRole('combobox'));
     fireEvent.click(screen.getByRole('option', { name: /Option 1/ }));
     expect(onChange).toHaveBeenCalledWith([]);
   });
@@ -40,21 +41,37 @@ describe('MultiSelect', () => {
   it('does not close the panel after toggling an option', () => {
     const onChange = vi.fn();
     render(<MultiSelect options={options} value={[]} onChange={onChange} label="Pick" />);
-    fireEvent.click(screen.getByRole('button', { name: 'Pick' }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Pick' }));
     fireEvent.click(screen.getByRole('option', { name: 'Option 1' }));
     expect(screen.getByRole('listbox')).toBeInTheDocument();
   });
 
-  it('toggles the highlighted option via arrow keys + space', () => {
+  it('opens and toggles the highlighted option via arrow keys + space, changing the value', () => {
     const onChange = vi.fn();
     render(<MultiSelect options={options} value={[]} onChange={onChange} label="Pick" />);
-    fireEvent.click(screen.getByRole('button', { name: 'Pick' }));
+    const combobox = screen.getByRole('combobox', { name: 'Pick' });
 
-    const listbox = screen.getByRole('listbox');
-    fireEvent.keyDown(listbox, { key: 'ArrowDown' });
-    fireEvent.keyDown(listbox, { key: ' ' });
+    // Keyboard alone opens the panel — focus never leaves the combobox trigger.
+    fireEvent.keyDown(combobox, { key: 'ArrowDown' });
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+
+    fireEvent.keyDown(combobox, { key: 'ArrowDown' }); // highlight moves 0 -> 1
+    fireEvent.keyDown(combobox, { key: ' ' });         // toggle options[1]
 
     expect(onChange).toHaveBeenCalledWith(['2']);
+  });
+
+  it('toggles the highlighted option via Enter as well', () => {
+    const onChange = vi.fn();
+    render(<MultiSelect options={options} value={[]} onChange={onChange} label="Pick" />);
+    const combobox = screen.getByRole('combobox', { name: 'Pick' });
+
+    fireEvent.click(combobox); // open
+    fireEvent.keyDown(combobox, { key: 'ArrowDown' }); // 0 -> 1
+    fireEvent.keyDown(combobox, { key: 'ArrowUp' });   // 1 -> 0
+    fireEvent.keyDown(combobox, { key: 'Enter' });     // toggle options[0]
+
+    expect(onChange).toHaveBeenCalledWith(['1']);
   });
 
   it('removes a chip via its × control', () => {
@@ -71,12 +88,44 @@ describe('MultiSelect', () => {
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 
+  it('reaches each chip remove button by Tab in sequence and activates via Enter/Space', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<MultiSelect options={options} value={['1', '2']} onChange={onChange} label="Pick" />);
+
+    const combobox = screen.getByRole('combobox', { name: 'Pick' });
+    combobox.focus();
+    expect(combobox).toHaveFocus();
+
+    // Tab lands on the first chip's remove button, then the second — in order.
+    await user.tab();
+    const remove1 = screen.getByRole('button', { name: 'Remove Option 1' });
+    expect(remove1).toHaveFocus();
+
+    await user.tab();
+    const remove2 = screen.getByRole('button', { name: 'Remove Option 2' });
+    expect(remove2).toHaveFocus();
+
+    // Enter activates the focused remove control (removes Option 2)...
+    await user.keyboard('{Enter}');
+    expect(onChange).toHaveBeenLastCalledWith(['1']);
+
+    // ...and Space activates it too (removes Option 1).
+    remove1.focus();
+    await user.keyboard(' ');
+    expect(onChange).toHaveBeenLastCalledWith(['2']);
+
+    // Activating a chip must never open the listbox.
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
   it('closes on Escape', async () => {
     render(<MultiSelect options={options} value={[]} onChange={vi.fn()} label="Pick" />);
-    fireEvent.click(screen.getByRole('button', { name: 'Pick' }));
+    const combobox = screen.getByRole('combobox', { name: 'Pick' });
+    fireEvent.click(combobox);
     expect(screen.getByRole('listbox')).toBeInTheDocument();
 
-    fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Escape' });
+    fireEvent.keyDown(combobox, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
   });
 
@@ -87,7 +136,7 @@ describe('MultiSelect', () => {
         <div data-testid="outside">outside</div>
       </div>
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Pick' }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Pick' }));
     expect(screen.getByRole('listbox')).toBeInTheDocument();
 
     fireEvent.mouseDown(screen.getByTestId('outside'));
@@ -96,8 +145,7 @@ describe('MultiSelect', () => {
 
   it('sets aria-multiselectable and role=option/aria-selected correctly', () => {
     render(<MultiSelect options={options} value={['2']} onChange={vi.fn()} label="Pick" />);
-    const triggerButtons = screen.getAllByRole('button');
-    fireEvent.click(triggerButtons[0]);
+    fireEvent.click(screen.getByRole('combobox', { name: 'Pick' }));
 
     const listbox = screen.getByRole('listbox');
     expect(listbox).toHaveAttribute('aria-multiselectable', 'true');
@@ -111,8 +159,10 @@ describe('MultiSelect', () => {
 
   it('is disabled when disabled prop is true', () => {
     render(<MultiSelect options={options} value={[]} onChange={vi.fn()} disabled={true} label="Pick" />);
-    expect(screen.getByRole('button', { name: 'Pick' })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Pick' }));
+    const combobox = screen.getByRole('combobox', { name: 'Pick' });
+    expect(combobox).toHaveAttribute('aria-disabled', 'true');
+    expect(combobox).toHaveAttribute('tabindex', '-1');
+    fireEvent.click(combobox);
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 });

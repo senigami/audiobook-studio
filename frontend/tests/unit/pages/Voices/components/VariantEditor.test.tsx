@@ -289,4 +289,83 @@ describe('VariantEditor', () => {
             expect(onBuildNow).toHaveBeenCalledWith(softProfile.name, [], softProfile.speaker_id, softProfile.variant_name);
         });
     });
+
+    // Variant renaming reachability (INV-VC-2): the "VARIANT NAME" field the
+    // retired TestTab used to host must still be reachable from the Script panel,
+    // and changing it must hit the same rename endpoints TestTab used — /rename
+    // for a non-default variant (whose label lives in the profile name) and
+    // /variant-name for the default variant (whose label is a stored setting).
+    describe('variant renaming (INV-VC-2)', () => {
+        beforeEach(() => {
+            vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
+        });
+
+        const openScriptPanel = () => fireEvent.click(screen.getByTestId('menu-item-Script'));
+
+        it('renders the VARIANT NAME field in the Script panel', () => {
+            render(<VariantEditor {...baseProps} profile={softProfile} />);
+            expect(screen.queryByPlaceholderText('Variant name')).not.toBeInTheDocument();
+            openScriptPanel();
+            expect(screen.getByText('VARIANT NAME')).toBeInTheDocument();
+            expect(screen.getByPlaceholderText('Variant name')).toHaveValue('Soft');
+        });
+
+        it('renaming a NON-default variant saves via /rename with the composed full name, then onRefresh', async () => {
+            const onRefresh = vi.fn();
+            render(<VariantEditor {...baseProps} onRefresh={onRefresh} profile={softProfile} />);
+            openScriptPanel();
+
+            fireEvent.change(screen.getByPlaceholderText('Variant name'), { target: { value: 'Whisper' } });
+            fireEvent.click(screen.getByRole('button', { name: 'Save Script' }));
+
+            await vi.waitFor(() =>
+                expect(fetch).toHaveBeenCalledWith(
+                    `/api/speaker-profiles/${encodeURIComponent(softProfile.name)}/rename`,
+                    expect.objectContaining({ method: 'POST' })
+                )
+            );
+            const renameCall = (fetch as any).mock.calls.find((c: any[]) => String(c[0]).endsWith('/rename'));
+            expect((renameCall[1].body as URLSearchParams).get('new_name')).toBe('Aria Nova - Whisper');
+            await vi.waitFor(() => expect(onRefresh).toHaveBeenCalled());
+        });
+
+        it('renaming the DEFAULT variant saves via /variant-name (not /rename)', async () => {
+            const defaultProfile = {
+                ...softProfile,
+                name: 'Aria Nova',
+                variant_name: 'Default',
+                is_default: true,
+            } as SpeakerProfile;
+            render(<VariantEditor {...baseProps} profile={defaultProfile} />);
+            openScriptPanel();
+
+            fireEvent.change(screen.getByPlaceholderText('Variant name'), { target: { value: 'Narration' } });
+            fireEvent.click(screen.getByRole('button', { name: 'Save Script' }));
+
+            await vi.waitFor(() =>
+                expect(fetch).toHaveBeenCalledWith(
+                    `/api/speaker-profiles/${encodeURIComponent(defaultProfile.name)}/variant-name`,
+                    expect.objectContaining({ method: 'POST' })
+                )
+            );
+            const calls = (fetch as any).mock.calls.map((c: any[]) => String(c[0]));
+            expect(calls.some((u: string) => u.endsWith('/rename'))).toBe(false);
+        });
+
+        it('does not call a rename endpoint when the variant name is unchanged', async () => {
+            render(<VariantEditor {...baseProps} profile={softProfile} />);
+            openScriptPanel();
+
+            fireEvent.click(screen.getByRole('button', { name: 'Save Script' }));
+
+            await vi.waitFor(() =>
+                expect(fetch).toHaveBeenCalledWith(
+                    `/api/speaker-profiles/${encodeURIComponent(softProfile.name)}/settings`,
+                    expect.objectContaining({ method: 'POST' })
+                )
+            );
+            const calls = (fetch as any).mock.calls.map((c: any[]) => String(c[0]));
+            expect(calls.some((u: string) => u.endsWith('/rename') || u.endsWith('/variant-name'))).toBe(false);
+        });
+    });
 });

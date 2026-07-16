@@ -5,11 +5,10 @@ import type { VoiceEngine, TtsEngine, VoiceAttributes } from '@/types';
 import { suggestRecordingPrompt } from './metadata/recordingPromptSuggester';
 
 interface ScriptEditorProps {
-    /** Omit both variantName + onVariantNameChange to hide the "Variant name" field
-     * entirely (task 009: VariantEditor doesn't offer variant renaming — reachable
-     * fields for that surface are scoped to reference sample/engine voice id/engine/
-     * test text, per that task's spec — so this field only renders when a caller,
-     * like the legacy TestTab composition, actually wires it up). */
+    /** Omit both variantName + onVariantNameChange to hide the "Variant name"
+     * field entirely — it only renders when a caller wires it up. VariantEditor
+     * wires it (restoring the variant-rename affordance the retired TestTab used
+     * to host, INV-VC-2); callers that don't want inline renaming leave it off. */
     variantName?: string;
     onVariantNameChange?: (val: string) => void;
     engine: VoiceEngine;

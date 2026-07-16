@@ -11,7 +11,7 @@ import { SampleManager } from '@/pages/Voices/components/SampleManager';
 import { VersionHistoryPanel } from '@/pages/Voices/components/VersionHistoryPanel';
 import { ScriptEditor } from '@/pages/Voices/components/ScriptEditor';
 import { VoiceSettingsPanel } from '@/pages/Voices/components/VoiceSettingsPanel';
-import { formatVoiceEngineLabel, getVariantDisplayName, getVoiceProfileEngine } from '@/utils/voiceProfiles';
+import { formatVoiceEngineLabel, getVariantDisplayName, getVoiceProfileEngine, isDefaultVoiceProfile } from '@/utils/voiceProfiles';
 import { TagAutocompleteInput } from '@/pages/Voices/components/metadata/TagAutocompleteInput';
 import { ActionMenu, type ActionMenuItem } from '@/components/ui/ActionMenu';
 import { EngineBadge } from '@/components/ui/EngineBadge';
@@ -139,6 +139,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
     // profile. "Script" in the ActionMenu below now toggles this inline panel
     // in place -- there's no separate tab to switch to (task 008).
     const [isScriptExpanded, setIsScriptExpanded] = useState(false);
+    const [variantName, setVariantName] = useState(getVariantDisplayName(profile));
     const [editingEngine, setEditingEngine] = useState<VoiceEngine>((profile.engine as VoiceEngine) ?? '');
     const [testText, setTestText] = useState(profile.test_text ?? '');
     const [referenceSample, setReferenceSample] = useState(profile.reference_sample ?? '');
@@ -171,7 +172,36 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(settingsToUpdate),
             });
-            if (resp.ok) onRefresh();
+            if (resp.ok) {
+                // Variant renaming (INV-VC-2): reproduce the retired TestTab's
+                // rename-on-variant-name-change behavior. The default variant
+                // has no " - <variant>" suffix, so its label is stored via the
+                // /variant-name setting; a non-default variant's label lives in
+                // the profile name itself, so renaming it is a folder rename.
+                const currentVariantDisplay = getVariantDisplayName(profile);
+                const trimmedVariantName = variantName.trim();
+                if (trimmedVariantName && trimmedVariantName !== currentVariantDisplay) {
+                    if (isDefaultVoiceProfile(profile)) {
+                        const variantForm = new URLSearchParams();
+                        variantForm.append('variant_name', trimmedVariantName);
+                        await fetch(`/api/speaker-profiles/${encodeURIComponent(profile.name)}/variant-name`, {
+                            method: 'POST',
+                            body: variantForm,
+                        });
+                    } else {
+                        const newFullName = (trimmedVariantName === 'Default' || trimmedVariantName === voiceName)
+                            ? voiceName
+                            : `${voiceName} - ${trimmedVariantName}`;
+                        const renameForm = new URLSearchParams();
+                        renameForm.append('new_name', newFullName);
+                        await fetch(`/api/speaker-profiles/${encodeURIComponent(profile.name)}/rename`, {
+                            method: 'POST',
+                            body: renameForm,
+                        });
+                    }
+                }
+                onRefresh();
+            }
         } catch (err) {
             console.error('Failed to save script/engine settings', err);
         } finally {
@@ -340,6 +370,8 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
             {isScriptExpanded && (
                 <div className="variant-editor__script-panel">
                     <ScriptEditor
+                        variantName={variantName}
+                        onVariantNameChange={setVariantName}
                         engine={editingEngine}
                         onEngineChange={setEditingEngine}
                         engines={engines}

@@ -98,7 +98,7 @@ describe('VoicesTabHeader', () => {
     it('hides search/facet row when Discover tab is active', () => {
         render(<VoicesTabHeader {...baseProps} activeTab="discover" classOptions={[{ id: 'human', label: 'Human' }]} />);
         // CLASS MultiSelect trigger should not appear in discover tab
-        expect(screen.queryByRole('button', { name: 'CLASS' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('combobox', { name: 'CLASS' })).not.toBeInTheDocument();
     });
 
     // ---------------------------------------------------------------------------
@@ -116,9 +116,9 @@ describe('VoicesTabHeader', () => {
         );
         const row = document.querySelector('.voice-facet-filter-row');
         expect(row).not.toBeNull();
-        expect(within(row as HTMLElement).getByRole('button', { name: 'CLASS' })).toBeInTheDocument();
-        expect(within(row as HTMLElement).getByRole('button', { name: 'GENDER' })).toBeInTheDocument();
-        expect(within(row as HTMLElement).getByRole('button', { name: 'AGE' })).toBeInTheDocument();
+        expect(within(row as HTMLElement).getByRole('combobox', { name: 'CLASS' })).toBeInTheDocument();
+        expect(within(row as HTMLElement).getByRole('combobox', { name: 'GENDER' })).toBeInTheDocument();
+        expect(within(row as HTMLElement).getByRole('combobox', { name: 'AGE' })).toBeInTheDocument();
     });
 
     it('selecting a class option calls setClassFilter with the option id appended (OR-within-facet)', () => {
@@ -131,12 +131,11 @@ describe('VoicesTabHeader', () => {
                 setClassFilter={setClassFilter}
             />,
         );
-        // Already has a selection, so the trigger's accessible name is the selected
-        // chip, not the "CLASS" placeholder label — open it via the wrapper instead.
-        // (Query the real <button> tag directly: role="button" would also match the
-        // selected chip's removable "x", which is a <span role="button">.)
-        const trigger = screen.getByTestId('class-facet-filter').querySelector('button');
-        fireEvent.click(trigger as HTMLButtonElement);
+        // The MultiSelect trigger is a role="combobox" element; the chips' remove
+        // controls are separate real <button>s, so the combobox role uniquely
+        // identifies the trigger regardless of the current selection label.
+        const trigger = screen.getByTestId('class-facet-filter').querySelector('[role="combobox"]');
+        fireEvent.click(trigger as HTMLElement);
         fireEvent.click(screen.getByRole('option', { name: 'Human' }));
         expect(setClassFilter).toHaveBeenCalledWith(['synthetic', 'human']);
     });
@@ -165,7 +164,7 @@ describe('VoicesTabHeader', () => {
                 setGenderFilter={setGenderFilter}
             />,
         );
-        fireEvent.click(screen.getByRole('button', { name: 'GENDER' }));
+        fireEvent.click(screen.getByRole('combobox', { name: 'GENDER' }));
         fireEvent.click(screen.getByRole('option', { name: 'Feminine' }));
         expect(setGenderFilter).toHaveBeenCalledWith(['feminine']);
     });
@@ -179,7 +178,7 @@ describe('VoicesTabHeader', () => {
                 setAgeFilter={setAgeFilter}
             />,
         );
-        fireEvent.click(screen.getByRole('button', { name: 'AGE' }));
+        fireEvent.click(screen.getByRole('combobox', { name: 'AGE' }));
         fireEvent.click(screen.getByRole('option', { name: 'Adult' }));
         expect(setAgeFilter).toHaveBeenCalledWith(['adult']);
     });
@@ -197,8 +196,8 @@ describe('VoicesTabHeader', () => {
                 tagOptions={[{ id: 'raspy', label: 'raspy' }]}
             />,
         );
-        expect(screen.getByRole('button', { name: 'CLASS' })).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'TAGS' })).toBeInTheDocument();
+        expect(screen.getByRole('combobox', { name: 'CLASS' })).toBeInTheDocument();
+        expect(screen.getByRole('combobox', { name: 'TAGS' })).toBeInTheDocument();
         const row = document.querySelector('.voice-facet-filter-row');
         expect(row?.querySelector('.voice-facet-divider')).not.toBeNull();
     });
@@ -212,14 +211,14 @@ describe('VoicesTabHeader', () => {
                 setTagFilter={setTagFilter}
             />,
         );
-        fireEvent.click(screen.getByRole('button', { name: 'TAGS' }));
+        fireEvent.click(screen.getByRole('combobox', { name: 'TAGS' }));
         fireEvent.click(screen.getByRole('option', { name: 'raspy' }));
         expect(setTagFilter).toHaveBeenCalledWith(['raspy']);
     });
 
     it('omits the tag MultiSelect when no tag options are derived from live data', () => {
         render(<VoicesTabHeader {...baseProps} classOptions={[{ id: 'human', label: 'Human' }]} />);
-        expect(screen.queryByRole('button', { name: 'TAGS' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('combobox', { name: 'TAGS' })).not.toBeInTheDocument();
     });
 });
 
