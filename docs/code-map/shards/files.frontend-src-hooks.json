@@ -70,7 +70,8 @@
       ],
       "notes": [
         "2026-07-09: loadChapter() now calls api.fetchChapter(chapterId) (GET /api/chapters/{id}, ~700B/~4ms) instead of api.fetchChapters(projectId) + Array.find (GET /api/projects/{id}/chapters, ~780KB/~60-100ms for the measured 28-chapter book \u2014 the full list including every OTHER chapter's full text_content). This loader runs on mount, on every websocket chapter-update/segment-update tick, and on every 1s completion-poll tick (up to 30x per render), so the old code re-transferred the whole project's chapter text repeatedly just to read one chapter's fields. Minor behavior note: the single-chapter endpoint doesn't cross-check project_id the way `chapters.find(c => c.id === chapterId)` implicitly did \u2014 not exercised by real navigation (chapterId is always routing-scoped) so left as-is.",
-        "2026-07-10: Passes projectId to api.fetchChapter. On a 404 (error.status === 404) the catch block now clears chapter/segments/characters/scriptViewData and sets a new chapterNotFound flag instead of leaving stale state on screen with only a console.error."
+        "2026-07-10: Passes projectId to api.fetchChapter. On a 404 (error.status === 404) the catch block now clears chapter/segments/characters/scriptViewData and sets a new chapterNotFound flag instead of leaving stale state on screen with only a console.error.",
+        "COR-F-1 (2026-07-16): loadChapter no longer overwrites an unsaved local title/source-text edit. Added currentTitleRef/currentTextRef (live draft mirror) + lastLoadedTitleRef/lastLoadedTextRef (last server value this hook applied); setTitle/setText are skipped when the draft differs from the last-loaded server value (unsaved edit), while a genuine server change with no local edit still applies. Guard covers mount, WS-tick, and completion-poll reloads."
       ],
       "calls_inferred": [
         "frontend/src/api#*",
@@ -348,7 +349,9 @@
       ],
       "notes": [
         "overlays (chapters.progress,voice.test) must not create job rows",
-        "segmentProgress entries now also capture eta_seconds/status/updated_at (2026-07-05) \u2014 previously discarded data from the segments.progress stream that useStudioChapter.ts now consumes as an active_segments_map fallback"
+        "segmentProgress entries now also capture eta_seconds/status/updated_at (2026-07-05) \u2014 previously discarded data from the segments.progress stream that useStudioChapter.ts now consumes as an active_segments_map fallback",
+        "COR-F-2 (2026-07-16): the per-session segmentProgress map is now bounded via FIFO oldest-eviction (cap 300, tracked by segmentProgressOrderRef) instead of growing unboundedly; newest/terminal entries are preserved so the BoothTool final-state read is unaffected.",
+        "COR-F-4 (2026-07-16): the queue_item_invalidated handler now calls callbacksRef.current.onQueueUpdate (was the stale captured prop), matching sibling handlers."
       ],
       "calls_inferred": [
         "frontend/src/hooks/useStudioSocketConnection#*",

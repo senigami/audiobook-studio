@@ -342,7 +342,8 @@
         "frontend/src/pages/ProjectDetail/components/ChapterList.tsx"
       ],
       "notes": [
-        "auto-finalizing when progress>=0.995"
+        "auto-finalizing when progress>=0.995",
+        "COR-F-5 (2026-07-16): added an unmount-cleanup effect (memoryKeyRef + memoryFinalizedRef) that evicts this bar's progressMemory floor entry on true unmount unless the terminal-status path already finalized it, preventing an orphaned floor from later evicting other live bars' floors via the 100-entry FIFO cap."
       ],
       "calls_inferred": [
         "frontend/src/components/progress/PredictiveProgressBar/ProgressStatusRow#*",

@@ -177,7 +177,8 @@
       "calls": [],
       "called_by": [],
       "notes": [
-        "PL-4 (2026-07-04): parity between the two callers locked by plugins/tts_xtts/tests/test_synthesis_loop_parity.py (byte-identical WAV output + identical marker-type sequence for both paths); do not reintroduce per-path copies of the loop body"
+        "PL-4 (2026-07-04): parity between the two callers locked by plugins/tts_xtts/tests/test_synthesis_loop_parity.py (byte-identical WAV output + identical marker-type sequence for both paths); do not reintroduce per-path copies of the loop body",
+        "SEC-1 (2026-07-16): the 4 latent .pth load sites (serve-mode _get_latents, one-shot get_latents) use torch.load(..., weights_only=True) to block a malicious pickle (subprocess.run via __reduce__) in a crafted latent .pth -- weights_only=False would have executed it. Regression-locked by plugins/tts_xtts/tests/test_sec1_latent_pth_weights_only.py (also grep-guards that no weights_only=False sink remains under plugins/tts_xtts/plugin/)."
       ],
       "calls_inferred": []
     },

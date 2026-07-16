@@ -73,7 +73,8 @@
       "notes": [
         "tries multiple request payload variants",
         "converts non-WAV via ffmpeg",
-        "caches model list 5min per API key hash"
+        "caches model list 5min per API key hash",
+        "BP-2 (2026-07-16): _convert_to_wav now passes timeout=300 to subprocess.run and catches subprocess.TimeoutExpired, re-raising as VoxtralError('Audio conversion timed out after Ns (ffmpeg may be stuck).') instead of letting a wedged ffmpeg hang the caller. Propagates uncaught through voxtral_generate's per-payload try/except (which only guards the httpx/VoxtralError branch, not the conversion branch), so callers see a clean VoxtralError rather than an unhandled TimeoutExpired."
       ],
       "calls_inferred": [
         "httpx.Client",

@@ -166,7 +166,7 @@
         {
           "name": "SimpleRateLimiter",
           "kind": "class",
-          "contract": "in-memory per-process limiter"
+          "contract": "in-memory per-process limiter; PERF-7/SEC-6 (2026-07-16): _history no longer grows unboundedly -- check() drops a key when its windowed history empties, and _sweep_stale_keys() opportunistically removes silent-IP keys at most once per sweep_interval_seconds (default 60s); injectable time_fn for testability; active-client limiting behavior unchanged"
         },
         {
           "name": "validate_safe_identifier",
