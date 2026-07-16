@@ -23,6 +23,7 @@ must not silently depend on internal background worker or loop behavior.
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from typing import Optional
 
@@ -60,6 +61,19 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         self.voice_bridge = voice_bridge
         # Active task registry: task_id → StudioTask
         self._active: dict[str, StudioTask] = {}
+        # Waiting task registry: task_id → (StudioTask, stop_event). Populated
+        # BEFORE a task enters the resource-admission wait loop in submit() so
+        # cancel() can find and stop it while it is still waiting for a slot
+        # (COR-B-2) — before that fix, a task spinning in admission was in
+        # neither registry, so a concurrent cancel() returned False and the
+        # caller's fallback (a bare `update_job(status="cancelled")`) never
+        # actually stopped the task: once a slot freed, submit() admitted and
+        # dispatched a full render of the "cancelled" job anyway.
+        self._waiting: dict[str, tuple[StudioTask, threading.Event]] = {}
+        # Guards both registries above — submit()'s admission loop and
+        # cancel() must observe/mutate them atomically (no lock existed on
+        # self._active before; this is the first thing that needed one).
+        self._registry_lock = threading.Lock()
 
     # ------------------------------------------------------------------
     # Public API
@@ -142,29 +156,73 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         # Step 4 — reserve resources
         claim_dict = _claim_to_dict(getattr(task, "resource_claim", None))
         claim_dict["task_id"] = task_id  # needed by GpuAdmissionGate
-        while True:
-            reservation = reserve_task_resources(
-                task_type=context.task_type,
-                resource_claims=claim_dict,
-            )
-            if reservation.get("admitted", True):
-                break
 
-            waiting_reason = reservation.get("waiting_reason", "Resources unavailable.")
-            if waiting_reason == "Orchestrator is paused.":
-                self._publish(
-                    context=context,
-                    status="waiting_for_resources",
-                    waiting_reason=waiting_reason,
+        # Register the task as "waiting" BEFORE entering the admission loop so a
+        # concurrent cancel() can find and stop it while it spins here (COR-B-2).
+        stop_event = threading.Event()
+        with self._registry_lock:
+            self._waiting[task_id] = (task, stop_event)
+
+        admitted = False
+        try:
+            while True:
+                if stop_event.is_set() or self._is_task_cancelled_in_db(task_id):
+                    logger.info(
+                        "Task %s: cancelled while waiting for resource admission — not dispatching.",
+                        task_id,
+                    )
+                    return task_id
+
+                reservation = reserve_task_resources(
+                    task_type=context.task_type,
+                    resource_claims=claim_dict,
                 )
-                logger.warning("Task %s: resource admission failed: %s", task_id, waiting_reason)
-                return task_id
+                if reservation.get("admitted", True):
+                    admitted = True
+                    break
 
-            logger.info("Task %s waiting for resources: %s", task_id, waiting_reason)
-            time.sleep(1.0)
+                waiting_reason = reservation.get("waiting_reason", "Resources unavailable.")
+                if waiting_reason == "Orchestrator is paused.":
+                    self._publish(
+                        context=context,
+                        status="waiting_for_resources",
+                        waiting_reason=waiting_reason,
+                    )
+                    logger.warning("Task %s: resource admission failed: %s", task_id, waiting_reason)
+                    return task_id
 
-        # Step 5 — running
-        self._active[task_id] = task
+                logger.info("Task %s waiting for resources: %s", task_id, waiting_reason)
+                # Event.wait (not time.sleep) so a cancel() arriving mid-wait is
+                # observed immediately instead of after the full poll interval.
+                stop_event.wait(1.0)
+        finally:
+            # Atomic waiting→active handoff (COR-B-2): pop from `_waiting` and
+            # insert into `_active` under a SINGLE lock hold, re-checking
+            # stop_event inside it. This closes the gap where the task would
+            # otherwise sit in NEITHER registry (between a separate pop and a
+            # separate insert) while holding a reserved slot — a cancel()
+            # landing there returned False and let the caller's fallback
+            # resurrect a render we were about to dispatch.
+            with self._registry_lock:
+                self._waiting.pop(task_id, None)
+                if admitted and stop_event.is_set():
+                    # Cancelled in the admission→active window: don't activate;
+                    # released below (outside the lock).
+                    admitted = False
+                elif admitted:
+                    self._active[task_id] = task
+
+        if not admitted:
+            # We reserved a slot but a cancel() landed before we could activate
+            # (stop_event set during the handoff): release it and never
+            # dispatch. The not-admitted early exits above already returned
+            # inside the try without reserving anything.
+            release_task_resources(task_id=task_id, resource_claims=claim_dict)
+            logger.info(
+                "Task %s: cancelled at the moment resources were admitted; releasing without dispatch.",
+                task_id,
+            )
+            return task_id
 
         # Step 6 — dispatch
         max_attempts = 3
@@ -200,7 +258,8 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
 
         # Final cleanup - always release resources after all attempts
         release_task_resources(task_id=task_id, resource_claims=claim_dict)
-        self._active.pop(task_id, None)
+        with self._registry_lock:
+            self._active.pop(task_id, None)
 
         if result.status == "completed":
             self._publish(
@@ -551,14 +610,35 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         except Exception:
             logger.exception("Recovery: failed to write terminal job status for task %s.", context.task_id)
 
+    def _is_task_cancelled_in_db(self, task_id: str) -> bool:
+        """Secondary, defense-in-depth check for the admission wait loop.
+
+        A caller that fails to reach ``cancel()`` in time (e.g. a stale race
+        outside this orchestrator) may still write ``status="cancelled"``
+        directly to the job row. Fail-open on any error — this is a belt-
+        and-suspenders check alongside the ``stop_event`` registry, not the
+        primary cancellation signal.
+        """
+        try:
+            from app.db.state import get_jobs  # noqa: PLC0415
+            job = get_jobs().get(task_id)
+            return bool(job) and getattr(job, "status", None) == "cancelled"
+        except Exception:
+            return False
+
     def cancel(self, task_id: str) -> bool:
         """Cancel a scheduled or running task.
 
         Cancel flow:
-        1. Look up the active task.
+        1. Look up the task — either already dispatched (``_active``) or
+           still spinning in ``submit()``'s resource-admission wait loop
+           (``_waiting``, COR-B-2). A waiting task is signalled via its
+           ``stop_event`` so ``submit()`` stops admitting it instead of
+           dispatching once a slot frees.
         2. Publish ``cancelling`` transition.
         3. Call ``task.on_cancel()`` to release task-level resources.
-        4. Release scheduler resources.
+        4. Release scheduler resources (only if resources were actually
+           reserved — a still-waiting task never acquired a slot).
         5. Publish ``cancelled`` terminal event.
 
         Args:
@@ -567,10 +647,20 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         Returns:
             bool: True if the task was found and cancelled, False if not found.
         """
-        task = self._active.pop(task_id, None)
+        task: StudioTask | None = None
+        resources_reserved = False
+        with self._registry_lock:
+            task = self._active.pop(task_id, None)
+            if task is not None:
+                resources_reserved = True
+            else:
+                waiting_entry = self._waiting.pop(task_id, None)
+                if waiting_entry is not None:
+                    task, stop_event = waiting_entry
+                    stop_event.set()
 
         if task is None:
-            logger.warning("cancel(%s): task not found in active registry.", task_id)
+            logger.warning("cancel(%s): task not found in active or waiting registry.", task_id)
             return False
 
         context = task.describe()
@@ -604,10 +694,15 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             except Exception:
                 logger.exception("Task %s: failed to unregister log listener on cancel.", task_id)
 
-        # Release any scheduler resources held by this task.
-        claim_dict = _claim_to_dict(getattr(task, "resource_claim", None))
-        claim_dict["task_id"] = task_id
-        release_task_resources(task_id=task_id, resource_claims=claim_dict)
+        # Release any scheduler resources held by this task — only meaningful
+        # for a task found in the ACTIVE registry. A task still waiting for
+        # resource admission never acquired a slot (submit()'s own admission
+        # loop notices stop_event and releases/skips instead), so there is
+        # nothing to release here for it.
+        if resources_reserved:
+            claim_dict = _claim_to_dict(getattr(task, "resource_claim", None))
+            claim_dict["task_id"] = task_id
+            release_task_resources(task_id=task_id, resource_claims=claim_dict)
 
         # Terminal cancellation event.
         self._publish(

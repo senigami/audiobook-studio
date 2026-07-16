@@ -1,9 +1,9 @@
 # Security
 
 ```
-spec_version: 1.2.4
+spec_version: 1.3.0
 status: active
-updated: 2026-07-09
+updated: 2026-07-16
 sources:
   - app/utils/pathing.py
   - app/core/security.py
@@ -11,6 +11,8 @@ sources:
   - app/api/web.py
   - app/api/tts_api.py
   - app/tts_server/server.py
+  - plugins/tts_xtts/plugin/core/xtts_inference.py
+  - app/domain/voices/bundles.py
 ```
 
 > **TL;DR:** Every path from user input is untrusted and MUST pass through a recognized barrier helper; API key checks use timing-safe comparison; exception text never reaches HTTP responses.
@@ -19,6 +21,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.3.0   | 2026-07-16 | **S13 (deserialization RCE):** the XTTS engine loaded latent `.pth` files with `torch.load(..., weights_only=False)` at four sites (`plugins/tts_xtts/plugin/core/xtts_inference.py`), unpickling arbitrary objects from attacker-supplied voice-bundle `latent.pth` → RCE on first synthesis. All four now use `weights_only=True`. **S14 (LAN gating of management writes):** `lan_protection_middleware` extended beyond `/api/v1/tts` to gate the dangerous mutating management endpoints (voice-bundle import, HuggingFace import, settings writes) for non-loopback clients unless `lan_binding_enabled`; reads/UI stay reachable. Reverses the prior "internal routes never LAN-gated" invariant. **S15 (voice_ref hardening):** `_validate_voice_ref` (`app/api/tts_api.py`) now uses the realpath-resolving `safe_join` barrier (was lexical `normpath`, which missed symlink escape) and rejects caller-supplied `.pth` refs (defense-in-depth for S13). |
 | 1.2.4   | 2026-07-09 | S12: `/api/v1/tts/docs` and `/api/v1/tts/openapi` were reachable without `verify_api_key`/`rate_limit` (FastAPI's auto-generated docs/openapi routes bypass constructor-level `dependencies=[...]`). Fixed by disabling the auto-generated routes and serving them as ordinary router routes on the sub-app, which do inherit the dependencies. Scope note added above. |
 | 1.2.3   | 2026-06-21 | S6: Added WebSocket Origin check to `/ws` to prevent cross-site WebSocket hijacking (CSWSH). Absent Origin → allowed (non-browser clients); present Origin → allowed only if host is localhost/127.0.0.1/[::1] or matches the server's own Host header; otherwise close(1008). LAN exposure note documented. |
 | 1.2.2   | 2026-06-21 | Documented the rate limiter's known limitations (S7): in-memory/per-process (resets on restart, not shared across workers) and IP-keyed (shared behind NAT, no per-API-key bucketing). Behavior unchanged — documentation only. |
@@ -269,20 +272,34 @@ Studio is a local-first app designed to listen on loopback. When `lan_binding_en
 
 ## LAN Binding Protection
 
-`lan_protection_middleware` in `app/api/web.py` guards the external TTS API against unintended LAN exposure.
+`lan_protection_middleware` in `app/api/web.py` guards both the external TTS API and a small set of dangerous mutating management endpoints against unintended LAN exposure. The socket may still bind `0.0.0.0` (so the UI and read endpoints remain reachable from other machines); protection is enforced per-request at the application layer, not by changing the bind host.
+
+The LAN-gated management prefixes (`_LAN_GATED_MGMT_PREFIXES`) are the untrusted-input write paths — voice-bundle import (the S13 RCE vector), HuggingFace import (remote fetch + write), settings writes, and the **entire `/api/engines/` mutating surface** (import/preview/preview_github/confirm install and execute plugin code inside the TTS server — an RCE unmitigated by `weights_only`; install/delete/settings/calibrate/test/verify are engine-admin ops). The whole `/api/engines/` prefix is gated rather than enumerating individual routes, so no dynamic-path member (e.g. `/api/engines/{engine_id}/install`) can slip the matcher. All prefixes are gated only for **mutating methods** (POST/PUT/PATCH/DELETE); GET/read traffic is never gated.
 
 | Setting | Behavior |
 |---------|----------|
-| `lan_binding_enabled` = `False` (default) | External TTS API (`/api/v1/tts`) rejects requests from non-localhost origins |
-| `lan_binding_enabled` = `True` | LAN clients permitted to reach the external TTS API |
+| `lan_binding_enabled` = `False` (default) | Non-loopback clients are rejected (403) on the external TTS API (all methods) AND on mutating requests to the gated management prefixes. Reads/UI remain reachable. |
+| `lan_binding_enabled` = `True` | LAN clients permitted to reach the external TTS API and the gated management endpoints. |
 
 ### Invariants
 
 - MUST check `lan_binding_enabled` at request time (not cached at startup).
-- MUST NOT apply LAN protection to Studio's own internal UI/API routes — only to the external TTS gateway sub-app.
+- MUST gate the external TTS gateway sub-app (all methods) and the mutating management write endpoints in `_LAN_GATED_MGMT_PREFIXES`; MUST NOT gate read (GET) traffic or the general UI/API surface (so a LAN operator can still browse).
+- Loopback clients (`127.0.0.1`, `localhost`, `::1`, `testclient`) are never gated.
 - Default MUST be `False` (closed by default; user opts in to LAN exposure).
 
 ---
+
+## Deserialization Safety (S13)
+
+Voice bundles are untrusted input (a `.voice.zip`/`.asvoice` a user may receive and import), and `import_voice_bundle` (`app/domain/voices/bundles.py`) writes their `latent.pth` payload to disk. `latent.pth` is a pickle; loading it with `torch.load(..., weights_only=False)` unpickles arbitrary objects and executes any `__reduce__` payload — an RCE the first time the imported voice is synthesized.
+
+### Invariants
+
+- Any `torch.load` of a `.pth`/`.bin` that could originate from an imported bundle, an API-supplied ref, or any non-self-produced source MUST pass `weights_only=True` (or use `safetensors`). `weights_only=False` is prohibited on those paths.
+- XTTS latent payloads are dicts of tensors (`gpt_cond_latent`, `speaker_embedding`) plus an optional `profile_fingerprint` string — all supported by `weights_only=True`, so the safe loader does not break legitimate bundles.
+- API-supplied `voice_ref` values MUST NOT carry a `.pth` extension (the engine resolves latent files internally; a caller never needs to name one).
+- **Future:** migrate the on-disk latent format to `safetensors` (structurally incapable of code execution) under a versioned voice-bundle contract bump. Tracked as a follow-up; `weights_only=True` is the interim guarantee.
 
 ## CodeQL Compliance
 

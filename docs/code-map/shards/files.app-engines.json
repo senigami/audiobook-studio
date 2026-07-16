@@ -56,6 +56,7 @@
       ],
       "notes": [
         "finalize_sample_artifact keeps WAV if MP3 conversion fails",
+        "BP-2 (2026-07-16): convert_to_wav now passes timeout=300 to subprocess.run and catches subprocess.TimeoutExpired, logging a warning and returning rc=1 (matching this function's existing -> int failure-signal contract) instead of letting an unhandled TimeoutExpired propagate from a wedged ffmpeg. No in-repo caller currently exists for this export; fix is defensive.",
         "2026-07-11 waveform fixes: compute_peaks_sidecar density PEAKS_PER_SEC 8->60, PEAKS_MAX 100k->200k, SIDECAR_VERSION 1->2 (mismatch = stale, recompute). Max-abs-per-bucket aggregation unchanged.",
         "2026-07-11/12: extracted ensure_peaks_sidecar as the single cache-format owner (_read_fresh_sidecar/_atomic_write_sidecar helpers); render-time emission hook added at orchestrator.py's one engine-agnostic completion point (scope=='chapter' synthesis only, best-effort/non-blocking, no backfill of existing chapters)."
       ],

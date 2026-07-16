@@ -21,8 +21,25 @@ export const useChapterLoader = (
     completionPollTimerRef, completionPollAttemptsRef,
     setLoading, setScriptViewLoading,
     setChapterNotFound,
-    segments
+    segments, title, text
   } = state;
+
+  // COR-F-1: loadChapter used to unconditionally clobber the local title/text
+  // draft with whatever the server returned — on mount, on every WS
+  // chapter-update tick, AND on every 1s completion-poll iteration. The
+  // autosave in useStudioChapter.ts is debounced 1500ms, so a reload landing
+  // inside that window would revert an unsaved edit before it had a chance to
+  // save. These refs track (a) the current draft values, read without making
+  // loadChapter depend on title/text (which would re-trigger it on every
+  // keystroke), and (b) the server value last applied by THIS hook, so a
+  // reload can tell "user has an unsaved local edit" apart from "server value
+  // genuinely changed since we last loaded".
+  const currentTitleRef = useRef(title);
+  useEffect(() => { currentTitleRef.current = title; }, [title]);
+  const currentTextRef = useRef(text);
+  useEffect(() => { currentTextRef.current = text; }, [text]);
+  const lastLoadedTitleRef = useRef<string | undefined>(undefined);
+  const lastLoadedTextRef = useRef<string | undefined>(undefined);
 
   const liveSegmentJobIds = useMemo(() => {
     const ids = new Set<string>();
@@ -60,8 +77,17 @@ export const useChapterLoader = (
       }
       if (target) {
         setChapter(target);
-        setTitle(target.title);
-        setText(target.text_content || '');
+        // Only apply the server's title/text when there is no pending local
+        // edit relative to the last value THIS hook loaded — `undefined`
+        // (nothing loaded yet, e.g. the very first mount) always applies.
+        const previousLoadedTitle = lastLoadedTitleRef.current;
+        const previousLoadedText = lastLoadedTextRef.current;
+        const hasUnsavedTitleEdit = previousLoadedTitle !== undefined && currentTitleRef.current !== previousLoadedTitle;
+        const hasUnsavedTextEdit = previousLoadedText !== undefined && currentTextRef.current !== previousLoadedText;
+        if (!hasUnsavedTitleEdit) setTitle(target.title);
+        if (!hasUnsavedTextEdit) setText(target.text_content || '');
+        lastLoadedTitleRef.current = target.title;
+        lastLoadedTextRef.current = target.text_content || '';
         setLocalVoice(target.speaker_profile_name || '');
       }
       const detailsStartedAt = performance.now();

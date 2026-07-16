@@ -202,6 +202,7 @@
       "notes": [
         "global _plugins protected by threading.Lock",
         "task cancellation cooperative via /tasks/{id}/cancel",
+        "COR-B-4 (2026-07-16): _cancelled_tasks changed from a bare set[str] to a dict[str, float] (task_id -> cancellation monotonic timestamp). cancel_task now sweeps entries older than _CANCELLED_TASK_TTL_SECONDS (300s) on every call via _sweep_cancelled_tasks. Previously the set was only cleaned in the /synthesize finally block for a matching task_id, so a task cancelled but never synthesized (a fan-out child cancelled before its own /synthesize, or a job cancelled while still queued) left a permanent entry -- unbounded growth over uptime. _is_task_cancelled semantics unchanged within the TTL window.",
         "LF-7 (2026-07-04): plugin import/staging pipeline (zip upload, GitHub-repo preview, confirm/cancel, containment/symlink checks, _staging store) extracted to app/tts_server/plugin_staging.py (1351->914 lines); route decorators stay here as thin wrappers per this module's 'sole HTTP boundary' docstring",
         "BE-4 (2026-07-04): /synthesize's timing_dict computation now calls app/utils/render_timing.py#derive_segment_timing_fields instead of an inline duplicate formula; model_load_seconds computation (None-default) stays local, deliberately not shared with orchestrator_helpers.py's 0.0-default version"
       ],

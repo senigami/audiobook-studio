@@ -206,6 +206,32 @@ describe('useJobs', () => {
     expect(sendMessage).toHaveBeenLastCalledWith({ type: 'jobs_snapshot_request' });
   });
 
+  // COR-F-4: the queue_item_invalidated handler previously called the raw `onQueueUpdate`
+  // prop directly instead of `callbacksRef.current.onQueueUpdate`. Since the subscribe
+  // effect's deps are [applyJobUpdatedEvent, refreshJobs] (NOT onQueueUpdate), the raw prop
+  // stayed captured at whatever closure was passed in on the render that (re-)ran the
+  // subscribe effect — a caller swapping in a new inline callback without toggling
+  // `connected` would silently keep firing the stale one.
+  it('fires the LATEST onQueueUpdate callback on queue_item_invalidated even when it was swapped in without a reconnect', async () => {
+    const onQueueUpdateStale = vi.fn();
+    const onQueueUpdateLatest = vi.fn();
+
+    const { rerender } = renderHook(
+      ({ cb }: { cb: () => void }) => useJobs(undefined, cb),
+      { initialProps: { cb: onQueueUpdateStale } },
+    );
+
+    // Swap in a brand-new closure. `connected` does not change, so the subscribe effect
+    // (deps: [applyJobUpdatedEvent, refreshJobs]) does not tear down/re-subscribe — this is
+    // exactly the scenario where a raw-prop closure would go stale.
+    rerender({ cb: onQueueUpdateLatest });
+
+    emitEvent('queue.items', 'queue_item_invalidated', { reason: 'test', changedFields: [] });
+
+    expect(onQueueUpdateLatest).toHaveBeenCalledTimes(1);
+    expect(onQueueUpdateStale).not.toHaveBeenCalled();
+  });
+
   it('does not require an onQueueUpdate callback (queue.lifecycle is useQueueSync\'s domain)', async () => {
     // App.tsx intentionally passes undefined for onQueueUpdate so a queue_item_invalidated frame
     // does not trigger a redundant ProjectDetailPage reload on top of useQueueSync's refresh.
@@ -263,7 +289,58 @@ describe('useJobs', () => {
       progress: 0.75,
       eta_seconds: null,
       status: undefined,
-      updated_at: expect.any(Number),
+      // COR-F-3: this frame carries no updatedAt anywhere (payload nor
+      // envelope), so resolveEventUpdatedAt must NOT fabricate Date.now() —
+      // it leaves the timestamp undefined rather than claiming "now".
+      updated_at: undefined,
+    });
+  });
+
+  // COR-F-2: segmentProgress previously accumulated one entry per segment_id ever seen for
+  // the hook's lifetime with no eviction, growing unboundedly over a long session. The fix
+  // bounds the map with FIFO (oldest-first) eviction, chosen specifically so that a consumer
+  // reading the most-recently-updated entry (including a just-completed/terminal one, e.g.
+  // BoothTool reading segmentProgress[activeSegmentId] right as a re-render finishes) is never
+  // affected — only the OLDEST tracked segment ids are ever evicted.
+  it('bounds the segmentProgress map via oldest-eviction instead of growing unboundedly, while preserving the newest (including terminal) entries', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-cap', status: 'running', progress: 0 }] });
+
+    const TOTAL = 320; // comfortably exceeds the 300-entry cap in useJobs.ts
+
+    for (let i = 0; i < TOTAL; i++) {
+      emitEvent(
+        'segments.progress',
+        'segment_progress',
+        { status: 'running', progress: 0.5 },
+        { jobId: 'job-cap', chapterId: 'chap-1', segmentId: `seg-${i}` },
+      );
+    }
+    // The very last segment to update reaches a TERMINAL status, simulating a segment that
+    // just finished rendering — the exact moment a consumer like BoothTool would read it for
+    // final state.
+    const lastSegmentId = `seg-${TOTAL - 1}`;
+    emitEvent(
+      'segments.progress',
+      'segment_progress',
+      { status: 'done', progress: 1.0 },
+      { jobId: 'job-cap', chapterId: 'chap-1', segmentId: lastSegmentId },
+    );
+
+    const keys = Object.keys(result.current.segmentProgress);
+    // Bounded: does not grow to TOTAL entries.
+    expect(keys.length).toBeLessThan(TOTAL);
+    // Oldest entries were evicted to make room.
+    expect(result.current.segmentProgress['seg-0']).toBeUndefined();
+    expect(result.current.segmentProgress['seg-1']).toBeUndefined();
+    // The newest, just-completed entry survives for a consumer reading final state.
+    // (A terminal 'done' segments.progress frame projects status as undefined by design —
+    // see buildSegmentsProgressProjection / "does not project done status..." test above;
+    // progress === 1.0 is the terminal signal consumers such as
+    // useStudioChapter.ts's fallbackActiveSegmentsMap actually check.)
+    expect(result.current.segmentProgress[lastSegmentId]).toMatchObject({
+      segment_id: lastSegmentId,
+      progress: 1.0,
     });
   });
 
@@ -560,7 +637,8 @@ describe('useJobs', () => {
       progress: 0.85,
       eta_seconds: null,
       status: 'running',
-      updated_at: expect.any(Number),
+      // COR-F-3: no updatedAt anywhere on this frame — must not fabricate Date.now().
+      updated_at: undefined,
     });
   });
 
@@ -594,7 +672,8 @@ describe('useJobs', () => {
       progress: 0.83,
       eta_seconds: null,
       status: 'running',
-      updated_at: expect.any(Number),
+      // COR-F-3: no updatedAt anywhere on this frame — must not fabricate Date.now().
+      updated_at: undefined,
     });
 
     expect(result.current.jobs['job-seg']?.active_segment_progress).toBe(0.83);
@@ -830,7 +909,8 @@ describe('useJobs', () => {
       progress: 0.85,
       eta_seconds: 15,
       status: 'running',
-      updated_at: expect.any(Number),
+      // COR-F-3: no updatedAt anywhere on this frame — must not fabricate Date.now().
+      updated_at: undefined,
     });
 
     // 2. Projected active segment metadata is placed on the chapter job
@@ -921,6 +1001,40 @@ describe('useJobs', () => {
 
     expect(result.current.jobs['job-rollback-ignore']?.status).toBe('done');
     expect(result.current.jobs['job-rollback-ignore']?.progress).toBe(1.0);
+  });
+
+  // COR-F-3: a frame with NO timestamp anywhere (no payload updatedAt/updated_at,
+  // no envelope emittedAt) used to have resolveEventUpdatedAt fabricate
+  // Date.now()/1000 as its updated_at — which always looks like "the newest
+  // thing that ever happened", so jobUpdateReducer's detectNewerRun() treated
+  // it as a genuinely newer run and let a "running" status through, flipping
+  // an already-done job back to running. A late/duplicate no-timestamp frame
+  // must not be able to masquerade as the newest update.
+  it('does not regress a terminal done job to running when a late frame carries no timestamp at all', async () => {
+    const { result } = renderHook(() => useJobs());
+    emit({ type: 'jobs_snapshot', jobs: [{ id: 'job-no-ts', status: 'done', progress: 1.0, updated_at: 100, finished_at: 150 } as any] });
+
+    expect(result.current.jobs['job-no-ts']?.status).toBe('done');
+
+    // Published directly (bypassing the `emitEvent` helper, which always stamps
+    // an envelope-level emittedAt) so the frame carries no timestamp claim at
+    // all — the exact "late/duplicate running-overlay frame" scenario.
+    act(() => {
+      publishStudioSocketMessage({
+        type: 'studio_event',
+        version: 1,
+        topic: 'queue.items',
+        eventKind: 'queue_item_status',
+        ids: { jobId: 'job-no-ts' },
+        payload: {
+          status: 'running',
+          progress: 0.15,
+        },
+      });
+    });
+
+    expect(result.current.jobs['job-no-ts']?.status).toBe('done');
+    expect(result.current.jobs['job-no-ts']?.progress).toBe(1.0);
   });
 
   it('updates active_segment_id and active_segment_progress from segments.progress even when the current job status is done and database timestamps are absent', async () => {

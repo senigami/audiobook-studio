@@ -10,6 +10,7 @@ from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request, Backgro
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 
 from app.core.security import verify_api_key, rate_limit
 from app.orchestration.tasks.api_synthesis import ApiSynthesisTask
@@ -91,13 +92,28 @@ def _validate_voice_ref(voice_ref: str) -> str:
     Raises HTTPException(400) for unsafe paths, HTTPException(404) for unknown names.
     """
     if "/" in voice_ref or "\\" in voice_ref:
-        # Caller supplied a path fragment — assert containment using the recognized barrier form.
-        candidate = os.path.normpath(voice_ref)
-        voices_norm = os.path.normpath(str(VOICES_DIR))
-        transient_norm = os.path.normpath(str(TRANSIENT_DIR))
-        in_voices = candidate == voices_norm or candidate.startswith(voices_norm + os.sep)
-        in_transient = candidate == transient_norm or candidate.startswith(transient_norm + os.sep)
-        if not (in_voices or in_transient):
+        # Caller supplied a path fragment. Reject pre-computed latent files outright:
+        # the engine resolves latent.pth internally and never needs a caller-supplied
+        # .pth, and accepting one would feed torch.load a caller-controlled file
+        # (defense-in-depth alongside the weights_only=True hardening in the XTTS engine).
+        if voice_ref.lower().endswith(".pth"):
+            raise HTTPException(
+                status_code=400,
+                detail="voice_ref must not reference a pre-computed latent (.pth) file.",
+            )
+        # Assert containment using the repo's realpath-resolving barrier (safe_join),
+        # which resolves symlinks and rejects traversal/escape — stronger than a
+        # purely lexical normpath check.
+        from app.utils.pathing import safe_join  # noqa: PLC0415
+        contained = False
+        for root in (VOICES_DIR, TRANSIENT_DIR):
+            try:
+                safe_join(root, voice_ref)
+                contained = True
+                break
+            except ValueError:
+                continue
+        if not contained:
             raise HTTPException(
                 status_code=400,
                 detail="voice_ref path is not within an allowed directory.",
@@ -187,8 +203,11 @@ async def synthesize(request: SynthesisRequest, req_context: Request, background
     # Threshold for inline vs queued (default 500 chars)
     if len(request.text) < 500:
         try:
-            # For short text, we run synchronously (the orchestrator blocks on dispatch)
-            orchestrator.submit(task)
+            # orchestrator.submit() is fully blocking (admission loop with
+            # time.sleep, HTTP dispatch, retries) — run it off the event loop
+            # so it doesn't stall every other API request, /jobs poll, and
+            # websocket broadcast for the duration of this request (PERF-2).
+            await run_in_threadpool(orchestrator.submit, task)
             if not output_path.exists():
                 raise HTTPException(status_code=500, detail="Synthesis failed to produce output.")
             return FileResponse(

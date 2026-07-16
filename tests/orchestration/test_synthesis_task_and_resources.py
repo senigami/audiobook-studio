@@ -252,7 +252,7 @@ class TestReserveTaskResources:
 
     def test_cpu_only_task_always_admitted(self):
         result = reserve_task_resources(
-            task_type="export",
+            task_type="assembly",
             resource_claims={"task_id": "e1", "gpu": False, "vram_mb": 0, "cpu_heavy": False},
         )
         assert result["admitted"] is True

@@ -124,7 +124,8 @@
         "frontend/src/utils/segmentsProgressProjector.ts"
       ],
       "notes": [
-        "adaptEventToJobUpdates extracts active_segments_map from event payloads (W-PAR 006)"
+        "adaptEventToJobUpdates extracts active_segments_map from event payloads (W-PAR 006)",
+        "COR-F-3 (2026-07-16): resolveEventUpdatedAt now returns undefined (was Date.now()/1000) when a frame carries no timestamp, so a provenance-less frame can no longer masquerade as the newest and defeat the stale-frame / status-regression guards."
       ],
       "calls_inferred": [
         "frontend/src/types#Job"
@@ -196,7 +197,9 @@
       "called_by": [
         "frontend/src/hooks/useJobs.ts"
       ],
-      "notes": [],
+      "notes": [
+        "COR-F-3 companion (2026-07-16): narrowed detectNewerRun's no-incoming-timestamp branch so a non-terminal job's benign rollback-status fluctuation (e.g. SEGMENT_PENDING running->preparing) is still treated as the current run continuing, while a TERMINAL (done/failed/cancelled) job now requires a genuine numeric timestamp advance to be un-terminated. Prevents COR-F-3's fix from over-blocking a legitimate same-run case."
+      ],
       "calls_inferred": [
         "frontend/src/utils/jobSelection#isSegmentScopedJob"
       ]

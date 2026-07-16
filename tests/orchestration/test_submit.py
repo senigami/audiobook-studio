@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from unittest.mock import MagicMock, patch
 import pytest
 
@@ -147,11 +148,16 @@ class TestOrchestratorProgressTransitions:
             "waiting_reason": None,
         }
 
-        with patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", side_effect=[reservation_denied, reservation_admitted]) as mock_reserve, patch("app.orchestration.scheduler.orchestrator.time.sleep") as mock_sleep:
+        # COR-B-2: the admission wait now polls via a per-task `stop_event.wait(1.0)`
+        # (interruptible by a concurrent cancel()) instead of a bare `time.sleep(1.0)`.
+        # Patch Event.wait itself (returns False, i.e. "timed out") so the retry is
+        # instant instead of a real 1s wait (R4: no sleep-based timing in tests).
+        with patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", side_effect=[reservation_denied, reservation_admitted]) as mock_reserve, \
+             patch.object(threading.Event, "wait", return_value=False) as mock_wait:
             orchestrator.submit(task)
 
         assert mock_reserve.call_count == 2
-        mock_sleep.assert_called_once()
+        assert mock_wait.call_count == 1
         task.run.assert_called_once()
         statuses = self._get_statuses(progress_service)
         assert statuses[0] == "queued"
@@ -201,6 +207,73 @@ class TestOrchestratorProgressTransitions:
         assert mock_record.call_args.kwargs["job_id"] == "t-render"
         assert mock_record.call_args.kwargs["tts_model"] == "model-a"
         assert mock_record.call_args.kwargs["synthesis_duration_seconds"] == 5.0
+
+
+class TestOrchestratorCancelDuringAdmissionWait:
+    """COR-B-2: a task cancelled while spinning in submit()'s resource-
+    admission wait loop must not be resurrected and dispatched once a slot
+    frees.
+
+    R1 revert-check: pre-fix, `submit()` only added the task to `self._active`
+    AFTER the admission loop admitted it — while spinning, `cancel()`'s lookup
+    (`self._active.pop(task_id, None)`) found nothing and returned False. Once
+    the mocked reservation admitted (simulating a sibling task's slot
+    freeing), pre-fix `submit()` dispatched (`task.run()`) and published
+    `completed` anyway, resurrecting a job the caller believed was cancelled.
+    This test's `task.run.assert_not_called()` fails on that code.
+    """
+
+    def test_cancel_while_waiting_for_admission_prevents_dispatch(self, orchestrator, progress_service, make_task):
+        progress_service.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}
+        task = make_task()
+
+        reached_wait = threading.Event()
+        release_slot = threading.Event()
+        call_count = {"n": 0}
+
+        def _fake_reserve(*, task_type, resource_claims):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                reached_wait.set()
+            if release_slot.is_set():
+                return {"admitted": True, "waiting_reason": None}
+            return {"admitted": False, "waiting_reason": "Synthesis slot held by another task."}
+
+        # No Event.wait patching needed here (R4): submit()'s internal
+        # `stop_event.wait(1.0)` is woken immediately, for real, the instant
+        # cancel() calls `stop_event.set()` below — genuine cross-thread
+        # signaling, not a timed sleep.
+        with patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", side_effect=_fake_reserve), \
+             patch("app.orchestration.scheduler.orchestrator.release_task_resources") as mock_release:
+            t = threading.Thread(target=orchestrator.submit, args=(task,), daemon=True)
+            t.start()
+            try:
+                assert reached_wait.wait(timeout=5), "submit() never reached the admission wait loop"
+
+                cancelled = orchestrator.cancel(task.task_id)
+
+                # Simulate the slot freeing shortly after cancellation — the
+                # exact scenario the bug report describes. Post-fix, submit()
+                # must still not dispatch even though admission now succeeds.
+                release_slot.set()
+
+                t.join(timeout=10)
+                assert not t.is_alive(), "submit() did not return after cancellation"
+            finally:
+                release_slot.set()
+
+        assert cancelled is True, "cancel() must find and stop a task still waiting for admission"
+        task.run.assert_not_called()
+        task.on_cancel.assert_called_once()
+        mock_release.assert_not_called()
+
+        assert task.task_id not in orchestrator._waiting, "waiting registry entry must not leak"
+        assert task.task_id not in orchestrator._active
+
+        statuses = [c.kwargs.get("status") for c in progress_service.publish.call_args_list]
+        assert statuses[-1] == "cancelled"
+        assert "done" not in statuses
+        assert "running" not in statuses
 
 
 class TestOrchestratorFailureDiagnostics:

@@ -95,6 +95,52 @@ def test_extract_audio_bytes_supports_audio_data_key():
     assert _extract_audio_bytes(response) == wav_bytes
 
 
+def test_convert_to_wav_surfaces_clean_error_on_timeout(tmp_path):
+    """BP-2: a wedged ffmpeg must never hang the caller forever — a
+    subprocess.TimeoutExpired must be caught and re-raised as the file's own
+    structured error (VoxtralError), not an unhandled exception."""
+    import subprocess as sp
+
+    from plugins.tts_voxtral.plugin.core.implementation import _convert_to_wav
+
+    with patch("plugins.tts_voxtral.plugin.core.implementation.subprocess.run") as mock_run:
+        mock_run.side_effect = sp.TimeoutExpired(cmd="ffmpeg", timeout=300)
+        with pytest.raises(VoxtralError, match="timed out"):
+            _convert_to_wav(in_file=tmp_path / "in.mp3", out_wav=tmp_path / "out.wav")
+
+
+def test_convert_to_wav_passes_timeout():
+    from plugins.tts_voxtral.plugin.core.implementation import _convert_to_wav
+
+    with patch("plugins.tts_voxtral.plugin.core.implementation.subprocess.run") as mock_run:
+        mock_run.return_value.returncode = 0
+        rc = _convert_to_wav(in_file=Path("in.mp3"), out_wav=Path("out.wav"))
+        assert rc == 0
+        _, kwargs = mock_run.call_args
+        assert kwargs.get("timeout") == 300
+
+
+def test_voxtral_generate_surfaces_clean_error_when_conversion_times_out(tmp_path):
+    """End-to-end: a synthesis response requiring ffmpeg conversion whose
+    ffmpeg call times out must surface a VoxtralError from voxtral_generate,
+    never an unhandled subprocess.TimeoutExpired."""
+    import subprocess as sp
+
+    out_wav = tmp_path / "out.wav"
+    ref_audio = tmp_path / "ref.wav"
+    ref_audio.write_bytes(b"ref")
+    client = FakeClient(FakeResponse(status_code=200, content=b"ID3fake-mp3", headers={"content-type": "audio/mpeg"}))
+
+    def fake_convert(in_file: Path, out_wav: Path):
+        raise VoxtralError("Audio conversion timed out after 300s (ffmpeg may be stuck).")
+
+    with patch("plugins.tts_voxtral.plugin.core.implementation.resolve_reference_audio_path", return_value=ref_audio), \
+         patch("plugins.tts_voxtral.plugin.core.implementation.httpx.Client", return_value=client), \
+         patch("plugins.tts_voxtral.plugin.core.implementation._convert_to_wav", side_effect=fake_convert):
+        with pytest.raises(VoxtralError, match="timed out"):
+            voxtral_generate("Hello", out_wav, profile_name="VoiceA", settings={"mistral_api_key": "test-key"})
+
+
 def test_voxtral_generate_converts_non_wav_audio(tmp_path):
     out_wav = tmp_path / "out.wav"
     ref_audio = tmp_path / "ref.wav"

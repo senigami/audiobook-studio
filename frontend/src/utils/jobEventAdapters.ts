@@ -1,4 +1,13 @@
-export const resolveEventUpdatedAt = (event: any, payload: any): number => {
+// COR-F-3: a frame carrying no provenance timestamp at all (no payload
+// updatedAt/updated_at, no envelope emittedAt/emitted_at) used to fall back to
+// Date.now()/1000 — which always looks like "the newest thing that ever
+// happened". That let a late/duplicate no-timestamp frame masquerade as the
+// newest update in jobUpdateReducer.ts's stale-frame guard and
+// detectNewerRun(), flipping an already-done job back to running. Returning
+// `undefined` instead means such a frame carries no timestamp claim at all,
+// so it can never win a "is this newer?" comparison — those comparisons all
+// require `typeof x === 'number'` before trusting a timestamp.
+export const resolveEventUpdatedAt = (event: any, payload: any): number | undefined => {
   if (typeof payload?.updatedAt === 'number') return payload.updatedAt;
   if (typeof payload?.updated_at === 'number') return payload.updated_at;
   if (typeof payload?.updatedAt === 'string') {
@@ -11,7 +20,7 @@ export const resolveEventUpdatedAt = (event: any, payload: any): number => {
   }
   if (typeof event?.emittedAt === 'number') return event.emittedAt;
   if (typeof event?.emitted_at === 'number') return event.emitted_at;
-  return Date.now() / 1000;
+  return undefined;
 };
 
 const getPayloadValue = (payload: Record<string, any>, keyCamel: string, _keySnake?: string) => {

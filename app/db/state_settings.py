@@ -2,7 +2,10 @@ import json
 from typing import Dict, Any, Optional
 
 from ..engines.voice_engines import normalize_tts_engine, get_default_profile_engine
-from .state_helpers import _STATE_LOCK, _load_state_no_lock, _atomic_write_text, get_state_file
+from .state_helpers import (
+    _STATE_LOCK, _load_state_no_lock, _load_state_for_update_no_lock,
+    _commit_state_no_lock, _atomic_write_text, get_state_file,
+)
 
 
 def _default_state() -> Dict[str, Any]:
@@ -47,6 +50,12 @@ def _normalize_settings(
     enabled_plugins = normalized.get("enabled_plugins")
     if not isinstance(enabled_plugins, dict):
         enabled_plugins = {}
+    else:
+        # Copy before mutating: `normalized` shallow-updated from the caller's
+        # settings, so this nested dict is shared with the (now cached) input.
+        # Mutating it in place (below / required-setting disable) would corrupt
+        # the shared state cache. See PERF-1 copy-on-write contract.
+        enabled_plugins = dict(enabled_plugins)
 
     # 3. Check for explicit incoming updates to the plugin map
     if incoming_updates and isinstance(incoming_updates.get("enabled_plugins"), dict):
@@ -75,6 +84,11 @@ def _normalize_settings(
     verified_plugins = normalized.get("verified_plugins")
     if not isinstance(verified_plugins, dict):
         verified_plugins = {}
+    else:
+        # Copy before exposing: same read-only-cache contract as enabled_plugins
+        # above — a reader mutating this nested dict would corrupt the shared
+        # state cache (PERF-1).
+        verified_plugins = dict(verified_plugins)
     normalized["verified_plugins"] = verified_plugins
 
     # 5. Check if default_engine is still enabled
@@ -137,7 +151,7 @@ def get_settings() -> Dict[str, Any]:
 
 def update_settings(updates: dict = None, **kwargs) -> None:
     with _STATE_LOCK:
-        state = _load_state_no_lock()
+        state = _load_state_for_update_no_lock()
         state.setdefault("settings", {})
 
         orig_settings = state["settings"].copy()
@@ -165,7 +179,7 @@ def update_settings(updates: dict = None, **kwargs) -> None:
             save_settings.pop("default_engine", None)
 
         state["settings"] = save_settings
-        _atomic_write_text(get_state_file(), json.dumps(state, indent=2))
+        _commit_state_no_lock(state)
 
 
 def set_engine_cap(engine_id: str, cap: Optional[int]) -> None:
