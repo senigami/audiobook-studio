@@ -1,10 +1,10 @@
 # SP10 — Code Organization Spec
 
 ```
-spec_version: 1.2.0
+spec_version: 1.3.0
 status: active
 created: 2026-06-10
-updated: 2026-07-10
+updated: 2026-07-16
 sources: app/api/web.py, app/api/tts_api.py, app/api/ws.py,
          app/core/boot.py, app/core/config.py, app/core/security.py,
          app/db/state.py, app/engines/bridge.py, app/engines/registry.py,
@@ -19,6 +19,7 @@ sources: app/api/web.py, app/api/tts_api.py, app/api/ws.py,
 
 | Version | Date       | Summary                                                     |
 |---------|------------|-------------------------------------------------------------|
+| 1.3.0   | 2026-07-16 | **`app/tts_server/plugin_loader.py` split.** Documented the new `plugin_manifest.py` module (§3.6): manifest load/validate/dependency-check/concurrency-limit surface extracted; `plugin_loader.py` retains plugin instantiation and the registry. |
 | 1.2.0   | 2026-07-10 | **Styling-separation plan complete (ST-1–ST-4).** Documented the `theme/components.css` monolith split into `theme/components/` (11 domain-scoped files: `core.css`, `nav.css`, `book.css`, `book-tabs.css`, `publish.css`, `activity.css`, `shared.css`, `player.css`, `voice-lab.css`, `review-tools.css`, `misc.css`), assembled via `@import` in `theme/index.css` in load-bearing cascade order. Added `theme/` subtree detail to the frontend layout tree. Recorded the new CI regression guard (`scripts/check_hardcoded_styles.py`, wired into `.github/workflows/ci.yml`) that rejects new hardcoded hex/rgb color literals in `style={{}}` blocks repo-wide, in `theme/components/*.css`, and in 5 named co-located stylesheets this plan added, plus raw px spacing literals that exactly match a `--space-*` token (scoped to the ST-3-converted file set) — a targeted, named-file guard, not a blanket repo-wide CSS scan (adversarial review, 2026-07-10). |
 | 1.1.0   | 2026-06-16 | Fix page entry convention to `<Page>Route.tsx`; describe actual `api/` shape; add missing `frontend/src/` dirs; carve out `app.jobs.registry` from import ban |
 | 1.0.0   | 2026-06-10 | Initial spec documenting Studio 2.0 layout and conventions  |
@@ -138,7 +139,8 @@ Studio main process.
 | Path | Responsibility |
 |---|---|
 | `server.py` | FastAPI app for the TTS Server |
-| `plugin_loader.py` | Discovers and validates engine plugins from `plugins/` |
+| `plugin_loader.py` | Discovers, loads, and registers engine plugins from `plugins/` (instantiation + registry surface) |
+| `plugin_manifest.py` | Manifest load/validate/dependency-check/concurrency-limit surface for plugins (split out of `plugin_loader.py`) |
 | `health.py` | Engine status computation for `GET /health` |
 | `settings_store.py` | Per-plugin settings persistence |
 | `verification.py` | Plugin contract verification helpers |

@@ -1,0 +1,77 @@
+{
+  "date": "2026-07-16",
+  "branch": "studio2/simplification-005",
+  "summary": "Close out PR 03/005 (code simplification) remaining scope: plugin_loader.py seam split, to_bridge_request documentation, dead app/infra stub deletion, dead CSS removal, GhostButton hover-state simplification.",
+  "changes": [
+    {
+      "path": "app/tts_server/plugin_loader.py",
+      "change": "split",
+      "summary": "Reduced from 998 to 738 lines. Manifest parsing/validation (_load_manifest, _validate_manifest, _load_optional_json, _check_dependencies, get_manifest_max_concurrent_workers) extracted to new app/tts_server/plugin_manifest.py. Instantiation/registry surface (LoadedPlugin, PluginLoadError, _load_plugin, _load_pip_plugin, _import_engine_class, _validate_engine_signatures, get_plugin_dir, _register_sdk_alias, discover_plugins) stays. Behavior-preserving; _register_sdk_alias's import-order guarantee and lazy importlib.metadata imports preserved in place."
+    },
+    {
+      "path": "app/tts_server/plugin_manifest.py",
+      "change": "added",
+      "summary": "New module, ~300 lines, owns manifest load/validate/dependency-check/concurrency-limit surface. Split out of plugin_loader.py following the plugin_staging.py precedent (one file per pipeline stage)."
+    },
+    {
+      "path": "tests/tts_server/test_plugin_loader_split_characterization.py",
+      "change": "added",
+      "summary": "Characterization tests capturing plugin_loader.py/plugin_manifest.py behavior before/after the split (import ordering, discover_plugins/_load_plugin/_validate_manifest/_import_engine_class outputs)."
+    },
+    {
+      "path": "app/orchestration/tasks/api_synthesis.py",
+      "change": "modified",
+      "summary": "Documentation-only: expanded to_bridge_request docstring explaining the external /api/v1/tts gateway request shape (caller_id, request_settings) and cross-referencing the other two builders. Zero executable code changed."
+    },
+    {
+      "path": "app/orchestration/tasks/synthesis.py",
+      "change": "modified",
+      "summary": "Documentation-only: expanded to_bridge_request docstring explaining the full-featured chapter/book render builder (lexicon substitution, render_batch_id, synthesis_settings) and cross-referencing the other two builders. Zero executable code changed."
+    },
+    {
+      "path": "app/orchestration/tasks/segment_synthesis.py",
+      "change": "modified",
+      "summary": "Documentation-only: expanded to_bridge_request docstring explaining the hardcoded language=\"en\"/is_bake=False fields for this single-group fan-out task type and cross-referencing the other two builders. Zero executable code changed."
+    },
+    {
+      "path": "app/orchestration/scheduler/orchestrator_helpers.py",
+      "change": "modified",
+      "summary": "Documentation-only: added comments near the bridge_request_fn dispatch (line ~727) and the registry-dispatch block (line ~1756) explaining xtts_dispatch_adapter intercepts xtts synthesis before to_bridge_request is ever reached (INV-5 — xtts adapter is the live path, do not delete or reroute). Zero executable code changed."
+    },
+    {
+      "path": "app/infra/subprocess/__init__.py",
+      "change": "deleted",
+      "summary": "Dead stub package (run_managed_subprocess raised NotImplementedError, zero live callers) per final_release/06 §3.1."
+    },
+    {
+      "path": "app/infra/cache/__init__.py",
+      "change": "deleted",
+      "summary": "Dead stub package (NotImplementedError, zero live callers) per final_release/06 §3.3."
+    },
+    {
+      "path": "app/infra/events/__init__.py",
+      "change": "deleted",
+      "summary": "Dead stub package (NotImplementedError, zero live callers) per final_release/06 §3.3."
+    },
+    {
+      "path": "app/infra/db/__init__.py",
+      "change": "deleted",
+      "summary": "Dead stub package (NotImplementedError, zero live callers) per final_release/06 §3.3."
+    },
+    {
+      "path": "frontend/src/theme/utilities.css",
+      "change": "modified",
+      "summary": "Removed dead .action-menu-item:focus-visible selector (confirmed zero usage repo-wide, including frontend/src/demo/)."
+    },
+    {
+      "path": "frontend/src/components/ui/GhostButton.tsx",
+      "change": "modified",
+      "summary": "Removed redundant JS hover state (useState/onMouseEnter/onMouseLeave); relies on existing .btn-ghost:hover CSS rule instead. isActive branch preserved unchanged. U9 partial fix."
+    },
+    {
+      "path": "frontend/src/theme/components/core.css",
+      "change": "modified",
+      "summary": "Added border-color: var(--accent) to .btn-ghost:hover:not(:disabled) to preserve exact prior visual after GhostButton.tsx's JS hover-border logic was removed."
+    }
+  ]
+}
