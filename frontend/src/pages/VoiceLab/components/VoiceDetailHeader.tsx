@@ -3,10 +3,8 @@
  * action row consolidated + Play preview dropped by the voice-variants
  * design-critique follow-up (2026-07-15, H-2/H-3).
  *
- * Header for the voice detail page: avatar/name/tags/description, a single
- * overflow ActionMenu for Set default/Export/Publish/Delete, and a
- * persistent status strip (per-variant build state + last-test result)
- * that stays visible regardless of which tab is active (INV-VC-4).
+ * Header for the voice detail page: avatar/name/tags/description, and a
+ * single overflow ActionMenu for Set default/Export/Publish/Delete.
  *
  * Set as App Default/Export bundle/Publish to Hugging Face/Delete voice
  * are folded into a single `ActionMenu` overflow (H-2, owner-approved):
@@ -19,12 +17,11 @@
  * selected `VariantEditor`'s play/generate button already cover
  * per-variant audition, making "play the default variant" redundant here.
  *
- * Status strip data note: `SpeakerProfile` has no persisted "last test
- * pass/fail timestamp" field today (checked `api/types.ts`) -- only
- * `preview_url` (a test was generated) and readiness/rebuild flags. Rather
- * than fabricate a timestamp that doesn't exist, the strip reports build
- * state (via `is_ready`/`is_rebuild_required`) and whether a test preview
- * exists per variant, with no invented timestamp.
+ * The persistent per-variant status strip that used to live here (build
+ * state + rebuild-required, for every profile at once) moved into
+ * `VariantEditor` (user-reported, 2026-07-16, alongside its own
+ * PhaseStepper) -- each variant's own build status belongs on that
+ * variant's own panel, not a shared voice-level list.
  *
  * The "Edit metadata" trigger (previously here, opening
  * `MetadataEditorModal`) was removed by task 002: metadata is now always
@@ -32,7 +29,7 @@
  * a header button to open.
  */
 import React, { useEffect, useState } from 'react';
-import { User, Star, Download, UploadCloud, Trash2, CheckCircle2, AlertTriangle, Circle, ClipboardCopy, AlertCircle } from 'lucide-react';
+import { User, Star, Download, UploadCloud, Trash2, ClipboardCopy, AlertCircle } from 'lucide-react';
 import type { SpeakerProfile, VoiceMetadata } from '@/types';
 import { VoicePillRow, type PillSpec } from '@/pages/Voices/components/VoicePills';
 import { ActionMenu } from '@/components/ui/ActionMenu';
@@ -261,43 +258,6 @@ export const VoiceDetailHeader: React.FC<VoiceDetailHeaderProps> = ({
                 </div>
             </div>
 
-            {/* Persistent status strip (INV-VC-4): stays visible regardless of
-                active tab -- rendered here, in the header, not inside a tabpanel. */}
-            <div className="voice-detail-header__status-strip" aria-live="polite">
-                {profiles.length === 0 ? (
-                    <span className="voice-detail-header__status-item voice-detail-header__status-item--muted">
-                        <Circle size={12} />
-                        No variants yet
-                    </span>
-                ) : (
-                    profiles.map(profile => {
-                        const needsRebuild = !!profile.is_rebuild_required;
-                        const isReady = profile.is_ready !== false && !needsRebuild;
-                        const hasTested = !!profile.preview_url;
-                        return (
-                            <span key={profile.name} className="voice-detail-header__status-item">
-                                {needsRebuild ? (
-                                    <AlertTriangle size={12} className="voice-detail-header__status-icon--warning" />
-                                ) : isReady ? (
-                                    <CheckCircle2 size={12} className="voice-detail-header__status-icon--success" />
-                                ) : (
-                                    <Circle size={12} />
-                                )}
-                                <span className="voice-detail-header__status-variant">
-                                    {profile.variant_name ?? 'Default'}
-                                </span>
-                                <span className="voice-detail-header__status-detail">
-                                    {needsRebuild
-                                        ? 'Needs rebuild'
-                                        : isReady
-                                            ? (hasTested ? 'Built · tested' : 'Built · not tested')
-                                            : 'Not built'}
-                                </span>
-                            </span>
-                        );
-                    })
-                )}
-            </div>
         </header>
     );
 };

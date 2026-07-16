@@ -5,8 +5,11 @@
  * Header: ← back link, avatar, name, pills, description. Metadata editing
  * moved inline into the Overview tabpanel (task 002) -- no header trigger
  * or modal.
- * PhaseStepper driven by getVoicePhase.
- * Body: placeholder section anchors filled by T6–T8.
+ * Body: placeholder section anchors filled by T6–T8. The Samples/Build/
+ * Test/Ready PhaseStepper (and the rebuild-required alert) moved off this
+ * page and into VariantEditor (user-reported, 2026-07-16) -- each variant
+ * has its own build status, so a single voice-level stepper computed from
+ * whichever profile happened to resolve as "active" was misleading.
  *
  * Data: re-fetches via api.listVoicesWithMetadata + speaker profiles from initialData
  * passed as props from App.tsx (same as VoicesTab).
@@ -17,8 +20,6 @@ import { ArrowLeft, ChevronDown } from 'lucide-react';
 import type { SpeakerProfile, TtsEngine, VoiceMetadata, Job } from '@/types';
 import { api } from '@/api';
 import { voicePillsFromMetadata } from '@/pages/Voices/components/VoicePills';
-import { getVoicePhase } from '@/pages/Voices/voicePhase';
-import { PhaseStepper } from '@/pages/VoiceLab/components/PhaseStepper';
 import { PublishToHuggingFaceModal } from '@/pages/VoiceLab/components/PublishToHuggingFaceModal';
 import { VoiceDetailHeader } from '@/pages/VoiceLab/components/VoiceDetailHeader';
 import { OverviewTab } from '@/pages/VoiceLab/components/OverviewTab';
@@ -141,7 +142,6 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
         }
     }, [voiceMetadataList, id, navigate]);
 
-    const phase = getVoicePhase(profiles, engines, {});
     const pills = metadata ? voicePillsFromMetadata(metadata) : [];
     const iconUrl = metadata?.image ? `/api/voices/${encodeURIComponent(id!)}/icon` : null;
 
@@ -253,11 +253,6 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
                     });
                 }}
             />
-
-            {/* Phase stepper */}
-            <div className="voice-lab-page__stepper-row">
-                <PhaseStepper phase={phase} />
-            </div>
 
             {/* Voice-level fields (description, languages, class/gender/age,
                 many-value fields, free tags) -- pulled out of the tab shell by

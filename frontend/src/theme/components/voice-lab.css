@@ -290,12 +290,6 @@
   max-width: 560px;
 }
 
-.voice-lab-page__stepper-row {
-  margin-bottom: 20px;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: var(--space-4);
-}
-
 .voice-lab-page__sections {
   display: flex;
   flex-direction: column;
@@ -546,46 +540,6 @@
 .voice-detail-header__delete-btn {
   color: var(--error);
   border: 1px solid var(--error);
-}
-
-.voice-detail-header__status-strip {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  background: var(--surface-alt);
-}
-
-.voice-detail-header__status-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--type-caption);
-  color: var(--text-secondary);
-}
-
-.voice-detail-header__status-item--muted {
-  color: var(--text-muted);
-}
-
-.voice-detail-header__status-variant {
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.voice-detail-header__status-detail {
-  color: var(--text-muted);
-}
-
-.voice-detail-header__status-icon--success {
-  color: var(--success);
-}
-
-.voice-detail-header__status-icon--warning {
-  color: var(--warning-text);
 }
 
 /* Generic ARIA tabs primitive — VoiceDetailTabs.tsx */

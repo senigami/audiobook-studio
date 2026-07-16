@@ -18,6 +18,8 @@ import { EngineBadge } from '@/components/ui/EngineBadge';
 import { ArchetypePicker, type ArchetypeAttrs } from '@/pages/VoiceLab/components/record/ArchetypePicker';
 import { RecordingCueCard } from '@/pages/VoiceLab/components/record/RecordingCueCard';
 import { TakeManager } from '@/pages/VoiceLab/components/record/TakeManager';
+import { PhaseStepper } from '@/pages/VoiceLab/components/PhaseStepper';
+import { getVoicePhase } from '@/pages/Voices/voicePhase';
 
 const PERFORMANCE_TAG_STARTER_VOCABULARY = ['happy', 'sad', 'angry', 'calm', 'slow', 'fast', 'measured'];
 const EMPTY_ARCHETYPE_ATTRS: ArchetypeAttrs = {};
@@ -322,6 +324,16 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
 
     const renderControls = () => (
         <div className="variant-editor__controls-body">
+            {/* User-reported (2026-07-16): the Samples/Build/Test/Ready progress
+                was a single voice-level stepper (VoiceLabPage.tsx/PhaseStepper),
+                computed once from whichever profile happened to resolve as
+                "the" active one -- not this specific variant's own status. It's
+                per-variant, matching the rebuild banner below which already is.
+                getVoicePhase accepts an array and resolves is_default/first --
+                passing an array of just this one profile makes it resolve to
+                this profile specifically. */}
+            <PhaseStepper phase={getVoicePhase([profile], engines, buildingProfiles)} />
+
             {isRebuildRequired && profile.rebuild_reasons && profile.rebuild_reasons.length > 0 && (
                 <div className="variant-editor__rebuild-banner">
                     <div className="variant-editor__rebuild-icon">

@@ -470,23 +470,19 @@ describe('VoiceLabPage', () => {
         expect(screen.getByRole('option', { name: /Default/ })).toBeInTheDocument();
     });
 
-    it('keeps the status strip visible alongside the Variants section (INV-VC-4)', async () => {
+    it('renders the build-status phase stepper on the selected variant\'s own panel, not as a shared voice-level strip (user-reported, 2026-07-16)', async () => {
         const { container } = renderAtPath(`/voices/${VOICE_ID}`);
         await waitFor(() => {
             expect(screen.getByText('Aria Nova')).toBeInTheDocument();
         });
 
-        // Status strip shows the fixture's one variant ("Default"). Scoped to the
-        // header's status strip (not `screen`) since the Variants section below
-        // also renders a "Default" variant row.
-        const statusStrip = container.querySelector('.voice-detail-header__status-strip');
-        expect(statusStrip).not.toBeNull();
-        expect(statusStrip).toHaveTextContent('Default');
+        // The old voice-level status strip is gone entirely.
+        expect(container.querySelector('.voice-detail-header__status-strip')).toBeNull();
 
-        // Status strip content lives in the header, unaffected by anything
-        // rendered below it (there's no tab to switch to anymore).
+        // The per-variant PhaseStepper (Samples/Build/Test/Ready) now lives on
+        // the selected variant's own VariantEditor panel instead.
+        expect(screen.getByRole('list', { name: /voice setup progress/i })).toBeInTheDocument();
         expect(screen.getByText('Variants')).toBeInTheDocument();
-        expect(statusStrip).toHaveTextContent('Default');
     });
 
     // ---------------------------------------------------------------------------
