@@ -66,6 +66,12 @@
     animation-duration: 1.6s !important;
     animation-iteration-count: infinite !important;
   }
+  /* Bare .is-preparing is the StatusOrb preparing pulse (orb-preparing-pulse, a
+     calm dimmed opacity breathe, no movement) — same essential-state exemption. */
+  .is-preparing {
+    animation-duration: var(--preparing-pulse-duration, 2s) !important;
+    animation-iteration-count: infinite !important;
+  }
 }
 
 * {

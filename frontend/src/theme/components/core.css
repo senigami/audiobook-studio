@@ -15,6 +15,20 @@
   animation: calm-pulse var(--pulse-duration) ease-in-out infinite;
 }
 
+/* Dimmed preparing breathe — the StatusOrb model-load window. Distinct from
+   is-running: a lower opacity band (0.35→0.65 vs 0.7→1.0) reads as "warming up,
+   not yet working" without a spinner. INV-5: essential state cue, survives
+   reduced-motion (re-enabled in base.css). More-specific ScriptView rules
+   (.script-line.is-preparing / .script-render-group.is-preparing) override this. */
+@keyframes orb-preparing-pulse {
+  0%, 100% { opacity: 0.35; }
+  50%       { opacity: 0.65; }
+}
+.is-preparing {
+  --preparing-pulse-duration: 2s;
+  animation: orb-preparing-pulse var(--preparing-pulse-duration) ease-in-out infinite;
+}
+
 /* ==========================================================================
    Buttons
    ========================================================================== */
