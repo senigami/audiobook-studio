@@ -1,0 +1,23 @@
+{
+  "at": "2026-07-16T13:00:00Z",
+  "commit": "uncommitted",
+  "task": "Fix doubled .m4b.m4b filename in wired M4B assembly; delete redundant ExportTask/BakeTask (dead code, capabilities already shipped)",
+  "files": {
+    "app/jobs/handlers/audiobook.py": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Fixed a live bug: out_file re-appended '.m4b' to a chapter_file that already ended in '.m4b' (chapter_file = Path(output_path).name of the AssemblyTask's *.m4b output), writing shipped audiobooks as '<name>.m4b.m4b' (also recorded as job.output_mp3). Now strips a trailing '.m4b' before re-appending so the M4B filename has exactly one extension. Regression-tested via tests/orchestration/test_audiobook_handler_filename.py (stubs assemble_audiobook, asserts the derived output name)."
+    },
+    "app/orchestration/tasks/export.py": {
+      "change": "removed",
+      "contract_changed": false,
+      "summary": "Deleted. ExportTask (M4B project export) was unwired dead code — not in the orchestrator reconstruction table, no submitting route, no UI. Redundant with the shipped AssemblyTask(is_audiobook=True) path, which forwards every field ExportTask exposed and also survives restart recovery. Fable comparison verdict: nothing to port."
+    },
+    "app/orchestration/tasks/bake.py": {
+      "change": "removed",
+      "contract_changed": false,
+      "summary": "Deleted. BakeTask (chapter WAV->MP3) was unwired dead code. Redundant with the shipped export_chapter_audio() path, which additionally provides result caching, atomic temp-file replace, and path containment. Its distinctive traits (async queueing, make_mp3=False pass-through, an empty 'normalization' hook) were unused. Async-queued MP3 export and audio normalization recorded as backlog in TASKS.md instead of retaining dead code."
+    }
+  },
+  "flow_impact": "Removes two orphaned task types from the tasks/ module (never on a live dispatch path). Fixes the M4B assembly output filename on the live assemble flow. No topology change to active flows."
+}

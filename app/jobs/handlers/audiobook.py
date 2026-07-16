@@ -14,7 +14,13 @@ def handle_audiobook_job(jid, j, start, on_output, cancel_check):
     from ...core.config import get_project_dir
     src_dir = get_project_dir(j.project_id)
     title = j.custom_title or j.chapter_file
-    out_file = get_project_m4b_dir(j.project_id) / f"{j.chapter_file}.m4b"
+    # chapter_file is derived from the AssemblyTask output_path's .name, which
+    # already ends in ".m4b" — strip before re-appending so the filename isn't
+    # doubled to "<name>.m4b.m4b" (regression: test_audiobook_handler_filename).
+    _base = (j.chapter_file or "")
+    if _base.endswith(".m4b"):
+        _base = _base[:-len(".m4b")]
+    out_file = get_project_m4b_dir(j.project_id) / f"{_base}.m4b"
 
     # Collect custom titles from all jobs
     chapter_titles = {
