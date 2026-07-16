@@ -99,4 +99,55 @@ describe('buildIconPrompt', () => {
     it('is deterministic (same input → same output)', () => {
         expect(buildIconPrompt(fullMeta)).toBe(buildIconPrompt(fullMeta));
     });
+
+    // -----------------------------------------------------------------------
+    // Archetype match (user-reported gap, 2026-07-16): the icon prompt used to
+    // ignore the 39-row voice archetype table entirely, even though it carries
+    // a hand-authored appearance_description written specifically for visual
+    // guidance. Close/exact matches should now lead with that description.
+    // -----------------------------------------------------------------------
+
+    it('leads with the matched archetype\'s appearance_description for a close match', () => {
+        // class/gender/age/pace all match "Warm Storyteller" exactly, plus a
+        // tone overlap -- scores well above CLOSE_THRESHOLD.
+        const meta: VoiceMetadata = {
+            id: 'w1',
+            name: 'Story Voice',
+            attributes: {
+                class: 'human',
+                gender: 'feminine',
+                age: 'adult',
+                tone: ['warm', 'friendly'],
+                timbre: ['rich', 'velvety'],
+                pace: 'measured',
+            },
+            is_untagged: false,
+        };
+        const prompt = buildIconPrompt(meta);
+        expect(prompt).toContain('cozy fireside figure');
+        expect(prompt).toContain('hand-knit cardigan');
+    });
+
+    it('still includes the voice\'s own tags/description as supporting detail alongside the archetype description', () => {
+        const meta: VoiceMetadata = {
+            ...fullMeta,
+            attributes: { ...fullMeta.attributes, tone: ['warm', 'friendly'], timbre: ['rich', 'velvety'] },
+        };
+        const prompt = buildIconPrompt(meta);
+        expect(prompt).toContain('cozy fireside figure');
+        expect(prompt).toContain('Warm literary narrator.');
+        expect(prompt).toContain('bright');
+    });
+
+    it('falls back to raw attribute keywords when no archetype scores a close match', () => {
+        const meta: VoiceMetadata = {
+            id: 'no-match',
+            name: 'Odd Voice',
+            attributes: { class: 'synthetic' },
+            is_untagged: false,
+        };
+        const prompt = buildIconPrompt(meta);
+        expect(prompt).toContain('synthetic');
+        expect(prompt).not.toMatch(/cozy fireside figure|hand-knit cardigan/);
+    });
 });

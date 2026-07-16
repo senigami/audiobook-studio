@@ -175,13 +175,13 @@ function composeFallback(attrs: VoiceAttributes): SuggestionResult {
 }
 
 /**
- * Suggest a recording prompt from a voice's tagged attributes.
- *
- * Returns null when attrs is absent or has no meaningful fields set (INV-4) —
- * the caller disables the "Suggest from voice qualities" button in that case
- * rather than showing a generic suggestion.
+ * Find the best-scoring archetype for a set of voice attributes, if any
+ * score at least CLOSE_THRESHOLD. Shared by `suggestRecordingPrompt` (below)
+ * and `buildIconPrompt` (frontend/src/pages/VoiceLab/iconPrompt.ts) so both
+ * consumers of the 39-archetype table agree on what counts as "close enough
+ * to reuse" rather than maintaining two scoring implementations.
  */
-export function suggestRecordingPrompt(attrs: VoiceAttributes | null | undefined): SuggestionResult | null {
+export function findMatchingArchetype(attrs: VoiceAttributes | null | undefined): RecordingArchetype | null {
     if (!attrs || !hasMeaningfulAttrs(attrs)) return null;
 
     let bestArchetype: RecordingArchetype | null = null;
@@ -194,12 +194,28 @@ export function suggestRecordingPrompt(attrs: VoiceAttributes | null | undefined
         }
     }
 
-    if (bestArchetype && bestScore >= CLOSE_THRESHOLD) {
+    return bestArchetype && bestScore >= CLOSE_THRESHOLD ? bestArchetype : null;
+}
+
+/**
+ * Suggest a recording prompt from a voice's tagged attributes.
+ *
+ * Returns null when attrs is absent or has no meaningful fields set (INV-4) —
+ * the caller disables the "Suggest from voice qualities" button in that case
+ * rather than showing a generic suggestion.
+ */
+export function suggestRecordingPrompt(attrs: VoiceAttributes | null | undefined): SuggestionResult | null {
+    if (!attrs || !hasMeaningfulAttrs(attrs)) return null;
+
+    const bestArchetype = findMatchingArchetype(attrs);
+
+    if (bestArchetype) {
+        const score = scoreArchetype(attrs, bestArchetype);
         return {
             prompt: bestArchetype.recording_prompt,
             directionNote: bestArchetype.direction_note,
             matchedArchetype: bestArchetype.archetype_name,
-            confidence: bestScore >= EXACT_THRESHOLD ? 'exact' : 'close',
+            confidence: score >= EXACT_THRESHOLD ? 'exact' : 'close',
             sampleText: bestArchetype.sample_text,
         };
     }

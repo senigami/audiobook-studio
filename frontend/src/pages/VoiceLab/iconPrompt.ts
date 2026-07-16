@@ -12,6 +12,7 @@
  */
 
 import type { VoiceMetadata, VoiceAttributes } from '@/types';
+import { findMatchingArchetype } from '@/pages/Voices/components/metadata/recordingPromptSuggester';
 
 /** Core attribute keys shown in order in the prompt */
 const CORE_KEYS: Array<keyof VoiceAttributes> = ['class', 'gender', 'age', 'accent', 'pace'];
@@ -62,6 +63,20 @@ export function buildIconPrompt(meta: VoiceMetadata | null | undefined): string 
     const descStr = meta.description?.trim() ? `described as: ${meta.description.trim()}` : '';
 
     const middle = [attributeStr, descStr].filter(Boolean).join('; ');
+
+    // Archetype match (user-reported gap, 2026-07-16): the 39-row voice
+    // archetype table (design-docs/reference/voice-archetypes/) carries a
+    // hand-authored `appearance_description` per archetype — written
+    // specifically for visual/appearance guidance, richer than the raw
+    // attribute-keyword concatenation above. When the voice's tagged
+    // attributes score a close/exact match (same scoring `suggestRecordingPrompt`
+    // uses for the recording cue card, via the shared `findMatchingArchetype`),
+    // lead the image prompt with that description instead of bare keywords.
+    const archetype = findMatchingArchetype(meta.attributes ?? {});
+    if (archetype) {
+        const supporting = middle ? ` Additional detail: ${middle}.` : '';
+        return `Circular avatar portrait icon, flat illustration, uniform style: ${archetype.appearance_description}${supporting} Neutral background, centered, no text.`;
+    }
 
     if (!middle) {
         // Untagged / name-only fallback
