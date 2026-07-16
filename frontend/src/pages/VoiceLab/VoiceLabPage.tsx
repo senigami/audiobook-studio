@@ -11,7 +11,7 @@
  * Data: re-fetches via api.listVoicesWithMetadata + speaker profiles from initialData
  * passed as props from App.tsx (same as VoicesTab).
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ChevronDown } from 'lucide-react';
 import type { SpeakerProfile, TtsEngine, VoiceMetadata, Job } from '@/types';
@@ -186,6 +186,26 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
         );
     }, []);
 
+    // Overview disclosure default state (owner decision, voice-variants
+    // design-critique follow-up, 2026-07-15): defaults open ONLY when
+    // required metadata fields (class/gender/age) are missing -- otherwise
+    // collapsed. Computed once per voice from its metadata completeness
+    // (mirrors OverviewTab's own `requiredMissing` check) as soon as
+    // metadata for this id is available; a later metadata refresh (e.g.
+    // after Save) must not fight the user's own manual expand/collapse, so
+    // the ref below guards it to run once per voice id, not once per
+    // metadata object.
+    const [overviewOpen, setOverviewOpen] = useState(true);
+    const overviewOpenInitializedFor = useRef<string | null>(null);
+    useEffect(() => {
+        if (!id || !metadata) return;
+        if (overviewOpenInitializedFor.current === id) return;
+        overviewOpenInitializedFor.current = id;
+        const attrs = metadata.attributes;
+        const requiredMissing = !attrs?.class || !attrs?.gender || !attrs?.age;
+        setOverviewOpen(requiredMissing);
+    }, [id, metadata]);
+
     if (!id) return null;
 
     // Same untagged-voice fallback the modal used to pass through
@@ -225,11 +245,12 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
                 onExport={handleExport}
                 onPublish={() => setPublishModalOpen(true)}
                 onDelete={() => {
-                    if (window.confirm(
-                        `Delete voice '${metadata?.name ?? id}' and all ${profiles.length} variant${profiles.length !== 1 ? 's' : ''}? This cannot be undone.`
-                    )) {
-                        handleDelete();
-                    }
+                    requestConfirm({
+                        title: 'Delete voice',
+                        message: `Delete voice '${metadata?.name ?? id}' and all ${profiles.length} variant${profiles.length !== 1 ? 's' : ''}? This cannot be undone.`,
+                        isDestructive: true,
+                        onConfirm: handleDelete,
+                    });
                 }}
             />
 
@@ -240,9 +261,15 @@ export const VoiceLabPage: React.FC<VoiceLabPageProps> = ({
 
             {/* Voice-level fields (description, languages, class/gender/age,
                 many-value fields, free tags) -- pulled out of the tab shell by
-                task 007 into a standalone disclosure, expanded by default, so
-                they're visible alongside Variants below. */}
-            <details className="voice-lab-page__overview-disclosure" open>
+                task 007 into a standalone disclosure. Default open/collapsed
+                state is metadata-completeness-driven (see overviewOpen above)
+                rather than always-open; the disclosure is otherwise
+                controlled by the user via onToggle. */}
+            <details
+                className="voice-lab-page__overview-disclosure"
+                open={overviewOpen}
+                onToggle={e => setOverviewOpen(e.currentTarget.open)}
+            >
                 <summary className="voice-lab-page__overview-summary">
                     <ChevronDown size={16} />
                     Voice details

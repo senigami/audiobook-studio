@@ -1,20 +1,23 @@
 /**
- * VoiceDetailHeader.tsx — task 001 (voice-card-consolidation, P1)
+ * VoiceDetailHeader.tsx — task 001 (voice-card-consolidation, P1);
+ * action row consolidated + Play preview dropped by the voice-variants
+ * design-critique follow-up (2026-07-15, H-2/H-3).
  *
- * Header for the voice detail page: avatar/name/tags/description, the
- * consolidated primary actions (Play preview / Set as default / Export
- * bundle, per the map's "Target shape"), and a persistent status strip
- * (per-variant build state + last-test result) that stays visible
- * regardless of which tab is active (INV-VC-4).
+ * Header for the voice detail page: avatar/name/tags/description, a single
+ * overflow ActionMenu for Set default/Export/Publish/Delete, and a
+ * persistent status strip (per-variant build state + last-test result)
+ * that stays visible regardless of which tab is active (INV-VC-4).
  *
- * Publish-to-Hugging-Face and Delete voice are relocated here unchanged
- * from `VoiceLabPage.tsx`'s previous footer (`:262-311`) rather than
- * dropped -- the map's target-shape pseudocode only calls out
- * Play preview/Set default/Export as the primary trio, but this task's
- * "Out of scope" note defers tab CONTENT (002-005), not these existing
- * page-level actions, and INV-VC-2 (no functionality loss) still applies
- * during this transitional shell. Flagged here since it's a judgment call
- * not spelled out in the target shape.
+ * Set as App Default/Export bundle/Publish to Hugging Face/Delete voice
+ * are folded into a single `ActionMenu` overflow (H-2, owner-approved):
+ * the previous 5 equal-weight buttons (Play preview, Set default, Export,
+ * Publish, Delete) overstated their relative importance. Delete is grouped
+ * behind a divider as the destructive item, matching
+ * `VoiceCatalogCard.tsx`'s ActionMenu ordering convention. "Play preview"
+ * was dropped entirely rather than moved into the menu (H-3 partial,
+ * owner-approved): the variant switcher's per-row play control and the
+ * selected `VariantEditor`'s play/generate button already cover
+ * per-variant audition, making "play the default variant" redundant here.
  *
  * Status strip data note: `SpeakerProfile` has no persisted "last test
  * pass/fail timestamp" field today (checked `api/types.ts`) -- only
@@ -29,10 +32,10 @@
  * a header button to open.
  */
 import React, { useEffect, useState } from 'react';
-import { User, Play, Pause, Star, Download, UploadCloud, Trash2, CheckCircle2, AlertTriangle, Circle, ClipboardCopy, AlertCircle } from 'lucide-react';
+import { User, Star, Download, UploadCloud, Trash2, CheckCircle2, AlertTriangle, Circle, ClipboardCopy, AlertCircle } from 'lucide-react';
 import type { SpeakerProfile, VoiceMetadata } from '@/types';
 import { VoicePillRow, type PillSpec } from '@/pages/Voices/components/VoicePills';
-import { usePlayerBus, loadAndPlay, pause as pauseBus } from '@/store/playerBus';
+import { ActionMenu } from '@/components/ui/ActionMenu';
 import { useIconUpload } from '@/pages/Voices/components/metadata/IconUpload';
 import { IconCropModal } from '@/pages/Voices/components/metadata/IconCropModal';
 import { buildIconPrompt } from '@/pages/VoiceLab/iconPrompt';
@@ -62,8 +65,6 @@ export const VoiceDetailHeader: React.FC<VoiceDetailHeaderProps> = ({
     onPublish,
     onDelete,
 }) => {
-    const playerBus = usePlayerBus();
-
     // Icon upload -- folded onto the avatar directly (task 003, voice-variants
     // round 2) instead of the standalone IconUpload section that used to live
     // in OverviewTab. `iconOverride` mirrors the local-state pattern the old
@@ -102,25 +103,6 @@ export const VoiceDetailHeader: React.FC<VoiceDetailHeaderProps> = ({
         : iconUrl;
 
     const defaultProfile = profiles.find(p => p.is_default) ?? profiles[0] ?? null;
-    const previewUrl = defaultProfile?.preview_url ?? null;
-    const isPlaying =
-        playerBus.scope === 'preview' &&
-        playerBus.audioUrl === previewUrl &&
-        playerBus.playing;
-
-    const handlePreview = () => {
-        if (!previewUrl) return;
-        if (isPlaying) {
-            pauseBus();
-        } else {
-            loadAndPlay({
-                scope: 'preview',
-                title: metadata?.name ?? 'Voice',
-                subtitle: 'Voice preview',
-                audioUrl: previewUrl,
-            });
-        }
-    };
 
     const handleSetDefault = () => {
         if (!defaultProfile || defaultProfile.is_default) return;
@@ -217,54 +199,45 @@ export const VoiceDetailHeader: React.FC<VoiceDetailHeaderProps> = ({
                 </div>
             </div>
 
-            {/* Primary actions */}
+            {/* Primary actions -- consolidated into a single overflow menu
+                (H-2): Set default/Export/Publish/Delete no longer render as
+                5 equal-weight buttons. Delete is grouped behind a divider as
+                the destructive item, matching VoiceCatalogCard's ActionMenu
+                ordering convention. "Play preview" was dropped entirely
+                (H-3 partial) rather than folded in here -- the variant
+                switcher's per-row play control and the selected
+                VariantEditor's play/generate button already cover
+                per-variant audition. */}
             <div className="voice-detail-header__actions">
-                <button
-                    type="button"
-                    onClick={handlePreview}
-                    disabled={!previewUrl}
-                    className="btn-glass"
-                    aria-label={isPlaying ? 'Pause preview' : 'Play preview'}
-                >
-                    {isPlaying ? <Pause size={14} /> : <Play size={14} />}
-                    {isPlaying ? 'Pause preview' : 'Play preview'}
-                </button>
-                <button
-                    type="button"
-                    onClick={handleSetDefault}
-                    disabled={!defaultProfile || defaultProfile.is_default}
-                    className="btn-glass"
-                    title="Used app-wide when no voice is specified"
-                >
-                    <Star size={14} />
-                    {defaultProfile?.is_default ? 'App default' : 'Set as App Default'}
-                </button>
-                <button
-                    type="button"
-                    onClick={onExport}
-                    disabled={!metadata?.name}
-                    className="btn-glass"
-                >
-                    <Download size={14} />
-                    Export bundle (.zip)
-                </button>
-                <button
-                    type="button"
-                    onClick={onPublish}
-                    disabled={!metadata?.name}
-                    className="btn-glass"
-                >
-                    <UploadCloud size={14} />
-                    Publish to Hugging Face
-                </button>
-                <button
-                    type="button"
-                    onClick={onDelete}
-                    className="btn-ghost voice-detail-header__delete-btn"
-                >
-                    <Trash2 size={14} />
-                    Delete voice
-                </button>
+                <ActionMenu
+                    items={[
+                        {
+                            label: defaultProfile?.is_default ? 'App default' : 'Set as App Default',
+                            icon: Star,
+                            disabled: !defaultProfile || defaultProfile.is_default,
+                            onClick: handleSetDefault,
+                        },
+                        {
+                            label: 'Export bundle (.zip)',
+                            icon: Download,
+                            disabled: !metadata?.name,
+                            onClick: onExport,
+                        },
+                        {
+                            label: 'Publish to Hugging Face',
+                            icon: UploadCloud,
+                            disabled: !metadata?.name,
+                            onClick: onPublish,
+                        },
+                        { isDivider: true },
+                        {
+                            label: 'Delete voice',
+                            icon: Trash2,
+                            isDestructive: true,
+                            onClick: onDelete,
+                        },
+                    ]}
+                />
             </div>
 
             {/* Persistent status strip (INV-VC-4): stays visible regardless of

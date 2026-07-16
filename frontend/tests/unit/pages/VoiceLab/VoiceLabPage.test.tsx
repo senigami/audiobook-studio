@@ -8,7 +8,7 @@
  * - Overview disclosure renders metadata fields inline, no edit-metadata modal
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import React, { Suspense } from 'react';
@@ -193,18 +193,17 @@ describe('VoiceLabPage', () => {
             expect(screen.getByText('Aria Nova')).toBeInTheDocument();
         });
 
-        // Overview lives in the expanded-by-default "Voice details" disclosure
-        // (task 007) -- its fields (description, Save button) are visible
-        // without any trigger click, and there is no modal dialog to open
-        // anymore.
+        // Overview lives in the "Voice details" disclosure (task 007) --
+        // its fields (description, Save button) are present in the DOM
+        // (collapsed or not), and there is no modal dialog to open anymore.
         expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /^save$/i })).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /edit metadata/i })).not.toBeInTheDocument();
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
-    it('collapses/expands the Overview disclosure via the native <details> toggle without gating Save on visibility', async () => {
-        const user = userEvent.setup();
+    it('defaults the Overview disclosure to collapsed when required metadata fields are already complete (2026-07-15 follow-up)', async () => {
+        // mockMetadata has class/gender/age all set -- "complete".
         renderAtPath(`/voices/${VOICE_ID}`);
 
         await waitFor(() => {
@@ -213,9 +212,49 @@ describe('VoiceLabPage', () => {
 
         const summary = screen.getByText('Voice details').closest('summary') as HTMLElement;
         const details = summary.closest('details') as HTMLDetailsElement;
+        await waitFor(() => {
+            expect(details).not.toHaveAttribute('open');
+        });
+    });
 
-        // Expanded by default -- fields visible without any trigger click.
-        expect(details).toHaveAttribute('open');
+    it('defaults the Overview disclosure to open when a required metadata field is missing (2026-07-15 follow-up)', async () => {
+        const incompleteMetadata: VoiceMetadata = {
+            ...mockMetadata,
+            attributes: { class: 'human', gender: undefined as any, age: 'adult' },
+        };
+        renderAtPath(`/voices/${VOICE_ID}`, VOICE_ID, [incompleteMetadata]);
+
+        await waitFor(() => {
+            expect(screen.getByText('Aria Nova')).toBeInTheDocument();
+        });
+
+        const summary = screen.getByText('Voice details').closest('summary') as HTMLElement;
+        const details = summary.closest('details') as HTMLDetailsElement;
+        await waitFor(() => {
+            expect(details).toHaveAttribute('open');
+        });
+    });
+
+    it('collapses/expands the Overview disclosure via the native <details> toggle without gating Save on visibility', async () => {
+        const user = userEvent.setup();
+        const incompleteMetadata: VoiceMetadata = {
+            ...mockMetadata,
+            attributes: { class: 'human', gender: undefined as any, age: 'adult' },
+        };
+        renderAtPath(`/voices/${VOICE_ID}`, VOICE_ID, [incompleteMetadata]);
+
+        await waitFor(() => {
+            expect(screen.getByText('Aria Nova')).toBeInTheDocument();
+        });
+
+        const summary = screen.getByText('Voice details').closest('summary') as HTMLElement;
+        const details = summary.closest('details') as HTMLDetailsElement;
+
+        // Open by default here (missing required field) -- fields visible
+        // without any trigger click.
+        await waitFor(() => {
+            expect(details).toHaveAttribute('open');
+        });
         expect(screen.getByLabelText(/description/i)).toBeVisible();
         const saveBtnWhenOpen = screen.getByRole('button', { name: /^save$/i });
         const disabledWhenOpen = saveBtnWhenOpen.hasAttribute('disabled');
@@ -236,9 +275,43 @@ describe('VoiceLabPage', () => {
         expect(screen.getByLabelText(/description/i)).toBeVisible();
     });
 
-    it('opens the real Publish to Hugging Face flow (not a decorative placeholder)', async () => {
+    it('does not force-reopen the Overview disclosure after the user manually collapses it (respects manual toggle)', async () => {
         const user = userEvent.setup();
+        // Complete metadata -- defaults collapsed. Manually expand, then
+        // trigger a metadata refresh (e.g. a Save) for the SAME voice id
+        // and confirm the disclosure stays open (the init effect must not
+        // re-fire and fight the user's toggle).
         renderAtPath(`/voices/${VOICE_ID}`);
+
+        await waitFor(() => {
+            expect(screen.getByText('Aria Nova')).toBeInTheDocument();
+        });
+
+        const summary = screen.getByText('Voice details').closest('summary') as HTMLElement;
+        const details = summary.closest('details') as HTMLDetailsElement;
+
+        await waitFor(() => {
+            expect(details).not.toHaveAttribute('open');
+        });
+
+        await user.click(summary);
+        expect(details).toHaveAttribute('open');
+
+        // Simulate a metadata refresh for the same voice (e.g. after Save)
+        // by resolving the metadata fetch again with a new object of the
+        // same id/completeness.
+        (api.patchVoiceMetadata as ReturnType<typeof vi.fn>).mockResolvedValue({ ...mockMetadata });
+        const saveBtn = screen.getByRole('button', { name: /^save$/i });
+        await user.click(saveBtn);
+
+        await waitFor(() => {
+            expect(details).toHaveAttribute('open');
+        });
+    });
+
+    it('opens the real Publish to Hugging Face flow via the header overflow menu (not a decorative placeholder)', async () => {
+        const user = userEvent.setup();
+        const { container } = renderAtPath(`/voices/${VOICE_ID}`);
 
         await waitFor(() => {
             expect(screen.getByText('Aria Nova')).toBeInTheDocument();
@@ -246,7 +319,13 @@ describe('VoiceLabPage', () => {
 
         expect(screen.queryByText('planned')).toBeNull();
 
-        const publishBtn = screen.getByRole('button', { name: /publish to hugging face/i });
+        // H-2 (2026-07-15 follow-up): Publish is now inside the header's
+        // single overflow ActionMenu, not a standalone button.
+        const headerActions = container.querySelector('.voice-detail-header__actions') as HTMLElement;
+        const menuTrigger = within(headerActions).getByRole('button', { name: 'More actions' });
+        await user.click(menuTrigger);
+
+        const publishBtn = await screen.findByRole('button', { name: /publish to hugging face/i });
         expect(publishBtn.tagName).toBe('BUTTON');
         expect(publishBtn).not.toBeDisabled();
         await user.click(publishBtn);
@@ -257,6 +336,81 @@ describe('VoiceLabPage', () => {
         expect(screen.getByLabelText('Hugging Face repo')).toBeInTheDocument();
     });
 
+    // ---------------------------------------------------------------------------
+    // Header action-row consolidation (H-2) + delete-via-ConfirmModal (H-1)
+    // -- 2026-07-15 design-critique follow-up
+    // ---------------------------------------------------------------------------
+    describe('header overflow menu (2026-07-15 follow-up)', () => {
+        function getHeaderMenuTrigger(container: HTMLElement) {
+            const headerActions = container.querySelector('.voice-detail-header__actions') as HTMLElement;
+            return within(headerActions).getByRole('button', { name: 'More actions' });
+        }
+
+        it('does not render Play preview in the header (H-3 partial: dropped, not moved)', async () => {
+            renderAtPath(`/voices/${VOICE_ID}`);
+            await waitFor(() => {
+                expect(screen.getByText('Aria Nova')).toBeInTheDocument();
+            });
+            expect(screen.queryByRole('button', { name: /play preview/i })).not.toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: /pause preview/i })).not.toBeInTheDocument();
+        });
+
+        it('folds Set default/Export/Publish/Delete into a single overflow menu instead of 4 separate buttons', async () => {
+            const user = userEvent.setup();
+            const { container } = renderAtPath(`/voices/${VOICE_ID}`);
+            await waitFor(() => {
+                expect(screen.getByText('Aria Nova')).toBeInTheDocument();
+            });
+
+            // None of these render as standalone top-level buttons any more.
+            expect(screen.queryByRole('button', { name: /^set as app default$/i })).not.toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: /^export bundle/i })).not.toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: /^delete voice$/i })).not.toBeInTheDocument();
+
+            await user.click(getHeaderMenuTrigger(container));
+
+            expect(await screen.findByRole('button', { name: /export bundle/i })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: /publish to hugging face/i })).toBeInTheDocument();
+            // Fixture's profile is already the app default, so the menu item
+            // renders its "already default" label ("App default") rather than
+            // the call-to-action label -- either way it's the same menu item.
+            expect(screen.getByRole('button', { name: /app default/i })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: /^delete voice$/i })).toBeInTheDocument();
+        });
+
+        it('routes voice delete through the themed ConfirmModal, never window.confirm (H-1)', async () => {
+            const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+            const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue({ ok: true } as Response);
+            const user = userEvent.setup();
+            const { container } = renderAtPath(`/voices/${VOICE_ID}`);
+            await waitFor(() => {
+                expect(screen.getByText('Aria Nova')).toBeInTheDocument();
+            });
+
+            await user.click(getHeaderMenuTrigger(container));
+            await user.click(await screen.findByRole('button', { name: /^delete voice$/i }));
+
+            // Themed modal appears; native window.confirm is never invoked.
+            const dialog = await screen.findByRole('dialog');
+            expect(dialog).toHaveTextContent('Aria Nova');
+            expect(confirmSpy).not.toHaveBeenCalled();
+
+            const confirmBtn = within(dialog).getByRole('button', { name: /confirm|delete/i });
+            await user.click(confirmBtn);
+
+            await waitFor(() => {
+                expect(fetchSpy).toHaveBeenCalledWith(
+                    expect.stringContaining(`/api/speakers/${VOICE_ID}`),
+                    expect.objectContaining({ method: 'DELETE' })
+                );
+            });
+            expect(confirmSpy).not.toHaveBeenCalled();
+
+            confirmSpy.mockRestore();
+            fetchSpy.mockRestore();
+        });
+    });
+
     it('renders VariantsSection directly below the Overview disclosure -- no tab shell (task 008)', async () => {
         renderAtPath(`/voices/${VOICE_ID}`);
         await waitFor(() => {
@@ -264,8 +418,10 @@ describe('VoiceLabPage', () => {
         });
         // The Samples/Variants/Test tab shell (VoiceDetailTabs) is retired --
         // its "Voice management"-labeled tablist no longer exists. (Note:
-        // VariantSwitcher below renders its own, unrelated and unchanged,
-        // "<voice> variants"-labeled tablist -- INV-SWITCHER-UNCHANGED.)
+        // VariantSwitcher below renders its own, unrelated
+        // "<voice> variants"-labeled listbox -- re-modeled from a tablist to
+        // a real listbox/option pattern in the 2026-07-15 ARIA fix, see
+        // VariantSwitcher.tsx's file header.)
         expect(screen.queryByRole('tablist', { name: 'Voice management' })).not.toBeInTheDocument();
         expect(screen.queryByRole('tab', { name: 'Overview' })).not.toBeInTheDocument();
         expect(screen.queryByRole('tab', { name: 'Samples' })).not.toBeInTheDocument();
@@ -277,7 +433,7 @@ describe('VoiceLabPage', () => {
         // Variants section renders directly below, with its own switcher tab
         // for the fixture's one profile ("Default").
         expect(screen.getByText('Variants')).toBeInTheDocument();
-        expect(screen.getByRole('tab', { name: /Default/ })).toBeInTheDocument();
+        expect(screen.getByRole('option', { name: /Default/ })).toBeInTheDocument();
     });
 
     it('keeps the status strip visible alongside the Variants section (INV-VC-4)', async () => {
@@ -342,8 +498,8 @@ describe('VoiceLabPage', () => {
         });
 
         // Select variant B ("Angry") in the switcher before activating Script.
-        await user.click(await screen.findByRole('tab', { name: /Angry/ }));
-        expect(screen.getByRole('tab', { name: /Angry/ })).toHaveAttribute('aria-selected', 'true');
+        await user.click(await screen.findByRole('option', { name: /Angry/ }));
+        expect(screen.getByRole('option', { name: /Angry/ })).toHaveAttribute('aria-selected', 'true');
 
         // Script is consolidated into the per-variant ActionMenu overflow (task 009).
         await user.click(await screen.findByTitle('More actions'));
@@ -351,7 +507,7 @@ describe('VoiceLabPage', () => {
 
         // Still on variant B -- Script routed selection (a no-op here since B
         // was already selected), not a tab switch back to some other default.
-        expect(screen.getByRole('tab', { name: /Angry/ })).toHaveAttribute('aria-selected', 'true');
+        expect(screen.getByRole('option', { name: /Angry/ })).toHaveAttribute('aria-selected', 'true');
     });
 
     it('defaults the Variants section to the default variant on load (not via Script) — no regression', async () => {
@@ -376,7 +532,7 @@ describe('VoiceLabPage', () => {
         // The default variant ("Default") is selected on load, without ever
         // touching the switcher or the Script action.
         await waitFor(() => {
-            expect(screen.getByRole('tab', { name: /Default/ })).toHaveAttribute('aria-selected', 'true');
+            expect(screen.getByRole('option', { name: /Default/ })).toHaveAttribute('aria-selected', 'true');
         });
     });
 
