@@ -238,18 +238,36 @@ export const VoiceCatalogCard: React.FC<VoiceCatalogCardProps> = ({
             </div>
 
             {/*
-              * Card body — plain (non-interactive) wrapper for the avatar, name,
-              * pills, and description. A11Y-3: this used to be a single
-              * role="button" spanning the whole body, which nested the avatar's
-              * real play <button>, VoicePillRow's own "+N more" toggle button,
-              * and UntaggedBadge's click target inside another button/role —
-              * invalid ARIA (interactive content inside a button) and confusing
-              * for screen readers. The navigate-to-Voice-Lab affordance is now
-              * scoped to just the name (below), a real <button> with no other
-              * interactive descendants.
+              * Card body — wrapper for the avatar, name, pills, and description.
+              * A11Y-3: this used to be a single role="button" spanning the whole
+              * body, which nested the avatar's real play <button>, VoicePillRow's
+              * own "+N more" toggle button, and UntaggedBadge's click target
+              * inside another button/role — invalid ARIA (interactive content
+              * inside a button) and confusing for screen readers. The
+              * keyboard-accessible navigate-to-Voice-Lab affordance is the name
+              * button below (a real <button>, no nested interactives).
+              *
+              * User-reported follow-up: scoping the click target to just the
+              * name text left no obvious way to open a voice with the mouse.
+              * The body wrapper below adds a plain (no role/tabIndex) onClick
+              * that navigates for clicks anywhere in its "dead space" — but
+              * defers to a nested interactive element's own handler (checked via
+              * closest('button, [role="button"], a')) rather than double-firing,
+              * so the play button/pills toggle/untagged badge still work exactly
+              * as before. This container makes no ARIA role claim, so it doesn't
+              * reintroduce A11Y-3 — it's a mouse-convenience affordance layered
+              * on top of the real keyboard-operable name button, not a
+              * replacement for it.
               */}
             <div
                 data-testid="voice-catalog-card-body"
+                className="voice-catalog-card__body"
+                onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.closest('button, [role="button"], a')) return;
+                    if (selectable) onToggleSelect?.();
+                    else onNavigateToLab(speaker.id);
+                }}
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', width: '100%' }}
             >
                 {/* Avatar — hosts the Play/Pause preview overlay (INV-FOCUS, see file header) */}

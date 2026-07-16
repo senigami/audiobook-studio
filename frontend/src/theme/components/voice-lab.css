@@ -149,6 +149,18 @@
   line-height: 1.2;
 }
 
+/* User-reported: the name-only click target wasn't obvious as the way to open
+   a voice. The body wrapper (see VoiceCatalogCard.tsx) navigates on click
+   anywhere in its dead space; this cursor + hover-underline signals that the
+   whole area is actionable, not just the bolded name text. */
+.voice-catalog-card__body {
+  cursor: pointer;
+}
+
+.voice-catalog-card__body:hover .voice-catalog-card__name {
+  text-decoration: underline;
+}
+
 .voice-catalog-card__description {
   font-size: 0.65rem;
   color: var(--text-muted);

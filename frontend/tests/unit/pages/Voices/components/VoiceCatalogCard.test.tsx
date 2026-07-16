@@ -364,16 +364,34 @@ describe('VoiceCatalogCard', () => {
     });
 
     // ---------------------------------------------------------------------------
-    // A11Y-3 — the card body is no longer a single role="button" nesting other
-    // interactive controls (play button, pills "+N more" toggle, untagged badge)
+    // A11Y-3 — the card body carries no role/tabIndex of its own (so it never
+    // nests interactive descendants inside another interactive role), but DOES
+    // navigate on click as a mouse convenience (user-reported: name-only click
+    // target wasn't discoverable) — deferring to a nested control's own handler
+    // rather than double-firing.
     // ---------------------------------------------------------------------------
 
-    it('the card body wrapper carries no button role/tabIndex/click handler of its own', () => {
+    it('the card body wrapper carries no button role/tabIndex, but clicking its dead space navigates', () => {
         render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
         const body = screen.getByTestId('voice-catalog-card-body');
         expect(body).not.toHaveAttribute('role');
         expect(body).not.toHaveAttribute('tabindex');
         fireEvent.click(body);
+        expect(baseProps.onNavigateToLab).toHaveBeenCalledWith('sp-1');
+    });
+
+    it('clicking a nested interactive control (play button) does not also fire body navigation', () => {
+        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} />);
+        fireEvent.click(screen.getByLabelText('Play preview'));
+        expect(baseProps.onNavigateToLab).not.toHaveBeenCalled();
+    });
+
+    it('in select mode, clicking the body dead space toggles selection instead of navigating', () => {
+        const onToggleSelect = vi.fn();
+        render(<VoiceCatalogCard {...baseProps} profiles={[readyProfile]} selectable onToggleSelect={onToggleSelect} />);
+        const body = screen.getByTestId('voice-catalog-card-body');
+        fireEvent.click(body);
+        expect(onToggleSelect).toHaveBeenCalled();
         expect(baseProps.onNavigateToLab).not.toHaveBeenCalled();
     });
 
