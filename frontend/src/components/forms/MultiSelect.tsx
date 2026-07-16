@@ -147,7 +147,16 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
                     background: 'var(--surface-light)',
                     padding: '8px 14px',
                     minHeight: '44px',
-                    borderColor: isOpen ? 'var(--accent)' : 'var(--border)',
+                    // Owner-requested visual link to the pill taxonomy (2026-07-16):
+                    // border only, not text — resting state uses the already-muted
+                    // `--pill-{category}-border` token (same restraint as the pill
+                    // chips themselves), full-strength `--pill-{category}-text` on
+                    // open/focus for a clear but not-gaudy confirmation. No category
+                    // (the free-form tag filter) keeps the prior neutral/accent
+                    // border — tags are deliberately unthemed per design-system §5.
+                    borderColor: category
+                        ? (isOpen ? `var(--pill-${category}-text)` : `var(--pill-${category}-border)`)
+                        : (isOpen ? 'var(--accent)' : 'var(--border)'),
                     boxShadow: isOpen ? '0 0 0 2px var(--accent-glow)' : 'none',
                     transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                     width: '100%',
