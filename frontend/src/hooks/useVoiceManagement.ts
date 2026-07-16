@@ -25,6 +25,18 @@ export function useVoiceManagement(
     // Keep the local "building" map in sync with the authoritative jobs snapshot.
     // We preserve optimistic local entries until the server confirms completion,
     // but clear everything once an established job snapshot goes empty.
+    //
+    // Bug fix (owner-reported, 2026-07-16): this used to be two separate
+    // `useEffect`s both watching `[jobs]` -- one that added in-flight jobs
+    // AND silently cleared terminal ones, another that cleared terminal jobs
+    // AND called onRefresh(). Both fired in the same commit, in declaration
+    // order, via the functional setState form, so the first effect's cleanup
+    // always removed a just-completed job's entry before the second effect's
+    // updater ever ran -- its "was this job still tracked as building"
+    // check always saw it already gone, so onRefresh() never fired. The
+    // profile list (and its `is_new`/`is_rebuild_required` flags) then never
+    // refreshed after a rebuild finished, until something unrelated happened
+    // to refetch it. Merged into one effect so add/clear/refresh cannot race.
     useEffect(() => {
         const jobValues = Object.values(jobs);
         const snapshotIsEmpty = jobValues.length === 0;
@@ -62,32 +74,14 @@ export function useVoiceManagement(
                 if (job && (job.status === 'done' || job.status === 'failed' || job.status === 'cancelled' || job.status === 'error')) {
                     delete updated[profileName];
                     changed = true;
+                    // Refresh profile list so rebuilt status (including
+                    // built_samples / is_new) is shown.
+                    onRefresh();
                 }
             }
 
             return changed ? updated : prev;
         });
-    }, [jobs]);
-
-    // Watch jobs map: when a tracked build job completes, clear the buildingProfiles entry
-    useEffect(() => {
-        setBuildingProfiles(prev => {
-            const updated = { ...prev };
-            let changed = false;
-            for (const [profileName, jobId] of Object.entries(prev)) {
-                if (typeof jobId === 'string') {
-                    const job = jobs[jobId];
-                    if (job && (job.status === 'done' || job.status === 'failed')) {
-                        delete updated[profileName];
-                        changed = true;
-                        // Refresh profile list so rebuilt status is shown
-                        onRefresh();
-                    }
-                }
-            }
-            return changed ? updated : prev;
-        });
-
     }, [jobs, onRefresh]);
 
     const fetchSpeakers = useCallback(async () => {

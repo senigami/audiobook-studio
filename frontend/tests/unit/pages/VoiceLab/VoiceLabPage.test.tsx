@@ -221,12 +221,17 @@ describe('VoiceLabPage', () => {
             expect(screen.getByText('Aria Nova')).toBeInTheDocument();
         });
 
+        // Save is disabled with nothing to save (dirty-state tracking,
+        // owner-requested 2026-07-16) -- make an edit so it's re-enabled by
+        // the requiredMissing fix under test, not permanently disabled.
+        const user = userEvent.setup();
+        await user.type(screen.getByLabelText(/description/i), '!');
+
         await waitFor(() => {
             const saveBtn = screen.getByRole('button', { name: /^save$/i });
             expect(saveBtn).not.toBeDisabled();
         });
 
-        const user = userEvent.setup();
         await user.click(screen.getByRole('button', { name: /^save$/i }));
 
         await waitFor(() => {

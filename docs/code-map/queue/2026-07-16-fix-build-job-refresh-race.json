@@ -1,0 +1,12 @@
+{
+  "date": "2026-07-16",
+  "author": "claude",
+  "summary": "Bug fix (owner-reported): 'after I rebuild, the samples are still labeled as new'. Root cause was two separate useEffects in useVoiceManagement.ts both watching `jobs` -- the first (declared first) silently cleared a just-completed build job's buildingProfiles entry as a side effect of its own bookkeeping; the second (which alone called onRefresh()) never saw the transition because, by the time its updater ran, the entry was already gone. The profile list -- and its is_new/is_rebuild_required flags derived from built_samples -- never refreshed after a rebuild finished. Merged the two effects into one so add/clear/refresh cannot race.",
+  "files": [
+    {
+      "path": "frontend/src/hooks/useVoiceManagement.ts",
+      "change": "Merged the two useEffects tracking buildingProfiles/jobs into one. The single effect now adds in-flight voice_build jobs, and on any terminal status (done/failed/cancelled/error) both clears the buildingProfiles entry AND calls onRefresh() in the same pass -- previously these two responsibilities were split across effects that raced."
+    }
+  ],
+  "flow_impact": "Fixes a real functional regression: rebuilding a voice variant's samples now correctly clears the is_new/rebuild-required UI state once the build job completes, instead of requiring an unrelated action to trigger a refetch."
+}

@@ -95,6 +95,49 @@ describe('useVoiceManagement', () => {
     });
   });
 
+  // Owner-reported (2026-07-16): "after I rebuild, the samples are still
+  // labeled as new" -- root cause was two separate useEffects both watching
+  // `jobs`, where the first silently cleared a just-completed build's
+  // buildingProfiles entry before the second (which alone called onRefresh)
+  // ever saw the transition, so the profile list (and its is_new/
+  // is_rebuild_required flags) never refreshed after a rebuild finished.
+  it('calls onRefresh when a tracked build job transitions to done', async () => {
+    const initialProps: { jobs: Record<string, any> } = {
+      jobs: {
+        'job-1': {
+          id: 'job-1',
+          engine: 'voice_build',
+          speaker_profile: 'Voice 1',
+          status: 'running',
+        } as any,
+      },
+    };
+    const { result, rerender } = renderHook(
+      ({ jobs }: { jobs: Record<string, any> }) => useVoiceManagement(onRefresh, speakerProfiles, requestConfirm, jobs),
+      { initialProps }
+    );
+
+    await waitFor(() => {
+      expect(result.current.buildingProfiles['Voice 1']).toBe(true);
+    });
+
+    rerender({
+      jobs: {
+        'job-1': {
+          id: 'job-1',
+          engine: 'voice_build',
+          speaker_profile: 'Voice 1',
+          status: 'done',
+        } as any,
+      },
+    });
+
+    await waitFor(() => {
+      expect(onRefresh).toHaveBeenCalled();
+    });
+    expect(result.current.buildingProfiles['Voice 1']).toBeUndefined();
+  });
+
   it('handles buildNow failure with error formatting', async () => {
     const errorResponse = { detail: [{ msg: 'Rebuild failed' }] };
     (global.fetch as any).mockResolvedValue({
