@@ -68,3 +68,36 @@ These items should stay labeled future/post-v2 unless a release plan explicitly 
 - The first-run path is visible without relying on external docs.
 - Voice, publish, and integrations each show one clearly useful workflow, not just a collection of cards.
 - The public showcase matches the shipped demo story instead of lagging behind it.
+
+## PR09 reconciliation status (2026-07-16) — demo → production parity
+
+Direction (a): the interactive demo (`frontend/src/demo/`) was walked screen-by-screen
+against the running production app and reconciled so it honestly resembles the shipping UI
+for use in the user guide and promotional material. Aspirational North Star surfaces were
+**kept and badged "Concept"** (new `ConceptBadge` in `siteMockup/shared.tsx`) rather than
+removed. Two items previously listed as "explicitly future" were found to **ship in
+production** and are therefore parity, not future: **AI casting suggestions** and
+**Hugging Face Discover** — leave them in the demo as real surfaces.
+
+Closed in this pass:
+
+| Area | What changed |
+|---|---|
+| Global shell | Removed the stray visible "Connected" label (prod dot is sr-only); stage retitled from "North Star v3.7…" to a promo-facing "Full app tour…". |
+| Library | Book→Project terminology to match the shipped Library: time-based greeting, "Your audiobook projects", "New Project", "Create New Project", "No projects yet", added "Series position" field. |
+| Splash | Hero subtitle + status chips aligned to production Welcome copy. |
+| Book pipeline | Added the **Lexicon** book stage (prod `BOOK_STAGES`); real `BookCover` art on the Book front door; author consistency (E. Holloway); ambient "N of M done · N rendering" rail progress line. |
+| Nav rail | Activity icon `Zap`→`BarChart2`; inline chapter tree (removed in prod) badged "Concept". |
+| Voices / Voice Lab | "🤗 Discover" tab; the retired Samples→Build→Test→Ready stepper badged "Concept". |
+| Engines | Plain "Engines" heading; engine name "Neural Voice Engine"→"XTTS Local Synthesis". |
+| Integrations | Advertised endpoints narrowed to the `/api/v1/tts/*` public gateway (+ "other /api/* are web-UI-only" note); title→"Integrations" / "Developer Integration Guide"; request builder / key rotation / LAN toggle badged "Concept". |
+| Activity | Added the right-hand Stats aside (queue stats, engine calibration, production tally, system-resource strip) matching prod's ActivityPage. |
+| Director's Console | Mode order Cast·Booth·Revise·Write (prod registry); hardcoded hex mode colors → design tokens. |
+
+Static demo output (`docs/demo/`) was rebuilt from this source. Live-verified in both
+themes and embed mode with no functional console errors.
+
+Still open (unchanged by this pass — larger, feature-shaped work): unified/global player
+surface (U16), full IA/navigation-map simplification (U15), first-run/empty-library
+onboarding depth, taxonomy-v2 metadata **editing** flow, and the public showcase screenshot
+refresh (`docs/v1.html`).

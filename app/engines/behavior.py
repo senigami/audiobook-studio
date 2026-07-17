@@ -172,6 +172,39 @@ def behavior_for_engine(
     return _load_manifest_behavior(engine_id)
 
 
+def export_capabilities_for(
+    engine_id: str,
+    *,
+    behavior: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Resolve the W-PERF export-layer capability fields for an engine.
+
+    These fields (``export_format``, ``supports_per_span_voice``,
+    ``supports_emotion_style``, ``supports_prosody``, ``supports_break``) are
+    consumed only by the (not-yet-built) export layer -- not by the live
+    render pipeline's ``has_behavior(engine_id, "ssml_directives")`` gate.
+    Absent fields default to no declared capability (``export_format=None``,
+    every ``supports_*`` flag ``False``), matching no plugin declaring these
+    fields today.
+    """
+    if behavior is None:
+        behavior = _load_full_manifest(engine_id).get("behavior", {})
+    if not isinstance(behavior, Mapping):
+        behavior = {}
+
+    export_format = behavior.get("export_format")
+    if export_format is not None:
+        export_format = str(export_format).strip() or None
+
+    return {
+        "export_format": export_format,
+        "supports_per_span_voice": bool(behavior.get("supports_per_span_voice", False)),
+        "supports_emotion_style": bool(behavior.get("supports_emotion_style", False)),
+        "supports_prosody": bool(behavior.get("supports_prosody", False)),
+        "supports_break": bool(behavior.get("supports_break", False)),
+    }
+
+
 @lru_cache(maxsize=64)
 def _load_full_manifest(engine_id: str) -> dict[str, Any]:
     """Load the full manifest payload for an engine.

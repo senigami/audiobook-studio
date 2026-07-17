@@ -1,6 +1,6 @@
 # Task 003 — Rendering-mode translation layer (5 modes × 8 values)
 
-Status: pending
+Status: done (2026-07-16, W-PERF safe-foundation PR)
 
 Risk: multi-file — this is the single translation layer every downstream exporter must go through;
 per INV-2 (`01-map.md`), no exporter is allowed its own ad-hoc interpretation of raw

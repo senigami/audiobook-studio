@@ -2,6 +2,8 @@
 
 Status: pending
 
+**Cross-reference (2026-07-16):** `performance_script_model_execution/tasks/004-ssml-directive-capability-manifest-field.md` landed first and built the export-layer capability fields (`export_format`, `supports_per_span_voice`, `supports_emotion_style`, `supports_prosody`, `supports_break`) on top of this task's `"ssml_directives"` mechanism — but this task's own render-pipeline gate (`has_behavior(engine_id, "ssml_directives")` + the actual gating logic at the call sites below) has NOT been built yet. When this task executes, build the gate as originally specified here; do not assume task 004 already did it — task 004 explicitly deferred that to this task.
+
 Risk: quality-sensitive (changes what gets sent to synthesis for every chapter render; a bug here either renders text that should never be spoken, or silently drops directives that should not have skipped the segment they were meant for)
 
 ## Goal

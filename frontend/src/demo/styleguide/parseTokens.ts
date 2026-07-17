@@ -51,7 +51,9 @@ function parseBlock(css: string, blockSelector: string): Map<string, { value: st
   // Match custom property declarations, possibly spanning multiple lines
   // Pattern: --name: value; optionally followed by /* comment */
   // Values can contain nested parens and commas
-  const lineRe = /--([\w-]+)\s*:\s*((?:[^;]|\n)*?)\s*;(?:\s*\/\*([^*]|\*(?!\/))*\*\/)?/g;
+  // `[^;]` already matches newlines, so the value group needs no `|\n` alternation.
+  // Dropping it removes the ambiguous overlap that caused catastrophic backtracking (CodeQL js/redos).
+  const lineRe = /--([\w-]+)\s*:\s*([^;]*?)\s*;(?:\s*\/\*([^*]|\*(?!\/))*\*\/)?/g;
 
   let m: RegExpExecArray | null;
   while ((m = lineRe.exec(block)) !== null) {
