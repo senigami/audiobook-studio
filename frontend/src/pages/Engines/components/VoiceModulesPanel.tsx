@@ -93,7 +93,7 @@ export const VoiceModulesPanel: React.FC<VoiceModulesPanelProps> = ({
                         borderBottom: '1px solid var(--border)',
                         background: 'var(--surface-light)',
                     }}>
-                        <Settings size={16} color="var(--accent)" />
+                        <Settings size={16} color="var(--action-primary)" />
                         <div>
                             <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
                                 {engine.display_name}

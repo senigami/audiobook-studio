@@ -44,7 +44,7 @@ export const ProgressBarUpdatePanel: React.FC<ProgressBarUpdatePanelProps> = ({
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.15rem' }}>
-              <RefreshCw size={15} color="var(--accent)" />
+              <RefreshCw size={15} color="var(--action-primary)" />
               <h3 style={{ margin: 0, fontSize: '1rem' }}>Progress Updates</h3>
             </div>
             <p style={{ marginTop: '-0.15rem', marginBottom: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>

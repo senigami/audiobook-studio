@@ -253,7 +253,7 @@ describe('VoicesTabHeader', () => {
         expect(classChip).toHaveStyle({ background: 'var(--pill-class-bg)', color: 'var(--pill-class-text)' });
         expect(genderChip).toHaveStyle({ background: 'var(--pill-gender-bg)', color: 'var(--pill-gender-text)' });
         expect(ageChip).toHaveStyle({ background: 'var(--pill-age-bg)', color: 'var(--pill-age-text)' });
-        expect(tagChip).toHaveStyle({ background: 'var(--accent-glow)', color: 'var(--accent)' });
+        expect(tagChip).toHaveStyle({ background: 'var(--accent-glow)', color: 'var(--action-primary)' });
     });
 });
 

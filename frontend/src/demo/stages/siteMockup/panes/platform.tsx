@@ -32,6 +32,7 @@ import {
   PaneHeader,
   statusChip,
   onPill,
+  ConceptBadge,
 } from '../shared';
 
 const SANITIZE_TOGGLES = [
@@ -284,8 +285,8 @@ export const EnginesPane: React.FC = () => {
                 onClick={() => setInstallMethod('upload')}
                 style={{
                   padding: '4px 10px', fontSize: 'var(--type-micro)', fontWeight: 600, border: 'none', background: 'none',
-                  color: installMethod === 'upload' ? 'var(--accent)' : 'var(--text-muted)',
-                  borderBottom: installMethod === 'upload' ? '2px solid var(--accent)' : 'none',
+                  color: installMethod === 'upload' ? 'var(--action-primary)' : 'var(--text-muted)',
+                  borderBottom: installMethod === 'upload' ? '2px solid var(--action-primary)' : 'none',
                   cursor: 'pointer'
                 }}
               >
@@ -296,8 +297,8 @@ export const EnginesPane: React.FC = () => {
                 onClick={() => setInstallMethod('url')}
                 style={{
                   padding: '4px 10px', fontSize: 'var(--type-micro)', fontWeight: 600, border: 'none', background: 'none',
-                  color: installMethod === 'url' ? 'var(--accent)' : 'var(--text-muted)',
-                  borderBottom: installMethod === 'url' ? '2px solid var(--accent)' : 'none',
+                  color: installMethod === 'url' ? 'var(--action-primary)' : 'var(--text-muted)',
+                  borderBottom: installMethod === 'url' ? '2px solid var(--action-primary)' : 'none',
                   cursor: 'pointer'
                 }}
               >
@@ -322,7 +323,7 @@ export const EnginesPane: React.FC = () => {
                   }
                 }}
                 style={{
-                  border: `2px dashed ${dragOver ? 'var(--accent)' : 'var(--border)'}`,
+                  border: `2px dashed ${dragOver ? 'var(--action-primary)' : 'var(--border)'}`,
                   borderRadius: 'var(--radius-card)',
                   padding: '24px 16px',
                   textAlign: 'center',
@@ -418,7 +419,7 @@ export const EnginesPane: React.FC = () => {
           <Col gap={12} style={{ alignItems: 'center', padding: '20px 0' }}>
             <div style={{
               width: 32, height: 32, borderRadius: '50%', border: '3px solid var(--border)',
-              borderTopColor: 'var(--accent)', animation: 'spin 1s linear infinite'
+              borderTopColor: 'var(--action-primary)', animation: 'spin 1s linear infinite'
             }} />
             <style>{`
               @keyframes spin {
@@ -502,8 +503,7 @@ export const EnginesPane: React.FC = () => {
   return (
     <Col gap={14} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
       <PaneHeader
-        eyebrow="Platform"
-        title="Engines and plugin registry"
+        title="Engines"
         subtitle="Install trusted synthesis engines, verify their setup, and review privacy boundaries before routing book renders."
         meta={<SemanticChip variant="success">TTS server healthy</SemanticChip>}
         actions={(
@@ -548,7 +548,7 @@ export const EnginesPane: React.FC = () => {
             fontSize: 'var(--type-caption)',
             border: 'none',
             cursor: 'pointer',
-            background: activeTab === 'engines' ? 'var(--accent)' : 'transparent',
+            background: activeTab === 'engines' ? 'var(--action-primary)' : 'transparent',
             color: activeTab === 'engines' ? 'var(--text-on-accent)' : 'var(--text-muted)',
           }}
         >
@@ -565,7 +565,7 @@ export const EnginesPane: React.FC = () => {
             fontSize: 'var(--type-caption)',
             border: 'none',
             cursor: 'pointer',
-            background: activeTab === 'module-settings' ? 'var(--accent)' : 'transparent',
+            background: activeTab === 'module-settings' ? 'var(--action-primary)' : 'transparent',
             color: activeTab === 'module-settings' ? 'var(--text-on-accent)' : 'var(--text-muted)',
           }}
         >
@@ -638,30 +638,30 @@ export const EnginesPane: React.FC = () => {
 
       <Label>Installed</Label>
       <Col gap={8}>
-        {/* Neural Voice Engine */}
+        {/* XTTS Local Synthesis */}
         {installedEngineIds.includes('neural-voice') && (
           <Card style={{ borderRadius: 'var(--radius-card)', overflow: 'hidden' }}>
             <div style={{ padding: '8px 12px' }}>
               <Row gap={8} style={{ alignItems: 'center' }}>
                 <button
                   onClick={() => setXttsExpanded(e => !e)}
-                  aria-label={xttsExpanded ? 'Collapse Neural Voice Engine' : 'Expand Neural Voice Engine'}
+                  aria-label={xttsExpanded ? 'Collapse XTTS Local Synthesis' : 'Expand XTTS Local Synthesis'}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', flexShrink: 0, padding: 0 }}
                 >
                   {xttsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </button>
-                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent-tint-bg)', border: '1px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Puzzle size={14} color="var(--accent)" />
+                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent-tint-bg)', border: '1px solid var(--action-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Puzzle size={14} color="var(--action-primary)" />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)' }}>Neural Voice Engine</div>
+                  <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)' }}>XTTS Local Synthesis</div>
                   <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>neural-voice · v2.0.3</div>
                 </div>
                 <Row gap={4} style={{ alignItems: 'center', flexShrink: 0 }}>
                   <span style={onPill}>ON</span>
                   <span style={statusChip('success')}>READY</span>
                   <span style={statusChip('cloud')}>VERIFIED</span>
-                  <Btn small onClick={() => alert('Neural Voice Engine calibration verified!')}>Verify</Btn>
+                  <Btn small onClick={() => alert('XTTS Local Synthesis calibration verified!')}>Verify</Btn>
                 </Row>
               </Row>
               <Row gap={6} style={{ alignItems: 'center', marginLeft: 44, marginTop: 4 }}>
@@ -716,7 +716,7 @@ export const EnginesPane: React.FC = () => {
                           cursor: 'pointer', fontSize: 'var(--type-micro)', padding: '2px 7px', borderRadius: 'var(--radius-round)',
                           border: `1px solid ${sanitizeToggles[i] ? 'var(--accent-tint-border)' : 'var(--border)'}`,
                           background: sanitizeToggles[i] ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-                          color: sanitizeToggles[i] ? 'var(--accent)' : 'var(--text-muted)',
+                          color: sanitizeToggles[i] ? 'var(--action-primary)' : 'var(--text-muted)',
                           display: 'inline-flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap',
                         }}
                       >
@@ -821,7 +821,7 @@ export const EnginesPane: React.FC = () => {
                       background: 'transparent',
                       padding: 0,
                       fontFamily: 'inherit',
-                      color: 'var(--accent)',
+                      color: 'var(--action-primary)',
                       cursor: 'pointer',
                       textDecoration: 'underline',
                     }}
@@ -883,7 +883,7 @@ export const EnginesPane: React.FC = () => {
                         </button>
                         <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{voxtralTestPlaying ? `0:0${Math.floor(voxtralTestProgress / 25)}` : '0:00'} / 0:04</span>
                         <div style={{ flex: 1, height: 2, background: 'var(--border)', borderRadius: 2, minWidth: 30 }}>
-                          <div style={{ width: `${voxtralTestProgress}%`, height: '100%', background: 'var(--accent)', borderRadius: 2 }} />
+                          <div style={{ width: `${voxtralTestProgress}%`, height: '100%', background: 'var(--action-primary)', borderRadius: 2 }} />
                         </div>
                         <Volume2 size={12} color="var(--text-muted)" />
                       </Row>
@@ -959,7 +959,7 @@ export const EnginesPane: React.FC = () => {
           <Card style={{ borderRadius: 'var(--radius-card)', padding: '8px 12px' }}>
             <Row gap={10} style={{ alignItems: 'center' }}>
               <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent-tint-bg)', border: '1px solid var(--accent-tint-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Puzzle size={14} color="var(--accent)" />
+                <Puzzle size={14} color="var(--action-primary)" />
               </div>
               <div style={{ flex: 1 }}>
                 <Row gap={6} style={{ alignItems: 'center' }}>
@@ -989,7 +989,7 @@ export const EnginesPane: React.FC = () => {
           <Card key={plugin.id} style={{ borderRadius: 'var(--radius-card)', padding: '8px 12px' }}>
             <Row gap={10} style={{ alignItems: 'center' }}>
               <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent-tint-bg)', border: '1px solid var(--accent-tint-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Puzzle size={14} color="var(--accent)" />
+                <Puzzle size={14} color="var(--action-primary)" />
               </div>
               <div style={{ flex: 1 }}>
                 <Row gap={6} style={{ alignItems: 'center' }}>
@@ -1032,7 +1032,7 @@ export const EnginesPane: React.FC = () => {
                 style={{
                   borderRadius: 'var(--radius-card)', padding: '10px 12px',
                   cursor: 'pointer',
-                  border: isSelected ? '1px solid var(--accent)' : '1px solid var(--border)',
+                  border: isSelected ? '1px solid var(--action-primary)' : '1px solid var(--border)',
                   background: isSelected ? 'var(--accent-tint-bg)' : 'var(--surface)',
                   transition: 'all 0.15s ease',
                 }}
@@ -1044,7 +1044,7 @@ export const EnginesPane: React.FC = () => {
                     border: '1px solid var(--border)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                   }}>
-                    <Puzzle size={14} color={isSelected ? 'var(--accent)' : 'var(--text-secondary)'} />
+                    <Puzzle size={14} color={isSelected ? 'var(--action-primary)' : 'var(--text-secondary)'} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -1096,7 +1096,7 @@ export const EnginesPane: React.FC = () => {
                     href={selectedPlugin.githubUrl}
                     target="_blank"
                     rel="noreferrer"
-                    style={{ color: 'var(--accent)', textDecoration: 'underline', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}
+                    style={{ color: 'var(--action-primary)', textDecoration: 'underline', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}
                   >
                     GitHub Link
                   </a>
@@ -1155,7 +1155,7 @@ export const EnginesPane: React.FC = () => {
               <p style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', margin: '0 0 8px' }}>
                 Each installed engine&apos;s schema-driven settings (speed, temperature, cloud calibration, etc.)
                 live inline under that engine&apos;s expandable row on the <strong>Engines</strong> tab — expand
-                &quot;Neural Voice Engine&quot; or &quot;Voxtral (Mistral AI)&quot; there to edit them.
+                &quot;XTTS Local Synthesis&quot; or &quot;Voxtral (Mistral AI)&quot; there to edit them.
               </p>
             </div>
           </Card>
@@ -1176,7 +1176,7 @@ export const EnginesPane: React.FC = () => {
                       cursor: 'pointer', fontSize: 'var(--type-micro)', padding: '2px 7px', borderRadius: 'var(--radius-round)',
                       border: `1px solid ${sanitizeToggles[i] ? 'var(--accent-tint-border)' : 'var(--border)'}`,
                       background: sanitizeToggles[i] ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-                      color: sanitizeToggles[i] ? 'var(--accent)' : 'var(--text-muted)',
+                      color: sanitizeToggles[i] ? 'var(--action-primary)' : 'var(--text-muted)',
                       display: 'inline-flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap',
                     }}
                   >
@@ -1238,7 +1238,7 @@ const ApiConfigRow: React.FC<{ label: string; children: React.ReactNode }> = ({ 
 const ApiEndpointRow: React.FC<{ method: string; path: string; desc: string }> = ({ method, path, desc }) => {
   const methodColor =
     method === 'GET' ? 'var(--success-text)' :
-    method === 'POST' ? 'var(--accent)' :
+    method === 'POST' ? 'var(--action-primary)' :
     'var(--warning-text)';
   return (
     <div style={{
@@ -1377,8 +1377,8 @@ export const IntegrationsPane: React.FC = () => {
     <Col gap={14} style={{ padding: 14, flex: 1, overflowY: 'auto' }}>
       <PaneHeader
         eyebrow="Integrations"
-        title="API console"
-        subtitle="Generate audio from external tools, retrieve results, and inspect the exact request shape before connecting another app."
+        title="Integrations"
+        subtitle="Developer Integration Guide — generate audio from external tools, retrieve results, and inspect the exact request shape before connecting another app."
         meta={<SemanticChip variant="success">23 requests today</SemanticChip>}
         actions={(
           <>
@@ -1415,19 +1415,19 @@ export const IntegrationsPane: React.FC = () => {
       }}>
         <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>Developer Integration Guide</div>
         <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginBottom: 10 }}>
-          Connect your applications to Studio 2.0 via the unified orchestration and synthesis API.
+          Connect your applications to Studio 2.0&apos;s local TTS gateway — the authenticated <code>/api/v1/tts/*</code> API.
         </div>
         <Row className="ns-platform-grid" gap={8} style={{ alignItems: 'stretch' }}>
           <Card style={{ flex: 1, padding: '8px 10px', borderRadius: 'var(--radius-card)' }}>
-            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--accent)', marginBottom: 4 }}>Unified Orchestration</div>
+            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--action-primary)', marginBottom: 4 }}>Queued synthesis</div>
             <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', lineHeight: 1.55 }}>
-              Use the /api endpoints to manage projects, chapters, and long-running generation jobs. Studio handles chunking, engine routing, and file management automatically.
+              Send text to <code>POST /api/v1/tts/synthesize</code> to render audio with any installed engine — Studio handles chunking, engine routing, and job tracking, and you poll the job for the result.
             </div>
           </Card>
           <Card style={{ flex: 1, padding: '8px 10px', borderRadius: 'var(--radius-card)' }}>
-            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--accent)', marginBottom: 4 }}>Direct Synthesis</div>
+            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--action-primary)', marginBottom: 4 }}>Immediate preview</div>
             <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', lineHeight: 1.55 }}>
-              Call the TTS Server directly for raw text-to-audio requests. Ideal for real-time applications or simple synthesis tasks that don&apos;t require the Studio state machine.
+              Use <code>POST /api/v1/tts/preview</code> for quick, synchronous text-to-audio — ideal for real-time applications or simple one-off synthesis.
             </div>
           </Card>
         </Row>
@@ -1448,29 +1448,33 @@ export const IntegrationsPane: React.FC = () => {
         </div>
       </div>
 
+      <div style={{
+        background: 'var(--surface-alt)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-card)', padding: '8px 10px',
+        fontSize: 'var(--type-micro)', color: 'var(--text-muted)', lineHeight: 1.55,
+      }}>
+        All external integrations should go through <code>/api/v1/tts/*</code>. Studio&apos;s other <code>/api/*</code> routes
+        power the built-in web UI only — they are unauthenticated and not a supported external integration surface.
+      </div>
+
       <Col gap={5}>
-        <ApiSectionHead>1. Resource Discovery</ApiSectionHead>
-        <ApiEndpointRow method="GET" path="/api/engines" desc="Lists all registered TTS engines, their enablement status, and verification health." />
-        <ApiEndpointRow method="GET" path="/api/speaker-profiles" desc="Returns available voice profiles, engine assignments, and reference audio sample links." />
-        <MonoBlock>{`{\n  "engines": [\n    { "engine_id": "cloud-engine", "enabled": true, "status": "ready" },\n    { "engine_id": "neural-voice",    "enabled": true, "status": "ready" },\n    { "engine_id": "tts_mixed",   "enabled": false,"status": "disabled" }\n  ]\n}`}</MonoBlock>
+        <ApiSectionHead>1. Engine Discovery</ApiSectionHead>
+        <ApiEndpointRow method="GET" path="/api/v1/tts/engines" desc="Lists registered TTS engines with status, verification state, and capabilities." />
+        <ApiEndpointRow method="GET" path="/api/v1/tts/engines/{engine_id}" desc="Returns detailed metadata for a single engine." />
+        <MonoBlock>{`{\n  "engines": [\n    { "engine_id": "xtts", "display_name": "XTTS", "status": "ready", "verified": true, ... }\n  ]\n}`}</MonoBlock>
       </Col>
 
       <Col gap={5}>
-        <ApiSectionHead>2. Orchestration &amp; Generation</ApiSectionHead>
+        <ApiSectionHead>2. Synthesis</ApiSectionHead>
         <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>
-          The preferred way to generate audio is via the Studio processing queue — it handles retries, progress broadcast, and artifact management.
+          Short requests (under 500 characters) return the audio file inline; longer requests are queued alongside Studio&apos;s own render jobs and return a <code>job_id</code> to poll.
         </div>
-        <ApiEndpointRow method="POST" path="/api/processing_queue" desc="Submit a chapter to the queue for managed generation." />
-        <ApiEndpointRow method="WS" path="/ws" desc="Subscribe to live status and progress events for all active jobs." />
-        <MonoBlock>{`{\n  "type": "studio_job_event",\n  "job_id": "job_abc123",\n  "status": "running",\n  "progress": 0.45,\n  "eta_seconds": 12\n}`}</MonoBlock>
-      </Col>
-
-      <Col gap={5}>
-        <ApiSectionHead>3. Direct TTS Server Access</ApiSectionHead>
-        <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>
-          When the TTS Server is enabled, you can bypass the Studio state machine for stateless synthesis.
-        </div>
-        <MonoBlock>{`POST http://localhost:8001/synthesize\n{\n  "engine_id": "neural-voice",\n  "text": "Hello from Studio 2.0.",\n  "voice_ref": "narrator_default",\n  "output_path": "/tmp/out.wav"\n}`}</MonoBlock>
+        <ApiEndpointRow method="POST" path="/api/v1/tts/synthesize" desc="Inline (<500 chars) or queued." />
+        <ApiEndpointRow method="POST" path="/api/v1/tts/preview" desc="Always inline, capped at 500 chars." />
+        <ApiEndpointRow method="GET" path="/api/v1/tts/jobs/{job_id}" desc="Poll queued job status." />
+        <ApiEndpointRow method="GET" path="/api/v1/tts/jobs/{job_id}/audio" desc="Download completed audio." />
+        <MonoBlock>{`curl -X POST http://localhost:8123/api/v1/tts/synthesize \\\n  -H "Authorization: Bearer your-api-key" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "engine_id": "xtts",\n    "text": "Hello from the API documentation.",\n    "voice_ref": "Dark Fantasy",\n    "output_format": "wav"\n  }' --output output.wav`}</MonoBlock>
       </Col>
 
       <Row gap={8} style={{ alignItems: 'center', paddingTop: 2 }}>
@@ -1483,7 +1487,10 @@ export const IntegrationsPane: React.FC = () => {
 
       {/* 4. Interactive API Request Builder */}
       <Col gap={6} style={{ marginTop: 14 }}>
-        <ApiSectionHead>4. Interactive API Request Builder</ApiSectionHead>
+        <Row gap={8} style={{ alignItems: 'center' }}>
+          <ApiSectionHead>4. Interactive API Request Builder</ApiSectionHead>
+          <ConceptBadge title="Interactive request builder is a North Star concept — production ships the static docs panel above." />
+        </Row>
         <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>
           Build and test an API request directly from this mockup to see the live curl commands, request/response payloads, and listen to the synthesized audio output.
         </div>
@@ -1553,9 +1560,9 @@ export const IntegrationsPane: React.FC = () => {
                         fontSize: 'var(--type-micro)',
                         fontWeight: 600,
                         borderRadius: 'var(--radius-round)',
-                        border: `1px solid ${voiceAvatar === v.id ? 'var(--accent)' : 'var(--border)'}`,
+                        border: `1px solid ${voiceAvatar === v.id ? 'var(--action-primary)' : 'var(--border)'}`,
                         background: voiceAvatar === v.id ? 'var(--accent-tint-bg)' : 'var(--surface)',
-                        color: voiceAvatar === v.id ? 'var(--accent)' : 'var(--text-secondary)',
+                        color: voiceAvatar === v.id ? 'var(--action-primary)' : 'var(--text-secondary)',
                         cursor: 'pointer',
                       }}
                     >
@@ -1575,7 +1582,7 @@ export const IntegrationsPane: React.FC = () => {
                     step="0.1"
                     value={speed}
                     onChange={(e) => setSpeed(parseFloat(e.target.value))}
-                    style={{ flex: 1, accentColor: 'var(--accent)' }}
+                    style={{ flex: 1, accentColor: 'var(--action-primary)' }}
                   />
                   <span style={{ fontSize: 'var(--type-micro)', fontFamily: 'monospace', minWidth: 26 }}>{speed.toFixed(1)}x</span>
                 </Row>
@@ -1600,7 +1607,7 @@ export const IntegrationsPane: React.FC = () => {
                 <span style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)' }}>Generated Curl Command</span>
                 <span
                   onClick={handleCopyCurl}
-                  style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline' }}
+                  style={{ fontSize: 'var(--type-micro)', color: 'var(--action-primary)', cursor: 'pointer', textDecoration: 'underline' }}
                 >
                   {copiedCurl ? 'Copied!' : 'Copy to CLI'}
                 </span>
@@ -1646,7 +1653,7 @@ export const IntegrationsPane: React.FC = () => {
                     <button
                       onClick={() => setIsPlaying(!isPlaying)}
                       style={{
-                        background: 'var(--accent)',
+                        background: 'var(--action-primary)',
                         border: 'none',
                         borderRadius: '50%',
                         width: 24,
@@ -1668,13 +1675,13 @@ export const IntegrationsPane: React.FC = () => {
                         <span>{isPlaying ? `0:0${Math.floor(playProgress / 25)}` : '0:00'} / 0:04</span>
                       </div>
                       <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, marginTop: 4, position: 'relative', overflow: 'hidden' }}>
-                        <div style={{ width: `${playProgress}%`, height: '100%', background: 'var(--accent)', transition: 'width 0.2s linear' }} />
+                        <div style={{ width: `${playProgress}%`, height: '100%', background: 'var(--action-primary)', transition: 'width 0.2s linear' }} />
                       </div>
                     </div>
                     <a
                       href="#"
                       onClick={(e) => { e.preventDefault(); alert('Audio downloaded!'); }}
-                      style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', textDecoration: 'underline', fontWeight: 600 }}
+                      style={{ fontSize: 'var(--type-micro)', color: 'var(--action-primary)', textDecoration: 'underline', fontWeight: 600 }}
                     >
                       Download
                     </a>
@@ -1687,7 +1694,9 @@ export const IntegrationsPane: React.FC = () => {
       </Col>
 
       <Card style={{ borderRadius: 'var(--radius-card)', padding: '10px 12px', marginTop: 8 }}>
-        <div style={{ fontSize: 'var(--type-micro)', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Configuration</div>
+        <Row gap={8} style={{ alignItems: 'center', marginBottom: 8 }}>
+          <div style={{ fontSize: 'var(--type-micro)', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Configuration</div>
+        </Row>
         <Col gap={5}>
           <ApiConfigRow label="API Key">
             <span style={{ flex: 1, fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', fontFamily: 'monospace', letterSpacing: '0.1em' }}>
@@ -1695,6 +1704,7 @@ export const IntegrationsPane: React.FC = () => {
             </span>
             <Btn small onClick={handleCopyApiKey}>{copiedApiKey ? 'Copied' : 'Copy'}</Btn>
             <Btn small onClick={() => setShowKeyRotation(true)}>Rotate</Btn>
+            <ConceptBadge title="API key rotation is a North Star concept — not in the shipping Integrations page." />
           </ApiConfigRow>
 
           <ApiConfigRow label="Host">
@@ -1703,11 +1713,12 @@ export const IntegrationsPane: React.FC = () => {
             </span>
             <Row gap={8} style={{ alignItems: 'center' }}>
               <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>LAN Access</span>
+              <ConceptBadge title="LAN-access toggle is a North Star concept — not in the shipping Integrations page." />
               <div
                 role="switch"
                 aria-checked={lanEnabled}
                 aria-label="LAN Access"
-                style={{ width: 28, height: 14, borderRadius: 'var(--radius-round)', background: lanEnabled ? 'var(--accent)' : 'var(--border)', position: 'relative', flexShrink: 0, transition: 'background 0.15s', cursor: 'pointer' }}
+                style={{ width: 28, height: 14, borderRadius: 'var(--radius-round)', background: lanEnabled ? 'var(--action-primary)' : 'var(--border)', position: 'relative', flexShrink: 0, transition: 'background 0.15s', cursor: 'pointer' }}
                 onClick={() => {
                   if (!lanEnabled) {
                     setShowLanWarning(true);
@@ -1731,7 +1742,7 @@ export const IntegrationsPane: React.FC = () => {
                   step="10"
                   value={rateLimit}
                   onChange={(e) => setRateLimit(parseInt(e.target.value))}
-                  style={{ flex: 1, accentColor: 'var(--accent)' }}
+                  style={{ flex: 1, accentColor: 'var(--action-primary)' }}
                 />
                 <span style={{ fontSize: 'var(--type-micro)', fontFamily: 'monospace', minWidth: 44 }}>{rateLimit}/m</span>
                 <Btn small onClick={() => setIsEditingRateLimit(false)}>Save</Btn>

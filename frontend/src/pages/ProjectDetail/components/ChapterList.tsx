@@ -157,7 +157,7 @@ const ChapterRow: React.FC<ChapterRowProps> = ({
 
       <div className="chapter-row-meta" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: '30px', flexShrink: 0 }}>
         {isAssemblyMode && (
-          <div style={{ color: chap.audio_status === 'done' ? 'var(--accent)' : 'var(--border)', cursor: chap.audio_status === 'done' ? 'pointer' : 'not-allowed' }}>
+          <div style={{ color: chap.audio_status === 'done' ? 'var(--action-primary)' : 'var(--border)', cursor: chap.audio_status === 'done' ? 'pointer' : 'not-allowed' }}>
             {selectedChapters.has(chap.id) && chap.audio_status === 'done' ? <CheckSquare size={18} /> : <Square size={18} />}
           </div>
         )}
@@ -181,13 +181,13 @@ const ChapterRow: React.FC<ChapterRowProps> = ({
             gap: '0.35rem',
             padding: '0.2rem 0.55rem',
             borderRadius: '999px',
-            background: isQueued ? 'var(--accent)' : 'var(--accent-tint)',
-            color: isQueued ? 'white' : 'var(--accent)',
+            background: isQueued ? 'var(--action-primary)' : 'var(--accent-tint)',
+            color: isQueued ? 'white' : 'var(--action-primary)',
             fontSize: '0.7rem',
             fontWeight: 700,
             textTransform: 'uppercase',
             letterSpacing: '0.04em',
-            border: '1px solid var(--accent)',
+            border: '1px solid var(--action-primary)',
             whiteSpace: 'nowrap',
             boxShadow: isQueued ? '0 0 0 1px var(--accent-glow)' : 'none'
           }}>
@@ -294,7 +294,7 @@ const ChapterRow: React.FC<ChapterRowProps> = ({
                 disabled={chap.audio_status === 'processing' || !anyEnginesEnabled}
                 title={!anyEnginesEnabled ? 'All TTS engines are disabled in Settings' : (chap.audio_status === 'processing' ? 'Processing' : queueActionLabel)}
                 aria-label={!anyEnginesEnabled ? 'All TTS engines are disabled in Settings' : (chap.audio_status === 'processing' ? 'Processing' : queueActionLabel)}
-                style={{ padding: '0.4rem', color: anyEnginesEnabled ? 'var(--accent)' : 'var(--text-muted)' }}
+                style={{ padding: '0.4rem', color: anyEnginesEnabled ? 'var(--action-primary)' : 'var(--text-muted)' }}
               >
                 <Zap size={16} />
               </button>
@@ -390,7 +390,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
     <div style={{ background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)' }}>
       {isAssemblyMode && (
         <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border)', background: 'var(--surface-light)', display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-          <button onClick={onSelectAll} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}>
+          <button onClick={onSelectAll} style={{ background: 'none', border: 'none', color: 'var(--action-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}>
             {isAllSelected ? <CheckSquare size={20} /> : <Square size={20} />}
           </button>
           <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Select All Chapters</span>

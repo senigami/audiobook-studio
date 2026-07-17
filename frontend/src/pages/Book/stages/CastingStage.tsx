@@ -37,9 +37,9 @@ export function CastingStage() {
           <div
             className="casting-stage__narrator-row"
             aria-label="Narrator default voice"
-            style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--surface)', padding: '0.8rem 1rem', borderRadius: '12px', border: '1px solid var(--accent)' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--surface)', padding: '0.8rem 1rem', borderRadius: '12px', border: '1px solid var(--action-primary)' }}
           >
-            <div style={{ width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--accent-glow)', color: 'var(--accent)', flexShrink: 0 }}>
+            <div style={{ width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--accent-glow)', color: 'var(--action-primary)', flexShrink: 0 }}>
               <Mic size={16} />
             </div>
             <div style={{ flex: 3 }}>

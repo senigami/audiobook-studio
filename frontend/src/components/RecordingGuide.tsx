@@ -75,7 +75,7 @@ export const RecordingGuide: React.FC = () => {
                 flexDirection: 'column',
                 gap: '1rem'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--action-primary)' }}>
                     <HelpCircle size={16} />
                     <span style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Best Results Guide</span>
                 </div>
@@ -138,7 +138,7 @@ export const RecordingGuide: React.FC = () => {
                                         fontSize: '0.65rem', 
                                         padding: '2px 6px', 
                                         background: 'var(--accent-glow)', 
-                                        color: 'var(--accent)',
+                                        color: 'var(--action-primary)',
                                         borderRadius: '4px',
                                         fontWeight: 700
                                     }}>RECOMMENDED</span>

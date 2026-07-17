@@ -127,7 +127,7 @@ export const VoicesTabHeader: React.FC<VoicesTabHeaderProps> = ({
                                 style={{
                                     border: `1px solid ${isActive ? 'var(--accent-tint-border)' : 'var(--border)'}`,
                                     background: isActive ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-                                    color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                                    color: isActive ? 'var(--action-primary)' : 'var(--text-secondary)',
                                 }}
                             >
                                 {tab === 'local' ? 'My Voices' : '🤗 Discover'}

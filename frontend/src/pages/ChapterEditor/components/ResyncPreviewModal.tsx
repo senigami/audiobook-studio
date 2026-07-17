@@ -89,7 +89,7 @@ export const ResyncPreviewModal: React.FC<ResyncPreviewModalProps> = ({
 
             {!data && loading ? (
               <div className="resync-modal-loading">
-                <RefreshCw size={32} className="animate-spin" color="var(--accent)" />
+                <RefreshCw size={32} className="animate-spin" color="var(--action-primary)" />
                 <span className="resync-modal-loading-text">Calculating impact...</span>
               </div>
             ) : data ? (

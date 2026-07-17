@@ -194,13 +194,13 @@ export const ChapterScriptToolbar: React.FC<{
                     gap: '0.35rem',
                     padding: '0.35rem 0.65rem',
                     borderRadius: '999px',
-                    background: status.isQueued ? 'var(--accent)' : 'var(--accent-tint)',
-                    color: status.isQueued ? 'white' : 'var(--accent)',
+                    background: status.isQueued ? 'var(--action-primary)' : 'var(--accent-tint)',
+                    color: status.isQueued ? 'white' : 'var(--action-primary)',
                     fontSize: '0.75rem',
                     fontWeight: 700,
                     textTransform: 'uppercase',
                     letterSpacing: '0.04em',
-                    border: '1px solid var(--accent)',
+                    border: '1px solid var(--action-primary)',
                     boxShadow: status.isQueued ? '0 0 0 1px var(--accent-glow)' : 'none'
                 }}>
                 {status.queueStatus}
@@ -304,7 +304,7 @@ export const ChapterScriptToolbar: React.FC<{
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--surface-light)', padding: '0.4rem 0.8rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
-            <span style={{ fontSize: '0.8rem', color: saving ? 'var(--warning)' : (hasUnsavedChanges ? 'var(--accent)' : 'var(--success-text)'), display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '0.8rem', color: saving ? 'var(--warning)' : (hasUnsavedChanges ? 'var(--action-primary)' : 'var(--success-text)'), display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 {saving ? <RefreshCw size={14} className="animate-spin" /> : (hasUnsavedChanges ? <Pencil size={14} /> : <CheckCircle size={14} color="var(--success)" />)}
                 {saving ? 'Saving...' : (hasUnsavedChanges ? 'Unsaved' : 'Saved')}
             </span>

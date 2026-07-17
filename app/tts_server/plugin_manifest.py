@@ -188,6 +188,33 @@ def _validate_manifest(*, manifest: dict[str, Any], folder_name: str) -> None:
                     f"got {mcw!r}"
                 )
 
+        # W-PERF safe-foundation (task 004): optional export-layer capability
+        # fields consumed by the (not-yet-built) export layer, task 011 --
+        # not by the live render pipeline. Additive/optional; no manifest
+        # version bump (see plugin-contract.md changelog).
+        export_format = behavior.get("export_format")
+        if export_format is not None:
+            valid_export_formats = {
+                "ssml_w3c", "ssml_azure", "elevenlabs_text", "ssml_polly", "plain_text",
+            }
+            if export_format not in valid_export_formats:
+                raise PluginLoadError(
+                    f"behavior.export_format must be one of {sorted(valid_export_formats)} "
+                    f"in {folder_name}, got {export_format!r}"
+                )
+
+        for supports_field in (
+            "supports_per_span_voice",
+            "supports_emotion_style",
+            "supports_prosody",
+            "supports_break",
+        ):
+            value = behavior.get(supports_field)
+            if value is not None and not isinstance(value, bool):
+                raise PluginLoadError(
+                    f"behavior.{supports_field} must be a boolean in {folder_name}, got {value!r}"
+                )
+
         sanitize_cats = behavior.get("sanitize_categories")
         if sanitize_cats is not None:
             from app.utils.text.textops_cleaning import SANITIZE_CATEGORIES  # noqa: PLC0415

@@ -21,7 +21,7 @@ export const SettingsTabLink: React.FC<{ tab: SettingsTab; active: boolean }> = 
         borderRadius: '12px',
         textDecoration: 'none',
         color: active ? 'white' : 'var(--text-secondary)',
-        background: active ? 'var(--accent)' : 'transparent',
+        background: active ? 'var(--action-primary)' : 'transparent',
         boxShadow: active ? 'var(--shadow-sm)' : 'none',
         fontWeight: 800,
       }}
@@ -43,7 +43,7 @@ export const TabHeading: React.FC<{ tab: SettingsTab }> = ({ tab }) => {
           borderRadius: '12px',
           display: 'grid',
           placeItems: 'center',
-          color: 'var(--accent)',
+          color: 'var(--action-primary)',
           background: 'var(--accent-glow)',
         }}
       >
@@ -79,7 +79,7 @@ export const SettingCard: React.FC<{
     }}
   >
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.85rem', minWidth: 0, flex: '1 1 220px' }}>
-      <div style={{ color: 'var(--accent)', marginTop: '0.1rem', flexShrink: 0 }}>
+      <div style={{ color: 'var(--action-primary)', marginTop: '0.1rem', flexShrink: 0 }}>
         <Icon size={20} />
       </div>
       <div style={{ minWidth: 0 }}>
@@ -119,7 +119,7 @@ export const ToggleButton: React.FC<{ id?: string; enabled: boolean; busy: boole
       padding: 0,
       borderRadius: 'var(--radius-round)',
       border: enabled ? 'none' : '1px solid var(--border)',
-      background: enabled ? 'var(--accent)' : 'var(--surface)',
+      background: enabled ? 'var(--action-primary)' : 'var(--surface)',
       cursor: busy || disabled ? 'not-allowed' : 'pointer',
       opacity: busy ? 0.6 : 1,
       transition: 'background 0.15s ease',
@@ -280,7 +280,7 @@ export const StatusCard: React.FC<{
 export const DiagnosticRow: React.FC<{ icon: React.ComponentType<{ size?: number }>; label: string; value: string; subvalue?: string }> = ({ icon: Icon, label, value, subvalue }) => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.6rem 1rem', padding: '0.8rem 0.9rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--background)' }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0, flex: '1 1 160px' }}>
-      <div style={{ color: 'var(--accent)', flexShrink: 0 }}><Icon size={18} /></div>
+      <div style={{ color: 'var(--action-primary)', flexShrink: 0 }}><Icon size={18} /></div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', minWidth: 0 }}>
         <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-secondary)' }}>{label}</span>
         {subvalue && <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{subvalue}</span>}

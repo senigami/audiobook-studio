@@ -31,7 +31,7 @@ const chipStyles: Record<ChipVariant, React.CSSProperties> = {
   accent: {
     background: 'var(--accent-tint-bg)',
     border: '1px solid var(--accent-tint-border)',
-    color: 'var(--accent)',
+    color: 'var(--action-primary)',
   },
   neutral: {
     background: 'var(--surface-alt)',

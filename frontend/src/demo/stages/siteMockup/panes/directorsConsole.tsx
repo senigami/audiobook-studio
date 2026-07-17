@@ -2,7 +2,7 @@
  * Director's Console — Northstar demo pane
  *
  * Demonstrates the Chapter Editor's "Director's Console" design:
- *   Cast (V) · Booth (R) · Write (W) · Revise (E)
+ *   Cast (V) · Booth (R) · Revise (E) · Write (W)
  *   Left annotation gutter · Cast palette · Karaoke · In-place editing
  *   Stage Direction (S) and Performance Cue (P) built-ins
  */
@@ -48,8 +48,8 @@ const VOICE = {
     label: 'Marcus',
     tintBg: 'var(--accent-tint-bg)',
     tintBorder: 'var(--accent-tint-border)',
-    textColor: 'var(--accent)',
-    dot: 'var(--accent)',
+    textColor: 'var(--action-primary)',
+    dot: 'var(--action-primary)',
   },
   eleanor: {
     label: 'Eleanor',
@@ -70,10 +70,10 @@ const VOICE = {
 // ── Mode appearance tokens ────────────────────────────────────────────────────
 
 const MODE_STYLE = {
-  cast: { label: 'Cast', key: 'V', color: 'var(--accent)', bg: 'var(--accent-tint-bg)', border: 'var(--accent-tint-border)' },
-  booth: { label: 'Booth', key: 'R', color: '#4ade80', bg: 'rgba(74,222,128,.10)', border: 'rgba(74,222,128,.25)' },
-  write: { label: 'Write', key: 'W', color: '#fbbf24', bg: 'rgba(251,191,36,.10)', border: 'rgba(251,191,36,.25)' },
-  revise: { label: 'Revise', key: 'E', color: '#fb923c', bg: 'rgba(251,146,60,.10)', border: 'rgba(251,146,60,.25)' },
+  cast: { label: 'Cast', key: 'V', color: 'var(--action-primary)', bg: 'var(--accent-tint-bg)', border: 'var(--accent-tint-border)' },
+  booth: { label: 'Booth', key: 'R', color: 'var(--success)', bg: 'var(--success-tint-bg)', border: 'var(--success-tint-border)' },
+  revise: { label: 'Revise', key: 'E', color: 'var(--error)', bg: 'var(--error-tint-bg)', border: 'var(--error-tint-border)' },
+  write: { label: 'Write', key: 'W', color: 'var(--warning)', bg: 'var(--warning-tint-bg)', border: 'var(--warning-tint-border)' },
 } as const;
 
 // ── Reader preferences ────────────────────────────────────────────────────────
@@ -128,10 +128,10 @@ const READER_BGS: Record<ReaderBg, { label: string; light: BgVariant; dark: BgVa
   card:      { label: 'Card',      light: { bg: '#e3e0d6', img: TEX('card.jpg')      },   dark: { bg: '#26241f', img: TEX('card-dark.jpg')      } },
 };
 
-// Tool-grid layout order — follows the authoring workflow:
-//   Write · Revise  (shape the text first)
-//   Cast · Booth    (then assign voices, then listen)
-const MODE_GRID_ORDER: Mode[] = ['write', 'revise', 'cast', 'booth'];
+// Tool-grid layout order — matches the shipping Director's Console icon rail,
+// which renders its tool registry in order (Cast · Booth · Revise · Write).
+// See pages/ChapterEditor/components/DirectorsConsole/registry.ts.
+const MODE_GRID_ORDER: Mode[] = ['cast', 'booth', 'revise', 'write'];
 
 // Cast sub-tool definitions — shown as a toolbar when Cast mode is active
 const CAST_TOOL_DEFS: { id: CastTool; Icon: typeof Mic; label: string; title: string; shortcut: string }[] = [
@@ -230,7 +230,7 @@ const CAST_ROSTER: CastMember[] = [
   // ── In this chapter (speaking characters present in the text) ──
   {
     id: 'marcus', name: 'Marcus', voiceName: 'Marcus Reed', paint: 'marcus', tier: 'chapter',
-    dot: 'var(--accent)', tintBg: 'var(--accent-tint-bg)', tintBorder: 'var(--accent-tint-border)', text: 'var(--accent)',
+    dot: 'var(--action-primary)', tintBg: 'var(--accent-tint-bg)', tintBorder: 'var(--accent-tint-border)', text: 'var(--action-primary)',
     variations: DEFAULT_VARIATIONS,
   },
   {
@@ -567,7 +567,7 @@ const CueEditor: React.FC<CueEditorProps> = ({ rate, pitch, prompt, desc, onRate
     flex: 1, padding: '3px 4px', fontSize: 11,
     background: active ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
     border: `1px solid ${active ? 'var(--accent-tint-border)' : 'var(--border)'}`,
-    borderRadius: 4, color: active ? 'var(--accent)' : 'var(--text-secondary)',
+    borderRadius: 4, color: active ? 'var(--action-primary)' : 'var(--text-secondary)',
     cursor: 'pointer', textAlign: 'center' as const,
     fontFamily: 'inherit', transition: 'all .1s',
   });
@@ -582,7 +582,7 @@ const CueEditor: React.FC<CueEditorProps> = ({ rate, pitch, prompt, desc, onRate
     }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-        <Zap size={14} style={{ color: 'var(--accent)' }} aria-hidden="true" />
+        <Zap size={14} style={{ color: 'var(--action-primary)' }} aria-hidden="true" />
         Performance Cue Editor
         <button onClick={onCancel} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 2 }}>
           <X size={14} aria-hidden="true" />
@@ -643,7 +643,7 @@ const CueEditor: React.FC<CueEditorProps> = ({ rate, pitch, prompt, desc, onRate
         <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 3 }}>Preview</div>
         <div style={{
           fontFamily: 'var(--font-mono, monospace)', fontSize: 12,
-          color: 'var(--accent)', background: 'var(--accent-tint-bg)',
+          color: 'var(--action-primary)', background: 'var(--accent-tint-bg)',
           border: '1px solid var(--accent-tint-border)',
           padding: '5px 8px', borderRadius: 4, minHeight: 25,
         }}>
@@ -660,7 +660,7 @@ const CueEditor: React.FC<CueEditorProps> = ({ rate, pitch, prompt, desc, onRate
         }}>Cancel</button>
         <button onClick={onApply} style={{
           padding: '5px 13px', borderRadius: 'var(--radius-button)',
-          border: '1px solid var(--accent)', background: 'var(--accent)',
+          border: '1px solid var(--action-primary)', background: 'var(--action-primary)',
           color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
         }}>Apply cue</button>
       </div>
@@ -686,7 +686,7 @@ const ResyncModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
         Re-analyzes the edited source and maps existing voice assignments best-effort.
       </div>
       <div style={{ display: 'flex', gap: 18 }}>
-        {[['8', 'segments kept', 'var(--success)'], ['1', 'need re-assign', '#fbbf24']] .map(([n, l, c]) => (
+        {[['8', 'segments kept', 'var(--success)'], ['1', 'need re-assign', 'var(--warning)']] .map(([n, l, c]) => (
           <div key={l} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <span style={{ fontSize: 22, fontWeight: 700, color: c as string }}>{n}</span>
             <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l}</span>
@@ -708,7 +708,7 @@ const ResyncModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
         }}>Cancel</button>
         <button onClick={onClose} style={{
           padding: '7px 15px', borderRadius: 'var(--radius-button)',
-          border: '1px solid var(--accent)', background: 'var(--accent)',
+          border: '1px solid var(--action-primary)', background: 'var(--action-primary)',
           color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
         }}>Commit &amp; re-analyze</button>
       </div>
@@ -929,7 +929,7 @@ export const DirectorsConsolePane: React.FC = () => {
         rows={3}
         style={{
           width: '100%', fontFamily: 'var(--font-serif, Georgia, serif)', fontSize: 16, lineHeight: 1.7,
-          background: 'var(--surface)', border: '1px solid var(--accent)',
+          background: 'var(--surface)', border: '1px solid var(--action-primary)',
           borderRadius: 6, padding: '6px 9px', color: 'var(--text-primary)',
           resize: 'vertical', outline: 'none', fontStyle: 'normal',
         }}
@@ -937,7 +937,7 @@ export const DirectorsConsolePane: React.FC = () => {
       <div style={{ display: 'flex', gap: 5, marginTop: 5 }}>
         <button onClick={handleReviseConfirm} style={{
           padding: '5px 12px', borderRadius: 'var(--radius-button)',
-          border: '1px solid var(--accent)', background: 'var(--accent)',
+          border: '1px solid var(--action-primary)', background: 'var(--action-primary)',
           color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
         }}>Save</button>
         <button onClick={() => setRevisingId(null)} style={{
@@ -1000,7 +1000,7 @@ export const DirectorsConsolePane: React.FC = () => {
         <div key={block.id} style={{ paddingLeft: 107, marginBottom: 4 }}>
           <span
             onClick={() => handleCueClick(block.id)}
-            style={{ fontFamily: 'var(--font-sans, system-ui)', fontSize: 13, fontStyle: 'italic', color: 'var(--accent)', cursor: 'pointer' }}
+            style={{ fontFamily: 'var(--font-sans, system-ui)', fontSize: 13, fontStyle: 'italic', color: 'var(--action-primary)', cursor: 'pointer' }}
           >({cueText})</span>
         </div>
       );
@@ -1241,7 +1241,7 @@ export const DirectorsConsolePane: React.FC = () => {
           onClick={() => handleCueClick(block.id)}
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer',
-            fontFamily: 'var(--font-mono, monospace)', fontSize: 12, color: 'var(--accent)',
+            fontFamily: 'var(--font-mono, monospace)', fontSize: 12, color: 'var(--action-primary)',
             background: 'var(--accent-tint-bg)', border: '1px solid var(--accent-tint-border)',
             borderRadius: 4, padding: '2px 8px',
           }}
@@ -1449,7 +1449,7 @@ export const DirectorsConsolePane: React.FC = () => {
               <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 5 }}>Performance Cue</div>
               {cueLabelDisplay ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ flex: 1, fontFamily: 'var(--font-mono, monospace)', fontSize: 11, color: 'var(--accent)', background: 'var(--accent-tint-bg)', border: '1px solid var(--accent-tint-border)', borderRadius: 4, padding: '3px 7px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cueLabelDisplay}</span>
+                  <span style={{ flex: 1, fontFamily: 'var(--font-mono, monospace)', fontSize: 11, color: 'var(--action-primary)', background: 'var(--accent-tint-bg)', border: '1px solid var(--accent-tint-border)', borderRadius: 4, padding: '3px 7px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cueLabelDisplay}</span>
                   <button onClick={() => cueEditId && openCueFor(cueEditId)} style={{ padding: '3px 8px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface-alt)', color: 'var(--text-secondary)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Edit</button>
                 </div>
               ) : (
@@ -1530,7 +1530,7 @@ export const DirectorsConsolePane: React.FC = () => {
       flex: 1, padding: '4px 4px', fontSize: 11,
       background: active ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
       border: `1px solid ${active ? 'var(--accent-tint-border)' : 'var(--border)'}`,
-      borderRadius: 5, color: active ? 'var(--accent)' : 'var(--text-secondary)',
+      borderRadius: 5, color: active ? 'var(--action-primary)' : 'var(--text-secondary)',
       cursor: 'pointer', textAlign: 'center' as const,
       fontFamily: 'inherit', transition: 'all .1s', fontWeight: active ? 600 : 400,
     });
@@ -1539,7 +1539,7 @@ export const DirectorsConsolePane: React.FC = () => {
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '10px 8px 8px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           {/* Active cue chip */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 9px', background: 'var(--accent-tint-bg)', border: '1px solid var(--accent-tint-border)', borderRadius: 7, fontSize: 12, fontWeight: 500, color: 'var(--accent)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 9px', background: 'var(--accent-tint-bg)', border: '1px solid var(--accent-tint-border)', borderRadius: 7, fontSize: 12, fontWeight: 500, color: 'var(--action-primary)' }}>
             <Zap size={12} style={{ flexShrink: 0 }} aria-hidden="true" />
             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeCuePreview}</span>
           </div>
@@ -1643,7 +1643,7 @@ export const DirectorsConsolePane: React.FC = () => {
         onClick={() => setBoothActive(v => !v)}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%',
-          padding: 9, background: boothActive ? 'var(--surface-alt)' : 'var(--accent)',
+          padding: 9, background: boothActive ? 'var(--surface-alt)' : 'var(--action-primary)',
           border: boothActive ? '1px solid var(--border)' : 'none',
           borderRadius: 8, color: boothActive ? 'var(--text-primary)' : '#fff',
           fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'background .12s',
@@ -1712,9 +1712,9 @@ export const DirectorsConsolePane: React.FC = () => {
         {/* Aa — reader preferences toggle */}
         <button onClick={toggleReaderPrefs} title="Reading preferences" style={{
           padding: '3px 9px', borderRadius: 6,
-          border: readerPrefsOpen ? '1px solid var(--accent)' : '1px solid var(--border)',
+          border: readerPrefsOpen ? '1px solid var(--action-primary)' : '1px solid var(--border)',
           background: readerPrefsOpen ? 'var(--accent-tint-bg)' : 'transparent',
-          color: readerPrefsOpen ? 'var(--accent)' : 'var(--text-muted)',
+          color: readerPrefsOpen ? 'var(--action-primary)' : 'var(--text-muted)',
           fontSize: 12, fontWeight: 600, cursor: 'pointer',
           fontFamily: 'Georgia, serif', lineHeight: 1, transition: 'all .15s',
         }}>Aa</button>
@@ -1758,14 +1758,14 @@ export const DirectorsConsolePane: React.FC = () => {
                       <button key={key} onClick={() => setReaderFont(key)} style={{
                         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                         gap: 3, padding: '10px 6px 8px', borderRadius: 9, cursor: 'pointer',
-                        border: active ? '2px solid var(--accent)' : '1.5px solid var(--border)',
+                        border: active ? '2px solid var(--action-primary)' : '1.5px solid var(--border)',
                         background: active ? 'var(--accent-tint-bg)' : 'var(--bg)',
-                        boxShadow: active ? '0 0 0 1px var(--accent)' : 'none',
+                        boxShadow: active ? '0 0 0 1px var(--action-primary)' : 'none',
                         transition: 'all .12s',
                       }}>
-                        <span style={{ fontFamily: f.family, fontSize: 22, lineHeight: 1, color: active ? 'var(--accent)' : 'var(--text-primary)', fontWeight: 400 }}>Aa</span>
-                        <span style={{ fontSize: 10, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--text-secondary)', fontFamily: 'var(--font-sans, system-ui)' }}>{f.label}</span>
-                        {f.tag && <span style={{ fontSize: 9, color: active ? 'var(--accent)' : 'var(--text-muted)', fontFamily: 'var(--font-sans, system-ui)', letterSpacing: '.04em' }}>{f.tag}</span>}
+                        <span style={{ fontFamily: f.family, fontSize: 22, lineHeight: 1, color: active ? 'var(--action-primary)' : 'var(--text-primary)', fontWeight: 400 }}>Aa</span>
+                        <span style={{ fontSize: 10, fontWeight: 600, color: active ? 'var(--action-primary)' : 'var(--text-secondary)', fontFamily: 'var(--font-sans, system-ui)' }}>{f.label}</span>
+                        {f.tag && <span style={{ fontSize: 9, color: active ? 'var(--action-primary)' : 'var(--text-muted)', fontFamily: 'var(--font-sans, system-ui)', letterSpacing: '.04em' }}>{f.tag}</span>}
                       </button>
                     );
                   })}
@@ -1818,8 +1818,8 @@ export const DirectorsConsolePane: React.FC = () => {
                       <button key={key} onClick={() => setReaderBg(key)} title={b.label} style={{
                         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
                         padding: '0 0 7px', borderRadius: 9, cursor: 'pointer', overflow: 'hidden',
-                        border: active ? '2px solid var(--accent)' : '1.5px solid var(--border)',
-                        boxShadow: active ? '0 0 0 1px var(--accent)' : 'none',
+                        border: active ? '2px solid var(--action-primary)' : '1.5px solid var(--border)',
+                        boxShadow: active ? '0 0 0 1px var(--action-primary)' : 'none',
                         background: 'transparent', transition: 'all .12s',
                       }}>
                         <div style={{
@@ -1828,7 +1828,7 @@ export const DirectorsConsolePane: React.FC = () => {
                           backgroundImage: v.img ? `url("${v.img}")` : undefined,
                           backgroundSize: 'cover', backgroundPosition: 'center',
                         }} />
-                        <span style={{ fontSize: 9.5, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--text-muted)', fontFamily: 'var(--font-sans, system-ui)' }}>{b.label}</span>
+                        <span style={{ fontSize: 9.5, fontWeight: 600, color: active ? 'var(--action-primary)' : 'var(--text-muted)', fontFamily: 'var(--font-sans, system-ui)' }}>{b.label}</span>
                       </button>
                     );
                   })}
@@ -1874,7 +1874,7 @@ export const DirectorsConsolePane: React.FC = () => {
               }}>Cancel</button>
               <button onClick={() => setResyncOpen(true)} style={{
                 padding: '7px 15px', borderRadius: 'var(--radius-button)',
-                border: '1px solid var(--accent)', background: 'var(--accent)',
+                border: '1px solid var(--action-primary)', background: 'var(--action-primary)',
                 color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
               }}>Save &amp; Resync</button>
             </div>

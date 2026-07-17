@@ -80,7 +80,7 @@ export const DemoStage: React.FC<DemoStageProps> = ({
             style={{
               height: '100%',
               width: `${progressPct}%`,
-              background: 'var(--accent)',
+              background: 'var(--action-primary)',
               transition: 'width 0.1s linear',
               borderRadius: 2,
             }}
@@ -102,7 +102,7 @@ export const DemoStage: React.FC<DemoStageProps> = ({
             aria-label={playing ? 'Pause' : 'Play'}
             onClick={playing ? controls.pause : controls.play}
             style={{
-              background: 'var(--accent)',
+              background: 'var(--action-primary)',
               color: '#fff',
               border: 'none',
               borderRadius: 8,
@@ -144,7 +144,7 @@ export const DemoStage: React.FC<DemoStageProps> = ({
                 aria-pressed={rate === s}
                 onClick={() => controls.setRate(s)}
                 style={{
-                  background: rate === s ? 'var(--accent)' : 'none',
+                  background: rate === s ? 'var(--action-primary)' : 'none',
                   color: rate === s ? '#fff' : 'var(--text-muted)',
                   border: '1px solid var(--border)',
                   borderRadius: 6,
@@ -169,7 +169,7 @@ export const DemoStage: React.FC<DemoStageProps> = ({
                 aria-pressed={i === sceneIndex}
                 onClick={() => controls.jumpToScene(i)}
                 style={{
-                  background: i === sceneIndex ? 'var(--accent)' : 'var(--surface-alt)',
+                  background: i === sceneIndex ? 'var(--action-primary)' : 'var(--surface-alt)',
                   color: i === sceneIndex ? '#fff' : 'var(--text-muted)',
                   border: '1px solid var(--border)',
                   borderRadius: 20,

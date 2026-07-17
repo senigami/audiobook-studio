@@ -1,6 +1,8 @@
 # Task 004 — SSML/directive-capability manifest field: confirm & extend the sibling plan's mechanism
 
-Status: pending
+Status: done (2026-07-16, W-PERF safe-foundation PR)
+
+**Cross-reference:** `chapter_editor_catalog_completion/tasks/006-stage-direction-render-pipeline.md` had not landed when this task executed — this task built only the export-layer capability fields (`export_format`, `supports_per_span_voice`, `supports_emotion_style`, `supports_prosody`, `supports_break`) in `app/tts_server/plugin_loader.py` + `app/engines/behavior.py#export_capabilities_for`. The render-pipeline gate (`has_behavior(engine_id, "ssml_directives")` + its call-site wiring) remains task 006's scope entirely, not built here.
 
 Risk: quality-sensitive (new plugin-SDK contract surface; per this repo's binding directive every
 contract/manifest/schema declares an explicit version validated at load time, so any manifest-shape

@@ -63,7 +63,7 @@ const ScopeBadge: React.FC<{ scope: LexiconScope; inherited?: boolean }> = ({ sc
     );
   }
   const variantMap: Record<LexiconScope, React.CSSProperties> = {
-    book:   { background: 'var(--accent-tint-bg)',   border: '1px solid var(--accent-tint-border)',   color: 'var(--accent)' },
+    book:   { background: 'var(--accent-tint-bg)',   border: '1px solid var(--accent-tint-border)',   color: 'var(--action-primary)' },
     series: { background: 'var(--pill-class-bg)',     border: '1px solid var(--pill-class-border)',     color: 'var(--pill-class-text)' },
     global: { background: 'var(--pill-age-bg)',       border: '1px solid var(--pill-age-border)',       color: 'var(--pill-age-text)' },
   };
@@ -118,7 +118,7 @@ const ScopeSelector: React.FC<{
                 width: '100%', border: 0, background: s === value ? 'var(--accent-tint-bg)' : 'transparent',
                 fontFamily: 'inherit', textAlign: 'left',
                 fontSize: 'var(--type-micro)', padding: 'var(--space-1) var(--space-3)',
-                cursor: 'pointer', color: s === value ? 'var(--accent)' : 'var(--text-primary)',
+                cursor: 'pointer', color: s === value ? 'var(--action-primary)' : 'var(--text-primary)',
               }}
             >
               {s}
@@ -198,7 +198,7 @@ const EntryRow: React.FC<{
               type="button"
               onClick={handleSave}
               style={{
-                background: 'var(--accent)', border: '1px solid var(--accent)',
+                background: 'var(--action-primary)', border: '1px solid var(--action-primary)',
                 borderRadius: 'var(--radius-button)', padding: '2px 8px',
                 color: 'var(--text-on-accent)', fontSize: 'var(--type-micro)',
                 fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3,
@@ -358,7 +358,8 @@ const AddEntryForm: React.FC<{ onAdd: (entry: Omit<LexiconEntry, 'id'>) => void;
 };
 
 // ---------- Main panel component -------------------------------------------
-export const LexiconPanel: React.FC = () => {
+export const LexiconPanel: React.FC<{ variant?: 'drawer' | 'stage' }> = ({ variant = 'drawer' }) => {
+  const isStage = variant === 'stage';
   const [entries, setEntries] = useState<LexiconEntry[]>(INITIAL_ENTRIES);
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -414,8 +415,13 @@ export const LexiconPanel: React.FC = () => {
 
   return (
     <div style={{
-      width: 280, flexShrink: 0,
-      borderLeft: '1px solid var(--hairline)',
+      width: isStage ? '100%' : 280,
+      maxWidth: isStage ? 720 : undefined,
+      flexShrink: 0,
+      border: isStage ? '1px solid var(--hairline)' : undefined,
+      // Drawer mode keeps only the left divider against the workspace; stage mode uses the full border above.
+      borderLeft: isStage ? undefined : '1px solid var(--hairline)',
+      borderRadius: isStage ? 'var(--radius-card)' : undefined,
       background: 'var(--surface-alt)',
       display: 'flex', flexDirection: 'column',
       overflow: 'hidden',
@@ -444,7 +450,7 @@ export const LexiconPanel: React.FC = () => {
             background: showAddForm ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
             border: `1px solid ${showAddForm ? 'var(--accent-tint-border)' : 'var(--border)'}`,
             borderRadius: 'var(--radius-button)', padding: '3px 7px',
-            color: showAddForm ? 'var(--accent)' : 'var(--text-secondary)',
+            color: showAddForm ? 'var(--action-primary)' : 'var(--text-secondary)',
             cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3,
             fontSize: 'var(--type-micro)', fontFamily: 'inherit', fontWeight: 600,
           }}

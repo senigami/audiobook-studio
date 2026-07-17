@@ -33,7 +33,8 @@ import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { useProjectActions } from '@/hooks/useProjectActions';
 import { buildVoiceOptions, getDefaultVoiceProfileName, getVoiceOptionLabel } from '@/utils/voiceProfiles';
 import { isChapterScopedJob, pickRelevantJob } from '@/utils/jobSelection';
-import { resolveVoiceEngineStatus } from '@/utils/chapterEditorHelpers';
+import { resolveVoiceEngineStatus, downloadBlob } from '@/utils/chapterEditorHelpers';
+import { emitToast } from '@/utils/toast';
 import { formatFileSize, formatLength, formatRelativeTime } from '@/utils/format';
 interface ProjectViewProps {
   jobs: Record<string, Job>;
@@ -445,7 +446,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
                           disabled={!anyEnginesEnabled}
                           title={!anyEnginesEnabled ? 'All TTS engines are disabled in Settings' : (showTooltips ? 'Queue all unprocessed chapters' : undefined)}
                           aria-label="Queue all unprocessed chapters"
-                          style={{ border: '1px solid var(--border)', color: anyEnginesEnabled ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                          style={{ border: '1px solid var(--border)', color: anyEnginesEnabled ? 'var(--action-primary)' : 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                         >
                           <Zap size={16} /> <span className="hide-on-mobile">Queue Remaining</span>
                         </button>
@@ -500,7 +501,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
                   }}
                   onResetAudio={id => setConfirmConfig({ title: 'Reset Audio', message: 'Delete all audio for this chapter?', isDestructive: true, onConfirm: () => handleResetChapterAudio(id) })}
                   onDeleteChapter={id => setConfirmConfig({ title: 'Delete Chapter', message: 'Permanently delete this chapter?', isDestructive: true, onConfirm: () => handleDeleteChapter(id) })}
-                  onExportSample={async chap => { setIsExporting(chap.id); const res = await api.exportSample(chap.id, effectiveProjectId); if (res.url) window.open(res.url, '_blank'); setIsExporting(null); }}
+                  onExportSample={async chap => { setIsExporting(chap.id); try { const blob = await api.exportChapterVideo(chap.id, { projectId: effectiveProjectId }); downloadBlob(blob, `${chap.title || 'chapter'}-sample.mp4`); } catch (e) { emitToast(e instanceof Error ? e.message : 'Could not create the video.'); } finally { setIsExporting(null); } }}
                   isExporting={isExporting} formatLength={formatLength}
                 />
               </div>

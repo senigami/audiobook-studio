@@ -28,8 +28,8 @@ describe('ProjectSubnav', () => {
     );
 
     const chaptersLink = screen.getByText('Chapters');
-    expect(chaptersLink.style.color).toBe('var(--accent)');
-    expect(chaptersLink.style.borderBottom).toBe('2px solid var(--accent)');
+    expect(chaptersLink.style.color).toBe('var(--action-primary)');
+    expect(chaptersLink.style.borderBottom).toBe('2px solid var(--action-primary)');
     
     const overviewLink = screen.getByText('Overview');
     expect(overviewLink.style.color).toBe('var(--text-muted)');

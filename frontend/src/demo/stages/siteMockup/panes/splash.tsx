@@ -79,7 +79,7 @@ const StepCard: React.FC<{
           {number}
         </span>
       </div>
-      <span style={{ display: 'flex', alignItems: 'center', color: 'var(--accent)' }}>
+      <span style={{ display: 'flex', alignItems: 'center', color: 'var(--action-primary)' }}>
         {icon}
       </span>
     </Row>
@@ -125,7 +125,7 @@ const DocCard: React.FC<{
       minWidth: 150,
     }}
   >
-    <span style={{ display: 'flex', alignItems: 'center', color: 'var(--accent)', flexShrink: 0 }}>
+    <span style={{ display: 'flex', alignItems: 'center', color: 'var(--action-primary)', flexShrink: 0 }}>
       {icon}
     </span>
     <span
@@ -216,7 +216,7 @@ export const SplashPane: React.FC<{ onGetStarted: () => void }> = ({ onGetStarte
                 WebkitBackgroundClip: 'text',
                 backgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
-                color: 'var(--accent)',
+                color: 'var(--action-primary)',
               }}
             >
               Studio
@@ -233,15 +233,15 @@ export const SplashPane: React.FC<{ onGetStarted: () => void }> = ({ onGetStarte
               fontWeight: 400,
             }}
           >
-            Professional AI voice generation for creators and authors — local-first, plugin-powered, and built for the long run.
+            Everything runs on this machine. Add a voice, import a manuscript, and start rendering — the three steps below get you there.
           </p>
         </Col>
 
         {/* Status chips */}
         <Row className="ns-splash-chips" gap={8} style={{ alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
-          <SemanticChip variant="success">Ready</SemanticChip>
-          <SemanticChip variant="accent">Plugin-powered TTS</SemanticChip>
-          <SemanticChip variant="neutral">Local-first</SemanticChip>
+          <SemanticChip variant="success">Ready to go</SemanticChip>
+          <SemanticChip variant="accent">Your engines, your rules</SemanticChip>
+          <SemanticChip variant="neutral">Nothing leaves this machine</SemanticChip>
         </Row>
 
         {/* ── CTAs — directly under the hero where the eye lands ── */}

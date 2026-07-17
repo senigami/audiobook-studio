@@ -1,0 +1,25 @@
+{
+  "date": "2026-07-16",
+  "task": "PR 10 — TTS Gateway API verify + POC + contained gateway fixes",
+  "branch": "studio2/api-verify-poc",
+  "changed_files": [
+    {
+      "path": "app/api/tts_api.py",
+      "change": "modified",
+      "summary": "Gateway correctness/security fixes. Added _public_job_message(job) helper (caller-safe status message, never surfaces raw engine/bridge error text). SynthesisRequest.text now bounded (min_length=1, max_length=100000). Inline /synthesize and GET /jobs/{id}/audio now build/serve paths via contained_path (normpath+startswith barrier) instead of resolve()+is_relative_to(). Job completion now gated on status == 'done' (was the non-existent 'completed'); /jobs/{id}/audio reconstructs the output path as TRANSIENT_DIR/api/<job_id><ext> over the format allowlist (Job has no payload/output field). /preview now rejects text >= 500 (was > 500) to stay inline.",
+      "exports_changed": ["_public_job_message (new module-level function)"],
+      "contract_notes": "External API behavior change: queued-job download flow (GET /jobs/{id} download_url + GET /jobs/{id}/audio) now actually works. Outward job status is still the raw Job status vocabulary (queued/preparing/running/finalizing/done/failed/cancelled)."
+    },
+    {
+      "path": "tests/api/test_api_tts_api.py",
+      "change": "modified",
+      "summary": "Added revert-checked tests: completed-download flow (R1), audio-not-ready 400, missing-file 410, sanitized failure message (R2), /preview 500-char rejection (R7a), text too-long/empty rejection (R7b)."
+    },
+    {
+      "path": "examples/tts-gateway-poc/",
+      "change": "added",
+      "summary": "New self-contained POC (not imported by app runtime): poc_client.py (Python requests client), index.html (browser fetch demo), README.md, .env.example. Demonstrates GET /engines -> POST /synthesize -> poll GET /jobs/{id} -> GET /jobs/{id}/audio."
+    }
+  ],
+  "notes": "Not fixed here (filed as follow-ups): BUG 1 — TTS server readiness check (app/tts_server/plugin_loader.py::_check_dependencies) gates XTTS needs_setup because it verifies ~/xtts-env deps against ./venv; BUG 2 — app/engines/bridge_remote.py does not resolve a voice-profile name to voice_profile_dir, plus a silent orchestrator dispatch 500. Both block the gateway happy path but are core-synthesis, out of PR-10 scope. See design-docs/plans/pr-dispatch/10-api-verify-poc-report.md."
+}

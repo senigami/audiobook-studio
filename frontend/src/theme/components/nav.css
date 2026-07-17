@@ -116,7 +116,7 @@
 
 .rail-book-block__header:hover {
   background: var(--accent-glow);
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 .rail-book-block__cover {
@@ -162,7 +162,7 @@
 }
 
 .rail-book-block__progress-rendering {
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 /* Stage links — indented further than title row */
@@ -190,13 +190,13 @@
 
 .rail-book-block__stage:hover {
   background: var(--accent-glow);
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 .rail-book-block__stage--active {
-  border-left-color: var(--accent);
+  border-left-color: var(--action-primary);
   background: var(--accent-tint-bg);
-  color: var(--accent);
+  color: var(--action-primary);
   font-weight: 700;
 }
 
@@ -246,7 +246,7 @@
 
 .nav-rail__item:hover {
   background: var(--accent-glow);
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 .nav-rail--collapsed > .nav-rail__panel:not(.nav-rail__panel--overlay) .nav-rail__item {
@@ -255,9 +255,9 @@
 }
 
 .nav-rail__item--active {
-  border-left-color: var(--accent);
+  border-left-color: var(--action-primary);
   background: var(--accent-glow);
-  color: var(--accent);
+  color: var(--action-primary);
   font-weight: 600;
 }
 
@@ -302,12 +302,12 @@
 .nav-rail__resize-handle:hover::after,
 .nav-rail__resize-handle:focus-visible::after,
 .nav-rail__resize-handle--active::after {
-  background: var(--accent);
+  background: var(--action-primary);
   opacity: 1;
 }
 
 .nav-rail__resize-handle:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--action-primary);
   outline-offset: -2px;
 }
 
@@ -323,7 +323,7 @@
   height: 1.125rem;
   padding: 0 0.3125rem;
   border-radius: var(--radius-round);
-  background: var(--accent);
+  background: var(--action-primary);
   color: var(--text-on-accent);
   font-size: 0.7rem;
   font-weight: 700;
@@ -365,7 +365,7 @@
 
 .nav-rail__bottom-button:hover {
   background: var(--accent-glow);
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 .nav-rail__bottom-button--theme {
@@ -506,11 +506,11 @@
 .mobile-nav-drawer__item:hover,
 .mobile-nav-drawer__item--active {
   background: var(--accent-glow);
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 .mobile-nav-drawer__item--active {
-  border-left-color: var(--accent);
+  border-left-color: var(--action-primary);
   font-weight: 600;
 }
 
@@ -530,7 +530,7 @@
   height: 1.125rem;
   padding: 0 0.3125rem;
   border-radius: var(--radius-round);
-  background: var(--accent);
+  background: var(--action-primary);
   color: var(--text-on-accent);
   font-size: 0.7rem;
   font-weight: 700;
@@ -561,7 +561,7 @@
 
 .mobile-nav-drawer__theme:hover {
   background: var(--accent-glow);
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 .top-bar {
@@ -659,7 +659,7 @@
 }
 
 .top-bar__crumb-link:hover {
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 /* Inline book-identity wrapper inside the breadcrumb — allowed to truncate. */
@@ -797,14 +797,14 @@
 
 .top-bar__queue-btn:hover {
   background: var(--accent-glow);
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--action-primary);
+  color: var(--action-primary);
 }
 
 .top-bar__queue-btn[aria-pressed='true'] {
   background: var(--accent-glow);
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--action-primary);
+  color: var(--action-primary);
 }
 
 .top-bar__queue-badge {
@@ -815,7 +815,7 @@
   height: 1.125rem;
   padding: 0 0.3125rem;
   border-radius: var(--radius-round);
-  background: var(--accent);
+  background: var(--action-primary);
   color: var(--text-on-accent);
   font-size: 0.7rem;
   font-weight: 700;

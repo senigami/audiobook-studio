@@ -27,9 +27,27 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
   // We only count it as 'processing' (spinner) if we HAVE a live active job.
   // Otherwise, it's a "stuck" indicator and we should show it as partial/unprocessed but stale.
   const isTrulyProcessing = !!activeJob;
+  // Preparing = the model-load / indeterminate window WITHIN an active job. Derived
+  // from the same signal useStudioChapter.ts uses (reason_code SEGMENT_PENDING /
+  // LOADING_MODEL, or indeterminate). This is NOT a new signal — it rides fields
+  // already present on the Job the orb receives. Precedence: sits ABOVE the running
+  // spinner branch, because during the load window isTrulyProcessing is also true.
+  const isPreparing = isTrulyProcessing && (
+    activeJob?.reason_code === 'SEGMENT_PENDING' ||
+    activeJob?.reason_code === 'LOADING_MODEL' ||
+    activeJob?.indeterminate === true
+  );
   const isQueued = !activeJob && (queuePending || chap.audio_status === 'processing');
   const isStuckProcessing = !activeJob && chap.audio_status === 'processing' && !queuePending;
-  
+
+  // Real completed-vs-total segment ratio — a discrete manuscript count, not a
+  // fabricated progress value. Safe to surface in every state, including the
+  // indeterminate preparing window (the arc shows last-known done/total; it does
+  // not animate a fake advance).
+  const hasSeg = totalSegments > 0 && doneSegments > 0;
+  const allSegsDone = totalSegments > 0 && doneSegments >= totalSegments;
+  const segPercent = hasSeg ? (doneSegments / totalSegments) * 100 : 0;
+
   // Ornaments
   const hasM4a = chap.has_m4a;
 
@@ -52,6 +70,31 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
       </span>
     );
     tooltip = 'Render failed. View Queue for details.';
+  } else if (isPreparing) {
+    // Distinct preparing tier (progress-presentation.md §2.7): dimmed, calm-pulsing,
+    // NO spinner — the model-load window reads differently from active synthesis.
+    // The pulse rides `.orb-is-preparing`, which base.css re-enables under
+    // prefers-reduced-motion as a calm opacity breathe (no movement) — same
+    // essential-state exemption as the ScriptView preparing pulse. The class is
+    // orb-scoped (not bare `is-preparing`) so it can't leak onto ScriptView's
+    // bare-`is-preparing` script-mode text spans.
+    fill = 'rgba(30,79,216,.10)';
+    orbStroke = 'var(--live-indicator)';
+    content = (
+      <span
+        data-testid="orb-icon-preparing"
+        className="orb-is-preparing"
+        aria-hidden="true"
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 0 }}
+      >
+        <svg width="6" height="6" viewBox="0 0 6 6" style={{ display: 'block' }}>
+          <circle cx="3" cy="3" r="3" fill="var(--live-indicator)" />
+        </svg>
+      </span>
+    );
+    tooltip = 'Preparing… loading voice model';
+    // The segment arc still reflects real done/total during the load window.
+    if (hasSeg) { showArc = true; percent = segPercent; }
   } else if (isTrulyProcessing) {
     fill = 'rgba(30,79,216,.10)';
     orbStroke = 'var(--live-indicator)';
@@ -61,6 +104,12 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
       </span>
     );
     tooltip = 'Rendering... (see Queue for progress)';
+    // Live segment progress: reflect completed-vs-total segments while rendering.
+    if (hasSeg) {
+      showArc = true;
+      percent = segPercent;
+      if (!allSegsDone) tooltip = `Rendering… ${Math.round(segPercent)}% of segments done (see Queue for progress)`;
+    }
   } else if (isQueued) {
     fill = 'rgba(100,116,139,.10)';
     orbStroke = 'rgba(100,116,139,.30)';
@@ -84,10 +133,6 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
     //   S (segments) → blue arc at actual segment percentage
     //   W (wav)      → green orb + green check (or gold if M)
     //   M (m4a)      → gold orb
-    const hasSeg = totalSegments > 0 && doneSegments > 0;
-    const allSegsDone = totalSegments > 0 && doneSegments >= totalSegments;
-    const segPercent = hasSeg ? (doneSegments / totalSegments) * 100 : 0;
-
     if (hasM4a) {
       fill = 'var(--status-m4a)';
       orbStroke = 'var(--status-m4a-border)';
@@ -171,8 +216,8 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
             stroke={isTrulyProcessing ? 'var(--live-indicator)' : 'var(--border)'}
             strokeWidth="1.2"
             strokeLinecap="round"
-            className={isTrulyProcessing ? 'is-running' : undefined}
-            style={{ opacity: isStale ? 0 : (isTrulyProcessing ? 0.8 : 0.3), transition: 'all 0.3s' }}
+            className={isPreparing ? 'orb-is-preparing' : (isTrulyProcessing ? 'is-running' : undefined)}
+            style={{ opacity: isStale ? 0 : (isPreparing ? 0.45 : (isTrulyProcessing ? 0.8 : 0.3)), transition: 'all 0.3s' }}
           />
 
           {/* Base Orb */}
@@ -186,7 +231,7 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
             <circle
               cx="12" cy="12" r={arcRadius}
               fill="none"
-              stroke="var(--accent)"
+              stroke="var(--action-primary)"
               strokeWidth="2"
               strokeDasharray={progressCircumference}
               strokeDashoffset={strokeDashoffset}
