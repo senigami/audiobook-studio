@@ -104,12 +104,11 @@ class XttsPlugin(StudioTTSEngine):
         env_activate = os.environ.get("XTTS_ENV_ACTIVATE", "")
         env_python = os.environ.get("XTTS_ENV_PYTHON", "")
 
-        # Check if TTS is installed in current environment
-        try:
-            import TTS # noqa: F401
-            has_tts = True
-        except ImportError:
-            has_tts = False
+        # Check the external xtts-env on disk (see check_env()/xtts_env_ready())
+        # rather than importing TTS in this process, which would check the
+        # wrong interpreter -- the same bug check_env() was fixed to avoid.
+        from ..core.implementation import xtts_env_ready  # noqa: PLC0415
+        has_tts, _ = xtts_env_ready()
 
         return {
             "env_activate": env_activate,
@@ -127,12 +126,12 @@ class XttsPlugin(StudioTTSEngine):
                 return True, "OK (Manual Environment)"
             return False, f"XTTS_ENV_ACTIVATE path does not exist: {env_activate}"
 
-        # 2. Check current environment for XTTS (normal path)
-        try:
-            import TTS  # noqa: F401, PLC0415
-            return True, "OK"
-        except ImportError:
-            return False, "XTTS dependencies not found. Click 'Install Deps' to set up the built-in engine."
+        # 2. Check the external xtts-env (normal path). Inference always runs
+        # via a subprocess against that env's interpreter (never in-process),
+        # so readiness is checked there too -- not via an in-process import,
+        # which would check the wrong interpreter (see xtts_env_ready()).
+        from ..core.implementation import xtts_env_ready  # noqa: PLC0415
+        return xtts_env_ready()
 
     def verify(self, req: TTSRequest) -> VerificationResult:
         """Fast readiness check for XTTS."""

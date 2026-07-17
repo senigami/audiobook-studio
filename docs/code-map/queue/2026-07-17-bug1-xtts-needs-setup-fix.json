@@ -1,0 +1,64 @@
+{
+  "date": "2026-07-17",
+  "task": "BUG 1 fix (PR #134 verify follow-up) — XTTS permanently gated needs_setup because readiness checks queried the wrong interpreter",
+  "branch": "studio-2.0",
+  "changed_files": [
+    {
+      "path": "tts_engines/tts_xtts/plugin/core/implementation.py",
+      "change": "modified",
+      "summary": "Added xtts_env_ready() and _xtts_env_site_packages() helpers: a filesystem-only check (no import, no subprocess) of whether the external xtts-env has the TTS package installed, since real inference always shells out to XTTS_ENV_PYTHON as a subprocess and never imports torch/TTS in-process.",
+      "exports_changed": ["xtts_env_ready (new)", "_xtts_env_site_packages (new)"]
+    },
+    {
+      "path": "tts_engines/tts_xtts/plugin/server/engine.py",
+      "change": "modified",
+      "summary": "check_env() no longer does an in-process `import TTS` (which checks the server venv, where these deps are never installed by run.sh) -- delegates to the new xtts_env_ready() instead."
+    },
+    {
+      "path": "tts_engines/tts_xtts/manifest.json",
+      "change": "modified",
+      "summary": "Added top-level \"dependency_check\": \"external\" so the server-venv requirements.txt check is skipped for this engine (see plugin-contract.md v1.8.0)."
+    },
+    {
+      "path": "app/tts_server/plugin_manifest.py",
+      "change": "modified",
+      "summary": "_validate_manifest now validates the optional dependency_check field (must be \"external\" when present)."
+    },
+    {
+      "path": "app/tts_server/plugin_loader.py",
+      "change": "modified",
+      "summary": "_load_plugin's step 6 skips _check_dependencies (treats deps_ok=True) when manifest declares dependency_check=\"external\"."
+    },
+    {
+      "path": "app/tts_server/server.py",
+      "change": "modified",
+      "summary": "POST /engines/{id}/install now refuses (400) for dependency_check=\"external\" engines instead of pip-installing their requirements.txt into the server's own venv."
+    },
+    {
+      "path": "design-docs/specs/plugin-contract.md",
+      "change": "modified",
+      "summary": "Bumped to spec_version 1.8.0; documented the new dependency_check field and its rationale."
+    },
+    {
+      "path": "tts_engines/tts_xtts/tests/test_xtts_env_readiness.py",
+      "change": "added",
+      "summary": "Regression tests for xtts_env_ready() (revert-checked per R1)."
+    },
+    {
+      "path": "tests/tts_server/test_dependency_check_external.py",
+      "change": "added",
+      "summary": "Manifest validation + _load_plugin integration tests for dependency_check=\"external\" (revert-checked per R1)."
+    },
+    {
+      "path": "tests/tts_server/test_install_dependencies_external_env.py",
+      "change": "added",
+      "summary": "Tests that POST /engines/{id}/install refuses for external-env engines (revert-checked per R1)."
+    },
+    {
+      "path": "tests/engines/test_plugin_dependency_parsing.py",
+      "change": "modified",
+      "summary": "Added manifest={} to three SimpleNamespace plugin mocks so they match the real LoadedPlugin shape now that install_dependencies() reads plugin.manifest."
+    }
+  ],
+  "notes": "Closes BUG 1 from design-docs/plans/pr-dispatch/10-api-verify-poc-report.md, confirmed still live on current studio-2.0 (torch/coqui-tts installed only in ~/xtts-env by run.sh, never the app venv; check_env() previously did an in-process `import TTS` which checks the wrong interpreter). Verified via a live tts_engines/tts_xtts/tests + tests/tts_server + tests/engines run and a full repo-root pytest pass (pre-existing unrelated flakiness: 5 tts_xtts_implementation.py tests fail only under full-suite cross-test pollution, pass in isolation -- confirmed present on pre-fix code too, not caused by this change)."
+}

@@ -223,6 +223,19 @@ def _validate_manifest(*, manifest: dict[str, Any], folder_name: str) -> None:
     # free-form). No field inside it is required — lenient but typed.
     _validate_distribution(manifest.get("distribution"), folder_name)
 
+    # Optional top-level dependency_check (BUG 1 fix). Absent → default
+    # "bundled" behavior (requirements.txt checked against the server venv).
+    # "external" opts a plugin out of that check entirely, for engines whose
+    # heavy inference deps are installed into a separate, plugin-managed
+    # environment and never expected in the server venv — that plugin's own
+    # check_env() must independently verify the external env instead.
+    dependency_check = manifest.get("dependency_check")
+    if dependency_check is not None and dependency_check not in ("external", "bundled"):
+        raise PluginLoadError(
+            f"dependency_check must be 'external' or 'bundled' when present in {folder_name}, "
+            f"got {dependency_check!r}"
+        )
+
 
 def _validate_distribution(distribution: Any, folder_name: str) -> None:
     """Validate the optional manifest ``distribution`` block, when present."""

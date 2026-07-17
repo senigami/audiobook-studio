@@ -394,6 +394,22 @@ def clear_engine_setting(engine_id: str, setting_key: str) -> dict[str, Any]:
 def install_dependencies(engine_id: str) -> dict[str, Any]:
     """Trigger dependency installation for an engine."""
     plugin = _plugin_by_id(engine_id)
+
+    # Engines with dependency_check="external" (BUG 1 fix) manage their heavy
+    # deps in a separate, plugin-provisioned environment (e.g. xtts-env) --
+    # `pip install -r requirements.txt` here would install them into the
+    # *server's* venv instead, bloating it without fixing readiness (that
+    # engine's check_env() checks the external env, not this one).
+    if plugin.manifest.get("dependency_check") == "external":
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Engine {engine_id} manages its dependencies in a separate "
+                "environment and can't be installed here. Re-run ./run.sh "
+                "(or ./run.ps1) to provision it."
+            ),
+        )
+
     req_file = plugin.plugin_dir / "requirements.txt"
     if not req_file.is_file():
         return {"ok": True, "message": "No requirements.txt found for this engine."}
