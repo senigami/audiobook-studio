@@ -128,10 +128,10 @@ const READER_BGS: Record<ReaderBg, { label: string; light: BgVariant; dark: BgVa
   card:      { label: 'Card',      light: { bg: '#e3e0d6', img: TEX('card.jpg')      },   dark: { bg: '#26241f', img: TEX('card-dark.jpg')      } },
 };
 
-// Tool-grid layout order — follows the authoring workflow:
-//   Write · Revise  (shape the text first)
-//   Cast · Booth    (then assign voices, then listen)
-const MODE_GRID_ORDER: Mode[] = ['write', 'revise', 'cast', 'booth'];
+// Tool-grid layout order — matches the shipping Director's Console icon rail,
+// which renders its tool registry in order (Cast · Booth · Revise · Write).
+// See pages/ChapterEditor/components/DirectorsConsole/registry.ts.
+const MODE_GRID_ORDER: Mode[] = ['cast', 'booth', 'revise', 'write'];
 
 // Cast sub-tool definitions — shown as a toolbar when Cast mode is active
 const CAST_TOOL_DEFS: { id: CastTool; Icon: typeof Mic; label: string; title: string; shortcut: string }[] = [
@@ -686,7 +686,7 @@ const ResyncModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
         Re-analyzes the edited source and maps existing voice assignments best-effort.
       </div>
       <div style={{ display: 'flex', gap: 18 }}>
-        {[['8', 'segments kept', 'var(--success)'], ['1', 'need re-assign', '#fbbf24']] .map(([n, l, c]) => (
+        {[['8', 'segments kept', 'var(--success)'], ['1', 'need re-assign', 'var(--warning)']] .map(([n, l, c]) => (
           <div key={l} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <span style={{ fontSize: 22, fontWeight: 700, color: c as string }}>{n}</span>
             <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l}</span>

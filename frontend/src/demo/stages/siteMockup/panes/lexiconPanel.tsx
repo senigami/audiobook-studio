@@ -419,7 +419,8 @@ export const LexiconPanel: React.FC<{ variant?: 'drawer' | 'stage' }> = ({ varia
       maxWidth: isStage ? 720 : undefined,
       flexShrink: 0,
       border: isStage ? '1px solid var(--hairline)' : undefined,
-      borderLeft: isStage ? '1px solid var(--hairline)' : '1px solid var(--hairline)',
+      // Drawer mode keeps only the left divider against the workspace; stage mode uses the full border above.
+      borderLeft: isStage ? undefined : '1px solid var(--hairline)',
       borderRadius: isStage ? 'var(--radius-card)' : undefined,
       background: 'var(--surface-alt)',
       display: 'flex', flexDirection: 'column',
