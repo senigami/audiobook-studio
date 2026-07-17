@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Fixed] - 2026-07-16
+
+### External TTS Gateway API — queued-download flow and input hardening
+
+- **Downloading a queued job's audio now works.** For text ≥ 500 characters the external TTS API (`/api/v1/tts`) enqueues a job and returns a `job_id`; the poll (`GET /jobs/{id}`) and audio (`GET /jobs/{id}/audio`) endpoints previously checked for a job status of `"completed"` that never exists (terminal success is `"done"`) and read a non-existent field for the file path, so a finished job never produced a download link and the audio endpoint always errored. Both endpoints are fixed and covered by tests.
+- **`/preview` is always inline again.** A 500-character preview was being queued instead of returned inline (off-by-one against the inline threshold); it now correctly rejects text of 500+ characters.
+- **Input hardening.** `text` is now length-bounded (1–100,000 chars → `422` otherwise), job-status messages are sanitized so engine errors can't leak internal paths, and the API output paths use the repository's standard containment barrier.
+- **New example.** A self-contained proof-of-concept client (Python + a browser page) lives at `examples/tts-gateway-poc/`, demonstrating the full discover → submit → poll → download loop.
+- Known follow-ups: end-to-end XTTS synthesis through the gateway is currently blocked by two separate core-synthesis bugs (engine readiness gating and voice wiring), tracked separately.
 ## [Changed] - 2026-07-16
 
 ### Interactive demo reconciled to the shipping app (North Star demo parity)
