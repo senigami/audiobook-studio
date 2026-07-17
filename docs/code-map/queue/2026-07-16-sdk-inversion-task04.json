@@ -1,0 +1,10 @@
+{
+  "date": "2026-07-16",
+  "author": "studio2/standalone-plugin-repos-010 task 04 (XTTS server import rewrite)",
+  "summary": "tts_engines/tts_xtts/plugin/server/engine.py no longer imports app.* anywhere: SDK contract types, StudioTTSEngine, run_cmd_stream and wav_to_mp3 now come from the real studio_plugin_sdk package. Zero behavior change (Phase A shims guarantee module identity).",
+  "changes": [
+    {"file": "tts_engines/tts_xtts/plugin/server/engine.py", "change": "Module-level: 'from studio_plugin_sdk import StudioTTSEngine, TTSRequest, TTSResult, VerificationResult' + 'from studio_plugin_sdk.proc import run_cmd_stream' replace the three app.engines.* imports. Fn-body in synthesize(): timing types now from studio_plugin_sdk. _wav_to_mp3 delegates to studio_plugin_sdk.audio.wav_to_mp3 with quality=_MP3_QUALITY, a new module constant '2' matching the host default (app/core/config.py MP3_QUALITY) so plugin code never imports app config; SDK default runner is used (same object app's wrapper injected)."}
+  ],
+  "invariants": "Boundary grep: zero app.* imports in tts_engines/tts_xtts/{plugin/server,plugin/core,interface.py,cli.py,preview,scripts}. Same ffmpeg command (-q:a 2). No repointed monkeypatches needed: xtts tests patch plugin-local run_cmd_stream / handler.wav_to_mp3, not app.engines.audio_ops.",
+  "note": "Task 04 of .agent/mastermind-010-plan/. Suite: tts_engines/tts_xtts 194 passed, 1 skipped."
+}
