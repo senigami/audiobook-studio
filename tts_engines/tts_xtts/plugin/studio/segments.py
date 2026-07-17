@@ -2,12 +2,8 @@ from __future__ import annotations
 import logging
 import time
 
-try:
-    from studio_plugin_sdk.errors import BridgeError  # alias registered by plugin_loader
-    from studio_plugin_sdk.plugin_utils import make_segment_output_handler
-except ImportError:
-    from app.studio_plugin_sdk.errors import BridgeError  # fallback for test/direct import
-    from app.studio_plugin_sdk.plugin_utils import make_segment_output_handler
+from studio_plugin_sdk.errors import BridgeError
+from studio_plugin_sdk.plugin_utils import make_segment_output_handler
 from .helpers import (
     _profile_inputs_for_segment,
     _segment_group_weight,
@@ -20,17 +16,14 @@ logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Module-level SDK context accessor — delegates to the shared PL-1 factory
-# (app.studio_plugin_sdk.get_plugin_ctx), which owns the per-engine-id
+# (studio_plugin_sdk.get_plugin_ctx), which owns the per-engine-id
 # lazy singleton cache. Kept as a local, patchable name because existing
 # tests patch ``<this module>._get_ctx`` directly.
 # ---------------------------------------------------------------------------
 
 def _get_ctx():
     """Return the shared StudioPluginContext for the xtts engine."""
-    try:
-        from studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
-    except ImportError:
-        from app.studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
+    from studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
     return get_plugin_ctx("xtts")
 
 

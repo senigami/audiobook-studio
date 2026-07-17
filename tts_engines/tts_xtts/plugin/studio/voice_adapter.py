@@ -3,27 +3,21 @@ from typing import Callable
 
 # ---------------------------------------------------------------------------
 # Module-level SDK context accessor — delegates to the shared PL-1 factory
-# (app.studio_plugin_sdk.get_plugin_ctx), which owns the per-engine-id
+# (studio_plugin_sdk.get_plugin_ctx), which owns the per-engine-id
 # lazy singleton cache. Kept as a local, patchable name because existing
 # tests patch ``<this module>._get_ctx`` directly.
 # ---------------------------------------------------------------------------
 
 def _get_ctx():
     """Return the shared StudioPluginContext for the xtts engine."""
-    try:
-        from studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
-    except ImportError:
-        from app.studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
+    from studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
     return get_plugin_ctx("xtts")
 
 
 def voice_job_dispatch_adapter(jid: str, j, start: float, on_output: Callable[[str], None], cancel_check: Callable[[], bool], **kwargs):
     """Adapter for voice tasks to match the standard synthesis signature."""
     ctx = _get_ctx()
-    try:
-        from studio_plugin_sdk import JobSpec  # noqa: PLC0415
-    except ImportError:
-        from app.studio_plugin_sdk import JobSpec  # noqa: PLC0415
+    from studio_plugin_sdk import JobSpec  # noqa: PLC0415
     voice_job_settings = kwargs.get("voice_job_settings")
     # Build a minimal JobSpec so run_voice_job can delegate correctly.
     job_spec = JobSpec(

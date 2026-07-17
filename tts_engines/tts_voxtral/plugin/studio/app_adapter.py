@@ -13,32 +13,32 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from studio_plugin_sdk import (
+    SynthesisPlan,
+    TTSRequest,
+    TTSResult,
+    VoiceProcessingHooks,
+    load_settings_schema,
+)
+
+# App-adapter contract (BaseVoiceEngine + engine data/error models) is
+# app-side only — deliberately NOT part of the real SDK package (see
+# app/studio_plugin_sdk/__init__.py). app_adapter.py is the documented
+# host-integration module: it only ever loads inside a Studio host, so the
+# guarded app.* import below is the sanctioned exception to the
+# module-body-app-free rule (S5 gate audits module-body import statements).
 try:
-    from studio_plugin_sdk import (  # noqa: PLC0415  # alias registered by plugin_loader
+    from app.studio_plugin_sdk import (
         BaseVoiceEngine,
         EngineExecutionError,
         EngineHealthModel,
         EngineManifestModel,
         EngineRequestError,
-        SynthesisPlan,
-        TTSRequest,
-        TTSResult,
-        VoiceProcessingHooks,
-        load_settings_schema,
     )
-except ImportError:
-    from app.studio_plugin_sdk import (  # fallback for test/direct import
-        BaseVoiceEngine,
-        EngineExecutionError,
-        EngineHealthModel,
-        EngineManifestModel,
-        EngineRequestError,
-        SynthesisPlan,
-        TTSRequest,
-        TTSResult,
-        VoiceProcessingHooks,
-        load_settings_schema,
-    )
+except ImportError as exc:  # pragma: no cover — host-only integration module
+    raise ImportError(
+        "tts_voxtral app_adapter requires the Studio host (app package)"
+    ) from exc
 
 logger = logging.getLogger(__name__)
 
@@ -48,10 +48,7 @@ logger = logging.getLogger(__name__)
 
 def _get_ctx():
     """Resolve the plugin context via the SDK alias (falls back for direct import)."""
-    try:
-        from studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
-    except ImportError:
-        from app.studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
+    from studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
     return get_plugin_ctx("voxtral")
 
 
