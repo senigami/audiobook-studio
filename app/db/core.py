@@ -223,6 +223,17 @@ def init_db():
                     speaker_profile_name TEXT,
                     default_emotion TEXT,
                     color TEXT DEFAULT '#8b5cf6',
+                    display_name TEXT,
+                    role TEXT,
+                    character_type TEXT,
+                    aliases TEXT,
+                    source_presence TEXT,
+                    source_profile TEXT,
+                    voice_guidance TEXT,
+                    needs_review INTEGER DEFAULT 0,
+                    review_reasons TEXT,
+                    locked INTEGER DEFAULT 0,
+                    ai_suggested INTEGER DEFAULT 0,
                     FOREIGN KEY (project_id) REFERENCES projects (id)
                 )
             """)
@@ -240,6 +251,14 @@ def init_db():
                     audio_file_path TEXT,
                     audio_status TEXT DEFAULT 'unprocessed',
                     audio_generated_at REAL,
+                    performance_data TEXT,
+                    speaker_confidence REAL,
+                    speaker_basis TEXT,
+                    speaker_evidence TEXT,
+                    needs_review INTEGER DEFAULT 0,
+                    review_reasons TEXT,
+                    locked INTEGER DEFAULT 0,
+                    ai_suggested INTEGER DEFAULT 0,
                     FOREIGN KEY (chapter_id) REFERENCES chapters (id),
                     FOREIGN KEY (character_id) REFERENCES characters (id)
                 )
@@ -312,6 +331,28 @@ def init_db():
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN engine TEXT", "processing_queue.engine")
             add_column_if_missing("ALTER TABLE processing_queue ADD COLUMN segment_ids TEXT", "processing_queue.segment_ids")
             add_column_if_missing("ALTER TABLE characters ADD COLUMN chapter_id TEXT", "characters.chapter_id")
+
+            # W-PERF safe-foundation (task 001): additive, nullable performance-metadata
+            # columns. Nothing reads these yet -- schema-only, no behavior change.
+            add_column_if_missing("ALTER TABLE chapter_segments ADD COLUMN performance_data TEXT", "chapter_segments.performance_data")
+            add_column_if_missing("ALTER TABLE chapter_segments ADD COLUMN speaker_confidence REAL", "chapter_segments.speaker_confidence")
+            add_column_if_missing("ALTER TABLE chapter_segments ADD COLUMN speaker_basis TEXT", "chapter_segments.speaker_basis")
+            add_column_if_missing("ALTER TABLE chapter_segments ADD COLUMN speaker_evidence TEXT", "chapter_segments.speaker_evidence")
+            add_column_if_missing("ALTER TABLE chapter_segments ADD COLUMN needs_review INTEGER DEFAULT 0", "chapter_segments.needs_review")
+            add_column_if_missing("ALTER TABLE chapter_segments ADD COLUMN review_reasons TEXT", "chapter_segments.review_reasons")
+            add_column_if_missing("ALTER TABLE chapter_segments ADD COLUMN locked INTEGER DEFAULT 0", "chapter_segments.locked")
+            add_column_if_missing("ALTER TABLE chapter_segments ADD COLUMN ai_suggested INTEGER DEFAULT 0", "chapter_segments.ai_suggested")
+            add_column_if_missing("ALTER TABLE characters ADD COLUMN display_name TEXT", "characters.display_name")
+            add_column_if_missing("ALTER TABLE characters ADD COLUMN role TEXT", "characters.role")
+            add_column_if_missing("ALTER TABLE characters ADD COLUMN character_type TEXT", "characters.character_type")
+            add_column_if_missing("ALTER TABLE characters ADD COLUMN aliases TEXT", "characters.aliases")
+            add_column_if_missing("ALTER TABLE characters ADD COLUMN source_presence TEXT", "characters.source_presence")
+            add_column_if_missing("ALTER TABLE characters ADD COLUMN source_profile TEXT", "characters.source_profile")
+            add_column_if_missing("ALTER TABLE characters ADD COLUMN voice_guidance TEXT", "characters.voice_guidance")
+            add_column_if_missing("ALTER TABLE characters ADD COLUMN needs_review INTEGER DEFAULT 0", "characters.needs_review")
+            add_column_if_missing("ALTER TABLE characters ADD COLUMN review_reasons TEXT", "characters.review_reasons")
+            add_column_if_missing("ALTER TABLE characters ADD COLUMN locked INTEGER DEFAULT 0", "characters.locked")
+            add_column_if_missing("ALTER TABLE characters ADD COLUMN ai_suggested INTEGER DEFAULT 0", "characters.ai_suggested")
 
             # Migration: Ensure project_id and chapter_id allow NULLs for system tasks
             try:
