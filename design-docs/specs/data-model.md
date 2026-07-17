@@ -1,9 +1,9 @@
 # Data Model
 
 ```
-spec_version: 1.11.0
+spec_version: 1.12.0
 status: active
-updated: 2026-07-16
+updated: 2026-07-17
 sources:
   - app/db/state.py
   - app/db/state_jobs.py
@@ -17,6 +17,9 @@ sources:
   - app/db/segment_gc.py
   - app/db/chapters_cleanup.py
   - app/db/performance.py
+  - app/domain/chapters/timing.py
+  - app/domain/chapters/timing_generator.py
+  - app/domain/projects/models.py
 ```
 
 > **TL;DR:** Studio 2.0 uses two complementary stores — volatile in-memory state.json for live job state and settings, and durable SQLite for project/chapter/queue history — with disk artifact state as the ultimate source of truth.
@@ -25,6 +28,7 @@ sources:
 
 | Version | Date       | Change             |
 |---------|------------|--------------------|
+| 1.12.0  | 2026-07-17 | **Chapter timing sidecar (synced-reader plan) + backup `bundle_version`.** New § documenting the self-describing, versioned `<chapter_wav_stem>.timing.json` sibling artifact (`chapter_segment_timing` schema, `version: 1`) written by `app/domain/chapters/timing_generator.py::build_chapter_timing` whenever a chapter WAV finishes stitching, and validated at load time by `app/domain/chapters/timing.py::validate_timing_sidecar`. Served read-only (never lazily recomputed, unlike the peaks sidecar) via `GET /api/projects/{project_id}/chapters/{chapter_id}/timing`. Also documents the new `bundle_version` field (default `1`) added to `ProjectBackupBundleModel` (`app/domain/projects/models.py`) — the model previously had no version field at all — plus the paired `timing_path` backup-bundle chapter-map entry and the new `POST /projects/{project_id}/backups/{filename}/restore` endpoint that can recover a chapter's audio + timing sidecar from a backup even when per-segment WAVs were never archived. |
 | 1.11.0  | 2026-07-16 | **W-PERF safe-foundation: additive performance-metadata columns.** `chapter_segments` gets `performance_data`/`speaker_confidence`/`speaker_basis`/`speaker_evidence`/`needs_review`/`review_reasons`/`locked`/`ai_suggested`; `characters` gets the parallel set plus `display_name`/`role`/`character_type`/`aliases`/`source_presence`/`source_profile`/`voice_guidance`. All additive, nullable/defaulted, forward-only migration — existing rows read back with documented defaults, nothing reads these columns yet (no behavior change). No `span_start`/`span_end`/`sentence_index` columns added — `segment_order` remains the ownership unit (see corrected `03-db-schema-changes.md`). AI extraction pipeline and export layer explicitly deferred per 2026-07-10 owner decision. |
 | 1.10.1  | 2026-07-10 | **Chapter peaks sidecar density raised 8→60 peaks/sec, `version` 1→2.** Example JSON and version-bump note updated to match `PEAKS_PER_SEC`/`SIDECAR_VERSION` in `app/engines/audio_ops.py`. Fixes visibly "low resolution" waveform at the tape's tightest zoom (3 s window vs. the tape's 180-bar render budget). Existing version-1 sidecars are transparently recomputed on next request via the loader's already-documented staleness check — no migration needed. |
 | 1.10.0  | 2026-07-10 | **Chapter peaks sidecar (derived artifact, not a DB/manifest field).** New § documenting the self-describing, versioned `<chapter>.peaks.json` sibling file that lets the global player's tape (`audio-player.md` §5.4) render long chapters without a full browser decode. Computed lazily on first request by the chapter-asset serving route (never at production time — the original orchestrator-chokepoint design was found to miss this app's default-engine render path entirely), staleness detected by comparing the sidecar's `source` stat stamp against the live WAV's current stat. No existing table/manifest changes. |
@@ -341,6 +345,52 @@ Lets the global player's waveform tape (`audio-player.md` §5.4) render a scrub 
 **Missing is never a hard requirement.** No sidecar (not yet requested, computation failed, or the chapter predates this feature) means the route returns 404 and the frontend falls back to browser-decode (under the duration cap) or a plain, non-scrubbable bar (over it) — exactly today's pre-sidecar behavior. Nothing retroactively mutates old artifacts.
 
 Cross-reference: `audio-player.md` §5.4.
+
+---
+
+## Chapter timing sidecar (derived, finalization-produced artifact)
+
+Lets the Book-tab player-piano read-along reader (§ design-docs/plans/active/synced_reader/) track which rendered **chunk group** (the render unit consecutive same-character `chapter_segments` rows are merged into — see `app/domain/chunk_groups.py`) is currently playing, without any word-level estimation or forced alignment.
+
+**Not a database or manifest field**, same reasoning as the peaks sidecar above: a self-describing, versioned sibling file, `<chapter_wav_stem>.timing.json` next to the chapter WAV.
+
+```json
+{
+  "schema": "chapter_segment_timing",
+  "version": 1,
+  "chapter_id": "ch_abc123",
+  "audio_file": "chapter_ch_abc123.wav",
+  "audio_generated_at": 1699999999.0,
+  "audio_duration_ms": 754320,
+  "generated_at": 1699999999.0,
+  "group_count": 42,
+  "groups": [
+    {
+      "group_id": "grp_0001",
+      "segment_ids": ["seg_0001", "seg_0002"],
+      "order": 0,
+      "start_ms": 0,
+      "end_ms": 3180,
+      "duration_ms": 3180
+    }
+  ]
+}
+```
+
+- **`schema` / `version`** — validated at load time by `app/domain/chapters/timing.py::validate_timing_sidecar` (owner directive: every contract declares an explicit version). A schema mismatch, a `version` other than the current `1`, or any malformed shape is treated identically to a missing sidecar — the serving route 404s and the reader falls back to its "sync unavailable" state; re-rendering the chapter regenerates the sidecar for free.
+- **`groups[]`** — one entry **per rendered chunk group** (not per raw `chapter_segments` row), ordered by `order`, `[start_ms, end_ms)` **tiling the timeline gaplessly**: `groups[i].end_ms == groups[i+1].start_ms`, first `start_ms == 0`, last `end_ms == audio_duration_ms`. `segment_ids[]` lets the frontend join text/character per member; if a member segment is later deleted the entry just carries a shorter/stale list — the reader still has real timing, only text lookup degrades. Both the gapless-tiling and the ordering invariants are enforced structurally by the pydantic model, not just documented.
+- **`audio_generated_at`** — copied from the chapter's own `audio_generated_at` at generation time. The serving route treats a mismatch against the chapter's *current* `audio_generated_at` as "no usable timing" (404) — a **staleness binding** that guarantees a sidecar is never served against audio it wasn't measured from, independent of the schema/version check.
+- No `sample_rate`, `char_count`, or `engine_id` at the sidecar root — a chapter can mix engines/rates across groups, so a single root-level value would be misleading; per-group duration is measured directly from each group's own WAV header.
+
+**Duration measurement — no estimation.** `app/domain/chapters/timing_generator.py::build_chapter_timing` reads each contributing group's WAV duration from its WAV header (stdlib `wave`, no ffprobe subprocess), accumulating an integer-millisecond offset to avoid float drift, then reconciles the summed group durations against the assembled chapter WAV's own measured duration (tolerance `DRIFT_WARN_TOLERANCE_MS = 50`, hard ceiling `DRIFT_HARD_CEILING_MS = 250`). Drift beyond the hard ceiling raises `TimingReconciliationError` and the caller skips writing a sidecar for that render — no sidecar is safer than a wrong one.
+
+**Produced at chapter-WAV finalization, not lazily.** Hooked into `TaskOrchestrator._emit_chapter_timing_sidecar` (`app/orchestration/scheduler/orchestrator.py`, sibling to the existing `_emit_chapter_peaks_sidecar` hook), covering every chapter-stitch finalization path. Generation failure is logged and swallowed — it must never fail the render itself. Unlike the peaks sidecar, the serving route (`GET /api/projects/{project_id}/chapters/{chapter_id}/timing`, `app/api/routers/chapters_assets.py`) does **not** lazily recompute on a miss: timing is a finalization-time product, and recomputing on GET could disagree with the audio if segments changed since the render. Missing/invalid/stale → 404; the reader shows its explicit "sync unavailable" state.
+
+**Portability: export, backup, and restore.** The sidecar travels alongside the chapter WAV in single-chapter audio export and in project backup bundles (`app/api/routers/projects_helpers.py::_create_backup_archive`), written under `chapters/<sanitized-text-stem>.timing.json` to match the WAV's own sanitized arc name, recorded as `timing_path` in the bundle's per-chapter `chapter_map` entry. `ProjectBackupBundleModel` (`app/domain/projects/models.py`) gained a validated `bundle_version` field (default `1`) — the model previously had **no version field at all**, so this is an addition, not a bump of a prior value. A new `POST /projects/{project_id}/backups/{filename}/restore` endpoint (`app/api/routers/projects_backups.py`) extracts a backup's chapter WAV and paired `.timing.json` (validating it through the same `validate_timing_sidecar`) back into the chapter's audio directory — proving the sidecar survives a round trip even when the backup contains no per-segment WAVs. Restore is scoped to chapter audio + timing for chapters that already exist in the project; it does not restore chapter text, does not reconstruct characters, speakers, or queue state, and never restores a `chapter_id` into a project other than the one it came from.
+
+**Interaction with existing GC.** The per-book orphan-segment GC (`reconcile_orphan_segment_files_for_project`, `app/db/segment_gc.py`, see § Segment audio artifacts & orphan reconciliation above) only deletes files under a chapter's `segments/` dir — it does not touch chapter-level `.timing.json` sidecars living alongside the chapter WAV.
+
+Cross-reference: `design-docs/plans/active/synced_reader/` (design docs 00–04).
 
 ---
 

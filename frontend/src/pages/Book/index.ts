@@ -1,4 +1,5 @@
 export { BookIndexRedirect, BookLayout } from '@/pages/Book/BookLayout';
+export { ReaderPage } from '@/pages/Book/ReaderPage';
 export { BookDataProvider, useBookDataContext } from '@/pages/Book/BookDataContext';
 export { useBookData } from '@/pages/Book/useBookData';
 export type { BookStage } from '@/pages/Book/lib/stages';

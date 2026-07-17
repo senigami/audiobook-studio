@@ -271,6 +271,7 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
                 force=True,
             )
             self._emit_chapter_peaks_sidecar(context)
+            self._emit_chapter_timing_sidecar(context)
         else:
             reason_code = "synthesis_error_retriable" if getattr(result, "retriable", False) else "synthesis_error"
             self._publish(
@@ -322,6 +323,96 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         except Exception:
             logger.warning(
                 "Peaks sidecar emission failed for task %s (non-fatal).",
+                getattr(context, "task_id", "?"),
+                exc_info=True,
+            )
+
+    def _emit_chapter_timing_sidecar(self, context: TaskContext) -> None:
+        """Proactively write the reader-sync timing sidecar for a just-finalized
+        chapter (synced-reader Task 4).
+
+        Sibling of ``_emit_chapter_peaks_sidecar``, fired at the same single
+        engine-agnostic completion point in ``submit()`` so it covers the XTTS
+        remote-synthesis path, the local ``mixed`` path, and crash-recovery
+        re-submits alike, without branching on engine id
+        (``design-docs/plans/active/synced_reader/01-findings.md`` §1-4).
+
+        The ordered chunk-group list is rebuilt fresh here from the same
+        ``get_chapter_segments`` + ``build_chunk_groups`` call every
+        finalization path already makes before stitching, keyed by each
+        group's leader segment id (the same id used for its on-disk WAV
+        filename), so the timing sidecar can never disagree with what was
+        actually stitched.
+
+        Scope guard: identical to ``_emit_chapter_peaks_sidecar`` — only
+        chapter synthesis (``task_type == "synthesis"``, ``scope ==
+        "chapter"``), only the canonical chapter WAV (``output_path`` ending
+        in ``.wav``).
+
+        Best-effort and non-blocking: this must never fail, delay, or regress
+        a render. Every failure — missing group audio, a
+        ``TimingReconciliationError`` drift beyond tolerance, or any other
+        exception — is logged and swallowed; the render outcome is already
+        published above.
+        """
+        try:
+            if context.task_type != "synthesis":
+                return
+            payload = context.payload or {}
+            if payload.get("scope") != "chapter":
+                return
+            output_path = payload.get("output_path")
+            if not output_path:
+                return
+            from pathlib import Path  # noqa: PLC0415
+            chapter_wav_path = Path(output_path)
+            if chapter_wav_path.suffix.lower() != ".wav":
+                return
+
+            chapter_id = context.chapter_id
+            project_id = context.project_id
+            if not chapter_id or not project_id:
+                return
+
+            from app.core.config import get_chapter_dir  # noqa: PLC0415
+            from app.db.chapters import get_chapter  # noqa: PLC0415
+            from app.db.segments import get_chapter_segments  # noqa: PLC0415
+            from app.domain.chunk_groups import build_chunk_groups, group_wav_path  # noqa: PLC0415
+            from app.domain.chapters.timing_generator import (  # noqa: PLC0415
+                build_chapter_timing,
+                write_timing_sidecar,
+            )
+
+            segments = get_chapter_segments(chapter_id)
+            voice_profile_id = payload.get("voice_profile_id")
+            groups = build_chunk_groups(segments, voice_profile_id)
+
+            chapter_dir = get_chapter_dir(project_id, chapter_id)
+            ordered_groups = [
+                {
+                    "group_id": group["segments"][0]["id"],
+                    "wav_path": group_wav_path(chapter_dir, group),
+                    "segment_ids": [s["id"] for s in group["segments"]],
+                }
+                for group in groups
+            ]
+
+            chapter = get_chapter(chapter_id)
+            audio_generated_at = chapter.get("audio_generated_at") if chapter else None
+            if audio_generated_at is None:
+                return
+
+            timing = build_chapter_timing(
+                chapter_id, chapter_wav_path, ordered_groups, audio_generated_at
+            )
+            if timing is None:
+                return
+
+            sidecar_path = chapter_wav_path.with_suffix(".timing.json")
+            write_timing_sidecar(sidecar_path, timing)
+        except Exception:
+            logger.warning(
+                "Timing sidecar emission failed for task %s (non-fatal).",
                 getattr(context, "task_id", "?"),
                 exc_info=True,
             )

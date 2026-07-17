@@ -140,6 +140,15 @@ describe('ChapterWorkspace', () => {
     });
   });
 
+  // ── Embedded read-along reader (synced-reader plan, Task 9) ─────────────────
+  it('renders the embedded read-along reader card in the chapter workspace', async () => {
+    renderWorkspaceRoute('/book/book-1/chapter/c1');
+
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: 'Read along' })).toBeInTheDocument();
+    });
+  });
+
   // ── Chapter title shown in header ───────────────────────────────────────────
   it('shows the chapter title in the workspace header', async () => {
     renderWorkspaceRoute('/book/book-1/chapter/c2');

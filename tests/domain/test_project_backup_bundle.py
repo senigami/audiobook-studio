@@ -319,6 +319,85 @@ def test_backup_history_missing_project_returns_404(clean_db, client):
     download_response = client.get("/api/projects/missing-project/backups/missing.zip/download")
     assert download_response.status_code == 404
 
+def test_backup_bundle_includes_bundle_version(clean_db, client):
+    pid = create_project("Version Project")
+    response = client.get(f"/api/projects/{pid}/backup-bundle/download")
+    assert response.status_code == 200
+
+    import zipfile
+    import io
+    with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+        bundle_data = json.loads(zf.read("bundle.json"))
+        assert bundle_data["bundle_version"] == 1
+
+
+def test_backup_bundle_includes_timing_sidecar_when_present(clean_db, client):
+    import zipfile
+    import io
+
+    pid = create_project("Timing Project")
+    from app.db.chapters import create_chapter, update_chapter
+    cid = create_chapter(pid, "Chapter 1", "Content")
+
+    from app.core.config import get_chapter_dir
+    chapter_dir = get_chapter_dir(pid, cid)
+    chapter_dir.mkdir(parents=True, exist_ok=True)
+    audio_file = chapter_dir / "chapter.wav"
+    audio_file.write_bytes(b"fake wav data")
+    timing_file = chapter_dir / "chapter.timing.json"
+    timing_file.write_text(json.dumps({"schema": "chapter_segment_timing", "version": 1}))
+
+    update_chapter(cid, audio_status="done", audio_file_path="chapter.wav")
+
+    response = client.get(f"/api/projects/{pid}/backup-bundle/download")
+    assert response.status_code == 200
+
+    with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+        file_list = zf.namelist()
+        assert "chapters/01_Chapter_1.wav" in file_list
+        assert "chapters/01_Chapter_1.timing.json" in file_list
+        assert zf.read("chapters/01_Chapter_1.timing.json") == timing_file.read_bytes()
+
+        bundle_data = json.loads(zf.read("bundle.json"))
+        chapter_map = bundle_data["chapter_map"]
+        assert chapter_map[cid]["timing_path"] == "chapters/01_Chapter_1.timing.json"
+
+    audio_file.unlink()
+    timing_file.unlink()
+
+
+def test_backup_bundle_omits_timing_sidecar_when_absent(clean_db, client):
+    import zipfile
+    import io
+
+    pid = create_project("No Timing Project")
+    from app.db.chapters import create_chapter, update_chapter
+    cid = create_chapter(pid, "Chapter 1", "Content")
+
+    from app.core.config import get_chapter_dir
+    chapter_dir = get_chapter_dir(pid, cid)
+    chapter_dir.mkdir(parents=True, exist_ok=True)
+    audio_file = chapter_dir / "chapter.wav"
+    audio_file.write_bytes(b"fake wav data")
+    # No sidecar written -- simulates a chapter rendered before this feature.
+
+    update_chapter(cid, audio_status="done", audio_file_path="chapter.wav")
+
+    response = client.get(f"/api/projects/{pid}/backup-bundle/download")
+    assert response.status_code == 200
+
+    with zipfile.ZipFile(io.BytesIO(response.content)) as zf:
+        file_list = zf.namelist()
+        assert "chapters/01_Chapter_1.wav" in file_list
+        assert not any(name.endswith(".timing.json") for name in file_list)
+
+        bundle_data = json.loads(zf.read("bundle.json"))
+        chapter_map = bundle_data["chapter_map"]
+        assert "timing_path" not in chapter_map[cid]
+
+    audio_file.unlink()
+
+
 def test_backup_bundle_disambiguates_chapter_filename_collisions(clean_db, client):
     import zipfile
     import io

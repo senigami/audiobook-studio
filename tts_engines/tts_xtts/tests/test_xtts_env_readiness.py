@@ -18,20 +18,38 @@ from pathlib import Path
 
 import pytest
 
+# Captured at collection time, before any fixture in this file has a chance to
+# pop/reload the module -- this is the same cached object every other test
+# module's own `from tts_engines.tts_xtts.plugin.core.implementation import
+# ...` resolves to for the rest of the session. See
+# test_teardown_restores_original_module_identity below.
+import tts_engines.tts_xtts.plugin.core.implementation as _implementation_at_collection
+
 
 @pytest.fixture
 def implementation_module(monkeypatch, tmp_path):
     """Reload ``core.implementation`` with XTTS_ENV_DIR/XTTS_ENV_PYTHON pointed
     at an isolated tmp_path so tests don't depend on (or mutate) a real
     ~/xtts-env on the machine running the suite.
+
+    Teardown restores whatever was cached in ``sys.modules`` before this
+    fixture ran (rather than just popping it) -- other test files resolve
+    this same dotted path via ``unittest.mock.patch("tts_engines.tts_xtts.
+    plugin.core.implementation....")``, which re-imports fresh if the entry
+    is missing. Leaving it deleted here would make that later patch target a
+    disconnected copy of the module instead of the one already-imported code
+    (e.g. ``xtts_generate``, bound to the original module's globals at
+    collection time) actually uses -- silently turning the mock into a no-op.
     """
     monkeypatch.setenv("XTTS_ENV_DIR", str(tmp_path / "xtts-env"))
     monkeypatch.delenv("XTTS_ENV_PYTHON", raising=False)
     module_name = "tts_engines.tts_xtts.plugin.core.implementation"
-    sys.modules.pop(module_name, None)
+    original_module = sys.modules.pop(module_name, None)
     impl = importlib.import_module(module_name)
     yield impl
     sys.modules.pop(module_name, None)
+    if original_module is not None:
+        sys.modules[module_name] = original_module
 
 
 def _make_fake_env(
@@ -134,3 +152,44 @@ def test_env_ready_true_finds_marker_despite_stale_python_version_dir(implementa
     ok, msg = implementation_module.xtts_env_ready()
     assert ok is True
     assert msg == "OK"
+
+
+def test_reload_via_fixture_does_not_permanently_replace_module(implementation_module):
+    """Sanity check that the fixture's reload actually swaps in a distinct,
+    differently-configured module while active -- setup for the real
+    assertion in test_teardown_restores_original_module_identity below,
+    which runs after this test's fixture instance has already torn down.
+    """
+    module_name = "tts_engines.tts_xtts.plugin.core.implementation"
+    assert sys.modules[module_name] is implementation_module
+    assert sys.modules[module_name] is not _implementation_at_collection
+
+
+def test_teardown_restores_original_module_identity():
+    """The ``implementation_module`` fixture (used by every other test in
+    this file, all of which run before this one) pops the real module from
+    ``sys.modules`` to force a fresh reload with patched env vars. If
+    teardown only pops (rather than restoring whatever was cached before
+    the fixture ran), the module is left permanently missing from
+    ``sys.modules`` for the rest of the pytest session. The next consumer
+    that resolves the dotted path (e.g. ``unittest.mock.patch("tts_engines.
+    tts_xtts.plugin.core.implementation.run_cmd_stream")`` in
+    test_xtts_implementation.py, run later in the same session) then
+    silently re-imports yet another, distinct module object -- patching a
+    copy that ``xtts_generate`` (bound to the original module's globals at
+    collection time) never looks at, so the mock is a no-op and the real
+    subprocess path runs instead, hanging until the per-test timeout.
+
+    This test takes no ``implementation_module`` fixture of its own and
+    runs last in the file (pytest executes a module's tests top-to-bottom),
+    so by the time it runs, every prior test's fixture instance has already
+    torn down -- proving teardown restores ``sys.modules`` to the exact
+    object collection-time imports (here and in every other test file) got,
+    rather than leaving it deleted or swapped for an orphaned reload.
+    """
+    module_name = "tts_engines.tts_xtts.plugin.core.implementation"
+    assert sys.modules.get(module_name) is _implementation_at_collection, (
+        "teardown popped the module without restoring the original object -- "
+        "later dotted-string mock.patch() calls on this module will silently "
+        "resolve to a fresh, disconnected re-import instead of the real one"
+    )

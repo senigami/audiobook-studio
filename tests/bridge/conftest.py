@@ -12,11 +12,15 @@ def _disable_voxtral_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     # real by tests/core/test_boot.py) can register synthetic sys.modules entries
     # for these submodules without ever binding the attribute on the parent package,
     # which breaks dotted-string attribute-chain resolution for later tests.
+    # XTTS_ENV_ACTIVATE/XTTS_ENV_PYTHON are patched on core.implementation (not
+    # app_adapter) since #145 moved check_env() to read them from there via a
+    # function-local import rather than re-exporting them at the adapter's module level.
     voxtral_app_adapter = importlib.import_module("tts_engines.tts_voxtral.plugin.studio.app_adapter")
-    xtts_app_adapter = importlib.import_module("tts_engines.tts_xtts.plugin.studio.app_adapter")
+    importlib.import_module("tts_engines.tts_xtts.plugin.studio.app_adapter")
+    xtts_impl = importlib.import_module("tts_engines.tts_xtts.plugin.core.implementation")
     monkeypatch.setattr(voxtral_app_adapter, "resolve_mistral_api_key", lambda: None)
-    monkeypatch.setattr(xtts_app_adapter, "XTTS_ENV_ACTIVATE", Path("/nonexistent/activate"))
-    monkeypatch.setattr(xtts_app_adapter, "XTTS_ENV_PYTHON", Path("/nonexistent/python"))
+    monkeypatch.setattr(xtts_impl, "XTTS_ENV_ACTIVATE", Path("/nonexistent/activate"))
+    monkeypatch.setattr(xtts_impl, "XTTS_ENV_PYTHON", Path("/nonexistent/python"))
     load_engine_registry.cache_clear()
     yield
     load_engine_registry.cache_clear()

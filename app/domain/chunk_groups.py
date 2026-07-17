@@ -94,6 +94,18 @@ def build_chunk_groups(
     return groups
 
 
+def group_wav_path(chapter_dir: Path, group: dict) -> Path:
+    """Canonical on-disk WAV path for a rendered chunk group.
+
+    The group's leader (first member) segment id names the file --
+    ``chapter_dir / "segments" / f"{leader_id}.wav"``. Single source of
+    truth shared by ``build_script_entry_for_group`` (the stitcher's
+    script-entry builder) and the orchestrator's timing-sidecar generator
+    (``_emit_chapter_timing_sidecar``) so the two never drift apart.
+    """
+    return chapter_dir / "segments" / f"{group['segments'][0]['id']}.wav"
+
+
 def build_script_entry_for_group(
     group: dict,
     chapter_dir: Path,
@@ -158,7 +170,7 @@ def build_script_entry_for_group(
 
     # V2 segment path: chapters/{chapter_id}/segments/{first_segment_id}.wav
     # The orchestrator uses absolute paths for bridge transport
-    seg_out = chapter_dir / "segments" / f"{first['id']}.wav"
+    seg_out = group_wav_path(chapter_dir, group)
 
     script_entry: dict[str, Any] = {
         "text": processed,

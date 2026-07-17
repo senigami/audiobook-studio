@@ -1,6 +1,7 @@
+from pathlib import Path
 from unittest.mock import patch
 
-from app.domain.chunk_groups import build_chunk_groups
+from app.domain.chunk_groups import build_chunk_groups, group_wav_path
 
 
 def test_build_chunk_groups_caches_profile_engine_resolution():
@@ -94,3 +95,21 @@ def test_build_chunk_groups_groups_unknown_engine_together():
     assert len(groups) == 1
     assert groups[0]["engine"] == "unknown"
     assert len(groups[0]["segments"]) == 2
+
+
+def test_group_wav_path_uses_leader_segment_id():
+    """``group_wav_path`` is the single source of truth for a chunk group's
+    on-disk WAV path -- shared by ``build_script_entry_for_group`` (the
+    stitcher's script-entry builder) and the orchestrator's timing-sidecar
+    generator. It must key off the group's leader (first member) segment id,
+    ignoring any later members.
+    """
+    chapter_dir = Path("/tmp/some-chapter-dir")
+    group = {
+        "segments": [
+            {"id": "leader-seg-id"},
+            {"id": "second-seg-id"},
+        ]
+    }
+
+    assert group_wav_path(chapter_dir, group) == chapter_dir / "segments" / "leader-seg-id.wav"
