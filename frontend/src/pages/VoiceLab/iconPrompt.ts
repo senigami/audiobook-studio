@@ -61,7 +61,7 @@ export function buildIconPrompt(meta: VoiceMetadata | null | undefined): string 
     const tail = [keywordStr, descStr].filter(Boolean).join('; ');
     const tailSentence = tail ? ` Additional detail: ${tail}.` : '';
 
-    // Archetype match (user-reported gap, 2026-07-16): the 39-row voice
+    // Archetype match (user-reported gap, 2026-07-16): the 103-row voice
     // archetype table (design-docs/reference/voice-archetypes/) carries a
     // hand-authored, portrait-framed `appearance_description` per archetype.
     // When the voice's tagged attributes score a close/exact match (same

@@ -5,7 +5,7 @@
  *
  * Pure deterministic function, no API call — mirrors the shape of
  * `buildIconPrompt()` (frontend/src/pages/VoiceLab/iconPrompt.ts): given a
- * voice's tagged attributes, either (a) match against the 39 curated
+ * voice's tagged attributes, either (a) match against the 103 curated
  * archetypes in `recordingArchetypes.ts` and reuse a hand-authored prompt
  * verbatim, or (b) compose a fallback read-aloud passage with the mad-lib
  * slot composer (`cueComposer.ts`) driven by Class/Tone/Timbre/Pace/Age.
@@ -135,7 +135,7 @@ function composeFallback(attrs: VoiceAttributes): SuggestionResult {
  * Find the best-scoring archetype for a set of voice attributes, if any
  * score at least CLOSE_THRESHOLD. Shared by `suggestRecordingPrompt` (below)
  * and `buildIconPrompt` (frontend/src/pages/VoiceLab/iconPrompt.ts) so both
- * consumers of the 39-archetype table agree on what counts as "close enough
+ * consumers of the 103-archetype table agree on what counts as "close enough
  * to reuse" rather than maintaining two scoring implementations.
  */
 export function findMatchingArchetype(attrs: VoiceAttributes | null | undefined): RecordingArchetype | null {

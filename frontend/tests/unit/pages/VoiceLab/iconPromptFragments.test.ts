@@ -68,8 +68,8 @@ describe('visualFragmentsForAttributes', () => {
 const OUT_OF_FRAME = /\b(hands?|knuckles?|fingers?|fingernails?|fists?|palms?|wrists?|forearms?|arms?|elbows?|chest(ed)?|torso|waist|hips?|legs?|knees?|shins?|ankles?|feet|foot|toes?|boots?|shoes?|heels?|posture|standing|stands|kneeling|crouch(ed|ing)?|sitting|seated|perched|strid(e|ing)|gait|handshake|full[- ]body)\b/i;
 
 describe('portrait safety — appearance_description denylist', () => {
-    it('has 39 archetypes', () => {
-        expect(recordingArchetypes).toHaveLength(39);
+    it('has 103 archetypes', () => {
+        expect(recordingArchetypes).toHaveLength(103);
     });
 
     it.each(recordingArchetypes.map(a => [a.archetype_name, a.appearance_description] as const))(
