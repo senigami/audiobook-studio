@@ -7,6 +7,8 @@ Source data for the voice archetype → appearance → recording-prompt mapping.
 
 Source taxonomy: `design-docs/specs/voice-taxonomy.json` (v2.0). Every Tone/Timbre value in this table was manually verified against that spec when the table was built.
 
+`Appearance Description` values are portrait-framed as of 2026-07-17: square head-and-shoulders/bust only (face, expression, hair/head coverings, collar-level wardrobe, ambient light) — no below-the-chest anatomy — so they can drive square avatar/icon image prompts directly. This diverges intentionally from the original xlsx column.
+
 If the xlsx is ever revised, regenerate these two files from it rather than hand-editing — they're meant to stay byte-identical in content to the spreadsheet, just reshaped for parsing.
 
 ## Tone/timbre phrase fragments

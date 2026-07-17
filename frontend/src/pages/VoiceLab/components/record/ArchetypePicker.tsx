@@ -38,8 +38,9 @@ export function ArchetypePicker({
             {/* Owner-requested (2026-07-16): same quick-pick as OverviewTab's
                 attribute editor -- picking an archetype overwrites all 6
                 fields below at once, a fast starting point before fine-tuning
-                individual fields for this recording session. */}
-            <ArchetypeQuickPick onPick={fields => onChange({ ...value, ...fields })} />
+                individual fields for this recording session. Passing `value`
+                lets the library narrow live as fields below change. */}
+            <ArchetypeQuickPick attrs={value} onPick={fields => onChange({ ...value, ...fields })} />
 
             {ONE_FIELDS.map(key => {
                 const section = getSection(key);

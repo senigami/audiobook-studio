@@ -7,8 +7,8 @@
  * `buildIconPrompt()` (frontend/src/pages/VoiceLab/iconPrompt.ts): given a
  * voice's tagged attributes, either (a) match against the 39 curated
  * archetypes in `recordingArchetypes.ts` and reuse a hand-authored prompt
- * verbatim, or (b) compose a fallback prompt from Class-opening lines +
- * Pace-rhythm cues + Tone/Timbre fragments (`recordingFragments.ts`).
+ * verbatim, or (b) compose a fallback read-aloud passage with the mad-lib
+ * slot composer (`cueComposer.ts`) driven by Class/Tone/Timbre/Pace/Age.
  *
  * design-docs/plans/active/dynamic_recording_guide/01-map.md — map + invariants.
  * design-docs/plans/active/dynamic_recording_guide/tasks/002-suggester-function.md — spec.
@@ -16,7 +16,7 @@
 
 import type { VoiceAttributes } from '@/types';
 import { recordingArchetypes, type RecordingArchetype } from './recordingArchetypes';
-import { getFragment } from './recordingFragments';
+import { composeCuePassage } from './cueComposer';
 
 export interface SuggestionResult {
     prompt: string;
@@ -24,12 +24,12 @@ export interface SuggestionResult {
     matchedArchetype: string | null;
     confidence: 'exact' | 'close' | 'composed';
     /**
-     * Short showcase line for TTS-generated voice-sample previews (the archetype's
-     * `sample_text`), distinct from `prompt` which is written for a human voice actor.
-     * Only set when an archetype match is close/exact — unlike `prompt`, there's no
-     * composed fallback for this field: a shaky invented sample line is worse than
-     * leaving the existing default/custom sample text alone, so `null` here means
-     * "no better suggestion, don't touch what's already set."
+     * Short showcase line for TTS-generated voice-sample previews, distinct from
+     * `prompt` which is written for a human voice actor. On a close/exact archetype
+     * match this is the archetype's hand-authored `sample_text` (highest trust);
+     * on the composed path it is a theme-matched line from `composeCuePassage()`.
+     * `null` only for the no-meaningful-attrs case, where the whole suggestion is
+     * null anyway — callers keep treating null as "don't touch what's already set."
      */
     sampleText: string | null;
 }
@@ -78,7 +78,7 @@ function splitList(csv: string): string[] {
     return csv.split(',').map(s => s.trim()).filter(Boolean);
 }
 
-function scoreArchetype(attrs: VoiceAttributes, archetype: RecordingArchetype): number {
+export function scoreArchetype(attrs: VoiceAttributes, archetype: RecordingArchetype): number {
     let score = 0;
 
     if (attrs.class && archetype.class && attrs.class === archetype.class) {
@@ -111,66 +111,23 @@ function hasMeaningfulAttrs(attrs: VoiceAttributes): boolean {
     });
 }
 
-// --- Composition fallback (task spec, "Algorithm" step 4) -----------------
+// --- Composition fallback (mad-lib composer, cueComposer.ts) --------------
 
-/** One narrative opening line per Class taxonomy value. */
-const CLASS_OPENINGS: Record<string, string> = {
-    human: 'A person is about to speak.',
-    synthetic: 'This is a synthetic, AI-generated voice.',
-    creature: "Something not quite human is about to speak.",
-    character: 'A stylized, larger-than-life character is about to speak.',
-    deity: 'A voice older than the room it is speaking in is about to be heard.',
-};
-
-/** One rhythm direction per Pace taxonomy value. */
-const PACE_CUES: Record<string, string> = {
-    slow: 'Let the pace stay unhurried, giving every word room to land.',
-    measured: 'Keep the rhythm steady and deliberate, never rushed.',
-    moderate: 'Deliver it at a natural, conversational pace.',
-    brisk: 'Move briskly, with energy pushing each phrase forward.',
-    fast: 'Keep the pace quick, barely pausing for breath.',
-    variable: 'Let the pace shift unpredictably, speeding up and slowing down as the moment demands.',
-};
-
-function capitalize(s: string): string {
-    return s.length > 0 ? s.charAt(0).toUpperCase() + s.slice(1) : s;
-}
-
+/**
+ * Compose a suggestion when no archetype scores close enough. Delegates to
+ * `composeCuePassage()` — the passage becomes `prompt` (a real read-aloud
+ * text, not just direction), the theme-matched showcase line becomes
+ * `sampleText`, and the direction note is still built from the tone/timbre
+ * fragment dictionary.
+ */
 function composeFallback(attrs: VoiceAttributes): SuggestionResult {
-    const fragments: string[] = [];
-    for (const tone of attrs.tone ?? []) {
-        const fragment = getFragment('tone', tone);
-        if (fragment) fragments.push(fragment);
-    }
-    for (const timbre of attrs.timbre ?? []) {
-        const fragment = getFragment('timbre', timbre);
-        if (fragment) fragments.push(fragment);
-    }
-
-    const opening = attrs.class ? CLASS_OPENINGS[attrs.class] : undefined;
-    const paceCue = attrs.pace ? PACE_CUES[attrs.pace] : undefined;
-
-    const sentences: string[] = [];
-    if (opening) sentences.push(opening);
-    if (fragments.length > 0) {
-        sentences.push(`Read a line that feels ${fragments.join(', ')}.`);
-    }
-    if (paceCue) sentences.push(paceCue);
-
-    const prompt = sentences.length > 0
-        ? sentences.join(' ')
-        : "Read a line that captures this voice's character.";
-
-    const directionNote = fragments.length > 0
-        ? `${capitalize(fragments[0])}.`
-        : (opening ?? "Let the performance reflect this voice's intended character.");
-
+    const composed = composeCuePassage(attrs);
     return {
-        prompt,
-        directionNote,
+        prompt: composed.passage,
+        directionNote: composed.directionNote,
         matchedArchetype: null,
         confidence: 'composed',
-        sampleText: null,
+        sampleText: composed.sampleText,
     };
 }
 

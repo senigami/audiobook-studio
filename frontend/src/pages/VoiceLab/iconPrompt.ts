@@ -7,81 +7,93 @@
  * Built from voice attributes + description so uniform icons can be created
  * across the catalog. No API call is made — clipboard-only (R-F).
  *
+ * Framing is square 1:1 head-and-shoulders (2026-07-17, owner request): the
+ * archetype appearance_descriptions are portrait-framed to match, and manual
+ * attribute selections (class/age/gender/tone/timbre) are translated into
+ * visual descriptors via iconPromptFragments instead of bare keywords — on
+ * BOTH the archetype-match and composed paths.
+ *
  * Spec reference: design-docs/specs/voice-bundles.md §11.1 "Copy icon prompt (doc 04 C6)"
  * and design-docs/plans/final_release/04_voice_metadata_and_tagging.md item C6.
  */
 
 import type { VoiceMetadata, VoiceAttributes } from '@/types';
 import { findMatchingArchetype } from '@/pages/Voices/components/metadata/recordingPromptSuggester';
+import { visualFragmentsForAttributes } from '@/pages/VoiceLab/iconPromptFragments';
 
-/** Core attribute keys shown in order in the prompt */
-const CORE_KEYS: Array<keyof VoiceAttributes> = ['class', 'gender', 'age', 'accent', 'pace'];
+/** Shared square-portrait framing (prefix) and constraints (suffix). */
+const FRAME_PREFIX = 'Square 1:1 head-and-shoulders portrait, flat illustration, uniform style';
+const FRAME_SUFFIX = 'Centered, neutral background, no text.';
+
+/** Attribute keys rendered as visual fragments — excluded from the keyword tail. */
+const VISUAL_KEYS = new Set<string>(['class', 'gender', 'age', 'tone', 'timbre']);
+
+/** Non-visual attribute keys shown as keywords, in fixed order first */
+const CORE_KEYWORD_KEYS: Array<keyof VoiceAttributes> = ['accent', 'pace'];
 
 /**
- * Build a uniform image-generation prompt from VoiceMetadata.
+ * Build a uniform square-portrait image-generation prompt from VoiceMetadata.
  * Only fields present on the object are included — taxonomy-agnostic,
  * same dynamic-walk approach as voicePillsFromMetadata.
  */
 export function buildIconPrompt(meta: VoiceMetadata | null | undefined): string {
-    if (!meta) return 'Circular avatar portrait icon, flat illustration, uniform style. Neutral background, centered, no text.';
+    if (!meta) return `${FRAME_PREFIX}. ${FRAME_SUFFIX}`;
 
-    const parts: string[] = [];
-
-    // Core attributes in fixed order
     const attrs = meta.attributes ?? {};
-    for (const key of CORE_KEYS) {
-        const val = attrs[key];
-        if (val) {
-            if (Array.isArray(val)) {
-                parts.push(...val.filter(Boolean));
-            } else {
-                parts.push(val as string);
-            }
-        }
-    }
 
-    // Extended attributes (any scalar or array attr not in CORE_KEYS), alphabetical
+    // Keyword tail: attributes NOT covered by the visual-fragment maps
+    // (accent, pace, language, style, use_case, quality, …) + free tags.
+    const keywords: string[] = [];
+    const pushVal = (val: unknown) => {
+        if (!val) return;
+        if (Array.isArray(val)) keywords.push(...(val as string[]).filter(Boolean));
+        else keywords.push(val as string);
+    };
+    for (const key of CORE_KEYWORD_KEYS) pushVal(attrs[key]);
     const extendedKeys = Object.keys(attrs)
-        .filter(k => !CORE_KEYS.includes(k as keyof VoiceAttributes))
+        .filter(k => !VISUAL_KEYS.has(k) && !CORE_KEYWORD_KEYS.includes(k as keyof VoiceAttributes))
         .sort();
-    for (const key of extendedKeys) {
-        const val = (attrs as Record<string, unknown>)[key];
-        if (!val) continue;
-        if (Array.isArray(val)) {
-            parts.push(...(val as string[]).filter(Boolean));
-        } else {
-            parts.push(val as string);
-        }
-    }
+    for (const key of extendedKeys) pushVal((attrs as Record<string, unknown>)[key]);
+    if (meta.tags && meta.tags.length > 0) keywords.push(...meta.tags);
 
-    // Free tags
-    if (meta.tags && meta.tags.length > 0) {
-        parts.push(...meta.tags);
-    }
-
-    const attributeStr = parts.length > 0 ? parts.join(', ') : '';
+    const keywordStr = keywords.length > 0 ? `voice character: ${keywords.join(', ')}` : '';
     const descStr = meta.description?.trim() ? `described as: ${meta.description.trim()}` : '';
-
-    const middle = [attributeStr, descStr].filter(Boolean).join('; ');
+    const tail = [keywordStr, descStr].filter(Boolean).join('; ');
+    const tailSentence = tail ? ` Additional detail: ${tail}.` : '';
 
     // Archetype match (user-reported gap, 2026-07-16): the 39-row voice
     // archetype table (design-docs/reference/voice-archetypes/) carries a
-    // hand-authored `appearance_description` per archetype — written
-    // specifically for visual/appearance guidance, richer than the raw
-    // attribute-keyword concatenation above. When the voice's tagged
-    // attributes score a close/exact match (same scoring `suggestRecordingPrompt`
-    // uses for the recording cue card, via the shared `findMatchingArchetype`),
-    // lead the image prompt with that description instead of bare keywords.
-    const archetype = findMatchingArchetype(meta.attributes ?? {});
+    // hand-authored, portrait-framed `appearance_description` per archetype.
+    // When the voice's tagged attributes score a close/exact match (same
+    // scoring `suggestRecordingPrompt` uses, via the shared
+    // `findMatchingArchetype`), lead with that description — then still let
+    // manual selections that DIFFER from the archetype add visual detail.
+    const archetype = findMatchingArchetype(attrs);
     if (archetype) {
-        const supporting = middle ? ` Additional detail: ${middle}.` : '';
-        return `Circular avatar portrait icon, flat illustration, uniform style: ${archetype.appearance_description}${supporting} Neutral background, centered, no text.`;
+        const { subject, details } = visualFragmentsForAttributes(attrs, {
+            class: archetype.class,
+            gender: archetype.gender,
+            age: archetype.age,
+            tones: archetype.dominant_tones,
+            timbres: archetype.dominant_timbres,
+        });
+        const extras = [subject, ...details].filter(Boolean).join('; ');
+        const extraSentence = extras ? ` Also: ${extras}.` : '';
+        return `${FRAME_PREFIX}: ${archetype.appearance_description}${extraSentence}${tailSentence} ${FRAME_SUFFIX}`;
     }
 
-    if (!middle) {
+    // Composed path: manual attributes rendered as visual descriptors.
+    const { subject, details } = visualFragmentsForAttributes(attrs);
+    const visual = [subject, ...details].filter(Boolean).join('; ');
+
+    if (!visual && !tail) {
         // Untagged / name-only fallback
-        return `Circular avatar portrait icon of "${meta.name}", flat illustration, uniform style. Neutral background, centered, no text.`;
+        return `${FRAME_PREFIX} of "${meta.name}". ${FRAME_SUFFIX}`;
     }
 
-    return `Circular avatar portrait icon, flat illustration, uniform style: ${middle}. Neutral background, centered, no text.`;
+    const body = [visual, tail].filter(Boolean).join('. Additional detail: ');
+    if (!visual) {
+        return `${FRAME_PREFIX}: ${tail}. ${FRAME_SUFFIX}`;
+    }
+    return `${FRAME_PREFIX}: ${body}. ${FRAME_SUFFIX}`;
 }
