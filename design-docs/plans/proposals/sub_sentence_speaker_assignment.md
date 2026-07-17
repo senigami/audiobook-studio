@@ -169,11 +169,15 @@ doc's "spans, not words" direction. It also flags LLM chain-of-thought-over-chap
 attribution as the strongest current method for the no-attribution-tail case (Open
 Question 3) once auto-suggestion is built.
 
-## Remaining gap
+## Remaining gaps
 
-See `design-docs/plans/active/span_word_boundary_snapping/` for the one confirmed, scoped gap
-(word-boundary snapping) and its execution plan — the rest of this document describes what's
-already shipped.
+Word-boundary snapping **shipped 2026-07-17** (PR #143); its plan is complete and archived at
+`design-docs/plans/active/archive/span_word_boundary_snapping/`. The rest of this document
+describes what's already shipped. Genuinely unbuilt work (see the status paragraph at the top of
+this doc for the full list): sub-sentence spans don't survive a source-text resync and the
+`showSafeText` offset-fidelity gap — both scoped in
+`design-docs/plans/proposals/span_resync_preservation.md`; undo (doc-10 U1); and character
+auto-detection (Open Question 3).
 
 ## Sequencing
 
