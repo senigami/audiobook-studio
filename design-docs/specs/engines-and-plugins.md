@@ -1,8 +1,8 @@
 # Engines and Plugin Lifecycle
 
 ```
-spec_version: 1.1.2
-updated: 2026-07-04
+spec_version: 1.1.3
+updated: 2026-07-16
 status: active
 sources:
   - app/tts_server/server.py
@@ -19,6 +19,7 @@ sources:
 
 | Version | Date       | Change                 |
 |---------|------------|------------------------|
+| 1.1.3   | 2026-07-16 | Manifests gained an optional shape-validated `distribution` block (standalone-repo source; plan 05 §1.2) — full contract documented in `plugin-contract.md` v1.7.0. In-tree `tts_xtts`/`tts_voxtral` manifests now carry blocks matching the official registry's repo URLs. |
 | 1.1.2   | 2026-07-04 | Added note distinguishing the runtime engine registry cache from the marketplace/catalog registry (doc 05 / `official_registry.py`), with a pointer to the marketplace-UI prior-art research doc; corrected the note's initial "in-process registry" wording (it is a Studio-side cache over the TTS Server's `GET /engines`; engine code never runs in Studio's process) |
 | 1.1.1   | 2026-06-16 | Corrected "Engine registry cache" section: `_load_local_registry()` returns `{}` unconditionally (`@lru_cache`); there is no local manifest parsing; the fallback is an empty registry, not a locally parsed manifest list; dropped the MUST-NOT-empty claim |
 | 1.1.0   | 2026-06-15 | Added official plugin registry and GitHub repository preview/staging flow |

@@ -1,7 +1,7 @@
 # Plugin Contract
 
 ```
-spec_version: 1.6.0
+spec_version: 1.7.0
 updated: 2026-07-16
 status: active
 sources:
@@ -21,6 +21,7 @@ sources:
 
 | Version | Date       | Change                 |
 |---------|------------|------------------------|
+| 1.7.0   | 2026-07-16 | **Optional `distribution` manifest block (plan 05 §1.2, repo-ready plugin folders).** Manifests MAY declare a top-level `distribution` object (`host`, `base_url`, `repo`, `git_url`, `topic`, `pin_ref`, `official`) pointing at the plugin's standalone GitHub repo. Shape-validated when present by `_validate_manifest` (dict; string fields typed; `pin_ref` string-or-null; `official` boolean); no field required, block optional — additive, no manifest version bump. In-tree `tts_xtts`/`tts_voxtral` manifests now carry final-shape blocks matching `app/engines/official_registry.py` repo URLs (placeholder `audiobook-studio/*` repos). Standalone-repo plugins never set `built_in`. Also: `tts_voxtral` manifest `license` corrected `"Commercial API"` → `"MIT"` (plugin code license; API usage stays under Mistral's terms). |
 | 1.6.0   | 2026-07-16 | **W-PERF safe-foundation: optional export-layer capability fields.** New optional `behavior` sub-fields `export_format` (enum: `ssml_w3c`/`ssml_azure`/`elevenlabs_text`/`ssml_polly`/`plain_text`), `supports_per_span_voice`, `supports_emotion_style`, `supports_prosody`, `supports_break` (booleans, default `false`). Additive/backward-compatible — no manifest version bump, same class of change as prior `behavior.features` additions (`segment_orchestration`, `cps_eta`). Consumed only by the export layer (task 011, not yet built) via new `app.engines.behavior.export_capabilities_for()` helper — distinct from the render-pipeline's `has_behavior(engine_id, "ssml_directives")` feature-string gate (sibling `chapter_editor_catalog_completion` plan's task 006, not yet landed). No real plugin manifest declares these fields; validated as optional (type/enum-checked when present, absent is fine) in `plugin_loader.py`. |
 | 1.5.0   | 2026-07-11 | Closes the last real Stage 3 residue: `tts_engines/tts_xtts/plugin/studio/app_adapter.py` and `tts_engines/tts_voxtral/plugin/studio/app_adapter.py` (11 module-level `from app.*` imports total, flagged as a factual regression by a 2026-07-01 audit — these files were never in the S4/S5 import-cleanliness tests' target list, so the original "zero module-level imports" sign-off never covered them). `studio_plugin_sdk` gains five new app-adapter-contract exports: `BaseVoiceEngine`, `EngineHealthModel`, `EngineManifestModel`, `EngineExecutionError`, `EngineRequestError` — the app-side engine-registry base class and its data/error types a plugin's `app_adapter.py` subclasses/raises to register with the app's `VoiceBridge`, distinct from `StudioTTSEngine` (the server-side, per-job contract already exported). Both `app_adapter.py` files migrated to the SDK exports plus existing `ctx.get_voices_dir()` / `ctx.resolve_voice_preview_inputs()` context methods (note: `ctx.resolve_voice_preview_inputs` returns a dict `{voice_ref, voice_profile_dir}`, not the raw function's tuple — callers must adapt). Both import-cleanliness test suites (`test_s4_import_cleanliness.py`, `test_s5_import_cleanliness.py`) now include `app_adapter` in their target-module list, closing the scope gap that let this regression through. A dead, never-called `run_managed_subprocess_async` import was deleted from tts_xtts's `app_adapter.py` rather than migrated. |
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
@@ -289,6 +290,18 @@ a per-engine limit.
 **MUST NOT:**
 - `text_split_target` MUST NOT exceed `text_chunk_limit` when both are present.
 - `studio_tts_manifest` MUST NOT be any value other than `"1.0"`.
+
+### Optional `distribution` block (plan 05 §1.2)
+
+A manifest MAY carry a top-level `distribution` object describing the plugin's
+standalone-repo source (final-shape example: `host`, `base_url`, `repo`,
+`git_url`, `topic`, `pin_ref`, `official`). When present it is shape-validated
+by `_validate_manifest` (`app/tts_server/plugin_manifest.py`): it MUST be a
+JSON object; `host`/`base_url`/`repo`/`git_url`/`topic` MUST be strings when
+present; `pin_ref` MUST be a string or `null`; `official` MUST be a boolean.
+No field inside the block is required, and the block itself remains optional
+(additive — no manifest version bump). Standalone-repo plugins MUST NOT set
+`built_in`; that field is reserved for in-tree built-ins (`tts_mixed`).
 
 ---
 

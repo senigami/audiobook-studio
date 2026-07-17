@@ -85,6 +85,15 @@
   "author": "idiap/coqui-ai-TTS",
   "homepage": "https://github.com/idiap/coqui-ai-TTS",
   "license": "CPML-1.0",
+  "distribution": {
+    "host": "github",
+    "base_url": "https://github.com",
+    "repo": "audiobook-studio/tts-xtts",
+    "git_url": "https://github.com/audiobook-studio/tts-xtts.git",
+    "topic": "audiobook-studio-tts",
+    "pin_ref": null,
+    "official": true
+  },
   "test_sample": "latent.pth",
   "test_text": "Hello, this is a verification test of the XTTS synthesis engine.",
   "dev": {
