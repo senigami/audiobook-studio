@@ -61,3 +61,70 @@ def test_xtts_app_adapter_synthesize_reports_duration_sec(tmp_path, monkeypatch)
     assert result["status"] == "ok"
     assert result["audio_path"] == str(output_path)
     assert result["duration_sec"] > 0
+
+
+def _make_engine() -> XttsVoiceEngine:
+    return XttsVoiceEngine(
+        manifest=EngineManifestModel(
+            engine_id="xtts",
+            display_name="XTTS",
+            phase="test",
+            module_path="tts_engines.tts_xtts.interface",
+        )
+    )
+
+
+def test_describe_health_delegates_to_xtts_env_ready_when_ready(monkeypatch):
+    """describe_health() must reflect the real external-env check (BUG 1's
+    xtts_env_ready()), not the stale placeholder that checked a `.venv`
+    folder inside the plugin's own directory (never created by any real
+    provisioning path) and treated requirements.txt existing as
+    "dependencies satisfied".
+    """
+    monkeypatch.setattr(
+        "tts_engines.tts_xtts.plugin.core.implementation.xtts_env_ready",
+        lambda: (True, "OK"),
+    )
+
+    health = _make_engine().describe_health()
+
+    assert health.available is True
+    assert health.ready is True
+    assert health.status == "ready"
+    assert health.message is None
+    assert health.dependencies_satisfied is True
+    assert health.missing_dependencies == []
+
+
+def test_describe_health_reports_needs_setup_from_xtts_env_ready(monkeypatch):
+    monkeypatch.setattr(
+        "tts_engines.tts_xtts.plugin.core.implementation.xtts_env_ready",
+        lambda: (False, "XTTS dependencies not found in the xtts-env. Run ./run.sh (or ./run.ps1) to provision it."),
+    )
+
+    health = _make_engine().describe_health()
+
+    assert health.available is False
+    assert health.ready is False
+    assert health.status == "needs_setup"
+    assert health.message == (
+        "XTTS dependencies not found in the xtts-env. Run ./run.sh (or ./run.ps1) to provision it."
+    )
+    assert health.dependencies_satisfied is False
+
+
+def test_describe_health_message_never_mentions_install_deps(monkeypatch):
+    """Regression guard: the setup message must never reference the
+    'Install Deps' button, since POST /engines/xtts/install refuses (400)
+    for this engine (dependency_check: "external", BUG 1 fix) -- pointing
+    users at it would be a dead end.
+    """
+    monkeypatch.setattr(
+        "tts_engines.tts_xtts.plugin.core.implementation.xtts_env_ready",
+        lambda: (False, "not ready"),
+    )
+
+    health = _make_engine().describe_health()
+
+    assert health.message is not None
+    assert "Install Deps" not in health.message

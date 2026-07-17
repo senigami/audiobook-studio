@@ -29,7 +29,7 @@
         "enabled": false,
         "dependencies_satisfied": false,
         "missing_dependencies": ["coqui-tts", "torch"],
-        "setup_message": "Run Install Deps to install the required packages."
+        "setup_message": "Run ./run.sh (or ./run.ps1) to provision the XTTS runtime."
       },
       "dev_logs": {
         "install": "Simulated: Installing dependencies... [OK]\nReloading plugin... [OK]",
