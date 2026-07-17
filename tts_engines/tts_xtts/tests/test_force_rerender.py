@@ -327,7 +327,7 @@ class TestForceRerenderBakePath:
         j = _make_job(force_rerender=force_rerender)
         j.is_bake = True
 
-        from app.studio_plugin_sdk.context import StudioPluginContext
+        from studio_plugin_sdk.context import StudioPluginContext
 
         real_ctx = StudioPluginContext("xtts")
         ctx = MagicMock()

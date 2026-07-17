@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.engines.voice.sdk import TTSRequest
+from studio_plugin_sdk.types import TTSRequest
 from tts_engines.tts_xtts.interface import XttsPlugin
 
 

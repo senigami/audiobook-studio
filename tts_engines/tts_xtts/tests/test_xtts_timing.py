@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from app.engines.voice.sdk import TTSRequest, TTSResult, TTSTimingResult, SegmentTimingResult
+from studio_plugin_sdk.types import TTSRequest, TTSResult, TTSTimingResult, SegmentTimingResult
 from tts_engines.tts_xtts.plugin.server.engine import XttsPlugin
 
 def test_xtts_adapter_returns_timing_result_on_success(tmp_path):

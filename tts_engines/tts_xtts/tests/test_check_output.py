@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from app.engines.voice.sdk import TTSRequest, TTSResult
+from studio_plugin_sdk.types import TTSRequest, TTSResult
 
 
 def _make_wav(path: Path, duration_secs: float, sample_rate: int = 22050) -> None:

@@ -19,7 +19,7 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-from app.engines.voice.sdk import TTSResult, VerificationResult
+from studio_plugin_sdk.types import TTSResult, VerificationResult
 from tts_engines.tts_xtts.plugin.server.engine import XttsPlugin
 
 
