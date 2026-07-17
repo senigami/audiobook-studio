@@ -1,0 +1,24 @@
+# Standalone-repo packaging metadata for the XTTS plugin.
+# In-tree this file is inert: the Studio repo's root pytest.ini governs test
+# collection, and the plugin is loaded from the folder by the TTS Server's
+# plugin loader, never pip-installed.
+
+[project]
+name = "studio-plugin-tts-xtts"
+version = "1.0.1"
+description = "XTTS local voice-cloning TTS engine plugin for Audiobook Studio"
+readme = "README.md"
+license = { text = "CPML-1.0" }
+requires-python = ">=3.11"
+# Runtime deps for the TTS Server env live in requirements.txt (the heavy
+# XTTS/torch stack is provisioned into a separate env, see README).
+dependencies = []
+
+# The SDK is not on PyPI yet. On extraction day, uncomment and pin:
+# dependencies = ["studio-plugin-sdk>=1.0"]
+
+[project.urls]
+Homepage = "https://github.com/audiobook-studio/tts-xtts"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

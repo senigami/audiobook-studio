@@ -48,7 +48,7 @@ export const PhaseStepper: React.FC<PhaseStepperProps> = ({ phase }) => {
                                 aria-hidden="true"
                                 className="voice-lab-phase-stepper__connector"
                                 style={{
-                                    background: isPast || isActive ? 'var(--accent)' : 'var(--border)',
+                                    background: isPast || isActive ? 'var(--action-primary)' : 'var(--border)',
                                 }}
                             />
                         )}

@@ -101,7 +101,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                color: isDestructive ? 'var(--error)' : 'var(--accent)'
+                                color: isDestructive ? 'var(--error)' : 'var(--action-primary)'
                             }}>
                                 <AlertCircle size={24} />
                             </div>

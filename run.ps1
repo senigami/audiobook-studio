@@ -507,7 +507,7 @@ Write-Step "Using Python: $($PythonInfo.Command)"
 Ensure-FfmpegReady
 Sync-PythonRequirements $PythonInfo $AppVenv (Join-Path $Root "requirements.txt") "app"
 $XttsTorchArgs = Select-TorchBackend
-Sync-PythonRequirements $PythonInfo $TtsEnvDir (Join-Path $Root "plugins/tts_xtts/requirements.txt") "XTTS" $XttsTorchArgs
+Sync-PythonRequirements $PythonInfo $TtsEnvDir (Join-Path $Root "tts_engines/tts_xtts/requirements.txt") "XTTS" $XttsTorchArgs
 Ensure-FrontendReady
 Maybe-RestoreDemoBundle $PythonInfo
 

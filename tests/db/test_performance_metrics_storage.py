@@ -205,7 +205,7 @@ def test_successful_jobs_do_not_write_plugin_computer_speed_multiplier(clean_db,
     from app.db.models import Job
     from app.tts_server.settings_store import load_settings, save_settings
 
-    plugins_dir = tmp_path / "plugins"
+    plugins_dir = tmp_path / "tts_engines"
     plugin_dir = plugins_dir / "tts_engine-a"
     plugin_dir.mkdir(parents=True)
     save_settings(plugin_dir, {"enabled": True, "quality": "draft"})
@@ -237,7 +237,7 @@ def test_clear_engine_speed_baseline_wipes_samples_and_cached_cps(clean_db, clea
     from app.tts_server.performance_settings import clear_engine_computer_speed_baseline
     from app.tts_server.settings_store import load_settings, save_settings
 
-    plugins_dir = tmp_path / "plugins"
+    plugins_dir = tmp_path / "tts_engines"
     plugin_dir = plugins_dir / "tts_engine-a"
     plugin_dir.mkdir(parents=True)
     save_settings(plugin_dir, {"enabled": True, "computer_speed_multiplier": 1.75})
@@ -289,7 +289,7 @@ def test_record_engine_sample_filters_speed_history_by_tts_model(clean_db, clean
     from app.db.models import Job
     from app.tts_server.settings_store import save_settings
 
-    plugins_dir = tmp_path / "plugins"
+    plugins_dir = tmp_path / "tts_engines"
     plugin_dir = plugins_dir / "tts_engine-a"
     plugin_dir.mkdir(parents=True)
     save_settings(plugin_dir, {"model": "model-fast"})

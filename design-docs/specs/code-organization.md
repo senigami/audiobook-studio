@@ -1,10 +1,10 @@
 # SP10 — Code Organization Spec
 
 ```
-spec_version: 1.2.0
+spec_version: 1.4.0
 status: active
 created: 2026-06-10
-updated: 2026-07-10
+updated: 2026-07-16
 sources: app/api/web.py, app/api/tts_api.py, app/api/ws.py,
          app/core/boot.py, app/core/config.py, app/core/security.py,
          app/db/state.py, app/engines/bridge.py, app/engines/registry.py,
@@ -19,6 +19,8 @@ sources: app/api/web.py, app/api/tts_api.py, app/api/ws.py,
 
 | Version | Date       | Summary                                                     |
 |---------|------------|-------------------------------------------------------------|
+| 1.4.0   | 2026-07-16 | **Namespace rename: `plugins/` → `tts_engines/` (PR brief 006).** The engine-plugin directory (§2, §4) is renamed repo-wide: `plugins/tts_xtts`, `plugins/tts_voxtral`, `plugins/tts_mixed` are now `tts_engines/tts_xtts`, `tts_engines/tts_voxtral`, `tts_engines/tts_mixed`. Pure rename — every importer (`app/core/config.py`'s `PLUGINS_DIR` default, `conftest.py`, `pytest.ini` `testpaths`, `plugin_loader.py`/`plugin_manifest.py` discovery-root docstrings) updated in the same change; `plugins/` is reserved going forward for app-behavior (non-engine) extensions per `design-docs/plans/active/master_agnostic_tasks.md`'s namespace-block item. No behavior change; HTTP routes under `/plugins/*` (refresh/import/preview/confirm/staging) are unaffected — those are API paths, not filesystem paths, and keep their existing names. |
+| 1.3.0   | 2026-07-16 | **`app/tts_server/plugin_loader.py` split.** Documented the new `plugin_manifest.py` module (§3.6): manifest load/validate/dependency-check/concurrency-limit surface extracted; `plugin_loader.py` retains plugin instantiation and the registry. |
 | 1.2.0   | 2026-07-10 | **Styling-separation plan complete (ST-1–ST-4).** Documented the `theme/components.css` monolith split into `theme/components/` (11 domain-scoped files: `core.css`, `nav.css`, `book.css`, `book-tabs.css`, `publish.css`, `activity.css`, `shared.css`, `player.css`, `voice-lab.css`, `review-tools.css`, `misc.css`), assembled via `@import` in `theme/index.css` in load-bearing cascade order. Added `theme/` subtree detail to the frontend layout tree. Recorded the new CI regression guard (`scripts/check_hardcoded_styles.py`, wired into `.github/workflows/ci.yml`) that rejects new hardcoded hex/rgb color literals in `style={{}}` blocks repo-wide, in `theme/components/*.css`, and in 5 named co-located stylesheets this plan added, plus raw px spacing literals that exactly match a `--space-*` token (scoped to the ST-3-converted file set) — a targeted, named-file guard, not a blanket repo-wide CSS scan (adversarial review, 2026-07-10). |
 | 1.1.0   | 2026-06-16 | Fix page entry convention to `<Page>Route.tsx`; describe actual `api/` shape; add missing `frontend/src/` dirs; carve out `app.jobs.registry` from import ban |
 | 1.0.0   | 2026-06-10 | Initial spec documenting Studio 2.0 layout and conventions  |
@@ -45,7 +47,7 @@ Cross-references: import-time side effect rules are in
 ```
 audiobook-factory/
   app/                   # Studio main-process Python package
-  plugins/               # Self-contained engine plugins
+  tts_engines/           # Self-contained engine plugins
   frontend/              # React + TypeScript UI
   tests/                 # Backend pytest suite (mirrors app/ layout)
   docs/
@@ -55,7 +57,7 @@ audiobook-factory/
   wiki/                  # End-user documentation + Changelog
   run.py                 # App entry point (exposes `app` from app/api/web.py)
   tts_server.py          # TTS Server subprocess entry point
-  pytest.ini             # Collects from BOTH tests/ and plugins/; runs --cov=app
+  pytest.ini             # Collects from BOTH tests/ and tts_engines/; runs --cov=app
   pyproject.toml         # Ruff config (line-length 120)
 ```
 
@@ -138,7 +140,8 @@ Studio main process.
 | Path | Responsibility |
 |---|---|
 | `server.py` | FastAPI app for the TTS Server |
-| `plugin_loader.py` | Discovers and validates engine plugins from `plugins/` |
+| `plugin_loader.py` | Discovers, loads, and registers engine plugins from `tts_engines/` (instantiation + registry surface) |
+| `plugin_manifest.py` | Manifest load/validate/dependency-check/concurrency-limit surface for plugins (split out of `plugin_loader.py`) |
 | `health.py` | Engine status computation for `GET /health` |
 | `settings_store.py` | Per-plugin settings persistence |
 | `verification.py` | Plugin contract verification helpers |
@@ -163,10 +166,10 @@ New modules MUST NOT import `app/jobs/` for task dispatch.
 
 ---
 
-## 4. Plugin Layout (`plugins/`)
+## 4. Plugin Layout (`tts_engines/`)
 
 ```
-plugins/
+tts_engines/
   tts_<id>/
     manifest.json     # engine_id, capabilities, behavior, resource needs; studio_tts_manifest version required
     interface.py      # Engine entry class (implements StudioTTSEngine ABC from app/engines/voice/base.py)
@@ -177,7 +180,7 @@ plugins/
 
 Plugin directory names MUST match `^tts_[a-z][a-z0-9]{1,14}$`.
 
-New TTS engines MUST be added as `plugins/tts_<id>/` directories.  No engine
+New TTS engines MUST be added as `tts_engines/tts_<id>/` directories.  No engine
 registration is needed in core code; discovery is automatic via
 `app/tts_server/plugin_loader.py`.
 
@@ -262,10 +265,10 @@ tests/
 ```
 
 `conftest.py` at the repo root redirects storage paths to a session temp dir,
-points `PLUGINS_DIR` at the real `plugins/` directory, and sets
+points `PLUGINS_DIR` at the real `tts_engines/` directory, and sets
 `APP_TEST_MODE=1`.
 
-Plugin-local tests live at `plugins/<id>/tests/` and are collected by pytest
+Plugin-local tests live at `tts_engines/<id>/tests/` and are collected by pytest
 via `pytest.ini`.
 
 Default per-test timeout: 15 seconds.  Override with
@@ -321,7 +324,7 @@ attempts MUST be rejected, not silently corrected.
 
 | Adding... | Where it goes | Notes |
 |---|---|---|
-| New TTS engine | `plugins/tts_<id>/` | Manifest + interface; no core changes needed |
+| New TTS engine | `tts_engines/tts_<id>/` | Manifest + interface; no core changes needed |
 | New API endpoint | `app/api/routers/<domain>.py` | Register router in `web.py` |
 | New task type | `app/orchestration/tasks/<type>.py` | Derive from `tasks/base.py` |
 | New path helper | `app/utils/pathing.py` | Must pass containment check |
@@ -351,7 +354,7 @@ attempts MUST be rejected, not silently corrected.
 
 **MUST:**
 
-- I1. New TTS engines MUST be placed in `plugins/tts_<id>/` with a `manifest.json` declaring `studio_tts_manifest` (currently `"1.0"`).
+- I1. New TTS engines MUST be placed in `tts_engines/tts_<id>/` with a `manifest.json` declaring `studio_tts_manifest` (currently `"1.0"`).
 - I2. New API endpoints MUST live in `app/api/routers/<domain>.py` and be registered in `app/api/web.py`.
 - I3. New task types MUST live in `app/orchestration/tasks/<type>.py` and derive from `tasks/base.py`.
 - I4. Path helpers MUST be added to `app/utils/pathing.py`; all untrusted paths MUST pass through a helper from this module.

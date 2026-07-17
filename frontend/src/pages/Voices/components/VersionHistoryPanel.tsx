@@ -113,8 +113,8 @@ export const VersionHistoryPanel: React.FC<VersionHistoryPanelProps> = ({
                                         className="variant-editor__engine-badge"
                                         style={{
                                             background: 'var(--accent-tint-bg)',
-                                            color: 'var(--accent)',
-                                            border: '1px solid var(--accent)33'
+                                            color: 'var(--action-primary)',
+                                            border: '1px solid var(--action-primary)33'
                                         }}
                                     >
                                         {version.model || version.engine_id}

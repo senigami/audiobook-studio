@@ -79,7 +79,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
             : (isCloudEngine ? 'var(--cloud-tint-bg)' : 'var(--accent-tint-bg)'),
         color: !activeEngineSelectable
             ? 'var(--text-muted)'
-            : (isCloudEngine ? 'var(--cloud-color)' : 'var(--accent)')
+            : (isCloudEngine ? 'var(--cloud-color)' : 'var(--action-primary)')
     };
 
     const handleAddVariant = () => onAddVariantClick(speaker, profiles.length);
@@ -87,7 +87,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
     const status = getStatusInfo(activeProfile as SpeakerProfile, engines, buildingProfiles);
 
     return (
-        <div className="glass-panel animate-in" style={{ padding: '0', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: isExpanded ? '1px solid var(--accent)' : '1px solid var(--border)' }}>
+        <div className="glass-panel animate-in" style={{ padding: '0', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: isExpanded ? '1px solid var(--action-primary)' : '1px solid var(--border)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '80px', padding: '0 1.5rem' }}>
                 <div
                     onClick={onToggleExpand}
@@ -106,7 +106,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                         width: '40px',
                         height: '40px',
                         borderRadius: '12px',
-                        background: 'var(--accent)',
+                        background: 'var(--action-primary)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -142,11 +142,11 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                 height: '18px',
                                 borderRadius: '50%',
                                 background: 'var(--surface)',
-                                border: `2px solid ${isExpanded ? 'var(--accent)' : 'var(--border)'}`,
+                                border: `2px solid ${isExpanded ? 'var(--action-primary)' : 'var(--border)'}`,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                color: isExpanded ? 'var(--accent)' : 'var(--text-muted)',
+                                color: isExpanded ? 'var(--action-primary)' : 'var(--text-muted)',
                                 boxShadow: 'var(--shadow-sm)',
                                 zIndex: 2,
                                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -162,7 +162,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                             <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 {speaker.name}
                                 {profiles.some(p => p.is_default) && (
-                                    <Star size={16} fill="var(--accent)" color="var(--accent)" />
+                                    <Star size={16} fill="var(--action-primary)" color="var(--action-primary)" />
                                 )}
                             </h3>
                             <span style={{
@@ -288,9 +288,9 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                                 fontWeight: 800,
                                                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                                                 border: '1px solid',
-                                                borderColor: isActive ? 'var(--accent)' : 'transparent',
+                                                borderColor: isActive ? 'var(--action-primary)' : 'transparent',
                                                 background: isActive
-                                                    ? 'var(--accent)'
+                                                    ? 'var(--action-primary)'
                                                     : (hoveredProfileId === p.name ? 'var(--accent-glow)' : 'transparent'),
                                                 color: isActive
                                                     ? 'white'
@@ -301,7 +301,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                                 whiteSpace: 'nowrap'
                                             }}
                                         >
-                                            {p.is_default && <Star size={12} fill={isActive ? "white" : "var(--accent)"} color={isActive ? "white" : "var(--accent)"} />}
+                                            {p.is_default && <Star size={12} fill={isActive ? "white" : "var(--action-primary)"} color={isActive ? "white" : "var(--action-primary)"} />}
                                             {p.variant_name || 'Default'}
                                             <span style={{
                                                 padding: '1px 6px',
@@ -313,7 +313,7 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                                     : (engines.find(e => e.engine_id === (getVoiceProfileEngine(p) || 'unknown'))?.cloud ? 'var(--cloud-tint-bg)' : 'var(--accent-tint-bg)'),
                                                 color: isActive
                                                     ? 'var(--text-on-accent)'
-                                                    : (engines.find(e => e.engine_id === (getVoiceProfileEngine(p) || 'unknown'))?.cloud ? 'var(--cloud-color)' : 'var(--accent)')
+                                                    : (engines.find(e => e.engine_id === (getVoiceProfileEngine(p) || 'unknown'))?.cloud ? 'var(--cloud-color)' : 'var(--action-primary)')
                                             }}>
                                                 {(engines.find(e => e.engine_id === (getVoiceProfileEngine(p) || 'unknown'))?.display_name || formatVoiceEngineLabel(getVoiceProfileEngine(p))).substring(0, 2).toUpperCase()}
                                             </span>
@@ -327,12 +327,12 @@ export const NarratorCard: React.FC<NarratorCardProps> = ({
                                         borderRadius: '100px',
                                         fontSize: '0.8rem',
                                         fontWeight: 800,
-                                        color: 'var(--accent)',
+                                        color: 'var(--action-primary)',
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '4px',
                                         background: 'var(--accent-glow)',
-                                        border: '1px dashed var(--accent)',
+                                        border: '1px dashed var(--action-primary)',
                                         marginLeft: '4px',
                                         whiteSpace: 'nowrap'
                                     }}

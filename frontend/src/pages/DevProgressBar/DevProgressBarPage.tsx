@@ -43,7 +43,7 @@ export const ProgressBarTestPage: React.FC = () => {
         boxShadow: 'var(--shadow-md)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.35rem' }}>
-          <Terminal size={18} color="var(--accent)" />
+          <Terminal size={18} color="var(--action-primary)" />
           <h1 style={{ margin: 0, fontSize: '1.6rem' }}>Progress Bar Test</h1>
         </div>
         <p style={{ margin: 0, color: 'var(--text-secondary)' }}>

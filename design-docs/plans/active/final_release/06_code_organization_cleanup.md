@@ -122,10 +122,12 @@ Phase 12 final polish. Execute items in the order shown: safe deletions first, t
 
 **Action:**
 
-- [ ] First confirm whether anything actually *calls* these functions (not just imports/patches them): `grep -rn "run_managed_subprocess" plugins/ app/ --include="*.py" | grep -v __pycache__`. As verified above, the only real usages are the dead `_ =` keep-alive references and mock-patch target strings — there is no live caller.
-- [ ] Because the stub has no live caller, treat this as a boundary placeholder: either (a) **implement** `run_managed_subprocess`/`run_managed_subprocess_async` with real managed-lifecycle wrappers and route the plugin adapters' actual subprocess launches through them, or (b) **delete the package and the dead `_ = run_managed_subprocess_async` lines plus the mock-patch target strings** if the adapters already manage their own subprocesses. Pick (a) only if doc 02 commits to this boundary; otherwise (b). Do **not** leave it as a permanent `NotImplementedError` stub.
-- [ ] After the change: `pytest` from repo root — confirm no import errors from the plugin adapters and the mock patches still resolve (if kept).
+- [x] First confirm whether anything actually *calls* these functions (not just imports/patches them): `grep -rn "run_managed_subprocess" plugins/ app/ --include="*.py" | grep -v __pycache__`. As verified above, the only real usages are the dead `_ =` keep-alive references and mock-patch target strings — there is no live caller.
+- [x] Because the stub has no live caller, treat this as a boundary placeholder: either (a) **implement** `run_managed_subprocess`/`run_managed_subprocess_async` with real managed-lifecycle wrappers and route the plugin adapters' actual subprocess launches through them, or (b) **delete the package and the dead `_ = run_managed_subprocess_async` lines plus the mock-patch target strings** if the adapters already manage their own subprocesses. Pick (a) only if doc 02 commits to this boundary; otherwise (b). Do **not** leave it as a permanent `NotImplementedError` stub.
+- [x] After the change: `pytest` from repo root — confirm no import errors from the plugin adapters and the mock patches still resolve (if kept).
 - **Acceptance:** Either `python -c "from app.infra.subprocess import run_managed_subprocess_async, run_managed_subprocess"` exits 0 AND a real call path exercises them; or the package is gone and `grep -rn "app.infra.subprocess" plugins/ app/ --include="*.py"` returns nothing.
+
+**Deleted 2026-07-16, zero live callers confirmed by repo-wide grep** — `app/infra/subprocess/` removed; the stale `run_managed_subprocess` mentions in the `app_adapter.py` boundary comments (both xtts and voxtral) were rephrased to drop the dead reference.
 
 ### 3.2 `app/orchestration/` — not empty (do not delete)
 
@@ -146,9 +148,11 @@ find app/infra -name "*.py" ! -name "__init__.py" | grep -v __pycache__
 
 Per the policy banner, these are NOT legacy-migration code and must not be kept as documented placeholders.
 
-- [ ] For each subpackage (`cache/`, `db/`, `events/`): grep for live callers first: `grep -rn "app.infra.cache\|app.infra.events\|app.infra.db\|build_cache_key\|publish_internal_event" app/ plugins/ --include="*.py" | grep -v __pycache__`.
-- [ ] If a subpackage has zero live callers: `git rm -r app/infra/<subpackage>/`. If it has callers, implement it (do not retain as a raising stub).
+- [x] For each subpackage (`cache/`, `db/`, `events/`): grep for live callers first: `grep -rn "app.infra.cache\|app.infra.events\|app.infra.db\|build_cache_key\|publish_internal_event" app/ plugins/ --include="*.py" | grep -v __pycache__`.
+- [x] If a subpackage has zero live callers: `git rm -r app/infra/<subpackage>/`. If it has callers, implement it (do not retain as a raising stub).
 - **Acceptance:** `find app/infra -name "*.py" ! -name "__init__.py"` is non-empty only for packages with real implementations; no `__init__.py`-only package with a `raise NotImplementedError` body remains, and `grep -rn "NotImplementedError" app/infra/` returns nothing.
+
+**Deleted 2026-07-16, zero live callers confirmed by repo-wide grep** — `app/infra/cache/`, `app/infra/db/`, `app/infra/events/` all removed alongside `app/infra/subprocess/` (§3.1). `app/infra/__init__.py` retained (docstring-only, no re-exports of the deleted subpackages).
 
 ### 3.4 Duplicate `_ensure_plugin_package_hierarchy`
 

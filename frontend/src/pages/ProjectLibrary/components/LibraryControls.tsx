@@ -66,9 +66,9 @@ export const LibraryControls: React.FC<LibraryControlsProps> = ({
                         style={{
                             padding: '0.45rem 0.75rem',
                             borderRadius: '999px',
-                            border: sortOption === AZ_SORT ? '1px solid var(--accent)' : '1px solid var(--border)',
+                            border: sortOption === AZ_SORT ? '1px solid var(--action-primary)' : '1px solid var(--border)',
                             background: sortOption === AZ_SORT ? 'var(--accent-glow)' : 'transparent',
-                            color: sortOption === AZ_SORT ? 'var(--accent)' : 'var(--text-muted)',
+                            color: sortOption === AZ_SORT ? 'var(--action-primary)' : 'var(--text-muted)',
                             fontSize: '0.8rem',
                             fontWeight: 500,
                             cursor: 'pointer'
@@ -87,9 +87,9 @@ export const LibraryControls: React.FC<LibraryControlsProps> = ({
                         style={{
                             padding: '0.45rem 0.75rem',
                             borderRadius: '999px',
-                            border: statusFilter === 'in-progress' ? '1px solid var(--accent)' : '1px solid var(--border)',
+                            border: statusFilter === 'in-progress' ? '1px solid var(--action-primary)' : '1px solid var(--border)',
                             background: statusFilter === 'in-progress' ? 'var(--accent-glow)' : 'transparent',
-                            color: statusFilter === 'in-progress' ? 'var(--accent)' : 'var(--text-muted)',
+                            color: statusFilter === 'in-progress' ? 'var(--action-primary)' : 'var(--text-muted)',
                             fontSize: '0.8rem',
                             fontWeight: 500,
                             cursor: 'pointer'
@@ -148,7 +148,7 @@ export const LibraryControls: React.FC<LibraryControlsProps> = ({
                             background: viewMode === 'grid' ? 'var(--surface)' : 'transparent',
                             borderRadius: '6px',
                             border: 'none',
-                            color: viewMode === 'grid' ? 'var(--accent)' : 'var(--text-muted)',
+                            color: viewMode === 'grid' ? 'var(--action-primary)' : 'var(--text-muted)',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
@@ -168,7 +168,7 @@ export const LibraryControls: React.FC<LibraryControlsProps> = ({
                             background: viewMode === 'list' ? 'var(--surface)' : 'transparent',
                             borderRadius: '6px',
                             border: 'none',
-                            color: viewMode === 'list' ? 'var(--accent)' : 'var(--text-muted)',
+                            color: viewMode === 'list' ? 'var(--action-primary)' : 'var(--text-muted)',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',

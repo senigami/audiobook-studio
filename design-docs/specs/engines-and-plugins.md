@@ -1,8 +1,8 @@
 # Engines and Plugin Lifecycle
 
 ```
-spec_version: 1.1.2
-updated: 2026-07-04
+spec_version: 1.2.0
+updated: 2026-07-16
 status: active
 sources:
   - app/tts_server/server.py
@@ -19,6 +19,8 @@ sources:
 
 | Version | Date       | Change                 |
 |---------|------------|------------------------|
+| 1.2.0   | 2026-07-16 | SDK dependency inversion: `studio_plugin_sdk/` is a real top-level package (`SDK_VERSION = "1.0"`); `app/engines/voice/sdk.py`, `app/engines/voice/base.py` (StudioTTSEngine), and `app/studio_plugin_sdk/*` are re-export shims; the `sys.modules` alias hack in the plugin loader is gone. Documented the plugin import boundary and the `built_in: true` exception (`tts_mixed`: in-tree only, `app.*` imports allowed, uninstall returns 403). |
+| 1.1.3   | 2026-07-16 | Manifests gained an optional shape-validated `distribution` block (standalone-repo source; plan 05 §1.2) — full contract documented in `plugin-contract.md` v1.7.0. In-tree `tts_xtts`/`tts_voxtral` manifests now carry blocks matching the official registry's repo URLs. |
 | 1.1.2   | 2026-07-04 | Added note distinguishing the runtime engine registry cache from the marketplace/catalog registry (doc 05 / `official_registry.py`), with a pointer to the marketplace-UI prior-art research doc; corrected the note's initial "in-process registry" wording (it is a Studio-side cache over the TTS Server's `GET /engines`; engine code never runs in Studio's process) |
 | 1.1.1   | 2026-06-16 | Corrected "Engine registry cache" section: `_load_local_registry()` returns `{}` unconditionally (`@lru_cache`); there is no local manifest parsing; the fallback is an empty registry, not a locally parsed manifest list; dropped the MUST-NOT-empty claim |
 | 1.1.0   | 2026-06-15 | Added official plugin registry and GitHub repository preview/staging flow |
@@ -144,7 +146,7 @@ the same GitHub repository preview/staging flow as a pasted GitHub URL.
    rejected and the staging directory deleted.
 5. The staged repository manifest is validated with the same manifest validator used by
    plugin discovery. A preview token is issued only when the manifest matches the loader
-   contract and the target `plugins/tts_<engine_id>` folder is not already present.
+   contract and the target `tts_engines/tts_<engine_id>` folder is not already present.
 
 ### Validation and preview
 
@@ -228,6 +230,41 @@ from `GET /engines`.
 XTTS requires its heavy dependencies (`TTS`, PyTorch with CUDA) in the separate
 `~/xtts-env` virtualenv. `requirements.txt` deliberately excludes them. This is a
 permanent architectural constraint, not a temporary gap.
+
+---
+
+## Plugin SDK and import boundary
+
+`studio_plugin_sdk/` (repo root) is the real top-level SDK package
+(`SDK_VERSION = "1.0"`, ships `py.typed`): `types`, `engine` (StudioTTSEngine),
+`context`, `plugin_utils`, `errors`, `proc`, `audio`, `_import_utils`.
+`app/engines/voice/sdk.py`, `app/engines/voice/base.py` (StudioTTSEngine only), and
+`app/studio_plugin_sdk/*` are re-export shims over it — exactly one module object
+exists per class (pinned by `tests/engines/test_sdk_module_identity.py`). Plugins
+import `studio_plugin_sdk` directly; there is no `sys.modules` alias in the loader.
+
+Import boundary for extractable plugins (`tts_xtts`, `tts_voxtral`), enforced by the
+per-plugin `test_s4/s5_import_cleanliness.py` gates and the SDK cleanliness gate:
+
+- ZERO `app.*` imports (any position) in `plugin/server/`, `plugin/core/`,
+  `interface.py`, `cli.py`.
+- ZERO module-level `app.*` imports in `plugin/studio/`; function-body `app.*`
+  imports are permitted there (host-integration code, documented in each plugin
+  README).
+- ZERO `app.*` imports anywhere in `studio_plugin_sdk/` except function-body imports
+  inside `context.py` (the host-implemented context; they execute only in the Studio
+  host process).
+
+### Built-in exception: `tts_mixed`
+
+`tts_mixed` (`engine_id: "mixed"`) declares `"built_in": true` and is the explicit
+in-tree-only exception to the boundary above: it orchestrates across engines using
+Studio's internal session/segment model and MAY import `app.*` freely. Consequences:
+
+- It is never extracted to a standalone repo and carries no `distribution` block.
+- `DELETE /engines/{engine_id}` refuses built-in plugins with **403**
+  "Built-in plugins cannot be uninstalled." (`tests/tts_server/test_builtin_uninstall.py`).
+- The UI suppresses Uninstall for built-in engines.
 
 ---
 

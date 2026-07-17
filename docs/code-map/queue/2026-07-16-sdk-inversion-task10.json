@@ -1,0 +1,16 @@
+{
+  "at": "2026-07-16T23:30:00Z",
+  "commit": "uncommitted",
+  "task": "Plan 010 task 10 — evict Studio-integration tests from plugin folders into host tests/ so tts_engines/tts_xtts can be lifted into a standalone repo. Test-only moves, zero source change.",
+  "files": {
+    "tests/engines/test_multi_segment_marker_emission.py": {
+      "change": "moved",
+      "summary": "Moved verbatim from tts_engines/tts_xtts/tests/test_multi_segment_marker_emission.py (10 tests). Tests Studio orchestration (app.orchestration.tasks.base, orchestrator_helpers, app.engines.watchdog), not the plugin — cannot live in a standalone plugin repo."
+    },
+    "tests/engines/test_xtts_app_adapter_host.py": {
+      "change": "moved",
+      "summary": "Moved verbatim from tts_engines/tts_xtts/tests/test_app_adapter.py (1 test). Entire file is host-flavored (constructs app.engines.models.EngineManifestModel), so the whole file moved; no plugin-portable remainder."
+    }
+  },
+  "flow_impact": "None at runtime. Plugin test dirs now contain zero app.orchestration/app.engines.watchdog/app.engines.models imports. Full suite parity: 2551 passed, 3 skipped before and after."
+}

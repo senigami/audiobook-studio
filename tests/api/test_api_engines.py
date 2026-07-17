@@ -195,12 +195,12 @@ def test_engine_test_endpoint_delegates_run_test(clean_db, client, tmp_path):
 
     registration = SimpleNamespace(
         manifest=SimpleNamespace(
-            module_path="plugins.tts_mock.plugin.server.engine",
+            module_path="tts_engines.tts_mock.plugin.server.engine",
         )
     )
 
     # Setup mock plugin assets folder
-    plugin_dir = tmp_path / "plugins" / "tts_mock"
+    plugin_dir = tmp_path / "tts_engines" / "tts_mock"
     assets_dir = plugin_dir / "assets"
     assets_dir.mkdir(parents=True)
     output_path = assets_dir / "test_output.wav"
@@ -208,7 +208,7 @@ def test_engine_test_endpoint_delegates_run_test(clean_db, client, tmp_path):
 
     with patch("app.api.routers.engines_test.create_voice_bridge", return_value=bridge), \
          patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
-         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "tts_engines"):
 
         response = client.post("/api/engines/mock-engine/test")
 
@@ -230,14 +230,14 @@ def test_engine_test_endpoint_handles_tts_server_registry_shape(clean_db, client
         )
     )
 
-    plugin_dir = tmp_path / "plugins" / "tts_xtts"
+    plugin_dir = tmp_path / "tts_engines" / "tts_xtts"
     assets_dir = plugin_dir / "assets"
     assets_dir.mkdir(parents=True)
     (assets_dir / "test_output.wav").write_bytes(b"wav content")
 
     with patch("app.api.routers.engines_test.create_voice_bridge", return_value=bridge), \
          patch("app.engines.registry.load_engine_registry", return_value={"xtts": registration}), \
-         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "tts_engines"):
         response = client.post("/api/engines/xtts/test")
 
     assert response.status_code == 200
@@ -251,19 +251,19 @@ def test_engine_test_endpoint_handles_tts_server_registry_shape(clean_db, client
 def test_get_test_audio_returns_file_from_plugin_assets(clean_db, client, tmp_path):
     registration = SimpleNamespace(
         manifest=SimpleNamespace(
-            module_path="plugins.tts_mock.plugin.server.engine",
+            module_path="tts_engines.tts_mock.plugin.server.engine",
         )
     )
 
     # Setup mock plugin assets folder
-    plugin_dir = tmp_path / "plugins" / "tts_mock"
+    plugin_dir = tmp_path / "tts_engines" / "tts_mock"
     assets_dir = plugin_dir / "assets"
     assets_dir.mkdir(parents=True)
     audio_path = assets_dir / "test_output.wav"
     audio_path.write_bytes(b"plugin wav content")
 
     with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
-         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "tts_engines"):
         response = client.get("/api/engines/mock-engine/test/audio")
 
     assert response.status_code == 200
@@ -277,14 +277,14 @@ def test_get_test_audio_resolves_tts_server_registry_shape(clean_db, client, tmp
         )
     )
 
-    plugin_dir = tmp_path / "plugins" / "tts_xtts"
+    plugin_dir = tmp_path / "tts_engines" / "tts_xtts"
     assets_dir = plugin_dir / "assets"
     assets_dir.mkdir(parents=True)
     audio_path = assets_dir / "test_output.wav"
     audio_path.write_bytes(b"remote registry wav content")
 
     with patch("app.engines.registry.load_engine_registry", return_value={"xtts": registration}), \
-         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "tts_engines"):
         response = client.get("/api/engines/xtts/test/audio")
 
     assert response.status_code == 200
@@ -299,12 +299,12 @@ def test_get_engine_scenarios_resolves_from_manifest(clean_db, client, tmp_path)
             engine_id="mock-engine",
             display_name="Mock Engine",
             phase="test",
-            module_path="plugins.tts_mock.plugin.server.engine",
+            module_path="tts_engines.tts_mock.plugin.server.engine",
             dev={"enabled": True, "scenarios": "dev/scenarios.json"},
         )
     )
 
-    plugin_dir = tmp_path / "plugins" / "tts_mock"
+    plugin_dir = tmp_path / "tts_engines" / "tts_mock"
     dev_dir = plugin_dir / "dev"
     dev_dir.mkdir(parents=True)
     scenario_path = dev_dir / "scenarios.json"
@@ -312,7 +312,7 @@ def test_get_engine_scenarios_resolves_from_manifest(clean_db, client, tmp_path)
     scenario_path.write_text(scenario_content)
 
     with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
-         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "tts_engines"):
         response = client.get("/api/engines/mock-engine/dev/scenarios")
 
     assert response.status_code == 200
@@ -327,13 +327,13 @@ def test_get_engine_scenarios_missing_file_returns_404(client, tmp_path):
             engine_id="mock-engine",
             display_name="Mock Engine",
             phase="test",
-            module_path="plugins.tts_mock.plugin.server.engine",
+            module_path="tts_engines.tts_mock.plugin.server.engine",
             dev={"enabled": True, "scenarios": "dev/missing.json"},
         )
     )
 
     with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
-         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "tts_engines"):
         response = client.get("/api/engines/mock-engine/dev/scenarios")
 
     assert response.status_code == 404
@@ -348,18 +348,18 @@ def test_get_engine_scenarios_malformed_json_returns_400(client, tmp_path):
             engine_id="mock-engine",
             display_name="Mock Engine",
             phase="test",
-            module_path="plugins.tts_mock.plugin.server.engine",
+            module_path="tts_engines.tts_mock.plugin.server.engine",
             dev={"enabled": True, "scenarios": "dev/scenarios.json"},
         )
     )
 
-    plugin_dir = tmp_path / "plugins" / "tts_mock"
+    plugin_dir = tmp_path / "tts_engines" / "tts_mock"
     dev_dir = plugin_dir / "dev"
     dev_dir.mkdir(parents=True)
     (dev_dir / "scenarios.json").write_text("{ invalid json }")
 
     with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
-         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "tts_engines"):
         response = client.get("/api/engines/mock-engine/dev/scenarios")
 
     assert response.status_code == 400
@@ -374,12 +374,12 @@ def test_get_engine_scenarios_invalid_structure_returns_400(client, tmp_path):
             engine_id="mock-engine",
             display_name="Mock Engine",
             phase="test",
-            module_path="plugins.tts_mock.plugin.server.engine",
+            module_path="tts_engines.tts_mock.plugin.server.engine",
             dev={"enabled": True, "scenarios": "dev/scenarios.json"},
         )
     )
 
-    plugin_dir = tmp_path / "plugins" / "tts_mock"
+    plugin_dir = tmp_path / "tts_engines" / "tts_mock"
     dev_dir = plugin_dir / "dev"
     dev_dir.mkdir(parents=True)
 
@@ -387,7 +387,7 @@ def test_get_engine_scenarios_invalid_structure_returns_400(client, tmp_path):
     (dev_dir / "scenarios.json").write_text("[1, 2, 3]")
 
     with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
-         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "tts_engines"):
         response = client.get("/api/engines/mock-engine/dev/scenarios")
         assert response.status_code == 400
         assert "must be a JSON object" in response.json()["message"]
@@ -395,7 +395,7 @@ def test_get_engine_scenarios_invalid_structure_returns_400(client, tmp_path):
     # Case: missing 'scenarios' key
     (dev_dir / "scenarios.json").write_text('{"other": []}')
     with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
-         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "tts_engines"):
         response = client.get("/api/engines/mock-engine/dev/scenarios")
         assert response.status_code == 400
         assert "Missing 'scenarios' key" in response.json()["message"]
@@ -403,7 +403,7 @@ def test_get_engine_scenarios_invalid_structure_returns_400(client, tmp_path):
     # Case: scenarios not a list
     (dev_dir / "scenarios.json").write_text('{"scenarios": {}}')
     with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
-         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "tts_engines"):
         response = client.get("/api/engines/mock-engine/dev/scenarios")
         assert response.status_code == 400
         assert "'scenarios' must be a list" in response.json()["message"]
@@ -411,7 +411,7 @@ def test_get_engine_scenarios_invalid_structure_returns_400(client, tmp_path):
     # Case: scenario missing required fields
     (dev_dir / "scenarios.json").write_text('{"scenarios": [{"id": "test"}]}')
     with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
-         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "tts_engines"):
         response = client.get("/api/engines/mock-engine/dev/scenarios")
         assert response.status_code == 400
         assert "missing required fields" in response.json()["message"]
@@ -419,21 +419,21 @@ def test_get_engine_scenarios_invalid_structure_returns_400(client, tmp_path):
     # Case: scenario has required fields with invalid types
     (dev_dir / "scenarios.json").write_text('{"scenarios": [{"id": 123, "label": "Test", "engine_detail": {}}]}')
     with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
-         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "tts_engines"):
         response = client.get("/api/engines/mock-engine/dev/scenarios")
         assert response.status_code == 400
         assert "id must be a string" in response.json()["message"]
 
     (dev_dir / "scenarios.json").write_text('{"scenarios": [{"id": "test", "label": 123, "engine_detail": {}}]}')
     with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
-         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "tts_engines"):
         response = client.get("/api/engines/mock-engine/dev/scenarios")
         assert response.status_code == 400
         assert "label must be a string" in response.json()["message"]
 
     (dev_dir / "scenarios.json").write_text('{"scenarios": [{"id": "test", "label": "Test", "engine_detail": []}]}')
     with patch("app.engines.registry.load_engine_registry", return_value={"mock-engine": registration}), \
-         patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+         patch("app.core.config.PLUGINS_DIR", tmp_path / "tts_engines"):
         response = client.get("/api/engines/mock-engine/dev/scenarios")
         assert response.status_code == 400
         assert "engine_detail must be an object" in response.json()["message"]

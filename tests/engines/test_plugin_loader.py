@@ -227,7 +227,7 @@ class TestDiscoverPlugins:
         assert detail["settings_schema"]["x-ui"]["help_label"] == "Open Mistral API key instructions"
 
     def test_dotted_entry_class_in_folder(self, tmp_path):
-        plugins_dir = tmp_path / "plugins"
+        plugins_dir = tmp_path / "tts_engines"
         plugins_dir.mkdir()
         (plugins_dir / "tts_dotted").mkdir()
         (plugins_dir / "tts_dotted" / "pkg").mkdir()
@@ -257,7 +257,7 @@ class Engine:
         assert result[0].folder_name == "tts_dotted"
 
     def test_interface_entry_class_can_import_internal_package(self, tmp_path):
-        plugins_dir = tmp_path / "plugins"
+        plugins_dir = tmp_path / "tts_engines"
         plugins_dir.mkdir()
         plugin_dir = plugins_dir / "tts_iface"
         plugin_dir.mkdir()
@@ -307,7 +307,7 @@ class Engine:
         assert result[0].engine.check_env() == (True, "OK from internal package")
 
     def test_dotted_entry_class_can_import_sibling_internal_module(self, tmp_path):
-        plugins_dir = tmp_path / "plugins"
+        plugins_dir = tmp_path / "tts_engines"
         plugins_dir.mkdir()
         plugin_dir = plugins_dir / "tts_nested"
         engine_dir = plugin_dir / "plugin" / "server"
@@ -436,7 +436,7 @@ class TestManifestValidation:
 class TestPipDiscovery:
     def test_entry_point_discovery_mock(self, tmp_path):
         # Create a dummy folder-dropin plugin
-        plugins_dir = tmp_path / "plugins"
+        plugins_dir = tmp_path / "tts_engines"
         plugins_dir.mkdir()
         (plugins_dir / "tts_folder").mkdir()
         (plugins_dir / "tts_folder" / "manifest.json").write_text(json.dumps({
@@ -506,7 +506,7 @@ class Engine:
             assert "pipengine" in engine_ids
 
     def test_folder_precedence_over_pip(self, tmp_path):
-        plugins_dir = tmp_path / "plugins"
+        plugins_dir = tmp_path / "tts_engines"
         plugins_dir.mkdir()
 
         # Folder plugin with engine_id="clash"
@@ -549,7 +549,7 @@ class Engine:
             assert not mock_ep.load.called
 
     def test_pip_plugin_creates_settings_dir(self, tmp_path):
-        plugins_dir = tmp_path / "plugins"
+        plugins_dir = tmp_path / "tts_engines"
         plugins_dir.mkdir()
 
         mock_ep = MagicMock()
@@ -581,7 +581,7 @@ class Engine:
     def test_pip_plugin_check_env_receives_persisted_settings(self, tmp_path):
         from app.tts_server.settings_store import save_settings
 
-        plugins_dir = tmp_path / "plugins"
+        plugins_dir = tmp_path / "tts_engines"
         plugins_dir.mkdir()
 
         save_settings(plugins_dir / "tts_pipkeyed", {"mistral_api_key": "saved-key"})
@@ -1005,6 +1005,16 @@ class TestContractVersionGate:
             f"tts_mixed engine_id must remain 'mixed'; got {data.get('engine_id')!r}"
         )
 
+    def test_tts_mixed_discovered_and_loaded(self):
+        """Real discovery loads the built-in mixed engine with no load error (Group 4)."""
+        import os
+        from pathlib import Path as _Path
+        loaded = discover_plugins(_Path(os.environ["PLUGINS_DIR"]))
+        mixed = [p for p in loaded if p.engine_id == "mixed"]
+        assert len(mixed) == 1, "discover_plugins should load exactly one 'mixed' engine"
+        assert mixed[0].load_error is None, f"mixed failed to load: {mixed[0].load_error}"
+        assert mixed[0].manifest.get("built_in") is True
+
 
 # ---------------------------------------------------------------------------
 # S10 — callable-signature audit tests
@@ -1135,18 +1145,92 @@ class TestEngine(StudioTTSEngine):
     def test_bundled_xtts_engine_passes_signature_audit(self):
         """Real XttsPlugin must pass the signature audit without error."""
         from app.tts_server.plugin_loader import _validate_engine_signatures
-        from plugins.tts_xtts.plugin.server.engine import XttsPlugin
+        from tts_engines.tts_xtts.plugin.server.engine import XttsPlugin
         # Should not raise
         _validate_engine_signatures(XttsPlugin, "XttsPlugin", "tts_xtts")
 
     def test_bundled_voxtral_engine_passes_signature_audit(self):
         """Real VoxtralPlugin must pass the signature audit without error."""
         from app.tts_server.plugin_loader import _validate_engine_signatures
-        from plugins.tts_voxtral.plugin.server.engine import VoxtralPlugin
+        from tts_engines.tts_voxtral.plugin.server.engine import VoxtralPlugin
         _validate_engine_signatures(VoxtralPlugin, "VoxtralPlugin", "tts_voxtral")
 
     def test_bundled_mixed_engine_passes_signature_audit(self):
         """Real MixedPlugin must pass the signature audit without error."""
         from app.tts_server.plugin_loader import _validate_engine_signatures
-        from plugins.tts_mixed.engine import MixedPlugin
+        from tts_engines.tts_mixed.engine import MixedPlugin
         _validate_engine_signatures(MixedPlugin, "MixedPlugin", "tts_mixed")
+
+
+# ---------------------------------------------------------------------------
+# W-PERF task 004: optional export-capability behavior fields
+# (export_format, supports_per_span_voice, supports_emotion_style,
+# supports_prosody, supports_break). Additive/optional -- absent is fine,
+# present is validated; no manifest version bump.
+# ---------------------------------------------------------------------------
+
+class TestExportCapabilityBehaviorFields:
+    def test_absent_export_fields_load_fine(self, tmp_path):
+        manifest = _minimal_manifest("mock")
+        _make_plugin_dir(tmp_path, "tts_mock", manifest, _mock_engine_src())
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+
+    def test_valid_export_format_and_supports_flags_load_fine(self, tmp_path):
+        manifest = _minimal_manifest("mock")
+        manifest["behavior"] = {
+            "export_format": "ssml_w3c",
+            "supports_per_span_voice": True,
+            "supports_emotion_style": True,
+            "supports_prosody": False,
+            "supports_break": True,
+        }
+        _make_plugin_dir(tmp_path, "tts_mock", manifest, _mock_engine_src())
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+
+    def test_invalid_export_format_rejected(self, tmp_path):
+        manifest = _minimal_manifest("mock")
+        manifest["behavior"] = {"export_format": "not_a_real_format"}
+        _make_plugin_dir(tmp_path, "tts_mock", manifest, _mock_engine_src())
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+        assert result[0].load_error
+        assert "export_format" in result[0].load_error
+
+    def test_non_bool_supports_flag_rejected(self, tmp_path):
+        manifest = _minimal_manifest("mock")
+        manifest["behavior"] = {"supports_per_span_voice": "yes"}
+        _make_plugin_dir(tmp_path, "tts_mock", manifest, _mock_engine_src())
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+        assert result[0].load_error
+        assert "supports_per_span_voice" in result[0].load_error
+
+
+def test_export_capabilities_for_reads_new_behavior_fields():
+    from app.engines.behavior import export_capabilities_for
+
+    behavior = {
+        "export_format": "ssml_polly",
+        "supports_per_span_voice": True,
+        "supports_emotion_style": False,
+        "supports_prosody": True,
+        "supports_break": False,
+    }
+    caps = export_capabilities_for("mock", behavior=behavior)
+    assert caps["export_format"] == "ssml_polly"
+    assert caps["supports_per_span_voice"] is True
+    assert caps["supports_prosody"] is True
+    assert caps["supports_emotion_style"] is False
+
+
+def test_export_capabilities_for_defaults_when_absent():
+    from app.engines.behavior import export_capabilities_for
+
+    caps = export_capabilities_for("mock", behavior={})
+    assert caps["export_format"] is None
+    assert caps["supports_per_span_voice"] is False
+    assert caps["supports_emotion_style"] is False
+    assert caps["supports_prosody"] is False
+    assert caps["supports_break"] is False

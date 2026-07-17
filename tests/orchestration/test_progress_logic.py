@@ -1151,8 +1151,8 @@ def test_progress_service_duplicate_same_eta_progress_prevents_timestamp_update(
 
 def test_xtts_plugin_handler_terminal_clears_eta(monkeypatch):
     from unittest.mock import MagicMock
-    import plugins.tts_xtts.plugin.studio.handler as handler_module
-    from plugins.tts_xtts.plugin.studio.handler import handle_xtts_job
+    import tts_engines.tts_xtts.plugin.studio.handler as handler_module
+    from tts_engines.tts_xtts.plugin.studio.handler import handle_xtts_job
 
     mock_update_job = MagicMock()
     monkeypatch.setattr(handler_module, "update_job", mock_update_job)

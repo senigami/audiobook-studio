@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "studio_tts_manifest": "1.0",
+  "contract_version": "1.0",
+  "sdk_version": "1.0",
+  "settings_schema_version": "1.0",
+  "event_envelope_version": "1.0",
+  "engine_id": "xtts",
+  "display_name": "XTTS (Local)",
+  "version": "1.0.1",
+  "min_studio": "2.0.0",
+  "entry_class": "interface:XttsPlugin",
+  "app_adapter_class": "XttsVoiceEngine",
+  "app_adapter_module": "interface",
+  "capabilities": ["synthesis", "preview", "voice_cloning"],
+  "worker_logic": {
+    "engine_handlers": {
+      "xtts": "interface:xtts_dispatch_adapter"
+    },
+    "kind_handlers": {
+      "voice_build": "interface:voice_job_dispatch_adapter",
+      "voice_test": "interface:voice_job_dispatch_adapter",
+      "voice_task": "interface:voice_job_dispatch_adapter"
+    }
+  },
+  "behavior": {
+    "features": [
+      "script_synthesis",
+      "batch_synthesis",
+      "voice_cloning",
+      "standard_rendering",
+      "segment_rendering",
+      "bake_rendering",
+      "mixed_rendering",
+      "sanitize_text",
+      "cps_eta",
+      "segment_orchestration"
+    ],
+    "required_settings": [],
+    "setting_aliases": {},
+    "synthesis_settings": [
+      "model",
+      "temperature",
+      "repetition_penalty",
+      "top_k",
+      "top_p"
+    ],
+    "max_concurrent_workers": 8,
+    "text_chunk_limit": 500,
+    "text_split_target": 450,
+    "sanitize_categories": ["quotes", "acronyms", "fractions", "dashes", "punct_spacing", "ascii", "terminal"],
+    "progress_pattern": "\\[PROGRESS\\]\\s*(?P<value>\\d+(?:\\.\\d+)?)\\s*%",
+    "timing_markers": {
+      "ENGINE_ACTIVITY_STARTED": ["Loading XTTS model..."],
+      "MODEL_LOAD_STARTED": ["[MODEL_LOAD_STARTED]"],
+      "START_SYNTHESIS": ["[START_SYNTHESIS]"],
+      "START_SEGMENT": ["[START_SEGMENT]"],
+      "SEGMENT_SAVED": ["[SEGMENT_SAVED]"],
+      "CHAPTER_SYNTHESIS_COMPLETE": ["Successfully synthesized"]
+    }
+  },
+  "local": true,
+  "cloud": false,
+  "network": false,
+  "languages": [
+    "en",
+    "es",
+    "fr",
+    "de",
+    "it",
+    "pt",
+    "pl",
+    "tr",
+    "ru",
+    "nl",
+    "cs",
+    "ar",
+    "zh"
+  ],
+  "resource": {
+    "gpu": true,
+    "vram_mb": 4000,
+    "cpu_heavy": true
+  },
+  "author": "idiap/coqui-ai-TTS",
+  "homepage": "https://github.com/idiap/coqui-ai-TTS",
+  "license": "CPML-1.0",
+  "distribution": {
+    "host": "github",
+    "base_url": "https://github.com",
+    "repo": "audiobook-studio/tts-xtts",
+    "git_url": "https://github.com/audiobook-studio/tts-xtts.git",
+    "topic": "audiobook-studio-tts",
+    "pin_ref": null,
+    "official": true
+  },
+  "test_sample": "latent.pth",
+  "test_text": "Hello, this is a verification test of the XTTS synthesis engine.",
+  "dev": {
+    "enabled": false,
+    "scenarios": "dev/scenarios.json"
+  },
+  "logo": {
+    "svg": "assets/logo.svg",
+    "png": "assets/logo.png"
+  }
+}

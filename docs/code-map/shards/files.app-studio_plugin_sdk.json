@@ -27,16 +27,16 @@
       "called_by": [
         "app/orchestration/tasks/synthesis.py",
         "app/tts_server/plugin_loader.py",
-        "plugins/tts_mixed/handler.py",
-        "plugins/tts_voxtral/plugin/studio/app_adapter.py",
-        "plugins/tts_voxtral/plugin/studio/handler.py",
-        "plugins/tts_voxtral/plugin/studio/segments.py",
-        "plugins/tts_xtts/plugin/studio/app_adapter.py",
-        "plugins/tts_xtts/plugin/studio/bake.py",
-        "plugins/tts_xtts/plugin/studio/handler.py",
-        "plugins/tts_xtts/plugin/studio/segments.py",
-        "plugins/tts_xtts/plugin/studio/standard_handler.py",
-        "plugins/tts_xtts/plugin/studio/voice_adapter.py"
+        "tts_engines/tts_mixed/handler.py",
+        "tts_engines/tts_voxtral/plugin/studio/app_adapter.py",
+        "tts_engines/tts_voxtral/plugin/studio/handler.py",
+        "tts_engines/tts_voxtral/plugin/studio/segments.py",
+        "tts_engines/tts_xtts/plugin/studio/app_adapter.py",
+        "tts_engines/tts_xtts/plugin/studio/bake.py",
+        "tts_engines/tts_xtts/plugin/studio/handler.py",
+        "tts_engines/tts_xtts/plugin/studio/segments.py",
+        "tts_engines/tts_xtts/plugin/studio/standard_handler.py",
+        "tts_engines/tts_xtts/plugin/studio/voice_adapter.py"
       ],
       "notes": [
         "registered in sys.modules by plugin_loader.py for cross-process visibility"
@@ -73,7 +73,7 @@
         {
           "name": "MAX_SEGMENT_DURATION_SECONDS, _validated_wav_duration_seconds, _is_valid_segment_artifact",
           "kind": "constant/function",
-          "contract": "PL-2 (2026-07-04): validated-artifact-metadata gate moved here from plugins/tts_mixed/handler.py; exists+non-zero-size, and when parseable as WAV via stdlib wave, header duration must be 0<d<=3600s"
+          "contract": "PL-2 (2026-07-04): validated-artifact-metadata gate moved here from tts_engines/tts_mixed/handler.py; exists+non-zero-size, and when parseable as WAV via stdlib wave, header duration must be 0<d<=3600s"
         }
       ],
       "calls": [
@@ -116,11 +116,11 @@
       ],
       "called_by": [
         "app/tts_server/plugin_loader.py",
-        "plugins/tts_voxtral/plugin/studio/bake.py",
-        "plugins/tts_voxtral/plugin/studio/segments.py",
-        "plugins/tts_xtts/plugin/studio/bake.py",
-        "plugins/tts_xtts/plugin/studio/segments.py",
-        "plugins/tts_xtts/plugin/studio/standard_handler.py"
+        "tts_engines/tts_voxtral/plugin/studio/bake.py",
+        "tts_engines/tts_voxtral/plugin/studio/segments.py",
+        "tts_engines/tts_xtts/plugin/studio/bake.py",
+        "tts_engines/tts_xtts/plugin/studio/segments.py",
+        "tts_engines/tts_xtts/plugin/studio/standard_handler.py"
       ],
       "notes": [
         "BridgeError dual-inherits for compatibility with EngineBridgeError"

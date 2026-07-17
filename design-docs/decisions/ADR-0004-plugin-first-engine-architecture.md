@@ -23,7 +23,7 @@ meant touching multiple core files with high risk of regression.
 All engines are self-contained plugins. Core code routes through VoiceBridge + engine
 registry with no engine-ID branches for core behavior.
 
-Each plugin in `plugins/` provides:
+Each plugin in `tts_engines/` provides:
 - `manifest.json` declaring `engine_id`, capabilities, `behavior` block
   (`text_chunk_limit`, `progress_pattern`), and resource requirements.
 - `interface.py` implementing the `StudioTTSEngine` ABC.
@@ -49,6 +49,6 @@ themselves at TTS Server startup.
 - Plugin discovery adds startup latency (manifest validation on every TTS Server boot).
 
 ### Neutral
-- `plugins/tts_xtts`, `plugins/tts_voxtral`, and `plugins/synthesis_mixed` are the
+- `tts_engines/tts_xtts`, `tts_engines/tts_voxtral`, and `tts_engines/synthesis_mixed` are the
   reference implementations.
 - Engine-ID branches are permitted only in migration code and plugin-local tests.

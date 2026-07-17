@@ -295,7 +295,7 @@ describe('DemoApp routing', () => {
     ).toBeInTheDocument();
     fireEvent.click(within(metadataDialog).getByLabelText('Close edit metadata dialog'));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Discover' }));
+    fireEvent.click(screen.getByRole('button', { name: /Discover/ }));
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Discover Voices' })).toBeInTheDocument();

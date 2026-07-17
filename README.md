@@ -263,7 +263,7 @@ powershell -ExecutionPolicy Bypass -File .\run.ps1 -Port 9000
    ```bash
    python3 -m venv ~/xtts-env
    source ~/xtts-env/bin/activate
-   pip install -r plugins/tts_xtts/requirements.txt
+   pip install -r tts_engines/tts_xtts/requirements.txt
    ```
 
 3. **Frontend Build**

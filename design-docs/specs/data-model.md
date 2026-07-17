@@ -1,9 +1,9 @@
 # Data Model
 
 ```
-spec_version: 1.10.1
+spec_version: 1.11.0
 status: active
-updated: 2026-07-10
+updated: 2026-07-16
 sources:
   - app/db/state.py
   - app/db/state_jobs.py
@@ -25,6 +25,7 @@ sources:
 
 | Version | Date       | Change             |
 |---------|------------|--------------------|
+| 1.11.0  | 2026-07-16 | **W-PERF safe-foundation: additive performance-metadata columns.** `chapter_segments` gets `performance_data`/`speaker_confidence`/`speaker_basis`/`speaker_evidence`/`needs_review`/`review_reasons`/`locked`/`ai_suggested`; `characters` gets the parallel set plus `display_name`/`role`/`character_type`/`aliases`/`source_presence`/`source_profile`/`voice_guidance`. All additive, nullable/defaulted, forward-only migration — existing rows read back with documented defaults, nothing reads these columns yet (no behavior change). No `span_start`/`span_end`/`sentence_index` columns added — `segment_order` remains the ownership unit (see corrected `03-db-schema-changes.md`). AI extraction pipeline and export layer explicitly deferred per 2026-07-10 owner decision. |
 | 1.10.1  | 2026-07-10 | **Chapter peaks sidecar density raised 8→60 peaks/sec, `version` 1→2.** Example JSON and version-bump note updated to match `PEAKS_PER_SEC`/`SIDECAR_VERSION` in `app/engines/audio_ops.py`. Fixes visibly "low resolution" waveform at the tape's tightest zoom (3 s window vs. the tape's 180-bar render budget). Existing version-1 sidecars are transparently recomputed on next request via the loader's already-documented staleness check — no migration needed. |
 | 1.10.0  | 2026-07-10 | **Chapter peaks sidecar (derived artifact, not a DB/manifest field).** New § documenting the self-describing, versioned `<chapter>.peaks.json` sibling file that lets the global player's tape (`audio-player.md` §5.4) render long chapters without a full browser decode. Computed lazily on first request by the chapter-asset serving route (never at production time — the original orchestrator-chokepoint design was found to miss this app's default-engine render path entirely), staleness detected by comparing the sidecar's `source` stat stamp against the live WAV's current stat. No existing table/manifest changes. |
 | 1.9.0   | 2026-07-09 | **`lexicon`: reject case-insensitive duplicate words on add.** `add_lexicon_entry()` now raises `ValueError` (surfaced by `POST /api/projects/{project_id}/lexicon` as a 400 `{"status": "error", "message": ...}`) when the project already has an entry whose `word` matches case-insensitively. Prevents two entries for the same word from silently chaining through `apply_lexicon`'s sequential-substitution pass (e.g. `read`→`red` then `red`→`reed` turning `read` into `reed`). Editing an existing entry's word (`update_lexicon_entry`) is unchanged — this only guards entry creation. |
@@ -175,6 +176,14 @@ Managed by `app/db/`. The DB MUST NOT auto-migrate on import — callers invoke 
 | `audio_file_path` | TEXT | Bare filename (no path) of the segment's rendered audio under `chapters/<id>/segments/`; NULL until rendered. See § below. |
 | `audio_status` | TEXT | `unprocessed` \| `processing` \| `done` \| `failed` |
 | `audio_generated_at` | REAL | Unix epoch seconds |
+| `performance_data` | TEXT (JSON) | W-PERF: sparse performance-script annotation blob, nullable; validated shape defined in `app/domain/chapters/performance_schema.py`. NULL on most rows and unread by any code path yet. |
+| `speaker_confidence` | REAL | W-PERF: 0.0–1.0 AI speaker-assignment confidence; NULL = human-assigned. Unread by any code path yet. |
+| `speaker_basis` | TEXT | W-PERF: `explicit_source` \| `inferred_from_context` \| `studio_override`, etc. Unread by any code path yet. |
+| `speaker_evidence` | TEXT (JSON) | W-PERF: array of evidence quotes from AI extraction, nullable. Unread by any code path yet. |
+| `needs_review` | INTEGER | W-PERF: boolean flag, default 0. Unread by any code path yet. |
+| `review_reasons` | TEXT (JSON) | W-PERF: array of reason strings, nullable. Unread by any code path yet. |
+| `locked` | INTEGER | W-PERF: boolean, default 0 — human has confirmed, AI must not overwrite. Unread by any code path yet. |
+| `ai_suggested` | INTEGER | W-PERF: boolean, default 0 — row was AI-seeded, not yet confirmed. Unread by any code path yet. |
 
 #### Segment audio artifacts & orphan reconciliation
 
@@ -216,6 +225,17 @@ Records every job that has ever been submitted. This is the durable history; liv
 | `default_emotion` | TEXT | |
 | `color` | TEXT | Hex color, default `"#8b5cf6"` |
 | `chapter_id` | TEXT nullable | Scope key: `NULL` = book-scoped (visible everywhere in the project); a chapter UUID = chapter-scoped temp (visible only within that chapter). Added via idempotent `ALTER TABLE` migration — existing rows default to `NULL`. |
+| `display_name` | TEXT | W-PERF: rich-profile display name override, nullable. Unread by any code path yet. |
+| `role` | TEXT | W-PERF: story role (e.g. `character`, `narrator`), nullable. Unread by any code path yet. |
+| `character_type` | TEXT | W-PERF: character classification, nullable. Unread by any code path yet. |
+| `aliases` | TEXT (JSON) | W-PERF: array of alternate names/references, nullable. Unread by any code path yet. |
+| `source_presence` | TEXT (JSON) | W-PERF: where/how the character appears in source text, nullable. Unread by any code path yet. |
+| `source_profile` | TEXT (JSON) | W-PERF: AI-inferred profile facts, nullable. Unread by any code path yet. |
+| `voice_guidance` | TEXT (JSON) | W-PERF: default delivery/performance guidance for this character, nullable. Unread by any code path yet. |
+| `needs_review` | INTEGER | W-PERF: boolean flag, default 0. Unread by any code path yet. |
+| `review_reasons` | TEXT (JSON) | W-PERF: array of reason strings, nullable. Unread by any code path yet. |
+| `locked` | INTEGER | W-PERF: boolean, default 0 — human has confirmed, AI must not overwrite. Unread by any code path yet. |
+| `ai_suggested` | INTEGER | W-PERF: boolean, default 0 — row was AI-seeded, not yet confirmed. Unread by any code path yet. |
 
 **Scope rule:** A character with `chapter_id IS NULL` is a book character and appears in all chapter contexts. A character with `chapter_id` set is a temporary character belonging to that chapter only.
 
@@ -238,9 +258,9 @@ Per-project pronunciation substitutions. Each entry maps a source word to a repl
 | `created_at` | REAL | Unix epoch seconds |
 
 **Application:** `app/utils/text/lexicon.apply_lexicon(text, entries)` is called with all entries for a project loaded once per render job. Application points by path:
-- **xtts** (standard, bake, segments): loaded once then applied per group in `plugins/tts_xtts/plugin/studio/standard_handler.handle_xtts_standard()`, `bake.handle_xtts_bake()`, and `segments.handle_xtts_segments()`.
-- **voxtral** (bake, segments): same pattern in `plugins/tts_voxtral/plugin/studio/bake.handle_voxtral_bake()` and `segments.handle_voxtral_segments()`; standard (single-text) path: applied in `handler.handle_voxtral_job()` after `render_text` is resolved.
-- **mixed engine**: applied in `plugins/tts_mixed/handler.handle_mixed_job()` before each segment group is dispatched to `_render_segment`.
+- **xtts** (standard, bake, segments): loaded once then applied per group in `tts_engines/tts_xtts/plugin/studio/standard_handler.handle_xtts_standard()`, `bake.handle_xtts_bake()`, and `segments.handle_xtts_segments()`.
+- **voxtral** (bake, segments): same pattern in `tts_engines/tts_voxtral/plugin/studio/bake.handle_voxtral_bake()` and `segments.handle_voxtral_segments()`; standard (single-text) path: applied in `handler.handle_voxtral_job()` after `render_text` is resolved.
+- **mixed engine**: applied in `tts_engines/tts_mixed/handler.handle_mixed_job()` before each segment group is dispatched to `_render_segment`.
 - **api_synthesis (bridge) path**: applied in `app/orchestration/tasks/synthesis.SynthesisTask.to_bridge_request()` for external TTS API requests.
 
 **Zero-impact invariant:** when a project has no lexicon entries, the original text string is returned unchanged (no allocation, no regex compile). Existing renders for projects without a lexicon are byte-identical.

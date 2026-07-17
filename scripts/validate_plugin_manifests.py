@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Standalone plugin manifest validator for CI.
 
-Checks every bundled plugin (``plugins/tts_*/``) for:
+Checks every bundled plugin (``tts_engines/tts_*/``) for:
   1. Required version fields (contract_version, sdk_version, settings_schema_version,
      event_envelope_version) — all must be present and equal "1.0".
   2. Core manifest schema basics (studio_tts_manifest, engine_id, display_name,
@@ -17,7 +17,7 @@ Exit codes
 Usage::
 
     python scripts/validate_plugin_manifests.py
-    python scripts/validate_plugin_manifests.py --plugins-dir /path/to/plugins
+    python scripts/validate_plugin_manifests.py --plugins-dir /path/to/tts_engines
     python scripts/validate_plugin_manifests.py --strict  # also check function-body imports
 
 This script has no heavy dependencies and runs in the bare requirements.txt env.
@@ -211,8 +211,8 @@ def main() -> None:
     parser.add_argument(
         "--plugins-dir",
         type=Path,
-        default=Path(__file__).parents[1] / "plugins",
-        help="Path to the plugins/ directory (default: repo root plugins/)",
+        default=Path(__file__).parents[1] / "tts_engines",
+        help="Path to the tts_engines/ directory (default: repo root tts_engines/)",
     )
     parser.add_argument(
         "--strict",

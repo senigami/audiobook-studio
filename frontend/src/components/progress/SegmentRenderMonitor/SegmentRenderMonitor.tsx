@@ -86,7 +86,7 @@ const ProgressBar: React.FC<{ pct: number }> = ({ pct }) => (
       style={{
         width: `${pct}%`,
         height: '100%',
-        background: 'var(--accent)',
+        background: 'var(--action-primary)',
         borderRadius: 2,
       }}
     />

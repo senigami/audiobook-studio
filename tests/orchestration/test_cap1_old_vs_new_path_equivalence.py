@@ -153,9 +153,9 @@ def test_cap1_single_group_marker_sequence_matches_old_vs_new_path(tmp_path):
 
     def _common_patches(wd: TtsServerWatchdog):
         return [
-            patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=_make_fake_generate_via_bridge(wd)),
+            patch("tts_engines.tts_mixed.handler.generate_via_bridge", side_effect=_make_fake_generate_via_bridge(wd)),
             patch("app.core.config.get_chapter_dir", return_value=chapter_dir),
-            patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=chapter_dir),
+            patch("tts_engines.tts_mixed.handler.get_chapter_dir", return_value=chapter_dir),
             # A real profile_name + resolved engine are required for
             # _render_segment's own validation (a falsy profile_name/engine
             # short-circuits to a failure before generate_via_bridge is ever
@@ -172,7 +172,7 @@ def test_cap1_single_group_marker_sequence_matches_old_vs_new_path(tmp_path):
             patch("app.api.ws.broadcast_segments_updated", lambda *a, **kw: None),
             patch("app.api.ws.broadcast_tts_log_line", lambda *a, **kw: None),
             patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None),
-            patch("plugins.tts_mixed.handler.get_project_lexicon", return_value=[]),
+            patch("tts_engines.tts_mixed.handler.get_project_lexicon", return_value=[]),
         ]
 
     # --- OLD path: SynthesisTask(engine_id="mixed") -> handle_mixed_job ---
@@ -202,7 +202,7 @@ def test_cap1_single_group_marker_sequence_matches_old_vs_new_path(tmp_path):
     with ExitStack() as stack:
         stack.enter_context(patch("app.engines.watchdog.get_watchdog", return_value=old_watchdog))
         stack.enter_context(patch(
-            "plugins.tts_mixed.handler.stitch_segments",
+            "tts_engines.tts_mixed.handler.stitch_segments",
             side_effect=lambda pdir, paths, out, on_output, cc: (_write_wav(out), 0)[1],
         ))
         for p in _common_patches(old_watchdog):

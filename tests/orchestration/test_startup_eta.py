@@ -96,7 +96,7 @@ def test_expected_duration_filters_history_by_plugin_model(tmp_path, monkeypatch
     from app.orchestration.tasks.base import StudioTask
     from app.tts_server.settings_store import save_settings
 
-    plugins_dir = tmp_path / "plugins"
+    plugins_dir = tmp_path / "tts_engines"
     plugin_dir = plugins_dir / "tts_engine-a"
     plugin_dir.mkdir(parents=True)
     save_settings(plugin_dir, {"model": "fast-model"})
@@ -132,7 +132,7 @@ def test_expected_duration_uses_calibrated_overhead_and_cps(tmp_path, monkeypatc
     from app.orchestration.tasks.base import StudioTask
     from app.tts_server.settings_store import save_settings
 
-    plugins_dir = tmp_path / "plugins"
+    plugins_dir = tmp_path / "tts_engines"
     plugin_dir = plugins_dir / "tts_engine-d"
     plugin_dir.mkdir(parents=True)
     save_settings(plugin_dir, {"model": "custom-model"})
@@ -206,7 +206,7 @@ def test_uncalibrated_model_suppresses_eta(tmp_path, monkeypatch):
     from app.orchestration.tasks.base import StudioTask
     from app.tts_server.settings_store import save_settings
 
-    plugins_dir = tmp_path / "plugins"
+    plugins_dir = tmp_path / "tts_engines"
     plugin_dir = plugins_dir / "tts_engine-c"
     plugin_dir.mkdir(parents=True)
     save_settings(plugin_dir, {"model": "uncalibrated-model"})
@@ -227,7 +227,7 @@ def test_eta_behavior_unchanged_by_speed_multiplier_setting(tmp_path, monkeypatc
     from app.orchestration.tasks.base import StudioTask
     from app.tts_server.settings_store import save_settings
 
-    plugins_dir = tmp_path / "plugins"
+    plugins_dir = tmp_path / "tts_engines"
     plugin_dir = plugins_dir / "tts_engine-speed-test"
     plugin_dir.mkdir(parents=True)
 
@@ -272,7 +272,7 @@ def test_get_expected_duration_uses_real_group_count(tmp_path, monkeypatch):
     from app.orchestration.tasks.synthesis import SynthesisTask
     from app.tts_server.settings_store import save_settings
 
-    plugins_dir = tmp_path / "plugins"
+    plugins_dir = tmp_path / "tts_engines"
     plugin_dir = plugins_dir / "tts_engine-multi-group"
     plugin_dir.mkdir(parents=True)
     save_settings(plugin_dir, {"model": "model-y"})
@@ -346,7 +346,7 @@ def test_get_expected_duration_prefers_self_script(tmp_path, monkeypatch):
     from app.orchestration.tasks.synthesis import SynthesisTask
     from app.tts_server.settings_store import save_settings
 
-    plugins_dir = tmp_path / "plugins"
+    plugins_dir = tmp_path / "tts_engines"
     plugin_dir = plugins_dir / "tts_engine-multi-group"
     plugin_dir.mkdir(parents=True)
     save_settings(plugin_dir, {"model": "model-y"})

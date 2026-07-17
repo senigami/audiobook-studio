@@ -33,8 +33,8 @@
         "bytes": 8424
       },
       {
-        "prefix": "plugins/tts_voxtral/",
-        "path": "shards/files.plugins-tts_voxtral.json",
+        "prefix": "tts_engines/tts_voxtral/",
+        "path": "shards/files.tts_engines-tts_voxtral.json",
         "files": 13,
         "bytes": 11267
       },
@@ -81,8 +81,8 @@
         "bytes": 22708
       },
       {
-        "prefix": "plugins/tts_mixed/",
-        "path": "shards/files.plugins-tts_mixed.json",
+        "prefix": "tts_engines/tts_mixed/",
+        "path": "shards/files.tts_engines-tts_mixed.json",
         "files": 3,
         "bytes": 4710
       },
@@ -99,8 +99,8 @@
         "bytes": 32067
       },
       {
-        "prefix": "plugins/tts_xtts/",
-        "path": "shards/files.plugins-tts_xtts.json",
+        "prefix": "tts_engines/tts_xtts/",
+        "path": "shards/files.tts_engines-tts_xtts.json",
         "files": 25,
         "bytes": 19642
       },
@@ -167,7 +167,7 @@
     ],
     "unmapped": [
       "tests/",
-      "plugins/*/tests/",
+      "tts_engines/*/tests/",
       "node_modules/",
       "venv/",
       ".git/",
@@ -217,7 +217,7 @@
         "app/engines/bridge_remote.py#RemoteBridgeHandler.synthesize",
         "app/engines/tts_client.py#TtsClient.synthesize (HTTP)",
         "app/tts_server/server.py#/synthesize",
-        "plugins/tts_xtts|tts_voxtral|tts_mixed engine.synthesize",
+        "tts_engines/tts_xtts|tts_voxtral|tts_mixed engine.synthesize",
         "app/orchestration/progress/service.py#ProgressService.reconcile",
         "app/api/ws.py#broadcast_job_updated"
       ],
@@ -228,7 +228,7 @@
       "id": "mixed-engine-render",
       "path": [
         "app/orchestration/tasks/synthesis.py (prefers_local_execution=True for engine='mixed')",
-        "plugins/tts_mixed/handler.py#handle_mixed_job",
+        "tts_engines/tts_mixed/handler.py#handle_mixed_job",
         "app/domain/chunk_groups.py#build_chunk_groups",
         "app/jobs/handlers/bridge_helpers.py#generate_via_bridge (per sub-engine group)",
         "app/engines/audio_ops.py#stitch_segments",
@@ -321,7 +321,7 @@
         "app/orchestration/scheduler/orchestrator_helpers.py#_dispatch (is_chapter_fanout branch -> task.run() directly)",
         "app/orchestration/tasks/segment_synthesis.py#make_dispatch_segment_bridge_call -> _SyntheticSegmentTask (skip_registry_dispatch=True)",
         "app/orchestration/scheduler/orchestrator_helpers.py#_dispatch_segment (reused per child, INV-6 isolation; registry lookup skipped for this child)",
-        "plugins/tts_mixed/handler.py#render_one_group (per-child, NOT handle_mixed_job)",
+        "tts_engines/tts_mixed/handler.py#render_one_group (per-child, NOT handle_mixed_job)",
         "app/orchestration/scheduler/orchestrator_publish.py#_publish (ephemeral branch invokes on_segment_tick callback per child tick)",
         "app/orchestration/tasks/segment_synthesis.py#ChapterSynthesisTask._on_child_segment_tick (updates self._live_segments_map, update_job(skip_job_updated=True))",
         "app/api/ws.py#broadcast_job_updated (active_segments_map delivery leg, 2026-07-05)",
@@ -334,7 +334,7 @@
         "skip_registry_dispatch missing/False on a fan-out child task -> registry handler re-renders all remaining chapter groups per child, and the first-dispatched child silently does every sibling's work too (fixed 41c9d84c)",
         "on_segment_tick callback never wired/raises -> self._live_segments_map never updates -> active_segments_map stays structurally empty regardless of concurrency level, frontend map-branch highlighting never engages (fixed 2d80df6c)",
         "build_chapter_progress_event/broadcast_job_updated missing the active_segments_map kwarg -> even a correctly-populated live map never reaches the frontend at all (the delivery-leg half of 2d80df6c)",
-        "a fan-out child dispatched with an empty script (every group already satisfied by a sibling or a prior run) calling generate_via_bridge with empty text -> 422 'text must not be empty' (fixed in plugins/tts_xtts/plugin/studio/standard_handler.py, same defect arc)",
+        "a fan-out child dispatched with an empty script (every group already satisfied by a sibling or a prior run) calling generate_via_bridge with empty text -> 422 'text must not be empty' (fixed in tts_engines/tts_xtts/plugin/studio/standard_handler.py, same defect arc)",
         "ChapterSynthesisTask.run() only calls _publish_progress(status=\"running\") inside the as_completed loop -> parent job status stays \"preparing\" until the first chunk group fully completes, regardless of concurrency (fixed 2026-07-06, dispatch-time announce added before the as_completed loop)",
         "the fan-out parent bypasses _dispatch_segment (the only prior emitter of the chapter-scope pre_load_eta ETA frame) -> parent job's eta_seconds stays null through the whole preparing window -> queue bar's determinate fill never engages (fixed 2026-07-06, _publish_chapter_dispatch_eta added to the is_chapter_fanout dispatch branch)",
         "the chapter-level eta_seconds leg only had a t=0 dispatch snapshot with no further recompute -> every subsequent \"running\" tick re-broadcast the stale dispatch-time ETA verbatim for the whole render, so the queue bar never counted down (fixed 2026-07-07, _live_chapter_eta_seconds decay + durable update_job persistence)",
@@ -349,18 +349,18 @@
         "app/engines/bridge_remote.py#RemoteBridgeHandler.synthesize",
         "app/engines/tts_client.py#TtsClient.synthesize (HTTP POST, module-level httpx.post, no shared client)",
         "app/tts_server/server.py#/synthesize (uvicorn/Starlette threadpool via run_in_threadpool -- N concurrent requests, ONE process)",
-        "plugins/tts_xtts/plugin/server/engine.py#XttsPlugin.synthesize -> parse_output -> relay_marker -> _emit_stderr_atomic",
-        "plugins/tts_xtts/plugin/core/warm_worker.py#WarmWorker/WarmWorkerManager (per-worker isolated stdout/stderr reader threads + free-list pool)",
+        "tts_engines/tts_xtts/plugin/server/engine.py#XttsPlugin.synthesize -> parse_output -> relay_marker -> _emit_stderr_atomic",
+        "tts_engines/tts_xtts/plugin/core/warm_worker.py#WarmWorker/WarmWorkerManager (per-worker isolated stdout/stderr reader threads + free-list pool)",
         "shared TTS Server process stderr (single stream for the whole process)",
         "app/engines/watchdog.py#TtsServerWatchdog._drain_stream (reads the shared stream, dispatches every line to every registered log_listener)"
       ],
       "carries": "a per-child marker protocol (START_SYNTHESIS/START_SEGMENT/PROGRESS/SEGMENT_SAVED, each line task_id-tagged) that crosses an HTTP boundary AND a shared-process-stream boundary -- multiple concurrent requests (ENGINE_CLASS_ADMISSION on) run parse_output on different threadpool threads inside the SAME server process, all relaying to the SAME stderr that the watchdog reads and fans out to every registered per-child listener",
-      "invariant": "the TTS Server is one long-lived process serving N concurrent /synthesize requests on a thread pool; any plugin-side write to the shared process stdout/stderr MUST go through a single-writer-locked emitter (plugins/tts_xtts/plugin/server/engine.py#_emit_stderr_atomic) -- a bare print(file=sys.stderr) issues two unsynchronized write() calls (content, then newline) that can interleave with another thread's writes mid-line; watchdog.py's log_listener filter (orchestrator_helpers.py:825) only rejects a line whose EXTRACTED task_id explicitly mismatches -- a line with no extractable task_id, or a merged line whose first-matched marker's task_id happens to match, is NOT rejected and can poison a listener's sticky active_seg_id state (PROGRESS lines carry no segment id of their own, only pct + task_id) until that task's own next real START_SEGMENT arrives",
+      "invariant": "the TTS Server is one long-lived process serving N concurrent /synthesize requests on a thread pool; any plugin-side write to the shared process stdout/stderr MUST go through a single-writer-locked emitter (tts_engines/tts_xtts/plugin/server/engine.py#_emit_stderr_atomic) -- a bare print(file=sys.stderr) issues two unsynchronized write() calls (content, then newline) that can interleave with another thread's writes mid-line; watchdog.py's log_listener filter (orchestrator_helpers.py:825) only rejects a line whose EXTRACTED task_id explicitly mismatches -- a line with no extractable task_id, or a merged line whose first-matched marker's task_id happens to match, is NOT rejected and can poison a listener's sticky active_seg_id state (PROGRESS lines carry no segment id of their own, only pct + task_id) until that task's own next real START_SEGMENT arrives",
       "failure_modes": [
         "two concurrent requests' unsynchronized print(file=sys.stderr) calls interleave mid-line -> one merged physical line embeds two distinct markers -> the watchdog's per-marker parsing (sequential ifs, not elif) can accept BOTH embedded markers under DIFFERENT extraction rules, so a correctly-tagged listener's active_seg_id gets poisoned by a foreign sibling's segment id, then every subsequent legitimate same-task PROGRESS tick is misattributed to the wrong segment (escaped defect, fixed 2026-07-06: _emit_stderr_atomic write-side lock + orchestrator_helpers.py foreign-sid guard read-side defense + watchdog.py merged-line tripwire diagnostic)",
         "a WarmWorker's _relay_trailing_stderr grace window (fixed 0.3s) elapses before a slow trailing marker line is drained -> the stale line sits in that worker's _stderr_q -> the NEXT job handed to the SAME reused worker relays the stale, un-task-id'd line under the new job's task_id via relay_marker -- a second, independent cross-attribution channel (fixed 2026-07-06: WarmWorker.run_job discards any stale _stderr_q entries before writing the new job to stdin)"
       ],
-      "verified_by": "plugins/tts_xtts/tests/test_engine_progress_relay.py::TestEmitStderrAtomicConcurrency (write-side lock), tests/orchestration/test_dispatch_isolation.py::test_start_segment_with_foreign_sid_is_ignored (read-side guard), tests/orchestration/test_watchdog_progress_logic.py::test_merged_marker_line_logs_a_warning (tripwire), plugins/tts_xtts/tests/test_warm_worker.py::test_stale_stderr_from_prior_job_is_discarded_not_relayed (stale-queue drain) -- all added 2026-07-06; no test exercises this flow against a REAL XTTS subprocess under real GPU concurrency (all are mock/fake-stream unit tests of the isolation mechanisms)"
+      "verified_by": "tts_engines/tts_xtts/tests/test_engine_progress_relay.py::TestEmitStderrAtomicConcurrency (write-side lock), tests/orchestration/test_dispatch_isolation.py::test_start_segment_with_foreign_sid_is_ignored (read-side guard), tests/orchestration/test_watchdog_progress_logic.py::test_merged_marker_line_logs_a_warning (tripwire), tts_engines/tts_xtts/tests/test_warm_worker.py::test_stale_stderr_from_prior_job_is_discarded_not_relayed (stale-queue drain) -- all added 2026-07-06; no test exercises this flow against a REAL XTTS subprocess under real GPU concurrency (all are mock/fake-stream unit tests of the isolation mechanisms)"
     },
     {
       "id": "peaks-sidecar-generation",
@@ -409,12 +409,12 @@
     },
     {
       "id": "tts-server-isolation",
-      "rule": "app/tts_server/** and plugins/*/plugin/server/** and plugins/*/plugin/studio/** must never import app.api, app.orchestration, app.db, app.domain, or app.jobs (enforced by AST validation in plugin_validation.py); only app.studio_plugin_sdk and app.engines.voice.sdk/base are allowed",
+      "rule": "app/tts_server/** and tts_engines/*/plugin/server/** and tts_engines/*/plugin/studio/** must never import app.api, app.orchestration, app.db, app.domain, or app.jobs (enforced by AST validation in plugin_validation.py); only app.studio_plugin_sdk and app.engines.voice.sdk/base are allowed",
       "applies_to": [
         "app/tts_server/**",
-        "plugins/*/plugin/**"
+        "tts_engines/*/plugin/**"
       ],
-      "check": "grep -rnE \"^(from|import) app\\.(api|orchestration|db|domain|jobs)(\\.|$| )\" app/tts_server plugins/*/plugin/server plugins/*/plugin/studio # non-empty = violation"
+      "check": "grep -rnE \"^(from|import) app\\.(api|orchestration|db|domain|jobs)(\\.|$| )\" app/tts_server tts_engines/*/plugin/server tts_engines/*/plugin/studio # non-empty = violation"
     },
     {
       "id": "orchestrator-forbidden-imports",
@@ -500,10 +500,10 @@
       "id": "tts-server-shared-stream-single-writer",
       "rule": "All plugin-server-side stdout/stderr emission goes through a locked, single-write-call atomic emitter (never a bare print(file=sys.stdout/stderr) or sys.stdout/stderr.write()) -- the TTS Server is one process serving concurrent requests on a thread pool, so an unlocked multi-syscall print() from two threads can interleave mid-line and corrupt the marker protocol the watchdog parses Scope is the TTS Server's own request-handling context, not warm-worker subprocess code (which is single-threaded per-process and safe by construction).",
       "applies_to": [
-        "plugins/*/plugin/server/**",
-        "plugins/*/plugin/core/diagnostics.py"
+        "tts_engines/*/plugin/server/**",
+        "tts_engines/*/plugin/core/diagnostics.py"
       ],
-      "check": "grep -rnE 'print\\(.*file=sys\\.std(err|out)|sys\\.std(err|out)\\.write\\(' plugins/*/plugin/server plugins/*/plugin/core/diagnostics.py | grep -v 'emit_stderr_atomic' | grep -v 'canonical-locked-write' # any output = a bare unsynchronized stream write outside the locked emitter. Scoped to server-context code only (files that run on the TTS Server's per-request threadpool) -- deliberately EXCLUDES plugin/core/xtts_inference.py and other warm-worker-SUBPROCESS-side code, which is single-threaded per-process by design and not part of this hazard class; also excludes proc_utils.py's one-shot-fallback stdout debug write (different stream, rarely-exercised fallback path, not yet audited). NOTE: as of 2026-07-06 this also false-positives on diagnostics.py:9,25-26's docstring/comment prose describing the pattern in prose -- read any hit before treating it as a real violation."
+      "check": "grep -rnE 'print\\(.*file=sys\\.std(err|out)|sys\\.std(err|out)\\.write\\(' tts_engines/*/plugin/server tts_engines/*/plugin/core/diagnostics.py | grep -v 'emit_stderr_atomic' | grep -v 'canonical-locked-write' # any output = a bare unsynchronized stream write outside the locked emitter. Scoped to server-context code only (files that run on the TTS Server's per-request threadpool) -- deliberately EXCLUDES plugin/core/xtts_inference.py and other warm-worker-SUBPROCESS-side code, which is single-threaded per-process by design and not part of this hazard class; also excludes proc_utils.py's one-shot-fallback stdout debug write (different stream, rarely-exercised fallback path, not yet audited). NOTE: as of 2026-07-06 this also false-positives on diagnostics.py:9,25-26's docstring/comment prose describing the pattern in prose -- read any hit before treating it as a real violation."
     },
     {
       "id": "player-bar-docked-not-overlay",
@@ -545,7 +545,7 @@
         "app/domain",
         "app/orchestration",
         "app/jobs",
-        "plugins/*"
+        "tts_engines/*"
       ]
     },
     "app/engines": {
@@ -609,7 +609,7 @@
       ],
       "depended_by": [
         "app/orchestration/scheduler/orchestrator_helpers.py (dispatch)",
-        "plugins/*/handler.py (bridge_helpers, worker_metrics)"
+        "tts_engines/*/handler.py (bridge_helpers, worker_metrics)"
       ]
     },
     "app/studio_plugin_sdk": {
@@ -618,7 +618,7 @@
         "app/db, app/api/ws.py, app/engines, app/utils (all late-imported inside methods)"
       ],
       "depended_by": [
-        "plugins/*",
+        "tts_engines/*",
         "app/tts_server/plugin_loader.py (registers as sys.modules alias)"
       ]
     },
@@ -650,7 +650,7 @@
         "nearly every app/* module"
       ]
     },
-    "plugins/tts_xtts": {
+    "tts_engines/tts_xtts": {
       "purpose": "Local GPU voice-cloning engine plugin (XTTS). Warm-worker subprocess pool for model reuse across renders",
       "depends_on": [
         "app/engines/voice/sdk.py,base.py",
@@ -664,7 +664,7 @@
         "Execution topology: the TTS Server is a single long-lived process; uvicorn/Starlette serves concurrent /synthesize requests on its threadpool (run_in_threadpool), so N requests can run this plugin's synthesize()/parse_output concurrently on different threads inside ONE process. Module-level mutable state and shared streams (stdout/stderr) are cross-request shared -- see tts-server-shared-stream-single-writer invariant and the tts-server-marker-relay flow."
       ]
     },
-    "plugins/tts_voxtral": {
+    "tts_engines/tts_voxtral": {
       "purpose": "Cloud voice engine plugin calling Mistral's Voxtral TTS API",
       "depends_on": [
         "app/engines/voice/sdk.py,base.py",
@@ -674,7 +674,7 @@
         "tts_server (loaded as plugin)"
       ]
     },
-    "plugins/tts_mixed": {
+    "tts_engines/tts_mixed": {
       "purpose": "Composite engine: orchestrates multiple sub-engines per chapter (multi-group render), delegation-only (no local synthesis)",
       "depends_on": [
         "app/studio_plugin_sdk",
@@ -824,7 +824,7 @@
     {
       "files": [
         "app/orchestration/scheduler/orchestrator_helpers.py",
-        "plugins/tts_xtts/plugin/server/engine.py"
+        "tts_engines/tts_xtts/plugin/server/engine.py"
       ],
       "co_changes": 5,
       "strength": 0.62,
@@ -941,7 +941,7 @@
       "commits_12mo": 12
     },
     {
-      "file": "plugins/tts_xtts/plugin/server/engine.py",
+      "file": "tts_engines/tts_xtts/plugin/server/engine.py",
       "commits_12mo": 12
     },
     {

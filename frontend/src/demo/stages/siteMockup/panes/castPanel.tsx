@@ -278,7 +278,7 @@ const CharRow: React.FC<CharRowProps> = ({ char, isArmed, onArm, onSurface, onPr
               borderRadius: 'var(--radius-round)',
               border: '1px solid var(--accent-tint-border)',
               background: 'var(--accent-tint-bg)',
-              color: 'var(--accent)',
+              color: 'var(--action-primary)',
               cursor: 'pointer',
               fontFamily: 'inherit',
               display: 'inline-flex',
@@ -528,7 +528,7 @@ export const CastPanel: React.FC<CastPanelProps> = ({
         flexShrink: 0,
       }}>
         {armedSwatch ? (
-          <span style={{ color: SPEAKER_TOKEN[armedSwatch]?.text ?? 'var(--accent)', fontStyle: 'normal', fontWeight: 600 }}>
+          <span style={{ color: SPEAKER_TOKEN[armedSwatch]?.text ?? 'var(--action-primary)', fontStyle: 'normal', fontWeight: 600 }}>
             painting: {armedSwatch === 'Narrator' ? 'Narrator' : characters.find(c => c.id === armedSwatch)?.name ?? armedSwatch}
           </span>
         ) : (

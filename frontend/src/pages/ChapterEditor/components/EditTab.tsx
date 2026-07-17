@@ -94,7 +94,7 @@ export const EditTab: React.FC<EditTabProps> = ({
           {/* Spinner or icon */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, flexShrink: 0 }}>
               {analyzing
-                  ? <RefreshCw size={12} className="animate-spin" color="var(--accent)" />
+                  ? <RefreshCw size={12} className="animate-spin" color="var(--action-primary)" />
                   : <Info size={12} />}
               <span style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.65rem' }}>Analysis</span>
           </div>
@@ -115,7 +115,7 @@ export const EditTab: React.FC<EditTabProps> = ({
               <>
                   <div style={{ width: '1px', height: '16px', background: 'var(--border)', flexShrink: 0 }} />
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
-                      <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--accent)' }}>
+                      <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--action-primary)' }}>
                           {analysis.predicted_seconds >= 3600
                               ? `${Math.floor(analysis.predicted_seconds / 3600)}h ${Math.floor((analysis.predicted_seconds % 3600) / 60)}m`
                               : analysis.predicted_seconds >= 60

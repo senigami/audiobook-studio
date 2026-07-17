@@ -1,0 +1,134 @@
+{
+  "at": "2026-07-16T22:00:00Z",
+  "commit": "uncommitted",
+  "task": "PR brief 006 — backend namespace rename plugins/ -> tts_engines/",
+  "files": {
+    "tts_engines/": {
+      "change": "renamed",
+      "contract_changed": false,
+      "summary": "git mv plugins/ -> tts_engines/ (tts_xtts, tts_voxtral, tts_mixed bundles, each with manifest.json/interface.py/plugin/tests). Pure directory rename, no code changes inside the moved files beyond the import-path rewrites listed below."
+    },
+    "app/core/config.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "PLUGINS_DIR default path changed from BASE_DIR/plugins to BASE_DIR/tts_engines. Env var name PLUGINS_DIR unchanged (only the default it resolves to moved)."
+    },
+    "conftest.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Test-isolation PLUGINS_DIR override now points at REAL_ROOT/tts_engines."
+    },
+    "pytest.ini": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "testpaths changed from 'tests plugins' to 'tests tts_engines' so engine-bundle test suites are still collected."
+    },
+    "app/tts_server/plugin_loader.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Docstrings/discovery-root references updated to tts_engines/; no functional change to discover_plugins()."
+    },
+    "app/tts_server/plugin_manifest.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "No path literals needed changing (manifest.json path assumptions are relative to the plugin_dir passed in, unaffected by the rename); verified consistent with plugin_loader.py post-split (PR #137)."
+    },
+    "app/engines/behavior.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "plugins_root fallback path (Path(__file__).resolve().parents[2] / 'plugins') repointed to 'tts_engines'."
+    },
+    "app/engines/watchdog.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Docstrings updated; plugins_dir default still resolves via PLUGINS_DIR (now pointing at tts_engines/)."
+    },
+    "app/api/routers/engines_shared.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "_resolve_plugin_dir's module_path prefix check ('plugins' as parts[0]) updated to 'tts_engines' to match the new dotted import package name inferred from a loaded engine class's __module__."
+    },
+    "app/jobs/registry.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "package_name f-string for dynamically-loaded job-handler modules changed from f'plugins.{folder_name}' to f'tts_engines.{folder_name}' -- this is a real sys.modules package name, not cosmetic."
+    },
+    "app/engines/registry.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "_manifest_module_path() now returns f'tts_engines.{engine_dir.name}.app_adapter'."
+    },
+    "app/api/contracts/events.py": {
+      "change": "reviewed_no_change",
+      "contract_changed": false,
+      "summary": "build_plugin_event()'s WebSocket topic namespace ('plugins.<plugin_id>.<area>') was initially caught by a broad rename sed and reverted -- this is an event-topic contract (frontend liveEventTopics.ts also matches on 'plugins.' prefix), unrelated to the filesystem plugins/ directory. Left unchanged; flagged here so it isn't mistaken for missed rename work."
+    },
+    "scripts/validate_plugin_manifests.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Default --plugins-dir path repointed to repo_root/tts_engines."
+    },
+    "docs/code-map/tools/py_import_graph.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "ROOTS list and path.parts[0] check updated from 'plugins' to 'tts_engines'."
+    },
+    ".gitignore": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "plugins/*/assets/{test_output.wav,last_test.json} ignore patterns repointed to tts_engines/*/assets/."
+    },
+    "run.sh": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "XTTS requirements.txt sync path repointed to $DIR/tts_engines/tts_xtts/requirements.txt."
+    },
+    "run.ps1": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Windows equivalent of the run.sh path fix."
+    },
+    "CLAUDE.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "All plugins/ path references (architecture section, commands, test isolation note) updated to tts_engines/."
+    },
+    "design-docs/specs/code-organization.md": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "spec_version bumped 1.3.0 -> 1.4.0 with a changelog row documenting the namespace rename; repo layout tree, plugin_loader.py description, and section 4 heading ('Plugin Layout (tts_engines/)') updated."
+    },
+    "design-docs/specs/engines-and-plugins.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "One filesystem-path reference (staged-repo target folder) updated to tts_engines/tts_<engine_id>; the /plugins/* HTTP route table is unchanged (API paths, not filesystem paths, out of scope)."
+    },
+    "wiki/Changelog.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added a dated [Changed] entry describing the rename and the migration note for anyone with local plugin forks."
+    },
+    "app/orchestration/scheduler/orchestrator_helpers.py, app/studio_plugin_sdk/context.py, app/engines/voice/base.py, app/engines/bridge.py, app/tts_server/settings_store.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Comment/docstring path references to plugins/tts_* updated to tts_engines/tts_* for accuracy; no executable change."
+    },
+    "tests/**": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "All 'from plugins...'/'import plugins...' imports, patch('plugins.tts_*...') mock targets, and tmp_path/'plugins' test-fixture literals across tests/api, tests/core, tests/db, tests/domain, tests/engines, tests/orchestration, tests/utils, tests/bridge/conftest.py rewritten to tts_engines. The one exception, tests/api/test_websocket_broadcast.py's build_plugin_event topic assertion, was deliberately left/reverted to 'plugins.tts_xtts.synthesis' (event-topic contract, see app/api/contracts/events.py note above)."
+    },
+    "CONTRIBUTING.md, README.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Plugin-authoring lifecycle section and XTTS venv setup instructions repointed to tts_engines/."
+    },
+    "docs/plugin-sdk/plugin-template/plugin/studio/handler.py": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Example-file cross-reference comment updated to tts_engines/tts_voxtral/..."
+    }
+  },
+  "flow_impact": "Every flow that touches engine-plugin discovery, loading, or job-handler dynamic import (TTS Server boot, watchdog spawn args, mixed/xtts/voxtral job dispatch, plugin zip/GitHub install staging) now resolves against tts_engines/ instead of plugins/. No behavior change -- verified via full pytest suite, ruff, and a live app boot with GET /api/v1/tts/engines listing all three engines from the new path. HTTP-level /plugins/* routes on the TTS Server sub-app (refresh/import/preview/confirm/staging) and the WebSocket 'plugins.<id>.<area>' event-topic namespace are unaffected -- those are API/contract surfaces, not filesystem paths, and were explicitly kept unchanged per the brief.",
+  "notes": "Ambiguity flagged for owner: the confirmed decision item 'rename mixed.py -> composite.py inside the tts_mixed engine bundle' has no literal target -- tts_engines/tts_mixed/ contains __init__.py, engine.py, handler.py, manifest.json, and tests/, with no file named mixed.py anywhere in the repo (verified with a full-repo find). No rename was performed for this item since guessing at renaming engine.py or handler.py (the standard filenames shared by every engine bundle) would break naming consistency across tts_xtts/tts_voxtral/tts_mixed on a guess. Also verified app/db/speakers.py decomposition (mentioned as a residual scope item) is already done -- a 74-line facade over speakers_crud.py/speakers_settings.py/speakers_sync.py/speakers_paths.py -- so no action was needed there."
+}

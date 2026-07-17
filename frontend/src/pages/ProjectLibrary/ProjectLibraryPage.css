@@ -356,7 +356,7 @@
 
 .library-continue-card__series {
   font-size: 0.75rem;
-  color: var(--accent);
+  color: var(--action-primary);
   font-style: italic;
   margin: 0;
 }
@@ -377,6 +377,6 @@
 
 .library-continue-card__progress-fill {
   height: 100%;
-  background: var(--accent);
+  background: var(--action-primary);
   border-radius: 2px;
 }

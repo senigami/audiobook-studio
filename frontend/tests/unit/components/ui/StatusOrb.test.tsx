@@ -79,14 +79,14 @@ describe('StatusOrb', () => {
     const chap = { ...baseChapter, has_wav: true, audio_status: 'unprocessed' as const, audio_generated_at: 2000 }
     const { container } = render(<StatusOrb chap={chap} doneSegments={9} totalSegments={10} />)
 
-    expect(container.querySelector('circle[r="9.5"][stroke="var(--accent)"]')).toBeTruthy()
+    expect(container.querySelector('circle[r="9.5"][stroke="var(--action-primary)"]')).toBeTruthy()
   })
 
   it('renders a full ring when all segments are rendered but no wav exists yet', () => {
     const chap = { ...baseChapter, has_wav: false, audio_status: 'unprocessed' as const, audio_generated_at: 2000 }
     const { container } = render(<StatusOrb chap={chap} doneSegments={10} totalSegments={10} />)
 
-    const progressArc = container.querySelector('circle[r="9.5"][stroke="var(--accent)"]')
+    const progressArc = container.querySelector('circle[r="9.5"][stroke="var(--action-primary)"]')
     expect(progressArc).toBeTruthy()
     expect(progressArc?.getAttribute('stroke-dashoffset')).toBe('0')
   })
@@ -113,7 +113,7 @@ describe('StatusOrb', () => {
     const chap = { ...baseChapter, has_wav: false, audio_status: 'unprocessed' as const, audio_generated_at: 2000 }
     const { container } = render(<StatusOrb chap={chap} doneSegments={5} totalSegments={10} />)
 
-    const arc = container.querySelector('circle[r="9.5"][stroke="var(--accent)"]')
+    const arc = container.querySelector('circle[r="9.5"][stroke="var(--action-primary)"]')
     expect(arc).toBeTruthy()
 
     const dashoffset = parseFloat(arc?.getAttribute('stroke-dashoffset') ?? '0')
@@ -140,6 +140,62 @@ describe('StatusOrb', () => {
     expect(container.querySelector('[data-testid="orb-icon-cached"]')).toBeNull()
     const baseOrb = container.querySelector('circle[r="8"]')
     expect(baseOrb?.getAttribute('fill')).toBe('var(--status-m4a)')
+  })
+
+  // Preparing tier (StatusOrb parity with ScriptView §2.7): a live job in the
+  // model-load window shows a distinct dimmed/pulsing orb, NOT the running spinner.
+  // Preparing signal derived from the same fields useStudioChapter uses:
+  // reason_code ∈ {SEGMENT_PENDING, LOADING_MODEL} || indeterminate === true.
+  it('preparing job renders the preparing tier, not the running spinner (LOADING_MODEL)', () => {
+    const chap = { ...baseChapter, has_wav: false, audio_status: 'processing' as const, audio_generated_at: null }
+    const activeJob = { id: 'j1', status: 'preparing', progress: 0, reason_code: 'LOADING_MODEL' } as unknown as Job
+    const { container } = render(<StatusOrb chap={chap} activeJob={activeJob} />)
+
+    // No spinning running icon during preparing…
+    expect(container.querySelector('[data-testid="orb-icon-running"]')).toBeNull()
+    // …a distinct preparing marker is shown instead.
+    expect(container.querySelector('[data-testid="orb-icon-preparing"]')).toBeTruthy()
+    const orb = container.firstChild as HTMLElement
+    expect(orb.getAttribute('aria-label')).toContain('Preparing')
+  })
+
+  it('preparing tier triggers on indeterminate flag alone', () => {
+    const chap = { ...baseChapter, has_wav: false, audio_status: 'processing' as const, audio_generated_at: null }
+    const activeJob = { id: 'j1', status: 'running', progress: 0, indeterminate: true } as unknown as Job
+    const { container } = render(<StatusOrb chap={chap} activeJob={activeJob} />)
+    expect(container.querySelector('[data-testid="orb-icon-running"]')).toBeNull()
+    expect(container.querySelector('[data-testid="orb-icon-preparing"]')).toBeTruthy()
+  })
+
+  it('preparing tier uses a reduced-motion-safe calm pulse, not a spinner class', () => {
+    const chap = { ...baseChapter, has_wav: false, audio_status: 'processing' as const, audio_generated_at: null }
+    const activeJob = { id: 'j1', status: 'preparing', progress: 0, reason_code: 'SEGMENT_PENDING' } as unknown as Job
+    const { container } = render(<StatusOrb chap={chap} activeJob={activeJob} />)
+
+    // No animate-spin anywhere in the preparing orb (spinner is the running-only cue).
+    expect(container.querySelector('.animate-spin')).toBeNull()
+    // The pulse rides the orb-scoped .orb-is-preparing class (not bare .is-preparing,
+    // which ScriptView uses on body text), which base.css re-enables under
+    // prefers-reduced-motion (calm opacity breathe, no movement).
+    expect(container.querySelector('.orb-is-preparing')).toBeTruthy()
+    // Guard the F1 regression: the orb must NOT use the bare class that would leak
+    // the global animation onto ScriptView's script-mode preparing text spans.
+    expect(container.querySelector('.is-preparing')).toBeNull()
+  })
+
+  it('shows the live segment arc at real done/total while a job is actively rendering', () => {
+    // The new ask: the ring reflects completed-vs-total segments DURING an active
+    // render (running), not only in the idle stable state. Real counts, not fabricated.
+    const chap = { ...baseChapter, has_wav: false, audio_status: 'processing' as const, audio_generated_at: null }
+    const activeJob = { id: 'j1', status: 'running', progress: 0.5 } as unknown as Job
+    const { container } = render(<StatusOrb chap={chap} activeJob={activeJob} doneSegments={5} totalSegments={10} />)
+
+    const arc = container.querySelector('circle[r="9.5"][stroke="var(--accent)"]')
+    expect(arc).toBeTruthy()
+    const dashoffset = parseFloat(arc?.getAttribute('stroke-dashoffset') ?? '0')
+    // r=9.5 → circumference ≈ 59.69; 50% done → dashoffset ≈ 29.85
+    expect(dashoffset).toBeGreaterThan(29)
+    expect(dashoffset).toBeLessThan(31)
   })
 
   it('P3: error state renders X icon (not ! span)', () => {

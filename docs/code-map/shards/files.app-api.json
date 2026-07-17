@@ -272,7 +272,7 @@
       ],
       "called_by": [],
       "notes": [
-        "2026-07-14: Reduced from 704 lines to a 56-line facade: builds the /api/engines-prefixed router by including engines_registry/engines_plugins/engines_test sub-routers (each carrying its own /api/engines prefix to satisfy FastAPI's empty-path-on-include_router check for the bare GET \"\" route) and re-exports their route functions plus engines_shared's helpers.",
+        "2026-07-14: Reduced from 704 lines to a 56-line facade: builds the /api/engines-prefixed router by including engines_registry/engines_tts_engines/engines_test sub-routers (each carrying its own /api/engines prefix to satisfy FastAPI's empty-path-on-include_router check for the bare GET \"\" route) and re-exports their route functions plus engines_shared's helpers.",
         "_PLUGIN_FOLDER_RE: tts_[a-z][a-z0-9]{1,14}",
         "_ENGINE_ID_RE: [a-z][a-z0-9_-]{0,63}",
         "Task 014 (2026-07-11): new GET /api/engines/concurrency (global_cap + per-engine [engine_id, engine_class, manifest_max, requested_cap, effective_cap, active_count] snapshot, all in-process reads) and PUT /api/engines/{engine_id}/concurrency (body {cap: int|null}; validates 1<=cap<=manifest_max server-side, HTTP 422 with manifest_max on violation rather than silent clamping; null clears the override; writes via db.state.set_engine_cap). An alternative, validating write path to task 012's raw POST /api/settings route (additive; that path keeps working unchanged)."
@@ -316,7 +316,7 @@
         "app/orchestration/tasks/synthesis.py#SynthesisTask",
         "app/utils/pathing.py",
         "app/utils/render_trace.py",
-        "plugins/tts_mixed/handler.py"
+        "tts_engines/tts_mixed/handler.py"
       ],
       "called_by": [],
       "notes": [
@@ -979,7 +979,7 @@
       ],
       "called_by": [
         "app/orchestration/scheduler/orchestrator_helpers.py",
-        "plugins/tts_mixed/handler.py"
+        "tts_engines/tts_mixed/handler.py"
       ],
       "notes": [
         "broadcast_job_updated is central bottleneck: always enriches with \u00a74A confidence/ETA unless skip_studio_job_event",

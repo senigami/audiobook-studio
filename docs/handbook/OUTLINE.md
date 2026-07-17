@@ -422,7 +422,7 @@ _Extend Studio with engine plugins, drive it over the external API, and run it._
   - Key constraints (modular_architecture)
   - verification before “done”
 - [Testing & Verification](contributing/testing-verification.html) — How to verify a change end to end.
-  - pytest (tests/ + plugins/)
+  - pytest (tests/ + tts_engines/)
   - ruff
   - frontend vitest/build
   - TDD expectation

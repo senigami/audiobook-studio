@@ -1,0 +1,11 @@
+{
+  "date": "2026-07-16",
+  "author": "studio2/standalone-plugin-repos-010 task 02 (delete _register_sdk_alias)",
+  "summary": "Deleted the _register_sdk_alias sys.modules hack from app/tts_server/plugin_loader.py. `import studio_plugin_sdk` now resolves ONLY via the real top-level package (task 01). No alias, no dual module objects.",
+  "changes": [
+    {"file": "app/tts_server/plugin_loader.py", "change": "REMOVED _register_sdk_alias() and its import-time call/try-except (former lines 30-53). Repointed the ensure_plugin_package_hierarchy import from app.studio_plugin_sdk._import_utils to studio_plugin_sdk._import_utils (SDK-first dependency direction). No other loader behavior changed; _validate_manifest untouched."},
+    {"file": "tests/engines/test_studio_plugin_sdk.py", "change": "Replaced alias-registration tests (test_sys_modules_alias_registered, test_alias_exposes_studio_tts_engine) with: top-level resolution test (studio_plugin_sdk.__file__ == <repo>/studio_plugin_sdk/__init__.py, NOT under app/), StudioTTSEngine surface test, and an identity guard asserting sys.modules['studio_plugin_sdk'] stays the repo-root package even after importing app.studio_plugin_sdk and app.tts_server.plugin_loader. R1 revert-checked against a HEAD worktree (pre-task-01): all three fail red."}
+  ],
+  "invariants": "Module identity: exactly one studio_plugin_sdk module object per class. tts_server subprocess resolution mechanism: watchdog spawns `python -u <BASE_DIR>/tts_server.py` (app/engines/watchdog.py:160,300-308), so repo root is sys.path[0] via script-dir semantics — same mechanism that already resolved `app.*` there.",
+  "note": "Task 02 of .agent/mastermind-010-plan/. Runtime smoke: discover_plugins(plugins/) in a fresh subprocess loads mixed/voxtral/xtts OK with sys.modules['studio_plugin_sdk'].__file__ at repo root."
+}

@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pytest
 from unittest.mock import MagicMock, patch
-from plugins.tts_xtts.plugin.studio._text_utils import join_group_text, build_segment_groups
-# Import `handler` before `segments` — matches plugins/tts_xtts/tests/test_handler.py's
+from tts_engines.tts_xtts.plugin.studio._text_utils import join_group_text, build_segment_groups
+# Import `handler` before `segments` — matches tts_engines/tts_xtts/tests/test_handler.py's
 # import order, which avoids a circular-import trap (segments -> helpers -> handler ->
 # bake -> helpers) when segments.py is the first module of the package to be imported.
-from plugins.tts_xtts.plugin.studio import handler as _xtts_handler_module  # noqa: F401
-from plugins.tts_xtts.plugin.studio.segments import handle_xtts_segments
+from tts_engines.tts_xtts.plugin.studio import handler as _xtts_handler_module  # noqa: F401
+from tts_engines.tts_xtts.plugin.studio.segments import handle_xtts_segments
 from app.db.models import Job
 
 
@@ -109,9 +109,9 @@ class TestSegmentGroupingLimit:
             captured["script"] = kwargs["script"]
             return 0
 
-        with patch("plugins.tts_xtts.plugin.studio.segments.get_chapter_segments", return_value=segs), \
-             patch("plugins.tts_xtts.plugin.studio.segments.generate_via_bridge", side_effect=fake_generate_via_bridge), \
-             patch("plugins.tts_xtts.plugin.studio.handler.update_job"), \
+        with patch("tts_engines.tts_xtts.plugin.studio.segments.get_chapter_segments", return_value=segs), \
+             patch("tts_engines.tts_xtts.plugin.studio.segments.generate_via_bridge", side_effect=fake_generate_via_bridge), \
+             patch("tts_engines.tts_xtts.plugin.studio.handler.update_job"), \
              patch("pathlib.Path.mkdir"):
             handle_xtts_segments(
                 jid="test_jid",

@@ -47,6 +47,7 @@ __pycache__/
 .venv
 env/
 venv/
+venv
 ENV/
 env.bak/
 venv.bak/
@@ -173,8 +174,8 @@ mkdocs/_build/
 .pdm-build/
 __pypackages__/
 /scratch
-plugins/*/assets/test_output.wav
-plugins/*/assets/last_test.json
+tts_engines/*/assets/test_output.wav
+tts_engines/*/assets/last_test.json
 /Memory
 /debug
 

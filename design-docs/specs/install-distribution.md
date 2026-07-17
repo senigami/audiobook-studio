@@ -1,14 +1,14 @@
 # Install & Distribution
 
 ```
-spec_version: 1.2.0
+spec_version: 1.3.0
 status: active
-updated: 2026-06-16
+updated: 2026-07-16
 sources:
   - run.sh
   - run.ps1
   - requirements.txt
-  - plugins/tts_xtts/requirements.txt
+  - tts_engines/tts_xtts/requirements.txt
   - app/core/config.py
   - app/tts_server/server.py
   - app/engines/official_registry.py
@@ -22,7 +22,8 @@ sources:
 
 | Version | Date       | Change                 |
 |---------|------------|------------------------|
-| 1.2.0   | 2026-06-16 | Fix XTTS requirements path to `plugins/tts_xtts/requirements.txt`; note `XTTS_ENV_DIR`/`TTS_ENV_DIR` override; correct demo restore default (`ask`) and mechanism; add `AUDIOBOOK_STUDIO_PORT` and `AUDIOBOOK_STUDIO_DEMO_ZIP` env vars |
+| 1.3.0   | 2026-07-16 | Document the GitHub install/trust flow contract: URL validation rule, two-phase preview/confirm staging, symlink rejection, and the registry-membership trust model (pinned by `tests/tts_server/test_install_flow_e2e.py`) |
+| 1.2.0   | 2026-06-16 | Fix XTTS requirements path to `tts_engines/tts_xtts/requirements.txt`; note `XTTS_ENV_DIR`/`TTS_ENV_DIR` override; correct demo restore default (`ask`) and mechanism; add `AUDIOBOOK_STUDIO_PORT` and `AUDIOBOOK_STUDIO_DEMO_ZIP` env vars |
 | 1.1.0   | 2026-06-15 | Clarified v2 plugin distribution paths and post-v2 GitHub search/update scope |
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
 
@@ -47,7 +48,7 @@ The app is available at `http://127.0.0.1:8123` after launch.
 | Step | Detail |
 |------|--------|
 | 1. Provision `./venv` | Python 3.11; installs `requirements.txt` |
-| 2. Provision XTTS env | Python 3.11; installs `plugins/tts_xtts/requirements.txt`; defaults to `~/xtts-env` (overridable via `XTTS_ENV_DIR`/`TTS_ENV_DIR`) |
+| 2. Provision XTTS env | Python 3.11; installs `tts_engines/tts_xtts/requirements.txt`; defaults to `~/xtts-env` (overridable via `XTTS_ENV_DIR`/`TTS_ENV_DIR`) |
 | 3. Build frontend | `npm -C frontend run build` → `frontend/dist` |
 | 4. Launch uvicorn | `uvicorn run:app --port 8123` (default) |
 
@@ -84,7 +85,7 @@ XTTS has dependency conflicts with the core Studio requirements. It lives in a d
 | Attribute | Value |
 |-----------|-------|
 | Location | `~/xtts-env` (`$HOME/xtts-env`) by default; overridable via `XTTS_ENV_DIR` (preferred) or legacy `TTS_ENV_DIR` (`run.sh:6`) |
-| Requirements file | `plugins/tts_xtts/requirements.txt` |
+| Requirements file | `tts_engines/tts_xtts/requirements.txt` |
 | Core requirements file | `requirements.txt` (deliberately excludes XTTS deps) |
 | Provisioned by | `./run.sh` (both envs in one command) |
 
@@ -194,6 +195,34 @@ Studio 2.0 supports three plugin acquisition paths:
 - Registry and pasted-URL installs MUST use the same staging, manifest validation, and trust
   confirmation model as plugin ZIP import.
 - Manual plugin installation (drop a plugin directory into `PLUGINS_DIR`) MUST work without any UI changes.
+
+### GitHub install/trust flow (contract)
+
+The paste-a-GitHub-URL install path (`POST /api/engines/preview_github` → TTS Server
+`app/tts_server/plugin_staging.py`) behaves as follows. This contract is pinned by
+`tests/tts_server/test_install_flow_e2e.py` (local git fixtures, no network).
+
+1. **URL validation** — only `https://github.com/<owner>/<repo>[.git]` is accepted
+   (`_normalize_github_repo_url`). `file://`, `http://`, non-github hosts, embedded
+   credentials, query strings, fragments, SSH forms, and bare paths are rejected with 400.
+   This is a security property and MUST NOT be weakened.
+2. **Two-phase staging** — the repo is shallow-cloned (`--depth 1`) into
+   `PLUGINS_DIR/.preview_<token>` (`_clone_and_stage`, the post-validation body of
+   `preview_github_repo`). The preview response returns manifest metadata
+   (`engine_id`, `display_name`, `version`, parsed `requirements`) plus an opaque
+   32-hex `staging_token`. **No plugin code is loaded at preview time.** Only
+   `POST /plugins/confirm/{token}` moves the staged dir to `tts_<engine_id>/` and
+   triggers a plugin reload; `DELETE /plugins/staging/{token}` discards it. Orphaned
+   `.preview_*` dirs are swept at server startup.
+3. **Validation before staging completes** — the cloned repo must contain a
+   `manifest.json` passing `_validate_manifest`, and MUST NOT contain symlinks
+   (rejected 400, staging dir removed).
+4. **Trust model** — official trust is registry membership: entries in
+   `app/engines/official_registry.py` carry `trust_level: "official"` and their
+   `repo_url` matches the in-tree manifest `distribution.git_url`. A URL with no
+   registry entry is community-trust; the UI renders the Community badge and the
+   consent dialog (`PluginTrustModal`) before confirm. The backend does not compute
+   a per-preview trust flag — trust classification is registry lookup on the client.
 
 ---
 

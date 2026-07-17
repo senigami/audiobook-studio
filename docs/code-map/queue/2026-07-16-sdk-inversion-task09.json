@@ -1,0 +1,10 @@
+{
+  "date": "2026-07-16",
+  "author": "studio2/standalone-plugin-repos-010 task 09 (voxtral test-suite SDK import rewrite)",
+  "summary": "Mechanical import rewrite across tts_engines/tts_voxtral/tests: app.engines.voice.sdk -> studio_plugin_sdk.types (test_voxtral_implementation.py, test_voxtral_run_test_shared_boilerplate.py); app.studio_plugin_sdk.context/.errors -> studio_plugin_sdk.context/.errors (test_voxtral_segments_bake.py). Import-path-only; no assertion changes (R1 not triggered).",
+  "changes": [
+    {"file": "tts_engines/tts_voxtral/tests/", "change": "Patch-target decisions: patch('app.engines.audio_ops.wav_to_mp3') in test_voxtral_implementation.py L288 and the stitch_segments/get_audio_duration patches in test_voxtral_segments_bake.py all exercise HOST paths (via studio_plugin_sdk.context's lazy app.engines.audio_ops imports / bake's fn-body host aliases) — left as app.* per task doc. from app.db.models Job imports (test_voxtral_implementation x3, test_voxtral_segments_bake, test_voxtral_lexicon) left for task 11 local fakes."}
+  ],
+  "invariants": "Pass-count parity: voxtral suite 51 passed/1 skipped pre-task-07 baseline; now 59 passed/1 skipped — the +8 is exactly task 07's s5 gate expansion (6 -> 14 tests), no other delta.",
+  "note": "Task 09 of .agent/mastermind-010-plan/. Test files are unmapped; entry recorded for plan traceability."
+}

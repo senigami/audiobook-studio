@@ -92,11 +92,11 @@
 .playback-control-button:hover:not(:disabled) {
   background: var(--surface-light);
   border-color: var(--accent-muted);
-  color: var(--accent) !important;
+  color: var(--action-primary) !important;
 }
 
 .playback-control-button:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--action-primary);
   outline-offset: 1px;
 }
 
@@ -118,8 +118,8 @@
 
 .playback-control-button-primary.is-active {
   background: var(--accent-glow);
-  border-color: var(--accent);
-  color: var(--accent) !important;
+  border-color: var(--action-primary);
+  color: var(--action-primary) !important;
 }
 
 .playback-controls-seek {
@@ -152,7 +152,7 @@
   -webkit-appearance: none;
   width: 16px;
   height: 16px;
-  background: var(--accent);
+  background: var(--action-primary);
   border-radius: 50%;
   cursor: pointer;
   transition: transform 0.1s ease, box-shadow 0.2s ease;
@@ -176,15 +176,15 @@
 }
 
 .script-view-toggle-btn.active {
-  background: var(--accent);
+  background: var(--action-primary);
   color: var(--text-on-accent);
-  border-color: var(--accent);
+  border-color: var(--action-primary);
   box-shadow: var(--shadow-sm);
 }
 
 .script-view-toggle-btn:hover:not(:disabled):not(.active) {
   background: var(--surface);
-  color: var(--accent);
+  color: var(--action-primary);
   border-color: var(--border);
 }
 
@@ -206,14 +206,14 @@
 
 .script-view-pill-toggle:hover:not(:disabled):not(.is-active) {
   transform: translateY(-1px);
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--action-primary);
+  color: var(--action-primary);
 }
 
 .script-view-pill-toggle.is-active {
-  background: var(--accent);
+  background: var(--action-primary);
   color: var(--text-on-accent);
-  border-color: var(--accent);
+  border-color: var(--action-primary);
   box-shadow: var(--shadow-md);
 }
 
@@ -288,7 +288,7 @@
 
 .script-line.is-pending {
   background: color-mix(in srgb, var(--as-info-tint) 85%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--action-primary) 18%, transparent);
 }
 
 .script-line.is-queued {
@@ -348,7 +348,7 @@
 }
 
 .book-paragraph .script-span:hover {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  background: color-mix(in srgb, var(--action-primary) 14%, transparent);
 }
 
 .book-paragraph .script-span.is-highlighted:hover {
@@ -365,7 +365,7 @@
 
 .script-line.is-pending {
   animation: script-pending-pulse 1.8s ease-in-out infinite;
-  border-left: 3px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-left: 3px solid color-mix(in srgb, var(--action-primary) 40%, transparent);
 }
 
 .script-line.is-rendering {
@@ -389,7 +389,7 @@
   padding-top: 4px;
   padding-bottom: 5px;
   background: var(--accent-glow);
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--action-primary);
   outline-offset: 1px;
 }
 
@@ -408,7 +408,7 @@
 .script-span.is-playing {
   padding-top: 4px;
   padding-bottom: 5px;
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  background: color-mix(in srgb, var(--action-primary) 18%, transparent);
 }
 
 .script-span-text {
@@ -521,12 +521,12 @@
 @keyframes script-pending-pulse {
   0%, 100% {
     background: color-mix(in srgb, var(--as-info-tint) 88%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--action-primary) 16%, transparent);
   }
 
   50% {
     background: color-mix(in srgb, var(--as-info-tint) 80%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--action-primary) 24%, transparent);
   }
 }
 
@@ -569,7 +569,7 @@
 }
 
 .script-line.is-playing {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  background: color-mix(in srgb, var(--action-primary) 12%, transparent);
 }
 
 .script-line-speaker {
@@ -627,7 +627,7 @@
 
 .span-control-btn:hover {
   background: var(--accent-glow);
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 .span-control-select {
@@ -664,7 +664,7 @@
 /* Selection Popover */
 .selection-popover {
   background: var(--surface);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--action-primary);
   padding: 4px;
   border-radius: 12px;
   box-shadow: var(--shadow-lg);
@@ -736,7 +736,7 @@
 .playback-active-label {
   font-size: 0.8rem;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--action-primary);
   background: var(--accent-glow);
   padding: 0.2rem 0.6rem;
   border-radius: 6px;
@@ -744,5 +744,5 @@
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
-  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--action-primary) 20%, transparent);
 }

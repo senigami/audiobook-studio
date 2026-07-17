@@ -200,6 +200,15 @@ class ApiSynthesisTask(StudioTask):
     def to_bridge_request(self) -> dict[str, Any]:
         """Build a VoiceBridge-compatible synthesis request.
 
+        This is the external-gateway shape, used by the ``/api/v1/tts``
+        external API: it includes ``caller_id`` for attribution and spreads
+        ``**self.request_settings`` — a differently-named settings bag from
+        the other two builders' ``synthesis_settings``. See also the other
+        two ``to_bridge_request`` builders, which cover different task
+        shapes: ``app/orchestration/tasks/synthesis.py`` (full chapter/book
+        render) and ``app/orchestration/tasks/segment_synthesis.py``
+        (single-group fan-out child).
+
         Returns:
             dict[str, Any]: Request dict the VoiceBridge can dispatch.
         """

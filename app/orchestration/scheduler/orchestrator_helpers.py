@@ -617,7 +617,7 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                     # under engine="mixed". Attribute each group's render
                     # time to the REAL engine that rendered it instead, using
                     # the [SEGMENT_ENGINE_SAMPLE] facts the mixed handler
-                    # emitted per group (see plugins/tts_mixed/handler.py's
+                    # emitted per group (see tts_engines/tts_mixed/handler.py's
                     # render_one_group). No fallback to the old single
                     # "mixed" row — a build too old to emit the marker (or a
                     # chapter where every group was reused/cached, so nothing
@@ -724,6 +724,10 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
         )
 
         # If the task exposes a bridge request, route through the injected bridge.
+        # xtts never reaches this: xtts_dispatch_adapter (registered via
+        # tts_engines/tts_xtts/manifest.json worker_logic.engine_handlers) is
+        # picked up by the registry-based dispatch below and short-circuits
+        # first, so to_bridge_request is only ever called for non-xtts engines.
         bridge_request_fn = getattr(task, "to_bridge_request", None)
         from app.engines.watchdog import get_watchdog
         wd = get_watchdog()
@@ -1648,7 +1652,7 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                     pass
 
             if matched_marker == "SEGMENT_ENGINE_SAMPLE" or "[SEGMENT_ENGINE_SAMPLE]" in line:
-                # Mixed-only per-group attribution facts (plugins/tts_mixed/
+                # Mixed-only per-group attribution facts (tts_engines/tts_mixed/
                 # handler.py's render_one_group): "{segment_id} {engine}
                 # {chars} {duration_seconds}" — four whitespace tokens,
                 # matching the [SEGMENT_SAVED] parsing convention above.
@@ -1757,6 +1761,13 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
         #    handler, which has no concept of "render only my one group" and
         #    would silently redo a shared parent's remaining work (see
         #    docs/checklists/code-review.md, "A shared utility/handler ...").
+        #    This is also the reason `to_bridge_request` (used further below,
+        #    via `bridge_request_fn`) is never invoked for xtts: `reg.get_handler`
+        #    resolves xtts to `xtts_dispatch_adapter` (registered from
+        #    tts_engines/tts_xtts/manifest.json worker_logic.engine_handlers) and
+        #    handles+returns before the bridge-request branch is reached. Do
+        #    not delete `xtts_dispatch_adapter` or route xtts through
+        #    `to_bridge_request` instead — xtts is the live synthesis path.
         reg = get_handler_registry()
         j = self._context_to_job(context)
         handler = None if getattr(task, "skip_registry_dispatch", False) else reg.get_handler(j)

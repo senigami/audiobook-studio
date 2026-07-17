@@ -9,7 +9,7 @@ from pathlib import Path
 def test_job_registry_loads_interface_and_dotted_worker_handlers(tmp_path, monkeypatch):
     from app.jobs import registry as job_registry
 
-    plugins_dir = tmp_path / "plugins"
+    plugins_dir = tmp_path / "tts_engines"
     interface_dir = plugins_dir / "tts_ifacejob"
     dotted_dir = plugins_dir / "tts_dotjob"
     worker_dir = dotted_dir / "plugin" / "studio"

@@ -544,7 +544,7 @@ export const WaveformTape: React.FC<WaveformTapeProps> = ({
           y1={0}
           x2={playheadX}
           y2={svgH}
-          stroke="var(--accent)"
+          stroke="var(--action-primary)"
           strokeWidth={2}
           opacity={0.9}
         />

@@ -251,7 +251,7 @@ def _build_chapter_synthesis_task(
 
     from ...db.segments import get_chapter_segments as _get_chapter_segments
     from ...orchestration.tasks.synthesis import _manifest_resource_claim
-    from plugins.tts_mixed.handler import _group_needs_render, _group_ready_audio_path
+    from tts_engines.tts_mixed.handler import _group_needs_render, _group_ready_audio_path
 
     chapter_dir = get_chapter_dir(project_id, chapter_id)
     segments = _get_chapter_segments(chapter_id)
@@ -286,7 +286,7 @@ def _build_chapter_synthesis_task(
             return str(existing) if existing else None
 
     def stitch_fn(paths: list[str]) -> None:
-        from plugins.tts_mixed.handler import stitch_segments, _persist_mixed_chapter_output
+        from tts_engines.tts_mixed.handler import stitch_segments, _persist_mixed_chapter_output
         from ...db import get_connection as _get_connection, update_segments_status_bulk
         from ...db.state import update_job
         import time

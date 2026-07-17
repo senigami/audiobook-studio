@@ -4,7 +4,7 @@ This guide explains how to create a TTS plugin for Audiobook Studio 2.0.
 
 The short version:
 
-- Plugins live in `plugins/tts_<name>/`
+- Plugins live in `tts_engines/tts_<name>/`
 - Studio discovers plugins through the TTS Server
 - Each plugin implements the `StudioTTSEngine` contract
 - Plugin manifests declare capabilities, behavior, and hook ownership
@@ -26,7 +26,7 @@ If a behavior is not supported, declare it as unsupported or return an explicit 
 ## Plugin Layout
 
 ```text
-plugins/tts_myengine/
+tts_engines/tts_myengine/
 ├── README.md
 ├── manifest.json
 ├── settings_schema.json
@@ -344,7 +344,7 @@ Use this hook to ensure users have provided all required model inputs before the
 Studio supports two main ways to install plugins:
 
 ### 1. Manual Drop-in
-Copy the plugin folder into the `plugins/` directory. The folder name **must** follow the pattern `tts_[a-z][a-z0-9_]{1,14}`. After copying, click **Refresh Plugins** in the Studio UI.
+Copy the plugin folder into the `tts_engines/` directory. The folder name **must** follow the pattern `tts_[a-z][a-z0-9_]{1,14}`. After copying, click **Refresh Plugins** in the Studio UI.
 
 ### 2. Zip Import (Recommended)
 Users can upload a `.zip` file containing the plugin via the **Import Plugin (.zip)** button in Settings.

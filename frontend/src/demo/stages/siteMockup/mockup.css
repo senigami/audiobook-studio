@@ -213,13 +213,13 @@
 .ns-voice-card .ns-voice-meter span {
   width: 3px;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--action-primary);
 }
 
 .ns-voice-portrait {
   --voice-portrait-bg: var(--accent-tint-bg);
   --voice-portrait-ink: var(--text-secondary);
-  --voice-portrait-accent: var(--accent);
+  --voice-portrait-accent: var(--action-primary);
   --voice-portrait-border: var(--accent-tint-border);
   position: relative;
   display: inline-grid;
@@ -366,7 +366,7 @@
   height: 14px;
   margin-top: -5px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--action-primary);
   border: 2px solid var(--surface);
   box-shadow: var(--shadow-sm);
 }
@@ -375,7 +375,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--action-primary);
   border: 2px solid var(--surface);
   box-shadow: var(--shadow-sm);
 }
@@ -439,10 +439,6 @@
   .ns-topbar .brand-logo-wordmark {
     max-width: 124px;
     overflow: hidden;
-  }
-
-  .ns-connection-label {
-    display: none !important;
   }
 
   .ns-topbar-library {

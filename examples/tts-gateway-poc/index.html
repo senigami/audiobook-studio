@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TTS Gateway — Browser POC</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font: 15px/1.5 system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.25rem; }
+    label { display: block; margin: 0.75rem 0 0.25rem; font-weight: 600; }
+    input, textarea, select { width: 100%; padding: 0.5rem; box-sizing: border-box; font: inherit; }
+    textarea { min-height: 6rem; }
+    button { margin-top: 1rem; padding: 0.6rem 1.2rem; font: inherit; cursor: pointer; }
+    #log { white-space: pre-wrap; background: rgba(127,127,127,0.12); padding: 0.75rem;
+           border-radius: 6px; margin-top: 1rem; font-family: ui-monospace, monospace; font-size: 13px; }
+    audio { width: 100%; margin-top: 1rem; }
+    .hint { opacity: 0.7; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>Audiobook Studio — TTS Gateway (browser POC)</h1>
+  <p class="hint">
+    A minimal <code>fetch()</code> demo of the same loop as <code>poc_client.py</code>:
+    list engines → submit → poll → download. Runs against a local instance.
+  </p>
+
+  <label for="base">Gateway base URL</label>
+  <input id="base" value="http://127.0.0.1:8123/api/v1/tts" />
+
+  <label for="key">API key (Bearer)</label>
+  <input id="key" type="password" placeholder="leave blank if the server is open" />
+
+  <label for="engine">Engine</label>
+  <select id="engine"><option value="">(load engines first)</option></select>
+
+  <label for="text">Text</label>
+  <textarea id="text">Hello from the browser. This short passage is synthesized by the Audiobook Studio TTS gateway over plain fetch requests.</textarea>
+
+  <div>
+    <button id="load">1. Load engines</button>
+    <button id="go">2. Synthesize</button>
+  </div>
+
+  <div id="log">Ready.</div>
+  <audio id="player" controls hidden></audio>
+
+  <script>
+    // NOTE: this is an example. The API key is entered by the user at runtime and
+    // only sent as a Bearer header — never hardcode a key in a shipped page.
+    const $ = (id) => document.getElementById(id);
+    const log = (m) => { $("log").textContent += "\n" + m; };
+    const base = () => $("base").value.replace(/\/$/, "");
+    const headers = () => {
+      const h = { "Content-Type": "application/json" };
+      const k = $("key").value.trim();
+      if (k) h["Authorization"] = "Bearer " + k;
+      return h;
+    };
+
+    async function gatewayError(resp) {
+      let detail = "";
+      try { const j = await resp.json(); detail = j.detail || j.message || ""; }
+      catch { detail = (await resp.text()).slice(0, 200); }
+      return `HTTP ${resp.status} — ${detail}`;
+    }
+
+    $("load").onclick = async () => {
+      $("log").textContent = "GET /engines …";
+      try {
+        const resp = await fetch(base() + "/engines", { headers: headers() });
+        if (!resp.ok) return log("✗ " + await gatewayError(resp));
+        const { engines } = await resp.json();
+        const sel = $("engine");
+        sel.innerHTML = "";
+        engines.forEach((e) => {
+          const o = document.createElement("option");
+          o.value = e.engine_id;
+          o.textContent = `${e.engine_id} — ${e.display_name || ""} (${e.status})`;
+          sel.appendChild(o);
+        });
+        log(`✓ ${engines.length} engine(s) loaded.`);
+      } catch (e) { log("✗ " + e.message); }
+    };
+
+    $("go").onclick = async () => {
+      $("player").hidden = true;
+      $("log").textContent = "POST /synthesize …";
+      const body = {
+        engine_id: $("engine").value,
+        text: $("text").value,
+        language: "en",
+        output_format: "wav",
+      };
+      if (!body.engine_id) return log("✗ Load and choose an engine first.");
+      try {
+        const resp = await fetch(base() + "/synthesize", {
+          method: "POST", headers: headers(), body: JSON.stringify(body),
+        });
+        if (!resp.ok) return log("✗ " + await gatewayError(resp));
+
+        const ctype = resp.headers.get("Content-Type") || "";
+        if (ctype.startsWith("audio/")) {
+          log("✓ Inline audio returned (short text). Playing…");
+          return play(await resp.blob());
+        }
+
+        const env = await resp.json();
+        log(`✓ Queued job ${env.job_id}. Polling…`);
+        await poll(env.job_id);
+      } catch (e) { log("✗ " + e.message); }
+    };
+
+    async function poll(jobId) {
+      const deadline = Date.now() + 180000;
+      while (Date.now() < deadline) {
+        const resp = await fetch(base() + `/jobs/${jobId}`, { headers: headers() });
+        if (!resp.ok) return log("✗ " + await gatewayError(resp));
+        const info = await resp.json();
+        log(`  status=${info.status} progress=${(info.progress || 0).toFixed(2)}`);
+        if (["done", "completed"].includes(info.status)) return download(jobId);
+        if (["failed", "cancelled", "error"].includes(info.status))
+          return log(`✗ Job ${info.status}: ${info.message || ""}`);
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+      log("✗ Timed out waiting for the job.");
+    }
+
+    async function download(jobId) {
+      const resp = await fetch(base() + `/jobs/${jobId}/audio`, { headers: headers() });
+      if (!resp.ok) return log("✗ " + await gatewayError(resp));
+      log("✓ Downloaded audio. Playing…");
+      play(await resp.blob());
+    }
+
+    function play(blob) {
+      const url = URL.createObjectURL(blob);
+      const p = $("player");
+      p.src = url; p.hidden = false; p.play().catch(() => {});
+    }
+  </script>
+</body>
+</html>

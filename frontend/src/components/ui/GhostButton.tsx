@@ -28,6 +28,10 @@ export const GhostButton: React.FC<GhostButtonProps> = ({
     disabled = false,
     iconClassName = ""
 }) => {
+    // Hover state is tracked in JS because the inline `style` prop below sets
+    // border/color/background explicitly, and inline styles win over the
+    // `.btn-ghost:hover` stylesheet rule (pseudo-class rules cannot override an
+    // inline style without !important). Removing this makes hover a no-op.
     const [isHovered, setIsHovered] = useState(false);
 
     const baseStyle: React.CSSProperties = {
@@ -37,8 +41,8 @@ export const GhostButton: React.FC<GhostButtonProps> = ({
         width: label ? 'auto' : '40px',
         minWidth: '40px',
         borderRadius: 'var(--radius-button)',
-        border: (isActive || isHovered) ? '1px solid var(--accent)' : '1px solid var(--border)',
-        color: (isActive || isHovered) ? 'var(--accent)' : 'var(--text-secondary)',
+        border: (isActive || isHovered) ? '1px solid var(--action-primary)' : '1px solid var(--border)',
+        color: (isActive || isHovered) ? 'var(--action-primary)' : 'var(--text-secondary)',
         background: (isActive || isHovered) ? 'var(--accent-glow)' : 'transparent',
         display: 'flex',
         alignItems: 'center',

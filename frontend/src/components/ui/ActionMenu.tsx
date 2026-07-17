@@ -111,7 +111,7 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({ items, onDelete, trigger
                     if (!disabled) setIsOpen(!isOpen);
                 }}
                 aria-label="More actions"
-                whileHover={disabled ? {} : (trigger ? { scale: 1.05 } : { backgroundColor: 'var(--glass-hover)', color: 'var(--accent)' })}
+                whileHover={disabled ? {} : (trigger ? { scale: 1.05 } : { backgroundColor: 'var(--glass-hover)', color: 'var(--action-primary)' })}
                 whileTap={disabled ? {} : { scale: 0.92 }}
                 style={trigger ? {
                     background: 'none',

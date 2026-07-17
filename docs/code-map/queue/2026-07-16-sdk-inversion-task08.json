@@ -1,0 +1,10 @@
+{
+  "date": "2026-07-16",
+  "author": "studio2/standalone-plugin-repos-010 task 08 (xtts test-suite SDK import rewrite)",
+  "summary": "Mechanical import rewrite across tts_engines/tts_xtts/tests: 'from app.engines.voice.sdk import ...' -> 'from studio_plugin_sdk.types import ...' (13 sites in 9 files: test_engine_progress_relay x4, test_model_load_started_emit x2, test_xtts_timing, test_xtts_run_test_shared_boilerplate, test_voice_input_resolution, test_plugin_script, test_multi_segment_marker_emission, test_engine_failure_output, test_check_output) and 'from app.studio_plugin_sdk.context import StudioPluginContext' -> studio_plugin_sdk.context (test_force_rerender.py). Object identity preserved via the app-side shims, so zero behavior change.",
+  "changes": [
+    {"file": "tts_engines/tts_xtts/tests/", "change": "Import-path-only rewrite in 10 test files; no assertion changes (R1 not triggered). from app.db.models Job imports (test_xtts_lexicon, test_jobs_extended, test_handler, test_force_rerender) deliberately left for task 11 local fakes; test_app_adapter.py's app.engines.models import left for task 10 eviction. No app.engines.audio_ops/proc_utils monkeypatches exist in the xtts tests (verified by grep), so no patch-target decisions were needed."}
+  ],
+  "invariants": "Pass-count parity: xtts suite 194 passed/1 skipped pre-task-07 baseline; now 208 passed/1 skipped — the +14 is exactly the gate parametrizations added by task 07 (s4 file went 19 -> 33 tests), no other delta.",
+  "note": "Task 08 of .agent/mastermind-010-plan/. Test files are unmapped; entry recorded for plan traceability."
+}

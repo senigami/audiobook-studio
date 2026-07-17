@@ -105,7 +105,7 @@
 .book-info-card__cover-drop-overlay {
   position: absolute;
   inset: 0;
-  border: 2px solid var(--accent);
+  border: 2px solid var(--action-primary);
   border-radius: inherit;
   background: rgba(var(--accent-rgb), 0.08);
   pointer-events: none;

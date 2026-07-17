@@ -131,7 +131,7 @@
 
 .input-group input:focus,
 .input-group textarea:focus {
-  border-color: var(--accent);
+  border-color: var(--action-primary);
   box-shadow: 0 0 0 2px var(--accent-glow);
 }
 
@@ -152,7 +152,7 @@
   justify-content: center;
   background: var(--surface-alt);
   border-radius: 50%;
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 .as-wordmark {
@@ -217,7 +217,7 @@
 }
 
 .form-input:focus {
-  border-color: var(--accent);
+  border-color: var(--action-primary);
   box-shadow: 0 0 0 4px var(--accent-glow);
 }
 

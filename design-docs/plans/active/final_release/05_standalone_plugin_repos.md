@@ -50,7 +50,7 @@ post-v2 unless separately promoted.
 
 ### 1.1 Step: mark the GitHub spec superseded
 
-- [ ] **Add a SUPERSEDED banner to `design-docs/plans/v2_engine_bundle_github_distribution.md`.**
+- [x] **Add a SUPERSEDED banner to `design-docs/plans/v2_engine_bundle_github_distribution.md`.**
   Insert the following block immediately after the title line:
 
   ```
@@ -347,11 +347,24 @@ manifest (`builtin: true`) and in doc 02's contract notes.
 Steps are ordered for sequential execution. Steps within the same numbered group have no
 inter-dependencies and may run in parallel.
 
+> **2026-07-16 status (branch `studio2/standalone-plugin-repos-010`):** the in-repo half is
+> done — real top-level `studio_plugin_sdk/` package (dependency inversion, alias hack
+> deleted), plugins standalone-liftable (LICENSE/.gitignore/pyproject/README/tests per
+> plugin), validated `distribution` manifest blocks (2.5/3.5), Group 4 verified
+> (`built_in` uses the key `built_in`, not `builtin`; uninstall returns 403; UI suppresses
+> the button), and §5.3's backend surface pinned by offline E2E tests
+> (`tests/tts_server/test_install_flow_e2e.py`: staging flow, URL validation, registry
+> trust). Item 1.1 (`BUILTIN_PLUGINS` allowlist) is obsolete — superseded by the §4.4
+> rename decision. Still open: actual GitHub repo creation/extraction (Groups 2/3 X1–X6,
+> V1–V3), the §5.3 *UI* acceptance (Community badge + consent dialog walkthrough), 5.1 on
+> a clean machine, and post-v2 §5.2. Note: the on-disk folder is now `tts_engines/`
+> (post-§3 rename shipped 2026-07-16), so read this doc's `plugins/` paths accordingly.
+
 ### Group 0 — Pre-requisites
 
 - [ ] **0.1** Complete sibling plan 02 (Plugin Communication Contract); SDK published.
 - [ ] **0.2** Complete sibling plan 03 (Plugin Interface Template); template repo exists.
-- [ ] **0.3** Mark `design-docs/plans/v2_engine_bundle_github_distribution.md` SUPERSEDED (§1.1).
+- [x] **0.3** Mark `design-docs/plans/v2_engine_bundle_github_distribution.md` SUPERSEDED (§1.1).
 
 ### Group 1 — Discovery infrastructure
 
@@ -365,7 +378,7 @@ X1-X6/V1-V3, trust-warning e2e §5.3, update-flow §5.2.)*
   It should load the owner-controlled registry source, render registry cards/details, and hand
   selected `repo_url` values to the same installer path used by pasted GitHub URLs. Do not make
   broad GitHub topic search a release dependency.
-- [ ] **1.3** Decide where `distribution` is validated. `plugin_loader._validate_manifest`
+- [x] **1.3** Decide where `distribution` is validated. `plugin_loader._validate_manifest`
   does **not** currently read or validate any `distribution` block, so a `distribution.host`
   of `"github"` is accepted today as an ignored extra field — no loader change is required for
   the engine to load. Registry-vs-direct-URL handling lives in the Studio-side engine browser /
@@ -381,7 +394,7 @@ X1-X6/V1-V3, trust-warning e2e §5.3, update-flow §5.2.)*
 - [ ] **2.2** Restructure and copy plugin code into new repo (step X2).
 - [ ] **2.3** Verify no `app/` imports (step X3).
 - [ ] **2.4** Tag `v2.0.0`, add the XTTS entry to the official registry, and optionally apply the GitHub topic for later open discovery (step X4).
-- [ ] **2.5** Add `distribution` block to in-tree `plugins/tts_xtts/manifest.json` (step X5).
+- [x] **2.5** Add `distribution` block to in-tree `plugins/tts_xtts/manifest.json` (step X5).
 - [ ] **2.6** XTTS smoke test (step X6). ← gate: do not proceed to Group 3 until this passes.
 
 ### Group 3 — Voxtral extraction
@@ -390,14 +403,14 @@ X1-X6/V1-V3, trust-warning e2e §5.3, update-flow §5.2.)*
 - [ ] **3.2** Restructure and copy Voxtral plugin code (V1 continued).
 - [ ] **3.3** Verify API key handling (step V2).
 - [ ] **3.4** Tag `v2.0.0`, add the Voxtral entry to the official registry, and optionally apply the GitHub topic for later open discovery.
-- [ ] **3.5** Add `distribution` block to in-tree `plugins/tts_voxtral/manifest.json`.
+- [x] **3.5** Add `distribution` block to in-tree `plugins/tts_voxtral/manifest.json`.
 - [ ] **3.6** Voxtral smoke test (step V3).
 
 ### Group 4 — `synthesis_mixed` registration
 
-- [ ] **4.1** Add `"builtin": true` to `plugins/synthesis_mixed/manifest.json` (step M2).
-- [ ] **4.2** Verify both engine_ids `xtts` (folder `tts_xtts`) and `mixed` (folder `synthesis_mixed`) appear in `GET /api/engines` after a plugin refresh.
-- [ ] **4.3** Verify Uninstall button is absent for `synthesis_mixed` in Settings UI (step M2 acceptance).
+- [x] **4.1** Add `"builtin": true` to `plugins/synthesis_mixed/manifest.json` (step M2).
+- [x] **4.2** Verify both engine_ids `xtts` (folder `tts_xtts`) and `mixed` (folder `synthesis_mixed`) appear in `GET /api/engines` after a plugin refresh.
+- [x] **4.3** Verify Uninstall button is absent for `synthesis_mixed` in Settings UI (step M2 acceptance).
 
 ### Group 5 — End-to-end acceptance test
 
