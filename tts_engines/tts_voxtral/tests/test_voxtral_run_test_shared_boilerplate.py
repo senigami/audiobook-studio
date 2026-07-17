@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-from app.engines.voice.sdk import TTSResult, VerificationResult
+from studio_plugin_sdk.types import TTSResult, VerificationResult
 from tts_engines.tts_voxtral.plugin.server.engine import VoxtralPlugin
 
 

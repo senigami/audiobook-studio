@@ -6,7 +6,7 @@ import pytest
 
 from tts_engines.tts_voxtral.plugin.core.implementation import VoxtralError, resolve_reference_audio_path, voxtral_generate
 from tts_engines.tts_voxtral.plugin.server.engine import VoxtralPlugin
-from app.engines.voice.sdk import TTSRequest
+from studio_plugin_sdk.types import TTSRequest
 
 
 class FakeResponse:

@@ -63,7 +63,7 @@ def _wire_real_group_needs_render(ctx: MagicMock) -> None:
     that assert on which groups got (re)rendered need the real validated-
     artifact-metadata logic, not a stub that always says "needs render".
     """
-    from app.studio_plugin_sdk.context import StudioPluginContext
+    from studio_plugin_sdk.context import StudioPluginContext
 
     real_ctx = StudioPluginContext("voxtral")
     ctx.group_needs_render.side_effect = real_ctx.group_needs_render
@@ -555,7 +555,7 @@ class TestVoxtralBake:
 
     def test_bake_bridge_failure_returns_nonzero_and_sets_failed(self, tmp_path):
         """A bridge error during bake synthesis must result in failed status."""
-        from app.studio_plugin_sdk.errors import BridgeError
+        from studio_plugin_sdk.errors import BridgeError
 
         job = _make_job(is_bake=True)
         segs = _fake_segments()
