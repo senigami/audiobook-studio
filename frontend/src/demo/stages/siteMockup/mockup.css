@@ -441,10 +441,6 @@
     overflow: hidden;
   }
 
-  .ns-connection-label {
-    display: none !important;
-  }
-
   .ns-topbar-library {
     min-width: 0;
   }

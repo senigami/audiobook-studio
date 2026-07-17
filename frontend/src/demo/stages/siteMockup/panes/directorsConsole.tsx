@@ -2,7 +2,7 @@
  * Director's Console — Northstar demo pane
  *
  * Demonstrates the Chapter Editor's "Director's Console" design:
- *   Cast (V) · Booth (R) · Write (W) · Revise (E)
+ *   Cast (V) · Booth (R) · Revise (E) · Write (W)
  *   Left annotation gutter · Cast palette · Karaoke · In-place editing
  *   Stage Direction (S) and Performance Cue (P) built-ins
  */
@@ -71,9 +71,9 @@ const VOICE = {
 
 const MODE_STYLE = {
   cast: { label: 'Cast', key: 'V', color: 'var(--accent)', bg: 'var(--accent-tint-bg)', border: 'var(--accent-tint-border)' },
-  booth: { label: 'Booth', key: 'R', color: '#4ade80', bg: 'rgba(74,222,128,.10)', border: 'rgba(74,222,128,.25)' },
-  write: { label: 'Write', key: 'W', color: '#fbbf24', bg: 'rgba(251,191,36,.10)', border: 'rgba(251,191,36,.25)' },
-  revise: { label: 'Revise', key: 'E', color: '#fb923c', bg: 'rgba(251,146,60,.10)', border: 'rgba(251,146,60,.25)' },
+  booth: { label: 'Booth', key: 'R', color: 'var(--success)', bg: 'var(--success-tint-bg)', border: 'var(--success-tint-border)' },
+  revise: { label: 'Revise', key: 'E', color: 'var(--error)', bg: 'var(--error-tint-bg)', border: 'var(--error-tint-border)' },
+  write: { label: 'Write', key: 'W', color: 'var(--warning)', bg: 'var(--warning-tint-bg)', border: 'var(--warning-tint-border)' },
 } as const;
 
 // ── Reader preferences ────────────────────────────────────────────────────────
@@ -128,10 +128,10 @@ const READER_BGS: Record<ReaderBg, { label: string; light: BgVariant; dark: BgVa
   card:      { label: 'Card',      light: { bg: '#e3e0d6', img: TEX('card.jpg')      },   dark: { bg: '#26241f', img: TEX('card-dark.jpg')      } },
 };
 
-// Tool-grid layout order — follows the authoring workflow:
-//   Write · Revise  (shape the text first)
-//   Cast · Booth    (then assign voices, then listen)
-const MODE_GRID_ORDER: Mode[] = ['write', 'revise', 'cast', 'booth'];
+// Tool-grid layout order — matches the shipping Director's Console icon rail,
+// which renders its tool registry in order (Cast · Booth · Revise · Write).
+// See pages/ChapterEditor/components/DirectorsConsole/registry.ts.
+const MODE_GRID_ORDER: Mode[] = ['cast', 'booth', 'revise', 'write'];
 
 // Cast sub-tool definitions — shown as a toolbar when Cast mode is active
 const CAST_TOOL_DEFS: { id: CastTool; Icon: typeof Mic; label: string; title: string; shortcut: string }[] = [
@@ -686,7 +686,7 @@ const ResyncModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
         Re-analyzes the edited source and maps existing voice assignments best-effort.
       </div>
       <div style={{ display: 'flex', gap: 18 }}>
-        {[['8', 'segments kept', 'var(--success)'], ['1', 'need re-assign', '#fbbf24']] .map(([n, l, c]) => (
+        {[['8', 'segments kept', 'var(--success)'], ['1', 'need re-assign', 'var(--warning)']] .map(([n, l, c]) => (
           <div key={l} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <span style={{ fontSize: 22, fontWeight: 700, color: c as string }}>{n}</span>
             <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l}</span>

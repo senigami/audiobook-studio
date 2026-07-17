@@ -14,8 +14,9 @@ import {
   Mic, Volume2, CheckCircle,
   CHAPTERS,
   CHAPTER_RENDER_PCT,
+  BookCover,
 } from '../shared';
-import { Edit3, Play, BookOpen, Bookmark, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Edit3, Play, Bookmark, ChevronDown, ChevronUp, X } from 'lucide-react';
 import {
   getBookmarks, removeBookmark, subscribeBookmarks,
 } from '../bookmarkStore';
@@ -167,15 +168,8 @@ export const BookPane: React.FC = () => {
       <Card style={{ padding: 'var(--space-4)' }}>
         <Row gap={20} style={{ alignItems: 'flex-start' }}>
           {/* Hero cover — larger than ContentsPane's 40x54 thumbnail */}
-          <div style={{
-            width: 152, height: 205, borderRadius: 12, flexShrink: 0,
-            background: 'linear-gradient(135deg, var(--accent-tint-bg) 0%, var(--border) 100%)',
-            border: '1px solid var(--accent-tint-border)',
-            boxShadow: 'var(--shadow-md)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <BookOpen size={48} color="var(--accent)" aria-hidden="true" />
-          </div>
+          <BookCover title="The Whispering Vale" aspect="book" size={152} />
+
 
           {/* Identity + description + CTA + footer */}
           <Col gap={10} style={{ flex: 1, minWidth: 0 }}>
@@ -188,7 +182,7 @@ export const BookPane: React.FC = () => {
               </div>
               <Row gap={8} style={{ alignItems: 'center', marginTop: 4 }}>
                 <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                  R.E. Hartley
+                  E. Holloway
                 </span>
                 <span style={{ color: 'var(--text-muted)' }}>·</span>
                 <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontWeight: 650 }}>
@@ -248,15 +242,8 @@ export const ContentsPane: React.FC<{
       <Card style={{ padding: 'var(--space-2) var(--space-3)', flexShrink: 0 }}>
         <Row gap={12} style={{ alignItems: 'center' }}>
           {/* Cover thumbnail */}
-          <div style={{
-            width: 40, height: 54, borderRadius: 3, flexShrink: 0,
-            background: 'linear-gradient(135deg, var(--accent-tint-bg) 0%, var(--border) 100%)',
-            border: '1px solid var(--accent-tint-border)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            overflow: 'hidden',
-          }}>
-            <BookOpen size={18} color="var(--accent)" aria-hidden="true" />
-          </div>
+          <BookCover title="The Whispering Vale" aspect="book" size={40} />
+
 
           {/* Title + meta */}
           <Col gap={2} style={{ flex: 1, minWidth: 0 }}>
@@ -269,7 +256,7 @@ export const ContentsPane: React.FC<{
             </div>
             <Row gap={8} style={{ alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>
-                R.E. Hartley · The Vale Cycle #1
+                E. Holloway · The Vale Cycle #1
               </span>
               <span style={{
                 fontSize: 'var(--type-micro)', color: 'var(--text-secondary)',
