@@ -11,6 +11,7 @@ import { LexiconStage } from '@/pages/Book/stages/LexiconStage';
 import { PublishStage } from '@/pages/Book/stages/PublishStage';
 import { BackupsStage } from '@/pages/Book/stages/BackupsStage';
 import { ChapterWorkspaceHeader } from '@/pages/Book/components/ChapterWorkspaceHeader';
+import { ChapterReaderCard } from '@/pages/Book/components/ChapterReaderCard';
 import { LexiconPanel } from '@/pages/Book/components/LexiconPanel';
 import { DirectorsConsole } from '@/pages/ChapterEditor/components/DirectorsConsole';
 import {
@@ -246,6 +247,12 @@ function ChapterWorkspace({ bookId, chapterId }: { bookId: string; chapterId: st
           </button>
         }
       />
+
+      {/* Embedded read-along reader (synced-reader plan, Task 9) — the
+          Chapter Workspace is where a per-chapter detail view most naturally
+          attaches; DirectorsConsole/Booth below owns the actual player
+          controls but is out of scope for this plan (chapter editor). */}
+      {chapter && <ChapterReaderCard bookId={bookId} chapter={chapter} />}
 
       {/* Sub-view body + optional docked side panels */}
       <div

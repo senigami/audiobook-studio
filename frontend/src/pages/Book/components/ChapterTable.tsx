@@ -8,6 +8,7 @@ import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 import { usePlayerBus, loadAndPlay, play, pause } from '@/store/playerBus';
 import { deriveChapterLifecycle } from '@/pages/Book/lib/chapterLifecycle';
+import { buildChapterAudioUrl } from '@/pages/Book/lib/chapterAudioUrl';
 import { pickRelevantJob, isMainQueueSegmentItem } from '@/utils/jobSelection';
 import type { Chapter, Job } from '@/types';
 
@@ -144,9 +145,7 @@ export function ChapterTable({
 
           // RST-2: player-bus wiring for play/pause affordance.
           const audioPath = chapter.audio_file_path;
-          const audioUrl = audioPath
-            ? `/api/projects/${chapter.project_id}/chapters/${chapter.id}/assets/audio?filename=${encodeURIComponent(audioPath)}`
-            : null;
+          const audioUrl = buildChapterAudioUrl(chapter);
           const isCurrentChapterAudio = audioUrl != null && playerBus.scope === 'chapter' && playerBus.audioUrl === audioUrl;
           const isChapterPlaying = isCurrentChapterAudio && playerBus.playing;
 

@@ -78,6 +78,7 @@ class ProjectBackupBundleModel:
     created_at: datetime = field(default_factory=_utc_now)
     comment: str | None = None
     chapter_map: dict[str, dict[str, Any]] = field(default_factory=dict)
+    bundle_version: int = 1
 
 
 @dataclass

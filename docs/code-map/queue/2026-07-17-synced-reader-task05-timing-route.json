@@ -1,0 +1,11 @@
+{
+  "date": "2026-07-17",
+  "author": "synced_reader plan, Task 5 (timing sidecar serving route)",
+  "summary": "Added a dedicated GET /api/projects/{project_id}/chapters/{chapter_id}/timing route serving the <chapter_wav_stem>.timing.json sidecar, mirroring the existing peaks route's path-containment pattern but never lazily recomputing (timing is a finalization-time-only product).",
+  "changes": [
+    {"file": "app/api/routers/chapters_assets.py", "change": "NEW route api_get_chapter_timing (GET /projects/{project_id}/chapters/{chapter_id}/timing): resolves the chapter WAV via config.resolve_chapter_asset_path (same helper the peaks route uses), reads '<wav_stem>.timing.json' next to it, validates via app.domain.chapters.timing.validate_timing_sidecar, and 404s on missing file / corrupt JSON / schema-version mismatch / stale audio_generated_at (compared against get_chapter(chapter_id)['audio_generated_at']). Never regenerates on GET, unlike the peaks route."},
+    {"file": "tests/api/test_timing_asset_route.py", "change": "NEW test file — fresh-valid-200, missing-file-404, version-mismatch-404, corrupt-json-404, stale-audio_generated_at-404, and path-traversal-in-chapter_id/project_id 4xx-not-500 cases."}
+  ],
+  "invariants": "Timing sidecars are finalization-time-only products: the serving route must never lazily regenerate a missing/stale one (contrast with the peaks route's lazy-recompute-on-miss behavior, which is intentionally different). Path components (project_id/chapter_id) are always treated as untrusted and resolved only through config.resolve_chapter_asset_path / config.canonical_chapter_id, never raw-joined.",
+  "note": "Task 5 of design-docs/plans/active/synced_reader/. Depends on Task 2's validate_timing_sidecar/TimingSidecarValidationError (app/domain/chapters/timing.py, read-only in this task). The route is currently unreachable in practice until Task 4 (orchestrator hook) starts writing .timing.json sidecars; this task only adds the read path."
+}

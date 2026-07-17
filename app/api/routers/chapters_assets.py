@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 import os
@@ -8,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse, FileResponse
 
 from ...domain.chapters.facade import export_chapter_audio
+from ...domain.chapters.timing import validate_timing_sidecar, TimingSidecarValidationError
 
 from ...db import get_chapter
 from ...db.state import get_settings
@@ -209,6 +211,59 @@ def api_get_chapter_asset(
          raise HTTPException(status_code=403, detail="Asset path out of bounds")
 
     return FileResponse(resolved, media_type=media_type)
+
+
+@router.get("/projects/{project_id}/chapters/{chapter_id}/timing")
+def api_get_chapter_timing(project_id: str, chapter_id: str):
+    """Serve the `<chapter_wav_stem>.timing.json` sidecar for a chapter.
+
+    Unlike the ``peaks`` asset above, this route never lazily recomputes: a
+    missing, corrupt, version-mismatched, or stale (audio re-rendered since
+    the sidecar was written) sidecar is always a 404 — timing sidecars are a
+    finalization-time product only (synced-reader plan, Task 5).
+    """
+    # Rule 9: Early validation of user-provided ID. Unlike the generic asset
+    # route above, this dedicated route must not let an invalid id surface as
+    # an unhandled 500 (path-containment tests exercise this directly).
+    try:
+        chapter_id = config.canonical_chapter_id(chapter_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    chapter = get_chapter(chapter_id, project_id=project_id)
+    if not chapter:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    wav_resolved = config.resolve_chapter_asset_path(
+        project_id, chapter_id, "audio", filename=chapter.get("audio_file_path")
+    )
+    if not wav_resolved:
+        wav_resolved = config.resolve_chapter_asset_path(project_id, chapter_id, "audio")
+    if not wav_resolved or not wav_resolved.exists():
+        raise HTTPException(status_code=404, detail="Timing unavailable")
+
+    sidecar_path = wav_resolved.with_suffix(".timing.json")
+    if not sidecar_path.exists():
+        raise HTTPException(status_code=404, detail="Timing unavailable")
+
+    try:
+        raw = json.loads(sidecar_path.read_text())
+    except (OSError, ValueError):
+        raise HTTPException(status_code=404, detail="Timing unavailable")
+
+    try:
+        parsed = validate_timing_sidecar(raw)
+    except TimingSidecarValidationError:
+        raise HTTPException(status_code=404, detail="Timing unavailable")
+
+    # Staleness: the sidecar is only usable if it was generated for the
+    # chapter's current audio. Re-rendering the chapter updates
+    # chapters.audio_generated_at without necessarily removing the old
+    # sidecar file, so this must be checked independently of schema/version.
+    if parsed.audio_generated_at != chapter.get("audio_generated_at"):
+        raise HTTPException(status_code=404, detail="Timing unavailable")
+
+    return JSONResponse(raw)
 
 
 @router.post("/chapters/{chapter_id}/export-sample")

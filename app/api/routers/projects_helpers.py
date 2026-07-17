@@ -294,6 +294,16 @@ def _create_backup_archive(bundle: ProjectBackupBundleModel) -> io.BytesIO:
                         zf.write(resolved_audio_path, arcname=f"chapters/{stem_name}{audio_ext}")
                         chapter_info["audio_path"] = f"chapters/{stem_name}{audio_ext}"
 
+                        # Optional timing sidecar (Task 4/5 convention: same
+                        # on-disk WAV path with suffix swapped for
+                        # ".timing.json"). Rendered-before-this-feature
+                        # chapters simply have no sidecar -- omit silently.
+                        timing_sidecar_path = Path(resolved_audio_path).with_suffix(".timing.json")
+                        if timing_sidecar_path.exists():
+                            timing_arcname = f"chapters/{stem_name}.timing.json"
+                            zf.write(timing_sidecar_path, arcname=timing_arcname)
+                            chapter_info["timing_path"] = timing_arcname
+
             chapter_map[chapter_id] = chapter_info
 
         # Attach the resolved map to the bundle before serialization

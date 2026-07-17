@@ -23,6 +23,7 @@ const VoicesTab = lazy(() => import('@/pages/Voices/VoicesPage').then(m => ({ de
 const VoiceLabPage = lazy(() => import('@/pages/VoiceLab/VoiceLabPage').then(m => ({ default: m.VoiceLabPage })));
 const BookLayout = lazy(() => import('@/pages/Book').then(m => ({ default: m.BookLayout })));
 const BookIndexRedirect = lazy(() => import('@/pages/Book').then(m => ({ default: m.BookIndexRedirect })));
+const ReaderPage = lazy(() => import('@/pages/Book').then(m => ({ default: m.ReaderPage })));
 const ProjectViewPage = lazy(() => import('@/pages/ProjectDetail/ProjectDetailPage').then(m => ({ default: m.ProjectView })));
 const EnginesPage = lazy(() => import('@/pages/Engines').then(m => ({ default: m.EnginesPage })));
 const IntegrationsPage = lazy(() => import('@/pages/Integrations').then(m => ({ default: m.IntegrationsPage })));
@@ -278,6 +279,7 @@ function App() {
                   onOpenQueue={queueDrawer.open}
                 />
               } />
+              <Route path="/book/:bookId/chapter/:chapterId/reader" element={<ReaderPage />} />
               <Route path="/project/:projectId" element={<ProjectRedirectRoute />} />
               <Route path="/project/:projectId/details" element={
                 <ProjectViewRoute

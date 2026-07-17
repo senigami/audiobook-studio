@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Added] - 2026-07-17
+
+### Read-along reader for the Book tab ("player-piano" sync)
+
+- The **Book tab** now has a read-along reading view: open it from a chapter's Book workspace or at its own URL (`/book/:bookId/chapter/:chapterId/reader`). While the chapter plays, the currently-spoken passage fades into view and the reader advances automatically — no manual scrolling. Clicking a passage seeks playback to that point, and playback seeking (including scrubbing the waveform) moves the reader to match. It escalates from an embedded card to an expanded view to full OS fullscreen.
+- This uses a new per-chapter **timing sidecar**, written automatically whenever a chapter finishes rendering, that records the exact `[start, end)` time of each rendered passage in the final audio — measured from the actual rendered audio, never estimated. Chapters rendered before this feature (or a chapter whose timing failed to generate) show a clear "sync unavailable" message instead of a guess; re-rendering the chapter regenerates the timing for free.
+- **Backups now restore chapter audio and its timing.** A new restore action can recover a chapter's rendered audio and its read-along timing straight from a saved backup — even for backups that didn't include the underlying per-segment audio files, so a chapter you restore is immediately read-along-ready.
+- Backend contract: `design-docs/specs/data-model.md` 1.12.0 (timing sidecar schema, `/timing` route, backup `bundle_version` + restore).
+
 ## [Changed] - 2026-07-16
 
 ### Repo-ready plugin folders: real `studio_plugin_sdk` package + standalone-liftable engines
