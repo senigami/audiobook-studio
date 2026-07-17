@@ -144,7 +144,7 @@ the same GitHub repository preview/staging flow as a pasted GitHub URL.
    rejected and the staging directory deleted.
 5. The staged repository manifest is validated with the same manifest validator used by
    plugin discovery. A preview token is issued only when the manifest matches the loader
-   contract and the target `plugins/tts_<engine_id>` folder is not already present.
+   contract and the target `tts_engines/tts_<engine_id>` folder is not already present.
 
 ### Validation and preview
 

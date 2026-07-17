@@ -1,6 +1,6 @@
 """Deterministic AST-based import graph for the backend (map-code edge tool).
 
-Walks app/ and plugins/*/plugin (excluding tests/), parses each .py file with
+Walks app/ and tts_engines/*/plugin (excluding tests/), parses each .py file with
 the stdlib `ast` module, and resolves `import x.y` / `from x.y import z`
 statements to repo-relative module paths when they point at a mapped module.
 Output: {module_path: [dep_module_path, ...]} plus the reverse graph.
@@ -11,14 +11,14 @@ import sys
 from pathlib import Path
 
 ROOT = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
-ROOTS = ["app", "plugins"]
+ROOTS = ["app", "tts_engines"]
 
 def is_mapped(path: Path) -> bool:
     parts = path.parts
     if "tests" in parts:
         return False
-    if path.parts[0] == "plugins":
-        # plugins/<name>/plugin/** or plugins/<name>/interface.py — skip plugins/<name>/tests
+    if path.parts[0] == "tts_engines":
+        # tts_engines/<name>/plugin/** or tts_engines/<name>/interface.py — skip tts_engines/<name>/tests
         return True
     return True
 

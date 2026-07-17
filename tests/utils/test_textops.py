@@ -179,7 +179,7 @@ def test_compute_chapter_metrics():
 
 # ---------------------------------------------------------------------------
 # consolidate_single_word_sentences edge cases
-# (relocated from plugins/tts_xtts/tests/test_textops.py — predates the
+# (relocated from tts_engines/tts_xtts/tests/test_textops.py — predates the
 # Studio 2.0 plugin split and tests Studio-side app.utils.text.textops, not
 # anything XTTS-specific, so it belongs in this suite.)
 # ---------------------------------------------------------------------------

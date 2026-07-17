@@ -217,7 +217,7 @@ def _load_full_manifest(engine_id: str) -> dict[str, Any]:
     if not _ENGINE_ID_RE.match(normalized_engine_id):
         return {}
 
-    plugins_root = Path(__file__).resolve().parents[2] / "plugins"
+    plugins_root = Path(__file__).resolve().parents[2] / "tts_engines"
     direct_path = plugins_root / f"tts_{normalized_engine_id}" / "manifest.json"
     candidates = [direct_path] if direct_path.is_file() else sorted(plugins_root.glob("*/manifest.json"))
     for manifest_path in candidates:
@@ -341,7 +341,7 @@ def _load_persisted_settings(engine_id: str) -> dict[str, Any]:
         from app.core.config import PLUGINS_DIR  # noqa: PLC0415
 
         # Try the conventional plugin folder name first.
-        plugins_root = Path(__file__).resolve().parents[2] / "plugins"
+        plugins_root = Path(__file__).resolve().parents[2] / "tts_engines"
         plugin_dir = plugins_root / f"tts_{engine_id}"
         if not plugin_dir.is_dir():
             # Fall back: scan for a manifest whose engine_id matches.

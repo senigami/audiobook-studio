@@ -77,7 +77,7 @@ def load_settings(plugin_dir: Path) -> dict[str, Any]:
     """Load persisted settings for a plugin.
 
     Args:
-        plugin_dir: The plugin's folder path (e.g. ``plugins/tts_example/``).
+        plugin_dir: The plugin's folder path (e.g. ``tts_engines/tts_example/``).
 
     Returns:
         dict[str, Any]: Settings dict, or empty dict if the file does not exist

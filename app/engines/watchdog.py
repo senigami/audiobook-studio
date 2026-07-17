@@ -73,7 +73,7 @@ def start_watchdog(
     Idempotent — returns the existing watchdog if it is already running.
 
     Args:
-        plugins_dir: Path to the ``plugins/`` directory.
+        plugins_dir: Path to the ``tts_engines/`` directory.
         port: Starting port number (default 7862).
         host: Bind address (default 127.0.0.1).
 
@@ -142,7 +142,7 @@ class TtsServerWatchdog:
     Args:
         executable: Python interpreter path (e.g. ``sys.executable``).
         server_script: Path to ``tts_server.py``.
-        plugins_dir: Path to the ``plugins/`` directory.
+        plugins_dir: Path to the ``tts_engines/`` directory.
         port: Starting port number.
         host: Bind address for the TTS Server.
     """
@@ -577,7 +577,7 @@ class TtsServerWatchdog:
                 # line carrying more than one marker token can only arrive if
                 # two writers' unsynchronized stderr writes interleaved before
                 # either's trailing newline landed (see
-                # plugins/tts_xtts/plugin/server/engine.py's
+                # tts_engines/tts_xtts/plugin/server/engine.py's
                 # _emit_stderr_atomic, the fix for the write side of this).
                 # This is a cheap, always-on diagnostic for the read side: a
                 # hit here means a marker line got corrupted/merged and the

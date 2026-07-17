@@ -253,8 +253,8 @@ manifest, falling back to `DEFAULT_ENGINE_TEXT_CHUNK_LIMIT = 500`.
 
 ## Stage 6 — Render-time Grouping and Join
 
-**Module:** `plugins/tts_xtts/plugin/studio/segments.py` — `handle_xtts_segments`  
-**Module:** `plugins/tts_xtts/plugin/studio/_text_utils.py` — `join_group_text`
+**Module:** `tts_engines/tts_xtts/plugin/studio/segments.py` — `handle_xtts_segments`  
+**Module:** `tts_engines/tts_xtts/plugin/studio/_text_utils.py` — `join_group_text`
 
 **Input:** list of `chapter_segments` rows for the requested render job  
 **Output:** script entries with joined group text, submitted to the TTS engine
@@ -297,7 +297,7 @@ settings `default_speaker_profile` — the same resolution queue submissions use
 
 ### Group text join
 
-**Module:** `plugins/tts_xtts/plugin/studio/_text_utils.py`
+**Module:** `tts_engines/tts_xtts/plugin/studio/_text_utils.py`
 
 ```python
 def join_group_text(group: list) -> str:

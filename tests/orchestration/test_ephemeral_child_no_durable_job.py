@@ -186,7 +186,7 @@ def _run_chapter_fanout(
         bridge_call=bridge_call,
     )
 
-    with patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=_fake_generate_via_bridge), \
+    with patch("tts_engines.tts_mixed.handler.generate_via_bridge", side_effect=_fake_generate_via_bridge), \
          patch("app.engines.watchdog.get_watchdog", side_effect=lambda: watchdogs.setdefault(threading.current_thread().name, TtsServerWatchdog())), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.domain.chunk_groups.build_script_entry_for_group", side_effect=_fake_script_entry), \
@@ -531,7 +531,7 @@ def test_parent_job_status_running_before_any_child_completes(tmp_path):
         bridge_call=bridge_call,
     )
 
-    with patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=_fake_generate_via_bridge_held), \
+    with patch("tts_engines.tts_mixed.handler.generate_via_bridge", side_effect=_fake_generate_via_bridge_held), \
          patch("app.engines.watchdog.get_watchdog", side_effect=lambda: TtsServerWatchdog()), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.domain.chunk_groups.build_script_entry_for_group", side_effect=_fake_script_entry), \

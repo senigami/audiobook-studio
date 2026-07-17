@@ -61,7 +61,7 @@ def _resolve_plugin_dir(*, engine_id: str, module_path: str) -> Optional[Path]:
     from app.core.config import PLUGINS_DIR  # noqa: PLC0415
 
     parts = module_path.split(".")
-    if len(parts) > 1 and parts[0] == "plugins":
+    if len(parts) > 1 and parts[0] == "tts_engines":
         folder = parts[1]
         # Validate folder name against the plugin folder convention before
         # using it to build a path.

@@ -232,7 +232,7 @@
         "app/orchestration/tasks/sample_test.py",
         "app/orchestration/tasks/segment_synthesis.py",
         "app/orchestration/tasks/synthesis.py",
-        "plugins/tts_mixed/handler.py",
+        "tts_engines/tts_mixed/handler.py",
         "app/engines/audio_ops.py#ensure_peaks_sidecar"
       ],
       "called_by": [
@@ -625,7 +625,7 @@
         "app/orchestration/scheduler/resources.py",
         "app/orchestration/tasks/base.py#StudioTask,TaskResult",
         "app/orchestration/tasks/synthesis.py",
-        "plugins/tts_mixed/handler.py#render_one_group"
+        "tts_engines/tts_mixed/handler.py#render_one_group"
       ],
       "called_by": [
         "app/orchestration/scheduler/orchestrator.py"
@@ -673,7 +673,7 @@
         "app/studio_plugin_sdk/__init__.py",
         "app/tts_server/plugin_loader.py#*",
         "app/utils/text/lexicon.py#apply_lexicon",
-        "plugins/tts_mixed/handler.py#handle_mixed_job"
+        "tts_engines/tts_mixed/handler.py#handle_mixed_job"
       ],
       "called_by": [
         "app/orchestration/scheduler/orchestrator.py",

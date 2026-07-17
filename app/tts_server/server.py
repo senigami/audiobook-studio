@@ -119,7 +119,7 @@ def load_plugins(plugins_dir: Path) -> None:
     audio and must only run from the explicit engine verify action in Settings.
 
     Args:
-        plugins_dir: Absolute path to the ``plugins/`` directory.
+        plugins_dir: Absolute path to the ``tts_engines/`` directory.
     """
     global _plugins, _plugins_dir
     discovered = discover_plugins(plugins_dir)

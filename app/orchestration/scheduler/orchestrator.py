@@ -521,7 +521,7 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
                 ChapterSynthesisTask,
                 make_dispatch_segment_bridge_call,
             )
-            from plugins.tts_mixed.handler import _group_needs_render, _group_ready_audio_path
+            from tts_engines.tts_mixed.handler import _group_needs_render, _group_ready_audio_path
 
             chapter_row = get_chapter(chapter_id) or {}
             voice_profile_id = payload.get("voice_profile_id") or chapter_row.get("speaker_profile_name")
@@ -577,7 +577,7 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         (``handle_mixed_job`` L473-513), scoped to fire exactly once via the
         parent's own INV-2 barrier rather than per-group.
         """
-        from plugins.tts_mixed.handler import stitch_segments, _persist_mixed_chapter_output
+        from tts_engines.tts_mixed.handler import stitch_segments, _persist_mixed_chapter_output
         from app.db.state import update_job
 
         rc = stitch_segments(chapter_dir, segment_paths, output_path, lambda _line: None, lambda: False)

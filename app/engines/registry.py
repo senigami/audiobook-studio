@@ -286,7 +286,7 @@ class _TtsServerEngineProxy:
 def _manifest_module_path(manifest_path: Path) -> str:
     """Infer the module path for a manifest discovered on disk."""
     engine_dir = manifest_path.parent
-    return f"plugins.{engine_dir.name}.app_adapter"
+    return f"tts_engines.{engine_dir.name}.app_adapter"
 
 
 def _cache_clear() -> None:

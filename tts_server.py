@@ -75,7 +75,7 @@ def main() -> None:
         "--plugins-dir",
         type=Path,
         default=PLUGINS_DIR,
-        help="Path to the plugins directory (default: repo-root plugins/)",
+        help="Path to the plugins directory (default: repo-root tts_engines/)",
     )
     parser.add_argument(
         "--no-verify",

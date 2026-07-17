@@ -150,7 +150,7 @@ class TestArtifactValidatedCompletion:
         R1: pre-fix `_group_needs_render` only checked `.exists()`, so a
         zero-byte file was treated as valid and this assertion failed.
         """
-        from plugins.tts_mixed.handler import _group_needs_render, _is_valid_segment_artifact
+        from tts_engines.tts_mixed.handler import _group_needs_render, _is_valid_segment_artifact
 
         pdir = tmp_path
         seg_dir = pdir / "segments"
@@ -173,7 +173,7 @@ class TestArtifactValidatedCompletion:
         (they are reused, not re-rendered), isolating segment 2's failure."""
         import wave
 
-        from plugins.tts_mixed.handler import _group_needs_render
+        from tts_engines.tts_mixed.handler import _group_needs_render
 
         pdir = tmp_path
         seg_dir = pdir / "segments"
@@ -743,7 +743,7 @@ class TestStuckSegmentHeartbeat:
         `self._free_q.get()` with no timeout/poll loop — this test's
         `join(timeout=...)` would fail (thread still alive) on that code.
         """
-        from plugins.tts_xtts.plugin.core.warm_worker import WarmWorkerManager
+        from tts_engines.tts_xtts.plugin.core.warm_worker import WarmWorkerManager
 
         mgr = WarmWorkerManager(python_exe=Path("/usr/bin/python3"), cap=1)
 
@@ -930,7 +930,7 @@ class TestStitchFailurePropagation:
         )
         assert task._stitch_fn is not None
 
-        with patch("plugins.tts_mixed.handler.stitch_segments", return_value=1):
+        with patch("tts_engines.tts_mixed.handler.stitch_segments", return_value=1):
             with pytest.raises(RuntimeError, match="Stitching failed"):
                 task._stitch_fn(["/tmp/does-not-matter.wav"])
 
@@ -950,7 +950,7 @@ class TestStitchFailurePropagation:
             chapter_id="chap-x",
             payload={"engine": "xtts"},
         )
-        with patch("plugins.tts_mixed.handler.stitch_segments", return_value=1):
+        with patch("tts_engines.tts_mixed.handler.stitch_segments", return_value=1):
             with pytest.raises(RuntimeError, match="Stitching failed"):
                 orchestrator._stitch_recovered_chapter(
                     context=context,

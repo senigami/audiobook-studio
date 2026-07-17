@@ -8,7 +8,7 @@ plugin engines:
 
 - ``StudioTTSEngine`` - the public SDK contract that all plugin engines must
   implement.  Plugins run inside the TTS Server subprocess and are discovered
-  via the agnostic root ``plugins/`` bundle scan.
+  via the agnostic root ``tts_engines/`` bundle scan.
 
 New engines should implement ``StudioTTSEngine``.
 """
@@ -177,7 +177,7 @@ class StudioTTSEngine(ABC):
     """Public SDK contract that all TTS plugin engines must implement.
 
     Plugins run inside the TTS Server subprocess and are discovered via the
-    ``plugins/tts_*/`` folder scanning mechanism.  They must not import
+    ``tts_engines/tts_*/`` folder scanning mechanism.  They must not import
     anything from ``app.*`` (Studio internals) — only from stdlib, their own
     declared dependencies, and the SDK types in ``app.engines.voice.sdk``.
 

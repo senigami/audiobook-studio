@@ -10,9 +10,9 @@ sources:
   - app/engines/registry.py
   - app/studio_plugin_sdk/__init__.py
   - app/studio_plugin_sdk/context.py
-  - plugins/tts_xtts/manifest.json
-  - plugins/tts_voxtral/manifest.json
-  - plugins/tts_mixed/manifest.json
+  - tts_engines/tts_xtts/manifest.json
+  - tts_engines/tts_voxtral/manifest.json
+  - tts_engines/tts_mixed/manifest.json
 ```
 
 > **TL;DR:** Every TTS plugin is a folder (or pip entry point) with a `manifest.json` and a class implementing `StudioTTSEngine`; Studio treats the manifest as the source of truth for discovery, capabilities, resource requirements, and chunk limits.
@@ -22,7 +22,7 @@ sources:
 | Version | Date       | Change                 |
 |---------|------------|------------------------|
 | 1.6.0   | 2026-07-16 | **W-PERF safe-foundation: optional export-layer capability fields.** New optional `behavior` sub-fields `export_format` (enum: `ssml_w3c`/`ssml_azure`/`elevenlabs_text`/`ssml_polly`/`plain_text`), `supports_per_span_voice`, `supports_emotion_style`, `supports_prosody`, `supports_break` (booleans, default `false`). Additive/backward-compatible — no manifest version bump, same class of change as prior `behavior.features` additions (`segment_orchestration`, `cps_eta`). Consumed only by the export layer (task 011, not yet built) via new `app.engines.behavior.export_capabilities_for()` helper — distinct from the render-pipeline's `has_behavior(engine_id, "ssml_directives")` feature-string gate (sibling `chapter_editor_catalog_completion` plan's task 006, not yet landed). No real plugin manifest declares these fields; validated as optional (type/enum-checked when present, absent is fine) in `plugin_loader.py`. |
-| 1.5.0   | 2026-07-11 | Closes the last real Stage 3 residue: `plugins/tts_xtts/plugin/studio/app_adapter.py` and `plugins/tts_voxtral/plugin/studio/app_adapter.py` (11 module-level `from app.*` imports total, flagged as a factual regression by a 2026-07-01 audit — these files were never in the S4/S5 import-cleanliness tests' target list, so the original "zero module-level imports" sign-off never covered them). `studio_plugin_sdk` gains five new app-adapter-contract exports: `BaseVoiceEngine`, `EngineHealthModel`, `EngineManifestModel`, `EngineExecutionError`, `EngineRequestError` — the app-side engine-registry base class and its data/error types a plugin's `app_adapter.py` subclasses/raises to register with the app's `VoiceBridge`, distinct from `StudioTTSEngine` (the server-side, per-job contract already exported). Both `app_adapter.py` files migrated to the SDK exports plus existing `ctx.get_voices_dir()` / `ctx.resolve_voice_preview_inputs()` context methods (note: `ctx.resolve_voice_preview_inputs` returns a dict `{voice_ref, voice_profile_dir}`, not the raw function's tuple — callers must adapt). Both import-cleanliness test suites (`test_s4_import_cleanliness.py`, `test_s5_import_cleanliness.py`) now include `app_adapter` in their target-module list, closing the scope gap that let this regression through. A dead, never-called `run_managed_subprocess_async` import was deleted from tts_xtts's `app_adapter.py` rather than migrated. |
+| 1.5.0   | 2026-07-11 | Closes the last real Stage 3 residue: `tts_engines/tts_xtts/plugin/studio/app_adapter.py` and `tts_engines/tts_voxtral/plugin/studio/app_adapter.py` (11 module-level `from app.*` imports total, flagged as a factual regression by a 2026-07-01 audit — these files were never in the S4/S5 import-cleanliness tests' target list, so the original "zero module-level imports" sign-off never covered them). `studio_plugin_sdk` gains five new app-adapter-contract exports: `BaseVoiceEngine`, `EngineHealthModel`, `EngineManifestModel`, `EngineExecutionError`, `EngineRequestError` — the app-side engine-registry base class and its data/error types a plugin's `app_adapter.py` subclasses/raises to register with the app's `VoiceBridge`, distinct from `StudioTTSEngine` (the server-side, per-job contract already exported). Both `app_adapter.py` files migrated to the SDK exports plus existing `ctx.get_voices_dir()` / `ctx.resolve_voice_preview_inputs()` context methods (note: `ctx.resolve_voice_preview_inputs` returns a dict `{voice_ref, voice_profile_dir}`, not the raw function's tuple — callers must adapt). Both import-cleanliness test suites (`test_s4_import_cleanliness.py`, `test_s5_import_cleanliness.py`) now include `app_adapter` in their target-module list, closing the scope gap that let this regression through. A dead, never-called `run_managed_subprocess_async` import was deleted from tts_xtts's `app_adapter.py` rather than migrated. |
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
 | 1.1.0   | 2026-06-11 | Additive: optional `behavior.sanitize_categories` list; unknown names cause load error; absent means all categories applied (backward-compatible) |
 | 1.2.0   | 2026-06-11 | Additive: optional `check_output(req, result) -> tuple[bool, str]` method on `StudioTTSEngine`; default accept-all; TTS Server calls this after synthesize() and deletes artifact + returns `output_rejected` on (False, reason); crashing hook is failure-isolated (logs + accepts) |
@@ -36,7 +36,7 @@ sources:
 
 ### Folder plugins
 
-The TTS Server scans the `plugins/` directory at startup. A folder qualifies as a
+The TTS Server scans the `tts_engines/` directory at startup. A folder qualifies as a
 plugin when it contains a `manifest.json` and its folder name matches:
 
 ```

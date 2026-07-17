@@ -10,8 +10,8 @@ sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
          app/engines/bridge_remote.py, app/engines/tts_client.py,
          app/tts_server/plugin_loader.py, app/orchestration/scheduler/orchestrator.py,
          app/orchestration/scheduler/resources.py, app/orchestration/tasks/synthesis.py,
-         app/db/state_settings.py, app/api/routers/engines.py, plugins/*/manifest.json,
-         plugins/tts_xtts/plugin/core/warm_worker.py
+         app/db/state_settings.py, app/api/routers/engines.py, tts_engines/*/manifest.json,
+         tts_engines/tts_xtts/plugin/core/warm_worker.py
 ```
 
 > **TL;DR:** Studio runs as two processes — a main FastAPI app and a managed TTS Server subprocess — with a strict ownership split between the orchestrator (job lifecycle), watchdog (server process lifecycle), and VoiceBridge (engine routing).
@@ -21,7 +21,7 @@ sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
 | Version | Date       | Summary                                                    |
 | 1.7.2   | 2026-07-14 | Mixed-handler marker set gains `[SEGMENT_ENGINE_SAMPLE] {segment_id} {engine} {chars} {duration_seconds}`, emitted per group after INV-3 artifact validation, so the orchestrator can attribute render-performance samples to the group's real engine instead of the `"mixed"` container label. Full contract in `queue-jobs.md` §Changelog 1.12.2. |
 |---------|------------|------------------------------------------------------------|
-| 1.7.1   | 2026-07-14 | **XTTS manifest ceiling raised `2 → 8` (owner directive).** `plugins/tts_xtts/manifest.json`'s `behavior.max_concurrent_workers` moved from 2 to 8, matching the `MAX_GLOBAL_CONCURRENT_SYNTHESIS` backstop and the Settings → General "Parallel Segment Rendering" slider's max. Rationale: the manifest ceiling was silently clamping the user-facing `tts_parallel_cap` setting (`effective_cap = min(requested, manifest_max)`) with no error/warning surfaced in the UI — the owner's own hardware (VRAM headroom) should be the deciding factor for how many concurrent XTTS warm workers to run, not an author-set ceiling baked into the plugin. The global backstop (env-overridable via `MAX_GLOBAL_CONCURRENT_SYNTHESIS`) remains the only enforced safety limit; each additional concurrent XTTS warm worker loads its own model copy into VRAM (~`resource.vram_mb` per worker, declared 4000 MB), so raising `tts_parallel_cap` above what the GPU can hold risks OOM — this is now the user's own tradeoff to explore, not a hard-blocked one. Dynamic VRAM/CPU-aware auto-throttling (drop concurrency live if VRAM pressure rises) was discussed and explicitly deferred as future scope, not implemented here. Voxtral/Mixed remain pinned to `max_concurrent_workers: 1` in their own manifests — unchanged, since those engines' sequential constraint is not the same class of "arbitrary ceiling" (Voxtral is a remote API, Mixed's worker is not verified concurrency-safe). |
+| 1.7.1   | 2026-07-14 | **XTTS manifest ceiling raised `2 → 8` (owner directive).** `tts_engines/tts_xtts/manifest.json`'s `behavior.max_concurrent_workers` moved from 2 to 8, matching the `MAX_GLOBAL_CONCURRENT_SYNTHESIS` backstop and the Settings → General "Parallel Segment Rendering" slider's max. Rationale: the manifest ceiling was silently clamping the user-facing `tts_parallel_cap` setting (`effective_cap = min(requested, manifest_max)`) with no error/warning surfaced in the UI — the owner's own hardware (VRAM headroom) should be the deciding factor for how many concurrent XTTS warm workers to run, not an author-set ceiling baked into the plugin. The global backstop (env-overridable via `MAX_GLOBAL_CONCURRENT_SYNTHESIS`) remains the only enforced safety limit; each additional concurrent XTTS warm worker loads its own model copy into VRAM (~`resource.vram_mb` per worker, declared 4000 MB), so raising `tts_parallel_cap` above what the GPU can hold risks OOM — this is now the user's own tradeoff to explore, not a hard-blocked one. Dynamic VRAM/CPU-aware auto-throttling (drop concurrency live if VRAM pressure rises) was discussed and explicitly deferred as future scope, not implemented here. Voxtral/Mixed remain pinned to `max_concurrent_workers: 1` in their own manifests — unchanged, since those engines' sequential constraint is not the same class of "arbitrary ceiling" (Voxtral is a remote API, Mixed's worker is not verified concurrency-safe). |
 | 1.7.0   | 2026-07-11 | **W-PAR task 014 — live per-engine cap admission (§3.1b) + `GET`/`PUT /api/engines/{engine_id}/concurrency`.** `ResourceClaim.cap` now means the manifest ceiling everywhere (structural, grown only via `ensure_min_cap`); a new `manifest_max` field carries the same value alongside it. `EngineClassSemaphore.try_acquire` gained an optional `limit` parameter — the *live*, settings-driven admission limit, resolved fresh via `cap_settings.resolve_effective_cap` on every `reserve_task_resources` call (not baked into the claim at task-construction time as before). This closes the gap where changing `tts_parallel_cap`/`tts_engine_caps` had no effect on already-queued/in-flight work until a restart: a shrink now blocks new admissions within one retry cycle (~1s orchestrator loop / ~0.5s per-child segment loop) without evicting in-flight tasks (`release()` never consulted cap, unchanged); a raise takes effect on the very next admission attempt. `ensure_min_cap`'s grow-only behavior is untouched — it only ever sees the stable manifest ceiling now, never a live value, so there is nothing for it to regrow. New `GET /api/engines/concurrency` (global cap + per-engine manifest/requested/effective/active snapshot) and `PUT /api/engines/{engine_id}/concurrency` (`{"cap": <int>|null}`, 422 on out-of-range) in `app/api/routers/engines.py`; writes go through a new single-key-merge `state_settings.set_engine_cap` (avoids two engines' overrides clobbering each other via a whole-`tts_engine_caps`-object replace). Per-child segment dispatch (`segment_synthesis.py`'s `SegmentSynthesisTask.run()`) already calls `reserve_task_resources` individually per child — traced and confirmed this session — so the live-limit mechanism reaches already-fanned-out chapter segments, not just the top-level orchestrator submit path. |
 | 1.6.2   | 2026-07-06 | Doc-only fix: §3.1's "Ships dark: at `cap=1` (today's default for all manifests)" sentence was stale relative to the 1.6.1 changelog entry it sits below — the global default cap is 2 (`cap_settings.DEFAULT_GLOBAL_CAP`) and XTTS's manifest ceiling is 2, so XTTS already runs 2 concurrent warm workers by default; Voxtral/Mixed remain pinned to 1 via their own manifest `max_concurrent_workers`. No behavior change, drift-correction only. |
 | 1.6.1   | 2026-07-05 | **§3.1a — parallel-cap default raised `1 → 2` (owner directive, supersedes the 1.6.0 "ships dark" default).** `cap_settings.DEFAULT_GLOBAL_CAP` and the `tts_parallel_cap` default materialized by `state_settings.py` both moved from 1 to 2; `effective_cap = min(2, manifest_max)` per engine, so only XTTS (`max_concurrent_workers: 2`) is affected — Voxtral/Mixed stay sequential via their own manifest ceiling of 1. Full rationale and changelog in `queue-jobs.md` §7.3b / 1.11.5. |
@@ -109,7 +109,7 @@ offload visible and improves threadpool utilization under concurrent load.
 
 The **real** per-engine serialization point is the warm-worker subprocess
 pool.  `WarmWorkerManager` (XTTS plugin,
-`plugins/tts_xtts/plugin/core/warm_worker.py`) maintains a **bounded,
+`tts_engines/tts_xtts/plugin/core/warm_worker.py`) maintains a **bounded,
 lazy-spawned pool** of `WarmWorker` subprocess instances:
 
 - **Pool size:** up to `cap` instances, where `cap =
@@ -323,13 +323,13 @@ resource needs) is cached with a 5-second TTL in
 
 ## 7. Plugin Architecture
 
-Engine plugins live in `plugins/` and are loaded inside the TTS Server process
+Engine plugins live in `tts_engines/` and are loaded inside the TTS Server process
 by `app/tts_server/plugin_loader.py`.
 
 Each plugin is a self-contained directory:
 
 ```
-plugins/tts_<id>/
+tts_engines/tts_<id>/
   manifest.json     # engine_id, capabilities, behavior, resource needs
   interface.py      # Engine entry class (implements StudioTTSEngine ABC)
   plugin/           # Implementation

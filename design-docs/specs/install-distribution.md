@@ -8,7 +8,7 @@ sources:
   - run.sh
   - run.ps1
   - requirements.txt
-  - plugins/tts_xtts/requirements.txt
+  - tts_engines/tts_xtts/requirements.txt
   - app/core/config.py
   - app/tts_server/server.py
   - app/engines/official_registry.py
@@ -22,7 +22,7 @@ sources:
 
 | Version | Date       | Change                 |
 |---------|------------|------------------------|
-| 1.2.0   | 2026-06-16 | Fix XTTS requirements path to `plugins/tts_xtts/requirements.txt`; note `XTTS_ENV_DIR`/`TTS_ENV_DIR` override; correct demo restore default (`ask`) and mechanism; add `AUDIOBOOK_STUDIO_PORT` and `AUDIOBOOK_STUDIO_DEMO_ZIP` env vars |
+| 1.2.0   | 2026-06-16 | Fix XTTS requirements path to `tts_engines/tts_xtts/requirements.txt`; note `XTTS_ENV_DIR`/`TTS_ENV_DIR` override; correct demo restore default (`ask`) and mechanism; add `AUDIOBOOK_STUDIO_PORT` and `AUDIOBOOK_STUDIO_DEMO_ZIP` env vars |
 | 1.1.0   | 2026-06-15 | Clarified v2 plugin distribution paths and post-v2 GitHub search/update scope |
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
 
@@ -47,7 +47,7 @@ The app is available at `http://127.0.0.1:8123` after launch.
 | Step | Detail |
 |------|--------|
 | 1. Provision `./venv` | Python 3.11; installs `requirements.txt` |
-| 2. Provision XTTS env | Python 3.11; installs `plugins/tts_xtts/requirements.txt`; defaults to `~/xtts-env` (overridable via `XTTS_ENV_DIR`/`TTS_ENV_DIR`) |
+| 2. Provision XTTS env | Python 3.11; installs `tts_engines/tts_xtts/requirements.txt`; defaults to `~/xtts-env` (overridable via `XTTS_ENV_DIR`/`TTS_ENV_DIR`) |
 | 3. Build frontend | `npm -C frontend run build` → `frontend/dist` |
 | 4. Launch uvicorn | `uvicorn run:app --port 8123` (default) |
 
@@ -84,7 +84,7 @@ XTTS has dependency conflicts with the core Studio requirements. It lives in a d
 | Attribute | Value |
 |-----------|-------|
 | Location | `~/xtts-env` (`$HOME/xtts-env`) by default; overridable via `XTTS_ENV_DIR` (preferred) or legacy `TTS_ENV_DIR` (`run.sh:6`) |
-| Requirements file | `plugins/tts_xtts/requirements.txt` |
+| Requirements file | `tts_engines/tts_xtts/requirements.txt` |
 | Core requirements file | `requirements.txt` (deliberately excludes XTTS deps) |
 | Provisioned by | `./run.sh` (both envs in one command) |
 

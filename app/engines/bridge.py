@@ -224,7 +224,7 @@ class VoiceBridge:
         """Provide instructions for manual install."""
         return {
             "ok": False,
-            "message": "Automated plugin installation is not yet supported. Please place plugin folders in the 'plugins/' directory manually and click 'Refresh Plugins'.",
+            "message": "Automated plugin installation is not yet supported. Please place plugin folders in the 'tts_engines/' directory manually and click 'Refresh Plugins'.",
         }
 
     def get_logs(self, engine_id: str) -> dict[str, Any]:

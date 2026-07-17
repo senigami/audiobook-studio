@@ -12,7 +12,7 @@ This document outlines the submission process, review criteria, and security exp
     *   **Pip-Installed**: Recommended for stable, shared plugins. Your plugin must expose the `studio.tts` entry point in its `pyproject.toml` or `setup.py`.
 3.  **Fork and PR**:
     *   Fork the repository.
-    *   Add your plugin to the `plugins/` directory (if folder-dropin) or update the documentation/links (if pip-installed).
+    *   Add your plugin to the `tts_engines/` directory (if folder-dropin) or update the documentation/links (if pip-installed).
     *   Submit a Pull Request (PR) with a clear description of the engine's capabilities and dependencies.
 
 ---
@@ -33,7 +33,7 @@ Because plugins run as raw Python code, we perform a strict manual audit of the 
 *   **Environment Check**: Does `check_env()` provide a clear and helpful error message if dependencies (like FFmpeg or GPU drivers) are missing?
 *   **Resource Management**: Does the plugin correctly release VRAM/RAM in `shutdown()`? Does it avoid blocking the main thread during heavy computation?
 *   **Verification**: The plugin must pass a **Verification Synthesis** pass in a standard environment.
-*   **Test suite**: The plugin should ship its own `tests/` directory exercising `check_env()`, `settings_schema()`, and a basic `synthesize()`/`preview()` pass. This is collected automatically by the root pytest run, and can be run in isolation with `./venv/bin/python -m pytest plugins/tts_<name>/tests`.
+*   **Test suite**: The plugin should ship its own `tests/` directory exercising `check_env()`, `settings_schema()`, and a basic `synthesize()`/`preview()` pass. This is collected automatically by the root pytest run, and can be run in isolation with `./venv/bin/python -m pytest tts_engines/tts_<name>/tests`.
 
 ### 3. User Experience
 *   **Settings Schema**: Is the `settings_schema()` intuitive? Does it use appropriate field types (e.g., ranges for sliders, enums for dropdowns)?

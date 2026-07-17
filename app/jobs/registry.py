@@ -170,7 +170,7 @@ def _load_plugin_callable(*, plugin_dir, folder_name: str, handler_spec: str) ->
         logger.warning("Handler module %s not found in %s", module_name, folder_name)
         return None
 
-    package_name = f"plugins.{folder_name}"
+    package_name = f"tts_engines.{folder_name}"
     spec_name = f"{package_name}.{module_name}"
     _ensure_plugin_package_hierarchy(
         package_name=package_name,

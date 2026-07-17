@@ -30,15 +30,15 @@ def _disable_external_engines_by_default(monkeypatch: pytest.MonkeyPatch) -> Non
     module objects directly, rather than pytest's dotted-string ``setattr`` form.
     Real plugin/job-handler discovery (e.g. ``app.jobs.registry.initialize_default_handlers``,
     exercised for real by ``tests/core/test_boot.py``) registers synthetic
-    ``sys.modules["plugins.tts_voxtral"]``/``sys.modules["plugins.tts_xtts"]`` entries
+    ``sys.modules["tts_engines.tts_voxtral"]``/``sys.modules["tts_engines.tts_xtts"]`` entries
     without binding them as attributes on the real ``plugins`` package. That leaves
-    pytest's dotted-string attribute-chain resolution (``monkeypatch.setattr("plugins.tts_voxtral...")``)
+    pytest's dotted-string attribute-chain resolution (``monkeypatch.setattr("tts_engines.tts_voxtral...")``)
     broken for the rest of the test session, since ``plugins.tts_voxtral`` can never
     resolve via ``getattr`` even though the submodule is importable. Importing the
     modules directly sidesteps that dependency on collection/execution order.
     """
-    voxtral_app_adapter = importlib.import_module("plugins.tts_voxtral.plugin.studio.app_adapter")
-    xtts_app_adapter = importlib.import_module("plugins.tts_xtts.plugin.studio.app_adapter")
+    voxtral_app_adapter = importlib.import_module("tts_engines.tts_voxtral.plugin.studio.app_adapter")
+    xtts_app_adapter = importlib.import_module("tts_engines.tts_xtts.plugin.studio.app_adapter")
     monkeypatch.setattr(voxtral_app_adapter, "resolve_mistral_api_key", lambda: None)
     monkeypatch.setattr(xtts_app_adapter, "XTTS_ENV_ACTIVATE", Path("/nonexistent/activate"))
     monkeypatch.setattr(xtts_app_adapter, "XTTS_ENV_PYTHON", Path("/nonexistent/python"))

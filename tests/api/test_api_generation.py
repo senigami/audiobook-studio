@@ -886,11 +886,11 @@ def test_mixed_generation_orchestration_integration(clean_db, client, monkeypatc
          patch("app.db.state.update_job"), \
          patch("app.api.routers.generation_chapters.resolve_tts_engine_for_profiles", return_value=("xtts", ["xtts", "voxtral"])), \
          patch("app.domain.chunk_groups.resolve_profile_engine", return_value="mixed"), \
-         patch("plugins.tts_mixed.handler.handle_mixed_job") as mock_mixed_handler, \
-         patch("plugins.tts_mixed.handler.render_one_group") as mock_render_one_group, \
+         patch("tts_engines.tts_mixed.handler.handle_mixed_job") as mock_mixed_handler, \
+         patch("tts_engines.tts_mixed.handler.render_one_group") as mock_render_one_group, \
          patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}), \
          patch("app.orchestration.scheduler.orchestrator.release_task_resources"):
-        from plugins.tts_mixed.handler import RenderGroupResult
+        from tts_engines.tts_mixed.handler import RenderGroupResult
         mock_render_one_group.return_value = RenderGroupResult(status="completed", output_path=Path("/tmp/seg.wav"))
 
         response = client.post("/api/processing_queue", data={
@@ -1004,13 +1004,13 @@ def test_queue_chapter_mixed_render_runs_end_to_end(clean_db, client, monkeypatc
 
     with patch("app.api.routers.generation_chapters.get_chapter_dir", return_value=chapter_dir), \
          patch("app.core.config.get_chapter_dir", return_value=chapter_dir), \
-         patch("plugins.tts_mixed.handler.get_chapter_dir", return_value=chapter_dir), \
+         patch("tts_engines.tts_mixed.handler.get_chapter_dir", return_value=chapter_dir), \
          patch("app.engines.watchdog.get_watchdog", return_value=test_watchdog), \
          patch("app.api.routers.generation_chapters.resolve_tts_engine_for_profiles", return_value=("xtts", ["xtts", "voxtral"])), \
          patch("app.engines.voice_engines.resolve_profile_engine", side_effect=lambda name, fallback_engine=None, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
          patch("app.api.routers.generation_shared.resolve_profile_engine", side_effect=lambda name, fallback_engine=None, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
          patch("app.domain.chunk_groups.resolve_profile_engine", side_effect=lambda name, fallback=None: "voxtral" if name == "Voice2" else "xtts"), \
-         patch("plugins.tts_mixed.handler.stitch_segments", side_effect=fake_stitch), \
+         patch("tts_engines.tts_mixed.handler.stitch_segments", side_effect=fake_stitch), \
          patch("app.api.routers.generation_chapters.broadcast_queue_update"), \
          patch("app.api.routers.generation_chapters.broadcast_chapter_updated"), \
          patch("app.api.ws.broadcast_segments_updated"), \

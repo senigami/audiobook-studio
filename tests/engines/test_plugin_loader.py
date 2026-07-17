@@ -227,7 +227,7 @@ class TestDiscoverPlugins:
         assert detail["settings_schema"]["x-ui"]["help_label"] == "Open Mistral API key instructions"
 
     def test_dotted_entry_class_in_folder(self, tmp_path):
-        plugins_dir = tmp_path / "plugins"
+        plugins_dir = tmp_path / "tts_engines"
         plugins_dir.mkdir()
         (plugins_dir / "tts_dotted").mkdir()
         (plugins_dir / "tts_dotted" / "pkg").mkdir()
@@ -257,7 +257,7 @@ class Engine:
         assert result[0].folder_name == "tts_dotted"
 
     def test_interface_entry_class_can_import_internal_package(self, tmp_path):
-        plugins_dir = tmp_path / "plugins"
+        plugins_dir = tmp_path / "tts_engines"
         plugins_dir.mkdir()
         plugin_dir = plugins_dir / "tts_iface"
         plugin_dir.mkdir()
@@ -307,7 +307,7 @@ class Engine:
         assert result[0].engine.check_env() == (True, "OK from internal package")
 
     def test_dotted_entry_class_can_import_sibling_internal_module(self, tmp_path):
-        plugins_dir = tmp_path / "plugins"
+        plugins_dir = tmp_path / "tts_engines"
         plugins_dir.mkdir()
         plugin_dir = plugins_dir / "tts_nested"
         engine_dir = plugin_dir / "plugin" / "server"
@@ -436,7 +436,7 @@ class TestManifestValidation:
 class TestPipDiscovery:
     def test_entry_point_discovery_mock(self, tmp_path):
         # Create a dummy folder-dropin plugin
-        plugins_dir = tmp_path / "plugins"
+        plugins_dir = tmp_path / "tts_engines"
         plugins_dir.mkdir()
         (plugins_dir / "tts_folder").mkdir()
         (plugins_dir / "tts_folder" / "manifest.json").write_text(json.dumps({
@@ -506,7 +506,7 @@ class Engine:
             assert "pipengine" in engine_ids
 
     def test_folder_precedence_over_pip(self, tmp_path):
-        plugins_dir = tmp_path / "plugins"
+        plugins_dir = tmp_path / "tts_engines"
         plugins_dir.mkdir()
 
         # Folder plugin with engine_id="clash"
@@ -549,7 +549,7 @@ class Engine:
             assert not mock_ep.load.called
 
     def test_pip_plugin_creates_settings_dir(self, tmp_path):
-        plugins_dir = tmp_path / "plugins"
+        plugins_dir = tmp_path / "tts_engines"
         plugins_dir.mkdir()
 
         mock_ep = MagicMock()
@@ -581,7 +581,7 @@ class Engine:
     def test_pip_plugin_check_env_receives_persisted_settings(self, tmp_path):
         from app.tts_server.settings_store import save_settings
 
-        plugins_dir = tmp_path / "plugins"
+        plugins_dir = tmp_path / "tts_engines"
         plugins_dir.mkdir()
 
         save_settings(plugins_dir / "tts_pipkeyed", {"mistral_api_key": "saved-key"})
@@ -1135,20 +1135,20 @@ class TestEngine(StudioTTSEngine):
     def test_bundled_xtts_engine_passes_signature_audit(self):
         """Real XttsPlugin must pass the signature audit without error."""
         from app.tts_server.plugin_loader import _validate_engine_signatures
-        from plugins.tts_xtts.plugin.server.engine import XttsPlugin
+        from tts_engines.tts_xtts.plugin.server.engine import XttsPlugin
         # Should not raise
         _validate_engine_signatures(XttsPlugin, "XttsPlugin", "tts_xtts")
 
     def test_bundled_voxtral_engine_passes_signature_audit(self):
         """Real VoxtralPlugin must pass the signature audit without error."""
         from app.tts_server.plugin_loader import _validate_engine_signatures
-        from plugins.tts_voxtral.plugin.server.engine import VoxtralPlugin
+        from tts_engines.tts_voxtral.plugin.server.engine import VoxtralPlugin
         _validate_engine_signatures(VoxtralPlugin, "VoxtralPlugin", "tts_voxtral")
 
     def test_bundled_mixed_engine_passes_signature_audit(self):
         """Real MixedPlugin must pass the signature audit without error."""
         from app.tts_server.plugin_loader import _validate_engine_signatures
-        from plugins.tts_mixed.engine import MixedPlugin
+        from tts_engines.tts_mixed.engine import MixedPlugin
         _validate_engine_signatures(MixedPlugin, "MixedPlugin", "tts_mixed")
 
 

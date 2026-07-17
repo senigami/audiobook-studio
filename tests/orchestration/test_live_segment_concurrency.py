@@ -210,7 +210,7 @@ def test_parent_fanout_dispatch_segment_reuse_isolates_children(tmp_path):
         bridge_call=bridge_call,
     )
 
-    with patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=_fake_generate_via_bridge_threadkeyed), \
+    with patch("tts_engines.tts_mixed.handler.generate_via_bridge", side_effect=_fake_generate_via_bridge_threadkeyed), \
          patch("app.engines.watchdog.get_watchdog", side_effect=_watchdog_get_active), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.domain.chunk_groups.build_script_entry_for_group", side_effect=_fake_script_entry), \
@@ -289,7 +289,7 @@ def test_stitch_called_once_in_manuscript_order_regardless_of_completion_order(t
         stitch_fn=_stitch,
     )
 
-    with patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=_fake_generate_via_bridge), \
+    with patch("tts_engines.tts_mixed.handler.generate_via_bridge", side_effect=_fake_generate_via_bridge), \
          patch("app.engines.watchdog.get_watchdog", side_effect=lambda: watchdogs.setdefault(threading.current_thread().name, TtsServerWatchdog())), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.domain.chunk_groups.build_script_entry_for_group", side_effect=_fake_script_entry), \

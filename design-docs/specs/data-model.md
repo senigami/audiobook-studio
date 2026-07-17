@@ -258,9 +258,9 @@ Per-project pronunciation substitutions. Each entry maps a source word to a repl
 | `created_at` | REAL | Unix epoch seconds |
 
 **Application:** `app/utils/text/lexicon.apply_lexicon(text, entries)` is called with all entries for a project loaded once per render job. Application points by path:
-- **xtts** (standard, bake, segments): loaded once then applied per group in `plugins/tts_xtts/plugin/studio/standard_handler.handle_xtts_standard()`, `bake.handle_xtts_bake()`, and `segments.handle_xtts_segments()`.
-- **voxtral** (bake, segments): same pattern in `plugins/tts_voxtral/plugin/studio/bake.handle_voxtral_bake()` and `segments.handle_voxtral_segments()`; standard (single-text) path: applied in `handler.handle_voxtral_job()` after `render_text` is resolved.
-- **mixed engine**: applied in `plugins/tts_mixed/handler.handle_mixed_job()` before each segment group is dispatched to `_render_segment`.
+- **xtts** (standard, bake, segments): loaded once then applied per group in `tts_engines/tts_xtts/plugin/studio/standard_handler.handle_xtts_standard()`, `bake.handle_xtts_bake()`, and `segments.handle_xtts_segments()`.
+- **voxtral** (bake, segments): same pattern in `tts_engines/tts_voxtral/plugin/studio/bake.handle_voxtral_bake()` and `segments.handle_voxtral_segments()`; standard (single-text) path: applied in `handler.handle_voxtral_job()` after `render_text` is resolved.
+- **mixed engine**: applied in `tts_engines/tts_mixed/handler.handle_mixed_job()` before each segment group is dispatched to `_render_segment`.
 - **api_synthesis (bridge) path**: applied in `app/orchestration/tasks/synthesis.SynthesisTask.to_bridge_request()` for external TTS API requests.
 
 **Zero-impact invariant:** when a project has no lexicon entries, the original text string is returned unchanged (no allocation, no regex compile). Existing renders for projects without a lexicon are byte-identical.

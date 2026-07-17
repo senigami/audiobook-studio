@@ -111,7 +111,7 @@ def test_plugin_settings_and_state_are_stored_outside_plugin_source(tmp_path, mo
     from app.tts_server.settings_store import load_settings, load_state, save_settings, save_state
 
     plugin_data_dir = tmp_path / "plugin_data"
-    plugin_dir = tmp_path / "plugins" / "tts_mock"
+    plugin_dir = tmp_path / "tts_engines" / "tts_mock"
     plugin_dir.mkdir(parents=True)
 
     monkeypatch.setattr("app.core.config.PLUGIN_DATA_DIR", plugin_data_dir)
@@ -131,7 +131,7 @@ def test_plugin_root_runtime_files_are_ignored(tmp_path, monkeypatch):
     from app.tts_server.settings_store import load_settings, load_state, save_settings
 
     plugin_data_dir = tmp_path / "plugin_data"
-    plugin_dir = tmp_path / "plugins" / "tts_mock"
+    plugin_dir = tmp_path / "tts_engines" / "tts_mock"
     plugin_dir.mkdir(parents=True)
     (plugin_dir / "settings.json").write_text(json.dumps({"temperature": 0.4}), encoding="utf-8")
     (plugin_dir / "state.json").write_text(json.dumps({"verified": True}), encoding="utf-8")
@@ -181,14 +181,14 @@ class TestSettingsStoreTraversalGuard:
         # _engine_id_from_plugin_dir strip the "tts_" prefix down to "..",
         # which _contained_path must then reject before ever touching disk --
         # no internal helper needs to be monkeypatched to trigger this.
-        plugin_dir = tmp_path / "plugins" / "tts_.."
+        plugin_dir = tmp_path / "tts_engines" / "tts_.."
         with pytest.raises(ValueError, match="path escapes containment root"):
             load_settings(plugin_dir)
 
     def test_valid_id_round_trips_setting(self, tmp_path, monkeypatch):
         from app.tts_server.settings_store import load_settings, save_settings
         plugin_data_dir = tmp_path / "plugin_data"
-        plugin_dir = tmp_path / "plugins" / "tts_roundtrip"
+        plugin_dir = tmp_path / "tts_engines" / "tts_roundtrip"
         plugin_dir.mkdir(parents=True)
         monkeypatch.setattr("app.core.config.PLUGIN_DATA_DIR", plugin_data_dir)
         save_settings(plugin_dir, {"key": "value123"})
@@ -226,6 +226,6 @@ class TestPerformanceSettingsTraversalGuard:
     def test_valid_id_get_multiplier_returns_default(self, tmp_path, monkeypatch):
         """Valid engine_id with no plugin dir returns neutral 1.0 multiplier."""
         from app.tts_server.performance_settings import get_engine_computer_speed_multiplier
-        monkeypatch.setattr("app.core.config.PLUGINS_DIR", tmp_path / "plugins")
+        monkeypatch.setattr("app.core.config.PLUGINS_DIR", tmp_path / "tts_engines")
         result = get_engine_computer_speed_multiplier("validengine")
         assert result == 1.0
