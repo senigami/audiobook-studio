@@ -105,6 +105,34 @@ class TestApiSynthesisTask:
         assert req["reference_audio_path"] == "/voices/Dark Fantasy/sample.wav"
         assert req["voice_profile_dir"] == "/voices/Dark Fantasy"
 
+    def test_to_bridge_request_falls_back_to_default_profile_when_voice_ref_missing(self, monkeypatch):
+        # A gateway request with no voice_ref at all must not fail outright —
+        # it resolves to the configured default speaker profile, the same
+        # fallback app.db.speakers_paths._resolve_existing_profile_name
+        # already applies for Studio-originated requests.
+        monkeypatch.setattr(
+            "app.db.speakers._resolve_existing_profile_name",
+            lambda name: "Studio Voice" if not name else name,
+        )
+        monkeypatch.setattr(
+            "app.db.speakers.get_profile_wavs",
+            lambda name: "/voices/Studio Voice/sample.wav",
+        )
+        monkeypatch.setattr(
+            "app.db.speakers.get_profile_dir",
+            lambda name: "/voices/Studio Voice",
+        )
+
+        task = ApiSynthesisTask(
+            task_id="t-no-voice-ref",
+            engine_id="xtts",
+            text="No voice ref",
+            output_path="/tmp/default.wav",
+        )
+        req = task.to_bridge_request()
+        assert req["reference_audio_path"] == "/voices/Studio Voice/sample.wav"
+        assert req["voice_profile_dir"] == "/voices/Studio Voice"
+
     def test_request_settings_cannot_override_reserved_bridge_keys(self):
         # settings comes verbatim from the external API caller and is spread
         # last into the bridge request — reserved keys must be stripped so a

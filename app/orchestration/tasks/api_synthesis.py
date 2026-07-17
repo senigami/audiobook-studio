@@ -60,11 +60,13 @@ def _resolve_voice_ref(voice_ref: str | None) -> tuple[str | None, str | None]:
         if speaker_wav and "," in speaker_wav:
             speaker_wav = speaker_wav.split(",")[0]
     except Exception:
+        logger.debug("api_synthesis: get_profile_wavs(%r) failed", resolved_name, exc_info=True)
         speaker_wav = None
 
     try:
         voice_profile_dir = str(get_profile_dir(resolved_name))
     except Exception:
+        logger.debug("api_synthesis: get_profile_dir(%r) failed", resolved_name, exc_info=True)
         voice_profile_dir = None
 
     return speaker_wav, voice_profile_dir
