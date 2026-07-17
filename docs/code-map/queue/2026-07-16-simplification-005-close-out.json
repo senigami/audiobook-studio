@@ -1,7 +1,7 @@
 {
   "date": "2026-07-16",
   "branch": "studio2/simplification-005",
-  "summary": "Close out PR 03/005 (code simplification) remaining scope: plugin_loader.py seam split, to_bridge_request documentation, dead app/infra stub deletion, dead CSS removal, GhostButton hover-state simplification.",
+  "summary": "Close out PR 03/005 (code simplification) remaining scope: plugin_loader.py seam split, to_bridge_request documentation, dead app/infra stub deletion, dead CSS removal. (A GhostButton hover-state simplification was attempted and reverted in-review — only an explanatory comment landed.)",
   "changes": [
     {
       "path": "app/tts_server/plugin_loader.py",
@@ -66,12 +66,7 @@
     {
       "path": "frontend/src/components/ui/GhostButton.tsx",
       "change": "modified",
-      "summary": "Removed redundant JS hover state (useState/onMouseEnter/onMouseLeave); relies on existing .btn-ghost:hover CSS rule instead. isActive branch preserved unchanged. U9 partial fix."
-    },
-    {
-      "path": "frontend/src/theme/components/core.css",
-      "change": "modified",
-      "summary": "Added border-color: var(--accent) to .btn-ghost:hover:not(:disabled) to preserve exact prior visual after GhostButton.tsx's JS hover-border logic was removed."
+      "summary": "Comment-only. The planned JS hover-state removal was reverted in adversarial review: the inline style prop sets border/color/background, which overrides the .btn-ghost:hover CSS rule, so relying on CSS alone made hover a no-op. Added a comment documenting why the JS isHovered state must stay. core.css untouched; runtime behavior identical to before this PR. U9 remains open (see final_release/10_ux_improvements.md)."
     }
   ]
 }
