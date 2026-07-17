@@ -1,9 +1,9 @@
 # Install & Distribution
 
 ```
-spec_version: 1.2.0
+spec_version: 1.3.0
 status: active
-updated: 2026-06-16
+updated: 2026-07-16
 sources:
   - run.sh
   - run.ps1
@@ -22,6 +22,7 @@ sources:
 
 | Version | Date       | Change                 |
 |---------|------------|------------------------|
+| 1.3.0   | 2026-07-16 | Document the GitHub install/trust flow contract: URL validation rule, two-phase preview/confirm staging, symlink rejection, and the registry-membership trust model (pinned by `tests/tts_server/test_install_flow_e2e.py`) |
 | 1.2.0   | 2026-06-16 | Fix XTTS requirements path to `tts_engines/tts_xtts/requirements.txt`; note `XTTS_ENV_DIR`/`TTS_ENV_DIR` override; correct demo restore default (`ask`) and mechanism; add `AUDIOBOOK_STUDIO_PORT` and `AUDIOBOOK_STUDIO_DEMO_ZIP` env vars |
 | 1.1.0   | 2026-06-15 | Clarified v2 plugin distribution paths and post-v2 GitHub search/update scope |
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
@@ -194,6 +195,34 @@ Studio 2.0 supports three plugin acquisition paths:
 - Registry and pasted-URL installs MUST use the same staging, manifest validation, and trust
   confirmation model as plugin ZIP import.
 - Manual plugin installation (drop a plugin directory into `PLUGINS_DIR`) MUST work without any UI changes.
+
+### GitHub install/trust flow (contract)
+
+The paste-a-GitHub-URL install path (`POST /api/engines/preview_github` → TTS Server
+`app/tts_server/plugin_staging.py`) behaves as follows. This contract is pinned by
+`tests/tts_server/test_install_flow_e2e.py` (local git fixtures, no network).
+
+1. **URL validation** — only `https://github.com/<owner>/<repo>[.git]` is accepted
+   (`_normalize_github_repo_url`). `file://`, `http://`, non-github hosts, embedded
+   credentials, query strings, fragments, SSH forms, and bare paths are rejected with 400.
+   This is a security property and MUST NOT be weakened.
+2. **Two-phase staging** — the repo is shallow-cloned (`--depth 1`) into
+   `PLUGINS_DIR/.preview_<token>` (`_clone_and_stage`, the post-validation body of
+   `preview_github_repo`). The preview response returns manifest metadata
+   (`engine_id`, `display_name`, `version`, parsed `requirements`) plus an opaque
+   32-hex `staging_token`. **No plugin code is loaded at preview time.** Only
+   `POST /plugins/confirm/{token}` moves the staged dir to `tts_<engine_id>/` and
+   triggers a plugin reload; `DELETE /plugins/staging/{token}` discards it. Orphaned
+   `.preview_*` dirs are swept at server startup.
+3. **Validation before staging completes** — the cloned repo must contain a
+   `manifest.json` passing `_validate_manifest`, and MUST NOT contain symlinks
+   (rejected 400, staging dir removed).
+4. **Trust model** — official trust is registry membership: entries in
+   `app/engines/official_registry.py` carry `trust_level: "official"` and their
+   `repo_url` matches the in-tree manifest `distribution.git_url`. A URL with no
+   registry entry is community-trust; the UI renders the Community badge and the
+   consent dialog (`PluginTrustModal`) before confirm. The backend does not compute
+   a per-preview trust flag — trust classification is registry lookup on the client.
 
 ---
 
