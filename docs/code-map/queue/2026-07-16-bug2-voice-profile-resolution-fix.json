@@ -1,0 +1,20 @@
+{
+  "date": "2026-07-16",
+  "task": "BUG 2 follow-up (PR #134 gateway verify) — resolve voice-profile name to speaker WAV / voice_profile_dir in ApiSynthesisTask",
+  "branch": "studio-2.0",
+  "changed_files": [
+    {
+      "path": "app/orchestration/tasks/api_synthesis.py",
+      "change": "modified",
+      "summary": "Added module-level _resolve_voice_ref(voice_ref) helper: a path-like voice_ref (contains '/' or '\\\\') passes through unchanged; a plain profile name/id (or falsy value, which now falls back to the configured default speaker profile) resolves via app.db.speakers._resolve_existing_profile_name -> get_profile_wavs/get_profile_dir, mirroring the resolution app.domain.chunk_groups already does for Studio-originated renders. ApiSynthesisTask.to_bridge_request() now calls this helper and populates both reference_audio_path and voice_profile_dir (previously it forwarded the raw voice_ref straight through as reference_audio_path with no resolution, so a profile name reached the TTS Server as a literal, nonexistent file path). Also added logger.error(exc_info=True) in run()'s dispatch-exception handler, since the reported gateway dispatch failure produced no log trace. Reviewer pass (2026-07-17): constructor now strips reserved bridge-request keys (_RESERVED_REQUEST_KEYS: engine_id/script_text/output_path/reference_audio_path/voice_profile_dir/language/source/caller_id/task_id) from the untrusted external `settings` dict, which was spread last into to_bridge_request()/to_task_context() and could override the containment-checked output_path and resolved voice paths; also logs a warning when a named voice_ref fails to resolve. PR-review follow-up (2026-07-17): the two internal except blocks in _resolve_voice_ref (get_profile_wavs/get_profile_dir failures) now logger.debug(exc_info=True) instead of swallowing silently, addressing a nit raised in PR #144 review that a resolution failure produced no diagnostic trace.",
+      "exports_changed": ["_resolve_voice_ref (new module-level function)"],
+      "contract_notes": "ApiSynthesisTask.to_bridge_request() output shape gains an optional voice_profile_dir key (same shape SegmentSynthesisTask.to_bridge_request() already emits). No change to ApiSynthesisTask's public constructor or to_task_context()/from_task_context() payload shape — resolution happens fresh at dispatch time, not at storage time."
+    },
+    {
+      "path": "tests/api/test_api_synthesis_task.py",
+      "change": "modified",
+      "summary": "Added test_to_bridge_request_resolves_profile_name_to_voice_paths (revert-checked per testing-standards R1: fails on pre-fix code, passes after). PR-review follow-up (2026-07-17): added test_to_bridge_request_falls_back_to_default_profile_when_voice_ref_missing, covering the falsy-voice_ref default-profile fallback path that had no direct test coverage — a nit raised in PR #144 review."
+    }
+  ],
+  "notes": "Closes BUG 2 part 1 (voice resolution gap) and the open 'no built-in-voice fallback' question from design-docs/plans/pr-dispatch/10-api-verify-poc-report.md — a falsy voice_ref now resolves to the default speaker profile instead of failing. BUG 2 part 2 (silent full-gateway dispatch 500 with a valid absolute-path voice_ref) is NOT verified fixed here — logging was added but reproducing the live dispatch failure needs a running managed TTS server + xtts-env, not exercised this session."
+}
