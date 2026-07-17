@@ -61,7 +61,7 @@
   },
   "author": "Mistral AI",
   "homepage": "https://mistral.ai/news/voxtral-tts",
-  "license": "Commercial API",
+  "license": "MIT",
   "test_sample": "voice.wav",
   "test_text": "Hello, this is a verification test of the Voxtral synthesis engine.",
   "dev": {

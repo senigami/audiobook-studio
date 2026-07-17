@@ -4,6 +4,13 @@ Voxtral is the reference cloud/API plugin for Audiobook Studio 2.0. It
 demonstrates the recommended mini-repo layout for a plugin that calls a remote
 service while still exposing the same Studio-facing interface contract.
 
+## License
+
+The plugin code is licensed under the MIT License (see `LICENSE`). The engine
+requires a Mistral API key to synthesize; your use of the Voxtral API is
+governed by Mistral AI's own terms of service, separate from this plugin's
+license.
+
 ## Public Contract
 
 - `manifest.json` declares Studio-facing entrypoints and behavior.
