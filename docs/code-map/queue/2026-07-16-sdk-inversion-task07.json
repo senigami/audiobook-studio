@@ -1,0 +1,12 @@
+{
+  "date": "2026-07-16",
+  "author": "studio2/standalone-plugin-repos-010 task 07 (import-cleanliness gates tightened to confirmed boundary)",
+  "summary": "s4/s5 gate tests rewritten to enforce the Checkpoint-2-confirmed boundary: zero app.* imports at ANY position in plugin/server, plugin/core, interface.py, cli.py; zero MODULE-LEVEL app.* in plugin/studio (function bodies, if TYPE_CHECKING blocks, and try/except-ImportError guards — the sanctioned app_adapter host-integration shape — remain allowed). Both gates dropped the app.studio_plugin_sdk alias-registration preamble and now import the real studio_plugin_sdk package directly. New host-suite gate tests/engines/test_sdk_import_cleanliness.py: zero module-level app.* anywhere in studio_plugin_sdk/, and zero app.* of any kind outside context.py (whose lazy function-body host imports are the single sanctioned exception).",
+  "changes": [
+    {"file": "tts_engines/tts_xtts/tests/test_s4_import_cleanliness.py", "change": "Rewritten: any-position app.* ban over plugin/server+core+interface.py+cli.py (whole-AST walk); module-level ban over ALL plugin/studio/*.py (adapter.py no longer audit-only — now in scope and clean via TYPE_CHECKING/fn-body shapes); smoke-import + _get_ctx tests kept; sdk alias block removed."},
+    {"file": "tts_engines/tts_voxtral/tests/test_s5_import_cleanliness.py", "change": "Same rewrite for voxtral (strict scope includes its plugin/server, plugin/core, interface.py, cli.py)."},
+    {"file": "tests/engines/test_sdk_import_cleanliness.py", "change": "NEW gate: AST-walks studio_plugin_sdk/*.py; module-level app.* banned everywhere with no exemptions; any-position app.* banned outside context.py."}
+  ],
+  "invariants": "R1 revert-check performed: seeded (1) module-level 'import app.db' in xtts studio handler.py, (2) function-body app import in voxtral plugin/server/engine.py, (3) function-body app import in studio_plugin_sdk/types.py, (4) module-level app import in studio_plugin_sdk/context.py — each turned exactly the intended gate test red; all seeds reverted, gates green (65 passed).",
+  "note": "Task 07 of .agent/mastermind-010-plan/. Test files are unmapped but the gates encode the new SDK boundary invariant."
+}
