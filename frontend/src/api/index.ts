@@ -271,6 +271,27 @@ export const api = {
     return res.blob();
   },
 
+  // Renders a short, shareable MP4 (book cover + chapter audio) and returns it
+  // as a blob for the caller to download. Local-only: nothing is uploaded.
+  exportChapterVideo: async (
+    chapterId: string,
+    opts?: { projectId?: string; orientation?: 'square' | 'portrait'; duration?: number },
+  ): Promise<Blob> => {
+    const params = new URLSearchParams();
+    if (opts?.projectId) params.set('project_id', opts.projectId);
+    if (opts?.orientation) params.set('orientation', opts.orientation);
+    if (opts?.duration) params.set('duration', String(opts.duration));
+    const qs = params.toString();
+    const res = await fetch(`/api/chapters/${chapterId}/export-video${qs ? `?${qs}` : ''}`, {
+      method: 'POST',
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      throw new Error(data?.message || 'Video export failed');
+    }
+    return res.blob();
+  },
+
   // --- Segments ---
   fetchSegments: async (chapterId: string): Promise<import('@/types').ChapterSegment[]> => {
     // Live, mutable segment state — bypass the browser HTTP cache so soft nav re-hydrates fresh.

@@ -7,6 +7,7 @@ import { ChapterTable } from '@/pages/Book/components/ChapterTable';
 import { ChapterTextPanel } from '@/pages/Book/components/ChapterTextPanel';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
 import { emitToast } from '@/utils/toast';
+import { downloadBlob } from '@/utils/chapterEditorHelpers';
 import { requestRailAutoCollapse } from '@/utils/railState';
 import { getChapterImportError, getChapterImportFileTitle, isSupportedChapterImportFile } from '@/pages/Book/lib/chapterImport';
 import type { Chapter } from '@/types';
@@ -42,9 +43,12 @@ export function ManuscriptStage() {
   };
 
   const handleExportSample = async (chapter: Chapter) => {
-    const result = await api.exportSample(chapter.id, chapter.project_id);
-    if (result.url) {
-      window.open(result.url, '_blank');
+    try {
+      const blob = await api.exportChapterVideo(chapter.id, { projectId: chapter.project_id });
+      downloadBlob(blob, `${chapter.title || 'chapter'}-sample.mp4`);
+    } catch (e) {
+      console.error('Failed to export sample video', e);
+      emitToast(e instanceof Error ? e.message : "Couldn't export the video. Please try again.");
     }
   };
 

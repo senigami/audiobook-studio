@@ -66,17 +66,45 @@ def test_assemble_audiobook(mock_on_output, mock_cancel_check):
         assert rc == 0
 
 def test_generate_video_sample(mock_on_output, mock_cancel_check):
-    with patch("app.engines.proc_utils.run_cmd_stream", return_value=0), \
+    with patch("app.engines.video_utils.shutil.which", return_value="/usr/bin/ffmpeg"), \
+         patch("app.engines.proc_utils.run_cmd_stream", return_value=0) as mock_run, \
          patch("pathlib.Path.exists", return_value=True):
         from app.engines.video_utils import generate_video_sample
         rc = generate_video_sample(
             input_audio=Path("in.wav"),
             output_video=Path("out.mp4"),
-            logo_path=Path("logo.png"),
+            image_path=Path("cover.png"),
             on_output=mock_on_output,
-            cancel_check=mock_cancel_check
+            cancel_check=mock_cancel_check,
         )
         assert rc == 0
+        cmd = mock_run.call_args[0][0]
+        assert cmd[0] == "ffmpeg"
+        assert "cover.png" in cmd
+        assert cmd[-1] == "out.mp4"
+
+
+def test_generate_video_sample_ffmpeg_missing(mock_on_output, mock_cancel_check):
+    from app.engines.video_utils import generate_video_sample, FFMPEG_MISSING_RC
+    with patch("app.engines.video_utils.shutil.which", return_value=None):
+        rc = generate_video_sample(
+            Path("in.wav"), Path("out.mp4"), Path("cover.png"),
+            mock_on_output, mock_cancel_check,
+        )
+    assert rc == FFMPEG_MISSING_RC
+
+
+def test_build_video_sample_command_orientation_and_cap():
+    from app.engines.video_utils import build_video_sample_command
+    # Portrait frame, over-cap duration should clamp to MAX (120).
+    cmd = build_video_sample_command(
+        Path("in.wav"), Path("out.mp4"), Path("cover.png"),
+        orientation="portrait", max_duration=9999,
+    )
+    joined = " ".join(cmd)
+    assert "1080:1920" in joined  # portrait frame
+    assert cmd[cmd.index("-t") + 1] == "120"  # clamped
+    assert "-loop" in cmd and "-shortest" in cmd
 
 def test_run_cmd_stream_cancel(mock_on_output, mock_cancel_check):
     mock_cancel_check.return_value = True
@@ -174,17 +202,22 @@ def mock_audio_ops():
         yield
 
 def test_generate_video_sample_no_audio(mock_on_output, mock_cancel_check):
-    with patch("pathlib.Path.exists", return_value=False):
+    with patch("app.engines.video_utils.shutil.which", return_value="/usr/bin/ffmpeg"), \
+         patch("pathlib.Path.exists", return_value=False):
         from app.engines.video_utils import generate_video_sample
         rc = generate_video_sample(Path("no.wav"), Path("out.mp4"), None, mock_on_output, mock_cancel_check)
         assert rc == 1
 
-def test_generate_video_sample_no_logo(mock_on_output, mock_cancel_check):
-    with patch("app.engines.proc_utils.run_cmd_stream", return_value=0), \
-         patch("pathlib.Path.exists", side_effect=[True, False, True, True]):
-        from app.engines.video_utils import generate_video_sample
-        rc = generate_video_sample(Path("in.wav"), Path("out.mp4"), Path("no-logo.png"), mock_on_output, mock_cancel_check)
+def test_generate_video_sample_falls_back_to_logo(mock_on_output, mock_cancel_check):
+    # input audio exists (True); the passed cover does NOT (False); the bundled
+    # Studio logo does (True) -> render proceeds using the logo as the visual.
+    with patch("app.engines.video_utils.shutil.which", return_value="/usr/bin/ffmpeg"), \
+         patch("app.engines.proc_utils.run_cmd_stream", return_value=0) as mock_run, \
+         patch("pathlib.Path.exists", side_effect=[True, False, True]):
+        from app.engines.video_utils import generate_video_sample, STUDIO_LOGO_PATH
+        rc = generate_video_sample(Path("in.wav"), Path("out.mp4"), Path("no-cover.png"), mock_on_output, mock_cancel_check)
         assert rc == 0
+        assert str(STUDIO_LOGO_PATH) in mock_run.call_args[0][0]
 
 def test_stitch_segments_no_segs(mock_on_output, mock_cancel_check):
     rc = stitch_segments(Path("."), [], Path("out.wav"), mock_on_output, mock_cancel_check)
