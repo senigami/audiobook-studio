@@ -257,7 +257,7 @@ export function ArchetypeQuickPick({ onPick, attrs, disabled }: ArchetypeQuickPi
     const narrowed = hasMeaningfulAttrs(attrs);
 
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
+        const handleClickOutside = (event: globalThis.MouseEvent) => {
             if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
                 setIsOpen(false);
             }
