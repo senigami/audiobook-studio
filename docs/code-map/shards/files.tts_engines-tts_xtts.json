@@ -1,0 +1,463 @@
+{
+  "files": {
+    "tts_engines/tts_xtts/__init__.py": {
+      "purpose": "Empty package marker",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "tts_engines/tts_xtts/cli.py": {
+      "purpose": "Standalone CLI for XTTS synthesis without Studio context",
+      "exports": [
+        {
+          "name": "main",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": [
+        "tts_engines/tts_xtts/plugin/core/implementation.py#xtts_generate"
+      ]
+    },
+    "tts_engines/tts_xtts/interface.py": {
+      "purpose": "Public XTTS plugin interface and re-exports",
+      "exports": [
+        {
+          "name": "XttsPlugin, XttsVoiceEngine, xtts_dispatch_adapter, handle_xtts_job, _group_job_progress, voice_job_dispatch_adapter",
+          "kind": "class/function"
+        }
+      ],
+      "calls": [
+        "tts_engines/tts_xtts/plugin/server/engine.py#XttsPlugin",
+        "tts_engines/tts_xtts/plugin/studio/adapter.py",
+        "tts_engines/tts_xtts/plugin/studio/app_adapter.py#XttsVoiceEngine",
+        "tts_engines/tts_xtts/plugin/studio/handler.py#handle_xtts_job",
+        "tts_engines/tts_xtts/plugin/studio/voice_adapter.py"
+      ],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "tts_engines/tts_xtts/plugin/__init__.py": {
+      "purpose": "Empty package marker",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "tts_engines/tts_xtts/plugin/core/__init__.py": {
+      "purpose": "Empty package marker",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "tts_engines/tts_xtts/plugin/core/diagnostics.py": {
+      "purpose": "Progress line relay to callback and stderr",
+      "exports": [
+        {
+          "name": "emit_diagnostics",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "tts_engines/tts_xtts/plugin/core/implementation.py"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "tts_engines/tts_xtts/plugin/core/implementation.py": {
+      "purpose": "Main XTTS orchestration: warm-worker pool, manifest behavior lookup, synthesis dispatch",
+      "exports": [
+        {
+          "name": "xtts_generate, xtts_generate_script, get_speaker_latent_path, migrate_speaker_latent_to_profile",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "tts_engines/tts_xtts/plugin/core/diagnostics.py",
+        "tts_engines/tts_xtts/plugin/core/proc_utils.py",
+        "tts_engines/tts_xtts/plugin/core/text_utils.py#*",
+        "tts_engines/tts_xtts/plugin/core/warm_worker.py#WarmWorkerManager"
+      ],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": [
+        "tts_engines/tts_xtts/plugin/core/serve_speakers.py#build_unique_speakers"
+      ]
+    },
+    "tts_engines/tts_xtts/plugin/core/proc_utils.py": {
+      "purpose": "Subprocess streaming I/O: output queueing, cancellation, error recovery",
+      "exports": [
+        {
+          "name": "coerce_subprocess_output, run_cmd_stream",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "tts_engines/tts_xtts/plugin/core/implementation.py"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "tts_engines/tts_xtts/plugin/core/serve_speakers.py": {
+      "purpose": "Torch-free speaker map builder for multi-speaker script synthesis",
+      "exports": [
+        {
+          "name": "speaker_key, build_unique_speakers",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "kept torch-free for testability"
+      ],
+      "calls_inferred": []
+    },
+    "tts_engines/tts_xtts/plugin/core/text_utils.py": {
+      "purpose": "XTTS-specific text preprocessing and sanitization",
+      "exports": [
+        {
+          "name": "preprocess_text, split_sentences, consolidate_single_word_sentences, clean_text_for_tts, sanitize_text, safe_split_long_sentences, pack_text_to_limit",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "tts_engines/tts_xtts/plugin/core/warm_worker.py": {
+      "purpose": "Long-lived subprocess manager for XTTS inference --serve mode with pooling",
+      "exports": [
+        {
+          "name": "WarmWorker, WarmWorkerManager",
+          "kind": "class"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "idle timeout default 300s"
+      ],
+      "calls_inferred": []
+    },
+    "tts_engines/tts_xtts/plugin/core/xtts_inference.py": {
+      "purpose": "Low-level XTTS torch/WAV I/O and audio loading patches",
+      "exports": [
+        {
+          "name": "_save_wav, _load_wav_tensor, _patch_xtts_load_audio",
+          "kind": "function"
+        },
+        {
+          "name": "_normalize_speaker_wav_paths",
+          "kind": "function",
+          "contract": "PL-4 (2026-07-04): hoisted to module level (was duplicated byte-identically in _run_serve_job and main); resolves a speaker-wav spec (list/comma-joined str/single path/voice_profile_dir glob fallback) into (wav_input, combined_paths_key)"
+        },
+        {
+          "name": "_run_synthesis_loop",
+          "kind": "function",
+          "contract": "PL-4 (2026-07-04): shared per-segment synthesis loop (sentence splitting, pause insertion, marker emission, _synthesize_one fallback, WAV save) extracted from ~300-line near-duplicates in _run_serve_job (warm-worker) and main() (one-shot); genuine per-caller differences (latent-cache staleness, marker flush behavior, error message detail, exception-to-outcome translation, default_voice_profile_dir fallback) passed as explicit params/callables, never inferred from a mode flag"
+        },
+        {
+          "name": "_run_serve_job, main",
+          "kind": "function",
+          "contract": "warm-worker serve loop / one-shot CLI entry point respectively; both now call _run_synthesis_loop for the shared per-segment work and keep only their own latent pre-computation + exception-to-outcome translation (return 1 vs sys.exit(1))"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "PL-4 (2026-07-04): parity between the two callers locked by tts_engines/tts_xtts/tests/test_synthesis_loop_parity.py (byte-identical WAV output + identical marker-type sequence for both paths); do not reintroduce per-path copies of the loop body",
+        "SEC-1 (2026-07-16): the 4 latent .pth load sites (serve-mode _get_latents, one-shot get_latents) use torch.load(..., weights_only=True) to block a malicious pickle (subprocess.run via __reduce__) in a crafted latent .pth -- weights_only=False would have executed it. Regression-locked by tts_engines/tts_xtts/tests/test_sec1_latent_pth_weights_only.py (also grep-guards that no weights_only=False sink remains under tts_engines/tts_xtts/plugin/)."
+      ],
+      "calls_inferred": []
+    },
+    "tts_engines/tts_xtts/plugin/server/__init__.py": {
+      "purpose": "Empty package marker",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "tts_engines/tts_xtts/plugin/server/engine.py": {
+      "purpose": "Server-side StudioTTSEngine: env checks, verification, test synthesis, progress normalization",
+      "exports": [
+        {
+          "name": "XttsPlugin, relay_marker",
+          "kind": "class/function"
+        }
+      ],
+      "calls": [
+        "app/engines/audio_ops.py",
+        "app/engines/proc_utils.py",
+        "app/engines/voice/base.py#StudioTTSEngine",
+        "app/engines/voice/sdk.py#*",
+        "tts_engines/tts_xtts/plugin/core/implementation.py#xtts_generate"
+      ],
+      "called_by": [],
+      "notes": [
+        "must NOT import app.api/orchestration/db",
+        "PL-3 (2026-07-04): run_test() is now a one-line super().run_test(asset_search_order=[...], default_text=...) delegating to StudioTTSEngine's shared implementation"
+      ],
+      "calls_inferred": []
+    },
+    "tts_engines/tts_xtts/plugin/studio/__init__.py": {
+      "purpose": "Empty package marker",
+      "exports": [],
+      "calls": [],
+      "called_by": [
+        "tts_engines/tts_xtts/plugin/studio/bake.py",
+        "tts_engines/tts_xtts/plugin/studio/helpers.py",
+        "tts_engines/tts_xtts/plugin/studio/segments.py",
+        "tts_engines/tts_xtts/plugin/studio/standard_handler.py"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "tts_engines/tts_xtts/plugin/studio/_text_utils.py": {
+      "purpose": "Pure text grouping logic for segments, dependency-free",
+      "exports": [
+        {
+          "name": "build_segment_groups, join_group_text",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "pure function, no I/O"
+      ],
+      "calls_inferred": []
+    },
+    "tts_engines/tts_xtts/plugin/studio/adapter.py": {
+      "purpose": "Dispatch adapter from Job to handle_xtts_job with path resolution",
+      "exports": [
+        {
+          "name": "xtts_dispatch_adapter",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/core/config.py",
+        "app/db/models.py",
+        "app/db/speakers.py#*",
+        "app/db/state.py",
+        "app/engines/audio_ops.py",
+        "tts_engines/tts_xtts/plugin/studio/handler.py#handle_xtts_job"
+      ],
+      "called_by": [
+        "tts_engines/tts_xtts/interface.py"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "tts_engines/tts_xtts/plugin/studio/app_adapter.py": {
+      "purpose": "Voice engine adapter implementing BaseVoiceEngine for synthesis/preview/health",
+      "exports": [
+        {
+          "name": "XttsVoiceEngine, XttsProcessingHooks, xtts_generate, xtts_generate_script, wav_to_mp3",
+          "kind": "class/function"
+        }
+      ],
+      "calls": [
+        "app/db/speakers.py",
+        "app/engines/audio_ops.py",
+        "app/engines/behavior.py",
+        "app/engines/voice_engines.py",
+        "app/studio_plugin_sdk/__init__.py#get_plugin_ctx",
+        "tts_engines/tts_xtts/plugin/core/implementation.py#*"
+      ],
+      "called_by": [],
+      "notes": [
+        "2026-07-04: dead INTENDED_*/FORBIDDEN_* constants removed (BE-2); unimplemented validate_environment/build_voice_asset ABC stubs removed, zero callers (PL-5); _normalize_output_format/_resolve_output_path/_resolve_on_output/_resolve_cancel_check moved to BaseVoiceEngine, _load_settings_schema moved to plugin_utils.load_settings_schema (PL-3)",
+        "R2 (2026-07-04): removed a duplicate local wav_to_mp3() wrapper (identical to voxtral's); both plugins now import app.engines.audio_ops.wav_to_mp3 directly at the call site instead",
+        "2026-07-11 (Stage 3 SDK migration closeout): this file was a genuine S4 regression (11 module-level `from app.*` imports slipped past test_s4_import_cleanliness.py, whose _TARGET_MODULES never included app_adapter.py). Consolidated onto the plugin's standard try/except studio_plugin_sdk-then-app.studio_plugin_sdk resolution pattern via a new module-level _get_ctx() helper (matches bake.py/handler.py/segments.py/standard_handler.py/voice_adapter.py). Also fixed a return-shape mismatch: module-level resolve_voice_preview_inputs(profile_name) (raw app.engines.voice_engines fn, 2-tuple) replaced with ctx.resolve_voice_preview_inputs(profile_name) (app/studio_plugin_sdk/context.py, returns {voice_ref, voice_profile_dir}) at both call sites, unpacking + re-wrapping voice_profile_dir as Path. Deleted a dead no-op `_ = run_managed_subprocess_async` line and its import.",
+        "2026-07-11 (adversarial-review-fixes): extracted a _resolve_voice_inputs() helper wrapping ctx.resolve_voice_preview_inputs() in try/except that raises EngineExecutionError on failure (previously unguarded), eliminating duplicated dict-to-Path unwrap logic at both call sites."
+      ],
+      "calls_inferred": []
+    },
+    "tts_engines/tts_xtts/plugin/studio/bake.py": {
+      "purpose": "Bake handler: full-chapter re-synthesis with group-based progress tracking",
+      "exports": [
+        {
+          "name": "handle_xtts_bake",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/db/__init__.py",
+        "app/db/lexicon.py",
+        "app/jobs/handlers/bridge_helpers.py#generate_via_bridge",
+        "app/studio_plugin_sdk/__init__.py",
+        "app/studio_plugin_sdk/errors.py",
+        "app/studio_plugin_sdk/plugin_utils.py#get_plugin_ctx",
+        "app/studio_plugin_sdk/plugin_utils.py#make_segment_output_handler",
+        "app/utils/text/lexicon.py",
+        "app/utils/text/textops.py",
+        "tts_engines/tts_xtts/plugin/studio/__init__.py",
+        "tts_engines/tts_xtts/plugin/studio/helpers.py#*"
+      ],
+      "called_by": [],
+      "notes": [
+        "PL-1 (2026-07-04): local _get_ctx() kept as a thin patchable shim, body now delegates to the shared get_plugin_ctx(engine_id) factory",
+        "PL-2 (2026-07-04): local _group_needs_render removed (delegates to ctx.group_needs_render); bake_on_output replaced by make_segment_output_handler(...) with a weighted progress_formula (unchanged math) plus on_group_completed/on_group_started hooks mutating j.completed_render_groups/j.active_render_group_index"
+      ],
+      "calls_inferred": [
+        "app/studio_plugin_sdk/context.py#StudioPluginContext.group_needs_render",
+        "tts_engines/tts_xtts/plugin/studio/handler.py#*"
+      ]
+    },
+    "tts_engines/tts_xtts/plugin/studio/handler.py": {
+      "purpose": "Central dispatcher routing to bake/segments/standard handlers with unified terminal state",
+      "exports": [
+        {
+          "name": "handle_xtts_job, _group_job_progress, update_job, stitch_segments, wav_to_mp3, get_audio_duration, get_speaker_wavs, get_voice_profile_dir, load_chunk_segments",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/studio_plugin_sdk/__init__.py",
+        "tts_engines/tts_xtts/plugin/studio/bake.py#handle_xtts_bake",
+        "tts_engines/tts_xtts/plugin/studio/helpers.py",
+        "tts_engines/tts_xtts/plugin/studio/segments.py#handle_xtts_segments",
+        "tts_engines/tts_xtts/plugin/studio/standard_handler.py#handle_xtts_standard"
+      ],
+      "called_by": [],
+      "notes": [
+        "_ETA_CLEAR clears all ETA fields on terminal state",
+        "PL-1 (2026-07-04): local _get_ctx() kept as a thin patchable shim, body now delegates to the shared get_plugin_ctx(engine_id) factory"
+      ],
+      "calls_inferred": [
+        "app/studio_plugin_sdk/plugin_utils.py#get_plugin_ctx"
+      ]
+    },
+    "tts_engines/tts_xtts/plugin/studio/helpers.py": {
+      "purpose": "Progress math and group tracking helpers for bake/standard/segments handlers",
+      "exports": [
+        {
+          "name": "_profile_inputs_for_segment, _group_job_progress, _group_tracking_updates, _group_display_updates, _segment_group_weight",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "tts_engines/tts_xtts/plugin/studio/__init__.py"
+      ],
+      "called_by": [
+        "tts_engines/tts_xtts/plugin/studio/handler.py",
+        "tts_engines/tts_xtts/plugin/studio/segments.py",
+        "tts_engines/tts_xtts/plugin/studio/standard_handler.py"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "tts_engines/tts_xtts/plugin/studio/segments.py": {
+      "purpose": "Segments handler: partial per-segment updates with resumable grouping",
+      "exports": [
+        {
+          "name": "handle_xtts_segments",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/db/__init__.py",
+        "app/db/lexicon.py",
+        "app/jobs/handlers/bridge_helpers.py#generate_via_bridge",
+        "app/studio_plugin_sdk/__init__.py",
+        "app/studio_plugin_sdk/errors.py",
+        "app/studio_plugin_sdk/plugin_utils.py#get_plugin_ctx",
+        "app/studio_plugin_sdk/plugin_utils.py#make_segment_output_handler",
+        "app/utils/text/lexicon.py",
+        "app/utils/text/textops.py",
+        "tts_engines/tts_xtts/plugin/studio/__init__.py",
+        "tts_engines/tts_xtts/plugin/studio/_text_utils.py#build_segment_groups,join_group_text",
+        "tts_engines/tts_xtts/plugin/studio/helpers.py"
+      ],
+      "called_by": [],
+      "notes": [
+        "PL-1 (2026-07-04): local _get_ctx() kept as a thin patchable shim, body now delegates to the shared get_plugin_ctx(engine_id) factory",
+        "PL-2 (2026-07-04): gen_on_output replaced by make_segment_output_handler(...) with a weighted progress_formula and the same on_group_completed/on_group_started hooks as bake.py"
+      ],
+      "calls_inferred": [
+        "app/studio_plugin_sdk/context.py#StudioPluginContext.group_needs_render"
+      ]
+    },
+    "tts_engines/tts_xtts/plugin/studio/standard_handler.py": {
+      "purpose": "Standard handler: chapter render with group-based reuse detection and stitching",
+      "exports": [
+        {
+          "name": "handle_xtts_standard",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/db/__init__.py",
+        "app/db/lexicon.py",
+        "app/jobs/handlers/bridge_helpers.py#generate_via_bridge",
+        "app/studio_plugin_sdk/__init__.py",
+        "app/studio_plugin_sdk/errors.py",
+        "app/utils/text/lexicon.py",
+        "app/utils/text/textops.py",
+        "tts_engines/tts_xtts/plugin/studio/__init__.py",
+        "tts_engines/tts_xtts/plugin/studio/helpers.py"
+      ],
+      "called_by": [],
+      "notes": [
+        "PL-1 (2026-07-04): local _get_ctx() kept as a thin patchable shim, body now delegates to the shared get_plugin_ctx(engine_id) factory",
+        "2026-07-04 follow-up: _group_is_done's bare chunk_path.exists() replaced with ctx.is_valid_segment_artifact(chunk_path) -- last of the 4 render-path reuse gates to use the validated-artifact standard (xtts bake, voxtral bake, mixed already did via PL-2's group_needs_render)",
+        "handle_xtts_standard now guards the empty-script case (rc=0, falls through to the existing stitch block) instead of calling generate_via_bridge with empty text/script (2026-07-05 escaped-defect fix) \u2014 a fan-out sibling (or an earlier run) can leave every group in this chapter already satisfied, and the bridge call used to 422 on 'text must not be empty'"
+      ],
+      "calls_inferred": [
+        "app/studio_plugin_sdk/plugin_utils.py#get_plugin_ctx",
+        "tts_engines/tts_xtts/plugin/studio/handler.py#*"
+      ]
+    },
+    "tts_engines/tts_xtts/plugin/studio/voice_adapter.py": {
+      "purpose": "Voice job dispatch adapter for voice build/test tasks",
+      "exports": [
+        {
+          "name": "voice_job_dispatch_adapter",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/studio_plugin_sdk/__init__.py"
+      ],
+      "called_by": [
+        "tts_engines/tts_xtts/interface.py"
+      ],
+      "notes": [
+        "PL-1 (2026-07-04): local _get_ctx() kept as a thin patchable shim, body now delegates to the shared get_plugin_ctx(engine_id) factory"
+      ],
+      "calls_inferred": [
+        "app/studio_plugin_sdk#StudioPluginContext,JobSpec",
+        "app/studio_plugin_sdk/plugin_utils.py#get_plugin_ctx"
+      ]
+    },
+    "tts_engines/tts_xtts/scripts/check_env.py": {
+      "purpose": "Environment health check script for XTTS dependencies",
+      "exports": [
+        {
+          "name": "check_conflicts, check_health, main",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "exit code semantics reversed: 0=has-issue, 1=healthy"
+      ],
+      "calls_inferred": []
+    }
+  }
+}

@@ -33,14 +33,14 @@ Audiobook Studio supports a modular plugin architecture for TTS engines. If you 
 ### Contributing a new TTS engine plugin (lifecycle)
 
 This is the short version of the plugin lifecycle for anyone adding a new engine to this
-repository (either as a `plugins/tts_<name>/` drop-in, or a fork adding one). For the full
+repository (either as a `tts_engines/tts_<name>/` drop-in, or a fork adding one). For the full
 contract, always defer to [`docs/plugin-sdk/plugin-guide.md`](docs/plugin-sdk/plugin-guide.md)
 and the binding spec at [`design-docs/specs/plugin-contract.md`](design-docs/specs/plugin-contract.md) —
 this section is a map, not a restatement.
 
 1.  **Folder structure**: a plugin is a self-contained mini-repo:
     ```text
-    plugins/tts_myengine/
+    tts_engines/tts_myengine/
     ├── manifest.json        # declares engine_id, capabilities, behavior, resource needs
     ├── settings_schema.json # JSON Schema (object) for the engine's configurable settings
     ├── interface.py          # entry class — the stable public surface Studio loads
@@ -65,10 +65,10 @@ this section is a map, not a restatement.
     or mismatches these fails to load rather than being silently accepted (see the Owner
     directives in `CLAUDE.md` and `design-docs/specs/plugin-contract.md`).
 5.  **Test your plugin in isolation**: each plugin ships its own `tests/` directory, collected
-    by the repo's root pytest run (`pytest.ini` scans both `tests/` and `plugins/`). Run just
+    by the repo's root pytest run (`pytest.ini` scans both `tests/` and `tts_engines/`). Run just
     your plugin's suite while iterating:
     ```bash
-    ./venv/bin/python -m pytest plugins/tts_myengine/tests
+    ./venv/bin/python -m pytest tts_engines/tts_myengine/tests
     ```
 6.  **Submit it**: once the manifest validates, the engine loads, and preview/synthesis both
     work, follow [Plugin Submission Guidelines](docs/plugin-sdk/plugin-submission-guidelines.md)

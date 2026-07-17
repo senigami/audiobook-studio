@@ -21,7 +21,7 @@ Two things to know before you copy this into a real plugin:
    convention — keyword args named ``jid``, ``j`` (a raw job record,
    inspected via ``inspect.signature``), ``on_output``, ``cancel_check``, and
    optionally ``text``/``start`` — as shown in the real, currently-dispatched
-   example at ``plugins/tts_voxtral/plugin/studio/handler.py``. This file
+   example at ``tts_engines/tts_voxtral/plugin/studio/handler.py``. This file
    documents the SDK-facade contract (``JobSpec``/``JobResult``, ``ctx.*``
    helpers) that a future dispatcher revision is expected to call directly;
    until then, wiring this exact function into ``manifest.json``'s

@@ -498,12 +498,12 @@
       ]
     },
     "tests/api/test_api_engines.py": {
-      "purpose": "Retargeted app.api.routers.engines.create_voice_bridge patches to engines_registry/engines_plugins/engines_test as appropriate; one test (settings+refresh) now patches both engines_registry and engine",
+      "purpose": "Retargeted app.api.routers.engines.create_voice_bridge patches to engines_registry/engines_tts_engines/engines_test as appropriate; one test (settings+refresh) now patches both engines_registry and engine",
       "exports": [],
       "calls": [],
       "called_by": [],
       "notes": [
-        "2026-07-14: NEW FILE \u2014 Retargeted app.api.routers.engines.create_voice_bridge patches to engines_registry/engines_plugins/engines_test as appropriate; one test (settings+refresh) now patches both engines_registry and engines_plugins since it exercises routes in both modules."
+        "2026-07-14: NEW FILE \u2014 Retargeted app.api.routers.engines.create_voice_bridge patches to engines_registry/engines_tts_engines/engines_test as appropriate; one test (settings+refresh) now patches both engines_registry and engines_plugins since it exercises routes in both modules."
       ]
     },
     "tests/api/test_api.py": {

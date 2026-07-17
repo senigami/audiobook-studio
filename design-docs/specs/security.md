@@ -11,7 +11,7 @@ sources:
   - app/api/web.py
   - app/api/tts_api.py
   - app/tts_server/server.py
-  - plugins/tts_xtts/plugin/core/xtts_inference.py
+  - tts_engines/tts_xtts/plugin/core/xtts_inference.py
   - app/domain/voices/bundles.py
 ```
 
@@ -21,7 +21,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
-| 1.3.0   | 2026-07-16 | **S13 (deserialization RCE):** the XTTS engine loaded latent `.pth` files with `torch.load(..., weights_only=False)` at four sites (`plugins/tts_xtts/plugin/core/xtts_inference.py`), unpickling arbitrary objects from attacker-supplied voice-bundle `latent.pth` → RCE on first synthesis. All four now use `weights_only=True`. **S14 (LAN gating of management writes):** `lan_protection_middleware` extended beyond `/api/v1/tts` to gate the dangerous mutating management endpoints (voice-bundle import, HuggingFace import, settings writes) for non-loopback clients unless `lan_binding_enabled`; reads/UI stay reachable. Reverses the prior "internal routes never LAN-gated" invariant. **S15 (voice_ref hardening):** `_validate_voice_ref` (`app/api/tts_api.py`) now uses the realpath-resolving `safe_join` barrier (was lexical `normpath`, which missed symlink escape) and rejects caller-supplied `.pth` refs (defense-in-depth for S13). |
+| 1.3.0   | 2026-07-16 | **S13 (deserialization RCE):** the XTTS engine loaded latent `.pth` files with `torch.load(..., weights_only=False)` at four sites (`tts_engines/tts_xtts/plugin/core/xtts_inference.py`), unpickling arbitrary objects from attacker-supplied voice-bundle `latent.pth` → RCE on first synthesis. All four now use `weights_only=True`. **S14 (LAN gating of management writes):** `lan_protection_middleware` extended beyond `/api/v1/tts` to gate the dangerous mutating management endpoints (voice-bundle import, HuggingFace import, settings writes) for non-loopback clients unless `lan_binding_enabled`; reads/UI stay reachable. Reverses the prior "internal routes never LAN-gated" invariant. **S15 (voice_ref hardening):** `_validate_voice_ref` (`app/api/tts_api.py`) now uses the realpath-resolving `safe_join` barrier (was lexical `normpath`, which missed symlink escape) and rejects caller-supplied `.pth` refs (defense-in-depth for S13). |
 | 1.2.4   | 2026-07-09 | S12: `/api/v1/tts/docs` and `/api/v1/tts/openapi` were reachable without `verify_api_key`/`rate_limit` (FastAPI's auto-generated docs/openapi routes bypass constructor-level `dependencies=[...]`). Fixed by disabling the auto-generated routes and serving them as ordinary router routes on the sub-app, which do inherit the dependencies. Scope note added above. |
 | 1.2.3   | 2026-06-21 | S6: Added WebSocket Origin check to `/ws` to prevent cross-site WebSocket hijacking (CSWSH). Absent Origin → allowed (non-browser clients); present Origin → allowed only if host is localhost/127.0.0.1/[::1] or matches the server's own Host header; otherwise close(1008). LAN exposure note documented. |
 | 1.2.2   | 2026-06-21 | Documented the rate limiter's known limitations (S7): in-memory/per-process (resets on restart, not shared across workers) and IP-keyed (shared behind NAT, no per-API-key bucketing). Behavior unchanged — documentation only. |

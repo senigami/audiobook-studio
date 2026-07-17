@@ -183,7 +183,7 @@ class TestLoadSettingsSchemaCaching:
         # Pins the actual call site, not just the helper's capability — a future edit that drops
         # the cache=False kwarg would silently regress voxtral back to permanent caching.
         repo_root = Path(__file__).parents[2]
-        source = (repo_root / "plugins/tts_voxtral/plugin/studio/app_adapter.py").read_text(encoding="utf-8")
+        source = (repo_root / "tts_engines/tts_voxtral/plugin/studio/app_adapter.py").read_text(encoding="utf-8")
         assert 'load_settings_schema(schema_path, engine_name="Voxtral", cache=False)' in source
 
 

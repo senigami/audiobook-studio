@@ -328,7 +328,7 @@ class _SyntheticSegmentTask(StudioTask):
         rebuild — exactly the isolated per-group work this synthetic task
         exists to trigger.
         """
-        from plugins.tts_mixed.handler import render_one_group  # noqa: PLC0415
+        from tts_engines.tts_mixed.handler import render_one_group  # noqa: PLC0415
 
         if self.group is None:
             return TaskResult(status="failed", message="Synthetic segment task has no group payload.")

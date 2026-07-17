@@ -46,11 +46,11 @@ Authoritative spec: `design-docs/specs/testing-standards.md`.
 Backend commands assume the local `./venv`. CI uses Python 3.11 / Node 20.
 
 ```bash
-# Backend tests (pytest.ini collects from BOTH tests/ and plugins/; runs --cov=app)
+# Backend tests (pytest.ini collects from BOTH tests/ and tts_engines/; runs --cov=app)
 ./venv/bin/python -m pytest -q
 ./venv/bin/python -m pytest tests/api/test_api_queue.py            # one file
 ./venv/bin/python -m pytest tests/test_api.py::test_home_page      # one test
-./venv/bin/python -m pytest plugins/tts_xtts/tests                 # one plugin's suite
+./venv/bin/python -m pytest tts_engines/tts_xtts/tests                 # one plugin's suite
 
 # Backend lint (pyproject.toml, line-length 120, E/F/W with many relaxations)
 ruff check .
@@ -71,7 +71,7 @@ The app serves at `http://127.0.0.1:8123` and serves the built React bundle from
 
 ### Test isolation
 
-`conftest.py` (repo root) redirects all storage paths to a session temp dir, points `PLUGINS_DIR` at the real `plugins/`, and sets `APP_TEST_MODE=1`. Tests reset state via `app.db.state.clear_all_jobs` and the scheduler gates in `app.orchestration.scheduler.resources`. The conftest aggressively reaps leaked subprocess trees (TTS server, watchers) between runs. Default per-test timeout is 15s (`@pytest.mark.timeout(...)` or `PYTEST_TEST_TIMEOUT_SECONDS`).
+`conftest.py` (repo root) redirects all storage paths to a session temp dir, points `PLUGINS_DIR` at the real `tts_engines/`, and sets `APP_TEST_MODE=1`. Tests reset state via `app.db.state.clear_all_jobs` and the scheduler gates in `app.orchestration.scheduler.resources`. The conftest aggressively reaps leaked subprocess trees (TTS server, watchers) between runs. Default per-test timeout is 15s (`@pytest.mark.timeout(...)` or `PYTEST_TEST_TIMEOUT_SECONDS`).
 
 ## Architecture
 
@@ -83,9 +83,9 @@ Synthesis no longer spawns a one-shot subprocess per render. Instead a **long-li
 - **`app/engines/watchdog.py`** owns the server *process lifecycle*: spawn, wait for READY, poll `GET /health` on a heartbeat, restart on failure with a circuit breaker. It is started **only** from `boot_tts_server()`.
 - **`app/engines/bridge.py`** (`VoiceBridge`) is the single routing point for a voice request; in the Studio 2.0 runtime it always routes over HTTP via `bridge_remote.py` + `tts_client.py`.
 - **`app/tts_server/`** is the server-side runtime: `server.py`, `plugin_loader.py` (discovers/validates plugin manifests), `health.py`, `verification.py`, settings stores.
-- **`plugins/`** holds self-contained engine plugins (`tts_xtts`, `tts_voxtral`, `tts_mixed`). Each is a mini-repo: `manifest.json` (declares `engine_id`, capabilities, `behavior` like `text_chunk_limit` and `progress_pattern`, resource needs), `interface.py` entry class, `plugin/` implementation, and **plugin-local `tests/` + fixtures** (collected by pytest). New engines register via manifest + the standard engine contract — never by adding engine-ID branches in core code.
+- **`tts_engines/`** holds self-contained engine plugins (`tts_xtts`, `tts_voxtral`, `tts_mixed`). Each is a mini-repo: `manifest.json` (declares `engine_id`, capabilities, `behavior` like `text_chunk_limit` and `progress_pattern`, resource needs), `interface.py` entry class, `plugin/` implementation, and **plugin-local `tests/` + fixtures** (collected by pytest). New engines register via manifest + the standard engine contract — never by adding engine-ID branches in core code.
 
-XTTS still needs its heavy, conflicting deps in a **separate env** at `~/xtts-env` (provisioned from `plugins/tts_xtts/requirements.txt`); the root `requirements.txt` deliberately excludes them.
+XTTS still needs its heavy, conflicting deps in a **separate env** at `~/xtts-env` (provisioned from `tts_engines/tts_xtts/requirements.txt`); the root `requirements.txt` deliberately excludes them.
 
 ### Boot sequence (explicit side effects)
 

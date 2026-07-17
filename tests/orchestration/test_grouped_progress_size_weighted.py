@@ -151,7 +151,7 @@ def test_grouped_progress_is_size_weighted_and_order_independent(tmp_path):
         # Minimal real bridge call: routes straight to _fake_generate_via_bridge
         # via plugins.tts_mixed.handler.render_one_group (patched below to use
         # the REAL implementation, only its engine boundary is mocked).
-        from plugins.tts_mixed.handler import render_one_group  # noqa: PLC0415
+        from tts_engines.tts_mixed.handler import render_one_group  # noqa: PLC0415
         result = render_one_group(
             child.group,
             tmp_path,
@@ -179,7 +179,7 @@ def test_grouped_progress_is_size_weighted_and_order_independent(tmp_path):
     )
     task._progress_service = progress_service
 
-    with patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=_fake_generate_via_bridge), \
+    with patch("tts_engines.tts_mixed.handler.generate_via_bridge", side_effect=_fake_generate_via_bridge), \
          patch("app.engines.watchdog.get_watchdog", side_effect=lambda: watchdogs.setdefault(threading.current_thread().name, TtsServerWatchdog())), \
          patch("app.core.config.get_chapter_dir", return_value=tmp_path), \
          patch("app.domain.chunk_groups.build_script_entry_for_group", side_effect=_fake_script_entry), \

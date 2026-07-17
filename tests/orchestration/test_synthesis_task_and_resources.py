@@ -100,20 +100,20 @@ class TestSynthesisTask:
 
     def test_run_returns_completed_on_ok_result(self):
         task = self._make(engine_id="mixed")
-        with patch("plugins.tts_mixed.handler.handle_mixed_job", return_value=("done", None)):
+        with patch("tts_engines.tts_mixed.handler.handle_mixed_job", return_value=("done", None)):
             result = task.run()
         assert result.status == "completed"
 
     def test_run_returns_failed_on_non_ok_status(self):
         task = self._make(engine_id="mixed")
-        with patch("plugins.tts_mixed.handler.handle_mixed_job", return_value=("failed", "Bad things happened")):
+        with patch("tts_engines.tts_mixed.handler.handle_mixed_job", return_value=("failed", "Bad things happened")):
             result = task.run()
         assert result.status == "failed"
         assert result.message == "Bad things happened"
 
     def test_run_returns_failed_on_exception(self):
         task = self._make(engine_id="mixed")
-        with patch("plugins.tts_mixed.handler.handle_mixed_job", side_effect=RuntimeError("GPU OOM")):
+        with patch("tts_engines.tts_mixed.handler.handle_mixed_job", side_effect=RuntimeError("GPU OOM")):
             result = task.run()
         assert result.status == "failed"
         assert "GPU OOM" in (result.message or "")
@@ -123,7 +123,7 @@ class TestSynthesisTask:
         # but we can test that SynthesisTask.run handles it if the handler raises it.
         task = self._make(engine_id="mixed")
         from app.engines.bridge_remote import EngineUnavailableError
-        with patch("plugins.tts_mixed.handler.handle_mixed_job", side_effect=EngineUnavailableError("TTS Server restarting")):
+        with patch("tts_engines.tts_mixed.handler.handle_mixed_job", side_effect=EngineUnavailableError("TTS Server restarting")):
             result = task.run()
         # Note: the current SynthesisTask.run() catch-all doesn't set retriable=True based on exception type yet.
         # But let's check what it DOES.
@@ -134,7 +134,7 @@ class TestSynthesisTask:
         via set_ctx before calling handle_mixed_job.  The handler receives the
         dispatcher-owned ctx (observable via plugins.tts_mixed.handler._ctx_instance).
         """
-        import plugins.tts_mixed.handler as mixed_handler
+        import tts_engines.tts_mixed.handler as mixed_handler
         from app.studio_plugin_sdk import StudioPluginContext
 
         task = self._make(engine_id="mixed")
@@ -144,7 +144,7 @@ class TestSynthesisTask:
             captured_ctx["ctx"] = mixed_handler._ctx_instance
             return "done", None
 
-        with patch("plugins.tts_mixed.handler.handle_mixed_job", side_effect=fake_handle_mixed_job):
+        with patch("tts_engines.tts_mixed.handler.handle_mixed_job", side_effect=fake_handle_mixed_job):
             result = task.run()
 
         assert result.status == "completed"

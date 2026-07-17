@@ -1,6 +1,6 @@
 """Plugin loader for the TTS Server.
 
-Scans ``plugins/tts_*/`` folders inside the Studio install root, validates
+Scans ``tts_engines/tts_*/`` folders inside the Studio install root, validates
 each plugin's manifest, imports the declared engine class, and runs
 environment validation.
 
@@ -115,10 +115,10 @@ from app.tts_server.plugin_manifest import (  # noqa: E402
 
 
 def discover_plugins(plugins_dir: Path) -> list[LoadedPlugin]:
-    """Scan ``plugins/`` and load all valid plugin engines.
+    """Scan ``tts_engines/`` and load all valid plugin engines.
 
     Args:
-        plugins_dir: Absolute path to the ``plugins/`` directory.
+        plugins_dir: Absolute path to the ``tts_engines/`` directory.
 
     Returns:
         list[LoadedPlugin]: Successfully loaded plugins plus parseable manifest

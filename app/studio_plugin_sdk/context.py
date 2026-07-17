@@ -22,7 +22,7 @@ from typing import Any, Callable
 # Validated-artifact helpers for group_needs_render (PL-2)
 # ---------------------------------------------------------------------------
 #
-# Moved here from ``plugins/tts_mixed/handler.py`` (INV-3 / W-PAR 005), which
+# Moved here from ``tts_engines/tts_mixed/handler.py`` (INV-3 / W-PAR 005), which
 # had the only one of the three original ``_group_needs_render`` definitions
 # that checked validated artifact metadata rather than raw file existence.
 # xtts's and voxtral's originals used a bare ``path.exists()`` check; per

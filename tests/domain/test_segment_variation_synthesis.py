@@ -39,7 +39,7 @@ def test_render_segment_uses_variant_profile_name_for_resolution():
     assertions to fail because the helpers would be called with "Aria" instead of
     "Aria - Whisper".
     """
-    from plugins.tts_mixed.handler import _render_segment
+    from tts_engines.tts_mixed.handler import _render_segment
 
     variant_profile_dir = Path("/tmp/voices/Aria/Whisper")
     bridge_calls: list[dict] = []
@@ -50,13 +50,13 @@ def test_render_segment_uses_variant_profile_name_for_resolution():
         return 0
 
     with patch(
-        "plugins.tts_mixed.handler.get_speaker_settings",
+        "tts_engines.tts_mixed.handler.get_speaker_settings",
         return_value={"speed": 1.0, "engine": "xtts"},
     ) as mock_settings, patch(
-        "plugins.tts_mixed.handler.get_voice_profile_dir",
+        "tts_engines.tts_mixed.handler.get_voice_profile_dir",
         return_value=variant_profile_dir,
     ) as mock_dir, patch(
-        "plugins.tts_mixed.handler.generate_via_bridge",
+        "tts_engines.tts_mixed.handler.generate_via_bridge",
         side_effect=capturing_bridge,
     ):
         rc = _render_segment(

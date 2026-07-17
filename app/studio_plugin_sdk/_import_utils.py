@@ -26,7 +26,7 @@ def ensure_plugin_package_hierarchy(
 
     Args:
         package_name: Top-level package name to anchor the hierarchy under
-            (e.g. ``"_tts_plugin_tts_xtts"`` or ``"plugins.tts_xtts"``).
+            (e.g. ``"_tts_plugin_tts_xtts"`` or ``"tts_engines.tts_xtts"``).
         plugin_dir: Absolute path to the plugin folder.
         module_parts: Ordered list of sub-package path components between
             *package_name* and the leaf module (may be empty).

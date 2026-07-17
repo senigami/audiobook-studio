@@ -17,7 +17,7 @@ def test_plugin_core_is_portable():
     depend on the plugin contract, common utilities, or external libraries.
     """
     root = Path(__file__).parents[2]
-    plugins_dir = root / "plugins"
+    plugins_dir = root / "tts_engines"
 
     violations = []
 

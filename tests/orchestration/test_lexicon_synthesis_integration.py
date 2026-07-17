@@ -128,7 +128,7 @@ class TestMixedSynthesisLexiconIntegration:
         rendered_texts = []
 
         # Patch _render_segment to capture the text it receives
-        import plugins.tts_mixed.handler as handler_mod
+        import tts_engines.tts_mixed.handler as handler_mod
 
         original_render = handler_mod._render_segment
 
@@ -181,7 +181,7 @@ class TestMixedSynthesisLexiconIntegration:
 
         rendered_texts = []
 
-        import plugins.tts_mixed.handler as handler_mod
+        import tts_engines.tts_mixed.handler as handler_mod
 
         def mock_render(engine_id, text, profile_name, out_wav, safe_mode, on_output, cancel_check, task_id=None):
             rendered_texts.append(text)

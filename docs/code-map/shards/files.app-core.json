@@ -91,9 +91,9 @@
         "app/orchestration/tasks/segment_synthesis.py",
         "app/studio_plugin_sdk/context.py",
         "app/tts_server/server.py",
-        "plugins/tts_mixed/handler.py",
-        "plugins/tts_voxtral/plugin/studio/handler.py",
-        "plugins/tts_xtts/plugin/studio/adapter.py"
+        "tts_engines/tts_mixed/handler.py",
+        "tts_engines/tts_voxtral/plugin/studio/handler.py",
+        "tts_engines/tts_xtts/plugin/studio/adapter.py"
       ],
       "notes": [
         "path constants env-configurable relative to AUDIOBOOK_BASE_DIR",

@@ -315,7 +315,7 @@ log "Using Python: $PYTHON_BIN"
 ensure_ffmpeg_ready
 sync_python_requirements "$APP_VENV" "$DIR/requirements.txt" "app"
 XTTS_TORCH_ARGS="$(select_torch_backend)"
-sync_python_requirements "$TTS_ENV_DIR" "$DIR/plugins/tts_xtts/requirements.txt" "XTTS" "$XTTS_TORCH_ARGS"
+sync_python_requirements "$TTS_ENV_DIR" "$DIR/tts_engines/tts_xtts/requirements.txt" "XTTS" "$XTTS_TORCH_ARGS"
 ensure_frontend_ready
 maybe_restore_demo_bundle
 

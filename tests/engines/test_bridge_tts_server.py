@@ -308,14 +308,14 @@ class TestBridgeDescribeRegistry:
         ]
 
         import json
-        test_dir = tmp_path / "plugins" / "tts_xtts" / "assets"
+        test_dir = tmp_path / "tts_engines" / "tts_xtts" / "assets"
         test_dir.mkdir(parents=True)
         meta = {"ok": True, "generated_at": 123456789.0, "audio_url": "/test.wav"}
         (test_dir / "last_test.json").write_text(json.dumps(meta))
 
         bridge = _make_bridge_with_client(mock_client)
 
-        with patch("app.core.config.PLUGINS_DIR", tmp_path / "plugins"):
+        with patch("app.core.config.PLUGINS_DIR", tmp_path / "tts_engines"):
             result = bridge.describe_registry()
 
         assert len(result) == 1

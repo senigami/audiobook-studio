@@ -469,7 +469,7 @@ def test_sample_runs_always_non_marker_driven(clean_db):
 
 def test_xtts_diagnostics_live_tee_stderr(capsys):
     """TDD regression: plugin-originated diagnostics must be forwarded to sys.stderr immediately, while maintaining on_output callback."""
-    from plugins.tts_xtts.plugin.core.implementation import xtts_generate
+    from tts_engines.tts_xtts.plugin.core.implementation import xtts_generate
     from pathlib import Path
 
     callback_lines = []
@@ -478,8 +478,8 @@ def test_xtts_diagnostics_live_tee_stderr(capsys):
 
     # Isolate from the host: the diagnostics-tee behavior under test runs after the
     # XTTS-env check, so pretend the env is present (run_cmd_stream is mocked anyway).
-    with patch("plugins.tts_xtts.plugin.core.implementation.run_cmd_stream", return_value=0), \
-         patch("plugins.tts_xtts.plugin.core.implementation.XTTS_ENV_ACTIVATE") as mock_activate:
+    with patch("tts_engines.tts_xtts.plugin.core.implementation.run_cmd_stream", return_value=0), \
+         patch("tts_engines.tts_xtts.plugin.core.implementation.XTTS_ENV_ACTIVATE") as mock_activate:
         mock_activate.exists.return_value = True
         rc = xtts_generate(
             text="hello",
@@ -500,7 +500,7 @@ def test_xtts_diagnostics_live_tee_stderr(capsys):
 
 def test_xtts_diagnostics_live_tee_no_duplicate(capsys):
     """TDD regression: raw child-process output should not be duplicated on sys.stderr."""
-    from plugins.tts_xtts.plugin.core.proc_utils import run_cmd_stream
+    from tts_engines.tts_xtts.plugin.core.proc_utils import run_cmd_stream
 
     callback_lines = []
     def mock_on_output(line):
@@ -533,7 +533,7 @@ def test_sample_build_reaches_completion_without_context(clean_db, tmp_path):
     from app.orchestration.tasks.sample_build import SampleBuildTask
     from app.orchestration.tasks.base import TaskContext
     from unittest.mock import MagicMock, patch
-    from plugins.tts_xtts.plugin.studio.adapter import xtts_dispatch_adapter
+    from tts_engines.tts_xtts.plugin.studio.adapter import xtts_dispatch_adapter
     from app.db.models import Job
 
     orc = MockOrchestrator()
@@ -560,7 +560,7 @@ def test_sample_build_reaches_completion_without_context(clean_db, tmp_path):
         speaker_profile="feeling-lucky",
     )
 
-    with patch("plugins.tts_xtts.plugin.studio.handler.handle_xtts_job") as mock_handle_job, \
+    with patch("tts_engines.tts_xtts.plugin.studio.handler.handle_xtts_job") as mock_handle_job, \
          patch("app.db.speakers.get_profile_dir", return_value=tmp_path), \
          patch("app.db.speakers.get_profile_wavs", return_value=["dummy.wav"]), \
          patch("app.db.speakers.get_speaker_settings", return_value={"speed": 1.0, "test_text": "hello"}), \
@@ -584,7 +584,7 @@ def test_sample_test_reaches_completion_without_context(clean_db, tmp_path):
     from app.orchestration.tasks.sample_test import SampleTestTask
     from app.orchestration.tasks.base import TaskContext
     from unittest.mock import MagicMock, patch
-    from plugins.tts_xtts.plugin.studio.adapter import xtts_dispatch_adapter
+    from tts_engines.tts_xtts.plugin.studio.adapter import xtts_dispatch_adapter
     from app.db.models import Job
 
     job_shim = Job(
@@ -596,7 +596,7 @@ def test_sample_test_reaches_completion_without_context(clean_db, tmp_path):
         speaker_profile="feeling-lucky",
     )
 
-    with patch("plugins.tts_xtts.plugin.studio.handler.handle_xtts_job") as mock_handle_job, \
+    with patch("tts_engines.tts_xtts.plugin.studio.handler.handle_xtts_job") as mock_handle_job, \
          patch("app.db.speakers.get_profile_dir", return_value=tmp_path), \
          patch("app.db.speakers.get_profile_wavs", return_value=["dummy.wav"]), \
          patch("app.db.speakers.get_speaker_settings", return_value={"speed": 1.0, "test_text": "hello"}), \
@@ -617,7 +617,7 @@ def test_sample_test_reaches_completion_without_context(clean_db, tmp_path):
 
 def test_chapter_bound_xtts_jobs_reject_missing_context(clean_db, tmp_path):
     """Regression proving chapter-bound XTTS jobs still reject missing project/chapter context."""
-    from plugins.tts_xtts.plugin.studio.adapter import xtts_dispatch_adapter
+    from tts_engines.tts_xtts.plugin.studio.adapter import xtts_dispatch_adapter
     from app.db.models import Job
     from unittest.mock import patch
 

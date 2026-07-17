@@ -70,11 +70,11 @@
         "app/db/state_jobs.py",
         "app/orchestration/scheduler/orchestrator.py",
         "app/orchestration/scheduler/orchestrator_helpers.py",
-        "plugins/tts_mixed/handler.py",
-        "plugins/tts_voxtral/plugin/studio/handler.py",
-        "plugins/tts_xtts/plugin/studio/bake.py",
-        "plugins/tts_xtts/plugin/studio/segments.py",
-        "plugins/tts_xtts/plugin/studio/standard_handler.py"
+        "tts_engines/tts_mixed/handler.py",
+        "tts_engines/tts_voxtral/plugin/studio/handler.py",
+        "tts_engines/tts_xtts/plugin/studio/bake.py",
+        "tts_engines/tts_xtts/plugin/studio/segments.py",
+        "tts_engines/tts_xtts/plugin/studio/standard_handler.py"
       ],
       "notes": [
         "note in comments: automatic import-time migration removed; explicit boot_studio() call required",
@@ -146,7 +146,7 @@
         "app/db/queue.py",
         "app/orchestration/scheduler/orchestrator.py",
         "app/studio_plugin_sdk/context.py",
-        "plugins/tts_mixed/handler.py"
+        "tts_engines/tts_mixed/handler.py"
       ],
       "notes": [
         "holds _db_lock for all DB mutations",
@@ -409,12 +409,12 @@
       "called_by": [
         "app/db/__init__.py",
         "app/orchestration/tasks/segment_synthesis.py",
-        "plugins/tts_mixed/handler.py",
-        "plugins/tts_voxtral/plugin/studio/handler.py",
-        "plugins/tts_voxtral/plugin/studio/segments.py",
-        "plugins/tts_xtts/plugin/studio/bake.py",
-        "plugins/tts_xtts/plugin/studio/segments.py",
-        "plugins/tts_xtts/plugin/studio/standard_handler.py"
+        "tts_engines/tts_mixed/handler.py",
+        "tts_engines/tts_voxtral/plugin/studio/handler.py",
+        "tts_engines/tts_voxtral/plugin/studio/segments.py",
+        "tts_engines/tts_xtts/plugin/studio/bake.py",
+        "tts_engines/tts_xtts/plugin/studio/segments.py",
+        "tts_engines/tts_xtts/plugin/studio/standard_handler.py"
       ],
       "notes": [
         "all writes use _db_lock",
@@ -503,7 +503,7 @@
         "app/db/state_jobs.py",
         "app/jobs/registry.py",
         "app/orchestration/tasks/synthesis.py",
-        "plugins/tts_xtts/plugin/studio/adapter.py"
+        "tts_engines/tts_xtts/plugin/studio/adapter.py"
       ],
       "notes": [
         "classification property: returns 'job'|'chapter'|'segment' based on chapter_id+segment_ids+active_segment_id",
@@ -1063,9 +1063,9 @@
         "app/db/__init__.py",
         "app/domain/chunk_groups.py",
         "app/orchestration/tasks/sample_test.py",
-        "plugins/tts_voxtral/plugin/studio/app_adapter.py",
-        "plugins/tts_voxtral/plugin/studio/handler.py",
-        "plugins/tts_xtts/plugin/studio/app_adapter.py"
+        "tts_engines/tts_voxtral/plugin/studio/app_adapter.py",
+        "tts_engines/tts_voxtral/plugin/studio/handler.py",
+        "tts_engines/tts_xtts/plugin/studio/app_adapter.py"
       ],
       "notes": [
         "2026-07-14: Reduced from 695 lines to a ~73-line facade re-exporting every public/private name used externally (verified via AST scan of all `from ...db.speakers import ...` sites plus a `speakers.<attr>` grep) from the 4 new modules below.",
@@ -1124,9 +1124,9 @@
         "app/orchestration/scheduler/orchestrator.py",
         "app/orchestration/scheduler/orchestrator_helpers.py",
         "app/orchestration/tasks/segment_synthesis.py",
-        "plugins/tts_mixed/handler.py",
-        "plugins/tts_voxtral/plugin/studio/app_adapter.py",
-        "plugins/tts_xtts/plugin/studio/adapter.py",
+        "tts_engines/tts_mixed/handler.py",
+        "tts_engines/tts_voxtral/plugin/studio/app_adapter.py",
+        "tts_engines/tts_xtts/plugin/studio/adapter.py",
         "app/api/routers/engines.py"
       ],
       "notes": [

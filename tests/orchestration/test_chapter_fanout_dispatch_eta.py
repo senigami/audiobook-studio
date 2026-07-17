@@ -193,7 +193,7 @@ def _run_fanout_through_dispatch(tmp_path: Path, task_id: str, chapter_id: str):
         {"engine": "mixed", "cps": 45.0, "inter_group_overhead_seconds": 2.5},
     ]
 
-    with patch("plugins.tts_mixed.handler.generate_via_bridge", side_effect=_fake_generate_via_bridge), \
+    with patch("tts_engines.tts_mixed.handler.generate_via_bridge", side_effect=_fake_generate_via_bridge), \
          patch("app.engines.watchdog.get_watchdog", side_effect=lambda: watchdogs.setdefault(threading.current_thread().name, TtsServerWatchdog())), \
          patch("app.engines.watchdog.get_server_health", return_value=_cold_health("mixed")), \
          patch("app.db.performance.expected_model_load_seconds", return_value=25.0), \

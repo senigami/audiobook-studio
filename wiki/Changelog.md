@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Changed] - 2026-07-16
+
+### Backend namespace rename: `plugins/` → `tts_engines/`
+
+- The engine-plugin directory has been renamed repo-wide from `plugins/` to `tts_engines/` (`tts_engines/tts_xtts`, `tts_engines/tts_voxtral`, `tts_engines/tts_mixed`). This is a pure rename with no behavior change: every importer, `PLUGINS_DIR`'s default path, `conftest.py`, `pytest.ini` test collection, the TTS Server's plugin discovery root, and manifest-path assumptions were updated in the same change. See `design-docs/specs/code-organization.md` 1.4.0.
+- `plugins/` (the old name) is now reserved for future app-behavior (non-engine) extensions, distinct from TTS engine bundles.
+- HTTP routes under `/plugins/*` (refresh/import/preview/confirm/staging) on the TTS Server sub-app are unaffected — those are API paths, not filesystem paths, and were deliberately left unchanged.
+- If you have local scripts, notebooks, or a forked plugin that imports `plugins.tts_xtts...` or similar, update the import to `tts_engines.tts_xtts...` and update any `plugins/tts_xtts/requirements.txt`-style paths to `tts_engines/tts_xtts/requirements.txt`.
+
 ## [Cleanup] - 2026-07-16
 
 ### Simplification close-out: plugin loader split, dead-code removal
