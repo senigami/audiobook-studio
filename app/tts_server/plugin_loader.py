@@ -26,26 +26,6 @@ logger = logging.getLogger(__name__)
 # Matches tts_<name> where <name> is 2–15 lowercase alphanumeric characters.
 _PLUGIN_FOLDER_RE = re.compile(r"^tts_[a-z][a-z0-9]{1,14}$")
 
-# ---------------------------------------------------------------------------
-# Version fields added in S1.  Current supported values (one set per field).
-# A follow-up slice (S8) will flip missing→error once the plugin template
-# ships with these fields pre-populated.
-# ---------------------------------------------------------------------------
-_SUPPORTED_VERSION_FIELDS: dict[str, set[str]] = {
-    "contract_version": {"1.0"},
-    "sdk_version": {"1.0"},
-    "settings_schema_version": {"1.0"},
-    "event_envelope_version": {"1.0"},
-}
-
-# Regex for callable fields: "module:ClassName" or "package.module:function_name"
-_CALLABLE_RE = re.compile(r"^[a-z_][a-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$")
-
-# The only manifest contract version this loader accepts.  Every plugin
-# manifest must carry ``"studio_tts_manifest": SUPPORTED_MANIFEST_VERSION``.
-SUPPORTED_MANIFEST_VERSION = "1.0"
-
-
 # Maximum seconds allowed for a plugin's __init__ / module load.
 _IMPORT_TIMEOUT_SECONDS = 120
 
