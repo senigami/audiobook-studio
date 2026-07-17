@@ -9,6 +9,22 @@ All notable changes to this project will be documented in this file.
 - The per-chapter **"Export Video Sample"** action now produces a real, shareable **MP4** instead of just streaming the raw audio. It pairs the chapter's rendered audio with the **book cover** (the Studio logo stands in when a project has no cover) on a letterboxed dark canvas, and downloads the file for you to post or send. Everything renders **locally** via ffmpeg — nothing is uploaded anywhere.
 - Length is capped (default 30s, max 2 min) and the frame is available as square (1080×1080) or portrait (1080×1920). If ffmpeg isn't installed, the app now says so clearly instead of failing silently.
 - New endpoint `POST /api/chapters/{id}/export-video`; contract in `design-docs/specs/video-sample.md` 1.0.0. Waveform-based clip selection and per-export orientation/length controls are planned follow-ups.
+## [Fixed] - 2026-07-16
+
+### External TTS Gateway API — queued-download flow and input hardening
+
+- **Downloading a queued job's audio now works.** For text ≥ 500 characters the external TTS API (`/api/v1/tts`) enqueues a job and returns a `job_id`; the poll (`GET /jobs/{id}`) and audio (`GET /jobs/{id}/audio`) endpoints previously checked for a job status of `"completed"` that never exists (terminal success is `"done"`) and read a non-existent field for the file path, so a finished job never produced a download link and the audio endpoint always errored. Both endpoints are fixed and covered by tests.
+- **`/preview` is always inline again.** A 500-character preview was being queued instead of returned inline (off-by-one against the inline threshold); it now correctly rejects text of 500+ characters.
+- **Input hardening.** `text` is now length-bounded (1–100,000 chars → `422` otherwise), job-status messages are sanitized so engine errors can't leak internal paths, and the API output paths use the repository's standard containment barrier.
+- **New example.** A self-contained proof-of-concept client (Python + a browser page) lives at `examples/tts-gateway-poc/`, demonstrating the full discover → submit → poll → download loop.
+- Known follow-ups: end-to-end XTTS synthesis through the gateway is currently blocked by two separate core-synthesis bugs (engine readiness gating and voice wiring), tracked separately.
+## [Changed] - 2026-07-16
+
+### Interactive demo reconciled to the shipping app (North Star demo parity)
+
+- The interactive demo (the "Full app tour" stage, served at `/demo`) was walked screen-by-screen against the production app and updated so it honestly resembles the shipped UI — so it can be used in the user guide and promotional material without misleading anyone. Highlights: the Library now uses the real Project-worded copy and time-based greeting; the Book pipeline gained the **Lexicon** stage and real cover art; **Voices**, **Engines**, **Activity** (stats rail), and **Integrations** (narrowed to the `/api/v1/tts/*` public gateway) now match their shipped counterparts; and stale labels/icons were corrected throughout.
+- Aspirational North Star surfaces that aren't in the shipping app yet (the rail's inline chapter tree, the Voice Lab phase stepper, the Integrations request builder / key rotation / LAN toggle) are **kept but badged "Concept"**, so the demo can still show the direction of travel without pretending it ships today.
+- The static demo bundle (`docs/demo/`) was rebuilt from this source. See `design-docs/plans/active/final_release/19_demo_gap_analysis.md` for the reconciliation status.
 
 ## [Security] - 2026-07-16
 

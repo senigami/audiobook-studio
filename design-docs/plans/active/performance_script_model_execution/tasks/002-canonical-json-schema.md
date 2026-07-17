@@ -1,6 +1,6 @@
 # Task 002 — Canonical `performance_data` JSON schema + validation
 
-Status: pending
+Status: done (2026-07-16, W-PERF safe-foundation PR)
 
 Risk: multi-file — this schema is a shared contract consumed by both the AI extraction pipeline
 (this plan's tasks 005-009) and the manual Cue Editor (`chapter_editor_catalog_completion` plan's

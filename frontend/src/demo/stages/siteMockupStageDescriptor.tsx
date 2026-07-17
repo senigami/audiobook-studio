@@ -8,8 +8,8 @@ import { SiteMockupElement } from './siteMockupStage';
 
 export const siteMockupStage = {
   id: 'site-mockup',
-  title: 'Site Mockup — North Star · v3.7 — modular split + Library/Manuscript/Publish/Studio',
+  title: 'Full app tour — Library, Book, Voices, Studio, and more',
   description:
-    'Medium-fidelity full-site layout mockup v3.7 — modular split into siteMockup/ submodules. Features: Library grid/list view toggle + ⋯ ActionMenu + New Book modal + Delete confirm; Manuscript "+ New chapter" modal; Publish Assemble selection mode + progress strip + backup row; Studio chapter-nav cluster + Export ▾ + Commit changes + Resync Preview modal + analysis strip (auto-fix badges + expandable ACTION REQUIRED) + hover sentence controls + Stop all. All settings surfaces preserved.',
+    'A guided walkthrough of the Audiobook Studio interface: the project Library, the Book pipeline (Contents, Cast, Lexicon, Publish, Backups), the chapter workspace, Voices and Voice Lab, Activity, Engines, Integrations, and Settings — reconciled to match the shipping app, with aspirational North Star surfaces marked "Concept".',
   element: <SiteMockupElement />,
 };

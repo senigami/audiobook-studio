@@ -323,6 +323,125 @@ def test_voice_ref_pth_extension_rejected():
     assert ".pth" in str(exc.value.detail).lower()
 
 
+# --- R1: queued-job completion + download flow ---
+
+def test_get_job_completed_download(auth_client, monkeypatch, tmp_path):
+    """A finished job must expose a download_url and serve its audio.
+
+    Revert-check (R1): pre-fix, both endpoints compared against ``"completed"``
+    (never a real Status — terminal success is ``"done"``) and read
+    ``job.payload`` (no such field on Job). So the status response carried no
+    download_url and ``/audio`` returned 400 ("Job is in state 'done'.") or 500.
+    This test fails on that code.
+    """
+    import app.api.tts_api as tts_api
+    from app.db.state import put_job, Job
+
+    transient = tmp_path / "transient"
+    api_dir = transient / "api"
+    api_dir.mkdir(parents=True)
+    monkeypatch.setattr(tts_api, "TRANSIENT_DIR", transient)
+
+    job_id = "api_deadbeef"
+    (api_dir / f"{job_id}.wav").write_bytes(b"RIFFxxxxWAVEdata")
+    put_job(Job(id=job_id, engine="xtts", status="done", created_at=time.time(), progress=1.0))
+
+    status = auth_client.get(f"/api/v1/tts/jobs/{job_id}")
+    assert status.status_code == 200
+    body = status.json()
+    assert body["status"] == "done"
+    assert body["download_url"] == f"/api/v1/tts/jobs/{job_id}/audio"
+
+    audio = auth_client.get(f"/api/v1/tts/jobs/{job_id}/audio")
+    assert audio.status_code == 200
+    assert audio.content == b"RIFFxxxxWAVEdata"
+
+
+def test_get_job_audio_rejected_when_not_done(auth_client):
+    """/audio must refuse a job that has not reached terminal success."""
+    from app.db.state import put_job, Job
+
+    job_id = "api_running_job"
+    put_job(Job(id=job_id, engine="xtts", status="running", created_at=time.time()))
+    resp = auth_client.get(f"/api/v1/tts/jobs/{job_id}/audio")
+    assert resp.status_code == 400
+
+
+def test_get_job_audio_missing_file_returns_410(auth_client, monkeypatch, tmp_path):
+    """A done job whose audio file is gone returns 410, not 500."""
+    import app.api.tts_api as tts_api
+    from app.db.state import put_job, Job
+
+    transient = tmp_path / "transient"
+    (transient / "api").mkdir(parents=True)
+    monkeypatch.setattr(tts_api, "TRANSIENT_DIR", transient)
+
+    job_id = "api_expired"
+    put_job(Job(id=job_id, engine="xtts", status="done", created_at=time.time(), progress=1.0))
+    resp = auth_client.get(f"/api/v1/tts/jobs/{job_id}/audio")
+    assert resp.status_code == 410
+
+
+def test_job_status_message_is_sanitized(auth_client):
+    """A failed job must not leak internal error text (paths/URLs) to the caller.
+
+    Revert-check (R2): pre-fix the endpoint returned ``getattr(job, "message",
+    None)`` — currently always None only because Job has no ``message`` field,
+    an accidental defense. This asserts the message is a fixed generic string and
+    that the raw ``job.error`` (which CAN carry a filesystem path) never appears
+    in the response body.
+    """
+    from app.db.state import put_job, Job
+
+    job_id = "api_failed_job"
+    put_job(Job(
+        id=job_id, engine="xtts", status="failed", created_at=time.time(),
+        error="/Users/secret/internal/voices/latent.pth failed to load",
+    ))
+    resp = auth_client.get(f"/api/v1/tts/jobs/{job_id}")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "failed"
+    assert body["message"] == "Synthesis failed."
+    assert "secret" not in resp.text
+    assert "internal/voices" not in resp.text
+
+
+# --- R7a: /preview off-by-one ---
+
+def test_preview_rejects_exactly_500_chars(auth_client, monkeypatch):
+    """/preview must reject >= 500 chars so it is *always* inline.
+
+    Revert-check (R7a): pre-fix it rejected only ``> 500``, so a 500-char body
+    was delegated to synthesize, hit the ``< 500`` inline threshold as false,
+    got queued, and returned 200 with a job envelope — contradicting the
+    "always inline" contract.
+    """
+    from app.orchestration.scheduler.orchestrator import TaskOrchestrator
+    monkeypatch.setattr(TaskOrchestrator, "submit", lambda s, t: t.task_id)
+
+    resp = auth_client.post("/api/v1/tts/preview", json={"engine_id": "xtts", "text": "A" * 500})
+    assert resp.status_code == 422, resp.json()
+
+
+# --- R7b: unbounded text length ---
+
+def test_synthesize_text_too_long_rejected(auth_client):
+    """Text over the max_length cap must be rejected at the boundary (422).
+
+    Revert-check (R7b): pre-fix ``SynthesisRequest.text`` had no max_length, so
+    an arbitrarily large body was accepted onto the queue (a cheap DoS vector).
+    """
+    resp = auth_client.post("/api/v1/tts/synthesize", json={"engine_id": "xtts", "text": "A" * 100_001})
+    assert resp.status_code == 422
+
+
+def test_synthesize_empty_text_rejected(auth_client):
+    """Empty text must be rejected (min_length=1)."""
+    resp = auth_client.post("/api/v1/tts/synthesize", json={"engine_id": "xtts", "text": ""})
+    assert resp.status_code == 422
+
+
 def test_voice_ref_symlink_escape_rejected(tmp_path, monkeypatch):
     """SEC-3: safe_join resolves symlinks, so a symlink inside VOICES_DIR that
     points outside the root must be rejected (the old lexical normpath check

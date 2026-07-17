@@ -1,9 +1,9 @@
 # API Conventions
 
 ```
-spec_version: 1.1.0
+spec_version: 1.2.0
 status: active
-updated: 2026-06-23
+updated: 2026-07-16
 sources:
   - app/api/web.py
   - app/api/tts_api.py
@@ -20,6 +20,7 @@ sources:
 
 | Version | Date       | Change             |
 |---------|------------|--------------------|
+| 1.2.0   | 2026-07-16 | External TTS API: document the queued-job download flow (`status == "done"` gates `download_url` + `/jobs/{id}/audio`, served from `TRANSIENT_DIR/api` via the containment barrier), the `text` length bound (1–100,000), the `/preview` `>= 500` boundary, and the caller-safe (no internal-path-leaking) job `message`. Reflects the PR-10 gateway fixes. |
 | 1.1.0   | 2026-06-23 | Add § Live reads & caching (mutable read endpoints MUST bypass the browser HTTP cache via `cache: 'no-store'`); document that `GET /api/projects/{id}` schedules the per-book segment-orphan GC via `BackgroundTasks` |
 | 1.0.1   | 2026-06-16 | WebSocket endpoint source corrected to `app/api/web.py:209` (`ws.py` holds connection manager/broadcast helpers only) |
 | 1.0.0   | 2026-06-10 | Initial canonical spec |
@@ -146,8 +147,8 @@ Mounted at `/api/v1/tts`. All routes require `verify_api_key` + `rate_limit`.
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `POST` | `/synthesize` | Inline for < 500 chars; queued for longer |
-| `POST` | `/preview` | Inline only, max 500 chars |
+| `POST` | `/synthesize` | `text` length 1–100,000 (else 422). Inline audio for `< 500` chars; text `>= 500` is queued and returns `{ job_id, status, poll_url }` |
+| `POST` | `/preview` | Inline only; rejects `text` of `>= 500` chars with 422 (so it always matches the inline threshold) |
 
 ### Engine Discovery
 
@@ -160,8 +161,8 @@ Mounted at `/api/v1/tts`. All routes require `verify_api_key` + `rate_limit`.
 
 | Method | Path | Notes |
 |--------|------|-------|
-| `GET` | `/jobs/{job_id}` | Job status |
-| `GET` | `/jobs/{job_id}/audio` | Download rendered audio |
+| `GET` | `/jobs/{job_id}` | Job status. Returns `{ job_id, status, message, progress }`; adds `download_url` once `status == "done"` (terminal success). `message` is a fixed caller-safe string — raw engine/bridge error text (which can carry internal paths) MUST NOT be surfaced. Unknown id → 404 |
+| `GET` | `/jobs/{job_id}/audio` | Download rendered audio. Only when `status == "done"` (else 400); the file is served from `TRANSIENT_DIR/api/<job_id>.<ext>` via the containment barrier (a non-API job id can never reach a Studio render's audio); missing file → 410 |
 
 ### Output Formats
 

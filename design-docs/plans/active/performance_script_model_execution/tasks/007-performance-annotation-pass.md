@@ -43,6 +43,20 @@ hasn't landed yet when this task starts, treat that as a hard blocker (per `02-r
 dependency graph: 007 depends on both 006 and 002) — do not invent a competing shape and
 hope they match later.
 
+**Update (2026-07-16, task 002 landed in the W-PERF safe-foundation PR):** the actual schema
+is `app/domain/chapters/performance_schema.py`'s `PerformanceData`, validated via
+`validate_performance_data(raw: dict) -> PerformanceData`. Critical gotcha for this task's
+output-parsing code: `PerformanceData` uses Pydantic `extra="forbid"` and models **only**
+the fields doc-01 puts on a segment that are *not* already promoted to dedicated
+`chapter_segments` columns by task 001 (`speaker.confidence`, `speaker.evidence`,
+`review.needs_human_review`, `review.locked`). This pass's structured-output parser MUST
+strip `id`, `sequence`, `text`, `speaker`, and the promoted review fields from its raw model
+output before calling `validate_performance_data()` — passing the full segment object
+through unmodified will raise `PerformanceDataValidationError` on the first extra field.
+See `design-docs/specs/performance-script-format.md` for the full shape and
+`app/domain/chapters/performance_schema.py`'s module docstring for the review-object split
+rationale.
+
 ## Exact contract to produce (from the proposal doc — subject to reconciliation with 002)
 
 Per `02-character-profiles-and-extraction-spec.md` §5's dialogue example:

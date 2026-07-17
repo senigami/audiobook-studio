@@ -1150,3 +1150,77 @@ class TestEngine(StudioTTSEngine):
         from app.tts_server.plugin_loader import _validate_engine_signatures
         from plugins.tts_mixed.engine import MixedPlugin
         _validate_engine_signatures(MixedPlugin, "MixedPlugin", "tts_mixed")
+
+
+# ---------------------------------------------------------------------------
+# W-PERF task 004: optional export-capability behavior fields
+# (export_format, supports_per_span_voice, supports_emotion_style,
+# supports_prosody, supports_break). Additive/optional -- absent is fine,
+# present is validated; no manifest version bump.
+# ---------------------------------------------------------------------------
+
+class TestExportCapabilityBehaviorFields:
+    def test_absent_export_fields_load_fine(self, tmp_path):
+        manifest = _minimal_manifest("mock")
+        _make_plugin_dir(tmp_path, "tts_mock", manifest, _mock_engine_src())
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+
+    def test_valid_export_format_and_supports_flags_load_fine(self, tmp_path):
+        manifest = _minimal_manifest("mock")
+        manifest["behavior"] = {
+            "export_format": "ssml_w3c",
+            "supports_per_span_voice": True,
+            "supports_emotion_style": True,
+            "supports_prosody": False,
+            "supports_break": True,
+        }
+        _make_plugin_dir(tmp_path, "tts_mock", manifest, _mock_engine_src())
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+
+    def test_invalid_export_format_rejected(self, tmp_path):
+        manifest = _minimal_manifest("mock")
+        manifest["behavior"] = {"export_format": "not_a_real_format"}
+        _make_plugin_dir(tmp_path, "tts_mock", manifest, _mock_engine_src())
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+        assert result[0].load_error
+        assert "export_format" in result[0].load_error
+
+    def test_non_bool_supports_flag_rejected(self, tmp_path):
+        manifest = _minimal_manifest("mock")
+        manifest["behavior"] = {"supports_per_span_voice": "yes"}
+        _make_plugin_dir(tmp_path, "tts_mock", manifest, _mock_engine_src())
+        result = discover_plugins(tmp_path)
+        assert len(result) == 1
+        assert result[0].load_error
+        assert "supports_per_span_voice" in result[0].load_error
+
+
+def test_export_capabilities_for_reads_new_behavior_fields():
+    from app.engines.behavior import export_capabilities_for
+
+    behavior = {
+        "export_format": "ssml_polly",
+        "supports_per_span_voice": True,
+        "supports_emotion_style": False,
+        "supports_prosody": True,
+        "supports_break": False,
+    }
+    caps = export_capabilities_for("mock", behavior=behavior)
+    assert caps["export_format"] == "ssml_polly"
+    assert caps["supports_per_span_voice"] is True
+    assert caps["supports_prosody"] is True
+    assert caps["supports_emotion_style"] is False
+
+
+def test_export_capabilities_for_defaults_when_absent():
+    from app.engines.behavior import export_capabilities_for
+
+    caps = export_capabilities_for("mock", behavior={})
+    assert caps["export_format"] is None
+    assert caps["supports_per_span_voice"] is False
+    assert caps["supports_emotion_style"] is False
+    assert caps["supports_prosody"] is False
+    assert caps["supports_break"] is False

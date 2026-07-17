@@ -1,6 +1,6 @@
 # Task 001 — Additive schema migration (chapter_segments + characters)
 
-Status: pending
+Status: done (2026-07-16, W-PERF safe-foundation PR)
 
 Risk: none (purely additive nullable/defaulted columns, no data migration, no existing-row rewrite,
 matches this repo's existing migration pattern exactly — same risk class as the `sanitized_text`/
