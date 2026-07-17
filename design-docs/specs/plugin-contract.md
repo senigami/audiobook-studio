@@ -1,16 +1,20 @@
 # Plugin Contract
 
 ```
-spec_version: 1.7.0
-updated: 2026-07-16
+spec_version: 1.8.0
+updated: 2026-07-17
 status: active
 sources:
   - app/engines/voice/sdk.py
   - app/tts_server/plugin_loader.py
+  - app/tts_server/plugin_manifest.py
+  - app/tts_server/server.py
   - app/engines/registry.py
   - app/studio_plugin_sdk/__init__.py
   - app/studio_plugin_sdk/context.py
   - tts_engines/tts_xtts/manifest.json
+  - tts_engines/tts_xtts/plugin/core/implementation.py
+  - tts_engines/tts_xtts/plugin/server/engine.py
   - tts_engines/tts_voxtral/manifest.json
   - tts_engines/tts_mixed/manifest.json
 ```
@@ -21,6 +25,7 @@ sources:
 
 | Version | Date       | Change                 |
 |---------|------------|------------------------|
+| 1.8.0   | 2026-07-17 | **BUG 1 fix: optional top-level `dependency_check: "external"` manifest field** (see §Optional `dependency_check` field). Additive — absent preserves prior "bundled" behavior (`requirements.txt` checked against the server venv). `tts_xtts/manifest.json` now declares it, since its inference deps (torch, coqui-tts, transformers, ...) are installed only into the separate `~/xtts-env` by `run.sh`, never the server venv — the prior unconditional check permanently reported xtts `needs_setup` on any install where the server venv doesn't happen to carry those deps. `tts_xtts`'s `check_env()` (`plugin/server/engine.py`) no longer does an in-process `import TTS` (checks the wrong interpreter); it now calls the plugin's new `xtts_env_ready()` (`plugin/core/implementation.py`), a filesystem-only check of the external env (no import, no subprocess — cheap enough for the 5s heartbeat and every `/synthesize` call). `POST /engines/{id}/install` (`app/tts_server/server.py`) now refuses (400) for `dependency_check: "external"` engines rather than pip-installing their deps into the server venv. Readiness is keyed off the `coqui_tts-*.dist-info` completion marker (not the bare `TTS` package dir, which pip populates before an install finishes — avoids ready/not-ready flapping mid-install) and scans every candidate `site-packages` dir under the env root (not just the first by sort order, which could pick a stale `lib/pythonX.Y` left behind by a Python upgrade). Known limitation documented in-spec: the opt-out is all-or-nothing across the whole `requirements.txt`, including any genuinely server-side base packages a plugin author mixes into the same file. |
 | 1.7.0   | 2026-07-16 | **Optional `distribution` manifest block (plan 05 §1.2, repo-ready plugin folders).** Manifests MAY declare a top-level `distribution` object (`host`, `base_url`, `repo`, `git_url`, `topic`, `pin_ref`, `official`) pointing at the plugin's standalone GitHub repo. Shape-validated when present by `_validate_manifest` (dict; string fields typed; `pin_ref` string-or-null; `official` boolean); no field required, block optional — additive, no manifest version bump. In-tree `tts_xtts`/`tts_voxtral` manifests now carry final-shape blocks matching `app/engines/official_registry.py` repo URLs (placeholder `audiobook-studio/*` repos). Standalone-repo plugins never set `built_in`. Also: `tts_voxtral` manifest `license` corrected `"Commercial API"` → `"MIT"` (plugin code license; API usage stays under Mistral's terms). |
 | 1.6.0   | 2026-07-16 | **W-PERF safe-foundation: optional export-layer capability fields.** New optional `behavior` sub-fields `export_format` (enum: `ssml_w3c`/`ssml_azure`/`elevenlabs_text`/`ssml_polly`/`plain_text`), `supports_per_span_voice`, `supports_emotion_style`, `supports_prosody`, `supports_break` (booleans, default `false`). Additive/backward-compatible — no manifest version bump, same class of change as prior `behavior.features` additions (`segment_orchestration`, `cps_eta`). Consumed only by the export layer (task 011, not yet built) via new `app.engines.behavior.export_capabilities_for()` helper — distinct from the render-pipeline's `has_behavior(engine_id, "ssml_directives")` feature-string gate (sibling `chapter_editor_catalog_completion` plan's task 006, not yet landed). No real plugin manifest declares these fields; validated as optional (type/enum-checked when present, absent is fine) in `plugin_loader.py`. |
 | 1.5.0   | 2026-07-11 | Closes the last real Stage 3 residue: `tts_engines/tts_xtts/plugin/studio/app_adapter.py` and `tts_engines/tts_voxtral/plugin/studio/app_adapter.py` (11 module-level `from app.*` imports total, flagged as a factual regression by a 2026-07-01 audit — these files were never in the S4/S5 import-cleanliness tests' target list, so the original "zero module-level imports" sign-off never covered them). `studio_plugin_sdk` gains five new app-adapter-contract exports: `BaseVoiceEngine`, `EngineHealthModel`, `EngineManifestModel`, `EngineExecutionError`, `EngineRequestError` — the app-side engine-registry base class and its data/error types a plugin's `app_adapter.py` subclasses/raises to register with the app's `VoiceBridge`, distinct from `StudioTTSEngine` (the server-side, per-job contract already exported). Both `app_adapter.py` files migrated to the SDK exports plus existing `ctx.get_voices_dir()` / `ctx.resolve_voice_preview_inputs()` context methods (note: `ctx.resolve_voice_preview_inputs` returns a dict `{voice_ref, voice_profile_dir}`, not the raw function's tuple — callers must adapt). Both import-cleanliness test suites (`test_s4_import_cleanliness.py`, `test_s5_import_cleanliness.py`) now include `app_adapter` in their target-module list, closing the scope gap that let this regression through. A dead, never-called `run_managed_subprocess_async` import was deleted from tts_xtts's `app_adapter.py` rather than migrated. |
@@ -302,6 +307,43 @@ present; `pin_ref` MUST be a string or `null`; `official` MUST be a boolean.
 No field inside the block is required, and the block itself remains optional
 (additive — no manifest version bump). Standalone-repo plugins MUST NOT set
 `built_in`; that field is reserved for in-tree built-ins (`tts_mixed`).
+
+### Optional `dependency_check` field
+
+A manifest MAY carry a top-level `dependency_check` string, currently only
+valid value `"external"`. Absent means the default ("bundled") behavior: the
+TTS Server checks every package in the plugin's `requirements.txt` against
+its OWN interpreter (the server venv) via `importlib.metadata`, and gates the
+engine `needs_setup` if any are missing.
+
+`"external"` opts a plugin out of that check entirely — for an engine whose
+heavy inference deps are installed into a separate, plugin-managed
+environment and never expected in the server venv (`tts_xtts`: torch/
+coqui-tts/transformers live only in `~/xtts-env`, provisioned by `run.sh`,
+never the app's own `venv`). Such a plugin's own `check_env()` becomes
+solely responsible for verifying its external environment is ready — it
+MUST check that environment on disk (e.g. an installed-package marker),
+never via an in-process `import`, since an in-process import checks the
+wrong interpreter and a subprocess import is too slow for a check called on
+every `/synthesize` request and every heartbeat poll (`app/engines/watchdog.py`,
+5s interval). `POST /engines/{id}/install` also refuses (400) for
+`dependency_check: "external"` engines, since `pip install -r
+requirements.txt` there would install into the server venv instead of the
+external one it's meant for.
+
+**Known limitations, by design:** the opt-out is all-or-nothing — it skips
+the check for every line in `requirements.txt`, not just the heavy/external
+ones. A plugin author who mixes genuinely server-side base packages into the
+same file (as `tts_xtts` does, for `requests`/`pydantic`) gets no
+verification of those either; they must be transitively guaranteed present
+some other way (see the comment atop `tts_xtts/requirements.txt`), or split
+into a separate, still-checked manifest of their own. A disk-marker check
+(package directory or dist-info) is also inherently a proxy for "installed",
+not "installed correctly" — a broken or version-mismatched install can still
+report ready; `tts_xtts`'s `xtts_env_ready()` mitigates the common case (a
+mid-install/interrupted state) by requiring the completion marker
+(`coqui_tts-*.dist-info`) pip writes only once an install finishes, rather
+than the package directory alone (which exists well before that point).
 
 ---
 

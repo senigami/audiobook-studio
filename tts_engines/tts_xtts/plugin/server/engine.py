@@ -127,12 +127,12 @@ class XttsPlugin(StudioTTSEngine):
                 return True, "OK (Manual Environment)"
             return False, f"XTTS_ENV_ACTIVATE path does not exist: {env_activate}"
 
-        # 2. Check current environment for XTTS (normal path)
-        try:
-            import TTS  # noqa: F401, PLC0415
-            return True, "OK"
-        except ImportError:
-            return False, "XTTS dependencies not found. Click 'Install Deps' to set up the built-in engine."
+        # 2. Check the external xtts-env (normal path). Inference always runs
+        # via a subprocess against that env's interpreter (never in-process),
+        # so readiness is checked there too -- not via an in-process import,
+        # which would check the wrong interpreter (see xtts_env_ready()).
+        from ..core.implementation import xtts_env_ready  # noqa: PLC0415
+        return xtts_env_ready()
 
     def verify(self, req: TTSRequest) -> VerificationResult:
         """Fast readiness check for XTTS."""

@@ -308,8 +308,16 @@ def _load_plugin(*, plugin_dir: Path, folder_name: str) -> LoadedPlugin:
             logger.info("Plugin %s has valid persisted verification.", folder_name)
 
     # Still return the plugin — it will show in Settings as "needs_setup".
-    # 6. Dependency check (requirements.txt)
-    deps_ok, missing = _check_dependencies(plugin_dir)
+    # 6. Dependency check (requirements.txt) — skipped for engines that
+    # declare dependency_check="external" (BUG 1 fix): their requirements.txt
+    # lists deps for a separate, plugin-managed environment that never lands
+    # in the server venv, so checking it here would always report missing
+    # deps regardless of real readiness. Such engines' own check_env() is
+    # solely responsible for verifying their external environment.
+    if manifest.get("dependency_check") == "external":
+        deps_ok, missing = True, []
+    else:
+        deps_ok, missing = _check_dependencies(plugin_dir)
     setup_message = None
     if not ok:
         setup_message = str(msg or "Resolve engine setup before enabling this plugin.")

@@ -74,6 +74,7 @@ def test_install_dependencies_reports_pip_stderr(tmp_path, monkeypatch):
         plugin_dir=tmp_path,
         dependencies_satisfied=False,
         missing_dependencies=[],
+        manifest={},
     )
 
     monkeypatch.setattr(server, "_plugin_by_id", lambda engine_id: plugin)
@@ -104,6 +105,7 @@ def test_install_dependencies_refreshes_setup_message_after_success(tmp_path, mo
         missing_dependencies=["requests"],
         engine=SimpleNamespace(check_env=lambda: (False, "API key missing")),
         load_error=None,
+        manifest={},
     )
 
     monkeypatch.setattr(server, "_plugin_by_id", lambda engine_id: plugin)
@@ -133,6 +135,7 @@ def test_install_dependencies_reloads_plugin_after_successful_install(tmp_path, 
         missing_dependencies=["requests"],
         engine=None,
         load_error="ImportError: missing dependency",
+        manifest={},
     )
     reloaded_plugin = SimpleNamespace(
         engine_id="mock-engine",
@@ -142,6 +145,7 @@ def test_install_dependencies_reloads_plugin_after_successful_install(tmp_path, 
         missing_dependencies=[],
         engine=SimpleNamespace(check_env=lambda: (True, "OK")),
         load_error=None,
+        manifest={},
     )
 
     monkeypatch.setattr(server, "_plugin_by_id", lambda engine_id: plugin)
