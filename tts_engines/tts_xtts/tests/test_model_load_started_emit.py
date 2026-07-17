@@ -37,7 +37,7 @@ class TestModelLoadStartedEmit:
     def _run_with_lines(self, tmp_path, lines: list[str], task_id: str = "task-42") -> list[str]:
         """Run synthesize() with a mock worker that emits the given lines; collect stderr output."""
         from tts_engines.tts_xtts.plugin.server.engine import XttsPlugin
-        from app.engines.voice.sdk import TTSRequest
+        from studio_plugin_sdk.types import TTSRequest
 
         plugin = XttsPlugin()
         script = [
@@ -153,7 +153,7 @@ class TestModelLoadStartedEmit:
     def test_no_task_id_no_model_load_started(self, tmp_path):
         """When task_id is None/empty on the request, no [MODEL_LOAD_STARTED] is emitted."""
         from tts_engines.tts_xtts.plugin.server.engine import XttsPlugin
-        from app.engines.voice.sdk import TTSRequest
+        from studio_plugin_sdk.types import TTSRequest
 
         plugin = XttsPlugin()
         script = [

@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.db.models import Job
+from xtts_test_fakes import Job
 from tts_engines.tts_xtts.plugin.studio.handler import handle_xtts_job
 
 
@@ -327,7 +327,7 @@ class TestForceRerenderBakePath:
         j = _make_job(force_rerender=force_rerender)
         j.is_bake = True
 
-        from app.studio_plugin_sdk.context import StudioPluginContext
+        from studio_plugin_sdk.context import StudioPluginContext
 
         real_ctx = StudioPluginContext("xtts")
         ctx = MagicMock()

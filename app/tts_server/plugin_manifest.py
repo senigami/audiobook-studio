@@ -216,20 +216,57 @@ def _validate_manifest(*, manifest: dict[str, Any], folder_name: str) -> None:
                 )
 
         sanitize_cats = behavior.get("sanitize_categories")
-        if sanitize_cats is not None:
-            from app.utils.text.textops_cleaning import SANITIZE_CATEGORIES  # noqa: PLC0415
-            valid_names = set(SANITIZE_CATEGORIES.keys())
-            if not isinstance(sanitize_cats, list):
-                raise PluginLoadError(
-                    f"behavior.sanitize_categories must be a list in {folder_name}"
-                )
-            for cat in sanitize_cats:
-                if cat not in valid_names:
-                    raise PluginLoadError(
-                        f"behavior.sanitize_categories contains unknown category "
-                        f"{cat!r} in {folder_name}. "
-                        f"Valid names: {sorted(valid_names)}"
-                    )
+        _validate_sanitize_categories(sanitize_cats, folder_name)
+
+    # Optional distribution block (plan 05 §1.2). Absent → valid. Present →
+    # must be a shaped dict (versioned-contract rule: validated shape, never
+    # free-form). No field inside it is required — lenient but typed.
+    _validate_distribution(manifest.get("distribution"), folder_name)
+
+
+def _validate_distribution(distribution: Any, folder_name: str) -> None:
+    """Validate the optional manifest ``distribution`` block, when present."""
+    if distribution is None:
+        return
+    if not isinstance(distribution, dict):
+        raise PluginLoadError(
+            f"distribution must be a JSON object in {folder_name}, got {distribution!r}"
+        )
+    for str_field in ("host", "base_url", "repo", "git_url", "topic"):
+        value = distribution.get(str_field)
+        if value is not None and not isinstance(value, str):
+            raise PluginLoadError(
+                f"distribution.{str_field} must be a string in {folder_name}, got {value!r}"
+            )
+    pin_ref = distribution.get("pin_ref")
+    if pin_ref is not None and not isinstance(pin_ref, str):
+        raise PluginLoadError(
+            f"distribution.pin_ref must be a string or null in {folder_name}, got {pin_ref!r}"
+        )
+    official = distribution.get("official")
+    if official is not None and not isinstance(official, bool):
+        raise PluginLoadError(
+            f"distribution.official must be a boolean in {folder_name}, got {official!r}"
+        )
+
+
+def _validate_sanitize_categories(sanitize_cats: Any, folder_name: str) -> None:
+    """Validate optional ``behavior.sanitize_categories``, when present."""
+    if sanitize_cats is None:
+        return
+    from app.utils.text.textops_cleaning import SANITIZE_CATEGORIES  # noqa: PLC0415
+    valid_names = set(SANITIZE_CATEGORIES.keys())
+    if not isinstance(sanitize_cats, list):
+        raise PluginLoadError(
+            f"behavior.sanitize_categories must be a list in {folder_name}"
+        )
+    for cat in sanitize_cats:
+        if cat not in valid_names:
+            raise PluginLoadError(
+                f"behavior.sanitize_categories contains unknown category "
+                f"{cat!r} in {folder_name}. "
+                f"Valid names: {sorted(valid_names)}"
+            )
 
 
 def _load_optional_json(path: Path) -> dict[str, Any]:

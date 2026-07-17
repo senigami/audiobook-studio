@@ -31,15 +31,28 @@ class TestSDKImportSurface:
         import app.studio_plugin_sdk as sdk
         assert sdk.__version__ == "1.0"
 
-    def test_sys_modules_alias_registered(self):
-        """plugin_loader registers studio_plugin_sdk alias on import."""
-        # Import the loader to trigger alias registration.
-        import app.tts_server.plugin_loader  # noqa: F401
-        assert "studio_plugin_sdk" in sys.modules
+    def test_top_level_package_resolves_outside_app(self):
+        """studio_plugin_sdk is a REAL top-level package, not an alias of
+        app.studio_plugin_sdk (the _register_sdk_alias hack is deleted)."""
+        import studio_plugin_sdk as sdk
+        sdk_file = Path(sdk.__file__).resolve()
+        repo_root = Path(__file__).resolve().parents[2]
+        assert sdk_file == repo_root / "studio_plugin_sdk" / "__init__.py"
+        assert (repo_root / "app") not in sdk_file.parents
 
-    def test_alias_exposes_studio_tts_engine(self):
-        sdk = sys.modules["studio_plugin_sdk"]
+    def test_top_level_package_exposes_studio_tts_engine(self):
+        import studio_plugin_sdk as sdk
         assert hasattr(sdk, "StudioTTSEngine")
+
+    def test_identity_survives_app_shim_and_loader_import(self):
+        """Importing the app-namespace shim and the plugin loader must not
+        replace or shadow the top-level package in sys.modules."""
+        import studio_plugin_sdk  # noqa: F401
+        import app.studio_plugin_sdk  # noqa: F401
+        import app.tts_server.plugin_loader  # noqa: F401
+        mod = sys.modules["studio_plugin_sdk"]
+        repo_root = Path(__file__).resolve().parents[2]
+        assert Path(mod.__file__).resolve() == repo_root / "studio_plugin_sdk" / "__init__.py"
 
     def test_all_public_symbols_present(self):
         import studio_plugin_sdk as sdk

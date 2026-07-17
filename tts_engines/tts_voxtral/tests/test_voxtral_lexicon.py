@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.db.models import Job
+from voxtral_test_fakes import Job
 
 
 # ---------------------------------------------------------------------------

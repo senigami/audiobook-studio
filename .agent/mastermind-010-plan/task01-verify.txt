@@ -1,0 +1,6 @@
+app/engines/errors.py                                    10      0   100%
+app/studio_plugin_sdk/errors.py                           3      0   100%
+12 failed, 670 passed, 2 skipped in 40.17s
+exit_recorded
+app/studio_plugin_sdk/errors.py                           3      0   100%
+682 passed, 2 skipped in 37.91s

@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-from app.engines.voice.sdk import TTSResult, VerificationResult
+from studio_plugin_sdk.types import TTSResult, VerificationResult
 from tts_engines.tts_voxtral.plugin.server.engine import VoxtralPlugin
 
 
@@ -29,7 +29,7 @@ def _make_isolated_plugin_dir(tmp_path: Path) -> Path:
 
 def _patch_getfile(plugin_root: Path):
     return patch(
-        "app.engines.voice.base.inspect.getfile",
+        "studio_plugin_sdk.engine.inspect.getfile",
         return_value=str(plugin_root / "plugin" / "server" / "engine.py"),
     )
 

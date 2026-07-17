@@ -1,0 +1,19 @@
+{
+  "date": "2026-07-16",
+  "author": "studio2/standalone-plugin-repos-010 task 06 (plugin/studio SDK import rewrite)",
+  "summary": "All app.studio_plugin_sdk imports in tts_engines/*/plugin/studio rewritten to the real studio_plugin_sdk package: try/except alias fallbacks collapsed to plain imports for names the SDK exports. The app-adapter contract (BaseVoiceEngine + Engine* models/errors) is app-side only and keeps a guarded (try/except) app.studio_plugin_sdk import in each app_adapter.py — the documented host-integration exception. Other fn-body app.db/app.utils/app.jobs imports untouched (host-integration surface).",
+  "changes": [
+    {"file": "tts_engines/tts_xtts/plugin/studio/handler.py", "change": "_get_ctx fallback collapsed to 'from studio_plugin_sdk import get_plugin_ctx'; comment updated."},
+    {"file": "tts_engines/tts_xtts/plugin/studio/bake.py", "change": "Module-level BridgeError/make_segment_output_handler try/except collapsed to plain studio_plugin_sdk imports; _get_ctx fallback collapsed."},
+    {"file": "tts_engines/tts_xtts/plugin/studio/segments.py", "change": "Same collapse as bake.py."},
+    {"file": "tts_engines/tts_xtts/plugin/studio/standard_handler.py", "change": "BridgeError try/except collapsed; _get_ctx fallback collapsed."},
+    {"file": "tts_engines/tts_xtts/plugin/studio/voice_adapter.py", "change": "_get_ctx and fn-body JobSpec fallbacks collapsed to plain studio_plugin_sdk imports."},
+    {"file": "tts_engines/tts_xtts/plugin/studio/app_adapter.py", "change": "SDK names (SynthesisPlan, TTSRequest, TTSResult, VoiceProcessingHooks, load_settings_schema) now plain module-level studio_plugin_sdk imports. BaseVoiceEngine/Engine* stay from app.studio_plugin_sdk inside a try/except that re-raises with a host-required message (not module-body import statements, so the S4 gate passes). Fn-body app.engines.audio_ops.wav_to_mp3 (~line 330) deliberately stays app.* — host-side bake policy per task doc."},
+    {"file": "tts_engines/tts_voxtral/plugin/studio/handler.py", "change": "_get_ctx fallback collapsed; docstring reference updated."},
+    {"file": "tts_engines/tts_voxtral/plugin/studio/bake.py", "change": "BridgeError/make_segment_output_handler + _get_ctx collapses."},
+    {"file": "tts_engines/tts_voxtral/plugin/studio/segments.py", "change": "Same collapse."},
+    {"file": "tts_engines/tts_voxtral/plugin/studio/app_adapter.py", "change": "Same split as xtts app_adapter (SDK names plain; app-adapter contract guarded app import; fn-body wav_to_mp3 stays app.*)."}
+  ],
+  "invariants": "Module-level grep '^from app|^import app' over both plugin/studio dirs: empty. s4/s5 gate tests unchanged and green (they audit ast module-body import statements; the guarded app_adapter import sits inside an ast.Try, the pre-existing sanctioned shape). Zero behavior change in-host (identical objects via shim).",
+  "note": "Task 06 of .agent/mastermind-010-plan/. No monkeypatches repointed. tts_engines suite: 270 passed, 2 skipped."
+}

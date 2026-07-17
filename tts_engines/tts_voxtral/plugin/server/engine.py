@@ -15,8 +15,12 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from app.engines.voice.sdk import TTSRequest, TTSResult, VerificationResult
-from app.engines.voice.base import StudioTTSEngine
+from studio_plugin_sdk import StudioTTSEngine, TTSRequest, TTSResult, VerificationResult
+
+# LAME VBR quality for MP3 sample output (ffmpeg -q:a). Same value as the
+# Studio host default (app/core/config.py MP3_QUALITY) — kept as a local
+# constant so plugin code never imports app.* configuration.
+_MP3_QUALITY = "2"
 
 
 class VoxtralPlugin(StudioTTSEngine):
@@ -312,6 +316,6 @@ class VoxtralPlugin(StudioTTSEngine):
 
     @staticmethod
     def _wav_to_mp3(in_wav: Path, out_mp3: Path) -> int:
-        from app.engines.audio_ops import wav_to_mp3 as _conv  # noqa: PLC0415
+        from studio_plugin_sdk.audio import wav_to_mp3 as _conv  # noqa: PLC0415
 
-        return _conv(in_wav=in_wav, out_mp3=out_mp3)
+        return _conv(in_wav=in_wav, out_mp3=out_mp3, quality=_MP3_QUALITY)

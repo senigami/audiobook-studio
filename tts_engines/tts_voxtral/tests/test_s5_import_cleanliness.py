@@ -1,9 +1,13 @@
-"""S5 acceptance tests: tts_voxtral studio handler is app-import-free.
+"""S5 acceptance tests: tts_voxtral is app-import-free per the plan-010 boundary.
 
-Tests:
-- Import cleanliness: handler must have zero top-level ``from app.`` or
-  ``import app.`` statements at module body level.
-- Smoke: the module imports cleanly (no ImportError at load time).
+Confirmed boundary (mastermind 010, Checkpoint 2):
+- ZERO ``app.*`` imports at ANY position in ``plugin/server/``, ``plugin/core/``,
+  ``interface.py``, ``cli.py``.
+- ZERO module-level ``app.*`` imports in ``plugin/studio/``. Two sanctioned
+  shapes remain: function-body imports (host-integration code) and the
+  ``try: from app... except ImportError`` guard in ``app_adapter.py``
+  (plus ``if TYPE_CHECKING`` blocks, which never execute at runtime).
+- Smoke: each studio module imports cleanly (no ImportError at load time).
 - Ctx factory: _get_ctx() builds a StudioPluginContext without error.
 """
 from __future__ import annotations
@@ -15,47 +19,92 @@ from pathlib import Path
 
 import pytest
 
-# ---------------------------------------------------------------------------
-# Ensure studio_plugin_sdk alias is registered before importing target modules.
-# In production the plugin_loader registers this; in tests we do it here.
-# ---------------------------------------------------------------------------
+_PLUGIN_ROOT = Path(__file__).parent.parent
+_STUDIO_DIR = _PLUGIN_ROOT / "plugin" / "studio"
 
-import app.studio_plugin_sdk as _sdk_pkg  # noqa: E402
-import sys as _sys
-_sys.modules.setdefault("studio_plugin_sdk", _sdk_pkg)
-import app.studio_plugin_sdk.errors as _sdk_errors  # noqa: E402
-_sys.modules.setdefault("studio_plugin_sdk.errors", _sdk_errors)
+_STUDIO_MODULES = sorted(p.stem for p in _STUDIO_DIR.glob("*.py") if p.name != "__init__.py")
 
-# ---------------------------------------------------------------------------
-# File list under test
-# ---------------------------------------------------------------------------
+# Files where NO app.* import may appear at ANY position (incl. function bodies).
+_STRICT_FILES = sorted(
+    [
+        *(_PLUGIN_ROOT / "plugin" / "server").rglob("*.py"),
+        *(_PLUGIN_ROOT / "plugin" / "core").rglob("*.py"),
+        _PLUGIN_ROOT / "interface.py",
+        _PLUGIN_ROOT / "cli.py",
+    ]
+)
 
-_STUDIO_DIR = Path(__file__).parent.parent / "plugin" / "studio"
-
-_TARGET_MODULES = [
-    "handler",
-    "app_adapter",
-]
+_CTX_FACTORY_MODULES = ["handler", "app_adapter"]
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _module_body_app_imports(path: Path) -> list[str]:
-    """Return only module-body (non-function, non-class) app imports."""
-    source = path.read_text(encoding="utf-8")
-    tree = ast.parse(source, filename=str(path))
-    hits = []
-    for node in tree.body:  # module top-level statements only
-        if isinstance(node, ast.ImportFrom):
-            module = node.module or ""
-            if module.startswith("app.") or module == "app":
-                hits.append(f"L{node.lineno}: from {module} import ...")
-        elif isinstance(node, ast.Import):
-            for alias in node.names:
-                if alias.name.startswith("app.") or alias.name == "app":
-                    hits.append(f"L{node.lineno}: import {alias.name}")
+def _is_app_import(node: ast.stmt) -> list[str]:
+    hits: list[str] = []
+    if isinstance(node, ast.ImportFrom):
+        module = node.module or ""
+        if module == "app" or module.startswith("app."):
+            hits.append(f"L{node.lineno}: from {module} import ...")
+    elif isinstance(node, ast.Import):
+        for alias in node.names:
+            if alias.name == "app" or alias.name.startswith("app."):
+                hits.append(f"L{node.lineno}: import {alias.name}")
+    return hits
+
+
+def _all_app_imports(path: Path) -> list[str]:
+    """app.* imports at ANY position (module body, functions, guards — everything)."""
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    hits: list[str] = []
+    for node in ast.walk(tree):
+        hits.extend(_is_app_import(node))
+    return hits
+
+
+def _module_level_app_imports(path: Path) -> list[str]:
+    """Module-level app.* imports, permitting only the sanctioned shapes.
+
+    Allowed: imports inside function/class bodies, inside ``if TYPE_CHECKING:``
+    blocks, and inside a module-level ``try:`` guarded by ``except ImportError``
+    (the documented host-integration shape in app_adapter.py).
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    hits: list[str] = []
+
+    def _catches_import_error(handler: ast.ExceptHandler) -> bool:
+        t = handler.type
+        names = []
+        if isinstance(t, ast.Name):
+            names = [t.id]
+        elif isinstance(t, ast.Tuple):
+            names = [e.id for e in t.elts if isinstance(e, ast.Name)]
+        return any(n in ("ImportError", "ModuleNotFoundError") for n in names)
+
+    def visit(stmts: list[ast.stmt]) -> None:
+        for node in stmts:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                continue  # function/class bodies are out of module-level scope
+            if isinstance(node, ast.Try):
+                if any(_catches_import_error(h) for h in node.handlers):
+                    continue  # sanctioned try/except ImportError host-integration shape
+                visit(node.body + node.orelse + node.finalbody)
+                for h in node.handlers:
+                    visit(h.body)
+                continue
+            if isinstance(node, ast.If):
+                test_src = ast.dump(node.test)
+                if "TYPE_CHECKING" in test_src:
+                    continue  # never executes at runtime
+                visit(node.body + node.orelse)
+                continue
+            if isinstance(node, (ast.With, ast.AsyncWith)):
+                visit(node.body)
+                continue
+            hits.extend(_is_app_import(node))
+
+    visit(tree.body)
     return hits
 
 
@@ -63,14 +112,24 @@ def _module_body_app_imports(path: Path) -> list[str]:
 # Tests: import cleanliness
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("module_name", _TARGET_MODULES)
-def test_no_top_level_app_imports(module_name: str) -> None:
-    """Target handler modules must have zero module-body app.* import lines."""
-    path = _STUDIO_DIR / f"{module_name}.py"
+@pytest.mark.parametrize("path", _STRICT_FILES, ids=lambda p: str(p.relative_to(_PLUGIN_ROOT)))
+def test_server_core_interface_cli_zero_app_imports(path: Path) -> None:
+    """server/, core/, interface.py, cli.py: zero app.* imports at ANY position."""
     assert path.is_file(), f"Expected file not found: {path}"
-    hits = _module_body_app_imports(path)
+    hits = _all_app_imports(path)
     assert hits == [], (
-        f"{module_name}.py has top-level app.* imports (S5 violation):\n"
+        f"{path.relative_to(_PLUGIN_ROOT)} has app.* imports (S5 boundary violation):\n"
+        + "\n".join(hits)
+    )
+
+
+@pytest.mark.parametrize("module_name", _STUDIO_MODULES)
+def test_studio_no_module_level_app_imports(module_name: str) -> None:
+    """plugin/studio: zero module-level app.* (guarded/function-body shapes only)."""
+    path = _STUDIO_DIR / f"{module_name}.py"
+    hits = _module_level_app_imports(path)
+    assert hits == [], (
+        f"{module_name}.py has module-level app.* imports (S5 violation):\n"
         + "\n".join(hits)
     )
 
@@ -79,7 +138,7 @@ def test_no_top_level_app_imports(module_name: str) -> None:
 # Tests: smoke import
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("module_name", _TARGET_MODULES)
+@pytest.mark.parametrize("module_name", _CTX_FACTORY_MODULES)
 def test_module_importable(module_name: str) -> None:
     """Each target module must import without raising ImportError."""
     fqn = f"tts_engines.tts_voxtral.plugin.studio.{module_name}"
@@ -95,7 +154,7 @@ def test_module_importable(module_name: str) -> None:
 # Tests: ctx factory
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("module_name", _TARGET_MODULES)
+@pytest.mark.parametrize("module_name", _CTX_FACTORY_MODULES)
 def test_get_ctx_builds(module_name: str) -> None:
     """_get_ctx() must return a StudioPluginContext without error."""
     fqn = f"tts_engines.tts_voxtral.plugin.studio.{module_name}"

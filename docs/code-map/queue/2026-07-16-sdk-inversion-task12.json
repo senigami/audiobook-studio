@@ -1,0 +1,39 @@
+{
+  "at": "2026-07-16T23:30:00Z",
+  "commit": "uncommitted",
+  "task": "010 task 12 — per-plugin LICENSE + .gitignore, Voxtral license correction (repo-ready plugin folders, Phase D)",
+  "files": {
+    "tts_engines/tts_xtts/LICENSE": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "Full Coqui Public Model License 1.0.0 text (fetched verbatim from huggingface.co/coqui/XTTS-v2 LICENSE.txt); matches manifest license CPML-1.0."
+    },
+    "tts_engines/tts_voxtral/LICENSE": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "MIT license for the plugin code (user decision at Checkpoint 2); API usage remains governed by Mistral's terms."
+    },
+    "tts_engines/tts_xtts/.gitignore": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "New per-plugin ignore file: __pycache__/, *.pyc, .DS_Store, *.egg-info/, settings.json, state.json."
+    },
+    "tts_engines/tts_voxtral/.gitignore": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Extended existing ignore file with *.pyc, .DS_Store, *.egg-info/."
+    },
+    "tts_engines/tts_voxtral/manifest.json": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "license field changed \"Commercial API\" -> \"MIT\" (metadata only; no loader validation reads this field)."
+    },
+    "tts_engines/tts_voxtral/README.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Added License section: plugin code MIT, engine requires a Mistral API key, API usage under Mistral's terms."
+    }
+  },
+  "flow_impact": "None — metadata/docs only; no code paths touched. Manifest/plugin_loader test subset green (123 passed).",
+  "notes": "No committed .DS_Store files existed anywhere in the repo (verified with find + git ls-files), so no purge was needed. XTTS model caches live outside the plugin folder (~/xtts-env, ~/.cache/audiobook-studio) so no model-cache dirs belong in the plugin .gitignore."
+}

@@ -315,13 +315,22 @@ def preview_plugin_zip(*, content: bytes, filename: str | None, plugins_dir: Pat
 
 def preview_github_repo(*, git_url: str, plugins_dir: Path) -> dict[str, Any]:
     """Stage a GitHub plugin repo and return manifest metadata + requirements WITHOUT installing."""
+    return _clone_and_stage(_normalize_github_repo_url(git_url), plugins_dir)
+
+
+def _clone_and_stage(git_url: str, plugins_dir: Path) -> dict[str, Any]:
+    """Clone an already-validated git URL into a ``.preview_*`` staging dir.
+
+    Post-validation body of :func:`preview_github_repo` — callers MUST pass a
+    URL that already went through :func:`_normalize_github_repo_url` (tests
+    exercise this seam with local ``file://`` fixture repos; production input
+    never bypasses validation).
+    """
     import json
     import shutil
     import uuid
     import subprocess
     from app.tts_server.plugin_loader import _validate_manifest, PluginLoadError
-
-    git_url = _normalize_github_repo_url(git_url)
 
     token = uuid.uuid4().hex
     staging_dir = plugins_dir / f".preview_{token}"

@@ -23,31 +23,24 @@ def wav_to_mp3(
     on_output: Callable[[str], None] | None = None,
     cancel_check: Callable[[], bool] | None = None,
 ) -> int:
-    """Convert WAV to MP3 using FFmpeg."""
-    def noop(*_args):
-        return None
+    """Convert WAV to MP3 using FFmpeg.
 
-    def never_cancel():
-        return False
+    Thin wrapper over :func:`studio_plugin_sdk.audio.wav_to_mp3` (the
+    mechanism): injects the app's MP3_QUALITY policy and the app-resolved
+    runner (so patches of ``app.engines.proc_utils.run_cmd_stream`` still
+    intercept the ffmpeg call). Public signature unchanged.
+    """
+    from studio_plugin_sdk import audio as sdk_audio
 
-    if on_output is None:
-        on_output = noop
-    if cancel_check is None:
-        cancel_check = never_cancel
-
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-i",
-        str(in_wav),
-        "-codec:a",
-        "libmp3lame",
-        "-q:a",
-        str(MP3_QUALITY),
-        str(out_mp3),
-    ]
     from .proc_utils import run_cmd_stream
-    return run_cmd_stream(cmd, on_output, cancel_check)
+    return sdk_audio.wav_to_mp3(
+        in_wav,
+        out_mp3,
+        quality=MP3_QUALITY,
+        on_output=on_output,
+        cancel_check=cancel_check,
+        runner=run_cmd_stream,
+    )
 
 
 def convert_to_wav(in_file: Path, out_wav: Path) -> int:

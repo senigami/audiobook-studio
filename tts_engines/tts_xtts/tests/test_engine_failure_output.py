@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.engines.voice.sdk import TTSRequest
+from studio_plugin_sdk.types import TTSRequest
 
 
 @pytest.fixture

@@ -19,37 +19,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from app.studio_plugin_sdk._import_utils import ensure_plugin_package_hierarchy as _ensure_plugin_package_hierarchy
+from studio_plugin_sdk._import_utils import ensure_plugin_package_hierarchy as _ensure_plugin_package_hierarchy
 
 logger = logging.getLogger(__name__)
 
 # Matches tts_<name> where <name> is 2–15 lowercase alphanumeric characters.
 _PLUGIN_FOLDER_RE = re.compile(r"^tts_[a-z][a-z0-9]{1,14}$")
-
-# ---------------------------------------------------------------------------
-# Register studio_plugin_sdk as a sys.modules alias so TTS Server subprocess
-# code can ``import studio_plugin_sdk`` even though the package lives under
-# ``app.studio_plugin_sdk``.  Done once at module import time (not inside a
-# function) because the loader module is always imported before any plugin
-# is loaded — there are no side-effect concerns here.
-# ---------------------------------------------------------------------------
-def _register_sdk_alias() -> None:
-    import app.studio_plugin_sdk as _sdk_pkg  # noqa: PLC0415
-    import app.studio_plugin_sdk.context as _ctx  # noqa: PLC0415
-    import app.studio_plugin_sdk.errors as _err  # noqa: PLC0415
-
-    if "studio_plugin_sdk" not in sys.modules:
-        sys.modules["studio_plugin_sdk"] = _sdk_pkg
-    if "studio_plugin_sdk.context" not in sys.modules:
-        sys.modules["studio_plugin_sdk.context"] = _ctx
-    if "studio_plugin_sdk.errors" not in sys.modules:
-        sys.modules["studio_plugin_sdk.errors"] = _err
-
-
-try:
-    _register_sdk_alias()
-except Exception as _sdk_err:  # pragma: no cover
-    logger.warning("Could not register studio_plugin_sdk alias: %s", _sdk_err)
 
 # Maximum seconds allowed for a plugin's __init__ / module load.
 _IMPORT_TIMEOUT_SECONDS = 120

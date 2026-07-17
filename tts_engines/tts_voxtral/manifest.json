@@ -61,7 +61,16 @@
   },
   "author": "Mistral AI",
   "homepage": "https://mistral.ai/news/voxtral-tts",
-  "license": "Commercial API",
+  "license": "MIT",
+  "distribution": {
+    "host": "github",
+    "base_url": "https://github.com",
+    "repo": "audiobook-studio/tts-voxtral",
+    "git_url": "https://github.com/audiobook-studio/tts-voxtral.git",
+    "topic": "audiobook-studio-tts",
+    "pin_ref": null,
+    "official": true
+  },
   "test_sample": "voice.wav",
   "test_text": "Hello, this is a verification test of the Voxtral synthesis engine.",
   "dev": {

@@ -19,15 +19,19 @@ from collections import deque
 from pathlib import Path
 from typing import Any, Optional
 
-# SDK contract types — the only app.* import allowed in plugin code.
-from app.engines.voice.sdk import TTSRequest, TTSResult, VerificationResult
-from app.engines.voice.base import StudioTTSEngine
-from app.engines.proc_utils import run_cmd_stream
+# SDK contract types — plugin code imports the SDK directly, never app.*.
+from studio_plugin_sdk import StudioTTSEngine, TTSRequest, TTSResult, VerificationResult
+from studio_plugin_sdk.proc import run_cmd_stream
 # Shared, process-wide stderr write lock (see diagnostics.py's own docstring
 # for why the lock must live in a leaf module every stderr writer imports,
 # not be redefined per-module — a separate lock per writer wouldn't
 # serialize writers against EACH OTHER, defeating the point).
 from ..core.diagnostics import emit_stderr_atomic as _emit_stderr_atomic_line
+
+# LAME VBR quality for MP3 sample output (ffmpeg -q:a). Same value as the
+# Studio host default (app/core/config.py MP3_QUALITY) — kept as a local
+# constant so plugin code never imports app.* configuration.
+_MP3_QUALITY = "2"
 
 
 def _emit_stderr_atomic(line: str) -> None:
@@ -244,7 +248,7 @@ class XttsPlugin(StudioTTSEngine):
     def synthesize(self, req: TTSRequest) -> TTSResult:
         """Run XTTS synthesis and write audio to req.output_path."""
         import time
-        from app.engines.voice.sdk import TTSTimingResult, SegmentTimingResult, TimingEvent
+        from studio_plugin_sdk import TTSTimingResult, SegmentTimingResult, TimingEvent  # noqa: PLC0415
 
         engine_activity_started_at = None
         chapter_render_started_at = None
@@ -639,7 +643,7 @@ class XttsPlugin(StudioTTSEngine):
 
     @staticmethod
     def _wav_to_mp3(in_wav: Path, out_mp3: Path) -> int:
-        """Delegate WAV to MP3 conversion to the shared audio helper."""
-        from app.engines.audio_ops import wav_to_mp3 as _conv  # noqa: PLC0415
+        """Delegate WAV to MP3 conversion to the SDK audio helper."""
+        from studio_plugin_sdk.audio import wav_to_mp3 as _conv  # noqa: PLC0415
 
-        return _conv(in_wav=in_wav, out_mp3=out_mp3)
+        return _conv(in_wav=in_wav, out_mp3=out_mp3, quality=_MP3_QUALITY)

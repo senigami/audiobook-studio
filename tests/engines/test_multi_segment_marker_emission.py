@@ -47,7 +47,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from tts_engines.tts_xtts.plugin.server.engine import relay_marker, XttsPlugin
-from app.engines.voice.sdk import TTSRequest
+from studio_plugin_sdk.types import TTSRequest
 from app.engines.watchdog import TtsServerWatchdog
 from app.orchestration.scheduler.orchestrator_helpers import OrchestratorHelpersMixin
 from app.orchestration.tasks.base import TaskContext, StudioTask, TaskResult

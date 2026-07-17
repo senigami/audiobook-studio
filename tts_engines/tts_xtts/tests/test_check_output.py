@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from app.engines.voice.sdk import TTSRequest, TTSResult
+from studio_plugin_sdk.types import TTSRequest, TTSResult
 
 
 def _make_wav(path: Path, duration_secs: float, sample_rate: int = 22050) -> None:
@@ -119,7 +119,7 @@ class TestXttsCheckOutputDurationRule:
         import json
         from pathlib import Path as _P
         from tts_engines.tts_xtts.plugin.server.engine import XttsPlugin
-        schema = json.loads((_P("tts_engines/tts_xtts/settings_schema.json")).read_text())
+        schema = json.loads((_P(__file__).resolve().parents[1] / "settings_schema.json").read_text())
         assert schema["properties"]["max_chars_per_second"]["default"] == 60.0
         engine2 = XttsPlugin()
         wav = tmp_path / "default_thresh.wav"

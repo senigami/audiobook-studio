@@ -1,0 +1,29 @@
+{
+  "at": "2026-07-17T00:00:00Z",
+  "commit": "uncommitted",
+  "task": "010 task 14 — per-plugin pyproject.toml + standalone READMEs + dev-asset check (repo-ready plugin folders, Phase D)",
+  "files": {
+    "tts_engines/tts_xtts/pyproject.toml": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "Standalone-repo packaging metadata (studio-plugin-tts-xtts 1.0.1, CPML-1.0, python>=3.11, testpaths=[tests]); studio-plugin-sdk dep commented out (not on PyPI). Verified inert in-tree: root pytest collection of tts_engines unchanged (283 tests) and single-suite run still green."
+    },
+    "tts_engines/tts_voxtral/pyproject.toml": {
+      "change": "added",
+      "contract_changed": false,
+      "summary": "Same shape (studio-plugin-tts-voxtral 1.0.0, MIT)."
+    },
+    "tts_engines/tts_xtts/README.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Rewritten to standalone-repo framing: install paths (registry / paste-URL / ZIP), resource profile (GPU ~4GB VRAM, weights downloaded on first run), CPML license note, and the import-contract boundary paragraph (plugin/studio/ = host-integration, everything else imports only studio_plugin_sdk) with an exact host_api_used module inventory."
+    },
+    "tts_engines/tts_voxtral/README.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Same rewrite for the cloud engine: install, resource profile (no GPU, network + Mistral API key, needs_setup gate), MIT license note, boundary paragraph + host_api_used inventory."
+    }
+  },
+  "flow_impact": "None — packaging metadata and docs only; no code paths touched. Root pytest collection and plugin-suite standalone runs verified unchanged.",
+  "notes": "dev/scenarios.json is NOT unused: it is served at runtime via app/api/routers/engines_test.py get_engine_scenarios (manifest dev.scenarios path), so it stays in place — deviation from task 14's move-or-delete binary, flagged deliberately. latent.pth (132K) kept in-repo per task doc. tts_engines/tts_mixed already carries \"built_in\": true, so it was left completely untouched (invariant 5)."
+}

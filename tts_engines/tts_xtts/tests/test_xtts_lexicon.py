@@ -22,7 +22,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.db.models import Job
+from xtts_test_fakes import Job
 
 # Force the xtts studio module chain to be imported in the correct order
 # by importing via the handler (which is the root of the cycle).

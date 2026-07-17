@@ -2,6 +2,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from studio_plugin_sdk.proc import coerce_subprocess_output  # noqa: F401 — re-export for app callers
+
 
 FFPROBE_DURATION_CMD = (
     "ffprobe",
@@ -12,14 +14,6 @@ FFPROBE_DURATION_CMD = (
     "-of",
     "default=noprint_wrappers=1:nokey=1",
 )
-
-
-def coerce_subprocess_output(value) -> str:
-    if isinstance(value, bytes):
-        return value.decode("utf-8", errors="replace")
-    if isinstance(value, str):
-        return value
-    return ""
 
 
 def write_subprocess_output(*, stdout=None, stderr=None) -> None:

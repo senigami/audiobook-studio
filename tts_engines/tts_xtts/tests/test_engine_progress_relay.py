@@ -88,7 +88,7 @@ class TestParseOutputRelaysToStderr:
 
     def test_start_segment_is_written_to_stderr(self, tmp_path):
         from tts_engines.tts_xtts.plugin.server.engine import XttsPlugin
-        from app.engines.voice.sdk import TTSRequest
+        from studio_plugin_sdk.types import TTSRequest
 
         plugin = XttsPlugin()
         script = [
@@ -134,7 +134,7 @@ class TestParseOutputRelaysToStderr:
         is NOT printed — this assertion would fail, confirming the test catches the bug.
         """
         from tts_engines.tts_xtts.plugin.server.engine import XttsPlugin
-        from app.engines.voice.sdk import TTSRequest
+        from studio_plugin_sdk.types import TTSRequest
 
         plugin = XttsPlugin()
         req = TTSRequest(
@@ -175,7 +175,7 @@ class TestParseOutputRelaysToStderr:
         that the raw form does NOT appear in addition (no duplication).
         """
         from tts_engines.tts_xtts.plugin.server.engine import XttsPlugin
-        from app.engines.voice.sdk import TTSRequest
+        from studio_plugin_sdk.types import TTSRequest
 
         plugin = XttsPlugin()
         script = [
@@ -222,7 +222,7 @@ class TestParseOutputRelaysToStderr:
         Post-fix: non-marker lines are forwarded regardless of task_id.
         """
         from tts_engines.tts_xtts.plugin.server.engine import XttsPlugin
-        from app.engines.voice.sdk import TTSRequest
+        from studio_plugin_sdk.types import TTSRequest
 
         plugin = XttsPlugin()
         req = TTSRequest(

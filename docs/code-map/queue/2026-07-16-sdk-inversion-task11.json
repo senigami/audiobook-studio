@@ -1,0 +1,28 @@
+{
+  "at": "2026-07-16T23:59:00Z",
+  "commit": "uncommitted",
+  "task": "Plan 010 task 11 — plugin-local conftest + local Job fakes so tts_xtts/tts_voxtral test suites run both in-tree and standalone without the repo-root conftest. Test-infrastructure only; zero runtime source change.",
+  "files": {
+    "tts_engines/tts_xtts/tests/conftest.py": {
+      "change": "added",
+      "summary": "Plugin-local conftest: env setdefaults (temp AUDIOBOOK_BASE_DIR/DB_PATH/storage dirs, APP_TEST_MODE, XTTS_WARM_WORKER_DISABLED, PLUGINS_DIR=plugin parent) — all no-ops in-tree because the root conftest sets them first. Plus a standalone-only autouse fixture (_STANDALONE gate = AUDIOBOOK_BASE_DIR unset at import) doing init_db/clear_all_jobs + healthy mocked watchdog, degrading silently if the app package is absent."
+    },
+    "tts_engines/tts_voxtral/tests/conftest.py": {
+      "change": "added",
+      "summary": "Same plugin-local conftest pattern for voxtral (no warm-worker var)."
+    },
+    "tts_engines/tts_xtts/tests/xtts_test_fakes.py": {
+      "change": "added",
+      "summary": "Local duck-typed Job dataclass mirroring app.db.models.Job fields/defaults used by plugin tests; replaces `from app.db.models import Job` in test_handler, test_force_rerender, test_jobs_extended, test_xtts_lexicon (assertions unchanged)."
+    },
+    "tts_engines/tts_voxtral/tests/voxtral_test_fakes.py": {
+      "change": "added",
+      "summary": "Same Job fake for voxtral tests (test_voxtral_lexicon, test_voxtral_segments_bake, test_voxtral_implementation x3)."
+    },
+    "tts_engines/tts_xtts/tests/test_check_output.py": {
+      "change": "modified",
+      "summary": "Portability fix: settings_schema.json read via Path(__file__).parents[1] instead of a cwd-relative repo path so the test passes standalone."
+    }
+  },
+  "flow_impact": "None at runtime. Plugin test dirs now have zero app.db.models imports (tts_mixed untouched per plan). Standalone smoke: xtts 197 passed/1 skipped, voxtral 59 passed/1 skipped with --confcutdir=<plugin>. In-tree parity: plugin gate 256 passed/2 skipped; full suite 2551 passed/3 skipped (unchanged)."
+}
