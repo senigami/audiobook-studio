@@ -11,7 +11,7 @@
     {
       "path": "frontend/src/pages/ChapterEditor/components/ScriptView.tsx",
       "change": "modified",
-      "summary": "NEW exported pure helper snapOffsetToWordBoundary(text, offset, boundary). handleSelection() now snaps range.startOffset ('start') and range.endOffset ('end') against each endpoint's own span text (via existing spanMap) before setPendingSelection. start_span_id/end_span_id unchanged (INV-SNAP-2). UX preview only; backend enforces the real guarantee. Rendering-span nested-node / showSafeText edge case intentionally not handled here (tracked separately). TWIN: backend _snap_offset_to_word_boundary in app/domain/chapters/operations.py."
+      "summary": "NEW exported pure helper snapOffsetToWordBoundary(text, offset, boundary). handleSelection() now snaps range.startOffset ('start') and range.endOffset ('end') against each endpoint's own span text (via existing spanMap) before setPendingSelection. start_span_id/end_span_id unchanged (INV-SNAP-2). UX preview only; backend enforces the real guarantee. Rendering-span nested-node / showSafeText edge case intentionally not handled here (tracked in design-docs/plans/proposals/span_resync_preservation.md under 'Related offset-fidelity gap'). TWIN: backend _snap_offset_to_word_boundary in app/domain/chapters/operations.py."
     },
     {
       "path": "tests/domain/test_chapter_range_assignment.py",

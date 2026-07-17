@@ -10,7 +10,7 @@ TWIN: the identical algorithm lives in the frontend at
 ``frontend/src/pages/ChapterEditor/components/ScriptView.tsx``
 (``snapOffsetToWordBoundary``, task 001). If either side's snapping behavior
 changes, the other must be updated in lockstep -- see INV divergence-risk note
-in ``design-docs/plans/active/span_word_boundary_snapping/01-map.md``.
+in ``design-docs/plans/active/archive/span_word_boundary_snapping/01-map.md``.
 """
 from __future__ import annotations
 
@@ -54,6 +54,12 @@ def _ordered_texts(chapter_id: str) -> list[str]:
     return [s["text_content"] for s in get_chapter_segments(chapter_id)]
 
 
+def _text_to_character(chapter_id: str) -> dict[str, str | None]:
+    """Map each segment's text_content -> its character_id, so a test can assert
+    the assignment landed on exactly the snapped span and not its neighbours."""
+    return {s["text_content"]: s["character_id"] for s in get_chapter_segments(chapter_id)}
+
+
 # --------------------------------------------------------------------------- #
 # Unit-level: the snapping helper itself (boundary cases from 01-map.md risks)
 # --------------------------------------------------------------------------- #
@@ -91,6 +97,25 @@ def test_snap_end_inside_trailing_punctuation_keeps_comma_with_word():
     assert t[5:12] == "Marcus,"
 
 
+def test_snap_selection_wholly_inside_one_word_expands_to_whole_word():
+    # A start+end pair that both land strictly inside the same word "brave"
+    # (chars 6..11 of "hello brave world") expand outward to the whole word:
+    # start snaps back to 6, end snaps forward to 11.
+    t = "hello brave world"
+    assert _snap_offset_to_word_boundary(t, 8, "start") == 6
+    assert _snap_offset_to_word_boundary(t, 9, "end") == 11
+    assert t[6:11] == "brave"
+
+
+def test_snap_out_of_range_offsets_pass_through_unchanged():
+    # INV-SNAP-2 precise contract: the algorithm does NOT clamp. An out-of-range
+    # offset (negative, or > len) is returned verbatim -- safety comes from
+    # _split_segment_at_offset's own guard treating it as a no-op split.
+    t = "hello world"
+    assert _snap_offset_to_word_boundary(t, -3, "start") == -3
+    assert _snap_offset_to_word_boundary(t, len(t) + 5, "end") == len(t) + 5
+
+
 # --------------------------------------------------------------------------- #
 # Behavior-level: observable final text after save_script_assignments (R1 bar)
 # --------------------------------------------------------------------------- #
@@ -113,6 +138,10 @@ def test_mid_word_start_offset_snaps_split_to_word_start():
     # Left remnant is the whole word prefix "hello "; assigned span is "brave world".
     assert "brave world" in texts
     assert not any(t.startswith("ave") for t in texts)
+    # The assignment must land on the snapped span itself, not the "hello " remnant.
+    by_char = _text_to_character(cid)
+    assert by_char["brave world"] == "char-1"
+    assert by_char["hello "] is None
 
 
 def test_mid_word_end_offset_snaps_split_to_word_end():

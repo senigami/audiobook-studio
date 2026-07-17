@@ -2,7 +2,7 @@ from __future__ import annotations
 import time
 import uuid
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, Literal
 
 from app.db.core import _db_lock, get_connection
 from app.db.segments import sync_chapter_segments
@@ -465,7 +465,7 @@ def _apply_range_assignment(conn, chapter_id: str, range_req: Mapping[str, Any])
         )
 
 
-def _snap_offset_to_word_boundary(text: str, offset: int, boundary: str) -> int:
+def _snap_offset_to_word_boundary(text: str, offset: int, boundary: Literal["start", "end"]) -> int:
     """Snap a character offset outward to the nearest word boundary.
 
     ``boundary`` is ``"start"`` or ``"end"``. Mirrors the identical algorithm in
@@ -476,6 +476,14 @@ def _snap_offset_to_word_boundary(text: str, offset: int, boundary: str) -> int:
     any trailing punctuation with no space, since punctuation attaches to the
     preceding word per the design doc's snapping rule). Offsets already at 0,
     at ``len(text)``, or sitting on a whitespace boundary are returned unchanged.
+
+    Whitespace is Python's ``str.isspace()``; the frontend twin uses JS ``/\\s/``.
+    The two definitions differ only at exotic codepoints (e.g. U+FEFF is JS-only,
+    U+0085 / U+001C-1F are Python-only). This backend is the authoritative
+    enforcement point and always snaps last, so any disagreement can at most
+    over-expand a selection or mis-draw the frontend preview — it can never
+    produce a mid-word split. Don't re-litigate the divergence without changing
+    the design-doc spec (which defines both classes literally).
     """
     if offset <= 0 or offset >= len(text):
         return offset

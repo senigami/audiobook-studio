@@ -1,9 +1,9 @@
 # Proposal: Preserve sub-sentence spans across source-text resync
 
 Status: **scoping note — not yet planned/built** — 2026-07-17. Produced as a scope-only
-deliverable alongside `design-docs/plans/active/span_word_boundary_snapping/` (word-boundary
-snapping, now complete). This documents a real, previously-untracked data-loss gap so it has a
-home; it proposes **no fix**. Pick it up as its own plan folder when prioritized.
+deliverable alongside `design-docs/plans/active/archive/span_word_boundary_snapping/`
+(word-boundary snapping, now complete). This documents a real, previously-untracked data-loss gap
+so it has a home; it proposes **no fix**. Pick it up as its own plan folder when prioritized.
 
 ## The gap
 
@@ -72,6 +72,25 @@ Common trigger (any manuscript edit + save). All `split_<uuid>` spans in the aff
 lose their assignment and merge back to sentence granularity; associated segment audio is
 invalidated. Mitigated only by the pre-resync warning modal — data-loss-with-warning, not
 silent.
+
+## Related offset-fidelity gap: `showSafeText` rendering path
+
+A second, smaller offset-fidelity concern belongs with this work (same "the offset a span is
+assigned at must faithfully map to the stored text" theme). In
+`frontend/src/pages/ChapterEditor/components/ScriptView.tsx`, `handleSelection` reads
+`range.startOffset`/`endOffset`, which index the **rendered** DOM text node. When the
+`showSafeText` toggle is on, the rendered node shows `sanitized_text`, while both the frontend
+snap and the backend split operate on the raw `text`/`text_content`. If `sanitized_text` differs
+in length from the raw text, a selection made in safe-text mode can map to a slightly wrong raw
+offset.
+
+This is **not a regression introduced by word-boundary snapping** — raw DOM offsets were already
+posted against `text_content` before snapping existed, and the backend re-snaps whatever it
+receives to a valid word boundary, so no mid-word split can result. The frontend snap covers the
+normal (non-safe-text) rendering path. Fully handling the safe-text path means mapping a
+sanitized-text offset back to the raw-text offset before snapping/splitting. Bundle it with the
+resync re-anchoring work above, since both are about anchoring an assignment to the correct
+position in the canonical text.
 
 ## Suggested follow-up (when prioritized)
 

@@ -37,6 +37,13 @@ import '@/pages/ChapterEditor/components/ScriptView.css';
  * `app/domain/chapters/operations.py` (`_apply_range_assignment`). The two MUST
  * stay algorithmically identical — the backend enforces the real guarantee;
  * this only keeps the popover preview and posted range in sync with it.
+ *
+ * Whitespace here is JS `/\s/`; the backend twin uses Python `str.isspace()`.
+ * The definitions differ only at exotic codepoints (U+FEFF is JS-only whitespace;
+ * U+0085 / U+001C-1F are Python-only). Because the backend snaps last and is
+ * authoritative, any disagreement can at most over-expand a selection or briefly
+ * mis-draw this preview — never a mid-word split. Don't "fix" the divergence
+ * without changing the design-doc spec, which defines both classes literally.
  */
 export function snapOffsetToWordBoundary(
   text: string,

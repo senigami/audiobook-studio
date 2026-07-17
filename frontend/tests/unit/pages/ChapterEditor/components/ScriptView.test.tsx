@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ScriptView, snapOffsetToWordBoundary } from '@/pages/ChapterEditor/components/ScriptView';
 import type { ScriptViewResponse } from '@/types';
 
-// Word-boundary snapping (Task 001, plan span_word_boundary_snapping/00-overview.md).
+// Word-boundary snapping (Task 001, plan active/archive/span_word_boundary_snapping/00-overview.md).
 // This is the frontend twin of the authoritative backend snapping in
 // app/domain/chapters/operations.py (_apply_range_assignment); the two MUST
 // implement the identical algorithm so a snapped frontend preview never

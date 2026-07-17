@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Changed] - 2026-07-17
+
+### Word-boundary snapping for sub-sentence speaker assignment
+
+- **A drag-selected sub-sentence range now snaps to whole-word boundaries** before it is assigned a speaker, so a selection that starts or ends mid-word no longer splits a word in half. The selection only ever grows outward to the enclosing word(s); trailing punctuation with no space (e.g. `Marcus,`) stays attached to its word.
+- Enforced in **two layers**: the Book-mode script view snaps the selection for an accurate popover preview/posted range, and the backend (`_apply_range_assignment`) snaps **independently and authoritatively** before splitting — so the guarantee holds even for a non-UI caller of `PUT /chapters/{id}/script-view/assignments`. Lossless; the whole-span (non-range) assignment path is unchanged. Plan archived at `design-docs/plans/active/archive/span_word_boundary_snapping/`.
+- Known remaining gaps (unbuilt, scoped in `design-docs/plans/proposals/span_resync_preservation.md`): sub-sentence spans do not survive a source-text resync, and the `showSafeText` rendering path can post slightly misaligned offsets (backend re-snapping keeps splits word-aligned regardless).
+
 ## [Changed] - 2026-07-16
 
 ### Repo-ready plugin folders: real `studio_plugin_sdk` package + standalone-liftable engines
