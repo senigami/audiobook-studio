@@ -252,6 +252,122 @@ async def api_export_chapter_sample(
     return JSONResponse({"status": "ok", "url": rel_path})
 
 
+def _resolve_project_cover(project_id: str) -> Optional[Path]:
+    """Resolve a project's stored cover image to a safe on-disk path, or None.
+
+    Mirrors the assembly router's resolution: the DB stores a virtual path like
+    ``/projects/<pid>/cover/<file>``; the real file lives under the project's
+    ``cover`` dir. Returns None when unset, out of bounds, or missing.
+    """
+    from ...db import get_project
+    from ...storage.manager import get_storage_manager
+
+    project = get_project(project_id)
+    if not project:
+        return None
+    cover_ref = project.get("cover_image_path")
+    if not cover_ref or not cover_ref.startswith(f"/projects/{project_id}/"):
+        return None
+    filename = cover_ref.split("/")[-1]
+    try:
+        cover_dir = get_storage_manager().get_project_context(project_id).cover_dir
+        cover_p = cover_dir / filename
+        cover_p.resolve().relative_to(cover_dir.resolve())
+    except (OSError, ValueError, RuntimeError):
+        return None
+    return cover_p if cover_p.exists() else None
+
+
+@router.post("/chapters/{chapter_id}/export-video")
+async def api_export_chapter_video(
+    chapter_id: str,
+    project_id: Optional[str] = None,
+    orientation: str = "square",
+    duration: int = 30,
+):
+    """Render a short, shareable MP4 pairing chapter audio with the book cover.
+
+    The visual is the project cover (bundled Studio logo when none exists). The
+    clip is length-capped and rendered locally via ffmpeg; the file is returned
+    for the user to download and share themselves (no upload anywhere).
+    """
+    from starlette.concurrency import run_in_threadpool
+    from ...engines.video_utils import (
+        generate_video_sample,
+        resolve_orientation,
+        clamp_duration,
+        FFMPEG_MISSING_RC,
+    )
+
+    # Rule 9: Early validation
+    chapter_id = config.canonical_chapter_id(chapter_id)
+    chapter = get_chapter(chapter_id)
+    if not chapter:
+        return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
+
+    if not project_id:
+        project_id = chapter.get("project_id")
+    if not project_id:
+        return JSONResponse({"status": "error", "message": "Project not found"}, status_code=404)
+
+    wav_path = config.resolve_chapter_asset_path(
+        project_id, chapter_id, "audio", filename=chapter.get("audio_file_path")
+    )
+    if not wav_path:
+        wav_path = config.resolve_chapter_asset_path(project_id, chapter_id, "audio")
+    if not wav_path:
+        return JSONResponse(
+            {"status": "error", "message": "No rendered audio for this chapter yet. Render it first."},
+            status_code=404,
+        )
+
+    cover_path = _resolve_project_cover(project_id)
+
+    from ...storage.manager import get_storage_manager
+    try:
+        ctx = get_storage_manager().get_project_context(project_id)
+        chapter_dir = ctx.get_chapter_dir(chapter_id)
+        chapter_dir.mkdir(parents=True, exist_ok=True)
+        # Orientation is part of the filename so square/portrait don't clobber.
+        out_name = f"sample_{resolve_orientation(orientation)[0]}x{resolve_orientation(orientation)[1]}.mp4"
+        output_video = chapter_dir / out_name
+    except (OSError, ValueError, RuntimeError):
+        raise HTTPException(status_code=400, detail="Invalid project or chapter id")
+
+    logs: list[str] = []
+    rc = await run_in_threadpool(
+        generate_video_sample,
+        wav_path,
+        output_video,
+        cover_path,
+        logs.append,
+        lambda: False,
+        orientation,
+        clamp_duration(duration),
+    )
+
+    if rc == FFMPEG_MISSING_RC:
+        return JSONResponse(
+            {"status": "error", "message": "Video tools (ffmpeg) are not installed on this machine."},
+            status_code=503,
+        )
+    if rc != 0 or not output_video.exists():
+        logger.error("Video export failed for chapter %s (rc=%s): %s", chapter_id, rc, "".join(logs[-5:]))
+        return JSONResponse(
+            {"status": "error", "message": "Could not create the video. Please try again."},
+            status_code=500,
+        )
+
+    # Rule 9: containment before serving
+    try:
+        resolved = output_video.resolve()
+        resolved.relative_to(get_storage_manager().projects_dir.resolve())
+    except (OSError, ValueError, RuntimeError):
+        raise HTTPException(status_code=403, detail="Video path out of bounds")
+
+    return FileResponse(resolved, media_type="video/mp4", filename=resolved.name)
+
+
 @router.get("/chapters/{chapter_id}/stream")
 def api_stream_chapter(
     chapter_id: str,

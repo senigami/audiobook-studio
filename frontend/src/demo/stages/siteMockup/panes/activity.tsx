@@ -90,6 +90,39 @@ export const ActivityPane: React.FC = () => {
 
         <Col gap={8} style={{ flex: 1 }}>
           <Label>Stats</Label>
+
+          {/* System resource strip (CPU/RAM/VRAM) */}
+          <Panel style={{ padding: '8px 10px' }}>
+            <div style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+              System
+            </div>
+            <Col gap={5}>
+              {[
+                { label: 'CPU', pct: 34, value: '34%' },
+                { label: 'RAM', pct: 58, value: '18.6/32 GB' },
+                { label: 'VRAM', pct: 71, value: '71%' },
+              ].map(row => (
+                <Row key={row.label} gap={8} style={{ alignItems: 'center' }}>
+                  <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', width: 34, flexShrink: 0 }}>{row.label}</span>
+                  <div style={{ flex: 1, height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
+                    <div style={{ width: `${row.pct}%`, height: '100%', background: row.pct >= 90 ? 'var(--error)' : row.pct >= 70 ? 'var(--warning-text-strong)' : 'var(--accent)', borderRadius: 2 }} />
+                  </div>
+                  <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-secondary)', fontFamily: 'monospace', width: 74, textAlign: 'right', flexShrink: 0 }}>{row.value}</span>
+                </Row>
+              ))}
+            </Col>
+          </Panel>
+
+          {/* Queue stats ETA rollup */}
+          <Row gap={6} style={{
+            alignItems: 'center', padding: '6px 10px', borderRadius: 'var(--radius-button)',
+            background: 'var(--accent-tint-bg)', border: '1px solid var(--accent-tint-border)',
+          }}>
+            <span style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', fontWeight: 700 }}>Queue</span>
+            <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--border)' }} />
+            <span style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', fontWeight: 700 }}>~46m remaining</span>
+          </Row>
+
           <Panel style={{ overflow: 'hidden', padding: 0 }}>
             <div style={{ padding: '5px 10px', borderBottom: '1px solid var(--border)', background: 'var(--surface-alt)', fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
               Engine calibration

@@ -212,6 +212,40 @@ export const Chip: React.FC<{
   return <span style={chipStyle}>{children}</span>;
 };
 
+/**
+ * ConceptBadge — marks a demo surface that is aspirational / not-yet-shipped in
+ * production, so the North Star demo can show ideas ahead of the real app
+ * without misrepresenting what ships today. Dashed muted pill, deliberately
+ * distinct from the solid semantic chips used for real states.
+ */
+export const ConceptBadge: React.FC<{ children?: React.ReactNode; style?: React.CSSProperties; title?: string }> = ({
+  children = 'Concept',
+  style,
+  title,
+}) => (
+  <span
+    title={title ?? 'Aspirational — not yet in the shipping app'}
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '4px',
+      fontSize: 'var(--type-micro)',
+      fontWeight: 700,
+      letterSpacing: '0.04em',
+      textTransform: 'uppercase',
+      padding: '2px 7px',
+      borderRadius: 'var(--radius-round)',
+      border: '1px dashed var(--border)',
+      background: 'transparent',
+      color: 'var(--text-muted)',
+      whiteSpace: 'nowrap',
+      ...style,
+    }}
+  >
+    {children}
+  </span>
+);
+
 /** Semantic status chip — maps a variant to design-system tint tokens. */
 export type ChipVariant = 'success' | 'warning' | 'error' | 'cloud' | 'accent' | 'neutral';
 
@@ -1007,9 +1041,9 @@ export const CHAPTERS = [
   { n: 7, title: 'Whispers at Threshold', words: 2775, status: 'Drafting' },
 ];
 
-export type BookTab = 'Book' | 'Contents' | 'Cast' | 'Publish' | 'Backups';
-export const BOOK_TABS: BookTab[] = ['Book', 'Contents', 'Cast', 'Publish', 'Backups'];
-export const BOOK_STAGE_LINKS: BookTab[] = ['Contents', 'Cast', 'Publish', 'Backups'];
+export type BookTab = 'Book' | 'Contents' | 'Cast' | 'Lexicon' | 'Publish' | 'Backups';
+export const BOOK_TABS: BookTab[] = ['Book', 'Contents', 'Cast', 'Lexicon', 'Publish', 'Backups'];
+export const BOOK_STAGE_LINKS: BookTab[] = ['Contents', 'Cast', 'Lexicon', 'Publish', 'Backups'];
 
 export type RailDest = 'Library' | 'Voices' | 'Activity' | 'Engines' | 'Integrations' | 'Settings';
 

@@ -358,7 +358,8 @@ const AddEntryForm: React.FC<{ onAdd: (entry: Omit<LexiconEntry, 'id'>) => void;
 };
 
 // ---------- Main panel component -------------------------------------------
-export const LexiconPanel: React.FC = () => {
+export const LexiconPanel: React.FC<{ variant?: 'drawer' | 'stage' }> = ({ variant = 'drawer' }) => {
+  const isStage = variant === 'stage';
   const [entries, setEntries] = useState<LexiconEntry[]>(INITIAL_ENTRIES);
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -414,8 +415,13 @@ export const LexiconPanel: React.FC = () => {
 
   return (
     <div style={{
-      width: 280, flexShrink: 0,
-      borderLeft: '1px solid var(--hairline)',
+      width: isStage ? '100%' : 280,
+      maxWidth: isStage ? 720 : undefined,
+      flexShrink: 0,
+      border: isStage ? '1px solid var(--hairline)' : undefined,
+      // Drawer mode keeps only the left divider against the workspace; stage mode uses the full border above.
+      borderLeft: isStage ? undefined : '1px solid var(--hairline)',
+      borderRadius: isStage ? 'var(--radius-card)' : undefined,
       background: 'var(--surface-alt)',
       display: 'flex', flexDirection: 'column',
       overflow: 'hidden',

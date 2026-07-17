@@ -29,6 +29,7 @@ import {
   Btn,
   ProgressBar,
   PaneHeader,
+  ConceptBadge,
 } from '../shared';
 import { VoiceProfileEditorPane } from './voiceEditor';
 import { VoicePortrait } from './voicePortrait';
@@ -592,7 +593,10 @@ const VoiceLab: React.FC<{
         </Row>
 
         {/* Phase stepper */}
-        <Row gap={0} style={{ alignItems: 'center', marginTop: 'var(--space-4)', marginBottom: 'var(--space-2)' }}>
+        <Row gap={8} style={{ alignItems: 'center', marginTop: 'var(--space-4)', marginBottom: 'var(--space-1)' }}>
+          <ConceptBadge title="The Samples→Build→Test→Ready stepper is a North Star concept — the shipping Voice Lab uses a per-variant editor" />
+        </Row>
+        <Row gap={0} style={{ alignItems: 'center', marginBottom: 'var(--space-2)' }}>
           {phaseSteps.map((step, i) => {
             const isActive = step === activeStep;
             const isPast = phaseSteps.indexOf(step) < phaseSteps.indexOf(activeStep);
@@ -1762,7 +1766,7 @@ export const VoicesPane: React.FC = () => {
                   fontFamily: 'inherit',
                 }}
               >
-                {tab === 'local' ? 'My Voices' : 'Discover'}
+                {tab === 'local' ? 'My Voices' : '🤗 Discover'}
               </button>
             ))}
           </div>

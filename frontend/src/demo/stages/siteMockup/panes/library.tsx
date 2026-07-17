@@ -53,11 +53,12 @@ const COVER_SIZES = [
 // ---------- Create Book modal ----------
 const CreateBookModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [title, setTitle] = useState('');
+  const [seriesPosition, setSeriesPosition] = useState('');
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="New Book"
+      aria-label="Create New Project"
       style={{
         position: 'fixed', inset: 0, zIndex: 200,
         background: 'var(--overlay-backdrop)',
@@ -74,7 +75,7 @@ const CreateBookModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         boxShadow: 'var(--shadow-xl)',
       }}>
         <div style={{ fontSize: 'var(--type-headline)', fontWeight: 'var(--type-weight-headline)' as unknown as number, color: 'var(--text-primary)', marginBottom: 'var(--space-3)' }}>
-          New Book
+          Create New Project
         </div>
         {/* Cover dropzone */}
         <div style={{
@@ -123,11 +124,28 @@ const CreateBookModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           />
         </div>
         {/* Series */}
-        <div style={{ marginBottom: 'var(--space-3)' }}>
+        <div style={{ marginBottom: 'var(--space-2)' }}>
           <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginBottom: 3 }}>Series</div>
           <input
             placeholder="Series name (optional)…"
             aria-label="Series name"
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              fontSize: 'var(--type-micro)', padding: '5px 8px',
+              borderRadius: 'var(--radius-button)', border: '1px solid var(--border)',
+              background: 'var(--surface-alt)', color: 'var(--text-primary)',
+              outline: 'none',
+            }}
+          />
+        </div>
+        {/* Series position */}
+        <div style={{ marginBottom: 'var(--space-3)' }}>
+          <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginBottom: 3 }}>Series position</div>
+          <input
+            value={seriesPosition}
+            onChange={e => setSeriesPosition(e.target.value)}
+            placeholder="e.g. 1"
+            aria-label="Series position"
             style={{
               width: '100%', boxSizing: 'border-box',
               fontSize: 'var(--type-micro)', padding: '5px 8px',
@@ -233,15 +251,15 @@ const LibraryEmptyState: React.FC<{ onNew: () => void }> = ({ onNew }) => (
     </div>
     <div style={{ textAlign: 'center' }}>
       <div style={{ fontSize: 'var(--type-headline)', fontWeight: 'var(--type-weight-headline)' as unknown as number, color: 'var(--text-primary)', marginBottom: 6 }}>
-        No books yet
+        No projects yet
       </div>
       <div style={{ fontSize: 'var(--type-callout)', color: 'var(--text-secondary)', maxWidth: 260, lineHeight: 1.5 }}>
-        Create your first audiobook project. Import a manuscript and start casting voices.
+        Create a project to start turning text into audio.
       </div>
     </div>
     <Btn primary onClick={onNew} style={{ gap: 6, display: 'inline-flex', alignItems: 'center' }}>
       <PlusCircle size={14} strokeWidth={2} />
-      New book
+      New Project
     </Btn>
   </div>
 );
@@ -256,6 +274,8 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
   const [deletingBook, setDeletingBook] = useState<string | null>(null);
   // Demo toggle: set to true to preview empty-state
   const [showEmpty] = useState(false);
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
   return (
     <>
@@ -273,19 +293,19 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
               color: 'var(--text-primary)',
               lineHeight: 'var(--leading-tight)',
             }}>
-              Library
+              {greeting}
             </div>
             <div style={{
               fontSize: 'var(--type-callout)',
               color: 'var(--text-secondary)',
               lineHeight: 'var(--leading-snug)',
             }}>
-              {LIBRARY_BOOKS.length} books in your library — pick up where you left off.
+              Your audiobook projects
             </div>
           </Col>
           <Btn primary onClick={() => setShowCreateModal(true)} style={{ flexShrink: 0, marginTop: 4 }}>
             <PlusCircle size={14} strokeWidth={2} style={{ marginRight: 4 }} />
-            New Book
+            New Project
           </Btn>
         </Row>
 
@@ -310,7 +330,7 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
                   title: 'The Whispering Vale',
                   author: 'E. Holloway',
                   series: 'The Vale Cycle · #1',
-                  statusLine: 'Studio · Chapter 7 rendering',
+                  statusLine: 'Studio · 6 of 7 chapters rendered',
                   pct: 64,
                   eta: '12m left',
                 },

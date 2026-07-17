@@ -9,6 +9,7 @@ import { BookmarkList } from '@/components/BookmarkList';
 import { useBookDataContext } from '@/pages/Book/BookDataContext';
 import { setLastChapter } from '@/pages/Book/lib/stages';
 import { emitToast } from '@/utils/toast';
+import { downloadBlob } from '@/utils/chapterEditorHelpers';
 import { getChapterImportError, getChapterImportFileTitle, isSupportedChapterImportFile } from '@/pages/Book/lib/chapterImport';
 import { removeBookmark, useBookBookmarks } from '@/store/bookmarks';
 import type { Chapter } from '@/types';
@@ -97,15 +98,11 @@ export function ContentsStage() {
 
   const handleExportSample = async (chapter: Chapter) => {
     try {
-      const result = await api.exportSample(chapter.id, chapter.project_id);
-      if (result.url) {
-        window.open(result.url, '_blank');
-      } else {
-        emitToast("Couldn't export sample. Please try again.");
-      }
+      const blob = await api.exportChapterVideo(chapter.id, { projectId: chapter.project_id });
+      downloadBlob(blob, `${chapter.title || 'chapter'}-sample.mp4`);
     } catch (e) {
-      console.error("Failed to export sample", e);
-      emitToast("Couldn't export sample. Please try again.");
+      console.error("Failed to export sample video", e);
+      emitToast(e instanceof Error ? e.message : "Couldn't export the video. Please try again.");
     }
   };
 

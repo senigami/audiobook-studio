@@ -70,6 +70,7 @@ import { ActivityPane } from './siteMockup/panes/activity';
 import { EnginesPane, IntegrationsPane } from './siteMockup/panes/platform';
 import { SettingsPane } from './siteMockup/panes/settings';
 import { SplashPane } from './siteMockup/panes/splash';
+import { LexiconPanel } from './siteMockup/panes/lexiconPanel';
 
 // ---------------------------------------------------------------------------
 // Queue Drawer
@@ -520,7 +521,7 @@ const TopBar: React.FC<{
               The Whispering Vale
             </span>
             <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 2 }}>
-              R.E. Hartley · The Vale Cycle #1 · 6h 12m · pred 6h 28m
+              E. Holloway · The Vale Cycle #1 · 6h 12m · pred 6h 28m
             </span>
           </div>
           <ChevronRight size={13} strokeWidth={2} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
@@ -547,7 +548,6 @@ const TopBar: React.FC<{
         aria-label="Connected"
         title="Connected"
       />
-      <span className="ns-connection-label" style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)' }}>Connected</span>
 
       <button
         className="ns-queue-button"
@@ -1070,6 +1070,19 @@ const BookWorkspacePane: React.FC<{
             {activeTab === 'Book' && <BookPane />}
             {activeTab === 'Contents' && <ContentsPane onSwitchToPublish={() => setActiveTab('Publish')} onOpenChapter={onOpenChapter} />}
             {activeTab === 'Cast' && <CastingPane />}
+            {activeTab === 'Lexicon' && (
+              <div style={{ padding: 'var(--space-4)', overflowY: 'auto' }}>
+                <div style={{ marginBottom: 'var(--space-3)' }}>
+                  <h2 style={{ fontSize: 'var(--type-title-2)', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                    Pronunciation lexicon
+                  </h2>
+                  <p style={{ fontSize: 'var(--type-callout)', color: 'var(--text-muted)', margin: '4px 0 0' }}>
+                    Book, series, and global say-as rules. Most-specific scope wins.
+                  </p>
+                </div>
+                <LexiconPanel variant="stage" />
+              </div>
+            )}
             {activeTab === 'Publish' && <PublishPane />}
             {activeTab === 'Backups' && <BackupsPane />}
           </div>
