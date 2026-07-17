@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from app.studio_plugin_sdk._import_utils import ensure_plugin_package_hierarchy as _ensure_plugin_package_hierarchy
+from studio_plugin_sdk._import_utils import ensure_plugin_package_hierarchy as _ensure_plugin_package_hierarchy
 
 logger = logging.getLogger(__name__)
 
@@ -27,29 +27,24 @@ logger = logging.getLogger(__name__)
 _PLUGIN_FOLDER_RE = re.compile(r"^tts_[a-z][a-z0-9]{1,14}$")
 
 # ---------------------------------------------------------------------------
-# Register studio_plugin_sdk as a sys.modules alias so TTS Server subprocess
-# code can ``import studio_plugin_sdk`` even though the package lives under
-# ``app.studio_plugin_sdk``.  Done once at module import time (not inside a
-# function) because the loader module is always imported before any plugin
-# is loaded — there are no side-effect concerns here.
+# Version fields added in S1.  Current supported values (one set per field).
+# A follow-up slice (S8) will flip missing→error once the plugin template
+# ships with these fields pre-populated.
 # ---------------------------------------------------------------------------
-def _register_sdk_alias() -> None:
-    import app.studio_plugin_sdk as _sdk_pkg  # noqa: PLC0415
-    import app.studio_plugin_sdk.context as _ctx  # noqa: PLC0415
-    import app.studio_plugin_sdk.errors as _err  # noqa: PLC0415
+_SUPPORTED_VERSION_FIELDS: dict[str, set[str]] = {
+    "contract_version": {"1.0"},
+    "sdk_version": {"1.0"},
+    "settings_schema_version": {"1.0"},
+    "event_envelope_version": {"1.0"},
+}
 
-    if "studio_plugin_sdk" not in sys.modules:
-        sys.modules["studio_plugin_sdk"] = _sdk_pkg
-    if "studio_plugin_sdk.context" not in sys.modules:
-        sys.modules["studio_plugin_sdk.context"] = _ctx
-    if "studio_plugin_sdk.errors" not in sys.modules:
-        sys.modules["studio_plugin_sdk.errors"] = _err
+# Regex for callable fields: "module:ClassName" or "package.module:function_name"
+_CALLABLE_RE = re.compile(r"^[a-z_][a-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$")
 
+# The only manifest contract version this loader accepts.  Every plugin
+# manifest must carry ``"studio_tts_manifest": SUPPORTED_MANIFEST_VERSION``.
+SUPPORTED_MANIFEST_VERSION = "1.0"
 
-try:
-    _register_sdk_alias()
-except Exception as _sdk_err:  # pragma: no cover
-    logger.warning("Could not register studio_plugin_sdk alias: %s", _sdk_err)
 
 # Maximum seconds allowed for a plugin's __init__ / module load.
 _IMPORT_TIMEOUT_SECONDS = 120

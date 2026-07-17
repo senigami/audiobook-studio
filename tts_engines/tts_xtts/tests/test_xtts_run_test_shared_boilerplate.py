@@ -8,7 +8,7 @@ override, default text fallback, and the "no assets found" failure path.
 
 The real tts_engines/tts_xtts/plugin/assets/ folder is a live, shared location (populated by actual
 engine usage) and must never be read or written by tests — instead we patch
-app.engines.voice.base.inspect.getfile so BaseVoiceEngine.run_test()'s plugin_dir resolution
+studio_plugin_sdk.engine.inspect.getfile so BaseVoiceEngine.run_test()'s plugin_dir resolution
 (parents[2] of the concrete engine class's file) points at an isolated tmp_path with its own fake
 <root>/plugin/server/engine.py layout, mirroring the real tts_engines/tts_xtts/plugin/server/engine.py
 directory depth.
@@ -54,7 +54,7 @@ def test_run_test_uses_first_matching_asset_in_search_order(tmp_path):
         Path(req.output_path).write_bytes(b"ok")
         return TTSResult(ok=True, output_path=req.output_path)
 
-    with patch("app.engines.voice.base.inspect.getfile", return_value=str(plugin_root / "plugin" / "server" / "engine.py")), \
+    with patch("studio_plugin_sdk.engine.inspect.getfile", return_value=str(plugin_root / "plugin" / "server" / "engine.py")), \
          patch.object(plugin, "check_env", return_value=(True, "OK")), \
          patch.object(plugin, "synthesize", side_effect=fake_synthesize):
         result = plugin.run_test()
@@ -69,7 +69,7 @@ def test_run_test_fails_when_no_assets_present(tmp_path):
     plugin_root = _make_isolated_plugin_dir(tmp_path)
     plugin = XttsPlugin()
 
-    with patch("app.engines.voice.base.inspect.getfile", return_value=str(plugin_root / "plugin" / "server" / "engine.py")), \
+    with patch("studio_plugin_sdk.engine.inspect.getfile", return_value=str(plugin_root / "plugin" / "server" / "engine.py")), \
          patch.object(plugin, "check_env", return_value=(True, "OK")):
         result = plugin.run_test()
 
@@ -95,7 +95,7 @@ def test_run_test_uses_manifest_test_text_when_present(tmp_path):
         Path(req.output_path).write_bytes(b"ok")
         return TTSResult(ok=True, output_path=req.output_path)
 
-    with patch("app.engines.voice.base.inspect.getfile", return_value=str(plugin_root / "plugin" / "server" / "engine.py")), \
+    with patch("studio_plugin_sdk.engine.inspect.getfile", return_value=str(plugin_root / "plugin" / "server" / "engine.py")), \
          patch.object(plugin, "check_env", return_value=(True, "OK")), \
          patch.object(plugin, "synthesize", side_effect=fake_synthesize):
         result = plugin.run_test()
@@ -120,7 +120,7 @@ def test_run_test_falls_back_to_default_text_without_manifest(tmp_path):
         Path(req.output_path).write_bytes(b"ok")
         return TTSResult(ok=True, output_path=req.output_path)
 
-    with patch("app.engines.voice.base.inspect.getfile", return_value=str(plugin_root / "plugin" / "server" / "engine.py")), \
+    with patch("studio_plugin_sdk.engine.inspect.getfile", return_value=str(plugin_root / "plugin" / "server" / "engine.py")), \
          patch.object(plugin, "check_env", return_value=(True, "OK")), \
          patch.object(plugin, "synthesize", side_effect=fake_synthesize):
         result = plugin.run_test()
@@ -134,7 +134,7 @@ def test_run_test_reports_check_env_failure_without_touching_assets(tmp_path):
     plugin_root = _make_isolated_plugin_dir(tmp_path)
     plugin = XttsPlugin()
 
-    with patch("app.engines.voice.base.inspect.getfile", return_value=str(plugin_root / "plugin" / "server" / "engine.py")), \
+    with patch("studio_plugin_sdk.engine.inspect.getfile", return_value=str(plugin_root / "plugin" / "server" / "engine.py")), \
          patch.object(plugin, "check_env", return_value=(False, "environment missing")), \
          patch.object(plugin, "synthesize") as mock_synthesize:
         result = plugin.run_test()
