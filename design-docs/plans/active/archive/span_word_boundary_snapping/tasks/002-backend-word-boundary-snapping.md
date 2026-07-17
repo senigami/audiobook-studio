@@ -1,6 +1,6 @@
 # Task 002 — Backend: enforce word-boundary snapping in `_apply_range_assignment`
 
-Status: pending
+Status: complete
 
 ## Goal
 
@@ -127,11 +127,11 @@ not just one.
 
 ## Steps
 
-- [ ] Add `_snap_offset_to_word_boundary` exactly as specified.
-- [ ] Call it at every point in `_apply_range_assignment` where a raw `start_offset`/`end_offset`
+- [x] Add `_snap_offset_to_word_boundary` exactly as specified.
+- [x] Call it at every point in `_apply_range_assignment` where a raw `start_offset`/`end_offset`
       is about to be compared against a span's `len(text)` or passed to
       `_split_segment_at_offset` — both branches (single-span and cross-segment).
-- [ ] Create `tests/domain/test_chapter_range_assignment.py` with, at minimum:
+- [x] Create `tests/domain/test_chapter_range_assignment.py` with, at minimum:
       - A range assignment with a mid-word `start_offset` results in the split (and thus the
         assigned span's text) starting at the word's beginning, not mid-word. Assert on the
         actual `text_content` of the resulting segment(s) after calling
@@ -153,16 +153,16 @@ mid-word split lands where it shouldn't), `git stash pop`, confirm green.
 
 ## Acceptance criteria
 
-- [ ] `_snap_offset_to_word_boundary` implemented exactly per the algorithm spec in
+- [x] `_snap_offset_to_word_boundary` implemented exactly per the algorithm spec in
       `../00-overview.md` (must match task 001's frontend version character-for-character in
       behavior, not just intent).
-- [ ] Both branches of `_apply_range_assignment` snap before use.
-- [ ] `./venv/bin/python -m pytest tests/domain/test_chapter_range_assignment.py -q` — new tests
-      green.
-- [ ] `./venv/bin/python -m pytest tests/api/test_api_chapters_script_view.py -q` — still green
+- [x] Both branches of `_apply_range_assignment` snap before use.
+- [x] `./venv/bin/python -m pytest tests/domain/test_chapter_range_assignment.py -q` — new tests
+      green (12 passed).
+- [x] `./venv/bin/python -m pytest tests/api/test_api_chapters_script_view.py -q` — still green
       (confirm no regression to existing script-view behavior).
-- [ ] Full `./venv/bin/python -m pytest -q` green.
-- [ ] `ruff check app/domain/chapters/operations.py` clean.
+- [x] Full `./venv/bin/python -m pytest -q` green.
+- [x] `ruff check app/domain/chapters/operations.py` clean.
 
 ## Dependencies
 

@@ -24,6 +24,35 @@ import { computeSpanRenderProgress, batchEngineStatus as computeBatchEngineStatu
 import { VoiceProfileSelect } from '@/pages/ChapterEditor/components/VoiceProfileSelect';
 import '@/pages/ChapterEditor/components/ScriptView.css';
 
+/**
+ * Snap a raw character offset to the nearest enclosing word boundary.
+ *
+ * A "word" is a maximal run of non-whitespace characters, so trailing
+ * punctuation with no preceding space (e.g. `Marcus,`) stays with the word.
+ * A `start` offset snaps backward and an `end` offset snaps forward, so the
+ * selection only ever grows to whole-word boundaries. Offsets at the text's
+ * own edges, or already sitting between two runs, are returned unchanged.
+ *
+ * IMPORTANT: this is the frontend twin of the authoritative backend snapping in
+ * `app/domain/chapters/operations.py` (`_apply_range_assignment`). The two MUST
+ * stay algorithmically identical — the backend enforces the real guarantee;
+ * this only keeps the popover preview and posted range in sync with it.
+ */
+export function snapOffsetToWordBoundary(
+  text: string,
+  offset: number,
+  boundary: 'start' | 'end'
+): number {
+  if (offset <= 0 || offset >= text.length) return offset;
+  const isWhitespace = (c: string) => /\s/.test(c);
+  if (isWhitespace(text[offset - 1]) || isWhitespace(text[offset])) return offset;
+  let start = offset;
+  while (start > 0 && !isWhitespace(text[start - 1])) start--;
+  let end = offset;
+  while (end < text.length && !isWhitespace(text[end])) end++;
+  return boundary === 'start' ? start : end;
+}
+
 interface ScriptViewProps {
   data: ScriptViewResponse;
   characters: Character[];
@@ -410,8 +439,16 @@ export const ScriptView: React.FC<ScriptViewProps> = ({
       return;
     }
 
-    const startOffset = range.startOffset;
-    const endOffset = range.endOffset;
+    // Snap each raw DOM offset outward to a whole-word boundary using the text
+    // of the span it belongs to. Assumes range.startContainer/endContainer are
+    // the span's own text node (true for the normal editing case). A currently
+    // *rendering* span draws per-character nodes (SegmentProgressText), so the
+    // raw offset may not map to full-span text — that pre-existing edge case is
+    // out of scope for this task and intentionally not handled here.
+    const startText = spanMap.get(startSpanId)?.text ?? '';
+    const endText = spanMap.get(endSpanId)?.text ?? '';
+    const startOffset = snapOffsetToWordBoundary(startText, range.startOffset, 'start');
+    const endOffset = snapOffsetToWordBoundary(endText, range.endOffset, 'end');
 
     setPendingSelection({
       start_span_id: startSpanId,

@@ -1,7 +1,55 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { ScriptView } from '@/pages/ChapterEditor/components/ScriptView';
+import { ScriptView, snapOffsetToWordBoundary } from '@/pages/ChapterEditor/components/ScriptView';
 import type { ScriptViewResponse } from '@/types';
+
+// Word-boundary snapping (Task 001, plan span_word_boundary_snapping/00-overview.md).
+// This is the frontend twin of the authoritative backend snapping in
+// app/domain/chapters/operations.py (_apply_range_assignment); the two MUST
+// implement the identical algorithm so a snapped frontend preview never
+// diverges from the backend split.
+describe('snapOffsetToWordBoundary', () => {
+  it('leaves an offset of 0 unchanged (span own edge)', () => {
+    expect(snapOffsetToWordBoundary('hello world', 0, 'start')).toBe(0);
+    expect(snapOffsetToWordBoundary('hello world', 0, 'end')).toBe(0);
+  });
+
+  it('leaves an offset at the full text length unchanged (span own edge)', () => {
+    const text = 'hello world';
+    expect(snapOffsetToWordBoundary(text, text.length, 'start')).toBe(text.length);
+    expect(snapOffsetToWordBoundary(text, text.length, 'end')).toBe(text.length);
+  });
+
+  it('leaves an offset already on a whitespace boundary unchanged', () => {
+    // 'foo bar' — index 3 has whitespace after (space), index 4 has whitespace before.
+    expect(snapOffsetToWordBoundary('foo bar', 3, 'end')).toBe(3);
+    expect(snapOffsetToWordBoundary('foo bar', 4, 'start')).toBe(4);
+  });
+
+  it('snaps a start offset strictly inside a word backward to the word start', () => {
+    // 'hello world' — index 2 is inside 'hello'; start snaps back to 0.
+    expect(snapOffsetToWordBoundary('hello world', 2, 'start')).toBe(0);
+    // index 8 is inside 'world' (r); start snaps back to 6.
+    expect(snapOffsetToWordBoundary('hello world', 8, 'start')).toBe(6);
+  });
+
+  it('snaps an end offset strictly inside a word forward to the word end', () => {
+    // 'hello world' — index 2 is inside 'hello'; end snaps forward to 5.
+    expect(snapOffsetToWordBoundary('hello world', 2, 'end')).toBe(5);
+    // index 8 is inside 'world'; end snaps forward to 11 (length).
+    expect(snapOffsetToWordBoundary('hello world', 8, 'end')).toBe(11);
+  });
+
+  it('treats trailing punctuation attached to a word as part of the word', () => {
+    // 'Marcus, run' — offset 6 lands between 's' and ',' (no space); the comma
+    // is part of the maximal non-whitespace run 'Marcus,'.
+    const text = 'Marcus, run';
+    // end boundary snaps forward past the comma to index 7 (right after ',').
+    expect(snapOffsetToWordBoundary(text, 6, 'end')).toBe(7);
+    // start boundary snaps back to the word start (index 0).
+    expect(snapOffsetToWordBoundary(text, 6, 'start')).toBe(0);
+  });
+});
 
 describe('ScriptView', () => {
   const mockData: ScriptViewResponse = {

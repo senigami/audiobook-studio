@@ -412,6 +412,8 @@ def _apply_range_assignment(conn, chapter_id: str, range_req: Mapping[str, Any])
         row = cursor.fetchone()
         if not row: return
         text = row["text_content"] or ""
+        start_offset = _snap_offset_to_word_boundary(text, start_offset, "start")
+        end_offset = _snap_offset_to_word_boundary(text, end_offset, "end")
 
         left_id = start_span_id
         if 0 < end_offset < len(text):
@@ -426,12 +428,14 @@ def _apply_range_assignment(conn, chapter_id: str, range_req: Mapping[str, Any])
         cursor.execute("SELECT text_content FROM chapter_segments WHERE id = ?", (end_span_id,))
         row = cursor.fetchone()
         end_text = row["text_content"] if row else ""
+        end_offset = _snap_offset_to_word_boundary(end_text, end_offset, "end")
         if 0 < end_offset < len(end_text):
             _split_segment_at_offset(conn, chapter_id, end_span_id, end_offset)
 
         cursor.execute("SELECT text_content FROM chapter_segments WHERE id = ?", (start_span_id,))
         row = cursor.fetchone()
         start_text = row["text_content"] if row else ""
+        start_offset = _snap_offset_to_word_boundary(start_text, start_offset, "start")
         target_start_id = start_span_id
         if 0 < start_offset < len(start_text):
             _, res_right_id = _split_segment_at_offset(conn, chapter_id, start_span_id, start_offset)
@@ -459,6 +463,31 @@ def _apply_range_assignment(conn, chapter_id: str, range_req: Mapping[str, Any])
             """,
             [(character_id, speaker_profile_name, sid, chapter_id) for sid in assign_ids]
         )
+
+
+def _snap_offset_to_word_boundary(text: str, offset: int, boundary: str) -> int:
+    """Snap a character offset outward to the nearest word boundary.
+
+    ``boundary`` is ``"start"`` or ``"end"``. Mirrors the identical algorithm in
+    ``frontend/src/pages/ChapterEditor/components/ScriptView.tsx``
+    (``snapOffsetToWordBoundary``) — keep both in sync if either changes.
+    A ``start`` offset landing mid-word snaps backward to the word's start; an
+    ``end`` offset landing mid-word snaps forward to the word's end (including
+    any trailing punctuation with no space, since punctuation attaches to the
+    preceding word per the design doc's snapping rule). Offsets already at 0,
+    at ``len(text)``, or sitting on a whitespace boundary are returned unchanged.
+    """
+    if offset <= 0 or offset >= len(text):
+        return offset
+    if text[offset - 1].isspace() or text[offset].isspace():
+        return offset
+    start = offset
+    while start > 0 and not text[start - 1].isspace():
+        start -= 1
+    end = offset
+    while end < len(text) and not text[end].isspace():
+        end += 1
+    return start if boundary == "start" else end
 
 
 def _split_segment_at_offset(conn, chapter_id: str, segment_id: str, offset: int) -> tuple[str, str]:
