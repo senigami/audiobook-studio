@@ -1,6 +1,6 @@
 # Task 000 — Reconcile schema overlap with chapter_editor_catalog_completion (task 005)
 
-Status: pending
+Status: done (2026-07-16, W-PERF safe-foundation PR)
 
 Risk: quality-sensitive (this is a decision/reconciliation task, not a build task — get the shape
 wrong here and two independently-executed plans silently diverge into two overlapping JSON blobs on
