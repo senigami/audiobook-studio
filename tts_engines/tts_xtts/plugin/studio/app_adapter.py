@@ -40,11 +40,6 @@ except ImportError as exc:  # pragma: no cover — host-only integration module
         "tts_xtts app_adapter requires the Studio host (app package)"
     ) from exc
 
-# Local defaults for XTTS environment
-XTTS_ENV_DIR_DEFAULT = Path.home() / "xtts-env"
-XTTS_ENV_DIR = Path(os.getenv("XTTS_ENV_DIR", str(XTTS_ENV_DIR_DEFAULT)))
-XTTS_ENV_PYTHON = Path(os.getenv("XTTS_ENV_PYTHON", str(XTTS_ENV_DIR / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))))
-XTTS_ENV_ACTIVATE = XTTS_ENV_DIR / ("Scripts/Activate.ps1" if os.name == "nt" else "bin/activate")
 
 # Upstream: app.engines.registry. Downstream: BaseVoiceEngine. Must
 # not import app.orchestration / app.api.routers / app.jobs directly.
@@ -140,52 +135,39 @@ class XttsVoiceEngine(BaseVoiceEngine):
         return XttsProcessingHooks()
 
     def describe_health(self) -> EngineHealthModel:
-        """Summarize XTTS adapter readiness without triggering side effects."""
+        """Summarize XTTS adapter readiness without triggering side effects.
 
-        # 1. Environment existence check
-        # Check for local environment in plugin folder first
-        local_env = Path(__file__).parent / ".venv"
-        local_activate = local_env / ("Scripts/Activate.ps1" if os.name == "nt" else "bin/activate")
-        local_python = local_env / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        Delegates to ``xtts_env_ready()`` (the same filesystem-only check
+        ``check_env()``/``info()`` use in the TTS Server process, see BUG 1
+        / plugin-contract.md v1.8.0) rather than checking a ``.venv`` inside
+        the plugin's own folder (never created by any provisioning path) or
+        treating ``requirements.txt`` existing as "dependencies satisfied" --
+        both were placeholder checks that never reflected real readiness.
 
-        if local_activate.exists() and local_python.exists():
-            env_exists = True
-            env_python = local_python
-            env_activate = local_activate
-            env_dir = local_env
-        else:
-            env_exists = XTTS_ENV_ACTIVATE.exists() and XTTS_ENV_PYTHON.exists()
-            env_python = XTTS_ENV_PYTHON
-            env_activate = XTTS_ENV_ACTIVATE
-            env_dir = XTTS_ENV_DIR
+        The env path constants for ``details`` are read from
+        ``core.implementation`` (the same module ``xtts_env_ready()`` itself
+        uses) rather than redefined in this file -- two independently
+        evaluated copies of the same ``os.getenv()`` reads is how a future
+        edit produces a readiness verdict from one copy and stale ``details``
+        paths from the other.
+        """
+        from ..core import implementation as xtts_impl  # noqa: PLC0415
 
-        # 2. Dependency check
-        # For now, we assume if the environment exists and we're running, it's mostly ready
-        # or it will be fixed by 'Install Deps'.
-        req_file = Path(__file__).with_name("requirements.txt")
-        deps_satisfied = req_file.exists() # placeholder for real dep check
-
-        ready = env_exists and deps_satisfied
-
+        ready, message = xtts_impl.xtts_env_ready()
         status = "ready" if ready else "needs_setup"
-        message = None
-        if not env_exists:
-            message = "XTTS environment not found. Click Install Deps to set up the local environment."
-        elif not deps_satisfied:
-            message = "XTTS environment exists but required dependencies are missing. Click Install Deps to fix."
 
         return EngineHealthModel(
             engine_id=self.manifest.engine_id,
-            available=env_exists,
+            available=ready,
             ready=ready,
             status=status,
-            message=message,
-            dependencies_satisfied=deps_satisfied,
+            message=None if ready else message,
+            dependencies_satisfied=ready,
             missing_dependencies=[],
             details={
-                "env_activate": str(env_activate),
-                "env_python": str(env_python),
-                "env_dir": str(env_dir),
+                "env_activate": str(xtts_impl.XTTS_ENV_ACTIVATE),
+                "env_python": str(xtts_impl.XTTS_ENV_PYTHON),
+                "env_dir": str(xtts_impl.XTTS_ENV_DIR),
             },
         )
 

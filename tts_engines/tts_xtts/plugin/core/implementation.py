@@ -20,6 +20,77 @@ XTTS_ENV_DIR = Path(os.getenv("XTTS_ENV_DIR", str(XTTS_ENV_DIR_DEFAULT)))
 XTTS_ENV_PYTHON = Path(os.getenv("XTTS_ENV_PYTHON", str(XTTS_ENV_DIR / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))))
 XTTS_ENV_ACTIVATE = XTTS_ENV_DIR / ("Scripts/Activate.ps1" if os.name == "nt" else "bin/activate")
 
+# Completion marker xtts_env_ready() looks for -- the PEP 503-normalized
+# ("-" -> "_") dist-info name for the `coqui-tts` package pinned in
+# requirements.txt. Kept as a named constant (rather than inlined into the
+# glob) so a test can assert it stays in sync with that pin: if the pinned
+# package is ever renamed/replaced, this marker must be updated in the same
+# change or readiness silently regresses to permanent needs_setup.
+XTTS_DIST_INFO_MARKER_PREFIX = "coqui_tts"
+
+
+def _xtts_env_site_packages_candidates(env_python: Path) -> list[Path]:
+    """Return every plausible ``site-packages`` dir for the xtts-env interpreter.
+
+    Layout differs by platform (``lib/pythonX.Y/site-packages`` on POSIX,
+    ``Lib/site-packages`` on Windows) and the exact minor version isn't known
+    up front, so this globs rather than hardcoding a path. Returns ALL
+    matches (not just the first) so a stale ``lib/pythonX.Y`` left behind by
+    a Python upgrade — re-provisioned into a new ``lib/pythonX.Z`` dir in the
+    same env root — doesn't shadow the real one and falsely report not-ready.
+
+    Assumes ``env_python`` sits inside a standard venv layout
+    (``<env_root>/bin/python`` or ``<env_root>/Scripts/python.exe``), which
+    is what ``run.sh``/``run.ps1`` always create. If ``XTTS_ENV_PYTHON`` is
+    overridden to point at some other interpreter (a system Python, a pyenv
+    shim) that isn't inside a venv-shaped directory, ``env_root`` won't
+    contain a real ``site-packages`` and this returns an empty list, causing
+    ``xtts_env_ready()`` to report not-ready even if that interpreter would
+    actually work. Use ``XTTS_ENV_ACTIVATE`` (a manual override check_env()
+    trusts unconditionally) for non-venv interpreters instead.
+    """
+    env_root = env_python.parent.parent
+    if os.name == "nt":
+        candidate = env_root / "Lib" / "site-packages"
+        return [candidate] if candidate.is_dir() else []
+    return sorted(env_root.glob("lib/python*/site-packages"))
+
+
+def xtts_env_ready() -> tuple[bool, str]:
+    """Check whether the external xtts-env has XTTS's inference deps installed.
+
+    Real inference always shells out to ``XTTS_ENV_PYTHON`` as a subprocess
+    (see ``run_xtts_inference`` below) -- this process never imports
+    ``TTS``/``torch`` itself. Readiness is therefore checked by looking for
+    the installed package on disk in that *external* env, never by importing
+    it in the current (server) process: an in-process import would silently
+    check the wrong interpreter (the app's own venv, which never receives
+    these heavy deps -- see ``run.sh``), and a subprocess import would be far
+    too slow for a check called on every ``/synthesize`` request and every
+    5-second health poll.
+
+    Looks for the ``coqui_tts-*.dist-info`` marker rather than a bare ``TTS``
+    package dir: pip populates a package's files progressively during
+    install but writes its ``dist-info`` only once the install completes, so
+    this avoids reporting "ready" mid-install (which would otherwise flap
+    ready/not-ready on the 5s heartbeat and could accept a synthesis request
+    that then fails deep in the subprocess instead of surfacing needs_setup).
+    """
+    if not XTTS_ENV_PYTHON.exists():
+        return False, (
+            f"XTTS environment not found at {XTTS_ENV_PYTHON}. "
+            "Run ./run.sh (or ./run.ps1) to provision it."
+        )
+
+    for site_packages in _xtts_env_site_packages_candidates(XTTS_ENV_PYTHON):
+        if any(site_packages.glob(f"{XTTS_DIST_INFO_MARKER_PREFIX}-*.dist-info")):
+            return True, "OK"
+
+    return False, (
+        "XTTS dependencies not found in the xtts-env. "
+        "Run ./run.sh (or ./run.ps1) to provision it."
+    )
+
 # Module-level warm worker manager (lazy singleton).
 # Replaced/cleared in tests via _reset_warm_worker() below.
 _warm_worker_manager: "Any | None" = None

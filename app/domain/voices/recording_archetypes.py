@@ -6,7 +6,7 @@ voice's tagged attributes resolve to the same archetype match on both sides.
 Loads the shared reference dataset at
 ``design-docs/reference/voice-archetypes/voice_archetypes.json`` -- the same
 file ``recordingArchetypes.ts`` was generated from -- rather than re-embedding
-the 39 records a third time. Update the JSON (and regenerate the TS const) when
+the 103 records a third time. Update the JSON (and regenerate the TS const) when
 the archetype table changes; this module and the TS suggester both read from
 that one source of truth.
 """

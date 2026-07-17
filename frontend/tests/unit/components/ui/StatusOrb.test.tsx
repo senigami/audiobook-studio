@@ -190,7 +190,7 @@ describe('StatusOrb', () => {
     const activeJob = { id: 'j1', status: 'running', progress: 0.5 } as unknown as Job
     const { container } = render(<StatusOrb chap={chap} activeJob={activeJob} doneSegments={5} totalSegments={10} />)
 
-    const arc = container.querySelector('circle[r="9.5"][stroke="var(--accent)"]')
+    const arc = container.querySelector('circle[r="9.5"][stroke="var(--action-primary)"]')
     expect(arc).toBeTruthy()
     const dashoffset = parseFloat(arc?.getAttribute('stroke-dashoffset') ?? '0')
     // r=9.5 → circumference ≈ 59.69; 50% done → dashoffset ≈ 29.85

@@ -29,10 +29,10 @@
         "enabled": false,
         "dependencies_satisfied": false,
         "missing_dependencies": ["coqui-tts", "torch"],
-        "setup_message": "Run Install Deps to install the required packages."
+        "setup_message": "Run ./run.sh (or ./run.ps1) to provision the XTTS runtime."
       },
       "dev_logs": {
-        "install": "Simulated: Installing dependencies... [OK]\nReloading plugin... [OK]",
+        "install": "Simulated: XTTS manages dependencies in an external environment (~/xtts-env); this engine has no in-app install action. Run ./run.sh (or ./run.ps1) to provision it.",
         "verify": "Simulated Error: Verification requires dependencies.",
         "test": "Simulated Error: Engine not ready."
       }

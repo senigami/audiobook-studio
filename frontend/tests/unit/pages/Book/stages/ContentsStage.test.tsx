@@ -15,7 +15,7 @@ vi.mock('@/pages/Book/BookDataContext', () => ({
 vi.mock('@/api', () => ({
   api: {
     updateChapter: vi.fn(),
-    exportSample: vi.fn(),
+    exportChapterVideo: vi.fn(),
   },
 }));
 
@@ -263,9 +263,9 @@ describe('ContentsStage publish-readiness control', () => {
     });
   });
 
-  it('shows a toast when exporting a sample fails', async () => {
+  it('shows a toast with the server error message when exporting a sample fails', async () => {
     const toastSpy = vi.spyOn(toast, 'emitToast').mockImplementation(() => undefined);
-    (api.exportSample as any).mockRejectedValue(new Error('network error'));
+    (api.exportChapterVideo as any).mockRejectedValue(new Error('network error'));
     vi.mocked(useBookDataContext).mockReturnValue({
       ...vi.mocked(useBookDataContext)(),
       chapters: [makeChapter('ch-1', 'done')],
@@ -276,13 +276,13 @@ describe('ContentsStage publish-readiness control', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Export sample' }));
 
     await waitFor(() => {
-      expect(toastSpy).toHaveBeenCalledWith("Couldn't export sample. Please try again.");
+      expect(toastSpy).toHaveBeenCalledWith('network error');
     });
   });
 
-  it('shows a toast when exporting a sample returns no url', async () => {
+  it('shows a generic toast when exporting a sample fails with a non-Error rejection', async () => {
     const toastSpy = vi.spyOn(toast, 'emitToast').mockImplementation(() => undefined);
-    (api.exportSample as any).mockResolvedValue({ url: '' });
+    (api.exportChapterVideo as any).mockRejectedValue('boom');
     vi.mocked(useBookDataContext).mockReturnValue({
       ...vi.mocked(useBookDataContext)(),
       chapters: [makeChapter('ch-1', 'done')],
@@ -293,7 +293,7 @@ describe('ContentsStage publish-readiness control', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Export sample' }));
 
     await waitFor(() => {
-      expect(toastSpy).toHaveBeenCalledWith("Couldn't export sample. Please try again.");
+      expect(toastSpy).toHaveBeenCalledWith("Couldn't export the video. Please try again.");
     });
   });
 });

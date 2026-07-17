@@ -13,6 +13,7 @@
   "app_adapter_class": "XttsVoiceEngine",
   "app_adapter_module": "interface",
   "capabilities": ["synthesis", "preview", "voice_cloning"],
+  "dependency_check": "external",
   "worker_logic": {
     "engine_handlers": {
       "xtts": "interface:xtts_dispatch_adapter"

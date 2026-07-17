@@ -38,6 +38,35 @@
 > dead-code pass re-extracts these live dependents out of the trees first (DC-1a-style), at which
 > point re-run this same grep.
 
+> **⚠ AUDIT CORRECTION (2026-07-16, PR 07 / DC-1b re-verification):** Re-checked again per the
+> dispatch task at `design-docs/plans/pr-dispatch/07-dc1b-dead-tree.md`. **Coupling has grown
+> further, not shrunk — this closes DC-1b as permanently-not-a-simple-deletion, not as
+> "temporarily blocked."** Findings (code-map symbol trace + full grep of `frontend/src`):
+> - `App.tsx:14,26` imports `ProjectViewRoute`/`ProjectDetailPage` directly, and mounts a real,
+>   rendered route at `/project/:projectId/details` (`App.tsx:282-304`) — **not** a `<Navigate>`
+>   stub as the 2026-07-01 note described. The route-level reachability excuse is fully gone.
+> - `ProjectDetailPage.tsx:25` imports `ChapterEditor` from `ChapterEditorPage.tsx` and renders it
+>   directly — so the entire `ChapterEditor/` entry point is reachable from a live, mounted route,
+>   not just via shared-symbol imports.
+> - New since 2026-07-12: `Book/BookLayout.tsx:15,263` imports and renders
+>   `components/DirectorsConsole` (`WriteTool`/`BoothTool`/`CastTool`/`ReviseTool`), a *new*
+>   subtree under `pages/ChapterEditor/components/DirectorsConsole/` that didn't exist at the last
+>   audit — i.e. the core live Book pipeline is now directly consuming a fresh chunk of the
+>   "dead" tree, not just legacy leftovers.
+> - Every file checked in both trees (`EditTab`, `PlaybackControls`, `ScriptViewFallback`,
+>   `ChapterTopBar`, `ChapterScriptToolbar`, `QueueNotice`, `CharacterSidebar`, etc.) resolves to a
+>   real importer — either `ChapterEditorPage.tsx` (live via `ProjectDetailPage.tsx`) or a live
+>   `Book/` file. **Zero files qualify as category (b) transitively-dead-only or (c) true orphan.**
+>
+> **Verdict:** DC-1b is closed as **will-not-delete** under current architecture. This is not a
+> "re-verify later" gate anymore — the tree has moved from "unreachable page + 4 shared symbols"
+> (07-01) to "unreachable page + 7+ importers" (07-12) to "directly-routed live page rendering a
+> live sub-editor that a core live component (`BookLayout`) now imports from" (07-16). Deleting
+> anything here without first detaching the `/project/:projectId/details` route and re-homing
+> `DirectorsConsole` out of `ChapterEditor/` would be a real behavior change (removing a mounted
+> route), which is out of scope for a dead-code cleanup and requires an explicit owner/architecture
+> decision, not a mechanical deletion pass. No code was changed by this audit pass.
+
 ---
 
 ## Background (verified)

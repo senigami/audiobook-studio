@@ -108,7 +108,7 @@ function setState(mode) {
             break;
         case 'needs_setup':
             currentState.status = 'needs_setup';
-            currentState.message = 'Dependencies are missing. Run Install Deps to proceed.';
+            currentState.message = 'Dependencies are missing. Run ./run.sh (or ./run.ps1) to provision the XTTS runtime.';
             badge.classList.add('badge-setup');
             badge.textContent = 'Needs Setup';
             break;

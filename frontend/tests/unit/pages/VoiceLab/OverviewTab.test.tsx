@@ -50,7 +50,8 @@ describe('OverviewTab', () => {
         };
         render(<OverviewTab voice={differentlyTagged} onSaved={vi.fn()} />);
 
-        fireEvent.click(screen.getByRole('button', { name: /Pick a voice archetype/i }));
+        // Voice already has attrs set, so the library trigger shows its narrowed label.
+        fireEvent.click(screen.getByRole('button', { name: /Pick a voice archetype|Browse the character library/i }));
         fireEvent.click(screen.getByText('Warm Storyteller'));
 
         // Warm Storyteller is class=human/gender=feminine/age=adult -- the
