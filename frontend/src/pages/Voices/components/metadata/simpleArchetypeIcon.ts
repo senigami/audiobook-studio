@@ -126,9 +126,17 @@ export function buildSimpleArchetypeIconPrompt(archetype: RecordingArchetype): s
  * under), the picker's default-portrait `<img>` lookup path
  * (`/archetype-portraits/<slug>.png`), and any future tooling — never
  * reimplement slugging elsewhere.
+ *
+ * Diacritics are folded to their ASCII base letter first (e.g. "Séance" ->
+ * "Seance") so a name like "Victorian Séance Medium" slugs to the
+ * hand-typeable `victorian-seance-medium`, not a separator-mangled
+ * `victorian-s-ance-medium` — worth getting right before any portrait files
+ * exist, since the slug becomes a filename someone has to type or match.
  */
 export function slugifyArchetypeName(name: string): string {
     return name
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
         .replace(/'/g, '')
         .replace(/[^a-z0-9]+/g, '-')

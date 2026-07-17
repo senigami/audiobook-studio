@@ -151,6 +151,12 @@ describe('slugifyArchetypeName', () => {
             expect(slug).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
         }
     });
+
+    it('folds diacritics to their ASCII base letter instead of mangling them into a separator', () => {
+        // "Victorian Séance Medium" is the one non-ASCII archetype name in the
+        // dataset — this must stay hand-typeable, not become victorian-s-ance-medium.
+        expect(slugifyArchetypeName('Victorian Séance Medium')).toBe('victorian-seance-medium');
+    });
 });
 
 describe('defaultPortraitPath', () => {

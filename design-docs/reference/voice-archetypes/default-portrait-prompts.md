@@ -726,7 +726,7 @@ For each row: feed the prompt into an image generator, save the result as `<slug
 
 ## Victorian Séance Medium
 
-- **slug (save as):** `victorian-s-ance-medium.png`
+- **slug (save as):** `victorian-seance-medium.png`
 - **prompt:**
 
   ```

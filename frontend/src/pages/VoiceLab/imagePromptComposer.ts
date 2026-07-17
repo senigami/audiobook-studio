@@ -40,6 +40,23 @@ function stripLeadingWith(s: string): string {
 }
 
 /**
+ * Fuse a base subject noun phrase with age/gender fragments. The
+ * "<base> with X, Y" fusion is only safe when the first fragment natively
+ * starts with "with" (most of the age/gender vocabulary does); fragments
+ * that don't — senior's "elderly, …", ageless's "of indeterminate …", or
+ * unknown pass-through values — would read as "with elderly" / "with of …",
+ * so they attach as appositive clauses instead.
+ */
+function joinWithFragments(base: string, frags: string[]): string {
+    if (frags.length === 0) return `${capitalize(base)}.`;
+    if (/^with\s/i.test(frags[0])) {
+        const first = stripLeadingWith(frags[0]);
+        return `${capitalize(base)} with ${[first, ...frags.slice(1)].join(', ')}.`;
+    }
+    return `${capitalize(base)}, ${frags.join(', ')}.`;
+}
+
+/**
  * Resolve age + gender into an ordered list of non-empty descriptor
  * fragments. GENDER_VISUALS['not-applicable'] and unset fields drop out
  * silently — no dangling commas or empty clauses downstream.
@@ -66,18 +83,12 @@ function classOpening(attrs: VoiceAttributes): string {
 
     if (!cls) {
         if (frags.length === 0) return '';
-        const first = stripLeadingWith(frags[0]);
-        const rest = frags.slice(1);
-        return `A subject with ${[first, ...rest].join(', ')}.`;
+        return joinWithFragments('a subject', frags);
     }
 
     switch (cls) {
         case 'human': {
-            const base = CLASS_VISUALS.human;
-            if (frags.length === 0) return `${capitalize(base)}.`;
-            const first = stripLeadingWith(frags[0]);
-            const rest = frags.slice(1);
-            return `${capitalize(base)} with ${[first, ...rest].join(', ')}.`;
+            return joinWithFragments(CLASS_VISUALS.human, frags);
         }
         case 'character': {
             const base = CLASS_VISUALS.character;
@@ -127,8 +138,12 @@ function toneSentence(attrs: VoiceAttributes): string {
 /**
  * TIMBRE sentence. Independent count-based structure from toneSentence so
  * the two don't read identically formulaic: 0 -> nothing; 1 -> a "carry"
- * clause; 2 -> a "meets … in the surface and lighting" clause; 3+ -> a
- * "meets … rounded out by …" clause folding the remainder.
+ * clause; 2 -> an "X and Y meet in the surface and lighting" clause; 3+ ->
+ * an "X and Y meet, rounded out by …" clause folding the remainder. The
+ * multi-timbre clauses use a compound subject ("X and Y meet"), which is
+ * number-agnostic — many timbre fragments are plural noun phrases
+ * ("luminous, light-catching features"), so a singular verb keyed to the
+ * first fragment ("features meets …") would misagree for half the vocab.
  */
 function timbreSentence(attrs: VoiceAttributes): string {
     const timbres = (attrs.timbre ?? []).filter(Boolean);
@@ -139,10 +154,10 @@ function timbreSentence(attrs: VoiceAttributes): string {
         return `The surface and lighting carry ${resolved[0]}.`;
     }
     if (resolved.length === 2) {
-        return `${capitalize(resolved[0])} meets ${resolved[1]} in the surface and lighting.`;
+        return `${capitalize(resolved[0])} and ${resolved[1]} meet in the surface and lighting.`;
     }
     const [first, second, ...rest] = resolved;
-    return `${capitalize(first)} meets ${second}, rounded out by ${rest.join(' and ')}.`;
+    return `${capitalize(first)} and ${second} meet, rounded out by ${rest.join(' and ')}.`;
 }
 
 /**

@@ -91,6 +91,27 @@ describe('composeImageDescription', () => {
             const result = composeImageDescription({ tone: ['calm'] });
             expect(result.startsWith('Their expression')).toBe(true);
         });
+
+        it('falls back to an appositive when the age fragment does not start with "with" (senior/ageless grammar regression)', () => {
+            // AGE_VISUALS.ageless = "of indeterminate, ageless appearance" and
+            // AGE_VISUALS.senior = "elderly, with …" — fusing those into the
+            // human "with" clause produced "with of indeterminate …" /
+            // "with elderly, …".
+            const ageless = composeImageDescription({ class: 'human', age: 'ageless' });
+            expect(ageless).toBe('A human subject, of indeterminate, ageless appearance.');
+            expect(ageless).not.toContain('with of');
+
+            const senior = composeImageDescription({ class: 'human', age: 'senior', gender: 'feminine' });
+            expect(senior.startsWith('A human subject, elderly,')).toBe(true);
+            expect(senior).not.toContain('with elderly');
+
+            const noClass = composeImageDescription({ age: 'ageless' });
+            expect(noClass).toBe('A subject, of indeterminate, ageless appearance.');
+
+            // The common ages still use the human "with" fusion shape.
+            const adult = composeImageDescription({ class: 'human', age: 'adult' });
+            expect(adult).toBe('A human subject with the settled features of an adult in their prime.');
+        });
     });
 
     describe('TONE count changes sentence structure (mad-lib property)', () => {
@@ -150,16 +171,25 @@ describe('composeImageDescription', () => {
             expect(result).toContain(`The surface and lighting carry ${TIMBRE_VISUALS.smooth}.`);
         });
 
-        it('2 timbres -> a "meets … in the surface and lighting" clause', () => {
+        it('2 timbres -> an "X and Y meet in the surface and lighting" clause', () => {
             const result = composeImageDescription({ ...base, timbre: ['smooth', 'velvety'] });
             const smoothCap = TIMBRE_VISUALS.smooth.charAt(0).toUpperCase() + TIMBRE_VISUALS.smooth.slice(1);
-            expect(result).toContain(`${smoothCap} meets ${TIMBRE_VISUALS.velvety} in the surface and lighting.`);
+            expect(result).toContain(`${smoothCap} and ${TIMBRE_VISUALS.velvety} meet in the surface and lighting.`);
         });
 
-        it('3+ timbres -> a "meets …, rounded out by …" clause', () => {
+        it('3+ timbres -> an "X and Y meet, rounded out by …" clause', () => {
             const result = composeImageDescription({ ...base, timbre: ['smooth', 'velvety', 'silky'] });
             expect(result).toContain('rounded out by');
             expect(result).not.toContain('in the surface and lighting.');
+        });
+
+        it('multi-timbre clause stays grammatical when the leading fragment is a plural noun phrase', () => {
+            // TIMBRE_VISUALS.bright = "luminous, light-catching features" — a
+            // singular verb keyed to the first fragment ("features meets …")
+            // would misagree; the compound-subject structure never does.
+            const result = composeImageDescription({ ...base, timbre: ['bright', 'smooth'] });
+            expect(result).toContain(`and ${TIMBRE_VISUALS.smooth} meet in the surface and lighting.`);
+            expect(result).not.toMatch(/\bmeets\b/);
         });
 
         it("timbre's structural wording differs from tone's structural wording at each count", () => {
