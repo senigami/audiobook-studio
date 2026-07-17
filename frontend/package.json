@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
+    "export:archetype-portraits": "vite-node scripts/exportArchetypePortraitPrompts.ts",
     "dev:demo": "vite --config vite.demo.config.ts",
     "build:demo": "vite build --config vite.demo.config.ts",
     "sync:showcase-tokens": "node ../scripts/sync_showcase_tokens.mjs"

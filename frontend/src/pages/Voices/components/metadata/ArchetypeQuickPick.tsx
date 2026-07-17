@@ -1,22 +1,30 @@
 /**
  * ArchetypeQuickPick.tsx — owner-requested (2026-07-16)
  *
- * A character LIBRARY over the 39-row voice archetype table
- * (`recordingArchetypes.ts`, statically bundled from
- * design-docs/reference/voice-archetypes/voice_archetypes.json).
- * Picking an archetype fills class/gender/age/tone/timbre/pace at once,
- * instead of tagging each field by hand — a fast starting point for a new
- * voice's metadata (`OverviewTab.tsx`) or a Record-mode session
- * (`ArchetypePicker.tsx`), used in both places per the owner's explicit ask.
+ * A character LIBRARY over the voice archetype table (`recordingArchetypes.ts`,
+ * statically bundled from design-docs/reference/voice-archetypes/voice_archetypes.json
+ * — 103 as of 2026-07-17, grows over time). Picking an archetype fills
+ * class/gender/age/tone/timbre/pace at once, instead of tagging each field by
+ * hand — a fast starting point for a new voice's metadata (`OverviewTab.tsx`)
+ * or a Record-mode session (`ArchetypePicker.tsx`), used in both places per
+ * the owner's explicit ask.
  *
  * Owner follow-up (2026-07-16): "a library of characters that could even be
  * filtered by selections made in the styles to narrow things down." When the
- * caller passes its current `attrs`, the library ranks all 39 archetypes by
+ * caller passes its current `attrs`, the library ranks every archetype by
  * the shared `scoreArchetype()` (recordingPromptSuggester.ts — the single
  * scoring implementation) and shows best matches first with a match badge.
  * Narrowing only reorders/sections — every archetype stays reachable under
  * "All characters". With no selections it's the plain alphabetical,
  * searchable list.
+ *
+ * Owner follow-up (2026-07-17): each row shows a default portrait thumbnail
+ * (`simpleArchetypeIcon.ts`'s `defaultPortraitPath()`, looked up by slug at
+ * `frontend/public/archetype-portraits/<slug>.png`) — silently absent until
+ * that file actually exists, so nothing breaks before images are generated.
+ * A "copy visual prompt" convenience button is also available, but gated
+ * behind dev mode (`useDevMode()`) only: the simple prompt is a tool for
+ * pre-generating those defaults, not something end users should see or need.
  *
  * Owner-confirmed behavior: picking an archetype OVERWRITES all six fields
  * unconditionally, even if some are already set — a deliberate reset, not a
@@ -24,11 +32,14 @@
  * caller's fields are the only source of truth (so re-rendering with a
  * different `value` — e.g. after a manual edit — doesn't fight the picker).
  */
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { ChevronDown, Search } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
+import { ChevronDown, ClipboardCopy, Search } from 'lucide-react';
 import type { VoiceAttributes } from '@/types';
 import { recordingArchetypes, type RecordingArchetype } from './recordingArchetypes';
 import { scoreArchetype, CLOSE_THRESHOLD, EXACT_THRESHOLD } from './recordingPromptSuggester';
+import { buildSimpleArchetypeIconPrompt, defaultPortraitPath } from './simpleArchetypeIcon';
+import { emitToast } from '@/utils/toast';
+import { useDevMode } from '@/utils/devMode';
 
 export type ArchetypeQuickPickFields = Pick<VoiceAttributes, 'class' | 'gender' | 'age' | 'tone' | 'timbre' | 'pace'>;
 
@@ -109,60 +120,130 @@ function sectionHeaderStyle(): CSSProperties {
     };
 }
 
+/** Square default-portrait thumbnail — silently occupies no space until (and unless) the file exists. */
+function PortraitThumbnail({ archetype }: { archetype: RecordingArchetype }) {
+    const [failed, setFailed] = useState(false);
+    if (failed) return null;
+    return (
+        <img
+            src={defaultPortraitPath(archetype)}
+            alt=""
+            aria-hidden="true"
+            onError={() => setFailed(true)}
+            style={{
+                width: '28px',
+                height: '28px',
+                flexShrink: 0,
+                alignSelf: 'center',
+                borderRadius: '6px',
+                objectFit: 'cover',
+                background: 'var(--surface-alt)',
+            }}
+        />
+    );
+}
+
 function LibraryRow({ entry, onSelect }: { entry: RankedArchetype; onSelect: (a: RecordingArchetype) => void }) {
     const { archetype, tier } = entry;
+    const devMode = useDevMode();
+    const [copyError, setCopyError] = useState<string | null>(null);
+
+    const handleCopyPrompt = async (e: MouseEvent) => {
+        e.stopPropagation();
+        setCopyError(null);
+        try {
+            await navigator.clipboard.writeText(buildSimpleArchetypeIconPrompt(archetype));
+            emitToast('Visual prompt copied');
+        } catch {
+            setCopyError('Could not copy — clipboard unavailable.');
+        }
+    };
+
     return (
-        <button
-            type="button"
-            role="option"
-            aria-selected={false}
-            onClick={() => onSelect(archetype)}
-            className="dropdown-item-hover"
-            style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'stretch',
-                gap: '2px',
-                background: 'transparent',
-                textAlign: 'left',
-            }}
-        >
-            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                <span style={{ color: 'var(--text-primary)', fontSize: '0.9rem', fontWeight: 500 }}>
-                    {archetype.archetype_name}
-                </span>
-                {tier && (
-                    <span
-                        style={{
-                            flexShrink: 0,
-                            fontSize: '0.65rem',
-                            fontWeight: 600,
-                            padding: '2px 8px',
-                            borderRadius: '999px',
-                            background: 'var(--accent-glow)',
-                            color: 'var(--action-primary)',
-                            whiteSpace: 'nowrap',
-                        }}
-                    >
-                        {TIER_LABEL[tier]}
-                    </span>
-                )}
-            </span>
-            <span
+        <div style={{ display: 'flex', alignItems: 'stretch', width: '100%', gap: '4px' }}>
+            <button
+                type="button"
+                role="option"
+                aria-selected={false}
+                onClick={() => onSelect(archetype)}
+                className="dropdown-item-hover"
                 style={{
-                    color: 'var(--text-muted)',
-                    fontSize: '0.75rem',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
+                    flex: 1,
+                    minWidth: 0,
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    background: 'transparent',
+                    textAlign: 'left',
                 }}
             >
-                {archetype.class} · {archetype.dominant_tones} · {archetype.dominant_timbres}
-            </span>
-        </button>
+                <PortraitThumbnail archetype={archetype} />
+                <span style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0, flex: 1 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                        <span style={{ color: 'var(--text-primary)', fontSize: '0.9rem', fontWeight: 500 }}>
+                            {archetype.archetype_name}
+                        </span>
+                        {tier && (
+                            <span
+                                style={{
+                                    flexShrink: 0,
+                                    fontSize: '0.65rem',
+                                    fontWeight: 600,
+                                    padding: '2px 8px',
+                                    borderRadius: '999px',
+                                    background: 'var(--accent-glow)',
+                                    color: 'var(--action-primary)',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                {TIER_LABEL[tier]}
+                            </span>
+                        )}
+                    </span>
+                    <span
+                        style={{
+                            color: 'var(--text-muted)',
+                            fontSize: '0.75rem',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                        }}
+                    >
+                        {archetype.class} · {archetype.dominant_tones} · {archetype.dominant_timbres}
+                    </span>
+                </span>
+            </button>
+            {devMode && (
+                <button
+                    type="button"
+                    onClick={handleCopyPrompt}
+                    className="dropdown-item-hover"
+                    aria-label={`Copy visual prompt for ${archetype.archetype_name}`}
+                    title="Copy visual prompt (dev mode)"
+                    style={{
+                        flexShrink: 0,
+                        alignSelf: 'center',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '6px',
+                        borderRadius: '6px',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                    }}
+                >
+                    <ClipboardCopy size={14} style={{ color: 'var(--text-muted)' }} />
+                </button>
+            )}
+            {copyError && (
+                <span role="alert" style={{ fontSize: '0.65rem', color: 'var(--danger, #d33)', flexShrink: 0, alignSelf: 'center' }}>
+                    {copyError}
+                </span>
+            )}
+        </div>
     );
 }
 

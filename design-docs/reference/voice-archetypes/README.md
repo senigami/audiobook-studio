@@ -4,6 +4,10 @@ Source data for the voice archetype → appearance → recording-prompt mapping.
 
 Expanded from 39 to 103 archetypes on 2026-07-17 (owner request: broader, genuinely distinct character-type coverage — gothic/horror, sci-fi, mythic creatures, folklore, historical/period, pulp/superhero, adventure archetypes, post-apocalyptic/cyberpunk — not job-title reskins). The 64 new rows are original content authored directly in JSON/CSV/TS; they have no corresponding rows in the source xlsx.
 
+## Default portrait images (picker thumbnails)
+
+`default-portrait-prompts.md` (generated, not hand-edited) lists every archetype's exact filename slug and a flat/generic image-generation prompt — distinct from the rich `appearance_description` above, which drives the detailed prompt a user copies to generate their own portrait. Regenerate it with `npm run export:archetype-portraits` (from `frontend/`) any time an archetype is added; the sheet always reflects the full current list. See `frontend/public/archetype-portraits/README.md` for what to do with the generated sheet (feed each prompt to an image generator, save as `<slug>.png`, drop it in that folder — the character-library picker picks it up automatically).
+
 - `voice_archetypes.csv` — flat table, header row matches the xlsx column names verbatim.
 - `voice_archetypes.json` — `{ title, description, source_taxonomy, headers_original, headers_key, archetypes: [...] }`. Each `archetypes[]` entry uses snake_case keys (`archetype_name`, `class`, `gender`, `age`, `dominant_tones`, `dominant_timbres`, `pace`, `appearance_creature_type`, `appearance_description`, `recording_prompt`, `direction_note`).
 

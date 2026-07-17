@@ -1,0 +1,50 @@
+{
+  "at": "2026-07-17T12:00:00Z",
+  "commit": "uncommitted",
+  "task": "Owner follow-up after the 39->103 character library expansion, across two clarifying messages: (1) mad-lib upgrade for the composed (non-archetype-match) image prompt; (2) a durable, reusable system for pre-generating default character-portrait thumbnails the owner produces externally and drops into the app, distinct from the existing user-facing detailed-prompt flow. Two engineer agents built the mad-lib composer and the initial simple-prompt/UI wiring in parallel; the orchestrator then corrected the UI wiring twice against a genuine live race (both it and the background agent were editing the same file across turns) before the owner's second message clarified the final intended design, which the orchestrator then implemented directly.",
+  "files": {
+    "frontend/src/pages/VoiceLab/imagePromptComposer.ts": {
+      "change": "added",
+      "summary": "composeImageDescription(attrs) -- mad-lib composed image-description builder for the non-archetype-match path. Reuses iconPromptFragments.ts's vocab unchanged; sentence STRUCTURE varies by class and by tone/timbre count (0/1/2/3+), mirroring cueComposer.ts's philosophy instead of a flat semicolon-join."
+    },
+    "frontend/src/pages/VoiceLab/iconPrompt.ts": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "buildIconPrompt()'s composed branch now calls composeImageDescription(attrs) instead of joining visualFragmentsForAttributes() output with semicolons; strips one trailing period before re-appending the frame's own. Archetype-match branch unchanged."
+    },
+    "frontend/src/pages/Voices/components/metadata/simpleArchetypeIcon.ts": {
+      "change": "added",
+      "contract_changed": true,
+      "summary": "Canonical, reusable per-archetype DEFAULT-PORTRAIT prompt + filename-slug generator: buildSimpleArchetypeIconPrompt(archetype), slugifyArchetypeName(name), defaultPortraitPath(archetype). Deliberately flat/generic and never reads appearance_description, so every user who never customizes a voice sees the SAME pre-generated default image per archetype -- distinct from buildIconPrompt()'s detailed, non-generic prompt (already user-facing) which produces a different image per person who generates from it. Final design settled after two rounds of correction: the simple prompt is NOT primarily an end-user-facing feature -- its main consumers are the dev-only export script and the picker's image-lookup-by-slug -- but a copy button does exist for convenience, gated behind dev mode only (see ArchetypeQuickPick.tsx)."
+    },
+    "frontend/scripts/exportArchetypePortraitPrompts.ts": {
+      "change": "added",
+      "summary": "New reusable, checked-in dev script (run via `npm run export:archetype-portraits`, vite-node). Regenerates design-docs/reference/voice-archetypes/default-portrait-prompts.md: every archetype's exact slug + default prompt, imported directly from simpleArchetypeIcon.ts/recordingArchetypes.ts (single source of truth, no duplicated logic). Rerunning after future archetype additions keeps new characters styled consistently with the rest automatically."
+    },
+    "frontend/package.json": {
+      "change": "modified",
+      "summary": "Added the `export:archetype-portraits` npm script, following the existing `sync:showcase-tokens` one-off-dev-script convention."
+    },
+    "frontend/public/archetype-portraits/README.md": {
+      "change": "added",
+      "summary": "New asset folder (sibling to the existing demo-covers/demo-voice-raster/demo-voice-silhouettes convention already in frontend/public/) -- documents the <slug>.png convention for owner-generated default portraits."
+    },
+    "frontend/src/pages/Voices/components/metadata/ArchetypeQuickPick.tsx": {
+      "change": "modified",
+      "contract_changed": true,
+      "summary": "Each LibraryRow gained: (a) a PortraitThumbnail <img> looked up at defaultPortraitPath(archetype) that silently renders nothing on 404 (onError -> setFailed) -- so dropping a PNG into frontend/public/archetype-portraits/ makes it appear with zero further code changes, and nothing breaks before any images exist; (b) a 'copy visual prompt' button gated behind useDevMode() (existing localStorage-backed dev-mode hook, same pattern already used in ChapterScriptToolbar.tsx etc.) -- never shown to ordinary users."
+    },
+    "design-docs/reference/voice-archetypes/default-portrait-prompts.md": {
+      "change": "added",
+      "summary": "Generated artifact (via the new export script) -- 103 rows of slug + default prompt, checked into git so it's reviewable and versioned alongside the source data it was generated from."
+    },
+    "design-docs/reference/voice-archetypes/README.md": {
+      "change": "modified",
+      "summary": "New section pointing to default-portrait-prompts.md and the regeneration command."
+    },
+    "frontend/tests/unit/pages/VoiceLab/imagePromptComposer.test.ts": { "change": "added", "summary": "20 tests: determinism, structural variation by tone/timbre count, graceful degradation, no anatomy-denylist leakage." },
+    "frontend/tests/unit/voices/simpleArchetypeIcon.test.ts": { "change": "modified", "summary": "Added slugifyArchetypeName (uniqueness across all 103, punctuation handling) and defaultPortraitPath coverage on top of the existing prompt-generation tests." },
+    "frontend/tests/unit/voices/archetypeQuickPick.test.tsx": { "change": "modified", "summary": "Copy-button tests now explicitly set dev mode on/off (setDevModeEnabled) and assert the button is absent by default -- was unconditionally visible before the owner's clarification." }
+  },
+  "flow_impact": "Composed-path image-prompt generation is the only change to the existing user-facing flow (buildIconPrompt -> composeImageDescription), single call site, no API/schema change. ArchetypeQuickPick gained a dev-only affordance and a purely additive, fail-safe image slot -- no behavior change for end users until portrait files actually exist. New standalone dev workflow: npm run export:archetype-portraits -> owner generates images externally -> drop into frontend/public/archetype-portraits/ -> picker picks them up with no code change. Full gate green: 528/528 targeted frontend tests, tsc clean, eslint clean (3 pre-existing warnings, unrelated to this change)."
+}

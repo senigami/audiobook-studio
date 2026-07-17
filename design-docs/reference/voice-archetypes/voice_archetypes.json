@@ -1436,14 +1436,14 @@
       "class": "human",
       "gender": "feminine",
       "age": "young-adult",
-      "dominant_tones": "intense, confident, deadpan",
-      "dominant_timbres": "crisp, low, robotic",
+      "dominant_tones": "serious, intense, confident",
+      "dominant_timbres": "crisp, low, clear",
       "pace": "brisk",
-      "appearance_creature_type": "Human — augmented mercenary",
-      "appearance_description": "A thin scar bisects one eyebrow above a matte-black ocular implant that whirs faintly as it focuses, undercut hair slicked back, the collar of a reinforced jacket turned up against neon runoff.",
-      "recording_prompt": "\"You're paying for silence, not sympathy, so don't waste my time explaining why you deserve it. I've done worse for less and slept fine after. Give me the address and half up front, and we'll call this conversation over. Ask twice and the price doubles — that's the only warning you get.\"",
-      "sample_text": "You're paying for silence, not sympathy, so let's skip the part where you explain yourself.",
-      "direction_note": "Keep the delivery clipped and unbothered, like every line is already bored with the answer."
+      "appearance_creature_type": "Human — cyberpunk blade-for-hire",
+      "appearance_description": "A calm, disciplined face with a thin scar tracing one brow, dark hair drawn back tight and severe, a single matte-black optic implant catching neon runoff at the edge of a high, stiff collar.",
+      "recording_prompt": "\"I don't take a job I can't finish clean, and I don't finish a job dirty just because it'd be easier. That's not a rule someone gave me — it's the only thing left standing after everything else got replaced with better parts. You want fast and sloppy, hire someone else. You want it done right, you've got until sundown to decide.\"",
+      "sample_text": "I don't do sloppy work, and I don't do excuses — you get one clean job, done exactly the way I said it would be.",
+      "direction_note": "Keep the delivery level and exact, like every word has already been decided and none of them are up for negotiation."
     },
     {
       "archetype_name": "Underground Resistance Fighter",

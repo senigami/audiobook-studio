@@ -7,7 +7,7 @@
  * library UI.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import {
     ArchetypeQuickPick,
     rankArchetypes,
@@ -20,6 +20,8 @@ import {
     CLOSE_THRESHOLD,
     EXACT_THRESHOLD,
 } from '@/pages/Voices/components/metadata/recordingPromptSuggester';
+import { buildSimpleArchetypeIconPrompt } from '@/pages/Voices/components/metadata/simpleArchetypeIcon';
+import { setDevModeEnabled } from '@/utils/devMode';
 import type { VoiceAttributes } from '@/types';
 
 /** Attrs copied verbatim from the 'Warm Storyteller' archetype — a guaranteed exact match. */
@@ -138,5 +140,59 @@ describe('<ArchetypeQuickPick /> library UI', () => {
             timbre: ['crisp', 'clear', 'resonant'],
             pace: 'brisk',
         });
+    });
+
+    it('does not render a "copy visual prompt" button for ordinary users (dev mode off)', () => {
+        setDevModeEnabled(false);
+        render(<ArchetypeQuickPick onPick={() => {}} />);
+        openLibrary();
+        fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'newsreader' } });
+
+        expect(screen.queryByRole('button', { name: /copy visual prompt/i })).not.toBeInTheDocument();
+    });
+
+    it('in dev mode, renders a "copy visual prompt" button per row that copies buildSimpleArchetypeIconPrompt output without selecting the row', async () => {
+        setDevModeEnabled(true);
+        const writeText = vi.fn().mockResolvedValue(undefined);
+        Object.assign(navigator, { clipboard: { writeText } });
+        const onPick = vi.fn();
+
+        render(<ArchetypeQuickPick onPick={onPick} />);
+        openLibrary();
+        fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'newsreader' } });
+
+        const copyButton = screen.getByRole('button', { name: /copy visual prompt for stern newsreader/i });
+        fireEvent.click(copyButton);
+
+        const archetype = recordingArchetypes.find(a => a.archetype_name === 'Stern Newsreader')!;
+        await waitFor(() => {
+            expect(writeText).toHaveBeenCalledWith(buildSimpleArchetypeIconPrompt(archetype));
+        });
+        // Clicking the copy button must not also pick the archetype.
+        expect(onPick).not.toHaveBeenCalled();
+        setDevModeEnabled(false);
+    });
+
+    it('in dev mode, surfaces a visible error when the visual-prompt clipboard write is rejected', async () => {
+        setDevModeEnabled(true);
+        const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+        Object.assign(navigator, { clipboard: { writeText } });
+
+        render(<ArchetypeQuickPick onPick={() => {}} />);
+        openLibrary();
+        fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'newsreader' } });
+
+        fireEvent.click(screen.getByRole('button', { name: /copy visual prompt for stern newsreader/i }));
+
+        await waitFor(() => {
+            expect(screen.getByRole('alert')).toHaveTextContent(/could not copy/i);
+        });
+        setDevModeEnabled(false);
+    });
+
+    it('renders no visible portrait thumbnail when the default image is missing (jsdom has no real images, so onerror never fires — this asserts the row still renders cleanly without one)', () => {
+        render(<ArchetypeQuickPick onPick={() => {}} />);
+        openLibrary();
+        expect(screen.getAllByRole('option').length).toBeGreaterThan(0);
     });
 });

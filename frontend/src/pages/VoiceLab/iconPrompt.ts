@@ -20,6 +20,7 @@
 import type { VoiceMetadata, VoiceAttributes } from '@/types';
 import { findMatchingArchetype } from '@/pages/Voices/components/metadata/recordingPromptSuggester';
 import { visualFragmentsForAttributes } from '@/pages/VoiceLab/iconPromptFragments';
+import { composeImageDescription } from '@/pages/VoiceLab/imagePromptComposer';
 
 /** Shared square-portrait framing (prefix) and constraints (suffix). */
 const FRAME_PREFIX = 'Square 1:1 head-and-shoulders portrait, flat illustration, uniform style';
@@ -82,9 +83,16 @@ export function buildIconPrompt(meta: VoiceMetadata | null | undefined): string 
         return `${FRAME_PREFIX}: ${archetype.appearance_description}${extraSentence}${tailSentence} ${FRAME_SUFFIX}`;
     }
 
-    // Composed path: manual attributes rendered as visual descriptors.
-    const { subject, details } = visualFragmentsForAttributes(attrs);
-    const visual = [subject, ...details].filter(Boolean).join('; ');
+    // Composed path (mad-lib upgrade, 2026-07-17): manual attributes rendered
+    // as a varied prose description whose sentence STRUCTURE changes with
+    // the selections (composeImageDescription / imagePromptComposer.ts) —
+    // matching cueComposer.ts's mad-lib quality bar for the text recording
+    // cue, instead of a flat fragment join.
+    // Strip the single trailing period composeImageDescription always ends
+    // with (internal sentence-ending periods stay intact) — the assembly
+    // below adds its own final period, same contract as the old fragment
+    // join which never carried a trailing period of its own.
+    const visual = composeImageDescription(attrs).replace(/\.$/, '');
 
     if (!visual && !tail) {
         // Untagged / name-only fallback
