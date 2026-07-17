@@ -26,7 +26,8 @@ import sys
 from pathlib import Path
 
 import pytest
-import torch
+
+torch = pytest.importorskip("torch")  # xtts-env only; skip in the light CI env
 
 
 class _EvilLatent:

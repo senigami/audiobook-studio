@@ -38,8 +38,9 @@ import sys
 import wave
 from unittest.mock import MagicMock, patch
 
-import numpy as np
 import pytest
+
+np = pytest.importorskip("numpy")  # xtts-env only; skip in the light CI env
 
 
 def _make_script(save_dir, speaker_wav):
