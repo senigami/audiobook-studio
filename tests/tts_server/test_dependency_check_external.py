@@ -65,8 +65,14 @@ class TestDependencyCheckFieldValidation:
         manifest = _minimal_manifest(dependency_check="external")
         _validate_manifest(manifest=manifest, folder_name="tts_demo")
 
-    def test_unknown_dependency_check_value_rejected(self):
+    def test_explicit_bundled_dependency_check_is_valid(self):
+        """Writing the default explicitly is accepted as a no-op, matching
+        the spec's naming of "bundled" as the absent-field default."""
         manifest = _minimal_manifest(dependency_check="bundled")
+        _validate_manifest(manifest=manifest, folder_name="tts_demo")
+
+    def test_unknown_dependency_check_value_rejected(self):
+        manifest = _minimal_manifest(dependency_check="mostly-external")
         with pytest.raises(PluginLoadError, match="dependency_check"):
             _validate_manifest(manifest=manifest, folder_name="tts_demo")
 

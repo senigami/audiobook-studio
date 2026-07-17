@@ -20,6 +20,14 @@ XTTS_ENV_DIR = Path(os.getenv("XTTS_ENV_DIR", str(XTTS_ENV_DIR_DEFAULT)))
 XTTS_ENV_PYTHON = Path(os.getenv("XTTS_ENV_PYTHON", str(XTTS_ENV_DIR / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))))
 XTTS_ENV_ACTIVATE = XTTS_ENV_DIR / ("Scripts/Activate.ps1" if os.name == "nt" else "bin/activate")
 
+# Completion marker xtts_env_ready() looks for -- the PEP 503-normalized
+# ("-" -> "_") dist-info name for the `coqui-tts` package pinned in
+# requirements.txt. Kept as a named constant (rather than inlined into the
+# glob) so a test can assert it stays in sync with that pin: if the pinned
+# package is ever renamed/replaced, this marker must be updated in the same
+# change or readiness silently regresses to permanent needs_setup.
+XTTS_DIST_INFO_MARKER_PREFIX = "coqui_tts"
+
 
 def _xtts_env_site_packages_candidates(env_python: Path) -> list[Path]:
     """Return every plausible ``site-packages`` dir for the xtts-env interpreter.
@@ -30,6 +38,16 @@ def _xtts_env_site_packages_candidates(env_python: Path) -> list[Path]:
     matches (not just the first) so a stale ``lib/pythonX.Y`` left behind by
     a Python upgrade — re-provisioned into a new ``lib/pythonX.Z`` dir in the
     same env root — doesn't shadow the real one and falsely report not-ready.
+
+    Assumes ``env_python`` sits inside a standard venv layout
+    (``<env_root>/bin/python`` or ``<env_root>/Scripts/python.exe``), which
+    is what ``run.sh``/``run.ps1`` always create. If ``XTTS_ENV_PYTHON`` is
+    overridden to point at some other interpreter (a system Python, a pyenv
+    shim) that isn't inside a venv-shaped directory, ``env_root`` won't
+    contain a real ``site-packages`` and this returns an empty list, causing
+    ``xtts_env_ready()`` to report not-ready even if that interpreter would
+    actually work. Use ``XTTS_ENV_ACTIVATE`` (a manual override check_env()
+    trusts unconditionally) for non-venv interpreters instead.
     """
     env_root = env_python.parent.parent
     if os.name == "nt":
@@ -65,7 +83,7 @@ def xtts_env_ready() -> tuple[bool, str]:
         )
 
     for site_packages in _xtts_env_site_packages_candidates(XTTS_ENV_PYTHON):
-        if any(site_packages.glob("coqui_tts-*.dist-info")):
+        if any(site_packages.glob(f"{XTTS_DIST_INFO_MARKER_PREFIX}-*.dist-info")):
             return True, "OK"
 
     return False, (

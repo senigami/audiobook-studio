@@ -104,12 +104,11 @@ class XttsPlugin(StudioTTSEngine):
         env_activate = os.environ.get("XTTS_ENV_ACTIVATE", "")
         env_python = os.environ.get("XTTS_ENV_PYTHON", "")
 
-        # Check if TTS is installed in current environment
-        try:
-            import TTS # noqa: F401
-            has_tts = True
-        except ImportError:
-            has_tts = False
+        # Check the external xtts-env on disk (see check_env()/xtts_env_ready())
+        # rather than importing TTS in this process, which would check the
+        # wrong interpreter -- the same bug check_env() was fixed to avoid.
+        from ..core.implementation import xtts_env_ready  # noqa: PLC0415
+        has_tts, _ = xtts_env_ready()
 
         return {
             "env_activate": env_activate,

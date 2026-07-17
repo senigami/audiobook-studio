@@ -12,7 +12,9 @@ live — permanently gating the engine as ``needs_setup``.
 from __future__ import annotations
 
 import importlib
+import re
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -97,6 +99,25 @@ def test_env_ready_true_when_external_env_has_tts_installed(implementation_modul
     ok, msg = implementation_module.xtts_env_ready()
     assert ok is True
     assert msg == "OK"
+
+
+def test_dist_info_marker_stays_coupled_to_requirements_txt_pin(implementation_module):
+    """xtts_env_ready() hardcodes the dist-info marker prefix independently
+    of requirements.txt's actual pin -- if the pin is ever renamed (fork
+    switch, upstream remerge) without updating the marker, readiness would
+    silently regress to permanent needs_setup, the exact bug class this fix
+    addresses, with no red test to catch it. This test is that red test:
+    it parses requirements.txt for the coqui-tts pin and asserts its
+    PEP 503-normalized name matches XTTS_DIST_INFO_MARKER_PREFIX.
+    """
+    plugin_root = Path(implementation_module.__file__).parents[2]
+    requirements_text = (plugin_root / "requirements.txt").read_text(encoding="utf-8")
+
+    match = re.search(r"^coqui-tts==", requirements_text, re.MULTILINE)
+    assert match is not None, "expected a pinned 'coqui-tts==' line in requirements.txt"
+
+    normalized_name = "coqui-tts".replace("-", "_")
+    assert implementation_module.XTTS_DIST_INFO_MARKER_PREFIX == normalized_name
 
 
 def test_env_ready_true_finds_marker_despite_stale_python_version_dir(implementation_module, tmp_path):

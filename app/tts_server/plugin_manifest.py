@@ -230,9 +230,9 @@ def _validate_manifest(*, manifest: dict[str, Any], folder_name: str) -> None:
     # environment and never expected in the server venv — that plugin's own
     # check_env() must independently verify the external env instead.
     dependency_check = manifest.get("dependency_check")
-    if dependency_check is not None and dependency_check != "external":
+    if dependency_check is not None and dependency_check not in ("external", "bundled"):
         raise PluginLoadError(
-            f"dependency_check must be 'external' when present in {folder_name}, "
+            f"dependency_check must be 'external' or 'bundled' when present in {folder_name}, "
             f"got {dependency_check!r}"
         )
 

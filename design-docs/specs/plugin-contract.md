@@ -310,11 +310,12 @@ No field inside the block is required, and the block itself remains optional
 
 ### Optional `dependency_check` field
 
-A manifest MAY carry a top-level `dependency_check` string, currently only
-valid value `"external"`. Absent means the default ("bundled") behavior: the
-TTS Server checks every package in the plugin's `requirements.txt` against
-its OWN interpreter (the server venv) via `importlib.metadata`, and gates the
-engine `needs_setup` if any are missing.
+A manifest MAY carry a top-level `dependency_check` string, valid values
+`"external"` or `"bundled"`. Absent is equivalent to `"bundled"` (writing it
+explicitly is accepted but has no effect): the TTS Server checks every
+package in the plugin's `requirements.txt` against its OWN interpreter (the
+server venv) via `importlib.metadata`, and gates the engine `needs_setup` if
+any are missing.
 
 `"external"` opts a plugin out of that check entirely — for an engine whose
 heavy inference deps are installed into a separate, plugin-managed
