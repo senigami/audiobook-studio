@@ -1005,6 +1005,16 @@ class TestContractVersionGate:
             f"tts_mixed engine_id must remain 'mixed'; got {data.get('engine_id')!r}"
         )
 
+    def test_tts_mixed_discovered_and_loaded(self):
+        """Real discovery loads the built-in mixed engine with no load error (Group 4)."""
+        import os
+        from pathlib import Path as _Path
+        loaded = discover_plugins(_Path(os.environ["PLUGINS_DIR"]))
+        mixed = [p for p in loaded if p.engine_id == "mixed"]
+        assert len(mixed) == 1, "discover_plugins should load exactly one 'mixed' engine"
+        assert mixed[0].load_error is None, f"mixed failed to load: {mixed[0].load_error}"
+        assert mixed[0].manifest.get("built_in") is True
+
 
 # ---------------------------------------------------------------------------
 # S10 — callable-signature audit tests

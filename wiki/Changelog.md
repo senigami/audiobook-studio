@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Changed] - 2026-07-16
 
+### Repo-ready plugin folders: real `studio_plugin_sdk` package + standalone-liftable engines
+
+- **SDK dependency inversion.** `studio_plugin_sdk/` is now a real top-level package (`SDK_VERSION = "1.0"`, typed); `app/engines/voice/sdk.py`, `app/engines/voice/base.py` (StudioTTSEngine), and `app/studio_plugin_sdk/*` are thin re-export shims, and the loader's `sys.modules` alias hack is gone. Exactly one module object exists per SDK class. Zero behavior change to synthesis, queueing, or engine loading.
+- **`tts_engines/tts_xtts` and `tts_engines/tts_voxtral` are liftable as-is** into standalone GitHub repos: each carries its own LICENSE, `.gitignore`, `pyproject.toml`, standalone README, a validated `distribution` block in `manifest.json`, and a plugin-local test suite runnable outside the monorepo. Import-cleanliness gates enforce the boundary (no `app.*` in engine code; function-body host imports only in `plugin/studio/`).
+- **Install/trust flow pinned by tests.** New offline E2E tests (local git fixtures, no network) cover the paste-a-GitHub-URL install path end to end: preview/confirm/cancel staging, symlink and manifest rejection, strict URL validation (`https://github.com/<owner>/<repo>` only), and the registry-membership trust model. Spec: `install-distribution.md` 1.3.0.
+- **`tts_mixed` documented as the built-in exception** (in-tree only, may import Studio internals, cannot be uninstalled — the API returns 403). Spec: `engines-and-plugins.md` 1.2.0; plugin manifest contract: `plugin-contract.md` 1.7.0.
+- The legacy GitHub-distribution plan doc is now formally marked SUPERSEDED by `design-docs/plans/active/final_release/05_standalone_plugin_repos.md`.
+
+## [Changed] - 2026-07-16
+
 ### Backend namespace rename: `plugins/` → `tts_engines/`
 
 - The engine-plugin directory has been renamed repo-wide from `plugins/` to `tts_engines/` (`tts_engines/tts_xtts`, `tts_engines/tts_voxtral`, `tts_engines/tts_mixed`). This is a pure rename with no behavior change: every importer, `PLUGINS_DIR`'s default path, `conftest.py`, `pytest.ini` test collection, the TTS Server's plugin discovery root, and manifest-path assumptions were updated in the same change. See `design-docs/specs/code-organization.md` 1.4.0.
