@@ -1,0 +1,23 @@
+# Standalone-repo packaging metadata for the Voxtral plugin.
+# In-tree this file is inert: the Studio repo's root pytest.ini governs test
+# collection, and the plugin is loaded from the folder by the TTS Server's
+# plugin loader, never pip-installed.
+
+[project]
+name = "studio-plugin-tts-voxtral"
+version = "1.0.0"
+description = "Voxtral (Mistral AI) cloud TTS engine plugin for Audiobook Studio"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+# Runtime deps for the TTS Server env live in requirements.txt.
+dependencies = []
+
+# The SDK is not on PyPI yet. On extraction day, uncomment and pin:
+# dependencies = ["studio-plugin-sdk>=1.0"]
+
+[project.urls]
+Homepage = "https://github.com/audiobook-studio/tts-voxtral"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
