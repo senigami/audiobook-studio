@@ -103,7 +103,7 @@ export function StartupGate({ loading, error, hasInitialData, startupMessage, st
                 height: 18,
                 borderRadius: '50%',
                 border: '2px solid var(--accent-glow)',
-                borderTopColor: 'var(--accent)',
+                borderTopColor: 'var(--action-primary)',
               }}
             />
             {showStartupCopy && (

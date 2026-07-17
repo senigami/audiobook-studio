@@ -462,9 +462,9 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
                                     ? (isPlaying ? "Pause Sample" : "Play Sample")
                                     : "Generate Sample"}
                             style={{
-                                background: isPlaying ? 'var(--accent)' : 'var(--surface)',
+                                background: isPlaying ? 'var(--action-primary)' : 'var(--surface)',
                                 color: playIconColor,
-                                border: isPlaying ? '1px solid var(--accent)' : '1px solid var(--border)',
+                                border: isPlaying ? '1px solid var(--action-primary)' : '1px solid var(--border)',
                                 boxShadow: isPlaying ? '0 0 0 3px var(--accent-glow)' : 'var(--shadow-sm)'
                             }}
                         >
@@ -600,7 +600,7 @@ export const VariantEditor: React.FC<VariantEditorProps> = ({
             {isTesting && (
                 <div style={{ padding: showControlsInline ? '0 0 1.25rem' : '1.25rem' }}>
                     <div className="variant-editor__progress-track">
-                        <div style={{ height: '100%', width: `${testStatus?.progress || 0}%`, background: 'var(--accent)', transition: 'width 0.3s ease' }} />
+                        <div style={{ height: '100%', width: `${testStatus?.progress || 0}%`, background: 'var(--action-primary)', transition: 'width 0.3s ease' }} />
                     </div>
                 </div>
             )}

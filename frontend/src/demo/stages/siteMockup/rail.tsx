@@ -147,8 +147,8 @@ export const Rail: React.FC<{
                       cursor: 'pointer',
                       border: 0,
                       background: isActive ? 'var(--accent-tint-bg)' : 'transparent',
-                      borderLeft: isActive && !collapsed ? '3px solid var(--accent)' : '3px solid transparent',
-                      color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                      borderLeft: isActive && !collapsed ? '3px solid var(--action-primary)' : '3px solid transparent',
+                      color: isActive ? 'var(--action-primary)' : 'var(--text-secondary)',
                       fontSize: 'var(--type-caption)',
                       fontWeight: isActive ? 700 : 400,
                       fontFamily: 'inherit',
@@ -169,7 +169,7 @@ export const Rail: React.FC<{
                         style={{
                           fontSize: 'var(--type-micro)',
                           fontWeight: 700,
-                          background: 'var(--accent)',
+                          background: 'var(--action-primary)',
                           color: 'var(--text-on-accent)',
                           borderRadius: 10,
                           padding: '1px 5px',
@@ -258,11 +258,11 @@ export const Rail: React.FC<{
                                   cursor: 'pointer',
                                   border: 0,
                                   background: isStageActive ? 'var(--accent-tint-bg)' : 'transparent',
-                                  color: isStageActive ? 'var(--accent)' : 'var(--text-secondary)',
+                                  color: isStageActive ? 'var(--action-primary)' : 'var(--text-secondary)',
                                   fontSize: 'var(--type-micro)',
                                   fontWeight: isStageActive ? 700 : 400,
                                   fontFamily: 'inherit',
-                                  borderLeft: isStageActive ? '2px solid var(--accent)' : '2px solid transparent',
+                                  borderLeft: isStageActive ? '2px solid var(--action-primary)' : '2px solid transparent',
                                   marginLeft: -1,
                                   textAlign: 'left',
                                 }}
@@ -291,7 +291,7 @@ export const Rail: React.FC<{
                                         style={{
                                           padding: '4px 6px 3px 14px',
                                           background: isChActive ? 'var(--accent-tint-bg)' : 'transparent',
-                                          borderLeft: isChActive ? '2px solid var(--accent)' : '2px solid transparent',
+                                          borderLeft: isChActive ? '2px solid var(--action-primary)' : '2px solid transparent',
                                           cursor: 'pointer',
                                           position: 'relative',
                                           marginLeft: -1,
@@ -306,7 +306,7 @@ export const Rail: React.FC<{
                                           />
                                           <span style={{
                                             fontSize: 'var(--type-micro)',
-                                            color: isChActive ? 'var(--accent)' : 'var(--text-secondary)',
+                                            color: isChActive ? 'var(--action-primary)' : 'var(--text-secondary)',
                                             fontWeight: isChActive ? 700 : 400,
                                             flex: 1,
                                             whiteSpace: 'nowrap',

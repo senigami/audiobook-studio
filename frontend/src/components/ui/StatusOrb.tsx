@@ -231,7 +231,7 @@ export const StatusOrb: React.FC<StatusOrbProps> = ({
             <circle
               cx="12" cy="12" r={arcRadius}
               fill="none"
-              stroke="var(--accent)"
+              stroke="var(--action-primary)"
               strokeWidth="2"
               strokeDasharray={progressCircumference}
               strokeDashoffset={strokeDashoffset}

@@ -15,8 +15,8 @@ export function chip(
     required?: boolean,
     category?: PillCategory
 ): React.ReactNode {
-    const activeBorder = category ? `var(--pill-${category}-border)` : 'var(--accent)';
-    const activeBg = category ? `var(--pill-${category}-bg)` : 'var(--accent)';
+    const activeBorder = category ? `var(--pill-${category}-border)` : 'var(--action-primary)';
+    const activeBg = category ? `var(--pill-${category}-bg)` : 'var(--action-primary)';
     const activeColor = category ? `var(--pill-${category}-text)` : 'var(--text-on-accent)';
     return (
         <button

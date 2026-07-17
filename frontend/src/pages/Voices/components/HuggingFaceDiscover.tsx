@@ -394,7 +394,7 @@ export const HuggingFaceDiscover: React.FC<{ onImported?: () => void }> = ({ onI
                 href="https://huggingface.co/models?other=audiobook-studio-voice"
                 target="_blank"
                 rel="noreferrer"
-                style={{ fontSize: '0.75rem', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                style={{ fontSize: '0.75rem', color: 'var(--action-primary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
             >
                 Browse the full audiobook-studio-voice tag on huggingface.co <ExternalLink size={11} />
             </a>

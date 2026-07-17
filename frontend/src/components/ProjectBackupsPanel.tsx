@@ -104,7 +104,7 @@ export const ProjectBackupsPanel: React.FC<ProjectBackupsPanelProps> = ({
       {showCreate && (
         <div className="animate-in" style={{
           background: 'var(--as-info-tint)',
-          border: '1px solid var(--accent)',
+          border: '1px solid var(--action-primary)',
           borderRadius: '12px',
           padding: '1.5rem',
           display: 'flex',
@@ -147,7 +147,7 @@ export const ProjectBackupsPanel: React.FC<ProjectBackupsPanelProps> = ({
                 transition: 'opacity 0.2s'
             }}
           >
-            <div style={{ color: includeAudio ? 'var(--accent)' : 'var(--border)' }}>
+            <div style={{ color: includeAudio ? 'var(--action-primary)' : 'var(--border)' }}>
                 {includeAudio ? <CheckSquare size={20} /> : <Square size={20} />}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -216,7 +216,7 @@ export const ProjectBackupsPanel: React.FC<ProjectBackupsPanelProps> = ({
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '6px',
-                            color: 'var(--accent)',
+                            color: 'var(--action-primary)',
                             fontSize: '0.85rem',
                             fontWeight: 600,
                             padding: '0.5rem'

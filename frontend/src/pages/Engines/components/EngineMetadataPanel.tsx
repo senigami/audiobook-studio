@@ -36,7 +36,7 @@ export const EngineMetadataPanel: React.FC<{
     }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.9rem' }}>
         <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'flex-start' }}>
-          <div style={{ width: 30, height: 30, borderRadius: '10px', display: 'grid', placeItems: 'center', color: 'var(--accent)', background: 'var(--accent-tint-bg)', flexShrink: 0 }}>
+          <div style={{ width: 30, height: 30, borderRadius: '10px', display: 'grid', placeItems: 'center', color: 'var(--action-primary)', background: 'var(--accent-tint-bg)', flexShrink: 0 }}>
             <KeyRound size={16} />
           </div>
           <div>
@@ -60,7 +60,7 @@ export const EngineMetadataPanel: React.FC<{
           href={helpUrl}
           target="_blank"
           rel="noreferrer"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', color: 'var(--accent)', textDecoration: 'none', fontWeight: 900, fontSize: '0.83rem', marginBottom: '0.9rem', padding: '0.55rem 0.75rem', borderRadius: '999px', border: '1px solid var(--accent-focus-ring)', background: 'var(--surface-glass-white)', boxShadow: 'var(--shadow-sm)' }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', color: 'var(--action-primary)', textDecoration: 'none', fontWeight: 900, fontSize: '0.83rem', marginBottom: '0.9rem', padding: '0.55rem 0.75rem', borderRadius: '999px', border: '1px solid var(--accent-focus-ring)', background: 'var(--surface-glass-white)', boxShadow: 'var(--shadow-sm)' }}
         >
           <CircleHelp size={14} />
           {helpLabel}

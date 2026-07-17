@@ -285,8 +285,8 @@ export const EnginesPane: React.FC = () => {
                 onClick={() => setInstallMethod('upload')}
                 style={{
                   padding: '4px 10px', fontSize: 'var(--type-micro)', fontWeight: 600, border: 'none', background: 'none',
-                  color: installMethod === 'upload' ? 'var(--accent)' : 'var(--text-muted)',
-                  borderBottom: installMethod === 'upload' ? '2px solid var(--accent)' : 'none',
+                  color: installMethod === 'upload' ? 'var(--action-primary)' : 'var(--text-muted)',
+                  borderBottom: installMethod === 'upload' ? '2px solid var(--action-primary)' : 'none',
                   cursor: 'pointer'
                 }}
               >
@@ -297,8 +297,8 @@ export const EnginesPane: React.FC = () => {
                 onClick={() => setInstallMethod('url')}
                 style={{
                   padding: '4px 10px', fontSize: 'var(--type-micro)', fontWeight: 600, border: 'none', background: 'none',
-                  color: installMethod === 'url' ? 'var(--accent)' : 'var(--text-muted)',
-                  borderBottom: installMethod === 'url' ? '2px solid var(--accent)' : 'none',
+                  color: installMethod === 'url' ? 'var(--action-primary)' : 'var(--text-muted)',
+                  borderBottom: installMethod === 'url' ? '2px solid var(--action-primary)' : 'none',
                   cursor: 'pointer'
                 }}
               >
@@ -323,7 +323,7 @@ export const EnginesPane: React.FC = () => {
                   }
                 }}
                 style={{
-                  border: `2px dashed ${dragOver ? 'var(--accent)' : 'var(--border)'}`,
+                  border: `2px dashed ${dragOver ? 'var(--action-primary)' : 'var(--border)'}`,
                   borderRadius: 'var(--radius-card)',
                   padding: '24px 16px',
                   textAlign: 'center',
@@ -419,7 +419,7 @@ export const EnginesPane: React.FC = () => {
           <Col gap={12} style={{ alignItems: 'center', padding: '20px 0' }}>
             <div style={{
               width: 32, height: 32, borderRadius: '50%', border: '3px solid var(--border)',
-              borderTopColor: 'var(--accent)', animation: 'spin 1s linear infinite'
+              borderTopColor: 'var(--action-primary)', animation: 'spin 1s linear infinite'
             }} />
             <style>{`
               @keyframes spin {
@@ -548,7 +548,7 @@ export const EnginesPane: React.FC = () => {
             fontSize: 'var(--type-caption)',
             border: 'none',
             cursor: 'pointer',
-            background: activeTab === 'engines' ? 'var(--accent)' : 'transparent',
+            background: activeTab === 'engines' ? 'var(--action-primary)' : 'transparent',
             color: activeTab === 'engines' ? 'var(--text-on-accent)' : 'var(--text-muted)',
           }}
         >
@@ -565,7 +565,7 @@ export const EnginesPane: React.FC = () => {
             fontSize: 'var(--type-caption)',
             border: 'none',
             cursor: 'pointer',
-            background: activeTab === 'module-settings' ? 'var(--accent)' : 'transparent',
+            background: activeTab === 'module-settings' ? 'var(--action-primary)' : 'transparent',
             color: activeTab === 'module-settings' ? 'var(--text-on-accent)' : 'var(--text-muted)',
           }}
         >
@@ -650,8 +650,8 @@ export const EnginesPane: React.FC = () => {
                 >
                   {xttsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </button>
-                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent-tint-bg)', border: '1px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Puzzle size={14} color="var(--accent)" />
+                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent-tint-bg)', border: '1px solid var(--action-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Puzzle size={14} color="var(--action-primary)" />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)' }}>XTTS Local Synthesis</div>
@@ -716,7 +716,7 @@ export const EnginesPane: React.FC = () => {
                           cursor: 'pointer', fontSize: 'var(--type-micro)', padding: '2px 7px', borderRadius: 'var(--radius-round)',
                           border: `1px solid ${sanitizeToggles[i] ? 'var(--accent-tint-border)' : 'var(--border)'}`,
                           background: sanitizeToggles[i] ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-                          color: sanitizeToggles[i] ? 'var(--accent)' : 'var(--text-muted)',
+                          color: sanitizeToggles[i] ? 'var(--action-primary)' : 'var(--text-muted)',
                           display: 'inline-flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap',
                         }}
                       >
@@ -821,7 +821,7 @@ export const EnginesPane: React.FC = () => {
                       background: 'transparent',
                       padding: 0,
                       fontFamily: 'inherit',
-                      color: 'var(--accent)',
+                      color: 'var(--action-primary)',
                       cursor: 'pointer',
                       textDecoration: 'underline',
                     }}
@@ -883,7 +883,7 @@ export const EnginesPane: React.FC = () => {
                         </button>
                         <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{voxtralTestPlaying ? `0:0${Math.floor(voxtralTestProgress / 25)}` : '0:00'} / 0:04</span>
                         <div style={{ flex: 1, height: 2, background: 'var(--border)', borderRadius: 2, minWidth: 30 }}>
-                          <div style={{ width: `${voxtralTestProgress}%`, height: '100%', background: 'var(--accent)', borderRadius: 2 }} />
+                          <div style={{ width: `${voxtralTestProgress}%`, height: '100%', background: 'var(--action-primary)', borderRadius: 2 }} />
                         </div>
                         <Volume2 size={12} color="var(--text-muted)" />
                       </Row>
@@ -959,7 +959,7 @@ export const EnginesPane: React.FC = () => {
           <Card style={{ borderRadius: 'var(--radius-card)', padding: '8px 12px' }}>
             <Row gap={10} style={{ alignItems: 'center' }}>
               <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent-tint-bg)', border: '1px solid var(--accent-tint-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Puzzle size={14} color="var(--accent)" />
+                <Puzzle size={14} color="var(--action-primary)" />
               </div>
               <div style={{ flex: 1 }}>
                 <Row gap={6} style={{ alignItems: 'center' }}>
@@ -989,7 +989,7 @@ export const EnginesPane: React.FC = () => {
           <Card key={plugin.id} style={{ borderRadius: 'var(--radius-card)', padding: '8px 12px' }}>
             <Row gap={10} style={{ alignItems: 'center' }}>
               <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent-tint-bg)', border: '1px solid var(--accent-tint-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Puzzle size={14} color="var(--accent)" />
+                <Puzzle size={14} color="var(--action-primary)" />
               </div>
               <div style={{ flex: 1 }}>
                 <Row gap={6} style={{ alignItems: 'center' }}>
@@ -1032,7 +1032,7 @@ export const EnginesPane: React.FC = () => {
                 style={{
                   borderRadius: 'var(--radius-card)', padding: '10px 12px',
                   cursor: 'pointer',
-                  border: isSelected ? '1px solid var(--accent)' : '1px solid var(--border)',
+                  border: isSelected ? '1px solid var(--action-primary)' : '1px solid var(--border)',
                   background: isSelected ? 'var(--accent-tint-bg)' : 'var(--surface)',
                   transition: 'all 0.15s ease',
                 }}
@@ -1044,7 +1044,7 @@ export const EnginesPane: React.FC = () => {
                     border: '1px solid var(--border)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                   }}>
-                    <Puzzle size={14} color={isSelected ? 'var(--accent)' : 'var(--text-secondary)'} />
+                    <Puzzle size={14} color={isSelected ? 'var(--action-primary)' : 'var(--text-secondary)'} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -1096,7 +1096,7 @@ export const EnginesPane: React.FC = () => {
                     href={selectedPlugin.githubUrl}
                     target="_blank"
                     rel="noreferrer"
-                    style={{ color: 'var(--accent)', textDecoration: 'underline', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}
+                    style={{ color: 'var(--action-primary)', textDecoration: 'underline', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}
                   >
                     GitHub Link
                   </a>
@@ -1176,7 +1176,7 @@ export const EnginesPane: React.FC = () => {
                       cursor: 'pointer', fontSize: 'var(--type-micro)', padding: '2px 7px', borderRadius: 'var(--radius-round)',
                       border: `1px solid ${sanitizeToggles[i] ? 'var(--accent-tint-border)' : 'var(--border)'}`,
                       background: sanitizeToggles[i] ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-                      color: sanitizeToggles[i] ? 'var(--accent)' : 'var(--text-muted)',
+                      color: sanitizeToggles[i] ? 'var(--action-primary)' : 'var(--text-muted)',
                       display: 'inline-flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap',
                     }}
                   >
@@ -1238,7 +1238,7 @@ const ApiConfigRow: React.FC<{ label: string; children: React.ReactNode }> = ({ 
 const ApiEndpointRow: React.FC<{ method: string; path: string; desc: string }> = ({ method, path, desc }) => {
   const methodColor =
     method === 'GET' ? 'var(--success-text)' :
-    method === 'POST' ? 'var(--accent)' :
+    method === 'POST' ? 'var(--action-primary)' :
     'var(--warning-text)';
   return (
     <div style={{
@@ -1419,13 +1419,13 @@ export const IntegrationsPane: React.FC = () => {
         </div>
         <Row className="ns-platform-grid" gap={8} style={{ alignItems: 'stretch' }}>
           <Card style={{ flex: 1, padding: '8px 10px', borderRadius: 'var(--radius-card)' }}>
-            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--accent)', marginBottom: 4 }}>Queued synthesis</div>
+            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--action-primary)', marginBottom: 4 }}>Queued synthesis</div>
             <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', lineHeight: 1.55 }}>
               Send text to <code>POST /api/v1/tts/synthesize</code> to render audio with any installed engine — Studio handles chunking, engine routing, and job tracking, and you poll the job for the result.
             </div>
           </Card>
           <Card style={{ flex: 1, padding: '8px 10px', borderRadius: 'var(--radius-card)' }}>
-            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--accent)', marginBottom: 4 }}>Immediate preview</div>
+            <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--action-primary)', marginBottom: 4 }}>Immediate preview</div>
             <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', lineHeight: 1.55 }}>
               Use <code>POST /api/v1/tts/preview</code> for quick, synchronous text-to-audio — ideal for real-time applications or simple one-off synthesis.
             </div>
@@ -1560,9 +1560,9 @@ export const IntegrationsPane: React.FC = () => {
                         fontSize: 'var(--type-micro)',
                         fontWeight: 600,
                         borderRadius: 'var(--radius-round)',
-                        border: `1px solid ${voiceAvatar === v.id ? 'var(--accent)' : 'var(--border)'}`,
+                        border: `1px solid ${voiceAvatar === v.id ? 'var(--action-primary)' : 'var(--border)'}`,
                         background: voiceAvatar === v.id ? 'var(--accent-tint-bg)' : 'var(--surface)',
-                        color: voiceAvatar === v.id ? 'var(--accent)' : 'var(--text-secondary)',
+                        color: voiceAvatar === v.id ? 'var(--action-primary)' : 'var(--text-secondary)',
                         cursor: 'pointer',
                       }}
                     >
@@ -1582,7 +1582,7 @@ export const IntegrationsPane: React.FC = () => {
                     step="0.1"
                     value={speed}
                     onChange={(e) => setSpeed(parseFloat(e.target.value))}
-                    style={{ flex: 1, accentColor: 'var(--accent)' }}
+                    style={{ flex: 1, accentColor: 'var(--action-primary)' }}
                   />
                   <span style={{ fontSize: 'var(--type-micro)', fontFamily: 'monospace', minWidth: 26 }}>{speed.toFixed(1)}x</span>
                 </Row>
@@ -1607,7 +1607,7 @@ export const IntegrationsPane: React.FC = () => {
                 <span style={{ fontSize: 'var(--type-micro)', fontWeight: 700, color: 'var(--text-muted)' }}>Generated Curl Command</span>
                 <span
                   onClick={handleCopyCurl}
-                  style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline' }}
+                  style={{ fontSize: 'var(--type-micro)', color: 'var(--action-primary)', cursor: 'pointer', textDecoration: 'underline' }}
                 >
                   {copiedCurl ? 'Copied!' : 'Copy to CLI'}
                 </span>
@@ -1653,7 +1653,7 @@ export const IntegrationsPane: React.FC = () => {
                     <button
                       onClick={() => setIsPlaying(!isPlaying)}
                       style={{
-                        background: 'var(--accent)',
+                        background: 'var(--action-primary)',
                         border: 'none',
                         borderRadius: '50%',
                         width: 24,
@@ -1675,13 +1675,13 @@ export const IntegrationsPane: React.FC = () => {
                         <span>{isPlaying ? `0:0${Math.floor(playProgress / 25)}` : '0:00'} / 0:04</span>
                       </div>
                       <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, marginTop: 4, position: 'relative', overflow: 'hidden' }}>
-                        <div style={{ width: `${playProgress}%`, height: '100%', background: 'var(--accent)', transition: 'width 0.2s linear' }} />
+                        <div style={{ width: `${playProgress}%`, height: '100%', background: 'var(--action-primary)', transition: 'width 0.2s linear' }} />
                       </div>
                     </div>
                     <a
                       href="#"
                       onClick={(e) => { e.preventDefault(); alert('Audio downloaded!'); }}
-                      style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', textDecoration: 'underline', fontWeight: 600 }}
+                      style={{ fontSize: 'var(--type-micro)', color: 'var(--action-primary)', textDecoration: 'underline', fontWeight: 600 }}
                     >
                       Download
                     </a>
@@ -1718,7 +1718,7 @@ export const IntegrationsPane: React.FC = () => {
                 role="switch"
                 aria-checked={lanEnabled}
                 aria-label="LAN Access"
-                style={{ width: 28, height: 14, borderRadius: 'var(--radius-round)', background: lanEnabled ? 'var(--accent)' : 'var(--border)', position: 'relative', flexShrink: 0, transition: 'background 0.15s', cursor: 'pointer' }}
+                style={{ width: 28, height: 14, borderRadius: 'var(--radius-round)', background: lanEnabled ? 'var(--action-primary)' : 'var(--border)', position: 'relative', flexShrink: 0, transition: 'background 0.15s', cursor: 'pointer' }}
                 onClick={() => {
                   if (!lanEnabled) {
                     setShowLanWarning(true);
@@ -1742,7 +1742,7 @@ export const IntegrationsPane: React.FC = () => {
                   step="10"
                   value={rateLimit}
                   onChange={(e) => setRateLimit(parseInt(e.target.value))}
-                  style={{ flex: 1, accentColor: 'var(--accent)' }}
+                  style={{ flex: 1, accentColor: 'var(--action-primary)' }}
                 />
                 <span style={{ fontSize: 'var(--type-micro)', fontFamily: 'monospace', minWidth: 44 }}>{rateLimit}/m</span>
                 <Btn small onClick={() => setIsEditingRateLimit(false)}>Save</Btn>

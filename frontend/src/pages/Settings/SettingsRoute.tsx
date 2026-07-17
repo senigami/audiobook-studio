@@ -78,7 +78,7 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
               borderRadius: '16px',
               display: 'grid',
               placeItems: 'center',
-              color: 'var(--accent)',
+              color: 'var(--action-primary)',
               background: 'var(--accent-glow)',
               border: '1px solid var(--accent-focus-ring)',
             }}

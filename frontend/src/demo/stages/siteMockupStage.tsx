@@ -392,7 +392,7 @@ const QueueDrawer: React.FC<{
       <div style={{ padding: '8px 14px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
         <span
           onClick={() => { onViewAll(); onClose(); }}
-          style={{ fontSize: 'var(--type-caption)', color: 'var(--accent)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+          style={{ fontSize: 'var(--type-caption)', color: 'var(--action-primary)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
         >
           <span style={{ textDecoration: 'underline' }}>View all activity</span>
           <ArrowRight size={13} strokeWidth={2.2} />
@@ -487,7 +487,7 @@ const TopBar: React.FC<{
           title="Back to Library"
           style={{
             border: 0, background: 'none', padding: 0, fontFamily: 'inherit', cursor: 'pointer',
-            fontSize: 'var(--type-caption)', color: 'var(--accent)', flexShrink: 0,
+            fontSize: 'var(--type-caption)', color: 'var(--action-primary)', flexShrink: 0,
           }}
         >
           Library
@@ -515,7 +515,7 @@ const TopBar: React.FC<{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               flexShrink: 0, overflow: 'hidden',
             }}>
-              <span style={{ fontSize: '0.55rem', fontWeight: 700, color: 'var(--accent)', lineHeight: 1, userSelect: 'none' }}>W</span>
+              <span style={{ fontSize: '0.55rem', fontWeight: 700, color: 'var(--action-primary)', lineHeight: 1, userSelect: 'none' }}>W</span>
             </div>
             <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 1 }}>
               The Whispering Vale
@@ -560,7 +560,7 @@ const TopBar: React.FC<{
           borderRadius: 'var(--radius-button)',
           border: `1px solid ${queueOpen ? 'var(--accent-tint-border)' : 'var(--border)'}`,
           background: queueOpen ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-          color: queueOpen ? 'var(--accent)' : 'var(--text-primary)',
+          color: queueOpen ? 'var(--action-primary)' : 'var(--text-primary)',
           cursor: 'pointer', flexShrink: 0,
         }}
       >
@@ -568,7 +568,7 @@ const TopBar: React.FC<{
         Queue
         <span style={{
           fontSize: 'var(--type-micro)', fontWeight: 700,
-          background: 'var(--accent)', color: 'var(--text-on-accent)',
+          background: 'var(--action-primary)', color: 'var(--text-on-accent)',
           borderRadius: 'var(--radius-round)', padding: '0 5px', lineHeight: '14px',
           height: 14, display: 'inline-block',
         }}>{queueCount}</span>
@@ -743,7 +743,7 @@ const PlayerBar: React.FC<{
               padding: '3px var(--space-2)', borderRadius: 'var(--radius-round)',
               border: `1px solid ${tapeScroll ? 'var(--accent-tint-border)' : 'var(--border)'}`,
               background: tapeScroll ? 'var(--accent-tint-bg)' : 'transparent',
-              color: tapeScroll ? 'var(--accent)' : 'var(--text-secondary)',
+              color: tapeScroll ? 'var(--action-primary)' : 'var(--text-secondary)',
               cursor: 'pointer', fontFamily: 'inherit',
             }}
           >
@@ -767,8 +767,8 @@ const PlayerBar: React.FC<{
                 width: control.active ? 38 : 34,
                 height: control.active ? 38 : 34,
                 borderRadius: 'var(--radius-round)',
-                border: `1px solid ${control.active ? 'var(--accent)' : 'var(--border)'}`,
-                background: control.active ? 'var(--accent)' : 'var(--surface-alt)',
+                border: `1px solid ${control.active ? 'var(--action-primary)' : 'var(--border)'}`,
+                background: control.active ? 'var(--action-primary)' : 'var(--surface-alt)',
                 color: control.active ? 'var(--text-on-accent)' : 'var(--text-secondary)',
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -836,7 +836,7 @@ const PlayerBar: React.FC<{
               }}
               title="Click to seek"
             >
-              <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent)', borderRadius: 3, transition: 'width 0.1s linear' }} />
+              <div style={{ width: `${pct}%`, height: '100%', background: 'var(--action-primary)', borderRadius: 3, transition: 'width 0.1s linear' }} />
             </div>
           )}
         </div>
@@ -868,7 +868,7 @@ const PlayerBar: React.FC<{
             width: 28, height: 28, flexShrink: 0, cursor: 'pointer', padding: 0,
             borderRadius: 'var(--radius-button)',
             border: `1px solid ${showWave || tapeOpen ? 'var(--accent-tint-border)' : 'var(--border)'}`,
-            color: showWave || tapeOpen ? 'var(--accent)' : 'var(--text-muted)',
+            color: showWave || tapeOpen ? 'var(--action-primary)' : 'var(--text-muted)',
             background: showWave || tapeOpen ? 'var(--accent-tint-bg)' : 'transparent',
           }}
         >
@@ -887,7 +887,7 @@ const PlayerBar: React.FC<{
 const CHAPTER_STATUS_DOT: Record<string, string> = {
   Published: 'var(--success)',
   Review: 'var(--warning, #fbbf24)',
-  Studio: 'var(--accent)',
+  Studio: 'var(--action-primary)',
   Drafting: 'var(--text-muted)',
 };
 
@@ -918,7 +918,7 @@ const ChapterWorkspaceHeader: React.FC<{
         onClick={onClose}
         style={{
           border: 0, background: 'transparent', padding: 0, fontFamily: 'inherit',
-          fontSize: 'var(--type-caption)', color: 'var(--accent)', cursor: 'pointer',
+          fontSize: 'var(--type-caption)', color: 'var(--action-primary)', cursor: 'pointer',
           display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0,
         }}
       >
@@ -989,7 +989,7 @@ const ChapterWorkspaceHeader: React.FC<{
                     display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px',
                     border: 0, borderRadius: 'var(--radius-button)',
                     background: isCurrent ? 'var(--accent-tint-bg)' : 'transparent',
-                    color: isCurrent ? 'var(--accent)' : 'var(--text-secondary)',
+                    color: isCurrent ? 'var(--action-primary)' : 'var(--text-secondary)',
                     fontSize: 'var(--type-caption)', fontWeight: isCurrent ? 700 : 400,
                   }}
                 >
@@ -1056,8 +1056,8 @@ const BookWorkspacePane: React.FC<{
                   fontSize: 'var(--type-callout)', fontWeight: activeTab === t ? 700 : 400,
                   padding: '4px 12px', borderRadius: 'var(--radius-button) var(--radius-button) 0 0', cursor: 'pointer',
                   background: activeTab === t ? 'var(--accent-tint-bg)' : 'transparent',
-                  color: activeTab === t ? 'var(--accent)' : 'var(--text-secondary)',
-                  borderBottom: activeTab === t ? '2px solid var(--accent)' : '2px solid transparent',
+                  color: activeTab === t ? 'var(--action-primary)' : 'var(--text-secondary)',
+                  borderBottom: activeTab === t ? '2px solid var(--action-primary)' : '2px solid transparent',
                 }}
               >
                 {t}

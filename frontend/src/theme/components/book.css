@@ -32,12 +32,12 @@
 
 .book-stage-tabs__link:hover {
   background: var(--accent-glow);
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 .book-stage-tabs__link--active {
   background: var(--accent-glow);
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 .book-stage {
@@ -85,7 +85,7 @@
 
 .chapter-workspace-header__back:hover {
   background: var(--accent-glow);
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 .chapter-workspace-header__sep {
@@ -134,8 +134,8 @@
 
 .chapter-workspace-header__switcher-trigger:hover,
 .chapter-workspace-header__switcher-trigger--open {
-  color: var(--accent);
-  border-color: var(--accent);
+  color: var(--action-primary);
+  border-color: var(--action-primary);
   background: var(--accent-glow);
 }
 
@@ -179,7 +179,7 @@
 
 .workspace-chapter-dropdown__item--active {
   background: var(--accent-glow);
-  color: var(--accent);
+  color: var(--action-primary);
   font-weight: 700;
 }
 
@@ -191,7 +191,7 @@
    contrast boundary against the row background via the solid --accent
    outline (WCAG 1.4.11). */
 .workspace-chapter-dropdown__item:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--action-primary);
   outline-offset: -2px;
   background: var(--surface-alt);
 }
@@ -242,8 +242,8 @@
 }
 
 .chapter-workspace-header__nav-btn:hover:not(:disabled) {
-  color: var(--accent);
-  border-color: var(--accent);
+  color: var(--action-primary);
+  border-color: var(--action-primary);
 }
 
 .chapter-workspace-header__nav-btn:disabled {
@@ -252,8 +252,8 @@
 }
 
 .chapter-workspace-header__nav-btn--active {
-  color: var(--accent);
-  border-color: var(--accent);
+  color: var(--action-primary);
+  border-color: var(--action-primary);
   background: var(--accent-glow);
 }
 
@@ -273,7 +273,7 @@
   min-width: 14px;
   padding: 0 3px;
   border-radius: var(--radius-round);
-  background: var(--accent);
+  background: var(--action-primary);
   color: var(--on-action);
   font-size: 9px;
   font-weight: 700;
@@ -310,8 +310,8 @@
 
 .chapter-workspace-header__panel-toggle:hover,
 .chapter-workspace-header__panel-toggle[data-active] {
-  color: var(--accent);
-  border-color: var(--accent);
+  color: var(--action-primary);
+  border-color: var(--action-primary);
   background: var(--accent-glow);
 }
 
@@ -551,7 +551,7 @@
 
 .chapter-table__pill--ready {
   background: var(--accent-glow);
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 .chapter-table__pill--cast {
@@ -676,7 +676,7 @@
 
 .chapter-text-panel__info-banner svg {
   flex-shrink: 0;
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 .chapter-text-panel__info-banner p {
@@ -740,7 +740,7 @@
 }
 
 .chapter-text-panel__analysis-value--accent {
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 .chapter-text-panel__analysis-label-text {
@@ -900,7 +900,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-round);
   background: var(--surface-light);
-  color: var(--accent);
+  color: var(--action-primary);
   font-size: var(--type-caption);
   font-weight: 700;
   text-decoration: none;
@@ -908,7 +908,7 @@
 
 .studio-analysis-strip__edit-link:hover {
   background: var(--accent-glow);
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 .studio-header-actions {
@@ -1233,7 +1233,7 @@
 
 .resync-modal-info-icon {
   margin-top: 0.15rem;
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 .resync-modal-info-text {
@@ -1474,7 +1474,7 @@
 }
 
 .cast-palette__variant-play-btn:hover:not(:disabled) {
-  color: var(--accent);
+  color: var(--action-primary);
   background: var(--accent-glow);
 }
 

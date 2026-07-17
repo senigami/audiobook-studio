@@ -66,7 +66,7 @@ export const ColorSwatchPicker: React.FC<ColorSwatchPickerProps> = ({ value, onC
                     width: swatchSize,
                     height: swatchSize,
                     borderRadius: '4px',
-                    background: value || 'var(--accent)',
+                    background: value || 'var(--action-primary)',
                     border: '1px solid var(--border)',
                     padding: 0,
                     cursor: 'pointer',
@@ -130,7 +130,7 @@ export const ColorSwatchPicker: React.FC<ColorSwatchPickerProps> = ({ value, onC
                                     height: '20px',
                                     borderRadius: '3px',
                                     background: color,
-                                    border: value === color ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                    border: value === color ? '2px solid var(--action-primary)' : '1px solid var(--border)',
                                     padding: 0,
                                     cursor: 'pointer',
                                     transition: 'all 0.1s'

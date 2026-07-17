@@ -329,7 +329,7 @@ const TokenPicker: React.FC<{
               borderRadius: 'var(--radius-round)',
               border: '1px solid var(--accent-tint-border)',
               background: 'var(--accent-tint-bg)',
-              color: 'var(--accent)',
+              color: 'var(--action-primary)',
               fontFamily: 'inherit',
               fontSize: 'var(--type-caption)',
               fontWeight: 650,
@@ -506,7 +506,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
         .vpe-dropzone:hover {
           border-color: var(--accent-tint-border) !important;
           background: var(--accent-tint-bg) !important;
-          color: var(--accent) !important;
+          color: var(--action-primary) !important;
         }
         .vpe-mgmt-btn:hover {
           border-color: var(--accent-tint-border) !important;
@@ -543,7 +543,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
             background: 'none',
             border: 'none',
             cursor: 'pointer',
-            color: 'var(--accent)',
+            color: 'var(--action-primary)',
             fontSize: 'var(--type-caption)',
             fontWeight: 600,
             fontFamily: 'inherit',
@@ -670,7 +670,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                   cursor: 'pointer',
                   width: '100%',
                   background: isSel ? 'var(--accent-tint-bg)' : 'transparent',
-                  boxShadow: isSel ? 'inset 3px 0 0 var(--accent)' : 'none',
+                  boxShadow: isSel ? 'inset 3px 0 0 var(--action-primary)' : 'none',
                   fontFamily: 'inherit',
                 }}
               >
@@ -680,7 +680,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                     style={{
                       fontSize: 'var(--type-caption)',
                       fontWeight: 600,
-                      color: isSel ? 'var(--accent)' : 'var(--text-primary)',
+                      color: isSel ? 'var(--action-primary)' : 'var(--text-primary)',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
@@ -972,7 +972,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                                 padding: 0,
                                 flexShrink: 0,
                                 boxShadow: isActive
-                                  ? '0 0 0 2px var(--surface), 0 0 0 4px var(--accent)'
+                                  ? '0 0 0 2px var(--surface), 0 0 0 4px var(--action-primary)'
                                   : 'var(--shadow-sm)',
                                 transform: isActive ? 'scale(1.15)' : 'scale(1)',
                                 transition: 'transform var(--dur-fast) var(--ease-spring), box-shadow var(--dur-fast) var(--ease-standard)',
@@ -1122,7 +1122,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                               borderRadius: 'var(--radius-button)',
                               border: `1px solid ${isActive ? 'var(--accent-tint-border)' : 'var(--hairline)'}`,
                               background: isActive ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-                              color: isActive ? 'var(--accent)' : 'var(--text-primary)',
+                              color: isActive ? 'var(--action-primary)' : 'var(--text-primary)',
                               fontFamily: 'inherit',
                               fontSize: 'var(--type-caption)',
                               fontWeight: isActive ? 700 : 600,
@@ -1252,7 +1252,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                             border: `1px solid var(--hairline)`,
                             background: 'var(--surface)',
                             cursor: 'pointer',
-                            color: 'var(--accent)',
+                            color: 'var(--action-primary)',
                             flexShrink: 0,
                           }}
                         >
@@ -1289,7 +1289,7 @@ export const VoiceProfileEditorPane: React.FC<Props> = ({
                         cursor: 'pointer',
                         fontSize: 'var(--type-caption)',
                         fontWeight: 600,
-                        color: 'var(--accent)',
+                        color: 'var(--action-primary)',
                         fontFamily: 'inherit',
                         textDecoration: 'underline',
                       }}

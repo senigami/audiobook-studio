@@ -43,12 +43,12 @@ export const ProgressStatusRow: React.FC<ProgressStatusRowProps> = ({
                     // no positive ETA (displayedRemaining null or ≤ 0).
                     <div style={{ display: 'flex', gap: '8px' }}>
                         {showPercent && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{Math.round(localProgress * 100)}%</span>}
-                        <span style={{ fontSize: '0.65rem', color: 'var(--accent)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--action-primary)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
                             ETA: {formatTime(displayedRemaining)}
                         </span>
                     </div>
                 ) : (
-                    <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--accent)' }}>
+                    <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--action-primary)' }}>
                         {terminalStatusText ?? busyStatusText ?? (showPercent ? `${Math.round(localProgress * 100)}%` : '')}
                     </span>
                 )}

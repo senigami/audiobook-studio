@@ -48,7 +48,7 @@ const LanguageSelector: React.FC = () => {
                   width: '100%', border: 0, background: l.code === lang ? 'var(--accent-tint-bg)' : 'transparent',
                   fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer',
                   padding: '6px 12px', fontSize: 'var(--type-caption)',
-                  color: l.code === lang ? 'var(--accent)' : 'var(--text-primary)',
+                  color: l.code === lang ? 'var(--action-primary)' : 'var(--text-primary)',
                   display: 'flex', alignItems: 'center', gap: 8,
                 }}
               >
@@ -107,9 +107,9 @@ export const SettingsPane: React.FC = () => {
             onClick={() => setSettingsTab(tab)}
             style={{
               fontSize: 'var(--type-caption)', fontWeight: 600, padding: '3px 12px', borderRadius: 'var(--radius-round)', cursor: 'pointer',
-              border: `1px solid ${activeTab === tab ? 'var(--accent)' : 'var(--border)'}`,
+              border: `1px solid ${activeTab === tab ? 'var(--action-primary)' : 'var(--border)'}`,
               background: activeTab === tab ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-              color: activeTab === tab ? 'var(--accent)' : 'var(--text-secondary)',
+              color: activeTab === tab ? 'var(--action-primary)' : 'var(--text-secondary)',
               fontFamily: 'inherit',
             }}
           >
@@ -179,7 +179,7 @@ export const SettingsPane: React.FC = () => {
                   role="switch"
                   aria-checked={devMode}
                   aria-label="Developer Mode"
-                  style={{ width: 28, height: 14, borderRadius: 'var(--radius-round)', background: devMode ? 'var(--accent)' : 'var(--border)', position: 'relative', flexShrink: 0, transition: 'background 0.15s' }}
+                  style={{ width: 28, height: 14, borderRadius: 'var(--radius-round)', background: devMode ? 'var(--action-primary)' : 'var(--border)', position: 'relative', flexShrink: 0, transition: 'background 0.15s' }}
                 >
                   <div style={{ position: 'absolute', top: 2, left: devMode ? 16 : 2, width: 10, height: 10, borderRadius: '50%', background: 'var(--text-on-accent)', transition: 'left 0.15s' }} />
                 </div>
@@ -287,7 +287,7 @@ export const SettingsPane: React.FC = () => {
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 cursor: 'pointer',
               }}>
-                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--accent)' }}>{link.label}</span>
+                <span style={{ fontSize: 'var(--type-caption)', color: 'var(--action-primary)' }}>{link.label}</span>
                 <Row gap={4} style={{ alignItems: 'center' }}>
                   <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{link.href}</span>
                   <ExternalLink size={10} color="var(--text-muted)" />

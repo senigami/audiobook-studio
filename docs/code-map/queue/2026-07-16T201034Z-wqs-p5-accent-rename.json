@@ -1,0 +1,663 @@
+{
+  "at": "2026-07-16T20:10:34Z",
+  "commit": "uncommitted",
+  "task": "P5 Sub-task B: renamed var(--accent) -> var(--action-primary) at all consumer call sites (mechanical, behavior-preserving; --accent alias definition in tokens.css untouched)",
+  "files": {
+    "frontend/src/app/App.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/app/NotificationsHost.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/app/StartupGate.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/app/layout/WaveformTape.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/app/layout/WaveformTapeMinimap.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/app/layout/WaveformTapeZoom.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/CastingSuggestionsModal.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/CharactersTab.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/LiveOutputTable.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/ProjectBackupsPanel.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/RecordingGuide.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/forms/ColorSwatchPicker.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/forms/MultiSelect.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/forms/SearchableSelect.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/forms/VoiceDropzone.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/overlays/ConfirmModal.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/overlays/PluginTrustModal.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/progress/PredictiveProgressBar/PredictiveProgressBar.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/progress/PredictiveProgressBar/ProgressStatusRow.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/progress/SegmentRenderMonitor/SegmentBlockRow.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/progress/SegmentRenderMonitor/SegmentRenderMonitor.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/queue/GlobalQueue.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/queue/GlobalQueue.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/queue/QueueItem.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/queue/QueueStats.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/ui/ActionMenu.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/ui/EngineBadge.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/ui/GhostButton.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/components/ui/StatusOrb.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/DemoApp.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/DemoStage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/stages/siteMockup/MockTapeControls.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/stages/siteMockup/SegmentRenderStrip.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/stages/siteMockup/mockup.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/stages/siteMockup/panes/activity.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/stages/siteMockup/panes/book.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/stages/siteMockup/panes/castPanel.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/stages/siteMockup/panes/directorsConsole.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/stages/siteMockup/panes/huggingFaceDiscover.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/stages/siteMockup/panes/lexiconPanel.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/stages/siteMockup/panes/library.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/stages/siteMockup/panes/platform.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/stages/siteMockup/panes/publish.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/stages/siteMockup/panes/settings.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/stages/siteMockup/panes/splash.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/stages/siteMockup/panes/studio.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/stages/siteMockup/panes/voiceEditor.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/stages/siteMockup/panes/voices.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/stages/siteMockup/rail.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/stages/siteMockup/shared.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/stages/siteMockupStage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/demo/styleguide/StyleguidePage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Activity/ActivityPage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Activity/components/ProductionTallyCard.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Activity/components/SystemResourceStrip.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Book/components/ChapterImportBar.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Book/stages/CastingStage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Book/studio/CastPalette.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/ChapterEditor/components/ChapterScriptToolbar.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/ChapterEditor/components/CharacterSidebar.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/BoothTool/AnnotationsPanel.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/CastTool/index.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/ChapterEditor/components/DirectorsConsole/ToolStub.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/ChapterEditor/components/EditTab.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/ChapterEditor/components/QueueNotice.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/ChapterEditor/components/ResyncPreviewModal.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/ChapterEditor/components/ScriptView.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/DevProgressBar/DevProgressBarPage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/DevProgressBar/components/ProgressBarDebugPanel.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/DevProgressBar/components/ProgressBarLaunchPanel.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/DevProgressBar/components/ProgressBarUpdatePanel.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/DevProgressBar/components/SegmentContractDebugPanel.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Engines/EnginesPage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Engines/components/EngineCard.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Engines/components/EngineCard.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Engines/components/EngineDevPanel.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Engines/components/EngineMetadataPanel.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Engines/components/VoiceModulesPanel.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Integrations/components/ApiGuidePanel.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/LiveOutput/LiveOutputPage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/ProjectDetail/ProjectDetailPage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/ProjectDetail/components/AssemblyPanel.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/ProjectDetail/components/AssemblyProgress.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/ProjectDetail/components/ChapterList.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/ProjectDetail/components/ProjectCard.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/ProjectDetail/components/ProjectHeader.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/ProjectDetail/components/ProjectModals.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/ProjectDetail/components/ProjectSubnav.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/ProjectLibrary/ProjectLibraryPage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/ProjectLibrary/components/LibraryControls.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Settings/SettingsRoute.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Settings/components/AboutSettingsPanel.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Settings/components/DeveloperSettingsPanel.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Settings/components/JsonSchemaForm.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Settings/components/SettingsComponents.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/VoiceLab/components/PhaseStepper.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/VoiceLab/components/PublishToHuggingFaceModal.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/VoiceLab/components/VoiceDetailHeader.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Voices/components/HuggingFaceDiscover.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Voices/components/NarratorCard.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Voices/components/SampleManager.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Voices/components/VariantEditor.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Voices/components/VariantSwitcher.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Voices/components/VersionAbPanel.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Voices/components/VersionHistoryPanel.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Voices/components/VoiceModals.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Voices/components/VoiceUtils.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Voices/components/VoicesTabHeader.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Voices/components/metadata/IconUpload.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Voices/components/metadata/chip.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Voices/voicePhase.ts": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Welcome/WelcomePage.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/pages/Welcome/WelcomePage.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/theme/components/book-tabs.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/theme/components/book.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/theme/components/core.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/theme/components/misc.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/theme/components/nav.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/theme/components/player.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/theme/components/publish.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/theme/components/review-tools.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/theme/components/shared.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/theme/components/voice-lab.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/src/theme/utilities.css": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/tests/unit/app/layout/WaveformTapeMinimap.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/tests/unit/components/forms/MultiSelect.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/tests/unit/components/project/ProjectSubnav.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/tests/unit/components/ui/StatusOrb.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    },
+    "frontend/tests/unit/pages/Voices/components/VoicesTabHeader.test.tsx": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "var(--accent) -> var(--action-primary) rename only; no other change"
+    }
+  },
+  "flow_impact": "none"
+}

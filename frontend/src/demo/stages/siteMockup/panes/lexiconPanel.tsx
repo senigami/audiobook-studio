@@ -63,7 +63,7 @@ const ScopeBadge: React.FC<{ scope: LexiconScope; inherited?: boolean }> = ({ sc
     );
   }
   const variantMap: Record<LexiconScope, React.CSSProperties> = {
-    book:   { background: 'var(--accent-tint-bg)',   border: '1px solid var(--accent-tint-border)',   color: 'var(--accent)' },
+    book:   { background: 'var(--accent-tint-bg)',   border: '1px solid var(--accent-tint-border)',   color: 'var(--action-primary)' },
     series: { background: 'var(--pill-class-bg)',     border: '1px solid var(--pill-class-border)',     color: 'var(--pill-class-text)' },
     global: { background: 'var(--pill-age-bg)',       border: '1px solid var(--pill-age-border)',       color: 'var(--pill-age-text)' },
   };
@@ -118,7 +118,7 @@ const ScopeSelector: React.FC<{
                 width: '100%', border: 0, background: s === value ? 'var(--accent-tint-bg)' : 'transparent',
                 fontFamily: 'inherit', textAlign: 'left',
                 fontSize: 'var(--type-micro)', padding: 'var(--space-1) var(--space-3)',
-                cursor: 'pointer', color: s === value ? 'var(--accent)' : 'var(--text-primary)',
+                cursor: 'pointer', color: s === value ? 'var(--action-primary)' : 'var(--text-primary)',
               }}
             >
               {s}
@@ -198,7 +198,7 @@ const EntryRow: React.FC<{
               type="button"
               onClick={handleSave}
               style={{
-                background: 'var(--accent)', border: '1px solid var(--accent)',
+                background: 'var(--action-primary)', border: '1px solid var(--action-primary)',
                 borderRadius: 'var(--radius-button)', padding: '2px 8px',
                 color: 'var(--text-on-accent)', fontSize: 'var(--type-micro)',
                 fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3,
@@ -450,7 +450,7 @@ export const LexiconPanel: React.FC<{ variant?: 'drawer' | 'stage' }> = ({ varia
             background: showAddForm ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
             border: `1px solid ${showAddForm ? 'var(--accent-tint-border)' : 'var(--border)'}`,
             borderRadius: 'var(--radius-button)', padding: '3px 7px',
-            color: showAddForm ? 'var(--accent)' : 'var(--text-secondary)',
+            color: showAddForm ? 'var(--action-primary)' : 'var(--text-secondary)',
             cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3,
             fontSize: 'var(--type-micro)', fontFamily: 'inherit', fontWeight: 600,
           }}

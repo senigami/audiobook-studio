@@ -247,7 +247,7 @@ const LibraryEmptyState: React.FC<{ onNew: () => void }> = ({ onNew }) => (
       border: '1px solid var(--accent-tint-border)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
-      <BookOpen size={28} color="var(--accent)" strokeWidth={1.5} />
+      <BookOpen size={28} color="var(--action-primary)" strokeWidth={1.5} />
     </div>
     <div style={{ textAlign: 'center' }}>
       <div style={{ fontSize: 'var(--type-headline)', fontWeight: 'var(--type-weight-headline)' as unknown as number, color: 'var(--text-primary)', marginBottom: 6 }}>
@@ -364,7 +364,7 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
                       {book.title}
                     </div>
                     <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>{book.author}</div>
-                    <div style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', fontStyle: 'italic', lineHeight: 1.2 }}>
+                    <div style={{ fontSize: 'var(--type-micro)', color: 'var(--action-primary)', fontStyle: 'italic', lineHeight: 1.2 }}>
                       {book.series}
                     </div>
                     <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginTop: 1 }}>
@@ -464,7 +464,7 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
                     cursor: 'pointer',
                     border: viewMode === 'grid' ? '1px solid var(--accent-tint-border)' : '1px solid transparent',
                     background: viewMode === 'grid' ? 'var(--accent-tint-bg)' : 'transparent',
-                    color: viewMode === 'grid' ? 'var(--accent)' : 'var(--text-muted)',
+                    color: viewMode === 'grid' ? 'var(--action-primary)' : 'var(--text-muted)',
                     display: 'flex', alignItems: 'center',
                     transition: 'background 0.15s, color 0.15s',
                   }}
@@ -481,7 +481,7 @@ export const LibraryPane: React.FC<{ onOpenBook: () => void }> = ({ onOpenBook }
                     cursor: 'pointer',
                     border: viewMode === 'list' ? '1px solid var(--accent-tint-border)' : '1px solid transparent',
                     background: viewMode === 'list' ? 'var(--accent-tint-bg)' : 'transparent',
-                    color: viewMode === 'list' ? 'var(--accent)' : 'var(--text-muted)',
+                    color: viewMode === 'list' ? 'var(--action-primary)' : 'var(--text-muted)',
                     display: 'flex', alignItems: 'center',
                     transition: 'background 0.15s, color 0.15s',
                   }}

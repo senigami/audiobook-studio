@@ -79,14 +79,14 @@ describe('StatusOrb', () => {
     const chap = { ...baseChapter, has_wav: true, audio_status: 'unprocessed' as const, audio_generated_at: 2000 }
     const { container } = render(<StatusOrb chap={chap} doneSegments={9} totalSegments={10} />)
 
-    expect(container.querySelector('circle[r="9.5"][stroke="var(--accent)"]')).toBeTruthy()
+    expect(container.querySelector('circle[r="9.5"][stroke="var(--action-primary)"]')).toBeTruthy()
   })
 
   it('renders a full ring when all segments are rendered but no wav exists yet', () => {
     const chap = { ...baseChapter, has_wav: false, audio_status: 'unprocessed' as const, audio_generated_at: 2000 }
     const { container } = render(<StatusOrb chap={chap} doneSegments={10} totalSegments={10} />)
 
-    const progressArc = container.querySelector('circle[r="9.5"][stroke="var(--accent)"]')
+    const progressArc = container.querySelector('circle[r="9.5"][stroke="var(--action-primary)"]')
     expect(progressArc).toBeTruthy()
     expect(progressArc?.getAttribute('stroke-dashoffset')).toBe('0')
   })
@@ -113,7 +113,7 @@ describe('StatusOrb', () => {
     const chap = { ...baseChapter, has_wav: false, audio_status: 'unprocessed' as const, audio_generated_at: 2000 }
     const { container } = render(<StatusOrb chap={chap} doneSegments={5} totalSegments={10} />)
 
-    const arc = container.querySelector('circle[r="9.5"][stroke="var(--accent)"]')
+    const arc = container.querySelector('circle[r="9.5"][stroke="var(--action-primary)"]')
     expect(arc).toBeTruthy()
 
     const dashoffset = parseFloat(arc?.getAttribute('stroke-dashoffset') ?? '0')

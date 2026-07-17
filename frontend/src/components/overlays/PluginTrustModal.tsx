@@ -248,7 +248,7 @@ export const PluginTrustModal: React.FC<PluginTrustModalProps> = ({
                   flex: 1,
                   padding: '0.75rem',
                   borderRadius: '12px',
-                  background: hasRemote ? 'var(--warning-text-strong)' : 'var(--accent)',
+                  background: hasRemote ? 'var(--warning-text-strong)' : 'var(--action-primary)',
                   color: 'var(--text-on-accent)',
                   border: 'none',
                   fontWeight: 700,

@@ -115,7 +115,7 @@ export const VoiceDropzone: React.FC<VoiceDropzoneProps> = ({ files = [], onFile
                 onClick={() => document.getElementById('voice-upload-input')?.click()}
                 className="voice-dropzone"
                 style={{
-                    border: `2px dashed ${isDragging ? 'var(--accent)' : 'var(--border)'}`,
+                    border: `2px dashed ${isDragging ? 'var(--action-primary)' : 'var(--border)'}`,
                     background: isDragging ? 'var(--accent-glow)' : 'var(--surface-light)',
                 }}
             >
@@ -128,10 +128,10 @@ export const VoiceDropzone: React.FC<VoiceDropzoneProps> = ({ files = [], onFile
                     style={{ display: 'none' }}
                 />
                 <div className="icon-circle" style={{ width: '48px', height: '48px', background: 'var(--accent-glow)' }}>
-                    <Upload size={24} color="var(--accent)" />
+                    <Upload size={24} color="var(--action-primary)" />
                 </div>
                 <div>
-                    <p style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Drop audio samples here, or <span style={{ color: 'var(--accent)' }}>Browse</span></p>
+                    <p style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Drop audio samples here, or <span style={{ color: 'var(--action-primary)' }}>Browse</span></p>
                     <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>Supports .wav, .mp3, .m4a, .flac (auto-converts to WAV)</p>
                 </div>
 
@@ -147,7 +147,7 @@ export const VoiceDropzone: React.FC<VoiceDropzoneProps> = ({ files = [], onFile
                                 background: 'var(--accent-glow)',
                                 backdropFilter: 'blur(2px)',
                                 borderRadius: 'var(--radius-card)',
-                                border: '2px solid var(--accent)',
+                                border: '2px solid var(--action-primary)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -169,8 +169,8 @@ export const VoiceDropzone: React.FC<VoiceDropzoneProps> = ({ files = [], onFile
                                     gap: '12px'
                                 }}
                             >
-                                <Upload size={24} color="var(--accent)" />
-                                <span style={{ fontWeight: 700, color: 'var(--accent)' }}>Drop to Upload</span>
+                                <Upload size={24} color="var(--action-primary)" />
+                                <span style={{ fontWeight: 700, color: 'var(--action-primary)' }}>Drop to Upload</span>
                             </motion.div>
                         </motion.div>
                     )}
@@ -207,7 +207,7 @@ export const VoiceDropzone: React.FC<VoiceDropzoneProps> = ({ files = [], onFile
                                     fontSize: '0.85rem'
                                 }}
                             >
-                                <FileAudio size={16} color="var(--accent)" />
+                                <FileAudio size={16} color="var(--action-primary)" />
                                 <span style={{ flex: 1, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {sf.file.name}
                                 </span>
@@ -244,7 +244,7 @@ export const VoiceDropzone: React.FC<VoiceDropzoneProps> = ({ files = [], onFile
                 borderRadius: 'var(--radius-button)',
                 border: '1px solid var(--accent-glow)'
             }}>
-                <CheckCircle2 size={14} color="var(--accent)" />
+                <CheckCircle2 size={14} color="var(--action-primary)" />
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
                     Best results: 3–5 clean samples, 6–10 seconds each.
                 </span>

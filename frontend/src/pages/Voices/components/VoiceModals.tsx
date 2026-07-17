@@ -132,7 +132,7 @@ export const RenameVoiceModal: React.FC<RenameVoiceModalProps> = ({ isOpen, onCl
                 style={{ width: 'min(400px, calc(100vw - 2rem))' }}
             >
                 <h3 className="voice-modal-title">
-                    Rename Voice: <span style={{ color: 'var(--accent)' }}>{originalName}</span>
+                    Rename Voice: <span style={{ color: 'var(--action-primary)' }}>{originalName}</span>
                 </h3>
                 <p className="voice-modal-subtitle">
                     Update the name for this voice. This will also update the prefix for all its variants.
@@ -198,7 +198,7 @@ export const AddVariantModal: React.FC<AddVariantModalProps> = ({ isOpen, onClos
             >
                 <h3 className="voice-modal-title">Add Variant</h3>
                 <p className="voice-modal-subtitle">
-                    Create a new variant for voice <span style={{ color: 'var(--accent)', fontWeight: 700 }}>"{speakerName}"</span>.
+                    Create a new variant for voice <span style={{ color: 'var(--action-primary)', fontWeight: 700 }}>"{speakerName}"</span>.
                 </p>
 
                 <div className="voice-modal-field-group">
@@ -276,7 +276,7 @@ export const MoveVariantModal: React.FC<MoveVariantModalProps> = ({
             >
                 <h3 className="voice-modal-title">Move Variant</h3>
                 <p className="voice-modal-subtitle">
-                    Move <span style={{ color: 'var(--accent)', fontWeight: 700 }}>"{variantName}"</span> to another speaker profile.
+                    Move <span style={{ color: 'var(--action-primary)', fontWeight: 700 }}>"{variantName}"</span> to another speaker profile.
                 </p>
 
                 <div className="voice-modal-field-group">

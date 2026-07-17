@@ -287,7 +287,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                         title. Only render this heading on the full-page route. */}
                     {!compact && (
                         <h2 style={{ fontSize: '1.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }}>
-                            <Layers size={24} strokeWidth={2} color="var(--accent)" /> Global Queue
+                            <Layers size={24} strokeWidth={2} color="var(--action-primary)" /> Global Queue
                         </h2>
                     )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-1)' }}>
@@ -466,7 +466,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                                                     <div style={{ flex: 1, minWidth: 0 }}>
                                                         <h4 className="queue-history-title" style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{formatJobTitle(displayJob as any)}</h4>
                                                         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-2)', rowGap: '4px', marginTop: '2px' }}>
-                                                            <span style={{ ...( !job.project_name ? { color: 'var(--accent)', fontWeight: 700, fontSize: compact ? '0.65rem' : 'var(--type-caption)', textTransform: 'uppercase' as const } : {}), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                                                            <span style={{ ...( !job.project_name ? { color: 'var(--action-primary)', fontWeight: 700, fontSize: compact ? '0.65rem' : 'var(--type-caption)', textTransform: 'uppercase' as const } : {}), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
                                                                 {formatQueueContext(displayJob as any, engines)}
                                                             </span>
                                                             {(displayJob.started_at || displayJob.completed_at || displayJob.updated_at) && (
@@ -483,7 +483,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                                                             {isDone && Boolean(audioLen) && (
                                                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
                                                                     <span style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--text-muted)' }} />
-                                                                    <span style={{ fontSize: 'var(--type-caption)', color: 'var(--accent)', fontWeight: 600 }}>
+                                                                    <span style={{ fontSize: 'var(--type-caption)', color: 'var(--action-primary)', fontWeight: 600 }}>
                                                                         {formatAudioDuration(audioLen)}
                                                                     </span>
                                                                 </span>

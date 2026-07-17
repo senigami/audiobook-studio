@@ -38,8 +38,8 @@ export const EngineDevPanel: React.FC<EngineDevPanelProps> = ({ engine, onScenar
   return (
     <div style={{ marginTop: '2rem', borderTop: '2px dashed var(--border)', paddingTop: '1.5rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1rem' }}>
-        <ShieldAlert size={16} color="var(--accent)" />
-        <h4 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--accent)' }}>
+        <ShieldAlert size={16} color="var(--action-primary)" />
+        <h4 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--action-primary)' }}>
           Engine Developer Panel
         </h4>
       </div>
@@ -53,12 +53,12 @@ export const EngineDevPanel: React.FC<EngineDevPanelProps> = ({ engine, onScenar
               textAlign: 'left',
               padding: '0.4rem 0.6rem',
               borderRadius: '6px',
-              border: !activeScenario ? '1px solid var(--accent)' : '1px solid var(--border)',
+              border: !activeScenario ? '1px solid var(--action-primary)' : '1px solid var(--border)',
               background: !activeScenario ? 'var(--accent-glow)' : 'var(--surface-white)',
               fontSize: '0.75rem',
               fontWeight: !activeScenario ? 700 : 500,
               cursor: 'pointer',
-              color: !activeScenario ? 'var(--accent)' : 'inherit',
+              color: !activeScenario ? 'var(--action-primary)' : 'inherit',
               marginBottom: '0.4rem'
             }}
           >
@@ -78,12 +78,12 @@ export const EngineDevPanel: React.FC<EngineDevPanelProps> = ({ engine, onScenar
                 textAlign: 'left',
                 padding: '0.4rem 0.6rem',
                 borderRadius: '6px',
-                border: activeScenario?.id === s.id ? '1px solid var(--accent)' : '1px solid var(--border)',
+                border: activeScenario?.id === s.id ? '1px solid var(--action-primary)' : '1px solid var(--border)',
                 background: activeScenario?.id === s.id ? 'var(--accent-glow)' : 'var(--surface-white)',
                 fontSize: '0.75rem',
                 fontWeight: activeScenario?.id === s.id ? 900 : 500,
                 cursor: 'pointer',
-                color: activeScenario?.id === s.id ? 'var(--accent)' : 'inherit'
+                color: activeScenario?.id === s.id ? 'var(--action-primary)' : 'inherit'
               }}
             >
               {s.label}
@@ -96,7 +96,7 @@ export const EngineDevPanel: React.FC<EngineDevPanelProps> = ({ engine, onScenar
             <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)' }}>DEV CONSOLE</span>
             <button
               onClick={() => setShowJson(!showJson)}
-              style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }}
+              style={{ background: 'none', border: 'none', color: 'var(--action-primary)', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }}
             >
               {showJson ? 'View Logs' : 'View Raw JSON'}
             </button>

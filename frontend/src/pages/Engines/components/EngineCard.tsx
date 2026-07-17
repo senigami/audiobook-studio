@@ -304,7 +304,7 @@ export const EngineCard: React.FC<{
         <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.85rem' }}>
           {displayEngine.author ? `Engine by ${displayEngine.author}. ` : ''}
           {displayEngine.homepage && (
-            <a href={displayEngine.homepage} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+            <a href={displayEngine.homepage} target="_blank" rel="noreferrer" style={{ color: 'var(--action-primary)', textDecoration: 'none' }}>
               View Documentation
             </a>
           )}

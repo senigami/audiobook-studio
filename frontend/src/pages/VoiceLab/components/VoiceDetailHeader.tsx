@@ -127,7 +127,7 @@ export const VoiceDetailHeader: React.FC<VoiceDetailHeaderProps> = ({
                         onDragOver={handleIconDragOver}
                         onDragLeave={handleIconDragLeave}
                         onDrop={handleIconDrop}
-                        style={isDragging ? { border: '2px dashed var(--accent)', background: 'var(--accent-glow)' } : undefined}
+                        style={isDragging ? { border: '2px dashed var(--action-primary)', background: 'var(--accent-glow)' } : undefined}
                     >
                         {effectiveIconUrl ? (
                             <img

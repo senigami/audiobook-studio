@@ -131,7 +131,7 @@ export const DemoApp: React.FC = () => {
           <span
             className="demo-shell-badge"
             style={{
-              background: 'var(--accent)',
+              background: 'var(--action-primary)',
               color: '#fff',
               fontSize: '0.6rem',
               fontWeight: 700,
@@ -175,7 +175,7 @@ export const DemoApp: React.FC = () => {
           </span>
           <span
             style={{
-              background: 'var(--accent)',
+              background: 'var(--action-primary)',
               color: '#fff',
               fontSize: '0.55rem',
               fontWeight: 700,
@@ -263,7 +263,7 @@ const IndexCard: React.FC<{ href: string; title: string; description: string; ac
         height: '100%',
       }}
       onMouseEnter={e =>
-        ((e.currentTarget as HTMLDivElement).style.borderColor = 'var(--accent)')
+        ((e.currentTarget as HTMLDivElement).style.borderColor = 'var(--action-primary)')
       }
       onMouseLeave={e =>
         ((e.currentTarget as HTMLDivElement).style.borderColor = accent
@@ -275,7 +275,7 @@ const IndexCard: React.FC<{ href: string; title: string; description: string; ac
         style={{
           fontWeight: 700,
           fontSize: '1rem',
-          color: accent ? 'var(--accent)' : 'var(--text-primary)',
+          color: accent ? 'var(--action-primary)' : 'var(--text-primary)',
           marginBottom: 6,
         }}
       >
