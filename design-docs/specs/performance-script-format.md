@@ -16,7 +16,7 @@ sources:
 
 | Version | Date       | Change |
 |---------|------------|--------|
-| 1.0.0   | 2026-07-16 | Initial spec. Defines `PerformanceData` (Pydantic, `app/domain/chapters/performance_schema.py`) and its mirrored TypeScript type (`frontend/src/types/performanceScript.ts`), plus `resolve_rendering()` (`app/domain/chapters/rendering.py`), the single translation layer for the 5 rendering modes × 8 rendering values × 12 segment kinds. Source design: `design-docs/plans/proposals/performance_script_model/01-canonical-json-format.md`. AI extraction pipeline (tasks 005-009) and export layer (tasks 010-011) are explicitly deferred per the 2026-07-10 owner decision — this spec covers the validated shape and resolution logic only; nothing writes or reads `performance_data` in production yet. |
+| 1.0.0   | 2026-07-16 | Initial spec. Defines `PerformanceData` (Pydantic, `app/domain/chapters/performance_schema.py`) and its mirrored TypeScript type (`frontend/src/types/performanceScript.ts`), plus `resolve_rendering()` (`app/domain/chapters/rendering.py`), the single translation layer for the 5 rendering modes × 8 rendering values × 13 segment kinds. Source design: `design-docs/plans/proposals/performance_script_model/01-canonical-json-format.md`. AI extraction pipeline (tasks 005-009) and export layer (tasks 010-011) are explicitly deferred per the 2026-07-10 owner decision — this spec covers the validated shape and resolution logic only; nothing writes or reads `performance_data` in production yet. |
 
 ---
 
@@ -33,7 +33,7 @@ This spec governs the shape of the `performance_data` JSON column added to `chap
 
 The blob holds everything doc-01's canonical segment object specifies that is **not** already promoted to a dedicated `chapter_segments` column. Promoted columns (task 001): `speaker_confidence`, `speaker_evidence`, `needs_review`, `locked`. Everything else lives here:
 
-- `kind` — one of 12 `SegmentKind` values: `narration`, `dialogue`, `attribution`, `stage_direction`, `action_context`, `vocalization`, `sfx`, `music`, `ambience`, `silence`, `chapter_marker`, `scene_marker`, `production_note`.
+- `kind` — one of 13 `SegmentKind` values: `narration`, `dialogue`, `attribution`, `stage_direction`, `action_context`, `vocalization`, `sfx`, `music`, `ambience`, `silence`, `chapter_marker`, `scene_marker`, `production_note`.
 - `performance` (optional) — `emotion` (primary/secondary/intensity/valence/arousal/confidence), `delivery` (pace/volume/pitch/range/pause_before_ms/pause_after_ms/emphasis), `acting_note`. Sparse: absent on most segments (§3 of doc 01 — only annotate when a line needs direction beyond defaults).
 - `rendering` (optional) — a partial map of `RenderingMode` → `RenderingValue`, the segment's explicit per-mode overrides. This is *input* to `resolve_rendering()`, not itself a resolved decision.
 - `review` (optional) — `speaker_reviewed`, `performance_reviewed`, `review_notes` only. `needs_human_review`/`locked` from doc-01 §10 are **not** duplicated here — they live on the promoted `needs_review`/`locked` columns, which are the source of truth.
@@ -52,7 +52,7 @@ scene default > chapter default > book default > engine default
 
 - The segment's own `rendering` override (if present) is tiered by the segment's `locked`/`ai_suggested` columns: `locked` → `studio_override`, `ai_suggested` → `ai_inference`, neither → `explicit_source_fact`.
 - Absent an override, resolution falls through `RenderingDefaults`' caller-supplied tiers (`character_default`, `scene_default`, `chapter_default`, `book_default`, `engine_default`), each optional. **No new DB tables back these tiers in this PR** (owner decision) — a tier the caller doesn't supply falls through to the next.
-- The final fallback is a built-in kind × mode default matrix (60 cells, all 12 kinds × 5 modes), documented inline in `rendering.py`.
+- The final fallback is a built-in kind × mode default matrix (65 cells, all 13 kinds × 5 modes), documented inline in `rendering.py`.
 
 Two doc-01 inconsistencies resolved here (see `rendering.py` module docstring for full reasoning):
 

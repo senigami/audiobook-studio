@@ -18,7 +18,7 @@
     "app/domain/chapters/rendering.py": {
       "change": "added",
       "contract_changed": true,
-      "summary": "New module: resolve_rendering(segment, mode, defaults) -> RenderingDecision, the single translation layer resolving one of 8 RenderingValues for a segment across 5 RenderingModes, per doc-01's precedence chain (studio_override > explicit_source_fact > ai_inference > character/scene/chapter/book/engine default). Built-in 60-cell kind x mode default matrix as final fallback. Depends on app/domain/chapters/performance_schema.py's types.",
+      "summary": "New module: resolve_rendering(segment, mode, defaults) -> RenderingDecision, the single translation layer resolving one of 8 RenderingValues for a segment across 5 RenderingModes, per doc-01's precedence chain (studio_override > explicit_source_fact > ai_inference > character/scene/chapter/book/engine default). Built-in 65-cell (13 kinds x 5 modes) default matrix as final fallback. Depends on app/domain/chapters/performance_schema.py's types.",
       "calls_added": ["app/domain/chapters/performance_schema.py#RenderingMode", "app/domain/chapters/performance_schema.py#RenderingValue", "app/domain/chapters/performance_schema.py#SegmentKind", "app/domain/chapters/performance_schema.py#PerformanceData"]
     },
     "app/tts_server/plugin_loader.py": {
