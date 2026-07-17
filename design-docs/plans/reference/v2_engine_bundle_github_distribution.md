@@ -1,7 +1,10 @@
 # Spec: TTS Engine Bundle — GitHub Distribution & Install/Update
 
-> This document is superseded by `design-docs/plans/final_release/05_standalone_plugin_repos.md` (doc 05),
-> which is the authoritative spec for plugin distribution. Do not implement from this file.
+> **SUPERSEDED by `design-docs/plans/active/final_release/05_standalone_plugin_repos.md`.**
+> The release path changed from open GitHub topic-search discovery to an owner-controlled
+> official registry plus paste-a-GitHub-repo-URL install. The technical decisions in this doc
+> remain broadly valid, but plan 05 is the authoritative distribution spec.
+> Do not implement from this doc. Kept for historical reference only.
 
 
 > **Status: FINAL DRAFT for review, research-backed.** Defines how TTS **engine plugins**

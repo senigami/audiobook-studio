@@ -1,0 +1,14 @@
+{
+  "at": "2026-07-17T01:00:00Z",
+  "commit": "uncommitted",
+  "task": "010 task 15 — SUPERSEDED banner + official registry finalize (Phase E)",
+  "files": {
+    "design-docs/plans/reference/v2_engine_bundle_github_distribution.md": {
+      "change": "modified",
+      "contract_changed": false,
+      "summary": "Replaced the soft superseded note with the plan-05 §1.1 SUPERSEDED banner (bold marker, points at design-docs/plans/active/final_release/05_standalone_plugin_repos.md, 'do not implement from this doc'). §1.1's literal suggested wording contains a search-replace artifact ('Host changed from GitHub to GitHub'); wording adapted to say what actually changed (topic-search discovery -> official registry + paste-URL)."
+    }
+  },
+  "flow_impact": "None — docs only. app/engines/official_registry.py verified against plan-05 §1.2 and left UNCHANGED: both entries carry all §1.2 fields (id, name, summary, trust_level='official', repo_url, homepage, docs_url, icon, tags, min_studio='2.0.0', compatibility, requirements) and repo_url/git_url match the task-13 manifest distribution blocks exactly.",
+  "notes": "Paste-URL install (plan-05 Group 1) confirmed shipped: preview_github route (app/api/routers/engines_plugins.py) -> bridge -> app/tts_server/plugin_staging.preview_github_repo with confirm/cancel endpoints. Group 1 item 1.1 (BUILTIN_PLUGINS allowlist) is obsolete — superseded by the owner's §4.4 rename decision (tts_mixed matches the folder regex; no loader change). Item 1.3 resolved by task 13: distribution block shape now validated in app/tts_server/plugin_manifest.py without blocking engine load."
+}
