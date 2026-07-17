@@ -73,6 +73,25 @@ lose their assignment and merge back to sentence granularity; associated segment
 invalidated. Mitigated only by the pre-resync warning modal — data-loss-with-warning, not
 silent.
 
+## Related maintenance risk: no executable twin-parity check for the snapping algorithm
+
+Word-boundary snapping (shipped 2026-07-17, PR #143) lives as **two hand-mirrored
+implementations** of one algorithm: `_snap_offset_to_word_boundary` in
+`app/domain/chapters/operations.py` (Python, authoritative) and `snapOffsetToWordBoundary` in
+`frontend/src/pages/ChapterEditor/components/ScriptView.tsx` (TypeScript, UX preview). They are
+kept in lockstep only by cross-referencing comments and *parallel* per-language tests — there is
+**no shared fixture / contract test that asserts both produce the same output for the same
+input**. A future edit to one side could silently diverge from the other and no test would fail.
+(A known, accepted divergence already exists at exotic whitespace codepoints — JS `/\s/` vs
+Python `str.isspace()`; it is safe only because the backend snaps last and authoritatively.)
+
+Flagged by the Fable adversarial review at sign-off (2026-07-17) as the change's most fragile
+forward-looking assumption. **Recommended follow-up if this algorithm is ever touched again:**
+add a shared golden-fixture parity test — a small table of `(text, offset, boundary) -> expected`
+cases checked by *both* the pytest suite and the vitest suite (or generated once and asserted in
+each), so the two twins cannot drift undetected. Low effort, not urgent; do it opportunistically
+the next time either helper changes.
+
 ## Related offset-fidelity gap: `showSafeText` rendering path
 
 A second, smaller offset-fidelity concern belongs with this work (same "the offset a span is
