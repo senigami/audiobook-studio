@@ -244,8 +244,7 @@
   opacity: 1;
 }
 
-.kebab-trigger:focus-visible,
-.action-menu-item:focus-visible {
+.kebab-trigger:focus-visible {
   box-shadow:
     0 0 0 2px var(--bg),
     0 0 0 4px var(--action-primary);

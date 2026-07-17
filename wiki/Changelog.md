@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Cleanup] - 2026-07-16
+
+### Simplification close-out: plugin loader split, dead-code removal
+
+- **`app/tts_server/plugin_loader.py` split.** Manifest parsing/validation moved into a new `app/tts_server/plugin_manifest.py` (998 → 738 lines in the original file); plugin instantiation and the registry stay put. Behavior-preserving — see `design-docs/specs/code-organization.md` 1.3.0. (Adversarial review caught and fixed a latent circular-import ordering issue introduced by the split before it shipped.)
+- **`to_bridge_request` divergence documented.** The per-task-type request builders in `api_synthesis.py`/`synthesis.py`/`segment_synthesis.py`, and the xtts short-circuit in `orchestrator_helpers.py`, now carry comments explaining why they differ instead of looking like unintentional duplication. No behavior change.
+- **Dead `app/infra/{subprocess,cache,events,db}` stub packages removed** — all bodies raised `NotImplementedError` with zero live callers. Stale comment references in the xtts/Voxtral `app_adapter.py` files cleaned up alongside.
+- **A second dead CSS selector removed** (`.action-menu-item:focus-visible`, `theme/utilities.css`), confirmed zero usages.
+- **`GhostButton`'s JS hover state was attempted for removal, then reverted** — its inline `style` prop sets `border`/`color`/`background` on every render, which overrides CSS pseudo-classes, so relying on `.btn-ghost:hover` alone silently killed hover feedback. Caught in adversarial review before merge; `GhostButton` is unchanged. A real fix (moving `isActive`'s styling to a CSS class) is tracked separately in U9, out of scope for this cleanup.
 ## [Added] - 2026-07-16
 
 ### Chapter sample video export
