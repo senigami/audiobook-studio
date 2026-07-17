@@ -9,8 +9,9 @@
  * (no attrs, or all fields empty — `hasMeaningfulAttrs` gate in
  * recordingPromptSuggester.ts:106-112), which is DIFFERENT from its
  * `composeFallback()` path: that one only runs once at least one attribute is
- * set but nothing scores a close archetype match, and it always returns a
- * real prompt. The `null` case is only reachable via true "Skip" with nothing
+ * set but nothing scores a close archetype match, and it now composes a full
+ * read-aloud passage via `cueComposer.ts` that mutates as selections change.
+ * The `null` case is only reachable via true "Skip" with nothing
  * selected at all, so it needs its own generic prompt here rather than
  * reusing composeFallback's output (there isn't one to reuse).
  */

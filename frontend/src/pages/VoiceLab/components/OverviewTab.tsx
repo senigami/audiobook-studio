@@ -175,7 +175,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ voice, onSaved }) => {
 
             <hr className="metadata-editor-modal__divider" />
 
-            <ArchetypeQuickPick onPick={handleArchetypePick} />
+            {/* attrs = current selections, so the library narrows live as
+                the fields below are edited (owner ask 2026-07-16). */}
+            <ArchetypeQuickPick attrs={attrs} onPick={handleArchetypePick} />
 
             <p className="metadata-field-label" style={{ margin: 0 }}>
                 ATTRIBUTES <span style={{ color: 'var(--error)' }}>*</span> required fields

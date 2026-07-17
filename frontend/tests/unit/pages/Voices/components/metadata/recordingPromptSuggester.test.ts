@@ -89,13 +89,15 @@ describe('suggestRecordingPrompt', () => {
             expect(result).not.toBeNull();
             expect(result!.confidence).toBe('composed');
             expect(result!.matchedArchetype).toBeNull();
-            // Recognizable tone/timbre fragments should appear in the composed prompt.
-            expect(result!.prompt).toContain('let mischief bubble under the surface');
-            expect(result!.prompt).toContain('keep the tone narrow and light');
+            // The composed prompt is now a real read-aloud passage (cueComposer.ts);
+            // the tone/timbre performer fragments live in the direction note instead.
+            expect(result!.directionNote).toContain('Let mischief bubble under the surface');
+            expect(result!.directionNote).toContain('eep the tone narrow and light');
             expect(result!.prompt).not.toContain('undefined');
-            // No shaky invented sample line for a composed (non-archetype-matched) result --
-            // leave whatever sample text is already set alone rather than guess.
-            expect(result!.sampleText).toBeNull();
+            expect(result!.prompt.length).toBeGreaterThan(100);
+            // The composed path now also supplies a theme-matched TTS showcase line.
+            expect(result!.sampleText).not.toBeNull();
+            expect(result!.sampleText!.length).toBeGreaterThan(0);
         });
 
         it('skips class/pace pieces gracefully when absent, without emitting "undefined"', () => {
@@ -107,14 +109,14 @@ describe('suggestRecordingPrompt', () => {
             expect(result!.prompt).not.toMatch(/^\s|\s{2,}/);
         });
 
-        // One composed-path test per Class value — confirms every CLASS_OPENINGS
-        // entry is reachable and produces non-empty output.
+        // One composed-path test per Class value — confirms every CLASS_FRAMES
+        // opener (cueComposer.ts) is reachable and produces non-empty output.
         it.each([
-            ['human', 'A person is about to speak.'],
-            ['synthetic', 'This is a synthetic, AI-generated voice.'],
-            ['creature', 'Something not quite human is about to speak.'],
-            ['character', 'A stylized, larger-than-life character is about to speak.'],
-            ['deity', 'A voice older than the room it is speaking in is about to be heard.'],
+            ['human', 'I come up the path'],
+            ['synthetic', 'My systems come online'],
+            ['creature', 'I drag my claws'],
+            ['character', 'I sweep into'],
+            ['deity', 'Before the first stone was laid'],
         ] as const)('composes a non-empty prompt with the %s opening line', (cls, expectedOpening) => {
             const attrs: VoiceAttributes = { class: cls, tone: ['playful'], timbre: ['thin'] };
             const result = suggestRecordingPrompt(attrs);

@@ -1,4 +1,5 @@
 import os
+import hashlib
 import tempfile
 import atexit
 import signal
@@ -66,7 +67,23 @@ from app.engines.proc_utils import terminate_all_subprocesses  # noqa: E402
 _TEST_TIMEOUT_SECONDS = int(os.environ.get("PYTEST_TEST_TIMEOUT_SECONDS", "15"))
 _DEFAULT_TEST_TIMEOUT_SECONDS = _TEST_TIMEOUT_SECONDS
 _PYTEST_LOCK_FILE = None
-_PYTEST_LOCK_PATH = Path(os.environ.get("PYTEST_SESSION_LOCK_PATH", "/tmp/audiobook-factory-pytest.lock"))
+
+
+def _default_pytest_lock_path() -> Path:
+    """
+    Per-checkout lock path so overlapping runs are serialized *within one
+    working tree* (the actual memory-pressure risk) without a shared global
+    lock forcing unrelated git worktrees to block each other. Derived from the
+    resolved worktree root (`REAL_ROOT`) so each checkout gets a stable, unique
+    lock file. Override with `PYTEST_SESSION_LOCK_PATH` for explicit control.
+    """
+    digest = hashlib.sha1(str(REAL_ROOT).encode("utf-8")).hexdigest()[:12]
+    return Path(tempfile.gettempdir()) / f"audiobook-factory-pytest-{digest}.lock"
+
+
+_PYTEST_LOCK_PATH = Path(
+    os.environ.get("PYTEST_SESSION_LOCK_PATH") or _default_pytest_lock_path()
+)
 _ACTIVE_TIMEOUT_SECONDS = _DEFAULT_TEST_TIMEOUT_SECONDS
 
 
@@ -169,8 +186,10 @@ def pytest_configure(config):
 
 def pytest_sessionstart(session):
     """
-    Prevent overlapping pytest runs in the same repo from piling up worker threads
-    and subprocesses, which can cause severe memory pressure.
+    Prevent overlapping pytest runs in the same working tree from piling up
+    worker threads and subprocesses, which can cause severe memory pressure.
+    The lock is per-checkout (see `_default_pytest_lock_path`), so runs in
+    separate git worktrees do not block each other.
     """
     global _PYTEST_LOCK_FILE
     if fcntl is None:
