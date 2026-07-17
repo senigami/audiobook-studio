@@ -165,12 +165,27 @@ ALLOWLIST: dict[str, set[str]] = {
         # color with a token.
         "filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.2));",
     },
-    "app/App.tsx": {
-        # Pre-existing bug found while building this guard, out of this
-        # task's scope to fix: `--danger` is not a defined token (the real
-        # token is `--action-danger`), so this fallback hex is silently
-        # load-bearing. Flagged in task 018's completion note; not fixed here.
+    "app/StartupGate.tsx": {
+        # Known deferred debt (relocated from app/App.tsx after the App.tsx
+        # split): `--danger` is not a defined token (the real token is
+        # `--action-danger`), so this fallback hex is silently load-bearing.
+        # Kept as-is per the original deferral; not resolved here.
         "border: '2px solid var(--danger, #d64545)',",
+    },
+    "pages/Settings/components/SettingsComponents.tsx": {
+        # Toggle knob — must render literal white in both themes (var(--surface)
+        # flips dark in dark mode, hiding the knob against the dark track), with
+        # a plain black drop-shadow blend. Same rationale as the misc.css switch
+        # knob already allowlisted above; no semantic tokens apply.
+        "background: '#fff',",
+        "boxShadow: '0 1px 2px rgba(0,0,0,0.3)',",
+    },
+    "theme/components/voice-lab.css": {
+        # Circular play-on-hover overlay button — a black scrim wash at low
+        # opacity with a literal-white icon, so it stays legible over arbitrary
+        # cover art in both themes. Not semantic colors with tokens.
+        "background: rgba(0, 0, 0, 0.55);",
+        "color: #fff;",
     },
     "pages/ProjectDetail/components/ProjectCard.tsx": {
         # Decorative glass-highlight / vignette / drop-shadow overlays on the
