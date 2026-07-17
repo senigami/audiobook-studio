@@ -1,0 +1,10 @@
+{
+  "date": "2026-07-16",
+  "author": "studio2/standalone-plugin-repos-010 task 05 (Voxtral server import rewrite)",
+  "summary": "tts_engines/tts_voxtral/plugin/server/engine.py no longer imports app.*: SDK contract types + StudioTTSEngine from studio_plugin_sdk, wav_to_mp3 from studio_plugin_sdk.audio with inlined _MP3_QUALITY='2' (host-default value). Zero behavior change.",
+  "changes": [
+    {"file": "tts_engines/tts_voxtral/plugin/server/engine.py", "change": "Module-level: 'from studio_plugin_sdk import StudioTTSEngine, TTSRequest, TTSResult, VerificationResult' replaces the two app.engines.voice.* imports; new module constant _MP3_QUALITY='2'. Fn-body _wav_to_mp3 delegates to studio_plugin_sdk.audio.wav_to_mp3 with quality=_MP3_QUALITY (SDK default runner — same object app's wrapper injected)."}
+  ],
+  "invariants": "Boundary grep: zero app.* imports in tts_engines/tts_voxtral/{plugin/server,plugin/core,interface.py,cli.py,preview}. Same ffmpeg command (-q:a 2).",
+  "note": "Task 05 of .agent/mastermind-010-plan/. The patch of app.engines.audio_ops.wav_to_mp3 in tests/test_voxtral_implementation.py:288 was examined and LEFT as-is: that test exercises the HOST sample flow via ctx.finalize_sample_artifact (studio handler), not the plugin server engine. Suite: tts_engines/tts_voxtral 51 passed, 1 skipped."
+}
