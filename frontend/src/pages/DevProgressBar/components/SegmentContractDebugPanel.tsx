@@ -113,7 +113,7 @@ export const SegmentContractDebugPanel: React.FC = () => {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <SlidersHorizontal size={17} color="var(--accent)" />
+            <SlidersHorizontal size={17} color="var(--action-primary)" />
             <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Segment Contract Debug</h2>
           </div>
           <p style={{ margin: '0.25rem 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>

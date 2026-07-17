@@ -6,7 +6,7 @@ import { saveThemePref } from '@/utils/theme';
 import {
   Library,
   Mic,
-  Zap,
+  BarChart2,
   Puzzle,
   Plug,
   Settings,
@@ -19,6 +19,7 @@ import {
 import {
   StatusOrb,
   BookCover,
+  ConceptBadge,
   CHAPTERS, CHAPTER_RENDER_PCT, BOOK_STAGE_LINKS,
 } from './shared';
 import type { OrbStatus, RailDest, BookTab } from './shared';
@@ -26,7 +27,7 @@ import type { OrbStatus, RailDest, BookTab } from './shared';
 const RAIL_ICON: Record<RailDest, React.ReactNode> = {
   Library:      <Library size={16} strokeWidth={1.8} />,
   Voices:       <Mic size={16} strokeWidth={1.8} />,
-  Activity:     <Zap size={16} strokeWidth={1.8} />,
+  Activity:     <BarChart2 size={16} strokeWidth={1.8} />,
   Engines:      <Puzzle size={16} strokeWidth={1.8} />,
   Integrations: <Plug size={16} strokeWidth={1.8} />,
   Settings:     <Settings size={16} strokeWidth={1.8} />,
@@ -146,8 +147,8 @@ export const Rail: React.FC<{
                       cursor: 'pointer',
                       border: 0,
                       background: isActive ? 'var(--accent-tint-bg)' : 'transparent',
-                      borderLeft: isActive && !collapsed ? '3px solid var(--accent)' : '3px solid transparent',
-                      color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                      borderLeft: isActive && !collapsed ? '3px solid var(--action-primary)' : '3px solid transparent',
+                      color: isActive ? 'var(--action-primary)' : 'var(--text-secondary)',
                       fontSize: 'var(--type-caption)',
                       fontWeight: isActive ? 700 : 400,
                       fontFamily: 'inherit',
@@ -168,7 +169,7 @@ export const Rail: React.FC<{
                         style={{
                           fontSize: 'var(--type-micro)',
                           fontWeight: 700,
-                          background: 'var(--accent)',
+                          background: 'var(--action-primary)',
                           color: 'var(--text-on-accent)',
                           borderRadius: 10,
                           padding: '1px 5px',
@@ -231,6 +232,13 @@ export const Rail: React.FC<{
                           </span>
                         </div>
 
+                        {/* Ambient chapter-progress glance — mirrors production RailBookBlock */}
+                        <div style={{ padding: '0 8px 5px 8px', fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>
+                          {CHAPTER_RENDER_PCT.filter(p => p >= 100).length} of {CHAPTERS.length} done
+                          {CHAPTER_RENDER_PCT.some(p => p > 0 && p < 100) &&
+                            ` · ${CHAPTER_RENDER_PCT.filter(p => p > 0 && p < 100).length} rendering`}
+                        </div>
+
                         {/* Stage links */}
                         {BOOK_STAGE_LINKS.map(stage => {
                           const isStageActive = activeBookTab === stage;
@@ -250,11 +258,11 @@ export const Rail: React.FC<{
                                   cursor: 'pointer',
                                   border: 0,
                                   background: isStageActive ? 'var(--accent-tint-bg)' : 'transparent',
-                                  color: isStageActive ? 'var(--accent)' : 'var(--text-secondary)',
+                                  color: isStageActive ? 'var(--action-primary)' : 'var(--text-secondary)',
                                   fontSize: 'var(--type-micro)',
                                   fontWeight: isStageActive ? 700 : 400,
                                   fontFamily: 'inherit',
-                                  borderLeft: isStageActive ? '2px solid var(--accent)' : '2px solid transparent',
+                                  borderLeft: isStageActive ? '2px solid var(--action-primary)' : '2px solid transparent',
                                   marginLeft: -1,
                                   textAlign: 'left',
                                 }}
@@ -262,9 +270,15 @@ export const Rail: React.FC<{
                                 {stage}
                               </button>
 
-                              {/* Chapter list — under Contents, expanded when Contents is active */}
+                              {/* Chapter list — under Contents, expanded when Contents is active.
+                                  Aspirational: production's rail shows only cover + progress +
+                                  fixed stage links (no inline chapter tree), so this North Star
+                                  surface is badged "Concept". */}
                               {stage === 'Contents' && isStageActive && (
                                 <div style={{ paddingLeft: 4 }}>
+                                  <div style={{ padding: '2px 6px 4px 14px' }}>
+                                    <ConceptBadge title="Inline chapter navigation is a North Star concept — the shipping rail shows cover + progress + stage links only" />
+                                  </div>
                                   {CHAPTERS.map(ch => {
                                     const isChActive = ch.n === activeChapter;
                                     const orbStatus = chapterToOrbStatus(ch.status);
@@ -277,7 +291,7 @@ export const Rail: React.FC<{
                                         style={{
                                           padding: '4px 6px 3px 14px',
                                           background: isChActive ? 'var(--accent-tint-bg)' : 'transparent',
-                                          borderLeft: isChActive ? '2px solid var(--accent)' : '2px solid transparent',
+                                          borderLeft: isChActive ? '2px solid var(--action-primary)' : '2px solid transparent',
                                           cursor: 'pointer',
                                           position: 'relative',
                                           marginLeft: -1,
@@ -292,7 +306,7 @@ export const Rail: React.FC<{
                                           />
                                           <span style={{
                                             fontSize: 'var(--type-micro)',
-                                            color: isChActive ? 'var(--accent)' : 'var(--text-secondary)',
+                                            color: isChActive ? 'var(--action-primary)' : 'var(--text-secondary)',
                                             fontWeight: isChActive ? 700 : 400,
                                             flex: 1,
                                             whiteSpace: 'nowrap',

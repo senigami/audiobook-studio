@@ -137,7 +137,7 @@ export const CastingSuggestionsModal: React.FC<CastingSuggestionsModalProps> = (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem 1.5rem 1rem', borderBottom: '1px solid var(--border)' }}>
               <div>
                 <h2 id="casting-suggestions-title" style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Sparkles size={18} style={{ color: 'var(--accent)' }} />
+                  <Sparkles size={18} style={{ color: 'var(--action-primary)' }} />
                   Suggest voices
                 </h2>
                 <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -194,7 +194,7 @@ export const CastingSuggestionsModal: React.FC<CastingSuggestionsModalProps> = (
                       gap: '12px',
                       padding: '12px',
                       borderRadius: '12px',
-                      border: `1px solid ${isAssigned ? 'var(--accent)' : 'var(--border)'}`,
+                      border: `1px solid ${isAssigned ? 'var(--action-primary)' : 'var(--border)'}`,
                       background: isAssigned ? 'var(--accent-tint-bg)' : 'var(--surface-dim)',
                     }}
                   >

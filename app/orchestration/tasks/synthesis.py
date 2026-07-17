@@ -375,7 +375,19 @@ class SynthesisTask(StudioTask):
     # ------------------------------------------------------------------
 
     def to_bridge_request(self) -> dict[str, Any] | None:
-        """Build a VoiceBridge-compatible synthesis request."""
+        """Build a VoiceBridge-compatible synthesis request.
+
+        This is the full-featured builder used by the primary chapter/book
+        render path: it applies project lexicon substitution to the script
+        text and includes ``render_batch_id``, ``custom_title``, ``make_mp3``,
+        and a ``**self.synthesis_settings`` spread. See also the other two
+        ``to_bridge_request`` builders, which cover different task shapes:
+        ``app/orchestration/tasks/segment_synthesis.py`` (single-group
+        fan-out child, hardcoded ``language``/``is_bake``) and
+        ``app/orchestration/tasks/api_synthesis.py`` (external
+        ``/api/v1/tts`` gateway request, with ``caller_id`` attribution and
+        a ``**self.request_settings`` spread).
+        """
         if self.engine_id == "mixed":
             return None
 

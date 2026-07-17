@@ -86,7 +86,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
     if (loading) {
         return (
             <div className="project-library-loading">
-                <Loader2 className="animate-spin" size={32} color="var(--accent)" />
+                <Loader2 className="animate-spin" size={32} color="var(--action-primary)" />
             </div>
         );
     }
@@ -131,7 +131,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                                         onDrop={handleDrop}
                                         className="hover-lift project-library-cover-dropzone"
                                         style={{
-                                            border: isDragging ? '2px solid var(--accent)' : '2px dashed var(--border)',
+                                            border: isDragging ? '2px solid var(--action-primary)' : '2px dashed var(--border)',
                                             background: isDragging ? 'var(--accent-glow)' : 'var(--surface)'
                                         }}
                                     >
@@ -141,8 +141,8 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                                             </div>
                                         ) : (
                                             <div className="project-library-cover-placeholder">
-                                                <ImageIcon size={24} className="project-library-cover-icon" style={{ opacity: isDragging ? 1 : 0.5, color: isDragging ? 'var(--accent)' : 'inherit' }} />
-                                                <p className="project-library-cover-label" style={{ color: isDragging ? 'var(--accent)' : 'var(--text-muted)' }}>
+                                                <ImageIcon size={24} className="project-library-cover-icon" style={{ opacity: isDragging ? 1 : 0.5, color: isDragging ? 'var(--action-primary)' : 'inherit' }} />
+                                                <p className="project-library-cover-label" style={{ color: isDragging ? 'var(--action-primary)' : 'var(--text-muted)' }}>
                                                     {isDragging ? 'Drop Image' : 'Add Cover'}
                                                 </p>
                                             </div>
@@ -332,7 +332,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                                     onDrop={handleDrop}
                                     className="hover-lift project-library-cover-dropzone"
                                     style={{
-                                        border: isDragging ? '2px solid var(--accent)' : '2px dashed var(--border)',
+                                        border: isDragging ? '2px solid var(--action-primary)' : '2px dashed var(--border)',
                                         background: isDragging ? 'var(--accent-glow)' : 'var(--surface)'
                                     }}
                                 >
@@ -347,8 +347,8 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({ onSelectProject 
                                         </div>
                                     ) : (
                                         <div className="project-library-cover-placeholder">
-                                            <ImageIcon size={24} className="project-library-cover-icon" style={{ opacity: isDragging ? 1 : 0.5, color: isDragging ? 'var(--accent)' : 'inherit' }} />
-                                            <p className="project-library-cover-label" style={{ color: isDragging ? 'var(--accent)' : 'var(--text-muted)' }}>
+                                            <ImageIcon size={24} className="project-library-cover-icon" style={{ opacity: isDragging ? 1 : 0.5, color: isDragging ? 'var(--action-primary)' : 'inherit' }} />
+                                            <p className="project-library-cover-label" style={{ color: isDragging ? 'var(--action-primary)' : 'var(--text-muted)' }}>
                                                 {isDragging ? 'Drop Image' : 'Add Cover'}
                                             </p>
                                         </div>

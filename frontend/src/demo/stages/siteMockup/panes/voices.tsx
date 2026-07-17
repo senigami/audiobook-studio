@@ -29,6 +29,7 @@ import {
   Btn,
   ProgressBar,
   PaneHeader,
+  ConceptBadge,
 } from '../shared';
 import { VoiceProfileEditorPane } from './voiceEditor';
 import { VoicePortrait } from './voicePortrait';
@@ -295,7 +296,7 @@ const SpeedChip: React.FC = () => {
               type="range" min={0.5} max={2.0} step={0.05}
               value={speed}
               onChange={e => setSpeed(parseFloat(e.target.value))}
-              style={{ flex: 1, accentColor: 'var(--accent)', cursor: 'pointer' }}
+              style={{ flex: 1, accentColor: 'var(--action-primary)', cursor: 'pointer' }}
             />
             <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-secondary)', fontFamily: 'monospace', width: 28, textAlign: 'right' }}>{speed.toFixed(2)}</span>
           </Row>
@@ -462,7 +463,7 @@ const MyVoiceCard: React.FC<{
           style={{
             background: 'var(--accent-tint-bg)',
             borderColor: 'var(--accent-tint-border)',
-            color: 'var(--accent)',
+            color: 'var(--action-primary)',
           }}
         >
           {voice.cta}
@@ -592,14 +593,17 @@ const VoiceLab: React.FC<{
         </Row>
 
         {/* Phase stepper */}
-        <Row gap={0} style={{ alignItems: 'center', marginTop: 'var(--space-4)', marginBottom: 'var(--space-2)' }}>
+        <Row gap={8} style={{ alignItems: 'center', marginTop: 'var(--space-4)', marginBottom: 'var(--space-1)' }}>
+          <ConceptBadge title="The Samples→Build→Test→Ready stepper is a North Star concept — the shipping Voice Lab uses a per-variant editor" />
+        </Row>
+        <Row gap={0} style={{ alignItems: 'center', marginBottom: 'var(--space-2)' }}>
           {phaseSteps.map((step, i) => {
             const isActive = step === activeStep;
             const isPast = phaseSteps.indexOf(step) < phaseSteps.indexOf(activeStep);
             return (
               <React.Fragment key={step}>
                 {i > 0 && (
-                  <div style={{ flex: 1, height: 1, background: isPast || isActive ? 'var(--accent)' : 'var(--border)' }} />
+                  <div style={{ flex: 1, height: 1, background: isPast || isActive ? 'var(--action-primary)' : 'var(--border)' }} />
                 )}
                 <div
                   onClick={() => setActiveStep(step)}
@@ -607,11 +611,11 @@ const VoiceLab: React.FC<{
                 >
                   <div style={{
                     width: 22, height: 22, borderRadius: '50%',
-                    background: isActive ? 'var(--accent)' : isPast ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-                    border: `2px solid ${isActive || isPast ? 'var(--accent)' : 'var(--border)'}`,
+                    background: isActive ? 'var(--action-primary)' : isPast ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
+                    border: `2px solid ${isActive || isPast ? 'var(--action-primary)' : 'var(--border)'}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 'var(--type-micro)',
-                    color: isActive ? 'var(--text-on-accent)' : isPast ? 'var(--accent)' : 'var(--text-muted)',
+                    color: isActive ? 'var(--text-on-accent)' : isPast ? 'var(--action-primary)' : 'var(--text-muted)',
                     fontWeight: 700,
                     boxShadow: isActive ? 'var(--shadow-sm)' : 'none',
                   }}>
@@ -619,7 +623,7 @@ const VoiceLab: React.FC<{
                   </div>
                   <span style={{
                     fontSize: 'var(--type-micro)',
-                    color: isActive ? 'var(--accent)' : isPast ? 'var(--text-secondary)' : 'var(--text-muted)',
+                    color: isActive ? 'var(--action-primary)' : isPast ? 'var(--text-secondary)' : 'var(--text-muted)',
                     fontWeight: isActive ? 700 : 400, whiteSpace: 'nowrap',
                   }}>
                     {step}
@@ -685,7 +689,7 @@ const VoiceLab: React.FC<{
                     )}
                     <span style={{
                       fontSize: 'var(--type-caption)', fontWeight: variant.isDefault ? 700 : 400,
-                      color: variant.isDefault ? 'var(--accent)' : 'var(--text-primary)', flex: 1,
+                      color: variant.isDefault ? 'var(--action-primary)' : 'var(--text-primary)', flex: 1,
                     }}>
                       {variant.name}
                       {variant.isDefault && (
@@ -777,7 +781,7 @@ const VoiceLab: React.FC<{
                 <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>0:05 / 0:12</span>
               </Row>
               <div style={{ textAlign: 'right' }}>
-                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline' }}>Edit preview script</span>
+                <span style={{ fontSize: 'var(--type-micro)', color: 'var(--action-primary)', cursor: 'pointer', textDecoration: 'underline' }}>Edit preview script</span>
               </div>
             </Card>
           </Col>
@@ -844,7 +848,7 @@ const RecordingGuideModal: React.FC<{ onClose: () => void }> = ({ onClose }) => 
               <div style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--text-secondary)' }}>{group.label}</div>
               {group.tips.map(tip => (
                 <Row gap={6} key={tip} style={{ alignItems: 'flex-start' }}>
-                  <span style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)', flexShrink: 0, marginTop: 1 }}>•</span>
+                  <span style={{ fontSize: 'var(--type-micro)', color: 'var(--action-primary)', flexShrink: 0, marginTop: 1 }}>•</span>
                   <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', lineHeight: 'var(--leading-normal)' }}>{tip}</span>
                 </Row>
               ))}
@@ -975,16 +979,16 @@ const CreateVoiceModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
               <Row key={opt.id} gap={8} style={{
                 padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius-button)',
                 background: opt.id === 'primary' ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-                border: `1px solid ${opt.id === 'primary' ? 'var(--accent)' : 'var(--border)'}`,
+                border: `1px solid ${opt.id === 'primary' ? 'var(--action-primary)' : 'var(--border)'}`,
                 alignItems: 'center', cursor: 'pointer',
               }}>
-                <span style={{ fontSize: 'var(--type-caption)', color: opt.id === 'primary' ? 'var(--accent)' : 'var(--text-secondary)', flex: 1, fontWeight: opt.id === 'primary' ? 700 : 400 }}>
+                <span style={{ fontSize: 'var(--type-caption)', color: opt.id === 'primary' ? 'var(--action-primary)' : 'var(--text-secondary)', flex: 1, fontWeight: opt.id === 'primary' ? 700 : 400 }}>
                   {opt.label}
                 </span>
                 {!opt.ready && (
                   <SemanticChip variant="warning">Needs setup</SemanticChip>
                 )}
-                {opt.id === 'primary' && <span style={{ fontSize: 'var(--type-micro)', color: 'var(--accent)' }}>●</span>}
+                {opt.id === 'primary' && <span style={{ fontSize: 'var(--type-micro)', color: 'var(--action-primary)' }}>●</span>}
               </Row>
             ))}
           </Col>
@@ -1321,9 +1325,9 @@ const VoiceMetadataModal: React.FC<{
                     key={acc}
                     onClick={() => setAccent(accent === acc ? '' : acc)}
                     style={{
-                      border: accent === acc ? '1px solid var(--accent)' : 'var(--hairline)',
+                      border: accent === acc ? '1px solid var(--action-primary)' : 'var(--hairline)',
                       background: accent === acc ? 'var(--accent-tint-bg)' : 'var(--surface)',
-                      color: accent === acc ? 'var(--accent)' : 'var(--text-secondary)',
+                      color: accent === acc ? 'var(--action-primary)' : 'var(--text-secondary)',
                       fontSize: 'var(--type-micro)',
                       padding: 'var(--space-1) var(--space-2)',
                     }}
@@ -1345,9 +1349,9 @@ const VoiceMetadataModal: React.FC<{
                       key={lang}
                       onClick={() => toggleLanguage(lang)}
                       style={{
-                        border: isSel ? '1px solid var(--accent)' : 'var(--hairline)',
+                        border: isSel ? '1px solid var(--action-primary)' : 'var(--hairline)',
                         background: isSel ? 'var(--accent-tint-bg)' : 'var(--surface)',
-                        color: isSel ? 'var(--accent)' : 'var(--text-secondary)',
+                        color: isSel ? 'var(--action-primary)' : 'var(--text-secondary)',
                         fontSize: 'var(--type-micro)',
                         padding: 'var(--space-1) var(--space-2)',
                       }}
@@ -1370,9 +1374,9 @@ const VoiceMetadataModal: React.FC<{
                       key={st}
                       onClick={() => toggleStyle(st)}
                       style={{
-                        border: isSel ? '1px solid var(--accent)' : 'var(--hairline)',
+                        border: isSel ? '1px solid var(--action-primary)' : 'var(--hairline)',
                         background: isSel ? 'var(--accent-tint-bg)' : 'var(--surface)',
-                        color: isSel ? 'var(--accent)' : 'var(--text-secondary)',
+                        color: isSel ? 'var(--action-primary)' : 'var(--text-secondary)',
                         fontSize: 'var(--type-micro)',
                         padding: 'var(--space-1) var(--space-2)',
                       }}
@@ -1504,7 +1508,7 @@ const ExportBundleModal: React.FC<{
                 display: 'block',
                 textDecoration: 'none',
                 textAlign: 'center',
-                background: 'var(--accent)',
+                background: 'var(--action-primary)',
                 color: '#fff',
                 padding: 'var(--space-2) var(--space-3)',
                 borderRadius: 'var(--radius-button)',
@@ -1756,13 +1760,13 @@ export const VoicesPane: React.FC = () => {
                   border: 0,
                   borderRight: i === 0 ? 'var(--hairline)' : 'none',
                   background: voiceTab === tab ? 'var(--accent-tint-bg)' : 'transparent',
-                  color: voiceTab === tab ? 'var(--accent)' : 'var(--text-secondary)',
+                  color: voiceTab === tab ? 'var(--action-primary)' : 'var(--text-secondary)',
                   transition: 'background 0.15s, color 0.15s',
                   whiteSpace: 'nowrap',
                   fontFamily: 'inherit',
                 }}
               >
-                {tab === 'local' ? 'My Voices' : 'Discover'}
+                {tab === 'local' ? 'My Voices' : '🤗 Discover'}
               </button>
             ))}
           </div>

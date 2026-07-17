@@ -167,7 +167,7 @@ export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, title, children
                                 flexDirection: 'column',
                                 gap: '3px',
                                 padding: '8px 2px',
-                                background: isResizing ? 'var(--accent)' : 'var(--surface-alt)',
+                                background: isResizing ? 'var(--action-primary)' : 'var(--surface-alt)',
                                 borderRadius: '4px',
                                 border: '1px solid var(--border)',
                                 boxShadow: isResizing ? '0 0 10px var(--accent-glow)' : 'var(--shadow-sm)',
@@ -305,7 +305,7 @@ export const SpeedPopover: React.FC<SpeedPopoverProps> = ({ value, onChange, tri
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Speed Adjustment</span>
-                        <span style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--accent)', fontFamily: 'monospace' }}>{value.toFixed(2)}x</span>
+                        <span style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--action-primary)', fontFamily: 'monospace' }}>{value.toFixed(2)}x</span>
                     </div>
 
                     <input
@@ -315,7 +315,7 @@ export const SpeedPopover: React.FC<SpeedPopoverProps> = ({ value, onChange, tri
                         step="0.01"
                         value={value}
                         onChange={(e) => onChange(parseFloat(e.target.value))}
-                        style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
+                        style={{ width: '100%', accentColor: 'var(--action-primary)', cursor: 'pointer' }}
                     />
 
                     <div style={{ display: 'flex', gap: '6px' }}>
@@ -330,9 +330,9 @@ export const SpeedPopover: React.FC<SpeedPopoverProps> = ({ value, onChange, tri
                                     padding: '4px 0',
                                     borderRadius: '6px',
                                     background: Math.abs(value - p) < 0.01 ? 'var(--accent-glow)' : 'var(--surface)',
-                                    color: Math.abs(value - p) < 0.01 ? 'var(--accent)' : 'var(--text-secondary)',
+                                    color: Math.abs(value - p) < 0.01 ? 'var(--action-primary)' : 'var(--text-secondary)',
                                     border: '1px solid',
-                                    borderColor: Math.abs(value - p) < 0.01 ? 'var(--accent)' : 'var(--border-light)'
+                                    borderColor: Math.abs(value - p) < 0.01 ? 'var(--action-primary)' : 'var(--border-light)'
                                 }}
                             >
                                 {p.toFixed(2)}x

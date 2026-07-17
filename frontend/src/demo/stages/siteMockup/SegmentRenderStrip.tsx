@@ -145,7 +145,7 @@ const blockStyle = (s: SegRT): React.CSSProperties => {
   };
   if (s.state === 'queued') return { ...base, background: 'var(--surface-alt)' };
   if (s.state === 'preparing') return { ...base, background: 'var(--accent-tint-bg)' };
-  if (s.state === 'done') return { ...base, background: 'var(--accent)' };
+  if (s.state === 'done') return { ...base, background: 'var(--action-primary)' };
   if (s.state === 'failed') return { ...base, background: 'var(--surface)', boxShadow: 'inset 0 0 0 1px var(--action-danger)' };
   // rendering — teal track comes from the .ns-seg-active class; inner blue fill
   // is drawn separately and advances over it.
@@ -239,7 +239,7 @@ export const SegmentRenderStrip: React.FC<{ plan: SegmentPlan }> = ({ plan }) =>
               {s.state === 'rendering' && (
                 <div
                   className="ns-seg-fill"
-                  style={{ width: `${s.fill * 100}%`, height: '100%', background: 'var(--accent)' }}
+                  style={{ width: `${s.fill * 100}%`, height: '100%', background: 'var(--action-primary)' }}
                 />
               )}
               {s.state === 'failed' && (

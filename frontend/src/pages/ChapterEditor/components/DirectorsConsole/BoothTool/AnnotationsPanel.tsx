@@ -145,7 +145,7 @@ export function AnnotationsPanel({
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--accent)' }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--action-primary)' }}>
                   Segment {segmentOrdinal(anno.segmentId) ?? '?'}
                 </span>
                 <button
@@ -188,7 +188,7 @@ export function AnnotationsPanel({
           <>
             <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)' }}>
               {notingSegmentId ? 'Note for segment' : 'Active Segment:'}{' '}
-              <span style={{ color: 'var(--accent)' }}>{segmentOrdinal(notingTargetId) ?? '?'}</span>
+              <span style={{ color: 'var(--action-primary)' }}>{segmentOrdinal(notingTargetId) ?? '?'}</span>
             </div>
             <textarea
               value={noteText}
@@ -218,7 +218,7 @@ export function AnnotationsPanel({
                   fontSize: '0.75rem',
                   fontWeight: 600,
                   color: 'var(--text-on-accent)',
-                  background: 'var(--accent)',
+                  background: 'var(--action-primary)',
                   border: 'none',
                   borderRadius: 'var(--radius-button)',
                   cursor: 'pointer',

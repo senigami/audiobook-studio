@@ -193,7 +193,7 @@ export const Chip: React.FC<{
     borderRadius: 'var(--radius-round)',
     border: `1px solid ${color ? color + '55' : active ? 'var(--accent-tint-border)' : 'var(--border)'}`,
     background: color ? color + '22' : active ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
-    color: color ?? (active ? 'var(--accent)' : 'var(--text-secondary)'),
+    color: color ?? (active ? 'var(--action-primary)' : 'var(--text-secondary)'),
     whiteSpace: 'nowrap',
     display: 'inline-flex',
     alignItems: 'center',
@@ -211,6 +211,40 @@ export const Chip: React.FC<{
 
   return <span style={chipStyle}>{children}</span>;
 };
+
+/**
+ * ConceptBadge — marks a demo surface that is aspirational / not-yet-shipped in
+ * production, so the North Star demo can show ideas ahead of the real app
+ * without misrepresenting what ships today. Dashed muted pill, deliberately
+ * distinct from the solid semantic chips used for real states.
+ */
+export const ConceptBadge: React.FC<{ children?: React.ReactNode; style?: React.CSSProperties; title?: string }> = ({
+  children = 'Concept',
+  style,
+  title,
+}) => (
+  <span
+    title={title ?? 'Aspirational — not yet in the shipping app'}
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '4px',
+      fontSize: 'var(--type-micro)',
+      fontWeight: 700,
+      letterSpacing: '0.04em',
+      textTransform: 'uppercase',
+      padding: '2px 7px',
+      borderRadius: 'var(--radius-round)',
+      border: '1px dashed var(--border)',
+      background: 'transparent',
+      color: 'var(--text-muted)',
+      whiteSpace: 'nowrap',
+      ...style,
+    }}
+  >
+    {children}
+  </span>
+);
 
 /** Semantic status chip — maps a variant to design-system tint tokens. */
 export type ChipVariant = 'success' | 'warning' | 'error' | 'cloud' | 'accent' | 'neutral';
@@ -239,7 +273,7 @@ const SEMANTIC_CHIP_STYLES: Record<ChipVariant, React.CSSProperties> = {
   accent: {
     background: 'var(--accent-tint-bg)',
     border: '1px solid var(--accent-tint-border)',
-    color: 'var(--accent)',
+    color: 'var(--action-primary)',
   },
   neutral: {
     background: 'var(--surface-alt)',
@@ -334,7 +368,7 @@ const ORB_TOKEN: Record<OrbStatus, { fill: string; ring: string }> = {
   idle:      { fill: 'var(--surface-alt)',    ring: 'var(--border)' },
   queued:    { fill: 'var(--warning-tint-bg)', ring: 'var(--warning-tint-border)' },
   preparing: { fill: 'var(--warning-tint-bg)', ring: 'var(--warning-tint-border)' },
-  running:   { fill: 'var(--accent-tint-bg)', ring: 'var(--accent)' },
+  running:   { fill: 'var(--accent-tint-bg)', ring: 'var(--action-primary)' },
   done:      { fill: 'var(--success-tint-bg)', ring: 'var(--success)' },
   failed:    { fill: 'var(--error-tint-bg)',  ring: 'var(--error)' },
 };
@@ -412,8 +446,8 @@ export const Btn: React.FC<ButtonProps> = ({
       fontWeight: 600,
       padding: small ? '2px 7px' : '5px 14px',
       borderRadius: 'var(--radius-button)',
-      border: `1px solid ${primary ? 'var(--accent)' : 'var(--border)'}`,
-      background: primary ? 'var(--accent)' : 'var(--surface-alt)',
+      border: `1px solid ${primary ? 'var(--action-primary)' : 'var(--border)'}`,
+      background: primary ? 'var(--action-primary)' : 'var(--surface-alt)',
       color: primary ? 'var(--text-on-accent)' : 'var(--text-primary)',
       cursor: (onClick && !disabled) ? 'pointer' : 'default',
       whiteSpace: 'nowrap',
@@ -443,10 +477,10 @@ export const PlayButton: React.FC<{
   const dim = size + 16;
   const toneStyle: React.CSSProperties =
     tone === 'overlay'
-      ? { background: 'var(--accent)', border: 'none', color: 'var(--text-on-accent)', boxShadow: 'var(--shadow-md)' }
+      ? { background: 'var(--action-primary)', border: 'none', color: 'var(--text-on-accent)', boxShadow: 'var(--shadow-md)' }
       : tone === 'ghost'
       ? { background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-secondary)' }
-      : { background: 'var(--accent-tint-bg)', border: '1px solid var(--accent-tint-border)', color: 'var(--accent)' };
+      : { background: 'var(--accent-tint-bg)', border: '1px solid var(--accent-tint-border)', color: 'var(--action-primary)' };
   return (
     <button
       type="button"
@@ -493,8 +527,8 @@ export const ProgressBar: React.FC<{ pct: number; height?: number; shimmer?: boo
         width: `${pct}%`,
         height: '100%',
         background: shimmer
-          ? 'linear-gradient(90deg, var(--accent) 60%, var(--accent-tint-border) 100%)'
-          : 'var(--accent)',
+          ? 'linear-gradient(90deg, var(--action-primary) 60%, var(--accent-tint-border) 100%)'
+          : 'var(--action-primary)',
         borderRadius: 2,
         opacity: shimmer ? 0.85 : 1,
       }}
@@ -750,7 +784,7 @@ export const MockWaveTape: React.FC<MockWaveTapeProps> = ({
         y1={0}
         x2={playheadX}
         y2={svgH}
-        stroke="var(--accent)"
+        stroke="var(--action-primary)"
         strokeWidth={2}
         opacity={0.9}
       />
@@ -878,7 +912,7 @@ export const Avatar: React.FC<{
           style={{
             fontSize: `${size * 0.36}px`,
             fontWeight: 600,
-            color: 'var(--accent)',
+            color: 'var(--action-primary)',
             lineHeight: 1,
             userSelect: 'none',
           }}
@@ -886,7 +920,7 @@ export const Avatar: React.FC<{
           {initials}
         </span>
       ) : (
-        <User size={size * 0.55} color="var(--accent)" strokeWidth={1.5} />
+        <User size={size * 0.55} color="var(--action-primary)" strokeWidth={1.5} />
       )}
     </div>
   );
@@ -939,7 +973,7 @@ export const onPill: React.CSSProperties = {
   fontWeight: 700,
   padding: '1px 7px',
   borderRadius: 'var(--radius-round)',
-  background: 'var(--accent)',
+  background: 'var(--action-primary)',
   color: 'var(--text-on-accent)',
   display: 'inline-flex',
   alignItems: 'center',
@@ -1007,9 +1041,9 @@ export const CHAPTERS = [
   { n: 7, title: 'Whispers at Threshold', words: 2775, status: 'Drafting' },
 ];
 
-export type BookTab = 'Book' | 'Contents' | 'Cast' | 'Publish' | 'Backups';
-export const BOOK_TABS: BookTab[] = ['Book', 'Contents', 'Cast', 'Publish', 'Backups'];
-export const BOOK_STAGE_LINKS: BookTab[] = ['Contents', 'Cast', 'Publish', 'Backups'];
+export type BookTab = 'Book' | 'Contents' | 'Cast' | 'Lexicon' | 'Publish' | 'Backups';
+export const BOOK_TABS: BookTab[] = ['Book', 'Contents', 'Cast', 'Lexicon', 'Publish', 'Backups'];
+export const BOOK_STAGE_LINKS: BookTab[] = ['Contents', 'Cast', 'Lexicon', 'Publish', 'Backups'];
 
 export type RailDest = 'Library' | 'Voices' | 'Activity' | 'Engines' | 'Integrations' | 'Settings';
 
@@ -1185,7 +1219,7 @@ export const ResumeFollowingPill: React.FC<{ onClick: () => void }> = ({ onClick
       display: 'inline-flex', alignItems: 'center', gap: 6,
       minHeight: 44, padding: '0 var(--space-3)',
       borderRadius: 'var(--radius-round)',
-      background: 'var(--surface)', color: 'var(--accent)',
+      background: 'var(--surface)', color: 'var(--action-primary)',
       border: '1px solid var(--accent-tint-border)',
       boxShadow: 'var(--shadow-md)', cursor: 'pointer',
       fontSize: 'var(--type-caption)', fontWeight: 600,

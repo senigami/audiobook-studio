@@ -42,8 +42,8 @@
 
 .directors-console__rail-tab--active {
   background: var(--accent-tint-bg, var(--accent-glow));
-  border-left-color: var(--accent);
-  color: var(--accent);
+  border-left-color: var(--action-primary);
+  color: var(--action-primary);
 }
 
 /* Divider between the mode-switching items (Cast/Booth/Revise/Write) and
@@ -102,7 +102,7 @@
 
 .mobile-mode-switcher__item--active {
   background: var(--accent-tint-bg, var(--accent-glow));
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 .mobile-mode-switcher__label {
@@ -211,7 +211,7 @@
   color: var(--text-primary);
   background: var(--accent-tint-bg);
   border-color: var(--accent-tint-border);
-  border-left: 3px solid var(--accent);
+  border-left: 3px solid var(--action-primary);
   font-weight: 600;
 }
 
@@ -319,7 +319,7 @@
 .revise-tool__banner {
   font-size: 0.7rem;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--action-primary);
   background: var(--accent-tint-bg);
   border: 1px solid var(--accent-tint-border);
   border-radius: var(--radius-button);
@@ -465,9 +465,9 @@
 }
 
 .revise-text-view__save-btn {
-  background: var(--accent);
+  background: var(--action-primary);
   color: var(--on-action);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--action-primary);
 }
 
 .revise-text-view__save-btn:disabled {

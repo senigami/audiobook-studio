@@ -14,8 +14,9 @@ import {
   Mic, Volume2, CheckCircle,
   CHAPTERS,
   CHAPTER_RENDER_PCT,
+  BookCover,
 } from '../shared';
-import { Edit3, Play, BookOpen, Bookmark, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Edit3, Play, Bookmark, ChevronDown, ChevronUp, X } from 'lucide-react';
 import {
   getBookmarks, removeBookmark, subscribeBookmarks,
 } from '../bookmarkStore';
@@ -117,16 +118,16 @@ const GlobalBookmarkPanel: React.FC<{
                     >
                       <span style={{
                         fontSize: 'var(--type-micro)',
-                        color: isJumped ? 'var(--accent)' : 'var(--text-primary)',
+                        color: isJumped ? 'var(--action-primary)' : 'var(--text-primary)',
                         lineHeight: 'var(--leading-normal)',
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         display: 'block',
                       }}>
-                        <span style={{ color: isJumped ? 'var(--accent)' : 'var(--text-secondary)', fontWeight: 600 }}>{bm.book}</span>
+                        <span style={{ color: isJumped ? 'var(--action-primary)' : 'var(--text-secondary)', fontWeight: 600 }}>{bm.book}</span>
                         <span style={{ color: 'var(--text-muted)', margin: '0 3px' }}>·</span>
                         <span style={{ color: 'var(--text-muted)' }}>Ch {bm.chapter}</span>
                         <span style={{ color: 'var(--text-muted)', margin: '0 3px' }}>·</span>
-                        <span style={{ fontStyle: 'italic', color: isJumped ? 'var(--accent)' : 'var(--text-primary)' }}>
+                        <span style={{ fontStyle: 'italic', color: isJumped ? 'var(--action-primary)' : 'var(--text-primary)' }}>
                           "{bm.label}"
                         </span>
                       </span>
@@ -167,15 +168,8 @@ export const BookPane: React.FC = () => {
       <Card style={{ padding: 'var(--space-4)' }}>
         <Row gap={20} style={{ alignItems: 'flex-start' }}>
           {/* Hero cover — larger than ContentsPane's 40x54 thumbnail */}
-          <div style={{
-            width: 152, height: 205, borderRadius: 12, flexShrink: 0,
-            background: 'linear-gradient(135deg, var(--accent-tint-bg) 0%, var(--border) 100%)',
-            border: '1px solid var(--accent-tint-border)',
-            boxShadow: 'var(--shadow-md)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <BookOpen size={48} color="var(--accent)" aria-hidden="true" />
-          </div>
+          <BookCover title="The Whispering Vale" aspect="book" size={152} />
+
 
           {/* Identity + description + CTA + footer */}
           <Col gap={10} style={{ flex: 1, minWidth: 0 }}>
@@ -188,7 +182,7 @@ export const BookPane: React.FC = () => {
               </div>
               <Row gap={8} style={{ alignItems: 'center', marginTop: 4 }}>
                 <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                  R.E. Hartley
+                  E. Holloway
                 </span>
                 <span style={{ color: 'var(--text-muted)' }}>·</span>
                 <span style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', fontWeight: 650 }}>
@@ -248,15 +242,8 @@ export const ContentsPane: React.FC<{
       <Card style={{ padding: 'var(--space-2) var(--space-3)', flexShrink: 0 }}>
         <Row gap={12} style={{ alignItems: 'center' }}>
           {/* Cover thumbnail */}
-          <div style={{
-            width: 40, height: 54, borderRadius: 3, flexShrink: 0,
-            background: 'linear-gradient(135deg, var(--accent-tint-bg) 0%, var(--border) 100%)',
-            border: '1px solid var(--accent-tint-border)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            overflow: 'hidden',
-          }}>
-            <BookOpen size={18} color="var(--accent)" aria-hidden="true" />
-          </div>
+          <BookCover title="The Whispering Vale" aspect="book" size={40} />
+
 
           {/* Title + meta */}
           <Col gap={2} style={{ flex: 1, minWidth: 0 }}>
@@ -269,7 +256,7 @@ export const ContentsPane: React.FC<{
             </div>
             <Row gap={8} style={{ alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>
-                R.E. Hartley · The Vale Cycle #1
+                E. Holloway · The Vale Cycle #1
               </span>
               <span style={{
                 fontSize: 'var(--type-micro)', color: 'var(--text-secondary)',
@@ -319,7 +306,7 @@ export const ContentsPane: React.FC<{
               background: hasRemaining ? 'var(--accent-tint-bg)' : 'var(--surface-alt)',
               border: `1px solid ${hasRemaining ? 'var(--accent-tint-border)' : 'var(--border)'}`,
               borderRadius: 'var(--radius-button)', cursor: hasRemaining ? 'pointer' : 'default',
-              color: hasRemaining ? 'var(--accent)' : 'var(--text-muted)',
+              color: hasRemaining ? 'var(--action-primary)' : 'var(--text-muted)',
               fontSize: 'var(--type-micro)', fontWeight: 600, fontFamily: 'inherit',
               padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 4,
               opacity: hasRemaining ? 1 : 0.5,
@@ -401,7 +388,7 @@ export const ContentsPane: React.FC<{
                           display: 'inline-flex', alignItems: 'center', gap: 3,
                           whiteSpace: 'nowrap',
                         }}
-                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--accent-tint-border)'; }}
+                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--action-primary)'; e.currentTarget.style.borderColor = 'var(--accent-tint-border)'; }}
                         onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
                       >
                         Open ▸
@@ -557,7 +544,7 @@ const CastingSuggestPanel: React.FC<{
   return (
     <Panel style={{ padding: 'var(--space-3)' }}>
       <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-1)' }}>
-        <Volume2 size={13} color="var(--accent)" aria-hidden="true" />
+        <Volume2 size={13} color="var(--action-primary)" aria-hidden="true" />
         <div style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--text-primary)', flex: 1 }}>
           Suggestions for {characterName}
         </div>
@@ -664,7 +651,7 @@ export const CastingPane: React.FC = () => {
         }}>
           <Row gap={8} style={{ flex: 1, alignItems: 'center' }}>
             <Avatar size={20} />
-            <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--accent)' }}>
+            <span style={{ fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--action-primary)' }}>
               Narrator <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 'var(--type-micro)' }}>(default)</span>
             </span>
           </Row>
@@ -690,7 +677,7 @@ export const CastingPane: React.FC = () => {
                   alignItems: 'center',
                   cursor: 'pointer',
                   background: isSelected ? 'var(--accent-tint-bg)' : 'transparent',
-                  borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent',
+                  borderLeft: isSelected ? '3px solid var(--action-primary)' : '3px solid transparent',
                   transition: 'background var(--dur-fast) var(--ease-standard)',
                 }}
                 onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'var(--surface-alt)'; }}
@@ -728,7 +715,7 @@ export const CastingPane: React.FC = () => {
       <Col gap={12} style={{ flex: 1 }}>
         <Panel style={{ padding: 'var(--space-3)' }}>
           <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-2)' }}>
-            <Mic size={14} color="var(--accent)" aria-hidden="true" />
+            <Mic size={14} color="var(--action-primary)" aria-hidden="true" />
             <div style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--text-primary)' }}>{selected.voice === 'Unassigned' ? selected.name : selected.voice}</div>
           </Row>
           <Col gap={8}>
@@ -755,7 +742,7 @@ export const CastingPane: React.FC = () => {
         ) : (
           <Panel style={{ padding: 'var(--space-3)' }}>
             <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-1)' }}>
-              <Volume2 size={13} color="var(--accent)" aria-hidden="true" />
+              <Volume2 size={13} color="var(--action-primary)" aria-hidden="true" />
               <div style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--text-primary)' }}>Suggest cast (AI)</div>
             </Row>
             <div style={{ fontSize: 'var(--type-caption)', color: 'var(--text-muted)', marginBottom: 'var(--space-2)', lineHeight: 'var(--leading-snug)' }}>
@@ -826,7 +813,7 @@ export const BackupsPane: React.FC = () => {
               <span>{b}</span>
               <button
                 type="button"
-                style={{ border: 0, background: 'transparent', padding: 0, fontFamily: 'inherit', fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--accent)', cursor: 'pointer' }}
+                style={{ border: 0, background: 'transparent', padding: 0, fontFamily: 'inherit', fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--action-primary)', cursor: 'pointer' }}
                 onClick={() => setRestoringBackup(b)}
               >Restore</button>
             </div>

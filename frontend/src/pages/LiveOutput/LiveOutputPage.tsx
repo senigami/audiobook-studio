@@ -52,7 +52,7 @@ export const LiveOutputPage: React.FC = () => {
     <div className="live-output-page">
       <section className="live-output-page__intro">
         <div className="live-output-page__title-row">
-          <Terminal size={18} color="var(--accent)" />
+          <Terminal size={18} color="var(--action-primary)" />
           <h1 className="live-output-page__title">Live Output Stream</h1>
         </div>
         <p className="live-output-page__subtitle">

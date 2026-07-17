@@ -48,7 +48,7 @@ export const ProgressBarDebugPanel: React.FC<ProgressBarDebugPanelProps> = ({
               fontWeight: 700,
               textTransform: 'uppercase',
               background: updateSource === 'socket' ? 'var(--progress-badge-finalizing)' : updateSource === 'manual' ? 'var(--success-tint-bg)' : 'var(--progress-badge-default)',
-              color: updateSource === 'socket' ? 'var(--accent)' : updateSource === 'manual' ? 'var(--success)' : 'var(--text-muted)',
+              color: updateSource === 'socket' ? 'var(--action-primary)' : updateSource === 'manual' ? 'var(--success)' : 'var(--text-muted)',
               border: `1px solid ${updateSource === 'socket' ? 'var(--accent-focus-ring)' : updateSource === 'manual' ? 'var(--success-muted)' : 'var(--progress-badge-border)'}`,
             }}>
               {updateSource === 'socket' ? 'Socket event' : updateSource === 'manual' ? 'Manual update' : 'Launch config'}
@@ -71,7 +71,7 @@ export const ProgressBarDebugPanel: React.FC<ProgressBarDebugPanelProps> = ({
 
       <div style={{ marginTop: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-          <RefreshCw size={16} color="var(--accent)" />
+          <RefreshCw size={16} color="var(--action-primary)" />
           <strong>Raw Websocket Segment Data</strong>
         </div>
         <p style={{ marginTop: 0, marginBottom: '0.75rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
@@ -116,7 +116,7 @@ export const ProgressBarDebugPanel: React.FC<ProgressBarDebugPanelProps> = ({
 
       <div style={{ marginTop: '1rem', padding: '1rem', borderRadius: '14px', border: '1px solid var(--border)', background: 'var(--surface-light)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-          <Terminal size={16} color="var(--accent)" />
+          <Terminal size={16} color="var(--action-primary)" />
           <strong>Ignored Topics</strong>
         </div>
         <p style={{ marginTop: 0, marginBottom: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
@@ -139,7 +139,7 @@ export const ProgressBarDebugPanel: React.FC<ProgressBarDebugPanelProps> = ({
 
       <div style={{ marginTop: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-          <RefreshCw size={16} color="var(--accent)" />
+          <RefreshCw size={16} color="var(--action-primary)" />
           <strong>Lane Migration Debug</strong>
         </div>
         <p style={{ marginTop: 0, marginBottom: '0.75rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
@@ -169,7 +169,7 @@ export const ProgressBarDebugPanel: React.FC<ProgressBarDebugPanelProps> = ({
       <div style={{ marginTop: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Terminal size={16} color="var(--accent)" />
+            <Terminal size={16} color="var(--action-primary)" />
             <strong>Paste Debug Dump</strong>
           </div>
           <button
@@ -221,7 +221,7 @@ export const ProgressBarDebugPanel: React.FC<ProgressBarDebugPanelProps> = ({
       <div style={{ marginTop: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <SkipForward size={16} color="var(--accent)" />
+            <SkipForward size={16} color="var(--action-primary)" />
             <strong>Snapshot History</strong>
           </div>
           <button
@@ -277,7 +277,7 @@ export const ProgressBarDebugPanel: React.FC<ProgressBarDebugPanelProps> = ({
 
       <div style={{ marginTop: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-          <SkipForward size={16} color="var(--accent)" />
+          <SkipForward size={16} color="var(--action-primary)" />
           <strong>Update log</strong>
         </div>
         <div style={{

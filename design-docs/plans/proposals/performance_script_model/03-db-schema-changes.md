@@ -39,13 +39,17 @@ color                 TEXT  UI paint color
 
 ### `chapter_segments` → **spans** (sub-sentence capable)
 
+**Correction (2026-07-16, W-PERF safe-foundation PR):** this section originally proposed
+`span_start`/`span_end` byte-offset columns as the ownership unit, replacing
+`segment_order`. That premise is factually wrong and was not built: sub-sentence
+assignment shipped separately by splitting `text_content` and shifting
+`segment_order` instead — `segment_order` remains the sole ownership/position
+unit. No `span_start`/`span_end`/`sentence_index` columns exist or are planned.
+
 New columns needed:
 
 | Column | Type | Purpose |
 |---|---|---|
-| `span_start` | INT | Byte/char offset within chapter text (replaces sentence-level position as ownership unit) |
-| `span_end` | INT | Byte/char offset end |
-| `sentence_index` | INT | Presentation hint — which sentence this span falls in (nullable, derived) |
 | `performance_data` | JSON | Sparse performance metadata (see §01); null on most spans |
 | `speaker_confidence` | REAL | 0.0–1.0; null = human-assigned (always 1.0 implicit) |
 | `speaker_basis` | TEXT | `explicit_source`, `inferred_from_context`, `studio_override`, etc. |
@@ -55,9 +59,9 @@ New columns needed:
 | `locked` | INT | Boolean — human has confirmed, AI must not overwrite |
 | `ai_suggested` | INT | Boolean — span was AI-seeded, not yet confirmed |
 
-The existing `segment_order` stays but becomes secondary to `span_start/span_end` for
-ownership. The v1→v2 migration: every existing sentence-segment gets `span_start/span_end`
-derived from its position in the chapter text. Lossless.
+`segment_order` stays the ownership unit unchanged. The v1→v2 migration is purely
+additive: existing rows get NULL/default values for all new columns above;
+nothing reads them yet.
 
 ### `characters` → **rich profiles**
 
@@ -91,9 +95,10 @@ out of scope here.
 
 ## Migration notes
 
-- **v1→v2 spans migration:** straightforward — copy each row, set `span_start/span_end`
-  from the sentence's character offsets in `text_content`. Set `speaker_confidence = null`
-  (human-assigned). Set `ai_suggested = 0`, `locked = 0`.
+- **v1→v2 migration:** purely additive — existing rows are untouched except for the new
+  nullable/defaulted columns. Set `speaker_confidence = null` (human-assigned).
+  Set `ai_suggested = 0`, `locked = 0`. `segment_order` is unchanged; no offset
+  columns are introduced (see correction above).
 - **Characters migration:** add all new JSON columns as nullable. Existing rows keep their
   `default_emotion` and `color`; new columns are null until the AI extraction pass runs or
   human edits them.
@@ -108,7 +113,7 @@ out of scope here.
   human action.
 - `ai_suggested = 1` entries are visually distinct in the UI (dashed underline, reduced
   opacity) until confirmed.
-- Splitting a span is lossless: concatenating all spans in `span_start` order must
-  reproduce the original `text_content` exactly.
+- Splitting a segment is lossless: concatenating all segments in `segment_order`
+  order must reproduce the original chapter text exactly.
 - `performance_data` is null on most rows — the sparse model means unannotated spans
   render using the character's `voice_guidance.default_delivery` and engine defaults.

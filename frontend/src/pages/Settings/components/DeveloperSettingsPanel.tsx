@@ -40,7 +40,7 @@ const DevLinkCard: React.FC<DevLinkCardProps> = ({ icon: Icon, title, descriptio
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.85rem' }}>
-        <div style={{ color: 'var(--accent)', marginTop: '0.1rem' }}>
+        <div style={{ color: 'var(--action-primary)', marginTop: '0.1rem' }}>
           <Icon size={20} />
         </div>
         <div>

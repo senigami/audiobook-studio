@@ -185,7 +185,7 @@ export function IconUpload({
                 onDrop={handleDrop}
                 style={{
                     borderRadius: 'var(--radius-card)',
-                    border: isDragging ? '2px dashed var(--accent)' : '2px dashed transparent',
+                    border: isDragging ? '2px dashed var(--action-primary)' : '2px dashed transparent',
                     background: isDragging ? 'var(--accent-glow)' : 'transparent',
                     transition: 'border-color 0.15s ease-out, background-color 0.15s ease-out',
                 }}

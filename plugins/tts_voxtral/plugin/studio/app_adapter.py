@@ -42,7 +42,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Upstream: app.engines.registry. Downstream: BaseVoiceEngine, run_managed_subprocess. Must
+# Upstream: app.engines.registry. Downstream: BaseVoiceEngine. Must
 # not import app.orchestration / app.api.routers / app.jobs directly.
 
 

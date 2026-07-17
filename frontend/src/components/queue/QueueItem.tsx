@@ -527,7 +527,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     return (
         <div style={{
             background: 'var(--surface)',
-            border: '1px solid var(--accent)',
+            border: '1px solid var(--action-primary)',
             borderRadius: compact ? '12px' : '16px',
             padding: compact ? '0.75rem 1rem' : '1.5rem',
             display: 'flex',
@@ -543,7 +543,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                 top: 0,
                 bottom: 0,
                 width: '6px',
-                background: 'var(--accent)'
+                background: 'var(--action-primary)'
             }} />
 
             <div style={{
@@ -557,9 +557,9 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                 flexShrink: 0
             }}>
                 {localPaused ? (
-                    <Pause size={compact ? 18 : 24} strokeWidth={2} color="var(--accent)" />
+                    <Pause size={compact ? 18 : 24} strokeWidth={2} color="var(--action-primary)" />
                 ) : (
-                    <Play size={compact ? 18 : 24} strokeWidth={2} color="var(--accent)" className="animate-pulse" />
+                    <Play size={compact ? 18 : 24} strokeWidth={2} color="var(--action-primary)" className="animate-pulse" />
                 )}
             </div>
 
@@ -570,7 +570,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                             {formatJobTitle(displayJob)}
                         </h4>
                         <div style={{ fontSize: compact ? '0.75rem' : '0.85rem', color: 'var(--text-secondary)', fontWeight: 500, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', rowGap: '2px' }}>
-                            <span style={{ ...(!job.project_name ? { color: 'var(--accent)', fontWeight: 700, fontSize: compact ? '0.65rem' : '0.75rem', textTransform: 'uppercase' as const } : {}), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                            <span style={{ ...(!job.project_name ? { color: 'var(--action-primary)', fontWeight: 700, fontSize: compact ? '0.65rem' : '0.75rem', textTransform: 'uppercase' as const } : {}), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
                                 {formatQueueContext(displayJob as any, engines)}
                             </span>
                             {started && (

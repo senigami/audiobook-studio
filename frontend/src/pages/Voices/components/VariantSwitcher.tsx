@@ -137,10 +137,10 @@ const VariantSwitcherItem: React.FC<VariantSwitcherItemProps> = ({
                 textAlign: 'left',
                 width: orientation === 'vertical' ? '100%' : undefined,
                 borderLeft: orientation === 'vertical'
-                    ? `3px solid ${isActive ? 'var(--accent)' : 'transparent'}`
+                    ? `3px solid ${isActive ? 'var(--action-primary)' : 'transparent'}`
                     : undefined,
                 borderBottom: orientation === 'horizontal'
-                    ? `2px solid ${isActive ? 'var(--accent)' : 'transparent'}`
+                    ? `2px solid ${isActive ? 'var(--action-primary)' : 'transparent'}`
                     : undefined,
             }}
         >
@@ -215,10 +215,10 @@ const VariantSwitcherItem: React.FC<VariantSwitcherItemProps> = ({
                     border: 'none',
                     background: 'none',
                     cursor: 'pointer',
-                    color: isDefault ? 'var(--accent)' : 'var(--text-muted)',
+                    color: isDefault ? 'var(--action-primary)' : 'var(--text-muted)',
                 }}
             >
-                <BadgeCheck size={14} fill={isDefault ? 'var(--accent)' : 'none'} />
+                <BadgeCheck size={14} fill={isDefault ? 'var(--action-primary)' : 'none'} />
             </button>
         </div>
     );

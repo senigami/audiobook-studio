@@ -405,7 +405,7 @@ const BrandSection: React.FC = () => (
               }}
             />
             <div>
-              <code style={{ fontSize: '0.75rem', color: 'var(--accent)', fontFamily: 'monospace' }}>{name}</code>
+              <code style={{ fontSize: '0.75rem', color: 'var(--action-primary)', fontFamily: 'monospace' }}>{name}</code>
               <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: 1 }}>{value}</div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.45 }}>{note}</div>
             </div>
@@ -651,7 +651,7 @@ const TypographySection: React.FC<TypographySectionProps> = ({ allTokens }) => {
                   borderBottom: '1px solid var(--border)',
                 }}
               >
-                <code style={{ fontSize: '0.6875rem', color: 'var(--accent)', fontFamily: 'monospace' }}>
+                <code style={{ fontSize: '0.6875rem', color: 'var(--action-primary)', fontFamily: 'monospace' }}>
                   {sizeToken}
                 </code>
                 <code style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
@@ -1472,7 +1472,7 @@ const OverlaysSection: React.FC = () => {
             style={{
               fontSize: '0.875rem',
               fontWeight: 600,
-              color: 'var(--accent)',
+              color: 'var(--action-primary)',
               background: 'none',
               border: 'none',
               cursor: 'pointer',
@@ -1687,7 +1687,7 @@ const IconographySection: React.FC = () => (
               {control}
             </div>
             <div style={{ padding: '5px 8px', borderBottom: '1px solid var(--border)' }}>
-              <code style={{ color: 'var(--accent)', fontFamily: 'monospace' }}>{icon}</code>
+              <code style={{ color: 'var(--action-primary)', fontFamily: 'monospace' }}>{icon}</code>
             </div>
           </React.Fragment>
         ))}
@@ -1768,7 +1768,7 @@ const AccessibilitySection: React.FC = () => (
                 style={{
                   fontWeight: 700,
                   fontSize: '0.8125rem',
-                  color: 'var(--action-primary, var(--accent))',
+                  color: 'var(--action-primary, var(--action-primary))',
                   fontFamily: 'monospace',
                 }}
               >
@@ -1948,10 +1948,10 @@ const NavItem: React.FC<{ label: string; isActive: boolean; onClick: () => void 
         : 'none',
     border: 'none',
     borderLeft: isActive
-      ? '3px solid var(--action-primary, var(--accent))'
+      ? '3px solid var(--action-primary, var(--action-primary))'
       : '3px solid transparent',
     color: isActive
-      ? 'var(--action-primary, var(--accent))'
+      ? 'var(--action-primary, var(--action-primary))'
       : hovered
         ? 'var(--text-primary)'
         : 'var(--text-secondary)',
@@ -2003,7 +2003,7 @@ const StyleguideSidebar: React.FC<{ active: string }> = ({ active }) => {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-          <AudioLines size={18} color="var(--action-primary, var(--accent))" aria-hidden="true" />
+          <AudioLines size={18} color="var(--action-primary, var(--action-primary))" aria-hidden="true" />
           <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1rem' }}>
             Audiobook Studio
           </span>

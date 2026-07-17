@@ -126,7 +126,7 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                     style={{
                         padding: '0.75rem',
                         borderRadius: '8px',
-                        border: `1px solid ${selectedCharacterId === 'CLEAR_ASSIGNMENT' ? 'var(--accent)' : 'var(--border)'}`,
+                        border: `1px solid ${selectedCharacterId === 'CLEAR_ASSIGNMENT' ? 'var(--action-primary)' : 'var(--border)'}`,
                         background: selectedCharacterId === 'CLEAR_ASSIGNMENT' ? 'var(--surface-light)' : 'transparent',
                         display: 'flex',
                         alignItems: 'center',
@@ -144,7 +144,7 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                         <div style={{ fontSize: '0.7rem', opacity: 0.6 }}>{selectedCharacterId === 'CLEAR_ASSIGNMENT' ? 'Click lines to clear' : 'Explicit clear mode'}</div>
                     </div>
                     {selectedCharacterId === 'CLEAR_ASSIGNMENT' && (
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent)', position: 'absolute', top: '8px', right: '8px' }} />
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--action-primary)', position: 'absolute', top: '8px', right: '8px' }} />
                     )}
                 </button>
 
@@ -325,7 +325,7 @@ export const CharacterSidebar: React.FC<CharacterSidebarProps> = ({
                                 style={{
                                     padding: '0.65rem 0.75rem',
                                     borderRadius: '8px',
-                                    border: `1px solid ${selectedCharacterId === null && selectedProfileName === voice.value ? 'var(--accent)' : 'transparent'}`,
+                                    border: `1px solid ${selectedCharacterId === null && selectedProfileName === voice.value ? 'var(--action-primary)' : 'transparent'}`,
                                     background: selectedCharacterId === null && selectedProfileName === voice.value ? 'var(--surface-light)' : 'transparent',
                                     display: 'flex',
                                     alignItems: 'center',

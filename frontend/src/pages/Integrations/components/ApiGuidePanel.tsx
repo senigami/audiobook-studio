@@ -8,7 +8,7 @@ export const ApiGuidePanel: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <div style={{ padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--border)', background: 'linear-gradient(135deg, var(--surface-light) 0%, var(--surface) 100%)', boxShadow: 'var(--shadow-md)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-          <div style={{ padding: '0.6rem', borderRadius: '12px', background: 'var(--accent-tint)', color: 'var(--accent)' }}>
+          <div style={{ padding: '0.6rem', borderRadius: '12px', background: 'var(--accent-tint)', color: 'var(--action-primary)' }}>
             <Server size={24} />
           </div>
           <div>
@@ -20,7 +20,7 @@ export const ApiGuidePanel: React.FC = () => {
         </div>
 
         <div style={{ padding: '1.25rem', borderRadius: '14px', background: 'var(--surface-glass-half)', border: '1px solid var(--border)', marginTop: '1.5rem' }}>
-          <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '0.95rem', fontWeight: 800, color: 'var(--accent)' }}>External TTS Gateway</h3>
+          <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '0.95rem', fontWeight: 800, color: 'var(--action-primary)' }}>External TTS Gateway</h3>
           <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
             All external integrations should go through <code>/api/v1/tts/*</code>. It is disabled by default, guarded by an
             optional API key, and rate limited. Studio's other <code>/api/*</code> routes power the built-in web UI only —
@@ -117,7 +117,7 @@ export const ApiGuidePanel: React.FC = () => {
 
         <div style={{ padding: '1.25rem', borderRadius: '16px', border: '1px solid var(--border)', background: 'var(--surface-light)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <BookOpen size={20} style={{ color: 'var(--accent)' }} />
+          <BookOpen size={20} style={{ color: 'var(--action-primary)' }} />
           <span style={{ fontSize: '0.9rem', fontWeight: 800 }}>Full OpenAPI Schema</span>
         </div>
         <a

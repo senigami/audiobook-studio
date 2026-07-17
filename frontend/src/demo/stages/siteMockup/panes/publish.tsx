@@ -89,10 +89,10 @@ export const PublishPane: React.FC = () => {
               boxShadow: 'var(--shadow-md)',
             }}>
               <Row gap={8} style={{ alignItems: 'center', marginBottom: 'var(--space-1)' }}>
-                <span style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--accent)', flex: 1 }}>
+                <span style={{ fontSize: 'var(--type-callout)', fontWeight: 700, color: 'var(--action-primary)', flex: 1 }}>
                   Assembling M4B…
                 </span>
-                <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--accent)' }}>{assemblyProgress}%</span>
+                <span style={{ fontSize: 'var(--type-caption)', fontWeight: 600, color: 'var(--action-primary)' }}>{assemblyProgress}%</span>
               </Row>
               <ProgressBar pct={assemblyProgress} height={6} shimmer />
               <div style={{ fontSize: 'var(--type-micro)', color: 'var(--text-muted)', marginTop: 'var(--space-1)' }}>
@@ -129,7 +129,7 @@ export const PublishPane: React.FC = () => {
                     onClick={toggleSelectAll}
                     aria-label={allSelected ? 'Deselect all chapters' : 'Select all rendered chapters'}
                     style={{
-                      fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--accent)',
+                      fontSize: 'var(--type-caption)', fontWeight: 700, color: 'var(--action-primary)',
                       cursor: 'pointer', padding: 'var(--space-1) 0',
                       display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
                     }}
@@ -158,7 +158,7 @@ export const PublishPane: React.FC = () => {
                         >
                           {isRendered ? (
                             isChecked
-                              ? <Check size={15} color="var(--accent)" aria-hidden="true" />
+                              ? <Check size={15} color="var(--action-primary)" aria-hidden="true" />
                               : <Square size={15} color="var(--text-muted)" aria-hidden="true" />
                           ) : (
                             <Square size={15} color="var(--text-muted)" aria-hidden="true" />

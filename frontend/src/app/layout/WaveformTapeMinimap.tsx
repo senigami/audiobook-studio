@@ -201,9 +201,9 @@ export const WaveformTapeMinimap: React.FC<WaveformTapeMinimapProps> = ({
           y={0}
           width={Math.max(rectWidth, MIN_RECT_WIDTH)}
           height={height}
-          fill="var(--accent)"
+          fill="var(--action-primary)"
           fillOpacity={0.15}
-          stroke="var(--accent)"
+          stroke="var(--action-primary)"
           strokeWidth={1}
           rx={1}
         />

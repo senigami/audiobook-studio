@@ -21,7 +21,7 @@ const tabStyle = (active: boolean): React.CSSProperties => ({
   fontSize: '0.85rem',
   border: 'none',
   cursor: 'pointer',
-  background: active ? 'var(--accent)' : 'transparent',
+  background: active ? 'var(--action-primary)' : 'transparent',
   color: active ? 'var(--text-on-accent)' : 'var(--text-muted)',
   transition: 'all 0.15s ease',
 });

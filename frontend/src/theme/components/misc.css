@@ -222,7 +222,7 @@ input[type="radio"] {
    selection popover is (container-relative absolute position). */
 .segment-render-monitor__popover {
   background: var(--surface);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--action-primary);
   padding: 8px 10px;
   border-radius: 10px;
   box-shadow: var(--shadow-lg);

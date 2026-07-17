@@ -46,7 +46,7 @@ XTTS_ENV_DIR = Path(os.getenv("XTTS_ENV_DIR", str(XTTS_ENV_DIR_DEFAULT)))
 XTTS_ENV_PYTHON = Path(os.getenv("XTTS_ENV_PYTHON", str(XTTS_ENV_DIR / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))))
 XTTS_ENV_ACTIVATE = XTTS_ENV_DIR / ("Scripts/Activate.ps1" if os.name == "nt" else "bin/activate")
 
-# Upstream: app.engines.registry. Downstream: BaseVoiceEngine, run_managed_subprocess. Must
+# Upstream: app.engines.registry. Downstream: BaseVoiceEngine. Must
 # not import app.orchestration / app.api.routers / app.jobs directly.
 
 

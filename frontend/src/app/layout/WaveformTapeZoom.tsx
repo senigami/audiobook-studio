@@ -164,7 +164,7 @@ export const WaveformTapeZoom: React.FC<WaveformTapeZoomProps> = ({
               style={{
                 left: `calc(7px + ${visPos(i) / LAST_IDX} * (100% - 14px))`,
                 opacity: disabled ? 0.3 : undefined,
-                background: active ? 'var(--accent)' : undefined,
+                background: active ? 'var(--action-primary)' : undefined,
               }}
             />
           );

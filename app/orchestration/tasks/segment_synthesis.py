@@ -362,6 +362,15 @@ class _SyntheticSegmentTask(StudioTask):
 
         Builds the request straight from the one-group script entry (already
         lexicon-substituted/sanitized by ``build_script_entry_for_group``).
+
+        ``language`` is hardcoded to ``"en"`` and ``is_bake`` to ``False``
+        here intentionally — this task type never handles non-English
+        segments or bake renders. See also the other two
+        ``to_bridge_request`` builders, which cover different task shapes:
+        ``app/orchestration/tasks/synthesis.py`` (full chapter/book render,
+        with project lexicon substitution and ``render_batch_id``) and
+        ``app/orchestration/tasks/api_synthesis.py`` (external
+        ``/api/v1/tts`` gateway request, with ``caller_id`` attribution).
         """
         if self.engine_id == "mixed":
             return None

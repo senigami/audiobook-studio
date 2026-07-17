@@ -75,8 +75,8 @@
 }
 
 .player-btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--action-primary);
+  border-color: var(--action-primary);
   color: var(--text-on-accent);
 }
 
@@ -185,7 +185,7 @@
   background: var(--surface-alt);
   outline: none;
   cursor: pointer;
-  accent-color: var(--accent);
+  accent-color: var(--action-primary);
   transition: background 0.2s ease;
 }
 
@@ -214,7 +214,7 @@
   background: var(--surface-alt);
   outline: none;
   cursor: pointer;
-  accent-color: var(--accent);
+  accent-color: var(--action-primary);
   transition: background 0.2s ease;
 }
 
@@ -231,13 +231,13 @@
 .player-btn-wave--on {
   background: var(--accent-tint-bg);
   border-color: var(--accent-tint-border);
-  color: var(--accent);
+  color: var(--action-primary);
 }
 
 .player-btn-wave--on:hover:not(:disabled) {
   background: var(--accent-tint-bg);
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--action-primary);
+  color: var(--action-primary);
 }
 
 /* Waveform container — fills its inline slot (.player-waveform-inline). */
@@ -334,7 +334,7 @@
 }
 
 .tape:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--accent);
+  box-shadow: inset 0 0 0 2px var(--action-primary);
 }
 
 .tape-canvas {
@@ -368,7 +368,7 @@
 }
 
 .nsp-minimap:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--accent);
+  box-shadow: inset 0 0 0 2px var(--action-primary);
 }
 
 .tape-minimap-bar {
@@ -483,7 +483,7 @@
   height: 14px;
   margin-top: -5px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--action-primary);
   border: 2px solid var(--surface);
   box-shadow: var(--shadow-sm);
 }
@@ -492,7 +492,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--action-primary);
   border: 2px solid var(--surface);
   box-shadow: var(--shadow-sm);
 }
@@ -516,6 +516,6 @@
 }
 
 .tape-zoom-dot--active {
-  background: var(--accent);
+  background: var(--action-primary);
 }
 

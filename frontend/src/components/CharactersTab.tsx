@@ -308,7 +308,7 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
                 className="btn-ghost"
                 style={{ padding: '0.4rem', color: 'var(--text-muted)' }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.color = 'var(--accent)';
+                  e.currentTarget.style.color = 'var(--action-primary)';
                   e.currentTarget.style.background = 'var(--accent-tint-bg)';
                 }}
                 onMouseLeave={(e) => {

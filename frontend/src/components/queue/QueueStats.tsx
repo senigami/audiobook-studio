@@ -72,7 +72,7 @@ export const QueueStats: React.FC<QueueStatsProps> = React.memo(({ queue, jobs }
                 display: 'flex', 
                 alignItems: 'center', 
                 gap: '6px', 
-                color: 'var(--accent)', 
+                color: 'var(--action-primary)', 
                 fontSize: '0.85rem', 
                 fontWeight: 600,
                 background: 'var(--accent-tint)',

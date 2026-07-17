@@ -72,7 +72,7 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({
               <span style={{ 
                 fontSize: '0.75rem', 
                 fontWeight: 700, 
-                color: 'var(--accent)', 
+                color: 'var(--action-primary)', 
                 background: 'var(--accent-glow)', 
                 padding: '2px 8px', 
                 borderRadius: '4px',

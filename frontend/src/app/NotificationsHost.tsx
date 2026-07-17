@@ -105,7 +105,7 @@ export function NotificationsHost({ confirmConfig, onDismissConfirm, toast, onDi
                   onDismissToast();
                 }}
                 style={{
-                  background: 'var(--accent)',
+                  background: 'var(--action-primary)',
                   color: 'var(--text-on-accent)',
                   padding: '4px 10px',
                   borderRadius: '6px',
