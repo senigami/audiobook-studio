@@ -1,7 +1,7 @@
 # Sub-Sentence Speaker Assignment (v2.0 feature)
 
-Status: **implemented, one known gap** — owner-requested 2026-06-11. **Corrected 2026-07-04**:
-this doc previously read "design draft," which was stale. Direct code inspection confirmed the
+Status: **implemented** — owner-requested 2026-06-11. **Corrected 2026-07-04** (was stale
+"design draft"); **word-boundary snapping shipped 2026-07-17**. Direct code inspection confirmed the
 feature is already built:
 
 - `chapter_segments` already **is** the span table described below — no separate table exists or
@@ -16,15 +16,25 @@ feature is already built:
   segment rows, so "Interaction with render-group packing" below was already satisfied with no
   changes needed.
 
-**One confirmed, scoped gap remains**: no word-boundary snapping (both the frontend selection
-handler and the backend split function use raw character offsets today, so a drag can land
-mid-word). Closing it — plus Script-mode scope (owner decided: Book-mode-only is fine for now) —
-is tracked in `design-docs/plans/active/span_word_boundary_snapping/`. Undo (Open Question 4
-below) remains genuinely unbuilt, deferred to the separate doc-10 U1 undo-toast work; character
-auto-detection (Open Question 3) remains genuinely unbuilt, deferred to future work. One
-additional known limitation (found in the 2026-07-04 adversarial fact-check, not tracked by the
-snapping plan): **sub-sentence spans do not survive a source-text resync** — see Open Question
-3's caveat below.
+**Word-boundary snapping — SHIPPED 2026-07-17.** Both the frontend selection handler and the
+backend split point now snap selection offsets outward to whole-word boundaries, so a drag can
+no longer land mid-word (backend is the authoritative enforcement point, independent of the UI).
+The plan is complete and archived at
+`design-docs/plans/active/archive/span_word_boundary_snapping/`. Script-mode scope stays out
+(owner decided Book-mode-only is fine for now).
+
+**Remaining gaps (genuinely unbuilt):**
+- **Sub-sentence spans do not survive a source-text resync** — found in the 2026-07-04
+  adversarial fact-check; now scoped (not yet built) in
+  `design-docs/plans/proposals/span_resync_preservation.md`. See also Open Question 3's caveat below.
+- **The `showSafeText` rendering path** posts DOM offsets against sanitized text while the split
+  operates on raw `text_content`; the frontend snap covers the normal rendering path only. Not a
+  new regression (raw offsets were already posted pre-snapping, and the backend re-snaps), but
+  not fully handled — folded into the resync-preservation follow-up above as a related
+  offset-fidelity concern.
+- **Undo** (Open Question 4) — deferred to the separate doc-10 U1 undo-toast work; no undo
+  mechanism exists in the chapter editor yet.
+- **Character auto-detection / auto-attribution** (Open Question 3) — deferred to future work.
 
 The sections below describe the (already-built) design; read them as documentation of the
 shipped shape, not a proposal.
@@ -159,11 +169,15 @@ doc's "spans, not words" direction. It also flags LLM chain-of-thought-over-chap
 attribution as the strongest current method for the no-attribution-tail case (Open
 Question 3) once auto-suggestion is built.
 
-## Remaining gap
+## Remaining gaps
 
-See `design-docs/plans/active/span_word_boundary_snapping/` for the one confirmed, scoped gap
-(word-boundary snapping) and its execution plan — the rest of this document describes what's
-already shipped.
+Word-boundary snapping **shipped 2026-07-17** (PR #143); its plan is complete and archived at
+`design-docs/plans/active/archive/span_word_boundary_snapping/`. The rest of this document
+describes what's already shipped. Genuinely unbuilt work (see the status paragraph at the top of
+this doc for the full list): sub-sentence spans don't survive a source-text resync and the
+`showSafeText` offset-fidelity gap — both scoped in
+`design-docs/plans/proposals/span_resync_preservation.md`; undo (doc-10 U1); and character
+auto-detection (Open Question 3).
 
 ## Sequencing
 

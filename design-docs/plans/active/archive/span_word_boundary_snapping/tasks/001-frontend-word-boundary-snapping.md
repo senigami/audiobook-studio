@@ -1,6 +1,6 @@
 # Task 001 — Frontend: snap drag-selection offsets to word boundaries
 
-Status: pending
+Status: complete
 
 ## Goal
 
@@ -116,10 +116,10 @@ snapping call site.
 
 ## Steps
 
-- [ ] Add `snapOffsetToWordBoundary` as specified.
-- [ ] Update `handleSelection()` to snap both offsets using each endpoint's own span text, per
+- [x] Add `snapOffsetToWordBoundary` as specified.
+- [x] Update `handleSelection()` to snap both offsets using each endpoint's own span text, per
       the target code above.
-- [ ] Add tests to `ScriptView.test.tsx`:
+- [x] Add tests to `ScriptView.test.tsx`:
       - A drag selection starting/ending mid-word snaps outward to the whole word (use the
         existing test setup pattern in this file — check how selection/range is currently
         simulated, if at all; if `window.getSelection()` isn't mockable in the existing test
@@ -140,11 +140,12 @@ tests (expect failure — `snapOffsetToWordBoundary` doesn't exist yet, or offse
 
 ## Acceptance criteria
 
-- [ ] `snapOffsetToWordBoundary` implemented exactly per the algorithm spec in `../00-overview.md`.
-- [ ] `handleSelection()` snaps both `start_offset` and `end_offset` before calling
+- [x] `snapOffsetToWordBoundary` implemented exactly per the algorithm spec in `../00-overview.md`.
+- [x] `handleSelection()` snaps both `start_offset` and `end_offset` before calling
       `setPendingSelection`.
-- [ ] `npm -C frontend run test -- --run ScriptView` — new tests pass, no existing tests broken.
-- [ ] `npm -C frontend run lint` clean on the touched file.
+- [x] `npm -C frontend run test -- --run ScriptView` — new tests pass, no existing tests broken.
+- [x] `npm -C frontend run lint` clean on the touched file (0 errors; one pre-existing-style
+      `react-refresh/only-export-components` warning from exporting the helper here per this task).
 
 ## Dependencies
 
