@@ -21,6 +21,54 @@ from app.orchestration.tasks.base import StudioTask, TaskContext, TaskResult
 
 logger = logging.getLogger(__name__)
 
+# Bridge-request keys the task owns. ``request_settings`` comes verbatim from
+# the external API's ``settings`` dict (untrusted); because it is spread last
+# into the bridge request, any of these keys appearing there would override
+# validated values (e.g. a containment-checked output_path or a resolved
+# reference_audio_path). Strip them at construction time.
+_RESERVED_REQUEST_KEYS = frozenset({
+    "engine_id", "script_text", "output_path", "reference_audio_path",
+    "voice_profile_dir", "language", "source", "caller_id", "task_id",
+})
+
+
+def _resolve_voice_ref(voice_ref: str | None) -> tuple[str | None, str | None]:
+    """Resolve an external gateway ``voice_ref`` to a bridge-ready voice input.
+
+    ``voice_ref`` is either an absolute path to a reference WAV (already
+    validated for containment at the API boundary — passed through as-is),
+    or a plain voice-profile name/id, which must be resolved to a speaker
+    WAV and voice profile dir the same way Studio's own synthesis path does
+    it (``app.domain.chunk_groups.build_script_entry_for_group``). A falsy
+    ``voice_ref`` resolves to the configured default speaker profile.
+
+    Returns:
+        tuple[str | None, str | None]: ``(reference_audio_path, voice_profile_dir)``.
+    """
+    if voice_ref and ("/" in voice_ref or "\\" in voice_ref):
+        return voice_ref, None
+
+    from app.db.speakers import _resolve_existing_profile_name, get_profile_dir, get_profile_wavs  # noqa: PLC0415
+
+    resolved_name = _resolve_existing_profile_name(voice_ref)
+    if not resolved_name:
+        logger.warning("api_synthesis: voice_ref %r did not resolve to an existing voice profile", voice_ref)
+        return None, None
+
+    try:
+        speaker_wav = get_profile_wavs(resolved_name)
+        if speaker_wav and "," in speaker_wav:
+            speaker_wav = speaker_wav.split(",")[0]
+    except Exception:
+        speaker_wav = None
+
+    try:
+        voice_profile_dir = str(get_profile_dir(resolved_name))
+    except Exception:
+        voice_profile_dir = None
+
+    return speaker_wav, voice_profile_dir
+
 
 class ApiSynthesisTask(StudioTask):
     """Synthesis task submitted via the external Local TTS API.
@@ -62,7 +110,16 @@ class ApiSynthesisTask(StudioTask):
         self.text = text
         self.output_path = output_path
         self.voice_ref = voice_ref
-        self.request_settings = request_settings or {}
+        settings = dict(request_settings or {})
+        dropped = _RESERVED_REQUEST_KEYS.intersection(settings)
+        if dropped:
+            logger.warning(
+                "api_synthesis: dropping reserved keys %s from request settings for task %s",
+                sorted(dropped), task_id,
+            )
+            for key in dropped:
+                settings.pop(key)
+        self.request_settings = settings
         self.language = language
         self.resource_claim = resource_claim or ResourceClaim.exclusive_claim()
         self.submitted_at = time.monotonic()
@@ -162,6 +219,7 @@ class ApiSynthesisTask(StudioTask):
         except Exception as exc:
             from app.engines.bridge_remote import EngineUnavailableError
             is_retriable = isinstance(exc, EngineUnavailableError)
+            logger.error("api_synthesis: bridge dispatch failed for task %s: %s", self.task_id, exc, exc_info=True)
             return TaskResult(status="failed", message=str(exc), retriable=is_retriable)
 
     def on_cancel(self) -> None:
@@ -209,18 +267,25 @@ class ApiSynthesisTask(StudioTask):
         render) and ``app/orchestration/tasks/segment_synthesis.py``
         (single-group fan-out child).
 
+        ``self.voice_ref`` may be an absolute path (already validated at the
+        API boundary) or a plain voice-profile name/id — resolved here the
+        same way Studio's own synthesis path resolves a profile name to a
+        speaker WAV / voice profile dir (``domain.chunk_groups``).
+
         Returns:
             dict[str, Any]: Request dict the VoiceBridge can dispatch.
         """
+        reference_audio_path, voice_profile_dir = _resolve_voice_ref(self.voice_ref)
         return {
             "engine_id": self.engine_id,
             "script_text": self.text,
             "output_path": self.output_path,
-            "reference_audio_path": self.voice_ref,
+            "reference_audio_path": reference_audio_path,
             "language": self.language,
             "source": self.source,
             "caller_id": self.caller_id,
             "task_id": self.task_id,
+            **({"voice_profile_dir": voice_profile_dir} if voice_profile_dir else {}),
             **self.request_settings,
         }
 
