@@ -211,7 +211,7 @@ def test_voxtral_verify_passes_saved_settings_to_model_check(monkeypatch):
 def test_handle_voxtral_job_wav_only_even_when_make_mp3_true(tmp_path):
     """Chapter synthesis always completes WAV-only. make_mp3=True must not trigger
     MP3 conversion or a finalizing status phase in the ordinary synthesis lifecycle."""
-    from app.db.models import Job
+    from voxtral_test_fakes import Job
     from tts_engines.tts_voxtral.plugin.studio.handler import handle_voxtral_job
 
     job = Job(
@@ -258,7 +258,7 @@ def test_handle_voxtral_job_sample_test_renders_into_voice_profile_dir(tmp_path)
     rejected by the chapter-context guard; it renders sample.wav into the
     voice profile directory (regression: 'Voxtral jobs require project and
     chapter context' on voice preview)."""
-    from app.db.models import Job
+    from voxtral_test_fakes import Job
     from tts_engines.tts_voxtral.plugin.studio.handler import handle_voxtral_job
 
     job = Job(
@@ -310,7 +310,7 @@ def test_handle_voxtral_job_sample_test_renders_into_voice_profile_dir(tmp_path)
 
 def test_handle_voxtral_job_chapter_render_still_requires_context():
     """Non-sample jobs keep the chapter-context guard."""
-    from app.db.models import Job
+    from voxtral_test_fakes import Job
     from tts_engines.tts_voxtral.plugin.studio.handler import handle_voxtral_job
 
     job = Job(

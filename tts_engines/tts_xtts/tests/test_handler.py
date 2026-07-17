@@ -7,7 +7,7 @@ from tts_engines.tts_xtts.plugin.studio import handler as xtts_handler
 from tts_engines.tts_xtts.plugin.studio.handler import handle_xtts_job, _group_job_progress
 from tts_engines.tts_xtts.plugin.studio.bake import handle_xtts_bake
 from tts_engines.tts_xtts.plugin.studio.segments import handle_xtts_segments
-from app.db.models import Job
+from xtts_test_fakes import Job
 
 @pytest.fixture(autouse=True)
 def mock_path_methods():

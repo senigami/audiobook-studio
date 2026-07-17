@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.db.models import Job
+from xtts_test_fakes import Job
 from tts_engines.tts_xtts.plugin.studio.handler import handle_xtts_job
 
 

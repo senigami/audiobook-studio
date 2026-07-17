@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from app.db.models import Job
+from voxtral_test_fakes import Job
 from tts_engines.tts_voxtral.plugin.studio.bake import handle_voxtral_bake
 from tts_engines.tts_voxtral.plugin.studio.segments import handle_voxtral_segments
 
