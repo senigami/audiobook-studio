@@ -47,6 +47,13 @@ worktree's.
 - Apply the exact same judgment about what's worth saving that the live auto-memory system already
   uses (see the "auto memory" section of the system prompt) — this is a deferred write, not a
   lower bar. Don't queue something you wouldn't have saved directly from the main checkout.
+- **This repo is public.** A queue entry is a normal tracked file — it gets committed, pushed, and
+  reviewed in a PR diff like anything else, and once merged its history is permanent even after
+  reconciliation deletes the file itself. `user`/`feedback` entries describe the owner's own
+  preferences and working style; write them in terms of the technical/workflow pattern (what to do
+  differently and why), never with personal specifics that wouldn't belong in a public commit. If
+  something feels too personal to write down here, don't queue it — surface it to the owner directly
+  instead and let them decide.
 
 ## Reconciliation (done from the main `studio-2.0` checkout, on request)
 
