@@ -1,11 +1,15 @@
 # Memory Queue for Worktrees
 
-Use this file whenever a session running inside a `.claude/worktrees/<name>/` worktree decides
-something is worth saving to Claude Code's persistent auto-memory system (a `user`, `feedback`,
-`project`, or `reference` memory, per that system's own criteria). This is the worktree analogue of
+This file has two audiences, and every session is exactly one of them: a session running inside a
+`.claude/worktrees/<name>/` worktree that decides something is worth saving to Claude Code's
+persistent auto-memory system (a `user`, `feedback`, `project`, or `reference` memory, per that
+system's own criteria) — and a session running in the main checkout that should check whether any
+queued entries are sitting unreconciled before assuming memory is fully up to date. This is the
+worktree analogue of
 [`docs/code-map/queue/`](/Users/stevendunn/GitHub-Steven/audiobook-factory/docs/code-map/queue) — same
 shape, same reason for existing: a cheap, append-only, git-tracked buffer that survives something a
-direct write would not.
+direct write would not, plus the same expectation that the buffer actually gets drained, not just
+filled.
 
 ## What this is
 
@@ -28,8 +32,14 @@ worktree's.
 
 - **Detect the situation first.** Check whether the session's cwd is inside `.claude/worktrees/`
   (or compare `git rev-parse --git-common-dir` against `--git-dir` — they differ inside a
-  worktree). If you're in the main checkout, this file does not apply — write memory directly, as
-  normal.
+  worktree). That tells you which of the two branches below applies.
+- **In the main checkout (not a worktree): check `.agent/memory-queue/` before assuming memory is
+  current.** If it contains anything besides `.gitkeep`, don't leave it sitting — run the
+  Reconciliation steps below, or at minimum tell the user how many unreconciled entries exist so
+  they can decide when to deal with them. A queue that only ever gets written to and never drained
+  just relocates the loss this mechanism exists to prevent. This check costs one `ls`/`git status`
+  and is worth doing early in a session, the same way the code-map's core gets loaded early —
+  before diving into other work, not as an afterthought at the end.
 - **Inside a worktree, write a queue entry instead of a direct memory file.** Append one new file to
   `.agent/memory-queue/`, named `<UTC-timestamp>-<slug>.md` (e.g.
   `2026-07-20T140500Z-worktree-lint-config-gotcha.md`) so parallel worktrees never collide and
@@ -55,7 +65,7 @@ worktree's.
   something feels too personal to write down here, don't queue it — surface it to the owner directly
   instead and let them decide.
 
-## Reconciliation (done from the main `studio-2.0` checkout, on request)
+## Reconciliation (from the main checkout — triggered by the check above, or run any time on request)
 
 1. List every file in `.agent/memory-queue/` (there will only be entries here from branches that have
    actually merged — that's expected, not a bug: a memory tied to work that never landed didn't
@@ -83,3 +93,6 @@ worktree's.
 - Don't queue something that belongs in a committed repo file instead (a spec change, a rule update,
   an architecture note) — the queue is specifically for the cross-session memory system, not a
   general-purpose "things I noticed" dumping ground.
+- Don't work a full session in the main checkout without ever glancing at `.agent/memory-queue/` —
+  a queue nobody drains is indistinguishable from no queue at all, and defeats the whole point of
+  worktree sessions bothering to write to it.
