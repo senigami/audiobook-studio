@@ -108,6 +108,21 @@ The bundle format supports both local Studio imports and Hugging Face-compatible
 
 When sharing a bundle, keep engine compatibility in mind. A voice built for `XTTS (Local)` will include assets under `assets/xtts/`, while a cloud or remote engine may rely on provider-specific IDs or reference samples instead.
 
+## Variant Version History and A/B Playback
+
+Rebuilding a variant used to overwrite its samples and speaker profile with no way back. It no longer does.
+
+- Every rebuild snapshots the variant's prior state before replacing it, and again once the new build finishes.
+- Use the **A/B playback panel** in the Voice Lab to audition an older version side-by-side with the current one.
+- **Promote** an older version back to active with one click — it's a fast file copy, not a re-synthesis.
+- History starts from your first rebuild after this feature shipped; there's nothing to restore from before that.
+
+## Variant Tags and the Variant Switcher
+
+Variants carry their own **performance tags** — tone/pace descriptors like "breathless" or "slow-burn" — separate from the voice-level Class/Gender/Age attributes described below. Use the autocomplete input to add tags and the filter bar to narrow a long variant list by them.
+
+The variant list itself is a **switcher**: a simple tab strip when a voice has only a few variants, or a filterable rail once it has many — both share the same detail editor below. Each voice can mark one variant as its **default** with a star, and secondary variant actions (rename, delete, regenerate icon prompt) live in a single overflow menu on the card.
+
 ## Tags, Attributes and Icons
 
 Every voice can carry structured metadata that powers catalog search and the casting assistant. Attributes come from a fixed taxonomy with nine fields. Three of them (`class`, `gender`, `age`) are required for full casting participation; the rest are optional. A voice that is missing any required attribute shows a **"Not tagged"** chip on its card in the catalog.

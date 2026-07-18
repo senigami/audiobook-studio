@@ -90,6 +90,31 @@ All notable changes to this project will be documented in this file.
 - **A wedged `ffmpeg` conversion can no longer hang a worker forever** — the Voxtral cloud-synthesis audio conversion and the `audio_ops` helper now time out after 300 s and surface a clear error.
 - **Smaller fixes:** a stale-closure `onQueueUpdate` callback in `useJobs`; a `PredictiveProgressBar` progress-floor cache entry that leaked on unmount and could disturb other live bars; DB-layer broadcast-failure warnings now go through the logger instead of `print()`; and new SQLite indexes (including a composite `processing_queue(chapter_id, status)` and `render_performance_samples(job_id)`) that remove full-table scans on the queue/history and chapter-open paths at large-catalog scale.
 
+## [Added] - 2026-07-15
+
+### Voice-variant version history and A/B playback
+
+- Rebuilding a voice variant (**Build** in the Voice Lab) used to overwrite its sample set and speaker profile in place with no way back. It now keeps a `versions/` history per variant: a snapshot is taken right before the old data is replaced, and another right after the new build finishes.
+- A new **A/B playback panel** in the Voice Lab lets you audition an older version against the current one before deciding whether to keep it.
+- A one-click **Promote** action restores an older version to active without re-running synthesis — it's a fast file copy, not a rebuild.
+- History starts from the first rebuild after this shipped; earlier builds have no snapshot to restore from.
+
+## [Changed] - 2026-07-15
+
+### Voice variant tagging and catalog redesign
+
+- Variants now carry their own **performance tags** (tone/pace descriptors like "breathless" or "slow-burn"), separate from the voice-level Class/Gender/Age/Tone/Timbre taxonomy — with an autocomplete input and a filter bar in the Voice Lab.
+- The old stacked full-card variant list is replaced by a compact **switcher**: a tab strip for a few variants, or a filterable rail once a voice has many, sharing one detail editor below it.
+- Each voice can now mark one variant as its **default** with a star — previously there was no way to flag a preferred variant at all.
+- The catalog card's "Set as App Default" action was relabeled for clarity and a related bug was fixed; secondary variant actions were consolidated into a single overflow menu.
+- Spec: `design-docs/specs/voice-bundles.md` bumped to 1.12.0 to cover both this and the version-history work above.
+
+## [Added] - 2026-07-11
+
+### Series suggestions when creating or editing a project
+
+- The project create/edit form's Series field now suggests existing series names as you type, with a next-number hint for the position field, so a book that continues an existing series doesn't need its name retyped from scratch.
+
 ## [Changed] - 2026-07-11
 
 ### Waveform tape appears instantly on freshly rendered long chapters
@@ -121,6 +146,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Added] - 2026-07-10
 
+### Director's Console: Cast, Booth, Revise, and Write replace the Studio/Review toggle
+
+- The Chapter Workspace's old ad-hoc **Studio | Review** toggle is gone. In its place is the **Director's Console** — a persistent left-rail with four tools: **Cast** (paint voice assignments onto text, same workflow as before, relocated), **Booth** (karaoke-style follow-along listening and flagging, also carried over), **Revise** (new — edit a paragraph's text in place without leaving the console), and **Write** (new — a full chapter source editor for larger text changes).
+- Playback state now persists across switching tools, so moving from Booth to Cast mid-listen doesn't reset your position.
+- The old `Studio`/`Review` stage code was removed once every tool was confirmed working with no regressions.
+- The richer version of Cast's tool catalog (brush sizing, stage-direction and performance-cue markup) is intentionally not part of this pass — see the Studio 2.0 roadmap for what's still coming.
+
+### Chapter tabs: small Contents, Cast, and Lexicon fixes
+
+- Contents actions (create, import, export) now show a toast instead of failing silently.
+- The Contents chapter-status pill now reflects Stale and Error states, matching the chapter's actual status orb — and a chapter marked Stale or Error is correctly excluded from Publish/Assembly even if it has a prior valid render.
+- Cast tab changes that fail now toast and revert instead of leaving the UI in a stuck state; a chapter-scoped temporary character can now be "Promoted" to a full cast member.
+- Creating a chapter with a whitespace-only title is now rejected. The Lexicon no longer accepts duplicate words or silently ignores an empty submission.
+
+## [Added] - 2026-07-10
+
 ### Audio player completion: waveform tape live, segment block navigation fixed, peaks sidecar
 
 - The global player bar now renders the expandable scrubbing "tape" (paged/moving motion, zoom presets, minimap, `m:ss` ruler) for chapters and segments under a 600s duration cap, via the far-right waveform toggle.
@@ -135,6 +176,14 @@ All notable changes to this project will be documented in this file.
 
 - Segment-scope playback (Cast tool, chapter editor) now surfaces a passive `"Block N of M"` subtitle in the global `PlayerBar` while a block plays, using the block-leader queue index/length the block-queue navigation fix already tracks. `PlayerBar.tsx` required zero changes — it already renders `subtitle` generically.
 - `audio-player.md` bumped to `spec_version: 1.6.1` to document the closed gap.
+
+## [Added] - 2026-07-09
+
+### Book tab front door: description field and Continue Listening
+
+- Projects can now have a **description**, editable from the Book tab — Publish's sidebar is now a slim, read-only identity strip, with the Book tab as the one place to edit a project's identity fields.
+- A new **Continue Listening** card picks up playback of the book you were last listening to, wired into the same global player used everywhere else.
+- The Book tab's hero layout was reworked to promote the primary call-to-action and give the new description room, demoting secondary metadata.
 
 ## [Fix] - 2026-07-08
 
@@ -314,6 +363,15 @@ Fixed the long-running mixed-render progress bugs (segment pulse missing, bar ju
 - **Script-view preparing render.** The per-segment "preparing" block + pulse now renders in script view (it previously only worked in book view).
 
 Spec `progress-presentation.md` → 1.7.1 (amends invariant B10). Backend orchestration + frontend progress/bar/contract suites green.
+
+## [Changed] - 2026-06-20
+
+### Quiet Studio visual redesign
+
+- A full visual refresh: new typography, a re-skinned color-token set (verified for contrast in both light and dark themes), redesigned form fields and switches, and clearer status/progress visuals throughout the app.
+- Existing screenshots and visual descriptions from before this date are stale — the overall look changed, not just individual components.
+- One follow-up item was deliberately left for later: a repo-wide `--accent` → `--action-primary` token rename, gated on owner sign-off since it touches ~94 files.
+- Spec: `design-docs/specs/design-system.md` bumped to 1.17.0.
 
 ## [Cleanup] - 2026-06-20
 
