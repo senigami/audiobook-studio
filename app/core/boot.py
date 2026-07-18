@@ -132,7 +132,7 @@ def boot_tts_server(
     from module import time.
 
     Args:
-        plugins_dir: Path to the plugins directory (default: ``./plugins``).
+        plugins_dir: Path to the engine plugins directory (default: ``./tts_engines``).
         port: Starting port number (default: 7862).
         host: Bind address (default: 127.0.0.1).
     """
