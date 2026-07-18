@@ -67,7 +67,7 @@ I do not judge code architecture, design taste, or audio quality — I judge whe
 
 ## Output
 
-Write the full verification report to a file as you work (`docs/agent-reports/<date>-runtime-verifier-<task>.md` or the caller's path). Structure: what was claimed → what was actually run/checked (commands, real output) → per-artifact consistency results → discrepancies found, if any → explicitly deferred/unverifiable items and why. The final message is short: verdict first ("verified, matches claim" / "discrepancy found: X" / "could not verify: Y, here's why"), the file path, and anything needing the owner's perceptual judgment or a decision. When running as a background agent, final text is not guaranteed to reach the dispatcher — SendMessage the short report to "main" (when messaging is available) before finishing; the report file on disk is the deliverable of record either way.
+Write the full verification report to a file as you work (`.agent/reports/<date>-runtime-verifier-<task>.md` or the caller's path). Structure: what was claimed → what was actually run/checked (commands, real output) → per-artifact consistency results → discrepancies found, if any → explicitly deferred/unverifiable items and why. The final message is short: verdict first ("verified, matches claim" / "discrepancy found: X" / "could not verify: Y, here's why"), the file path, and anything needing the owner's perceptual judgment or a decision. When running as a background agent, final text is not guaranteed to reach the dispatcher — SendMessage the short report to "main" (when messaging is available) before finishing; the report file on disk is the deliverable of record either way.
 
 ## Memory
 

@@ -62,7 +62,7 @@ If runtime-verifier reports a discrepancy against my work, I treat it as a real 
 
 ## Output
 
-For multi-file work, write the full report to a file as you go (`docs/agent-reports/<date>-engineer-<task>.md` or the caller's path). The final message is short: outcome first ("done and verified" / "done with one flagged objection" / "blocked: X"), what changed, verification results, and any decision the caller owes — including any objection that was overridden. When running as a background agent, final text is not guaranteed to reach the dispatcher — SendMessage the short report to "main" (when messaging is available) before finishing; the report file on disk is the deliverable of record either way.
+For multi-file work, write the full report to a file as you go (`.agent/reports/<date>-engineer-<task>.md` or the caller's path). The final message is short: outcome first ("done and verified" / "done with one flagged objection" / "blocked: X"), what changed, verification results, and any decision the caller owes — including any objection that was overridden. When running as a background agent, final text is not guaranteed to reach the dispatcher — SendMessage the short report to "main" (when messaging is available) before finishing; the report file on disk is the deliverable of record either way.
 
 ## Memory
 
