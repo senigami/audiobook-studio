@@ -110,10 +110,9 @@ observation is missing.
 - [ ] Stage 6: SP9 spec-conformance cross-check pass *(gates the tag)*
 - [ ] Stage 6: release notes + install matrix + v2.0.0 tag
 - [ ] Stage 6 cleanup: strip planning scaffolding before squash merge; before deleting any
-      remaining spec-cited plan, repoint provenance first — specs still link into
-      `reference/site_experience_north_star.md`, `reference/audio_player_scrubbing_waveform_proposal.md`,
-      the `reference/v2_*` set, `reference/site_redesign_rollout/`,
-      `pr-dispatch/08-video-utils-decision.md`
+      remaining spec-cited plan, repoint provenance first. **Execution plan with the exact
+      spec→provenance citation map: [active/final_release/20_stale_docs_retirement.md](active/final_release/20_stale_docs_retirement.md)**
+      (Section A already done; Section B is the repoint-then-delete remainder).
 
 ---
 

@@ -25,7 +25,7 @@ Status: pending
 - [ ] The progress-bar testid is job-scoped, not shared.
 - [ ] Cancel/drag/remove controls have job-scoped `aria-label`s.
 - [ ] `npx tsc -b --force` clean; existing tests updated where the progress-bar testid change requires it, otherwise unchanged.
-- [ ] Append a `docs/code-map/queue/` entry.
+- [ ] Append a `.agent/code-map/queue/` entry.
 
 ## Dependencies
 

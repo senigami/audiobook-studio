@@ -8,7 +8,7 @@
 
 Phase 12 is the repo's last cross-cutting polish pass before the release docs and distribution work. Interface localization fits there because it cuts across the shell, book pipeline, voices, activity, settings, dialogs, and validation copy, but it does not belong in the site-redesign rollout itself. The redesign rollout is about route ownership and shell layout; localization is a separate product capability that should be planned once the layout is stable.
 
-This proposal therefore lives beside Phase 12 as a planning artifact and should be treated as the source for an eventual implementation phase. The canonical spec now lives at `design-docs/specs/interface-localization.md`, and the working inventory lives in `design-docs/plans/phases/phase_12_multilingual_interface_examples/`.
+This proposal therefore lives beside Phase 12 as a planning artifact and should be treated as the source for an eventual implementation phase. The canonical spec now lives at `design-docs/specs/interface-localization.md`, and the working inventory lives in `design-docs/plans/proposals/localization_interface_examples/`.
 
 ## 2. Core decision
 
@@ -370,5 +370,5 @@ High-risk screens for overflow:
 - `design-docs/specs/site-shell-and-book-pipeline.md`
 - `design-docs/specs/design-system.md`
 - `design-docs/plans/site_experience_north_star.md`
-- `design-docs/plans/phases/phase_12_multilingual_interface_examples/`
+- `design-docs/plans/proposals/localization_interface_examples/`
 - `design-docs/specs/interface-localization.md`

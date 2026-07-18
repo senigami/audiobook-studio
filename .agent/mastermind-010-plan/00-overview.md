@@ -59,7 +59,7 @@ process, so moving the file works, but the "SDK has zero app.*" gate must be mod
 - Registry finalized; E2E install-flow + trust-warning tests (§5.3) green with a LOCAL git fixture (no network).
 - Group 4 tts_mixed verification done.
 - Specs bumped: `design-docs/specs/engines-and-plugins.md`, `design-docs/specs/install-distribution.md`;
-  wiki changelog entry; code-map changelog-queue entries in `docs/code-map/queue/`.
+  wiki changelog entry; code-map changelog-queue entries in `.agent/code-map/queue/`.
 
 ## Explicitly NOT doing
 No StudioPluginContext capability expansion; no PyPI/SDK repo split/vendoring; no gate loosening;
@@ -68,4 +68,4 @@ no tts_mixed changes beyond Group 4; no update-flow test §5.2.
 ## Testing standards (CLAUDE.md)
 TDD for behavior-affecting tasks (failing test first, named per task). R1 revert-check for bug-fix
 tests and any test whose assertions changed. R2 mock only at boundaries. R4 no sleep-based timing.
-Every task touching mapped code appends a code-map changelog-queue entry (`docs/code-map/queue/`).
+Every task touching mapped code appends a code-map changelog-queue entry (`.agent/code-map/queue/`).

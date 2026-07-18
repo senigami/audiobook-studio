@@ -22,7 +22,7 @@ not automate or skip them.
   squash-merges to `main`, so all planning scaffolding can be stripped at release and never lands in
   production history. **Partially done ahead of schedule (2026-07-17 doc-cleanup pass):** every
   completed plan folder confirmed to have no spec citing its path was deleted already —
-  `design-docs/plans/_archive/` (except the one fragment `interface-localization.md` cites),
+  `design-docs/plans/_archive/` (fully retired 2026-07-18; its last fragment, the localization inventory `interface-localization.md` cites, was relocated to `proposals/localization_interface_*`),
   `COMPLETED_WORK_REPORT.md`, `MOVE_MAP.md`, and several completed `active/` folders; their
   narrative now lives in the wiki changelog rather than a `COMPLETED_WORK_REPORT.md`. **Still to
   delete at Stage 6:** `design-docs/plans/master_fix_plan/`, and the remaining open-source plan
@@ -33,7 +33,7 @@ not automate or skip them.
   **Before deleting any remaining spec-cited plan, repoint or inline its provenance first** —
   `design-docs/specs/` still link into `reference/site_experience_north_star.md`,
   `reference/audio_player_scrubbing_waveform_proposal.md`, the `reference/v2_*` set,
-  `reference/site_redesign_rollout/`, `_archive/phases/phase_12_multilingual_*`, and
+  `reference/site_redesign_rollout/`, and
   `pr-dispatch/08-video-utils-decision.md`; rewrite those spec references or remove the links so no
   spec is left with a dangling pointer. (`active/audio_player_waveform_scrubber/`,
   `active/huggingface_voice_upload/`, and `active/synced_reader/` were already deleted and their

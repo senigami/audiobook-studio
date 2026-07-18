@@ -78,6 +78,6 @@ regression guard).
       all green throughout; no regressions.
 - [ ] Owner has visually confirmed every converted screen in light + dark (batched checklist in
       `02-roadmap.md`, not per-file pauses).
-- [ ] A changelog-queue entry is appended to `docs/code-map/queue/` per this repo's CLAUDE.md
+- [ ] A changelog-queue entry is appended to `.agent/code-map/queue/` per this repo's CLAUDE.md
       code-map convention.
 - [ ] `../../TASKS.md`'s Milestone 3 / 005 / "Styling separation" line items are ticked.

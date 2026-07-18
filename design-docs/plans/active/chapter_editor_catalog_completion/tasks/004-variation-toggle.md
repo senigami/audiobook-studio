@@ -99,7 +99,7 @@ Per `design-docs/workflows/chapter-editor-modes.md` §5 and §13's "Variation pi
    - A speaker with an out-of-convention variant name (e.g. `'Sarcastic'`) does not crash and simply doesn't light up any of the 3 buttons for that profile.
    - Toggle is visible immediately on character selection, without requiring any additional click to "expand" it.
 6. `npm -C frontend run test -- --run CastPalette`, `npm -C frontend run lint`.
-7. Append a `docs/code-map/queue/` changelog entry.
+7. Append a `.agent/code-map/queue/` changelog entry.
 
 ## Acceptance criteria
 
@@ -109,7 +109,7 @@ Per `design-docs/workflows/chapter-editor-modes.md` §5 and §13's "Variation pi
 - [ ] The naming-convention mapping (`normalizeVariantBucket`) is implemented exactly as specified, including the `null`/`'default'`/`'natural'` → `'natural'` fold.
 - [ ] Out-of-convention variant names don't crash and are explicitly a known, documented gap (not silently patched with a 4th slot).
 - [ ] `npm -C frontend run test -- --run` and `npm -C frontend run lint` clean.
-- [ ] `docs/code-map/queue/` entry added.
+- [ ] `.agent/code-map/queue/` entry added.
 
 ## Map links
 

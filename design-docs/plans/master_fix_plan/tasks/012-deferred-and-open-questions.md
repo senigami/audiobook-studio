@@ -8,8 +8,8 @@ block the release.
 ## Deferred to post-v2.0
 
 ### Localization implementation
-**Source:** [`phase_12_multilingual_interface_plan.md`](../../_archive/phases/phase_12_multilingual_interface_plan.md)
-+ [`examples/`](../../_archive/phases/phase_12_multilingual_interface_examples/). **Spec is done**
+**Source:** [`phase_12_multilingual_interface_plan.md`](../../proposals/localization_interface_plan.md)
++ [`examples/`](../../proposals/localization_interface_examples/). **Spec is done**
 (`design-docs/specs/interface-localization.md`); **implementation is not started** — no `frontend/src/i18n/`,
 no i18n library, no committed source catalogs (the `examples/` locales are review-only, `completion=0`).
 **Status:** **RESOLVED 2026-06-20 — post-v2.0** (owner). Spec stays; implementation is not part of the

@@ -36,7 +36,7 @@ Research (2026-07-10) found:
 
 ## Status protocol
 
-Whoever executes a task updates its `Status:` line and ticks its checkboxes in the same change as the work. When all tasks are complete, move this folder to `design-docs/plans/_archive/frontend_testability_sweep/` and update `design-docs/plans/TASKS.md`.
+Whoever executes a task updates its `Status:` line and ticks its checkboxes in the same change as the work. When all tasks are complete, delete this folder outright (its narrative goes to `wiki/Changelog.md`; the repo keeps no `_archive/`) and update `design-docs/plans/REMAINING_TASKS.md`.
 
 ## To pick this up later
 

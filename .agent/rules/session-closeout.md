@@ -12,11 +12,11 @@ Sweep the documents that describe *current state* and update the ones today's wo
 - `design-docs/plans/REMAINING_TASKS.md` — the open-work status source; mark what actually shipped
   today (move the line to `design-docs/plans/COMPLETED_WORK.md`).
 - The active plan folder(s) under `design-docs/plans/active/` that today's work touched.
-- `docs/lessons/INDEX.md` if a lesson was learned (see the lessons discipline).
+- `.agent/lessons/INDEX.md` if a lesson was learned (see the lessons discipline).
 - `CLAUDE.md` / `.agent/rules/` only if today changed something they assert — these are
   constitution files, not logs; don't accrete history into them.
 - The code-map queue: confirm every mapped-source change from today has its
-  `docs/code-map/queue/` entry (the Stop hook backstops this, but check).
+  `.agent/code-map/queue/` entry (the Stop hook backstops this, but check).
 - `.agent/memory-queue/` if working in a worktree (see `memory-queue.md`); persistent memory
   (`~/.claude/projects/.../memory/`) directly if in the main checkout.
 

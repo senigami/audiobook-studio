@@ -58,7 +58,7 @@ Is there any current navigation entry point in the **live, running app** that la
 - [ ] The per-span dropdown in `ScriptView.tsx` is removed only after confirming `CastTool` doesn't need it as its own assignment mechanism; if removed, `CastTool`'s assignment flows (brush/palette click-to-assign, Match Voice, etc. — whatever of tasks 002/003 has landed by then) are live-verified to still work.
 - [ ] If reachability is confirmed live instead: no code is deleted; a written report (entry point, file/line, click sequence) is delivered to the plan owner in place of a code change.
 - [ ] `npm -C frontend run lint` and `npm -C frontend run test -- --run` both clean.
-- [ ] A changelog-queue entry is appended to `docs/code-map/queue/` reflecting whatever actually happened (deletion, or "confirmed live, nothing deleted").
+- [ ] A changelog-queue entry is appended to `.agent/code-map/queue/` reflecting whatever actually happened (deletion, or "confirmed live, nothing deleted").
 
 ## Map links
 

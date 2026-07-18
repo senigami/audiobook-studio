@@ -17,7 +17,7 @@
   distribution block — coordinate: task 13 already touched it; this task sweeps completeness).
 - Confirm `design-docs/specs/install-distribution.md` bumped (task 16).
 - Wiki changelog entry (follow repo convention — wiki/Changelog.md dated entry).
-- Code-map changelog-queue: verify every task's entry landed in `docs/code-map/queue/`; add the
+- Code-map changelog-queue: verify every task's entry landed in `.agent/code-map/queue/`; add the
   summary entry for the SDK package addition.
 - Mark plan 05 checklist items done in `design-docs/plans/active/final_release/05_standalone_plugin_repos.md`
   ONLY for what this branch actually shipped; leave §5.2 update-flow unchecked (post-v2).

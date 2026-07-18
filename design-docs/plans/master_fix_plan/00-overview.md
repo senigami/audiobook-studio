@@ -52,7 +52,7 @@ older one's overlapping items are folded into it (not planned twice). Resolved o
 | **Mixed-engine model-load progress/ETA** | **DONE** — folded into `live-events.md`/`progress-presentation.md` (plan folder retired 2026-07-17) | *(was a residual mixed-engine bug the core Progress/ETA work above did NOT cover)* |
 | Voice taxonomy v2 (Phase G) | **`active/final_release/04`** Phase G + `phase_12_polish` (06-15) | — |
 | Standalone plugin repos | **`active/final_release/05`** (06-15) | `v2_engine_bundle_github_distribution` (archived) |
-| Localization | **`_archive/phases/phase_12_multilingual_interface_plan`** (06-14) | — (deferred post-v2) |
+| Localization | **`proposals/localization_interface_plan.md`** (06-14) | — (deferred post-v2) |
 | Release gating | **`road_to_v2`** + `active/final_release/08` (06-15/06-12) | — |
 | Backend namespace rename | **`active/master_agnostic_tasks`** (06-14) | — |
 | Per-span performance metadata / casting export | **`proposals/performance_script_model/`** (06-25, design draft) | couples with W13 sub-sentence assignment (must ship together — shared span/DB model) |

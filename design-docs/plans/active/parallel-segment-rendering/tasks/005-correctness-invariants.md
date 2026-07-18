@@ -9,7 +9,7 @@
 > (`plugins/tts_mixed/handler.py`) and actually concurrent (`ChapterSynthesisTask`'s
 > `ThreadPoolExecutor` fan-out) rather than against `orchestrator.py:386`/`:240` literally, since
 > those methods have no fan-out-aware code path yet to harden. See
-> `docs/code-map/queue/w-par-005-correctness-invariants.md` for the full breakdown and what is
+> `.agent/code-map/queue/w-par-005-correctness-invariants.md` for the full breakdown and what is
 > explicitly deferred to 008.
 
 > Read [`../01-map.md`](../01-map.md) (Part F, invariants **INV-2**, **INV-3**, **INV-4**, **INV-7**,

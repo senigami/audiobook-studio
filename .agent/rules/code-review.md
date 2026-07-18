@@ -2,7 +2,7 @@
 
 Use this file when the user asks for a review, PR review, review-comment triage, or risk assessment of a diff — whether run inline, via `review-adversarial`, `review-pr`, `review-gate` (Fable), or a `fusion-reasoning` panel.
 
-**Before conducting any review of any kind or size, load `docs/checklists/*.md`** (the domain files most relevant to what's being reviewed — `code-review.md`, `security-review.md`, `spec-drift-review.md`, or others as they're added) and run every line as a mandatory check, not optional background reading. This is the `review-ratchet` skill's checklist artifact — see [`review-learning.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/review-learning.md) for what to do with anything the checklist doesn't already cover.
+**Before conducting any review of any kind or size, load `.agent/checklists/*.md`** (the domain files most relevant to what's being reviewed — `code-review.md`, `security-review.md`, `spec-drift-review.md`, or others as they're added) and run every line as a mandatory check, not optional background reading. This is the `review-ratchet` skill's checklist artifact — see [`review-learning.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/review-learning.md) for what to do with anything the checklist doesn't already cover.
 
 ## Review Posture
 

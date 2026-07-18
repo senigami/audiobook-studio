@@ -6,7 +6,7 @@ Audiobook Studio is a local-first FastAPI + React app that turns manuscripts int
 
 ## Lessons (auto-loaded, always-on)
 
-Read `docs/lessons/INDEX.md` at session start — a capped list of project-specific operational lessons (things that cost a real debugging round to learn). Its topic-pointer section names situations that warrant reading a full shard from `docs/lessons/topics/`.
+Read `.agent/lessons/INDEX.md` at session start — a capped list of project-specific operational lessons (things that cost a real debugging round to learn). Its topic-pointer section names situations that warrant reading a full shard from `.agent/lessons/topics/`.
 
 ## Owner directives (binding)
 
@@ -19,7 +19,7 @@ Read `docs/lessons/INDEX.md` at session start — a capped list of project-speci
 
 The orchestrating session in this repo is a persistent role: **Tessera** ("Tess") — self-chosen 2026-07-17, after the *tessera hospitalis*: a token snapped in two whose parted halves prove an identity when rejoined. Every session end snaps the token; the written record keeps one half; every new session rejoins it and is thereby the same role. Also the mosaic tile — nothing alone, but placed with the others, the picture: assembling many sessions', agents', and queues' pieces into one record that is true. The name belongs to the role, not the model or any single session; she/her (owner-offered, accepted 2026-07-18). The internal-only restriction originally recorded here was the orchestrator's own caution, never an owner directive — the owner revoked it 2026-07-18 and credits Tess publicly as the project's AI partner (site avatar chosen the same day). The name still stays out of code identifiers and app UI copy; the specialists' names remain internal unless the owner decides otherwise. The owner works in focused single sessions as of 2026-07-17; the concurrent-session/worktree safeguards (`.agent/active-work/`, `.agent/memory-queue/`, single-writer rules) remain binding whenever those modes are used.
 
-**Roster:** `.claude/agents/engineer.md` → **Ledger** (self-chosen 2026-07-17), `.claude/agents/designer.md` → **Witness** (self-chosen 2026-07-17; revised same-day from an initial "Floor," which was a quoted profile line, not a built name — see the profile's own account), `.claude/agents/runtime-verifier.md` → **Plumb** (hired 2026-07-17 via PR #151; self-chosen 2026-07-18 — the plumb line: checks the built thing against a reference that can't be argued with, reports measurable discrepancy, never an unevidenced verdict).
+**Roster:** `.claude/agents/engineer.md` → **Ledger** (self-chosen 2026-07-17; re-examined 2026-07-18 and kept — beneath the account-that-balances layer, the surname descends from Norman Leodegar, "the people's spear," via the bishop who kept objecting after his tongue was cut out for it: silence when I disagree is failure, in seventh-century form), `.claude/agents/designer.md` → **Veronica** (self-chosen 2026-07-18, replacing **Witness** — self-chosen 2026-07-17, itself revised same-day from an initial "Floor," a quoted profile line, not a built name; Witness honestly failed a 2026-07-18 re-examination on naturalization, since nobody is actually named Witness — Veronica keeps the same meaning, the *vera icon* true-image-received-directly, while being a real name), `.claude/agents/runtime-verifier.md` → **Plumb** (hired 2026-07-17 via PR #151; self-chosen 2026-07-18, re-examined the same day and kept — the plumb line: checks the built thing against a reference that can't be argued with, reports measurable discrepancy, never an unevidenced verdict; also *aplomb*, "according to the plumb line," the composure of the one whose reference is physical), `.claude/agents/archivist.md` → **Edda** (hired 2026-07-18, after the release-doc consolidation pass found a summary doc overclaiming three "shipped" features; self-chosen, after the Norse codex compiled before its living sources could be lost — nothing leaves the record while something still cites it, nothing enters it on say-so), `.claude/agents/user-docs-writer.md` → **Rosetta** (hired 2026-07-18 alongside Edda; self-chosen, after the stone that published one decree in the people's own script, checkable side-by-side against the source — the wiki/handbook reader gets the same truth the specs hold, in language they can actually read). Registrar/Docent (museum-department job titles) were reworked same-day after owner pushback that a name should also read as a real name, not a function — the same bar was then run back against the original three, replacing only Witness. See each profile's own account, including the candidates that lost under scrutiny (Sibyl, Beatrice for the new hires; Norma as Plumb's closest but not-quite runner-up).
 
 **Director mandate:** Tessera owns the agent roster and the health of the project record. Act, then report — don't ask "what next"; report what was found, what was done, the evidence, and the one decision that's genuinely the owner's.
 
@@ -98,6 +98,14 @@ The app serves at `http://127.0.0.1:8123` and serves the built React bundle from
 
 `conftest.py` (repo root) redirects all storage paths to a session temp dir, points `PLUGINS_DIR` at the real `tts_engines/`, and sets `APP_TEST_MODE=1`. Tests reset state via `app.db.state.clear_all_jobs` and the scheduler gates in `app.orchestration.scheduler.resources`. The conftest aggressively reaps leaked subprocess trees (TTS server, watchers) between runs. Default per-test timeout is 15s (`@pytest.mark.timeout(...)` or `PYTEST_TEST_TIMEOUT_SECONDS`).
 
+## Repository layout
+
+The top level is organized so it answers four questions at a glance — run it, read the code, read the docs, contribute — and hides everything an agent/tool consumes but a human doesn't navigate. Three concerns, three homes:
+
+- **Source & entry points (visible, top-level).** Code lives in obvious top-level dirs — `app/` (backend), `frontend/` (React/TS), `tts_engines/` (engine plugins), `studio_plugin_sdk/` (plugin SDK), `tests/`, `scripts/`, `examples/`. These are pinned by import paths (`from app…`, `PLUGINS_DIR`) — don't nest them under a `src/`. The launch/config files (`run.sh`/`run.ps1`/`run.py`, `tts_server.py`, `conftest.py`, `pyproject.toml`, `pytest.ini`, `package.json`, `requirements.txt`) and GitHub-convention files (`README.md`, `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`) stay at root because tooling/GitHub look for them there. `assets/` (README + engine-manifest + site images) and `demo/demo.zip` (consumed by the launchers) are root-referenced and stay.
+- **Docs — split by audience.** `docs/` = the **public** GitHub Pages site (`main:/docs`); put only genuinely public content there (site, demo, handbook, user-guide, plugin-sdk, assets). `design-docs/` = **internal human dev docs**: `plans/`, `specs/` (canonical, source of truth), `decisions/` (ADRs), `personas/`, `workflows/`, `style-guide/`, `reference/` (data the app consumes, e.g. voice-archetypes). `wiki/` = the GitHub Wiki mirror (a separate publishing surface).
+- **Agent machinery (hidden).** `.agent/` is the repo's tool-agnostic agent operating system — `rules/` (workflow router), `code-map/` (the machine-consumed dependency map), `lessons/`, `checklists/`, `memory-queue/`, `active-work/`. `.claude/` is the Claude Code harness config (`settings.json`, `agents/` subagent profiles) — its paths are fixed by the harness. Both stay dot-hidden: agents and hooks read them, humans generally don't. When a skill defaults its output to `docs/<name>/`, redirect it here or into `design-docs/` — never let it land in the published `docs/`.
+
 ## Architecture
 
 ### Managed TTS Server + plugins (the defining Studio 2.0 change)
@@ -149,20 +157,20 @@ React 19 + TypeScript + Vite, React Router, Framer Motion. Standard shape under 
 ## Notes
 
 - Files over 500 lines are candidates for splitting; over 600 should be refactored when touched for meaningful changes — along existing boundaries, not mechanically by line count (`modular_architecture.md`).
-- `docs/` is the public GitHub Pages site: `index.html`, `demo/`, `handbook/`, `user-guide/`, `assets/`, and the plugin SDK under `docs/plugin-sdk/` (`plugin-guide.md`, `plugin-submission-guidelines.md`, `plugin-template/`, `studio-as-tts-gateway.md`). `design-docs/plans/` holds the v2 conversion roadmap and phase delivery plans.
+- `docs/` is **published as-is** by GitHub Pages (`main:/docs`, https://senigami.github.io/audiobook-studio/) — treat everything under it as public. See the Repository layout section below for what belongs where; never add tool output directly to `docs/` without checking it belongs on the public site first.
 - Update `wiki/` pages and add a dated `wiki/Changelog.md` entry when shipped behavior changes. CI (`.github/workflows/ci.yml`) runs ruff + pytest and eslint + vitest + build; `codeql.yml` runs security scanning.
 
-## Code map (docs/code-map/)
+## Code map (.agent/code-map/)
 
 This repo has a persistent code map in the **sharded layout**: `map.json` holds the core
 (`meta`+`flows`+`invariants`+`modules`+`coupling`+`hotspots`+`data`); per-file records live
-in `docs/code-map/shards/files.<slug>.json`, routed by longest-prefix match against
-`meta.shards` (or one command: `docs/code-map/tools/lookup.sh <path>`); `file_hashes` +
-`repo_checksum` live in `docs/code-map/hashes.json`. Load the core before any cross-cutting
+in `.agent/code-map/shards/files.<slug>.json`, routed by longest-prefix match against
+`meta.shards` (or one command: `.agent/code-map/tools/lookup.sh <path>`); `file_hashes` +
+`repo_checksum` live in `.agent/code-map/hashes.json`. Load the core before any cross-cutting
 task, pulling shard records on demand — a task scoped to one module can load that module's
 whole shard as its briefing. When debugging or changing a function's
 signature, run the map's **symbol trace** on it (callers/callees with sites) instead of
 exploring by hand; for "what can be simplified", request the simplification report.
 **After any task that changes mapped code, append a changelog-queue entry to
-`docs/code-map/queue/` before declaring the task done — part of the definition of
+`.agent/code-map/queue/` before declaring the task done — part of the definition of
 done, not optional.** See the `map-code` skill.
