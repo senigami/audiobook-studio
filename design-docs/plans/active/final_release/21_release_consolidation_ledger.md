@@ -59,9 +59,9 @@ coverage (wiki concept page / handbook). `✓` verified present · `⚠` gap —
 | Voice taxonomy v2 Phase G (`language`/`style`, Edit Metadata UI, HF tag maps, schema 2.0) | 2026-07-03 ✓ | Voices-and-Voice-Profiles, `user-guide/voice-tags-icons.md` `?` | `reference/v2_voice_tag_taxonomy.md` (B1) | [ ] |
 | Voice-variant version history + A/B panel | 2026-07-15 ✓ | Voices `?` | — | [ ] |
 | Voice variant tagging + catalog IA redesign | 2026-07-15 ✓ | Voices `?` | — | [ ] |
-| HuggingFace voice browse + upload | ⚠ **MISSING — spot-checked 07-18, no CL entry** (only incidental LAN/first-run mentions) | Voices `?` | — (blocked: write CL entry first) | [ ] |
-| AI casting + voice metadata UI ("Suggest voices for character") | ⚠ **MISSING — spot-checked 07-18, no dedicated CL entry** (only IA "Casting stage" + "AI casting hard-filter" asides) | Voices `?` | — (blocked: write CL entry; product-scope decision open) | [ ] |
-| Recording cue & persona sample expansion (mad-lib composer, 103-archetype library, portraits) | ⚠ **MISSING — spot-checked 07-18, no CL entry** (PR #146 never logged) | Recording-Guide `?` | `active/chapter_editor_catalog_completion/` (recording-cue parts) — blocked: write CL entry first | [ ] |
+| HuggingFace voice browse + upload | ✓ **written 07-18** (CL 2026-07-12, import note 07-03) | Voices `?` | — | [x] CL |
+| AI casting + voice metadata UI ("Suggest voices for character") | ⚠ **HELD — no clean landing date/spec row for the "Suggest voices" action; product-scope (release vs fast-follow) undecided.** Needs sourcing + owner scope call before a public CL entry | Voices `?` | — (blocked: CL entry + scope decision) | [ ] |
+| Recording cue & persona sample expansion (mad-lib composer, 103-archetype library, portraits) | ✓ **written 07-18** (CL 2026-07-17, PR #146) | Recording-Guide `?` | `active/chapter_editor_catalog_completion/` (recording-cue parts) | [x] CL |
 
 ### Chapter editor · Reader · Misc
 | Item | CL section | UD | Retires | Verify |
@@ -83,10 +83,11 @@ coverage (wiki concept page / handbook). `✓` verified present · `⚠` gap —
   standalone repo extraction (X1-X6/V1-V3) + trust-warning E2E; Director's Console per-mode polish
   catalog; voice namespace rename + doc-06 infra stub decisions.
 - **Doc reduction (this workstream):**
-  - **Write the 3 missing wiki changelog entries** (spot-checked 2026-07-18): HuggingFace voice
-    browse/upload, AI casting + voice-metadata UI, recording-cue/persona expansion (PR #146). These
-    shipped but were never logged — the source plans **must not be deleted until their history is in
-    the wiki**. This is the first concrete gap the ledger caught.
+  - **Missing wiki changelog entries** (spot-checked 2026-07-18): **HuggingFace voice** and
+    **recording-cue/persona** entries were written 07-18 (done). **AI casting** is HELD — no clean
+    landing date or spec row for the "Suggest voices" action, and its release-vs-fast-follow scope is
+    an open owner decision; it needs sourcing + that scope call before a public CL entry. Its source
+    plan must not be deleted until then.
   - Then doc 20 §B1 (repoint + delete shipped-feature provenance) and delete verified source plans.
   - Continue the Part-1 spot-check pass (`?` → `✓`/`⚠`) across CL + user docs.
 - **Owner design decisions blocking work:** W-PERF AI pipeline schedule-or-hold; HF/AI-casting scope

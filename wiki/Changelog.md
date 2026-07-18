@@ -19,6 +19,16 @@ All notable changes to this project will be documented in this file.
 - Enforced in **two layers**: the Book-mode script view snaps the selection for an accurate popover preview/posted range, and the backend (`_apply_range_assignment`) snaps **independently and authoritatively** before splitting — so the guarantee holds even for a non-UI caller of `PUT /chapters/{id}/script-view/assignments`. Lossless; the whole-span (non-range) assignment path is unchanged. Plan archived at `design-docs/plans/active/archive/span_word_boundary_snapping/`.
 - Known remaining gaps (unbuilt, scoped in `design-docs/plans/proposals/span_resync_preservation.md`): sub-sentence spans do not survive a source-text resync, and the `showSafeText` rendering path can post slightly misaligned offsets (backend re-snapping keeps splits word-aligned regardless).
 
+## [Added] - 2026-07-17
+
+### Recording-cue composer and expanded character library
+
+- **The "Suggest from voice qualities" recording guide got a mad-lib cue composer.** Instead of one generic prompt, the Recording Guide now composes a tailored recording cue and sample-text suggestion from a voice's tagged attributes (class/gender/age/tone/timbre/pace), so the read-aloud direction matches the voice you're actually building.
+- **The character archetype library grew from 39 to 103 characters** across 8 genre buckets (e.g. literary fiction, fantasy, thriller, romance, YA, non-fiction narration). The picker ranks and narrows archetypes against a voice's tags rather than showing a flat list.
+- **Square portrait-image prompts.** Each archetype can compose an image-generation prompt for a square (1:1) character portrait, for authors who want a visual for a character.
+- **Contributor tooling is dev-mode-gated.** A copy-the-portrait-prompt affordance and related in-progress tools appear only under `useDevMode()` — this shipped as a repo-wide convention: dev mode gates contributor-only / in-progress / beta tooling, not just debugging.
+- Owner follow-ups (not blocking): generating the 103 default portrait images, and a live end-to-end verification of the character-library flow. See PR #146.
+
 ## [Changed] - 2026-07-16
 
 ### Repo-ready plugin folders: real `studio_plugin_sdk` package + standalone-liftable engines
@@ -108,6 +118,15 @@ All notable changes to this project will be documented in this file.
 - Each voice can now mark one variant as its **default** with a star — previously there was no way to flag a preferred variant at all.
 - The catalog card's "Set as App Default" action was relabeled for clarity and a related bug was fixed; secondary variant actions were consolidated into a single overflow menu.
 - Spec: `design-docs/specs/voice-bundles.md` bumped to 1.12.0 to cover both this and the version-history work above.
+
+## [Added] - 2026-07-12
+
+### Publish a voice to Hugging Face (browse/import shipped 2026-07-03)
+
+- **Import voices from Hugging Face.** `POST /api/voices/huggingface/import` downloads a voice from the Hub into your local library, records provenance (`source: "imported"`, author, consent-ack, timestamp), and hardens the download path (filename validation, an audio/`voice.json` allowlist, and a 20-file cap so a malicious repo listing can't trigger unbounded downloads). Shipped 2026-07-03 — `voice-bundles.md` 1.3.0 / 1.5.0 / 1.5.1.
+- **Publish a voice to the Hub.** Voice Lab's "Publish to Hugging Face" is now a real action (was a disabled "planned" placeholder): a modal takes a repo id and uploads the voice as one atomic `upload_folder` commit — directory structure preserved (`samples/preview.mp3` stays nested, not flattened), including the generated `README.md` (with a playable model-card widget), the voice's `icon.png`, and the engine asset (`latent.pth`) for the resolved default variant. The sample and the published engine asset always come from the *same* variant, never mixed.
+- **Publishing config + token handling.** Settings → General → Publishing configures the `huggingface_token` with a redacted round-trip (same secret pattern as other secret fields). If the resolved variant has no sample yet, publishing kicks off the same sample-generation job the Voice Lab "Test" button uses and auto-retries the publish until it completes — no separate manual step. A fixed latent bug that had silently shipped 0-byte samples on every prior export was fixed in the same pass.
+- Spec: `design-docs/specs/voice-bundles.md` 1.6.0–1.9.0 (icon `GET` endpoint, README/icon inclusion, atomic folder upload, token panel + publish modal, engine-asset inclusion, sample-on-publish).
 
 ## [Added] - 2026-07-11
 
