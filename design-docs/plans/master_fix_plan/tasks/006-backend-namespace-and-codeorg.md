@@ -12,14 +12,13 @@ started; router restructure not started; `speakers.py` decomposition not started
 
 **Goal:** the structural rename `plugins/` → `tts_engines/` and the remaining code-org items not folded
 into 005.
-**Authoritative sources:** [`master_agnostic_tasks.md`](../../active/master_agnostic_tasks.md) (06-14,
-namespace rename) + [`organizational_cleanup.md`](../../active/organizational_cleanup.md) (residual reorg).
+**Authoritative source:** [`master_agnostic_tasks.md`](../../active/master_agnostic_tasks.md) (06-14,
+namespace rename). `organizational_cleanup.md`'s residual reorg (DB consolidation, `app/utils/text/`
+naming, `speakers.py` decomposition) is done — plan file retired 2026-07-17.
 
 **Open items:**
 - Namespace rename `plugins/` → `tts_engines/` — update every importer (core, plugins, manifests,
   `PLUGINS_DIR`, conftest, docs/specs references). **Widest blast radius in the whole plan.**
-- Residual code-org from `organizational_cleanup`: finish `speakers.py` decomposition (if not done in
-  005), `app/utils/text/` naming, API router sub-package restructure.
 - `master_agnostic_tasks` leftovers: MobileNavDrawer focus-trap fix (also an a11y item — see 008),
   `CONTRIBUTING.md` plugin docs, Vite ECONNRESET triage, large-book load timing check.
 

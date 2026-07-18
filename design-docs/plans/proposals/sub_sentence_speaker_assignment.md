@@ -19,8 +19,7 @@ feature is already built:
 **Word-boundary snapping — SHIPPED 2026-07-17.** Both the frontend selection handler and the
 backend split point now snap selection offsets outward to whole-word boundaries, so a drag can
 no longer land mid-word (backend is the authoritative enforcement point, independent of the UI).
-The plan is complete and archived at
-`design-docs/plans/active/archive/span_word_boundary_snapping/`. Script-mode scope stays out
+The plan is complete; its folder was retired 2026-07-17. Script-mode scope stays out
 (owner decided Book-mode-only is fine for now).
 
 **Remaining gaps (genuinely unbuilt):**
@@ -171,8 +170,8 @@ Question 3) once auto-suggestion is built.
 
 ## Remaining gaps
 
-Word-boundary snapping **shipped 2026-07-17** (PR #143); its plan is complete and archived at
-`design-docs/plans/active/archive/span_word_boundary_snapping/`. The rest of this document
+Word-boundary snapping **shipped 2026-07-17** (PR #143); its plan is complete and its folder
+was retired 2026-07-17. The rest of this document
 describes what's already shipped. Genuinely unbuilt work (see the status paragraph at the top of
 this doc for the full list): sub-sentence spans don't survive a source-text resync and the
 `showSafeText` offset-fidelity gap — both scoped in

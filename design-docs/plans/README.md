@@ -1,7 +1,10 @@
 # Plans Index
 
 The single map of every planning document. Reorganized 2026-06-25 into buckets so the root stays
-clean and each plan's role is obvious. Old paths → new paths are in [MOVE_MAP.md](MOVE_MAP.md).
+clean and each plan's role is obvious. Swept again 2026-07-17: completed plan folders were deleted
+outright (history now lives in the wiki/changelog, not here) rather than archived — see
+`wiki/Changelog.md` for the shipped-feature narrative that used to live in this folder's now-removed
+`COMPLETED_WORK_REPORT.md`/`_archive/`.
 
 ## Start here
 
@@ -12,8 +15,6 @@ clean and each plan's role is obvious. Old paths → new paths are in [MOVE_MAP.
   connect, which sub-plan (in `active/`) is authoritative for each, and the invariants that hold
   across all of them. Read it to understand *why* TASKS.md is ordered the way it is — its own
   done/pending markers are point-in-time snapshots that go stale, so don't trust them for status.
-- **[COMPLETED_WORK_REPORT.md](COMPLETED_WORK_REPORT.md)** — the mirror: what's already shipped
-  (v1→v2 narrative for wiki / changelog).
 - **[post_release_backlog.md](post_release_backlog.md)** — **post-2.0 ideas, not yet scoped.**
   Not gating the v2.0.0 release and not tracked in TASKS.md until the owner picks one to
   schedule. Add new post-release ideas here as they come up.
@@ -25,13 +26,14 @@ clean and each plan's role is obvious. Old paths → new paths are in [MOVE_MAP.
 | `TASKS.md` | **Live status** — the one checklist to check or update; every other doc defers to it. |
 | `post_release_backlog.md` | Post-2.0 ideas, not yet scoped or gating — a raw capture list, not a to-do list. |
 | `master_fix_plan/` | The structural map (workstream connections, invariants, sub-plan routing) — not a status source. |
-| `active/` | Plans with **open work**, each an authoritative data source the master points at. |
-| `reference/` | **Done/superseded** plans kept because a spec or active plan **cites them as provenance**. Not a to-do list. |
+| `active/` | Plans with **open work**, each an authoritative data source the master points at. A few completed plans remain here only because a binding spec still cites their path as its live-implementation record (`audio_player_waveform_scrubber/`, `huggingface_voice_upload/`, `synced_reader/`) — repoint those spec citations before deleting. |
+| `reference/` | **Done/superseded** plans kept because a spec **cites them as provenance** — do not delete without repointing the citing spec first (see `TASKS.md`'s Stage 6 note). |
 | `proposals/` | **Undecided design drafts** awaiting a decision before they become work. |
-| `_archive/` | **Done, nothing depends on them.** History only; narrated by COMPLETED_WORK_REPORT. |
+| `pr-dispatch/` | Self-contained PR briefs. All but one shipped and merged 2026-07-16/17 and were deleted; `08-video-utils-decision.md` stays because `design-docs/specs/video-sample.md` cites it in its `sources:` list. |
+| `_archive/phases/phase_12_multilingual_*` | The one surviving fragment of the deleted `_archive/` — kept because `interface-localization.md` cites it directly as the localization design source. Everything else that was in `_archive/` (149 files: v1→v2 conversion docs, phase 0–13 conversion plan, completed delivery folders) is gone; its narrative lives in the wiki changelog now. |
 
 Everything below is accounted for in exactly one bucket. The master plan covers every item in
-`active/` and `proposals/`; `reference/` and `_archive/` hold no open work the master needs to schedule.
+`active/` and `proposals/`; `reference/` holds no open work the master needs to schedule.
 
 ---
 
@@ -42,17 +44,19 @@ Routing only — for current status/remaining work, check [TASKS.md](TASKS.md).
 | Plan | What it covers |
 |------|--------------------|
 | [final_release/](active/final_release/00_overview.md) | The v2.0.0 release plan (docs 00–18). Phases 0–11 done; Stage-1 owner render gate, standalone repos (05), taxonomy v2 Phase G (04), Pinokio (16), and the cosmetic/audit backlogs (09–12, 17, 18) remain. |
-| [simplification/](active/simplification/00_overview.md) | Dead-code/dup removal, large-file splits, CSS separation, **restore lost functionality (07)**. Master W2/W3 — not started. |
-| [audio_player_waveform_scrubber/](active/audio_player_waveform_scrubber/README.md) | Live-app port of the scrub-track + expandable tape. Mock + spec done; real-app tasks 005–012 open. Master W5. |
-| [mixed-synthesis-fused-proposal/](active/mixed-synthesis-fused-proposal/README.md) | **Mixed-engine model-load progress/ETA fix** (newly folded into the master). **DONE (W1–W4, W6; W5 superseded by W-PAR 001).** Kept active pending W-MIX-LA follow-up closure. |
-| [mixed-synthesis-load-attribution/](active/mixed-synthesis-load-attribution/README.md) | W-MIX follow-up: segment-tagged load attribution + load-aware ETA. 007 spec-reconciliation + 👁 G0 re-check gates W-PAR resume. |
-| [parallel-segment-rendering/](active/parallel-segment-rendering/README.md) | W-PAR: per-engine concurrent segment rendering. 001+004 shipped dark (cap=1); 002/003/005/006/007 pending; resume gated on W-MIX-LA 007. Phase 2 render monitor designed. |
+| [simplification/](active/simplification/00_overview.md) | Dead-code/dup removal, large-file splits, CSS separation. Most sub-parts done; LF-1/LF-6/BE-6/doc-06 remain (see TASKS.md 005/006). |
+| [parallel-segment-rendering/](active/parallel-segment-rendering/README.md) | W-PAR: per-engine concurrent segment rendering. Phases 1–3 shipped and the shipped default; a handful of owner live-render visual checks remain (see TASKS.md). |
+| [performance_script_model_execution/](active/performance_script_model_execution/README.md) | W-PERF execution plan. Workloads 1–3 (safe foundation) shipped; AI extraction pipeline + multi-target export layer (tasks 005–012) deferred pending an owner schedule decision. |
+| [audio_player_waveform_scrubber/](active/audio_player_waveform_scrubber/README.md) | Tasks 001–007 shipped; 008–012 superseded by `audio_player_completion_004/`. Kept in `active/` only because `audio-player.md` cites it as the live-port record for Workloads 0–2 — repoint that citation before deleting. |
+| [audio_player_completion_004/](active/audio_player_completion_004/README.md) | Remaining audio-player work (tape wiring, peaks sidecar, segment-nav fix). Owner visual sign-off pending. |
+| [huggingface_voice_upload/](active/huggingface_voice_upload/README.md) | All 5 tasks shipped (Hub bundle shape, atomic upload, engine-asset inclusion). Kept in `active/` because `voice-bundles.md`'s changelog cites it — repoint before deleting. |
+| [synced_reader/](active/synced_reader/00-overview.md) | Player-piano read-along reader. All tasks shipped/accepted per `status.json`. Kept in `active/` because `data-model.md` cross-references it directly — repoint before deleting. |
+| [chapter_editor_catalog_completion/](active/chapter_editor_catalog_completion/README.md) | Research-only plan (not yet dispatched) for the Director's Console catalog additions still open in TASKS.md's "Chapter editor art-program" section. |
+| [frontend_testability_sweep/](active/frontend_testability_sweep/README.md) | Saved-for-later plan (not yet dispatched): stable-selector convention for agent/Playwright reliability. |
 | [master_agnostic_tasks.md](active/master_agnostic_tasks.md) | Namespace rename (`plugins/`→`tts_engines/`), MobileNav focus-trap, CONTRIBUTING. Master W6. |
-| [organizational_cleanup.md](active/organizational_cleanup.md) | `speakers.py` decomposition, router reorg finish. Master W6 (overlaps simplification). |
-| [file_split_plan.md](active/file_split_plan.md) | Retired 2026-07-01 — 3 of 5 items already right-sized; residual (`ChapterHeader.tsx`) folded into simplification/04. |
 | [v2_phase_delivery_plan.md](active/v2_phase_delivery_plan.md) | Phase 12 active; Phase 13 (release docs) not started. |
 | [book_view_ia_proposal.md](active/book_view_ia_proposal.md) · [book_chapter_ia_proposal.md](active/book_chapter_ia_proposal.md) | Book + Chapter workspace IA. Live port substantially done (W4); design source kept active. |
-| [v2_huggingface_voice_interface.md](active/v2_huggingface_voice_interface.md) · [v2_voice_metadata_and_casting.md](active/v2_voice_metadata_and_casting.md) | HF browse/upload UI; AI casting suggestions; per-character casting UI. Open feature work. |
+| [v2_huggingface_voice_interface.md](active/v2_huggingface_voice_interface.md) · [v2_voice_metadata_and_casting.md](active/v2_voice_metadata_and_casting.md) | HF browse/upload UI; AI casting suggestions; per-character casting UI. Two open design decisions remain (see TASKS.md). |
 | [library_project_usability/](active/library_project_usability/README.md) | Project-create series combo box, optional series position, and multi-file chapter import drag-and-drop. |
 
 ## `reference/` — done/superseded, cited as data sources (don't treat as to-do)
@@ -70,23 +74,23 @@ Routing only — for current status/remaining work, check [TASKS.md](TASKS.md).
 
 | Plan | State |
 |------|-------|
-| [performance_script_model/](proposals/performance_script_model/README.md) | Design draft (no tasks). Per-span performance metadata + casting export. **Couples with sub-sentence assignment** — shared span/DB model; ship together. |
-| [sub_sentence_speaker_assignment.md](proposals/sub_sentence_speaker_assignment.md) | Open proposal — sub-sentence span model undecided. Master W13 (owner decision pending). |
-| [audio_player_scrubbing_waveform_proposal.md](proposals/audio_player_scrubbing_waveform_proposal.md) | Active design input for M2/004 (waveform scrubber); cited by `audio-player.md`. Work not yet started. |
-
-## `_archive/` — done, nothing depends on them
-
-Historical, narrated by [COMPLETED_WORK_REPORT.md](COMPLETED_WORK_REPORT.md). Added 2026-06-25:
-**`implementation/`** (per-area v2 conversion impl docs, Phase-11 closeout) and **`phases/`** (the
-phase 0–13 conversion plan; `phases/phase_12_multilingual_*` remains the localization design source,
-cited by `interface-localization.md`, but localization is deferred post-v2). Plus the earlier v1→v2
-conversion docs, completed delivery folders (`progress_routing_unification/`, `audit_systemic_bug_classes/`,
-`checklists/`), and superseded design docs already archived in the 2026-06-19 pass.
+| [performance_script_model/](proposals/performance_script_model/README.md) | Design draft cited as provenance by `active/performance_script_model_execution/` (its schema-overlap-with-sub-sentence-assignment coupling claim was investigated and found false — see that plan's task 000). |
+| [sub_sentence_speaker_assignment.md](proposals/sub_sentence_speaker_assignment.md) | ~90% already shipped (see TASKS.md's "Deferred / post-v2.0" section); remaining gaps scoped in `span_resync_preservation.md`. |
+| [span_resync_preservation.md](proposals/span_resync_preservation.md) | Open proposal — spans surviving a source-text resync, undecided. |
+| [audio_player_scrubbing_waveform_proposal.md](proposals/audio_player_scrubbing_waveform_proposal.md) | Design source for the shipped waveform tape; cited by `audio-player.md`. |
+| [research_*.md](proposals/) | Prior-art / academic research backing the sub-sentence and casting proposals above — reference material, not a to-do list. |
 
 ---
 
-*Reorg method:* a per-file/-folder status + inbound-reference audit (grep across `design-docs/specs/`,
-`CLAUDE.md`, `.agent/`, code, and cross-plan links), then `git mv` into buckets with all authoritative
-references repointed in the same change. The three plans postdating the master (`mixed-synthesis-fused-proposal`,
-`performance_script_model`, `quiet_studio_migration`) were explicitly folded into
-[master_fix_plan/](master_fix_plan/README.md) so nothing sits outside the master's coverage.
+*Reorg method (2026-06-25):* a per-file/-folder status + inbound-reference audit (grep across
+`design-docs/specs/`, `CLAUDE.md`, `.agent/`, code, and cross-plan links), then `git mv` into
+buckets with all authoritative references repointed in the same change.
+
+*Cleanup pass (2026-07-17):* every plan folder/file confirmed complete with **no spec citing its
+path** was deleted outright rather than archived (`_archive/` in full except the one
+spec-cited fragment noted above, `COMPLETED_WORK_REPORT.md`, `MOVE_MAP.md`, the misplaced
+`active/archive/span_word_boundary_snapping/`, `mixed-synthesis-fused-proposal/`,
+`mixed-synthesis-load-attribution/`, `north_star_screen_parity/`, `organizational_cleanup.md`,
+`file_split_plan.md`, and 10 of 11 `pr-dispatch/` briefs whose PRs all merged). `TASKS.md` was
+rewritten to compress every completed item to one line; open/future work kept full detail. The
+shipped-feature narrative these used to carry now lives in the wiki changelog, not here.

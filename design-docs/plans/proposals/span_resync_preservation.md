@@ -1,8 +1,7 @@
 # Proposal: Preserve sub-sentence spans across source-text resync
 
 Status: **scoping note — not yet planned/built** — 2026-07-17. Produced as a scope-only
-deliverable alongside `design-docs/plans/active/archive/span_word_boundary_snapping/`
-(word-boundary snapping, now complete). This documents a real, previously-untracked data-loss gap
+deliverable alongside the word-boundary snapping work (PR #143, plan folder since retired). This documents a real, previously-untracked data-loss gap
 so it has a home; it proposes **no fix**. Pick it up as its own plan folder when prioritized.
 
 ## The gap

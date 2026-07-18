@@ -39,7 +39,7 @@
 > point re-run this same grep.
 
 > **⚠ AUDIT CORRECTION (2026-07-16, PR 07 / DC-1b re-verification):** Re-checked again per the
-> dispatch task at `design-docs/plans/pr-dispatch/07-dc1b-dead-tree.md`. **Coupling has grown
+> dispatch task (PR 07, DC-1b dead-tree, since merged as PR #141). **Coupling has grown
 > further, not shrunk — this closes DC-1b as permanently-not-a-simple-deletion, not as
 > "temporarily blocked."** Findings (code-map symbol trace + full grep of `frontend/src`):
 > - `App.tsx:14,26` imports `ProjectViewRoute`/`ProjectDetailPage` directly, and mounts a real,

@@ -10,9 +10,9 @@ scattered across the existing plans. It is an **umbrella**: it does not re-docum
 existing plan folder already specifies in task-level detail — it **maps the workstreams together,
 orders them, and resolves overlaps** so an executor never loses the connections between them.
 
-The companion narrative of what's *already done* is [../COMPLETED_WORK_REPORT.md](../COMPLETED_WORK_REPORT.md);
-the per-plan status index is [../README.md](../README.md). This folder is the forward-looking twin:
-**what's left.**
+The companion narrative of what's *already done* now lives in the wiki changelog (this folder's
+former `../COMPLETED_WORK_REPORT.md` was retired 2026-07-17); the per-plan status index is
+[../README.md](../README.md). This folder is the forward-looking twin: **what's left.**
 
 ## Goal & success criteria
 
@@ -49,7 +49,7 @@ older one's overlapping items are folded into it (not planned twice). Resolved o
 | IA live-app port | **`book_view_redesign/`** (06-17) | `site_redesign_rollout` Track A (demo-mock only) |
 | Audio player (segment-aware + tape) | **`simplification/07` RST-8** (06-19) + **`audio_player_waveform_scrubber/`** (06-16) | `audio_player_scrubbing_waveform_proposal` (superseded) |
 | Progress / ETA (core engine) | **DONE** — `progress_routing_unification` (archived) | `v2_progress_tracking`, `final_release/15`, `phase_4` (all superseded) |
-| **Mixed-engine model-load progress/ETA** | **`active/mixed-synthesis-fused-proposal/`** (06-25) | *(new — a residual mixed-engine bug the core Progress/ETA work above did NOT cover)* |
+| **Mixed-engine model-load progress/ETA** | **DONE** — folded into `live-events.md`/`progress-presentation.md` (plan folder retired 2026-07-17) | *(was a residual mixed-engine bug the core Progress/ETA work above did NOT cover)* |
 | Voice taxonomy v2 (Phase G) | **`active/final_release/04`** Phase G + `phase_12_polish` (06-15) | — |
 | Standalone plugin repos | **`active/final_release/05`** (06-15) | `v2_engine_bundle_github_distribution` (archived) |
 | Localization | **`_archive/phases/phase_12_multilingual_interface_plan`** (06-14) | — (deferred post-v2) |

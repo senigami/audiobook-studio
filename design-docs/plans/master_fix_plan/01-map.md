@@ -29,11 +29,11 @@ interlock. The two load-bearing couplings an executor must never forget:
 | **W7** | UX backlog (U1–U14, minus styling folded into W2) | `final_release/10` | polish |
 | **W8** | A11y + Perf backlog (A4–A12, P7–P9) | `final_release/11` | polish |
 | **W9** | Security backlog (S6/S7/S10/S11 — pre-LAN hardening) | `final_release/12` | hardening |
-| **W10** | Backend namespace rename (`plugins/` → `tts_engines/`) + remaining code-org | `master_agnostic_tasks`, `organizational_cleanup` | structural |
+| **W10** | Backend namespace rename (`plugins/` → `tts_engines/`) + remaining code-org | `master_agnostic_tasks` (`organizational_cleanup` done, folder retired 2026-07-17) | structural |
 | **W11** | Standalone plugin repos (extract XTTS/Voxtral, registry, paste-URL install) | `final_release/05` | distribution |
 | **W12** | Release gating (manual render verify, Pinokio PK3/7/8, wiki, demo refresh, spec conformance SP9, tag) | `road_to_v2` + `final_release/08` | owner-driven, last |
 | **W13** | Deferred / open questions (localization impl; sub-sentence speaker assignment) | `phase_12_multilingual`, `sub_sentence_speaker_assignment` | post-v2 / undecided |
-| **W-MIX-LA** | Mixed-synthesis load attribution (segment-tagged load markers, load-aware ETA) | `active/mixed-synthesis-load-attribution/` | progress correctness; gates W-PAR |
+| **W-MIX-LA** | Mixed-synthesis load attribution (segment-tagged load markers, load-aware ETA) | **done** — folded into `live-events.md`/`progress-presentation.md` (plan folder retired 2026-07-17) | progress correctness |
 | **W-PAR** | Parallel segment rendering (per-engine pools, parent/child scheduling, multi-active UI) | `active/parallel-segment-rendering/` | performance (ships dark until owner enables) |
 | **W-QS** | Quiet Studio visual redesign | `reference/quiet_studio_migration/` | **done** (owner-gated rename deferred) |
 

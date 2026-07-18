@@ -25,10 +25,10 @@ connect, and the invariants that must hold across all of them — never a point-
 ## Newer workstreams folded in 2026-06-25 (postdate the original 001–012)
 These plans were created after this folder and are routed here so nothing falls outside the master.
 For status, see `../TASKS.md`.
-- **W-MIX — Mixed-engine model-load progress/ETA** → [`../active/mixed-synthesis-fused-proposal/`](../active/mixed-synthesis-fused-proposal/README.md). A residual bug the core Progress/ETA work (above) did **not** cover.
-- **W-MIX-LA — Mixed-synthesis load attribution** → [`../active/mixed-synthesis-load-attribution/`](../active/mixed-synthesis-load-attribution/README.md). W-MIX follow-up from the failed 2026-06-26 G0 check; task 007 (spec reconciliation + 👁 G0 re-check) gates W-PAR resume.
-- **W-PAR — Parallel segment rendering** → [`../active/parallel-segment-rendering/`](../active/parallel-segment-rendering/README.md). Subsumes W-MIX W5.
-- **W-PERF — Per-span performance metadata / casting export** → [`../proposals/performance_script_model/`](../proposals/performance_script_model/README.md). Design draft, not scheduled. Shares the span/DB model with W13 sub-sentence assignment — the two must ship together or the DB migrates twice.
+- **W-MIX — Mixed-engine model-load progress/ETA** → **done**, folded into `live-events.md`/`progress-presentation.md`; plan folder retired 2026-07-17. Was a residual bug the core Progress/ETA work above did not cover.
+- **W-MIX-LA — Mixed-synthesis load attribution** → **done**, folded into the same specs; plan folder retired 2026-07-17. Was the W-MIX follow-up from the failed 2026-06-26 G0 check.
+- **W-PAR — Parallel segment rendering** → [`../active/parallel-segment-rendering/`](../active/parallel-segment-rendering/README.md). Phases 1–3 shipped, shipped default; subsumes W-MIX W5.
+- **W-PERF — Per-span performance metadata / casting export** → [`../active/performance_script_model_execution/`](../active/performance_script_model_execution/README.md). Safe-foundation workloads 1–3 shipped 2026-07-16; the span/DB-migration-coupling concern with W13 sub-sentence assignment was investigated and found false (sub-sentence assignment shipped with zero schema migration).
 - **W-QS — Quiet Studio visual redesign** → [`../reference/quiet_studio_migration/`](../reference/quiet_studio_migration/README.md). Only the owner-gated `--accent`→`--action-primary` 94-file rename remains (alias kept as a permanent compat pointer).
 
 ## How to pick up work
@@ -52,7 +52,8 @@ done/pending status back into this file, `01-map.md`, or `02-roadmap.md`; they h
 state.
 
 ## Relationship to other plan docs
-- [../COMPLETED_WORK_REPORT.md](../COMPLETED_WORK_REPORT.md) — what's already **done** (the mirror of this).
+- The wiki changelog — what's already **done** (the mirror of this); this folder's former
+  `../COMPLETED_WORK_REPORT.md` was retired 2026-07-17.
 - [../README.md](../README.md) — the per-plan status index.
 - This folder is the **forward-looking consolidation**; the referenced sub-plans remain the source of
   executable detail.
