@@ -73,6 +73,33 @@ coverage (wiki concept page / handbook). `✓` verified present · `⚠` gap —
 | Interactive demo reconciled to shipping app | 2026-07-16 ✓ | Live-Demos `?` | — | [ ] |
 | Cleanup-along-the-way (demo_bundle path bug, Export/Bake delete + M4B fix, video util) | 2026-07-04/16 ✓ | — | — | [ ] |
 
+## Part 1b — User-doc (UD) verification pass (spot-checked 2026-07-18)
+
+Checked each shipped feature against the wiki concept page that should describe it for users.
+
+**Covered ✓** (wiki page has a real section): Director's Console (`Library-and-Projects` §Chapter
+Workspace), variant version history + A/B (`Voices` §Variant Version History), variant tags/switcher
+(`Voices` §Variant Tags), taxonomy/tags/icons (`Voices` §Tags), series suggestions
+(`Library-and-Projects`), recording-cue "Suggest From Voice Qualities" (`Recording-Guide` — describes
+the compose-from-tags mechanism), **AI casting suggestion panel** (`Voices` line 132: "scored
+recommendations in the Casting stage's voice suggestion panel" — so the *user doc* covers it even
+though its changelog entry is held), interactive demo (`Live-Demos`), TTS gateway (`Settings`
+§API/Integrations + `docs/plugin-sdk/studio-as-tts-gateway.md`).
+
+**User-doc gaps ⚠ (→ do-now):**
+- **Parallel rendering** — `Queue-and-Jobs.md` has no mention of cap>1 / concurrent segments /
+  the render monitor, though it's the shipped default and a user-facing settings lever.
+- **Waveform tape / scrubber** — `Concepts.md` §Player Bar describes the bar but not the waveform
+  tape, zoom/minimap, or scrubbing.
+- **Video sample export** — "Export Video Sample" isn't in `File-Formats-and-Audio-Guidance.md` or
+  the user guide.
+- **Read-along reader (partial)** — `Library-and-Projects.md` §Booth describes the *old* Review
+  follow-along; the new dedicated player-piano reader (timing sidecar, auto-advance, click-to-seek,
+  card→expanded→fullscreen, its own `/reader` URL) isn't described.
+- **HuggingFace import/publish (partial)** — `Voices` documents the bundle *format*'s HF
+  compatibility, but not the user *actions* (import a voice from the Hub; publish your voice via
+  Voice Lab → Settings token).
+
 ## Part 2 — Do now (pre-release, open — from REMAINING_TASKS)
 
 - **Owner visual checks** (code shipped, only live observation missing): Stage-1 render verification;
@@ -89,7 +116,11 @@ coverage (wiki concept page / handbook). `✓` verified present · `⚠` gap —
     an open owner decision; it needs sourcing + that scope call before a public CL entry. Its source
     plan must not be deleted until then.
   - Then doc 20 §B1 (repoint + delete shipped-feature provenance) and delete verified source plans.
-  - Continue the Part-1 spot-check pass (`?` → `✓`/`⚠`) across CL + user docs.
+  - CL spot-check: **done** (Part 1). User-doc spot-check: **done** (Part 1b).
+  - **Fill the 5 user-doc gaps** (Part 1b): parallel rendering (`Queue-and-Jobs`), waveform scrubber
+    (`Concepts`), video sample export (`File-Formats`/user-guide), read-along reader
+    (`Library-and-Projects` or `Concepts`), HF import/publish workflow (`Voices`). These are
+    user-facing product prose — owner's voice; hand-list vs. Tess-drafts is an owner call.
 - **Owner design decisions blocking work:** W-PERF AI pipeline schedule-or-hold; HF/AI-casting scope
   (at release or fast-follow); backend namespace `mixed.py`→`composite.py` + registry decisions.
 
