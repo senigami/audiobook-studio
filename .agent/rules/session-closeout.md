@@ -9,7 +9,8 @@ itself the moment the next session starts.
 
 Sweep the documents that describe *current state* and update the ones today's work made false:
 
-- `design-docs/plans/TASKS.md` — the ONLY status source; mark what actually shipped today.
+- `design-docs/plans/REMAINING_TASKS.md` — the open-work status source; mark what actually shipped
+  today (move the line to `design-docs/plans/COMPLETED_WORK.md`).
 - The active plan folder(s) under `design-docs/plans/active/` that today's work touched.
 - `docs/lessons/INDEX.md` if a lesson was learned (see the lessons discipline).
 - `CLAUDE.md` / `.agent/rules/` only if today changed something they assert — these are
@@ -31,8 +32,9 @@ transcript, it isn't written down yet.
 
 - Update sequencing/priorities/dependencies that today's decisions changed; leave the rest alone
   (no rewrite churn).
-- Superseded plans get a dated annotation, never a silent rewrite (matches the existing
-  `_archive/` + SUPERSEDED.md convention).
+- Superseded plans get a dated annotation, never a silent rewrite. Once a plan is fully done,
+  delete its folder outright (narrative goes to `wiki/Changelog.md`) rather than moving it to an
+  archive — this repo no longer keeps a `_archive/` going forward (retired 2026-07-17).
 
 ## The respawn prompt
 

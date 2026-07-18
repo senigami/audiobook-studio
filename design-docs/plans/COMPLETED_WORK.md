@@ -72,15 +72,18 @@ post-release is in [FUTURE_WORK.md](FUTURE_WORK.md).
 ## Simplification
 
 - **Milestone 3 — Code simplification.** Frontend dead-code removal, styling separation
-  (`components.css` → an 11-file split), large-file splits, backend cleanup, plugin consolidation,
-  a new shared text-ops package. (A handful of items — the largest single-file splits, an
-  `enrich()` extraction, and a wide-blast-radius package rename — were deliberately deferred to
-  dedicated follow-up sessions rather than rushed; see Remaining Tasks.)
-- **Backend namespace & code-org.** `speakers.py` decomposition, API router sub-package
-  restructure, dev-only route gating, `App.tsx` split, input-style unification, Phase-12 owner
-  decisions, `MobileNavDrawer` focus-trap, plugin docs, a Vite dev-server triage, a large-book
-  load-timing fix. (The `plugins/`→`tts_engines/` rename itself and a few doc-cleanup items remain
-  — see Remaining Tasks.)
+  (`components.css` → an 11-file split), large-file splits including `ChapterHeader.tsx` (now a
+  6-line barrel over `useChapterStatus`/`ChapterTopBar`/`ChapterScriptToolbar`), backend cleanup,
+  plugin consolidation, a new shared text-ops package. (A couple of items — an `enrich()`
+  extraction and a wide-blast-radius package move — were deliberately deferred to dedicated
+  follow-up sessions rather than rushed; see Remaining Tasks.)
+- **Backend namespace & code-org.** `plugins/` → `tts_engines/` rename fully shipped (111 tracked
+  files under `tts_engines/`; `PLUGINS_DIR` resolves there by default — the old `plugins/` path
+  that may still appear on a local disk is untracked runtime state, not part of the repo).
+  `speakers.py` decomposition, API router sub-package restructure, dev-only route gating,
+  `App.tsx` split, input-style unification, Phase-12 owner decisions, `MobileNavDrawer`
+  focus-trap, plugin docs, a Vite dev-server triage, a large-book load-timing fix. (A voice
+  namespace rename and a few doc-cleanup items remain — see Remaining Tasks.)
 
 ## Feature & polish backlog
 

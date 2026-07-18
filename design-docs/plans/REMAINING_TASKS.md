@@ -60,7 +60,6 @@ observation is missing.
 - **Milestone 2 IA port (003)** — spans don't survive source-text resync, scoped in
   [proposals/span_resync_preservation.md](proposals/span_resync_preservation.md)
 - **Milestone 3 simplification (005)**
-  - `ChapterHeader.tsx` (615 lines) — last oversized split target, perf-gated
   - LF-6 `progress/service.py` `enrich()` extraction — deliberately deferred to a follow-up
     session with closer supervision (dense, numbered historical bug fixes; mechanical cut-paste risk)
   - BE-6 rename/move `app/jobs` package — deliberately deferred to its own dedicated session
@@ -68,7 +67,6 @@ observation is missing.
   - Four-way input-class consolidation (redesign-scale, still open); U10 z-index
   - LF-1 `useStudioChapter.ts` split — blocked on DC-1a, no payoff since DC-1b closed will-not-delete
 - **Milestone 3 backend namespace (006)**
-  - Rename `plugins/` → `tts_engines/` — update all importers, manifests, `PLUGINS_DIR`, conftest, docs
   - Namespace block remainder: rename voice namespace, reserve `plugins/` for app-behavior
     extensions, move engine-owned tests/fixtures into bundles
   - doc-06 cleanup: `transient/` consolidation, `app/infra/subprocess` implement-or-delete,

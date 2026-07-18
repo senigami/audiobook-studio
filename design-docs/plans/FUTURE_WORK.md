@@ -71,7 +71,8 @@ section — nothing was dropped, only combined into one list.)*
   preview time, diff the plugin's `requirements.txt` against the main venv's installed packages
   and offer a dedicated venv + subprocess bridge, mirroring the XTTS pattern. Not scoped or
   estimated — needs a design pass on the conflict-detection heuristic first.
-- Doc 05's deferred rename (`plugins/` → `tts_engines/`) — tracked as an active remaining task, see
+- Doc 05's `plugins/` → `tts_engines/` rename has shipped — see `COMPLETED_WORK.md`. The remaining
+  namespace scope (voice namespace rename, engine-owned test/fixture moves) is tracked in
   `REMAINING_TASKS.md`.
 
 ## Product opportunities, ranked by value-for-effort (audiobook-author audience)

@@ -50,10 +50,10 @@ Read `design-docs/specs/README.md` before changing behavior in any area — it r
 
 ## Planning docs
 
-The canonical plan home is `design-docs/plans/`. The master task list is `design-docs/plans/TASKS.md`. Plans for active work live under `design-docs/plans/active/<task-slug>/`; completed and archived plans move to `design-docs/plans/_archive/`. The index of all plans is `design-docs/plans/README.md`.
+The canonical plan home is `design-docs/plans/`. Open work is tracked in `design-docs/plans/REMAINING_TASKS.md`; shipped work is summarized in `design-docs/plans/COMPLETED_WORK.md`; post-release ideas go in `design-docs/plans/FUTURE_WORK.md` (`TASKS.md` is now a thin redirect to these three, kept only so old links resolve). Plans for active work live under `design-docs/plans/active/<task-slug>/`; once a plan is fully done, delete its folder outright (its narrative goes to `wiki/Changelog.md`) rather than moving it to an archive — this repo does not keep a `_archive/` going forward. The index of all plans is `design-docs/plans/README.md`.
 
 When creating or updating a plan:
 - Place it in `design-docs/plans/active/<task-slug>/`, not outside the repo or in `docs/`.
-- Register every task in `TASKS.md` using its existing checkbox format (`[ ]`/`[~]`/`[x]`, indentation, `👁 VISUAL CHECK` markers) — never invent a parallel format.
+- Register every task in `REMAINING_TASKS.md` using its existing checkbox/bullet format (`👁 VISUAL CHECK` markers for anything needing human eyes) — never invent a parallel format.
 - Add a row to `design-docs/plans/README.md` under the correct bucket.
-- Keep both the per-plan task files and `TASKS.md` in sync in the same commit; drift between them is the most common planning failure.
+- Keep both the per-plan task files and `REMAINING_TASKS.md` in sync in the same commit; drift between them is the most common planning failure. When a plan finishes, move its line from `REMAINING_TASKS.md` to `COMPLETED_WORK.md` and delete the plan folder in the same commit.

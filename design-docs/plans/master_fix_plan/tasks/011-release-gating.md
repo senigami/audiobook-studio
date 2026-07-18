@@ -33,10 +33,12 @@ not automate or skip them.
   **Before deleting any remaining spec-cited plan, repoint or inline its provenance first** —
   `design-docs/specs/` still link into `reference/site_experience_north_star.md`,
   `reference/audio_player_scrubbing_waveform_proposal.md`, the `reference/v2_*` set,
-  `reference/site_redesign_rollout/`, `active/audio_player_waveform_scrubber/`,
-  `active/huggingface_voice_upload/`, `active/synced_reader/`, `_archive/phases/phase_12_multilingual_*`,
-  and `pr-dispatch/08-video-utils-decision.md`; rewrite those spec references or remove the links so
-  no spec is left with a dangling pointer.
+  `reference/site_redesign_rollout/`, `_archive/phases/phase_12_multilingual_*`, and
+  `pr-dispatch/08-video-utils-decision.md`; rewrite those spec references or remove the links so no
+  spec is left with a dangling pointer. (`active/audio_player_waveform_scrubber/`,
+  `active/huggingface_voice_upload/`, and `active/synced_reader/` were already deleted and their
+  citations repointed to `wiki/Changelog.md` in the 2026-07-17 docs consolidation — no longer on
+  this list.)
 
 **Map links:** W12. Consumes outputs of W1/W2/W6/W7/W8/W9/W11. SP9 enforces INV-1 across all specs.
 Owner gates per INV-8.
