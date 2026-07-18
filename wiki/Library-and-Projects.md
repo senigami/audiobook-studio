@@ -6,19 +6,18 @@ The Library is your control center for all audiobooks in progress. Reach it from
 
 - **Browse**: View all projects as cards in the Library grid.
 - **Sort**: Use the Library controls to sort projects by the current project metadata instead of hunting through cards manually.
-- **New Book**: Use the **+ New Book** button to start a new book.
+- **New Book**: Use the **+ New Book** button to start a new book. The Series field suggests existing series names as you type, with a next-number hint for the position field, so continuing a series doesn't mean retyping its name.
 - **Delete**: Projects can be removed via the context menu on the project card. _Warning: This removes all associated audio and text._
 
 ## Opening a Book
 
-Clicking a book card opens it into the **Book Pipeline** — a routed set of five stage tabs. The URL changes to `/book/:id/<stage>` (for example `/book/abc123/manuscript`). Each stage is a dedicated route:
+Clicking a book card opens it into the **Book Pipeline** — a routed set of stage tabs. The URL changes to `/book/:id/<stage>` (for example `/book/abc123/manuscript`). Each stage is a dedicated route:
 
 | Stage | Route segment | Purpose |
 |-------|--------------|---------|
 | Manuscript | `manuscript` | Add, edit, and import chapter text; text analysis |
 | Casting | `casting` | Assign narrator and character voices |
-| Studio | `studio` | Generate and repair audio segments; script view |
-| Review | `review` | Follow-along playback; per-section annotations |
+| Chapter Workspace | `studio` | Generate, assign, revise, and review audio via the Director's Console |
 | Publish | `publish` | Book metadata, assemblies, backups, export |
 
 Legacy `/project/:id` and `/chapter/:id` URLs still work — they redirect to the corresponding book pipeline route so bookmarks are not broken.
@@ -52,25 +51,22 @@ The Casting stage is where you assign voices to narrators and characters.
 - **Assign Profiles**: Link a project character to a Voice profile from your Voice Library.
 - **Character Rows**: Additional characters in the cast are listed below the Narrator.
 
-## Studio Stage
+## Chapter Workspace: the Director's Console
 
-The Studio stage is the primary audio production view.
+The Chapter Workspace replaced the old separate Studio and Review stages with a single left-rail console offering four tools. Switch tools without losing your place — playback position carries over between them.
 
-- **Book View (primary)**: Displays the full chapter list with rendered audio status and generate controls.
-- **Script View**: A secondary view showing the raw text with per-segment generation controls.
-- **Cast Palette**: A right-hand panel for painting voice assignments directly onto segments.
-- **Analysis Strip**: Shows per-chapter text stats and flags at a glance.
-- **View Toggles**: Safe-text and section-number toggles for production review.
+- **Cast**: Paint voice assignments directly onto text. Load a character as your "brush," then click or drag across segments to assign it. This is the same paint-assignment workflow the old Studio stage used.
+- **Booth**: A karaoke-style follow-along listening view — the currently-playing text highlights as it plays, and you can flag or annotate sections and trigger a re-render from here. This is the old Review stage's listening/flagging workflow.
+- **Revise**: Edit a paragraph's text in place without leaving the console.
+- **Write**: A full chapter source editor for larger text changes — edit the whole chapter as raw text rather than paragraph by paragraph.
+
+Other things you'll still find inside the Chapter Workspace:
+
+- **Analysis Strip**: Per-chapter text stats and flags at a glance.
+- **Section Annotations**: Annotate sections by number (§N) from Booth. Annotations attach to sections, never to timestamps, so they survive re-renders.
+- **Global Player Bar**: The full-width bottom dock plays chapter audio while you work in any tool.
 
 See [[Queue and Jobs]] for details on how generation jobs flow through the system.
-
-## Review Stage
-
-The Review stage provides a follow-along listening experience.
-
-- **Global Player Bar**: The full-width bottom dock plays chapter audio. The scope chip lets you cycle playback scope.
-- **Section Annotations**: Annotate sections by number (§N). Annotations attach to sections, never to timestamps, so they survive re-renders.
-- **Re-render Section**: The primary gesture for fixing a section is to trigger a re-render from here.
 
 ## Publish Stage
 

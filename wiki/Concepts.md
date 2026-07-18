@@ -13,15 +13,16 @@ Understanding how Audiobook Studio organizes data is key to a smooth workflow.
 
 ## Book Pipeline
 
-Projects open into a five-stage routed pipeline at `/book/:id/<stage>`:
+Projects open into a routed pipeline at `/book/:id/<stage>`:
 
 | Stage | Purpose |
 |-------|---------|
 | **Manuscript** | Add, edit, and import chapter text; run text analysis |
 | **Casting** | Assign narrator (pinned) and character voices |
-| **Studio** | Generate and repair audio; book view primary, script view secondary |
-| **Review** | Follow-along playback; per-section (§N) annotations |
+| **Chapter Workspace** | Generate, assign, revise, and review audio via the Director's Console (Cast, Booth, Revise, Write) |
 | **Publish** | Book metadata, assemblies, backups, and final export |
+
+The old separate **Studio** and **Review** stages have been merged into one Chapter Workspace, switched between via the Director's Console's four tools instead of a top-level tab.
 
 ## Left Rail Navigation
 

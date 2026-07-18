@@ -1,6 +1,6 @@
 {
     "name": "audiobook-studio",
-    "version": "2.0.0",
+    "version": "2.0.13",
     "description": "Audiobook Studio Application",
     "scripts": {
         "test": "vitest",
