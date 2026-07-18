@@ -1,10 +1,10 @@
 # 010 — Standalone plugin repos (W11)
 
-**Status: NOT STARTED** — blocked on 005 (plugin SDK consolidation) + coordination with 006 (namespace rename).
-
-*(PARTIAL as of 2026-07-01: official registry JSON + paste-URL install UI SHIPPED (`official_registry.py`,
-engines router, `OfficialRegistryPanel.tsx`, `preview_github_plugin`). Remaining: repo extraction
-X1-X6/V1-V3, trust-warning e2e §5.3, update-flow §5.2 (post-v2), state/docs 6.1-6.3.)*
+**Status: PARTIAL** — official registry JSON + paste-URL install UI SHIPPED (`official_registry.py`,
+engines router, `OfficialRegistryPanel.tsx`, `preview_github_plugin`); 005 (SDK consolidation) and
+006 (namespace rename) — its remaining blockers — are both now done. Remaining, per
+`REMAINING_TASKS.md`: repo extraction X1-X6/V1-V3, the trust-warning e2e test (§5.3), the
+update-flow test (§5.2, post-v2), state/docs updates (6.1-6.3).
 
 **Goal:** extract the bundled engines into standalone, installable plugin repositories with a registry
 and a paste-URL install flow.

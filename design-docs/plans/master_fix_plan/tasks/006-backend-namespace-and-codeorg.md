@@ -1,14 +1,21 @@
 # 006 — Backend namespace rename & remaining code-org (W10)
 
-**Status: NOT STARTED**
+**Status: MOSTLY DONE (2026-07-17)** — the `plugins/` → `tts_engines/` rename has fully shipped (111
+tracked files under `tts_engines/`; `PLUGINS_DIR` resolves there by default), along with `speakers.py`
+decomposition, the API router sub-package restructure, dev-only route gating, the `App.tsx` split,
+input-style unification, and the `MobileNavDrawer` focus-trap fix (see `COMPLETED_WORK.md`).
 
-*(PARTIAL as of 2026-07-01 audit: `app/infra/{subprocess,cache,events,db}` stub scaffold EXISTS as
-prescribed; `StorageManager`/`TRANSIENT_DIR` abstraction (organizational_cleanup §5) is built and
-consumed. Also: the `api/index.ts` error-handling item is a FALSE POSITIVE — all 6 named functions
-already route through `parseApiResponse` with `.ok` checks; drop it. `/progress-test` + `/event-stream`
-are frontend React Router routes registered unconditionally (not backend routes) — the gating item
-means `import.meta.env.DEV` guards in the router. `plugins/`→`tts_engines/` rename genuinely not
-started; router restructure not started; `speakers.py` decomposition not started.)*
+*(Superseded 2026-07-01 audit notes, kept for provenance: `app/infra/{subprocess,cache,events,db}`
+stub scaffold EXISTS as prescribed; `StorageManager`/`TRANSIENT_DIR` abstraction
+(organizational_cleanup §5) is built and consumed. The `api/index.ts` error-handling item was a
+FALSE POSITIVE — all 6 named functions already route through `parseApiResponse` with `.ok` checks.
+`/progress-test` + `/event-stream` are frontend React Router routes registered unconditionally (not
+backend routes) — the gating item means `import.meta.env.DEV` guards in the router.)*
+
+**Remaining, per `REMAINING_TASKS.md`:** a voice-namespace rename, reserving `plugins/` for
+app-behavior extensions, moving engine-owned tests/fixtures into bundles, and the doc-06 cleanup
+items (`transient/` consolidation, `app/infra/subprocess` implement-or-delete, the
+`app/infra/{cache,events,db}` stub decision (C-3), API error-handling normalization).
 
 **Goal:** the structural rename `plugins/` → `tts_engines/` and the remaining code-org items not folded
 into 005.

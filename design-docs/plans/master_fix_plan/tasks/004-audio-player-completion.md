@@ -1,6 +1,10 @@
 # 004 — Audio player completion (W5)
 
-**Status: NOT STARTED** — RST-8 (segment-aware player) deferred by owner; this task is blocked pending that decision. DC-1b dead-tree deletion in 005 remains gated here.
+**Status: SUBSTANTIALLY DONE (2026-07-17)** — scope-agnostic single-owner player, RST-8 segment/block
+navigation, the waveform tape (zoom/minimap/ruler), and the duration-gated peaks sidecar are all
+shipped (see `COMPLETED_WORK.md`). Owner visual sign-off is the only remaining item — see
+`REMAINING_TASKS.md`'s Visual checks section. DC-1b (005) is resolved as will-not-delete (the
+"dead" tree turned out to have live callers) — not gated on this task anymore either way.
 
 **Goal:** finish the global audio player: make it **scope-agnostic and segment-aware**, and port the
 waveform-tape scrubber from the demo mock to the live app.

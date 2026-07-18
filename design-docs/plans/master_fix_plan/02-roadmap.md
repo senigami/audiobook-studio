@@ -143,27 +143,31 @@ assignment. DC-1b dead-tree deletion remains gated on RST-8.
   range-assignment DEFERRED (see task file for full breakdown).
 - **[002 Wire orphaned features](tasks/002-restore-lost-functionality.md)** (W3, re-scoped) — **DONE.**
   WIRE-1 VoiceDropzone, WIRE-2 VoiceModules, WIRE-3 SearchableSelect all wired.
-- **[004 Audio player completion](tasks/004-audio-player-completion.md)** (W5) — **NOT STARTED.**
-  RST-8 deferred by owner; this task is blocked pending that decision. *(2026-07-01 audit: scrubber
-  plan anchors verified exact; RST-8 and scrubber-W1 are the same `PlayerBar.tsx`/`playerBus.ts`
-  edit — execute as ONE coordinated change. Both old XTTS follow-ups under 003 are RESOLVED.)*
+- **[004 Audio player completion](tasks/004-audio-player-completion.md)** (W5) — **SUBSTANTIALLY
+  DONE.** Scope-agnostic player, RST-8 segment/block navigation, waveform tape, and peaks sidecar
+  all shipped; owner visual sign-off is the only remaining item (see `REMAINING_TASKS.md`).
 
 ### Milestone 3 — Simplification
-- **[005 Code simplification](tasks/005-code-simplification.md)** (W2) — **NOT STARTED.** QW-6
-  dead-CSS and `CastPalette.tsx` split pending; DC-1b still gated on Milestone 2 RST-8.
-  *(2026-07-01 audit corrections applied to sub-plans: dead-tree premise WRONG — trees are live
-  and coupling grew; BE-1 `schema_data` claim wrong; styling counts stale; `file_split_plan.md`
-  retired — 3 of 5 items already right-sized. Re-read simplification/02/03/05 headers first.)*
+- **[005 Code simplification](tasks/005-code-simplification.md)** (W2) — **MOSTLY DONE.** Dead-code
+  removal, styling separation, large-file splits, backend cleanup, and plugin SDK consolidation all
+  shipped. Remaining: LF-6 `enrich()` extraction (deferred, supervised follow-up), BE-6 `app/jobs`
+  rename/move (deferred, dedicated session), four-way input-class consolidation, U10 z-index, LF-1
+  (blocked on DC-1a, no payoff since DC-1b closed will-not-delete).
 - **[006 Backend namespace rename & code-org](tasks/006-backend-namespace-and-codeorg.md)** (W10) —
-  **NOT STARTED.** Run alone; coordinate with 007.
+  **MOSTLY DONE.** The `plugins/`→`tts_engines/` rename, `speakers.py` decomposition, and router
+  restructure have all shipped. Remaining: voice-namespace rename, reserving `plugins/` for
+  app-behavior extensions, moving engine-owned tests/fixtures into bundles, and doc-06 cleanup
+  (`transient/` consolidation, `app/infra/*` stub decisions, API error-handling normalization).
 
 ### Milestone 4 — Feature + polish backlog
-- **[007 Voice taxonomy v2 (Phase G)](tasks/007-voice-taxonomy-v2.md)** (W6) — **NOT STARTED;
-  NARROWED 2026-07-01:** `accent` already shipped in taxonomy 1.0 — remaining scope is `language` +
-  `style` only. Unblocks demo bundle.
-- **[008 UX / A11y / Perf backlog](tasks/008-ux-a11y-perf-backlog.md)** (W7+W8) — **PARTIAL.**
-  A11y A4/A6/A7/A8/A10 done; Perf P7/P8/P9 done; A5 deferred (Framer); *(2026-07-01: A11, A12 and
-  U16 confirmed DONE in code)*; remaining = UX U-items, R6-T7 responsive sweep, Stage-5 gate.
+- **[007 Voice taxonomy v2 (Phase G)](tasks/007-voice-taxonomy-v2.md)** (W6) — **G1-G6 DONE
+  (2026-07-04).** `language`/`style` attributes, Edit Metadata UI, HuggingFace tag mappings, schema
+  bumped 1.0→2.0. Remaining: C6 (copyable icon image-generation prompt), tracked separately.
+- **[008 UX / A11y / Perf backlog](tasks/008-ux-a11y-perf-backlog.md)** (W7+W8) — **MOSTLY DONE.**
+  All scoped a11y/perf items, contrast/reduced-motion fixes, the UX punch list, the responsive
+  sweep, and an axe a11y gate have all landed; U7 was dropped (no confirmed bug). Remaining: U4
+  first-run/startup experience, U13 first-run onboarding (A5 keyboard drag-reorder deferred, no
+  Framer Motion public API).
 - **[009 Security backlog](tasks/009-security-backlog.md)** (W9) — **DONE.** S6/S7/S10/S11 shipped;
   S12 dep-bump is a release-gate hygiene step *(2026-07-01: ALL satisfied — vite 7.3.5,
   @babel/core 7.29.7, js-yaml 4.2.0; `npm audit` = 0 vulnerabilities; re-run at release)*.
