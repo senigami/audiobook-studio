@@ -6,7 +6,7 @@ Audiobook Studio is a local-first FastAPI + React app that turns manuscripts int
 
 ## Lessons (auto-loaded, always-on)
 
-Read `design-docs/lessons/INDEX.md` at session start — a capped list of project-specific operational lessons (things that cost a real debugging round to learn). Its topic-pointer section names situations that warrant reading a full shard from `design-docs/lessons/topics/`.
+Read `.agent/lessons/INDEX.md` at session start — a capped list of project-specific operational lessons (things that cost a real debugging round to learn). Its topic-pointer section names situations that warrant reading a full shard from `.agent/lessons/topics/`.
 
 ## Owner directives (binding)
 
@@ -98,6 +98,14 @@ The app serves at `http://127.0.0.1:8123` and serves the built React bundle from
 
 `conftest.py` (repo root) redirects all storage paths to a session temp dir, points `PLUGINS_DIR` at the real `tts_engines/`, and sets `APP_TEST_MODE=1`. Tests reset state via `app.db.state.clear_all_jobs` and the scheduler gates in `app.orchestration.scheduler.resources`. The conftest aggressively reaps leaked subprocess trees (TTS server, watchers) between runs. Default per-test timeout is 15s (`@pytest.mark.timeout(...)` or `PYTEST_TEST_TIMEOUT_SECONDS`).
 
+## Repository layout
+
+The top level is organized so it answers four questions at a glance — run it, read the code, read the docs, contribute — and hides everything an agent/tool consumes but a human doesn't navigate. Three concerns, three homes:
+
+- **Source & entry points (visible, top-level).** Code lives in obvious top-level dirs — `app/` (backend), `frontend/` (React/TS), `tts_engines/` (engine plugins), `studio_plugin_sdk/` (plugin SDK), `tests/`, `scripts/`, `examples/`. These are pinned by import paths (`from app…`, `PLUGINS_DIR`) — don't nest them under a `src/`. The launch/config files (`run.sh`/`run.ps1`/`run.py`, `tts_server.py`, `conftest.py`, `pyproject.toml`, `pytest.ini`, `package.json`, `requirements.txt`) and GitHub-convention files (`README.md`, `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `AGENTS.md`, `CLAUDE.md`) stay at root because tooling/GitHub look for them there. `assets/` (README + engine-manifest + site images) and `demo/demo.zip` (consumed by the launchers) are root-referenced and stay.
+- **Docs — split by audience.** `docs/` = the **public** GitHub Pages site (`main:/docs`); put only genuinely public content there (site, demo, handbook, user-guide, plugin-sdk, assets). `design-docs/` = **internal human dev docs**: `plans/`, `specs/` (canonical, source of truth), `decisions/` (ADRs), `personas/`, `workflows/`, `style-guide/`, `audits/`, `design-critique/`. `wiki/` = the GitHub Wiki mirror (a separate publishing surface).
+- **Agent machinery (hidden).** `.agent/` is the repo's tool-agnostic agent operating system — `rules/` (workflow router), `code-map/` (the machine-consumed dependency map), `lessons/`, `checklists/`, `memory-queue/`, `active-work/`. `.claude/` is the Claude Code harness config (`settings.json`, `agents/` subagent profiles) — its paths are fixed by the harness. Both stay dot-hidden: agents and hooks read them, humans generally don't. When a skill defaults its output to `docs/<name>/`, redirect it here or into `design-docs/` — never let it land in the published `docs/`.
+
 ## Architecture
 
 ### Managed TTS Server + plugins (the defining Studio 2.0 change)
@@ -149,20 +157,20 @@ React 19 + TypeScript + Vite, React Router, Framer Motion. Standard shape under 
 ## Notes
 
 - Files over 500 lines are candidates for splitting; over 600 should be refactored when touched for meaningful changes — along existing boundaries, not mechanically by line count (`modular_architecture.md`).
-- `docs/` is **published as-is** by GitHub Pages (`main:/docs`, https://senigami.github.io/audiobook-studio/) — treat everything under it as public. It holds only: `index.html`, `demo/`, `handbook/`, `user-guide/`, `assets/`, `coming-soon-*.html`, `v1.html`, and the plugin SDK under `docs/plugin-sdk/` (`plugin-guide.md`, `plugin-submission-guidelines.md`, `plugin-template/`, `studio-as-tts-gateway.md`). Internal dev-tooling output (code map, design-critique reports, lessons, review checklists) lives under `design-docs/` instead (`code-map/`, `design-critique/`, `lessons/`, `checklists/`) — never add tool output directly to `docs/` without checking it belongs on the public site first. `design-docs/plans/` holds the v2 conversion roadmap and phase delivery plans.
+- `docs/` is **published as-is** by GitHub Pages (`main:/docs`, https://senigami.github.io/audiobook-studio/) — treat everything under it as public. See the Repository layout section below for what belongs where; never add tool output directly to `docs/` without checking it belongs on the public site first.
 - Update `wiki/` pages and add a dated `wiki/Changelog.md` entry when shipped behavior changes. CI (`.github/workflows/ci.yml`) runs ruff + pytest and eslint + vitest + build; `codeql.yml` runs security scanning.
 
-## Code map (design-docs/code-map/)
+## Code map (.agent/code-map/)
 
 This repo has a persistent code map in the **sharded layout**: `map.json` holds the core
 (`meta`+`flows`+`invariants`+`modules`+`coupling`+`hotspots`+`data`); per-file records live
-in `design-docs/code-map/shards/files.<slug>.json`, routed by longest-prefix match against
-`meta.shards` (or one command: `design-docs/code-map/tools/lookup.sh <path>`); `file_hashes` +
-`repo_checksum` live in `design-docs/code-map/hashes.json`. Load the core before any cross-cutting
+in `.agent/code-map/shards/files.<slug>.json`, routed by longest-prefix match against
+`meta.shards` (or one command: `.agent/code-map/tools/lookup.sh <path>`); `file_hashes` +
+`repo_checksum` live in `.agent/code-map/hashes.json`. Load the core before any cross-cutting
 task, pulling shard records on demand — a task scoped to one module can load that module's
 whole shard as its briefing. When debugging or changing a function's
 signature, run the map's **symbol trace** on it (callers/callees with sites) instead of
 exploring by hand; for "what can be simplified", request the simplification report.
 **After any task that changes mapped code, append a changelog-queue entry to
-`design-docs/code-map/queue/` before declaring the task done — part of the definition of
+`.agent/code-map/queue/` before declaring the task done — part of the definition of
 done, not optional.** See the `map-code` skill.

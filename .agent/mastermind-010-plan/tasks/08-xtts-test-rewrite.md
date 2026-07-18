@@ -25,4 +25,4 @@ Depends on 04, 06. Mechanical churn hides regressions: record
 ## Acceptance
 - `pytest plugins/tts_xtts -q` pass count identical to before. Any assertion changed → R1 revert-check.
 - Full suite parity; no code-map entry needed unless mapped files touched (tests usually unmapped — check
-  `design-docs/code-map/tools/lookup.sh plugins/tts_xtts/tests` or grep map.json).
+  `.agent/code-map/tools/lookup.sh plugins/tts_xtts/tests` or grep map.json).

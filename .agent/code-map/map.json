@@ -192,7 +192,7 @@
       "frontend/src/demo/stages/siteMockup/bookmarkStore.ts",
       "frontend/src/demo/stages/siteMockup/panes/*.tsx (14 files, condensed in siteMockupStage.tsx notes)"
     ],
-    "edge_tool": "hybrid: madge --json --extensions ts,tsx src/ (v8.0.0, run from frontend/) for frontend import edges; a custom stdlib-ast import-graph script (design-docs/code-map/tools/py_import_graph.py) for backend/plugin import edges. `calls` entries confirmed by one of these tools are kept/added as tool-derived; prior model-written entries the tool could not confirm (dynamic dispatch, cross-language, or a dotted-module reference the tool didn't resolve) moved to `calls_inferred`. `called_by` is the mechanical inverse of `calls` across the whole map, recomputed from scratch by this merge (2026-07-06)."
+    "edge_tool": "hybrid: madge --json --extensions ts,tsx src/ (v8.0.0, run from frontend/) for frontend import edges; a custom stdlib-ast import-graph script (.agent/code-map/tools/py_import_graph.py) for backend/plugin import edges. `calls` entries confirmed by one of these tools are kept/added as tool-derived; prior model-written entries the tool could not confirm (dynamic dispatch, cross-language, or a dotted-module reference the tool didn't resolve) moved to `calls_inferred`. `called_by` is the mechanical inverse of `calls` across the whole map, recomputed from scratch by this merge (2026-07-06)."
   },
   "flows": [
     {
@@ -441,7 +441,7 @@
       "applies_to": [
         "app/**"
       ],
-      "check": "./venv/bin/python design-docs/code-map/checks/check_no_import_side_effects.py . # non-empty output = a module-level (import-time) Thread/Timer construction or .start() call outside app/core/boot.py or an `if __name__` guard. Narrow slice: does not check listener registration or global-settings mutation generically."
+      "check": "./venv/bin/python .agent/code-map/checks/check_no_import_side_effects.py . # non-empty output = a module-level (import-time) Thread/Timer construction or .start() call outside app/core/boot.py or an `if __name__` guard. Narrow slice: does not check listener registration or global-settings mutation generically."
     },
     {
       "id": "engine-registry-not-branches",

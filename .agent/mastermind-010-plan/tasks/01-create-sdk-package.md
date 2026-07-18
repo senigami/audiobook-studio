@@ -50,4 +50,4 @@ No import-time side effects in the new package.
 - `pytest -q` full suite, pass-count parity.
 - `grep -rEn "^from app|^import app" studio_plugin_sdk/` → nothing at module level
   (context.py fn-body imports allowed).
-- Code-map queue entry in `design-docs/code-map/queue/` (moved modules + shims).
+- Code-map queue entry in `.agent/code-map/queue/` (moved modules + shims).

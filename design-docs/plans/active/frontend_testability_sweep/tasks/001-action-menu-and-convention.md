@@ -70,7 +70,7 @@ Interactive elements that render N times on screen (cards, rows, list items) mus
 - [ ] `npx tsc -b --force` clean.
 - [ ] No existing test regresses.
 - [ ] `.agent/rules/frontend-interactions.md` has the new section.
-- [ ] Append a `design-docs/code-map/queue/` entry.
+- [ ] Append a `.agent/code-map/queue/` entry.
 
 ## Dependencies
 

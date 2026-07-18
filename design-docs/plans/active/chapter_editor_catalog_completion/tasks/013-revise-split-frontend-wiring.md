@@ -79,7 +79,7 @@ splitSegment: async (segmentId: string, firstText: string, secondText: string): 
 5. Run `npm -C frontend run test -- --run` (targeted to the `ReviseTool` test file first, then the full suite — see the repo's memory note on vitest memory usage: run targeted, `--maxWorkers=1` if running broadly).
 6. Live-verify: in the running app, open Revise mode on a chapter, edit a segment's text to exceed ~500 chars with a clear sentence boundary past the midpoint, save, and confirm two segments appear where one did, both audio-invalidated/queued for regeneration. Then repeat with an edit that has no valid sentence boundary (e.g. one giant run-on clause) and confirm the passive badge still appears instead of a split.
 7. Update `design-docs/specs/site-shell-and-book-pipeline.md`'s Revise-mode description (if it documents the passive-badge-only behavior) to reflect that a real split now occurs when a valid split point exists — bump `spec_version` + changelog row if the spec's wording changes.
-8. Append a changelog-queue entry to `design-docs/code-map/queue/`.
+8. Append a changelog-queue entry to `.agent/code-map/queue/`.
 
 ## Acceptance criteria
 
@@ -93,7 +93,7 @@ splitSegment: async (segmentId: string, firstText: string, secondText: string): 
 - [ ] `npm -C frontend run test -- --run` clean.
 - [ ] Live-verified in the running app per Steps 6.
 - [ ] Relevant spec (`site-shell-and-book-pipeline.md`) updated if its Revise-mode section describes the old passive-only behavior; changelog row added.
-- [ ] `design-docs/code-map/queue/` changelog entry appended.
+- [ ] `.agent/code-map/queue/` changelog entry appended.
 
 ## Map links
 

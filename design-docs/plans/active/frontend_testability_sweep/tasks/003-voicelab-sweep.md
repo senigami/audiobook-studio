@@ -23,7 +23,7 @@ Status: pending
 - [ ] Primary interactive elements in `pages/VoiceLab/` have `data-testid` where the convention calls for it (per-entity for repeated items, static for singleton drawer/panel controls).
 - [ ] Any `ActionMenu` usage passes `entityLabel`.
 - [ ] `npx tsc -b --force` clean; existing tests pass unchanged.
-- [ ] Append a `design-docs/code-map/queue/` entry.
+- [ ] Append a `.agent/code-map/queue/` entry.
 
 ## Dependencies
 
