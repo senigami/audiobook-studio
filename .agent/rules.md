@@ -20,6 +20,7 @@ Use the smallest rule set that matches the task.
 1. For code review, PR review, or review-comment triage, read [`code-review.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/code-review.md) plus the domain-specific frontend/backend rules for the changed files.
 1. Before and after **any** review, of any kind or size — ad-hoc, `review-adversarial`, `review-pr`, a `fusion-reasoning` panel, or `review-gate` (Fable) — read [`review-learning.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/review-learning.md) and load the matching `docs/checklists/*.md` file(s); every confirmed finding must feed a checklist update in the same change.
 1. When a `SessionStart`/`PreToolUse` hook context mentions another active session's file claim, or before any git operation that could discard uncommitted work in a shared working tree (stash, reset --hard, checkout -- ), read [`session-claims.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/session-claims.md).
+1. When working inside a `.claude/worktrees/` worktree and something is worth saving to Claude Code's persistent memory, or when working in the main checkout and deciding whether memory is up to date, read [`memory-queue.md`](/Users/stevendunn/GitHub-Steven/audiobook-factory/.agent/rules/memory-queue.md) — a direct memory write from a worktree gets orphaned when the worktree is removed, and a queue nobody drains from the main checkout is just as lossy.
 
 ## What Matters Most
 
