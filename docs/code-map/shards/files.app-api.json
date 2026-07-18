@@ -64,7 +64,7 @@
         "topics: jobs.lifecycle, queue.items, chapters.progress, segments.progress each with allowed command set",
         "build_queue_item_status_event gained an active_segments_map kwarg (additive C2 contract, live-events.md 1.9.0/1.9.1), snake_case wire key",
         "command-set dedup: removed raw-string duplicates of enum members from JOB_LIFECYCLE_COMMANDS/COMMAND_TOPIC_SCOPES/SEGMENT_SCOPED_COMMANDS; membership-identical, no contract/wire/version change",
-        "build_chapter_progress_event() gained active_segments_map kwarg (2026-07-05, additive/snake_case) \u2014 the missing delivery leg for the C2 live-map contract; without it a status-unchanged mid-render update could never reach the frontend regardless of backend state",
+        "build_chapter_progress_event() gained active_segments_map kwarg (2026-07-05, additive/snake_case) — the missing delivery leg for the C2 live-map contract; without it a status-unchanged mid-render update could never reach the frontend regardless of backend state",
         "Task 013 (2026-07-11): build_chapter_progress_event gained additive eta_low_seconds/eta_high_seconds/eta_display params (snake_case, same additive convention as active_segments_map); only written into the payload when eta_display is not None, so the fields are entirely absent (not null placeholders) until a job's BracketedEtaTracker exists. live-events.md bumped 1.9.6 -> 1.9.7."
       ],
       "calls_inferred": []
@@ -152,7 +152,7 @@
       "called_by": [],
       "notes": [
         "2026-07-09: PUT /api/segments/{segment_id} now enforces an explicit field whitelist (SEGMENT_UPDATE_ALLOWED_FIELDS = character_id, speaker_profile_name, audio_status, text_content) before forwarding the request body into update_segment(**updates), which otherwise used untrusted request-supplied dict keys directly as SQL column names. Unknown fields now 400 rather than passing through silently.",
-        "2026-07-10: POST /api/segments/bulk-update now enforces the same SEGMENT_UPDATE_ALLOWED_FIELDS whitelist (character_id, speaker_profile_name, audio_status, text_content) used by PUT /api/segments/{segment_id}, before forwarding req.updates into update_segments_bulk(**updates), which builds f\"{k} = ?\" SQL from those keys exactly like the already-fixed single-segment path. Unknown fields now 400 rather than being interpolated as raw SQL column names. No new constant was defined \u2014 reused SEGMENT_UPDATE_ALLOWED_FIELDS.",
+        "2026-07-10: POST /api/segments/bulk-update now enforces the same SEGMENT_UPDATE_ALLOWED_FIELDS whitelist (character_id, speaker_profile_name, audio_status, text_content) used by PUT /api/segments/{segment_id}, before forwarding req.updates into update_segments_bulk(**updates), which builds f\"{k} = ?\" SQL from those keys exactly like the already-fixed single-segment path. Unknown fields now 400 rather than being interpolated as raw SQL column names. No new constant was defined — reused SEGMENT_UPDATE_ALLOWED_FIELDS.",
         "2026-07-10: GET /api/chapters/{chapter_id} now accepts an optional project_id query param and passes it through to get_chapter for scoping; a mismatched project_id now 404s instead of returning another project's chapter."
       ],
       "calls_inferred": []
@@ -177,6 +177,16 @@
           "name": "_load_or_compute_peaks_sidecar, _get_peaks_lock",
           "kind": "function",
           "contract": "compute-on-miss + cache: serves a cached sidecar if version+stat match the live WAV, else computes via audio_ops.compute_peaks_sidecar under a per-WAV-path threading.Lock (double-checked), atomically writes the cache. Adversarial-review hardened (2026-07-10): wav_path.stat() and the cache write are both wrapped in try/except OSError -> degrades to None/best-effort rather than an unguarded 500 on a concurrent WAV delete/replace."
+        },
+        {
+          "name": "api_get_chapter_timing",
+          "kind": "function",
+          "contract": "GET .../chapters/{chapter_id}/timing -- resolves the chapter WAV via config.resolve_chapter_asset_path, reads the sibling <wav_stem>.timing.json, validates via app.domain.chapters.timing.validate_timing_sidecar, 404s on missing/corrupt/version-mismatch/stale audio_generated_at. Never lazily regenerates on GET (contrast with the peaks route's lazy-recompute-on-miss). Currently unreachable until the orchestrator hook (_emit_chapter_timing_sidecar) starts writing sidecars. (2026-07-17, synced_reader task 5)"
+        },
+        {
+          "name": "api_export_chapter_video",
+          "kind": "function",
+          "contract": "POST /chapters/{chapter_id}/export-video (project_id?, orientation=square, duration=30) -- renders chapter audio + project cover into a shareable MP4 via video_utils.generate_video_sample (run_in_threadpool), returns FileResponse. Maps FFMPEG_MISSING_RC->503, failure->500, out-of-bounds output path->403. New helper _resolve_project_cover mirrors the assembly router's cover resolution (containment-checked). (2026-07-16, PR brief 08)"
         }
       ],
       "calls": [
@@ -190,7 +200,11 @@
         "app/engines/behavior.py",
         "app/storage/manager.py#get_storage_manager",
         "app/utils/text/textops.py#*",
-        "app/engines/audio_ops.py#ensure_peaks_sidecar"
+        "app/engines/audio_ops.py#ensure_peaks_sidecar",
+        "app/domain/chapters/timing.py#validate_timing_sidecar",
+        "app/core/config.py#resolve_chapter_asset_path",
+        "app/engines/video_utils.py#generate_video_sample,resolve_orientation,clamp_duration",
+        "app/storage/manager.py#get_storage_manager"
       ],
       "called_by": [],
       "notes": [
@@ -415,6 +429,11 @@
         {
           "name": "api_get_project_export_manifest, api_create_project_snapshot, api_create_project_backup_bundle",
           "kind": "function"
+        },
+        {
+          "name": "api_restore_project_backup",
+          "kind": "function",
+          "contract": "POST /{project_id}/backups/{filename}/restore -- recovery-into-an-existing-chapter only (never creates project/chapter rows). Reads only zf.read() on arcnames already present in the backup's own parsed chapter_map (never zf.namelist() enumeration); every write destination built from trusted project_id/chapter_id via get_chapter_dir+secure_join_flat, never from the arcname string. Rejects missing/unsupported bundle_version (!=1) with 400 before any chapter processing (2026-07-17 review fix). Restores chapter WAV + paired timing sidecar (validated via timing.py#validate_timing_sidecar) and updates the chapter row. Returns {status, restored_chapter_ids, skipped_chapter_ids}. (synced_reader task 6b)"
         }
       ],
       "calls": [
@@ -422,7 +441,11 @@
         "app/core/config.py",
         "app/db/__init__.py#get_project",
         "app/storage/manager.py",
-        "app/utils/pathing.py"
+        "app/utils/pathing.py",
+        "app/domain/chapters/timing.py#validate_timing_sidecar",
+        "app/domain/chapters/timing_generator.py#write_timing_sidecar",
+        "app/core/config.py#get_chapter_dir",
+        "app/utils/pathing.py#secure_join_flat"
       ],
       "called_by": [],
       "notes": [],
@@ -449,7 +472,9 @@
       "called_by": [
         "app/api/routers/projects.py"
       ],
-      "notes": [],
+      "notes": [
+        "_create_backup_archive (2026-07-17, synced_reader task 6a): after writing the chapter WAV into the ZIP, also includes the sibling <wav>.timing.json sidecar when present (arc path chapters/{stem_name}.timing.json, same sanitized stem the WAV uses) and records chapter_map[chapter_id][\"timing_path\"]; silently omits if absent, never fails the backup"
+      ],
       "calls_inferred": []
     },
     "app/api/routers/projects_lexicon.py": {
@@ -814,7 +839,7 @@
       "called_by": [],
       "notes": [
         "2026-07-12: Added GET /{voice_id}/icon (find_secure_file-contained, 404 if voice or icon missing, serves the saved icon.png). This route never existed -- only the upload POST did.",
-        "patch_voice_metadata accepts+persists provenance (whole-block replace, not merge \u2014 see voice-bundles.md sec8.1); RuntimeError from update_voice_metadata -> 500",
+        "patch_voice_metadata accepts+persists provenance (whole-block replace, not merge — see voice-bundles.md sec8.1); RuntimeError from update_voice_metadata -> 500",
         "GET /api/voices/search gained ?language=/?style= query params (Phase G, 2026-07-04)"
       ],
       "calls_inferred": []
@@ -856,6 +881,11 @@
         {
           "name": "list_engines, get_engine, synthesize, preview, get_job_status, get_job_audio",
           "kind": "function"
+        },
+        {
+          "name": "_public_job_message",
+          "kind": "function",
+          "contract": "caller-safe status message for a job -- never surfaces raw engine/bridge error text (2026-07-16, PR10 gateway hardening)"
         }
       ],
       "calls": [
@@ -876,7 +906,8 @@
         "PERF-2 (2026-07-16): the inline (<500 char) branch of POST /synthesize runs orchestrator.submit(task) via starlette run_in_threadpool instead of directly on the async handler. submit() is fully blocking (admission loop with time.sleep, HTTP dispatch, retries); calling it inline froze the asyncio event loop for the request's duration, stalling every other API request, /jobs poll, and websocket broadcast. Response shape unchanged; the long-text background_tasks.add_task branch was already off-loop.",
         "inline vs queued threshold: 500 chars",
         "engine unavailability returns empty registry not crash",
-        "2026-07-10: S12 fix: FastAPI's auto-generated docs_url/openapi_url/redoc_url routes are registered via add_route() (plain Starlette routing), which bypasses FastAPI's dependency-injection system -- so the `dependencies=[Depends(verify_api_key), Depends(rate_limit)]` passed to the FastAPI() constructor never applied to /api/v1/tts/docs or /api/v1/tts/openapi. Confirmed empirically pre-fix: both returned 200 with no Authorization header, and even when tts_api_enabled=False. Fix: disabled docs_url/openapi_url/redoc_url on the FastAPI() constructor and added explicit GET /openapi and GET /docs routes on `router` (which is include_router'd into the sub-app and therefore inherits the same verify_api_key + rate_limit dependencies as every data route, e.g. /engines, /synthesize, /jobs/{id}). Verified: 401 unauthenticated, 403 when tts_api_enabled=False, 200 with a valid key -- matching every other route's behavior."
+        "2026-07-10: S12 fix: FastAPI's auto-generated docs_url/openapi_url/redoc_url routes are registered via add_route() (plain Starlette routing), which bypasses FastAPI's dependency-injection system -- so the `dependencies=[Depends(verify_api_key), Depends(rate_limit)]` passed to the FastAPI() constructor never applied to /api/v1/tts/docs or /api/v1/tts/openapi. Confirmed empirically pre-fix: both returned 200 with no Authorization header, and even when tts_api_enabled=False. Fix: disabled docs_url/openapi_url/redoc_url on the FastAPI() constructor and added explicit GET /openapi and GET /docs routes on `router` (which is include_router'd into the sub-app and therefore inherits the same verify_api_key + rate_limit dependencies as every data route, e.g. /engines, /synthesize, /jobs/{id}). Verified: 401 unauthenticated, 403 when tts_api_enabled=False, 200 with a valid key -- matching every other route's behavior.",
+        "2026-07-16 (PR10): SynthesisRequest.text bounded min_length=1/max_length=100000; /synthesize and GET /jobs/{id}/audio build paths via contained_path (normpath+startswith barrier); job completion gated on status==\"done\" (was the non-existent \"completed\"); GET /jobs/{id}/audio reconstructs output path as TRANSIENT_DIR/api/<job_id><ext> over the format allowlist; /preview rejects text >= 500 chars (was > 500)"
       ],
       "calls_inferred": []
     },
@@ -982,12 +1013,12 @@
         "tts_engines/tts_mixed/handler.py"
       ],
       "notes": [
-        "broadcast_job_updated is central bottleneck: always enriches with \u00a74A confidence/ETA unless skip_studio_job_event",
+        "broadcast_job_updated is central bottleneck: always enriches with §4A confidence/ETA unless skip_studio_job_event",
         "terminal latch prevents post-terminal frame re-entry",
         "FIX 5: enrich failure sets safe confidence floor",
         "_emit_queue_item_status_frame reads merged.get('active_segments_map') and passes it to build_queue_item_status_event (additive C2 field); transition-inferred SEGMENT_SAVED emission is unchanged, correct only while fan-out stays effectively N=1-active-at-a-time per chapter",
-        "broadcast_job_updated() now threads active_segments_map=merged.get('active_segments_map') into build_chapter_progress_event (2026-07-05 delivery-leg fix) \u2014 previously the field was written to job state but never reached this wire frame",
-        "broadcast_job_updated now extracts eta_updated_at from ProgressService.enrich()'s payload and threads it into build_chapter_progress_event(...) (2026-07-06 fix) -- enrich()'s own \u00a74A dedupe logic computed this field correctly, but it was previously dropped before reaching build_chapter_progress_event, whose own default (time.time() when omitted) fired on every map-only tick and defeated the dedupe at the wire even though the internal computation was right."
+        "broadcast_job_updated() now threads active_segments_map=merged.get('active_segments_map') into build_chapter_progress_event (2026-07-05 delivery-leg fix) — previously the field was written to job state but never reached this wire frame",
+        "broadcast_job_updated now extracts eta_updated_at from ProgressService.enrich()'s payload and threads it into build_chapter_progress_event(...) (2026-07-06 fix) -- enrich()'s own §4A dedupe logic computed this field correctly, but it was previously dropped before reaching build_chapter_progress_event, whose own default (time.time() when omitted) fired on every map-only tick and defeated the dedupe at the wire even though the internal computation was right."
       ],
       "calls_inferred": []
     },
@@ -997,7 +1028,7 @@
       "calls": [],
       "called_by": [],
       "notes": [
-        "2026-07-14: NEW FILE \u2014 New file (349L). Non-route helpers extracted from generation.py: engine-usability/validation checks (_engine_usable_error, _ensure_engines_enabled, _validate_generation_engines), segment-profile resolution (_resolved_segment_profiles, _engines_for_profiles), and chapter script/task construction (_build_script_for_chapter, _build_chapter_synthesis_task)."
+        "2026-07-14: NEW FILE — New file (349L). Non-route helpers extracted from generation.py: engine-usability/validation checks (_engine_usable_error, _ensure_engines_enabled, _validate_generation_engines), segment-profile resolution (_resolved_segment_profiles, _engines_for_profiles), and chapter script/task construction (_build_script_for_chapter, _build_chapter_synthesis_task)."
       ]
     },
     "app/api/routers/generation_chapters.py": {
@@ -1006,7 +1037,7 @@
       "calls": [],
       "called_by": [],
       "notes": [
-        "2026-07-14: NEW FILE \u2014 New file (353L). Chapter-level render submission routes: POST /api/processing_queue (api_add_to_queue) and POST /api/generation/bake/{chapter_id} (api_bake_chapter)."
+        "2026-07-14: NEW FILE — New file (353L). Chapter-level render submission routes: POST /api/processing_queue (api_add_to_queue) and POST /api/generation/bake/{chapter_id} (api_bake_chapter)."
       ]
     },
     "app/api/routers/generation_queue.py": {
@@ -1015,7 +1046,7 @@
       "calls": [],
       "called_by": [],
       "notes": [
-        "2026-07-14: NEW FILE \u2014 New file (61L). Queue-level controls: POST /api/generation/pause, /resume, /cancel-all, and POST /api/chapters/{chapter_id}/cancel."
+        "2026-07-14: NEW FILE — New file (61L). Queue-level controls: POST /api/generation/pause, /resume, /cancel-all, and POST /api/chapters/{chapter_id}/cancel."
       ]
     },
     "app/api/routers/generation_segments.py": {
@@ -1024,7 +1055,7 @@
       "calls": [],
       "called_by": [],
       "notes": [
-        "2026-07-14: NEW FILE \u2014 New file (168L). Segment-level render submission: POST /api/segments/generate (api_generate_segments)."
+        "2026-07-14: NEW FILE — New file (168L). Segment-level render submission: POST /api/segments/generate (api_generate_segments)."
       ]
     },
     "app/api/routers/engines_shared.py": {
@@ -1033,7 +1064,7 @@
       "calls": [],
       "called_by": [],
       "notes": [
-        "2026-07-14: NEW FILE \u2014 New file (109L). Non-route helpers extracted from engines.py: GithubPreviewRequest/ConcurrencyUpdateRequest pydantic models, _check_engine_id, _is_generated_sample_name, _resolve_plugin_dir, _safe_resolve_plugin_dir."
+        "2026-07-14: NEW FILE — New file (109L). Non-route helpers extracted from engines.py: GithubPreviewRequest/ConcurrencyUpdateRequest pydantic models, _check_engine_id, _is_generated_sample_name, _resolve_plugin_dir, _safe_resolve_plugin_dir."
       ]
     },
     "app/api/routers/engines_registry.py": {
@@ -1042,7 +1073,7 @@
       "calls": [],
       "called_by": [],
       "notes": [
-        "2026-07-14: NEW FILE \u2014 New file (224L). Registry/discovery/settings/concurrency/calibration routes: list_engines, get_official_registry_list, get_engine_concurrency, update_engine_concurrency, update_engine_settings, clear_engine_setting, get_engine_requirements, remove_engine_plugin, get_engine_logs, reset_engine_calibration."
+        "2026-07-14: NEW FILE — New file (224L). Registry/discovery/settings/concurrency/calibration routes: list_engines, get_official_registry_list, get_engine_concurrency, update_engine_concurrency, update_engine_settings, clear_engine_setting, get_engine_requirements, remove_engine_plugin, get_engine_logs, reset_engine_calibration."
       ]
     },
     "app/api/routers/engines_plugins.py": {
@@ -1051,7 +1082,7 @@
       "calls": [],
       "called_by": [],
       "notes": [
-        "2026-07-14: NEW FILE \u2014 New file (192L). Plugin install/import/staging management routes: refresh_plugins, install_engine_dependencies, import_engine_plugin, preview_engine_plugin, preview_github_plugin, confirm_engine_plugin, cancel_engine_plugin_staging."
+        "2026-07-14: NEW FILE — New file (192L). Plugin install/import/staging management routes: refresh_plugins, install_engine_dependencies, import_engine_plugin, preview_engine_plugin, preview_github_plugin, confirm_engine_plugin, cancel_engine_plugin_staging."
       ]
     },
     "app/api/routers/engines_test.py": {
@@ -1060,7 +1091,7 @@
       "calls": [],
       "called_by": [],
       "notes": [
-        "2026-07-14: NEW FILE \u2014 New file (219L). Engine verify/self-test/dev-scenario/asset routes: verify_engine, get_test_audio, test_engine, get_engine_scenarios, get_engine_asset."
+        "2026-07-14: NEW FILE — New file (219L). Engine verify/self-test/dev-scenario/asset routes: verify_engine, get_test_audio, test_engine, get_engine_scenarios, get_engine_asset."
       ]
     },
     "app/api/routers/voices_versions.py": {

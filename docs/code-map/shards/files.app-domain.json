@@ -215,6 +215,11 @@
         {
           "name": "get_script_view_payload, save_script_assignments, get_resync_preview, compact_script_view, _build_script_batch, _apply_range_assignment, _split_segment_at_offset",
           "kind": "function"
+        },
+        {
+          "name": "_snap_offset_to_word_boundary",
+          "kind": "function",
+          "contract": "INV-SNAP-1: snaps a raw char offset outward to the nearest whole-word boundary (whitespace-run edges; trailing punctuation stays with its word) before _apply_range_assignment ever calls _split_segment_at_offset -- backend is the authoritative enforcement point, frontend ScriptView.tsx snapOffsetToWordBoundary is a UX preview twin that must stay algorithmically identical (2026-07-17)"
         }
       ],
       "calls": [
@@ -267,6 +272,11 @@
           "name": "build_script_entry_for_group",
           "kind": "function",
           "contract": "R2 extraction: per-group script-entry building (id/ids/save_path/weight/text/engine/speaker_wav/voice_profile_dir), shared by generation.py's chapter script builder and the per-child synthetic-task path"
+        },
+        {
+          "name": "group_wav_path",
+          "kind": "function",
+          "contract": "group_wav_path(chapter_dir, group) -> Path = chapter_dir/segments/{group[\"segments\"][0][\"id\"]}.wav -- single source of truth for a chunk group's canonical on-disk WAV path; build_script_entry_for_group and orchestrator.py#_emit_chapter_timing_sidecar both call this instead of re-deriving the naming convention inline (deduped 2026-07-17)"
         }
       ],
       "calls": [
@@ -276,7 +286,9 @@
         "app/engines/voice_engines.py#resolve_profile_engine",
         "app/utils/text/textops.py"
       ],
-      "called_by": [],
+      "called_by": [
+        "app/orchestration/scheduler/orchestrator.py"
+      ],
       "notes": [
         "groups coalesce adjacent segments with same character/profile/engine",
         "1-indexed labels/indexes"
@@ -440,7 +452,8 @@
       "exports": [
         {
           "name": "ProjectModel, ProjectSnapshotModel, ProjectExportManifestModel, ProjectBackupBundleModel, StoredBackupModel",
-          "kind": "dataclass"
+          "kind": "dataclass",
+          "contract": "ProjectBackupBundleModel gained bundle_version: int = 1 (2026-07-17, synced_reader task 6a) -- the top-level bundle.json contract; restore (api_restore_project_backup) rejects missing/unsupported bundle_version (!=1) with 400 before any chapter processing. ProjectExportManifestModel deliberately left unversioned (secondary/derived file)."
         }
       ],
       "calls": [],
@@ -703,7 +716,7 @@
         {
           "name": "HFToken",
           "kind": "class",
-          "contract": "frozen dataclass; repr/str redacted (asdict/pickle NOT redacted \u2014 documented+tested limitation)"
+          "contract": "frozen dataclass; repr/str redacted (asdict/pickle NOT redacted — documented+tested limitation)"
         },
         {
           "name": "HFVoiceCardMetadata, HFSearchResult, HFConsentDecision",
@@ -729,8 +742,8 @@
         "2026-07-12: export_hf_voice_bundle() gains icon_bytes param; now writes README.md (via bundles.generate_readme_md, local import) and icon.png (when provided) into the export zip, both additive/optional. When sample_mp3_bytes is non-empty but voice_manifest lacks samples[], synthesizes a {path, primary} entry into both the written voice.json and the README input so the on-Hub manifest and its own widget block agree. HFHubClientProtocol.upload_files and HFHubClient.upload_files signature changed files: list[Path] -> folder_path: Path; implementation switched from N sequential upload_file() calls (path_in_repo=name, flattening structure) + a best-effort ModelCard tag-push fallback, to one HfApi.upload_folder() call (one atomic commit, structure preserved), repo_type='model' now explicit on both create_repo and upload_folder. upload_voice_to_hub's folder_path param renamed/passthrough, log line updated.",
         "2026-07-12: export_hf_voice_bundle gains engine_assets: dict[str, list[tuple[str, bytes]]] | None and sample_engine_id: str | None params. When engine_assets is given, writes each engine's files under assets/<engine_id>/ in the export zip (omitted entirely, not an empty dir, when there are no resolvable assets). When sample_engine_id is given, appends a '## Sample' section to the generated README noting which engine/model produced the sample, without modifying bundles.generate_readme_md.",
         "deliberately does NOT define VoiceProvenance; uses its own local HFVoiceCardMetadata, decoupled from app/domain/voices/taxonomy.py#validate_provenance_strict pending a future integration pass",
-        "export_hf_voice_bundle uses safe_join_flat on bundle_name \u2014 rejects path-traversal from a Hub-derived/user-typed name",
-        "annotate_from_card's returned dict includes 'license', which update_voice_metadata does NOT accept \u2014 a future caller must route it separately",
+        "export_hf_voice_bundle uses safe_join_flat on bundle_name — rejects path-traversal from a Hub-derived/user-typed name",
+        "annotate_from_card's returned dict includes 'license', which update_voice_metadata does NOT accept — a future caller must route it separately",
         "STATUS (2026-07-04): LIVE -- real HFHubClient implementation makes genuine HTTPS calls via huggingface_hub; validate_hub_id (strict regex, fullmatch) gates every call as an SSRF/path-injection guard",
         "download_files hardening (2026-07-04): filters to an audio/manifest extension allowlist BEFORE download, caps at MAX_DOWNLOAD_FILES=20, independently validates every filename via safe_basename (not relying solely on the huggingface_hub library's own sanitization) -- accepted gap: no per-file/total byte-size cap yet",
         "provenance populated on import as {source:'imported', author, consent_ack, created_at} -- correctly matches the REAL schema (not the pre-implementation plan's source='huggingface'/hub_id shape a sibling demo mockup mistakenly used)",
@@ -786,7 +799,7 @@
         "voice ID fallback: manifest id -> dirname slug",
         "casting scoring: class/gender/age 0.25 each + tone/timbre/accent 0.05 each, fallback floor 0.1",
         "update_voice_metadata accepts an optional provenance kwarg (whole-block replace on write, not merge)",
-        "raises RuntimeError (mapped to 500 by the router) when save_voice_manifest returns False \u2014 previously silently served stale pre-write data under a 200",
+        "raises RuntimeError (mapped to 500 by the router) when save_voice_manifest returns False — previously silently served stale pre-write data under a 200",
         "search_voices() gained language/style OR-within-field params (Phase G, 2026-07-04), same pattern as tone/timbre/use_case"
       ],
       "calls_inferred": []
@@ -942,7 +955,7 @@
       "calls": [],
       "called_by": [],
       "notes": [
-        "2026-07-12: NEW FILE \u2014 New module. Python port of recordingPromptSuggester.ts's scoring algorithm (identical weights/thresholds: CLASS/GENDER/AGE/PACE match points, TONE/TIMBRE jaccard-overlap weights, CLOSE_THRESHOLD=6, EXACT_THRESHOLD=10, MAX_SCORE=12), reading the same voice_archetypes.json reference dataset. Exposes suggest_sample_text(attrs) -> str | None, returning a match only at close/exact confidence, None otherwise (never a composed guess)."
+        "2026-07-12: NEW FILE — New module. Python port of recordingPromptSuggester.ts's scoring algorithm (identical weights/thresholds: CLASS/GENDER/AGE/PACE match points, TONE/TIMBRE jaccard-overlap weights, CLOSE_THRESHOLD=6, EXACT_THRESHOLD=10, MAX_SCORE=12), reading the same voice_archetypes.json reference dataset. Exposes suggest_sample_text(attrs) -> str | None, returning a match only at close/exact confidence, None otherwise (never a composed guess)."
       ]
     },
     "app/domain/voices/variant_versions.py": {
@@ -988,6 +1001,114 @@
       "notes": [
         "2026-07-15 (voice-variant version-history task001, NEW FILE): all path construction goes through an internal _contained() containment check (resolve + relative_to) before any write, matching the repo's path-containment invariant even though this module sits under app/domain (not a route handler).",
         "versions/ is never misdetected as a sibling variant by voices_helpers._voice_dirs_map() (covered by tests/domain/test_variant_versions.py)."
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/chapters/timing.py": {
+      "purpose": "Canonical chapter_segment_timing sidecar JSON schema (synced-reader reader-sync feature, schema version 1)",
+      "exports": [
+        {
+          "name": "ChapterGroupTiming, ChapterGroupTimingEntry",
+          "kind": "class",
+          "contract": "pydantic models, extra=forbid; groups[] must tile [0, audio_duration_ms) gaplessly with no gaps/overlap, sorted by order ascending from 0"
+        },
+        {
+          "name": "validate_timing_sidecar",
+          "kind": "function",
+          "contract": "raw dict -> ChapterGroupTiming; raises TimingSidecarValidationError (never a bare pydantic error) on schema/version mismatch or malformed shape. Used identically by the sidecar writer (timing_generator.py) and the GET .../timing serving route (chapters_assets.py#api_get_chapter_timing)."
+        },
+        {
+          "name": "TimingSidecarValidationError",
+          "kind": "class"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "app/domain/chapters/timing_generator.py",
+        "app/api/routers/chapters_assets.py",
+        "app/api/routers/projects_backups.py"
+      ],
+      "notes": [
+        "one timing entry (group) per rendered chunk group, not per raw segment row -- matches app/domain/chunk_groups.py's merge unit",
+        "a version mismatch means the caller treats the sidecar as no-usable-timing, not a hard crash"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/chapters/timing_generator.py": {
+      "purpose": "Builds and atomically writes the <chapter_wav_stem>.timing.json sidecar from a finalized chapter render",
+      "exports": [
+        {
+          "name": "build_chapter_timing",
+          "kind": "function",
+          "contract": "(chapter_id, chapter_wav_path, ordered_groups, audio_generated_at) -> ChapterGroupTiming | None. Pure computation (measures WAV headers via stdlib wave, no ffprobe); returns None for zero contributing groups. Raises TimingReconciliationError if summed group durations drift beyond DRIFT_HARD_CEILING_MS (250ms) from the chapter WAV's own measured duration -- caller (orchestrator.py#_emit_chapter_timing_sidecar) must catch and skip the sidecar write rather than publish a mistimed timeline."
+        },
+        {
+          "name": "write_timing_sidecar",
+          "kind": "function",
+          "contract": "atomic temp-file+os.replace write of timing.model_dump(by_alias=True) to sidecar_path"
+        },
+        {
+          "name": "measure_wav_duration_ms",
+          "kind": "function"
+        },
+        {
+          "name": "TimingReconciliationError",
+          "kind": "class"
+        }
+      ],
+      "calls": [
+        "app/domain/chapters/timing.py#ChapterGroupTiming,validate_timing_sidecar"
+      ],
+      "called_by": [
+        "app/orchestration/scheduler/orchestrator.py"
+      ],
+      "notes": [
+        "does not touch the DB and does not reconstruct the ordered group/WAV-path list itself -- caller's job (orchestrator.py#_emit_chapter_timing_sidecar)"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/chapters/performance_schema.py": {
+      "purpose": "Canonical performance_data JSON schema for the W-PERF performance-script model (pydantic)",
+      "exports": [
+        {
+          "name": "PerformanceData, PerformanceAnnotation, ReviewAnnotation, SegmentKind, RenderingMode, RenderingValue",
+          "kind": "class",
+          "contract": "mirrors design-docs/plans/proposals/performance_script_model/01-canonical-json-format.md; frontend/src/types/performanceScript.ts mirrors this field-for-field"
+        },
+        {
+          "name": "validate_performance_data",
+          "kind": "function",
+          "contract": "raw dict -> PerformanceData, raises PerformanceDataValidationError on malformed input"
+        },
+        {
+          "name": "PerformanceDataValidationError",
+          "kind": "class"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "app/domain/chapters/rendering.py"
+      ],
+      "notes": [
+        "additive/schema-only as of 2026-07-16 -- nothing in the existing render/read/write path or exporter consumes performance_data yet; chapter_segments/characters gained matching nullable DB columns (app/db/core.py) with the same caveat"
+      ],
+      "calls_inferred": []
+    },
+    "app/domain/chapters/rendering.py": {
+      "purpose": "Single translation layer resolving a RenderingValue for a segment across the 5 W-PERF RenderingModes",
+      "exports": [
+        {
+          "name": "resolve_rendering",
+          "kind": "function",
+          "contract": "(segment, mode, defaults) -> RenderingDecision. Precedence chain: studio_override > explicit_source_fact > ai_inference > character/scene/chapter/book/engine default, falling back to a built-in 65-cell (13 SegmentKinds x 5 RenderingModes) default matrix."
+        }
+      ],
+      "calls": [
+        "app/domain/chapters/performance_schema.py#RenderingMode,RenderingValue,SegmentKind,PerformanceData"
+      ],
+      "called_by": [],
+      "notes": [
+        "not yet wired into any existing read/write path or exporter (2026-07-16) -- isolated domain module per the W-PERF safe-foundation PR"
       ],
       "calls_inferred": []
     }

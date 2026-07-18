@@ -44,7 +44,8 @@
         "app/engines/audiobook_utils.py",
         "app/engines/proc_utils.py#run_cmd_stream",
         "app/utils/subprocess_utils.py#probe_audio_duration",
-        "app/utils/subprocess_utils.py#probe_audio_stream_info"
+        "app/utils/subprocess_utils.py#probe_audio_stream_info",
+        "studio_plugin_sdk/audio.py#wav_to_mp3"
       ],
       "called_by": [
         "app/api/routers/chapters_assets.py",
@@ -58,7 +59,8 @@
         "finalize_sample_artifact keeps WAV if MP3 conversion fails",
         "BP-2 (2026-07-16): convert_to_wav now passes timeout=300 to subprocess.run and catches subprocess.TimeoutExpired, logging a warning and returning rc=1 (matching this function's existing -> int failure-signal contract) instead of letting an unhandled TimeoutExpired propagate from a wedged ffmpeg. No in-repo caller currently exists for this export; fix is defensive.",
         "2026-07-11 waveform fixes: compute_peaks_sidecar density PEAKS_PER_SEC 8->60, PEAKS_MAX 100k->200k, SIDECAR_VERSION 1->2 (mismatch = stale, recompute). Max-abs-per-bucket aggregation unchanged.",
-        "2026-07-11/12: extracted ensure_peaks_sidecar as the single cache-format owner (_read_fresh_sidecar/_atomic_write_sidecar helpers); render-time emission hook added at orchestrator.py's one engine-agnostic completion point (scope=='chapter' synthesis only, best-effort/non-blocking, no backfill of existing chapters)."
+        "2026-07-11/12: extracted ensure_peaks_sidecar as the single cache-format owner (_read_fresh_sidecar/_atomic_write_sidecar helpers); render-time emission hook added at orchestrator.py's one engine-agnostic completion point (scope=='chapter' synthesis only, best-effort/non-blocking, no backfill of existing chapters).",
+        "2026-07-16 (010 SDK inversion task 03): wav_to_mp3 is now a thin wrapper (public signature unchanged) injecting MP3_QUALITY and the app-resolved run_cmd_stream as runner= into studio_plugin_sdk.audio.wav_to_mp3 -- preserves tests that patch app.engines.proc_utils.run_cmd_stream around wav_to_mp3."
       ],
       "calls_inferred": []
     },
@@ -165,6 +167,11 @@
         {
           "name": "match_timing_marker",
           "kind": "function"
+        },
+        {
+          "name": "export_capabilities_for",
+          "kind": "function",
+          "contract": "(engine_id, behavior=None) -- resolves the new W-PERF export-layer capability fields (export_format, supports_per_span_voice, supports_emotion_style, supports_prosody, supports_break) with safe defaults (None/False) when absent, mirroring behavior_for_engine's pattern. Consumed by the future export layer, NOT the render pipeline's has_behavior gate (2026-07-16)."
         }
       ],
       "calls": [
@@ -416,7 +423,8 @@
       ],
       "calls": [
         "app/core/config.py",
-        "app/utils/subprocess_utils.py#coerce_subprocess_output"
+        "app/utils/subprocess_utils.py#coerce_subprocess_output",
+        "studio_plugin_sdk/proc.py#run_cmd_stream,_active_processes,terminate_all_subprocesses"
       ],
       "called_by": [
         "app/api/web.py",
@@ -424,7 +432,8 @@
       ],
       "notes": [
         "only PPID 1 processes are orphan cleanup targets",
-        "no shell execution (shlex.split)"
+        "no shell execution (shlex.split)",
+        "2026-07-16 (010 SDK inversion task 03): run_cmd_stream/_active_processes/terminate_all_subprocesses MOVED to studio_plugin_sdk/proc.py and re-exported here (identical objects -- monkeypatch sites patching app.engines.proc_utils.run_cmd_stream still work, resolved via this module at call time). File keeps app policy only: TTS Server runtime-marker helpers + orphan cleanup (439->289 lines)."
       ],
       "calls_inferred": []
     },
@@ -487,13 +496,30 @@
         {
           "name": "generate_video_sample",
           "kind": "function",
-          "contract": "(input_audio, output_video, logo_path, on_output, cancel_check, max_duration=120) -> int"
+          "contract": "(input_audio, output_video, image_path, orientation=\"square\", max_duration=30, on_output, cancel_check) -> int. Reworked 2026-07-16 from logo-overlay-on-black-canvas into a still-image+audio MP4 renderer (still-image param renamed logo_path->image_path); guards missing ffmpeg via shutil.which -> FFMPEG_MISSING_RC=127; falls back to bundled STUDIO_LOGO_PATH when image absent. Delegates execution to proc_utils.run_cmd_stream."
+        },
+        {
+          "name": "clamp_duration",
+          "kind": "function",
+          "contract": "-> [1, MAX_DURATION_SECONDS=120], default 30"
+        },
+        {
+          "name": "resolve_orientation",
+          "kind": "function",
+          "contract": "ORIENTATIONS: square 1080x1080 / portrait 1080x1920, default square"
+        },
+        {
+          "name": "build_video_sample_command",
+          "kind": "function",
+          "contract": "ffmpeg argv: scale+letterbox-pad onto dark canvas, libx264 -tune stillimage, aac 192k, -t cap, -shortest, +faststart"
         }
       ],
       "calls": [
         "app/engines/proc_utils.py#run_cmd_stream"
       ],
-      "called_by": [],
+      "called_by": [
+        "app/api/routers/chapters_assets.py"
+      ],
       "notes": [
         "Black background video, logo overlay 400x400 centered, respects cancellation"
       ],
@@ -524,32 +550,37 @@
       "calls": [
         "app/engines/errors.py",
         "app/engines/models.py#EngineHealthModel",
-        "app/engines/voice/sdk.py#*"
+        "app/engines/voice/sdk.py#*",
+        "studio_plugin_sdk/engine.py#StudioTTSEngine"
       ],
       "called_by": [
         "app/engines/models.py"
       ],
       "notes": [
-        "plugins must not import from app.* except app.engines.voice.sdk"
+        "plugins must not import from app.* except app.engines.voice.sdk",
+        "2026-07-16 (010 SDK inversion task 01): StudioTTSEngine now re-exported from the real top-level studio_plugin_sdk.engine package (module identity preserved); BaseVoiceEngine and app-flavored helpers stay here."
       ],
       "calls_inferred": []
     },
     "app/engines/voice/sdk.py": {
-      "purpose": "Studio TTS SDK contract types: TTSRequest, TTSResult, VerificationResult, SynthesisPlan",
+      "purpose": "Re-export shim over studio_plugin_sdk.types (module identity preserved: app.engines.voice.sdk.TTSRequest IS studio_plugin_sdk.types.TTSRequest, pinned by tests/engines/test_sdk_module_identity.py)",
       "exports": [
         {
           "name": "TimingEventName, TimingEvent, SegmentTimingResult, TTSTimingResult, TTSRequest, TTSResult, VerificationResult, SynthesisPlan, VoiceProcessingHooks",
           "kind": "type/dataclass/class"
         }
       ],
-      "calls": [],
+      "calls": [
+        "studio_plugin_sdk/types.py#*"
+      ],
       "called_by": [
         "app/engines/bridge_remote.py",
         "app/tts_server/server.py"
       ],
       "notes": [
         "plugin authors import ONLY from this module, no other app.* imports",
-        "TTSRequest frozen"
+        "TTSRequest frozen",
+        "2026-07-16 (010 SDK inversion): contract dataclasses MOVED (not copied) to studio_plugin_sdk/types.py; this module is now the app-side shim"
       ],
       "calls_inferred": []
     },

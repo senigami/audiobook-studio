@@ -1,159 +1,160 @@
 {
- "files": {
-  "app/jobs/__init__.py": {
-   "purpose": "Package namespace (empty)",
-   "exports": [],
-   "calls": [],
-   "called_by": [],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "app/jobs/handlers/__init__.py": {
-   "purpose": "Package namespace for job handlers",
-   "exports": [],
-   "calls": [],
-   "called_by": [],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "app/jobs/handlers/audiobook.py": {
-   "purpose": "ACTIVE LEGACY: Audiobook assembly/m4b export handler",
-   "exports": [
-    {
-     "name": "handle_audiobook_job",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/core/config.py#get_project_m4b_dir,get_project_dir",
-    "app/db/state.py#get_jobs,update_job",
-    "app/engines/audiobook_utils.py#assemble_audiobook",
-    "app/engines/proc_utils.py#terminate_all_subprocesses",
-    "app/orchestration/scheduler/eta.py#format_seconds"
-   ],
-   "called_by": [],
-   "notes": [
-    "registry-dispatched for assembly jobs",
-    "2026-07-16 fix: out_file no longer re-appends '.m4b' to a chapter_file that already ended in '.m4b' (chapter_file = Path(output_path).name of the AssemblyTask's *.m4b output), which had written shipped audiobooks as '<name>.m4b.m4b' (also recorded as job.output_mp3). Now strips a trailing '.m4b' before re-appending so the M4B filename has exactly one extension. Regression-tested via tests/orchestration/test_audiobook_handler_filename.py."
-   ],
-   "calls_inferred": []
-  },
-  "app/jobs/handlers/bridge_helpers.py": {
-   "purpose": "ACTIVE: Shared bridge synthesis wrapper for job/plugin handlers",
-   "exports": [
-    {
-     "name": "generate_via_bridge, _best_effort_profile_dir",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/db/speakers.py#get_profile_dir",
-    "app/db/state.py#update_job",
-    "app/engines/bridge.py#create_voice_bridge",
-    "app/engines/errors.py"
-   ],
-   "called_by": [],
-   "notes": [
-    "ACTIVELY USED by tts_xtts, tts_voxtral, tts_mixed handler plugins and SDK context"
-   ],
-   "calls_inferred": []
-  },
-  "app/jobs/registry.py": {
-   "purpose": "ACTIVE: Job handler registry for dispatching handlers by engine/kind; wired in boot sequence and orchestrator dispatch",
-   "exports": [
-    {
-     "name": "JobHandlerRegistry",
-     "kind": "class"
+  "files": {
+    "app/jobs/__init__.py": {
+      "purpose": "Package namespace (empty)",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
     },
-    {
-     "name": "get_handler_registry, initialize_default_handlers",
-     "kind": "function"
+    "app/jobs/handlers/__init__.py": {
+      "purpose": "Package namespace for job handlers",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "app/jobs/handlers/audiobook.py": {
+      "purpose": "ACTIVE LEGACY: Audiobook assembly/m4b export handler",
+      "exports": [
+        {
+          "name": "handle_audiobook_job",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/core/config.py#get_project_m4b_dir,get_project_dir",
+        "app/db/state.py#get_jobs,update_job",
+        "app/engines/audiobook_utils.py#assemble_audiobook",
+        "app/engines/proc_utils.py#terminate_all_subprocesses",
+        "app/orchestration/scheduler/eta.py#format_seconds"
+      ],
+      "called_by": [],
+      "notes": [
+        "registry-dispatched for assembly jobs",
+        "2026-07-16 fix: out_file no longer re-appends '.m4b' to a chapter_file that already ended in '.m4b' (chapter_file = Path(output_path).name of the AssemblyTask's *.m4b output), which had written shipped audiobooks as '<name>.m4b.m4b' (also recorded as job.output_mp3). Now strips a trailing '.m4b' before re-appending so the M4B filename has exactly one extension. Regression-tested via tests/orchestration/test_audiobook_handler_filename.py."
+      ],
+      "calls_inferred": []
+    },
+    "app/jobs/handlers/bridge_helpers.py": {
+      "purpose": "ACTIVE: Shared bridge synthesis wrapper for job/plugin handlers",
+      "exports": [
+        {
+          "name": "generate_via_bridge, _best_effort_profile_dir",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/db/speakers.py#get_profile_dir",
+        "app/db/state.py#update_job",
+        "app/engines/bridge.py#create_voice_bridge",
+        "app/engines/errors.py"
+      ],
+      "called_by": [],
+      "notes": [
+        "ACTIVELY USED by tts_xtts, tts_voxtral, tts_mixed handler plugins and SDK context"
+      ],
+      "calls_inferred": []
+    },
+    "app/jobs/registry.py": {
+      "purpose": "ACTIVE: Job handler registry for dispatching handlers by engine/kind; wired in boot sequence and orchestrator dispatch",
+      "exports": [
+        {
+          "name": "JobHandlerRegistry",
+          "kind": "class"
+        },
+        {
+          "name": "get_handler_registry, initialize_default_handlers",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/core/config.py#PLUGINS_DIR",
+        "app/db/models.py",
+        "app/engines/behavior.py#supports_standard_rendering",
+        "app/jobs/handlers/audiobook.py#handle_audiobook_job",
+        "app/jobs/worker_voice.py#handle_voice_job",
+        "app/studio_plugin_sdk/_import_utils.py#ensure_plugin_package_hierarchy"
+      ],
+      "called_by": [],
+      "notes": [
+        "singleton via module-level _registry",
+        "fallback chain: engine match -> kind match -> voice_task fallback -> standard rendering",
+        "2026-07-16 (backend-namespace-006 rename): package_name f-string for dynamically-loaded job-handler modules changed from f\"plugins.{folder_name}\" to f\"tts_engines.{folder_name}\" -- a real sys.modules package name, not cosmetic."
+      ],
+      "calls_inferred": []
+    },
+    "app/jobs/worker_helpers.py": {
+      "purpose": "ACTIVE: Shared utilities for legacy job handlers",
+      "exports": [
+        {
+          "name": "_calculate_group_resume_state, _calculate_group_resume_progress, _broadcast_segment_progress, _should_stream_predicted_progress, _looks_like_external_download_progress, _mark_queue_failed, _job_field",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/api/ws.py#broadcast_segment_progress",
+        "app/db/state.py#update_job",
+        "app/domain/chunk_groups.py#build_chunk_groups,load_chunk_segments"
+      ],
+      "called_by": [
+        "app/jobs/worker_metrics.py"
+      ],
+      "notes": [
+        "used by legacy handlers and orchestrator helpers for shared progress/state logic"
+      ],
+      "calls_inferred": []
+    },
+    "app/jobs/worker_metrics.py": {
+      "purpose": "ACTIVE: Records render performance samples to DB for ETA calibration",
+      "exports": [
+        {
+          "name": "record_engine_sample, _filter_history_for_engine_model, _resolve_job_tts_model",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/db/chapters.py#get_chapter,get_chapter_segments_counts",
+        "app/db/performance.py#record_render_sample",
+        "app/db/speakers.py#get_speaker_settings",
+        "app/db/state.py#get_jobs",
+        "app/jobs/worker_helpers.py",
+        "app/tts_server/performance_settings.py#*"
+      ],
+      "called_by": [],
+      "notes": [
+        "filters out bake jobs, instant/cached runs, xtts engine to avoid poisoning calibration"
+      ],
+      "calls_inferred": []
+    },
+    "app/jobs/worker_voice.py": {
+      "purpose": "ACTIVE LEGACY: Handles voice sample generation and voice_build/voice_test jobs",
+      "exports": [
+        {
+          "name": "handle_voice_job, _resolve_reference_audio_path",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/core/config.py",
+        "app/db/speakers.py#get_profile_wavs,get_speaker_settings,get_profile_dir",
+        "app/db/state.py#update_job",
+        "app/engines/audio_ops.py#finalize_sample_artifact",
+        "app/engines/behavior.py",
+        "app/engines/bridge.py#create_voice_bridge",
+        "app/engines/errors.py",
+        "app/jobs/worker_helpers.py#_mark_queue_failed"
+      ],
+      "called_by": [
+        "app/studio_plugin_sdk/context.py"
+      ],
+      "notes": [
+        "still actively used via registry for voice_build/voice_test/sample_build/sample_test",
+        "voice samples MP3 (finalize_sample_artifact WAV->MP3)"
+      ],
+      "calls_inferred": []
     }
-   ],
-   "calls": [
-    "app/core/config.py#PLUGINS_DIR",
-    "app/db/models.py",
-    "app/engines/behavior.py#supports_standard_rendering",
-    "app/jobs/handlers/audiobook.py#handle_audiobook_job",
-    "app/jobs/worker_voice.py#handle_voice_job",
-    "app/studio_plugin_sdk/_import_utils.py#ensure_plugin_package_hierarchy"
-   ],
-   "called_by": [],
-   "notes": [
-    "singleton via module-level _registry",
-    "fallback chain: engine match -> kind match -> voice_task fallback -> standard rendering"
-   ],
-   "calls_inferred": []
-  },
-  "app/jobs/worker_helpers.py": {
-   "purpose": "ACTIVE: Shared utilities for legacy job handlers",
-   "exports": [
-    {
-     "name": "_calculate_group_resume_state, _calculate_group_resume_progress, _broadcast_segment_progress, _should_stream_predicted_progress, _looks_like_external_download_progress, _mark_queue_failed, _job_field",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/api/ws.py#broadcast_segment_progress",
-    "app/db/state.py#update_job",
-    "app/domain/chunk_groups.py#build_chunk_groups,load_chunk_segments"
-   ],
-   "called_by": [
-    "app/jobs/worker_metrics.py"
-   ],
-   "notes": [
-    "used by legacy handlers and orchestrator helpers for shared progress/state logic"
-   ],
-   "calls_inferred": []
-  },
-  "app/jobs/worker_metrics.py": {
-   "purpose": "ACTIVE: Records render performance samples to DB for ETA calibration",
-   "exports": [
-    {
-     "name": "record_engine_sample, _filter_history_for_engine_model, _resolve_job_tts_model",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/db/chapters.py#get_chapter,get_chapter_segments_counts",
-    "app/db/performance.py#record_render_sample",
-    "app/db/speakers.py#get_speaker_settings",
-    "app/db/state.py#get_jobs",
-    "app/jobs/worker_helpers.py",
-    "app/tts_server/performance_settings.py#*"
-   ],
-   "called_by": [],
-   "notes": [
-    "filters out bake jobs, instant/cached runs, xtts engine to avoid poisoning calibration"
-   ],
-   "calls_inferred": []
-  },
-  "app/jobs/worker_voice.py": {
-   "purpose": "ACTIVE LEGACY: Handles voice sample generation and voice_build/voice_test jobs",
-   "exports": [
-    {
-     "name": "handle_voice_job, _resolve_reference_audio_path",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/core/config.py",
-    "app/db/speakers.py#get_profile_wavs,get_speaker_settings,get_profile_dir",
-    "app/db/state.py#update_job",
-    "app/engines/audio_ops.py#finalize_sample_artifact",
-    "app/engines/behavior.py",
-    "app/engines/bridge.py#create_voice_bridge",
-    "app/engines/errors.py",
-    "app/jobs/worker_helpers.py#_mark_queue_failed"
-   ],
-   "called_by": [
-    "app/studio_plugin_sdk/context.py"
-   ],
-   "notes": [
-    "still actively used via registry for voice_build/voice_test/sample_build/sample_test",
-    "voice samples MP3 (finalize_sample_artifact WAV->MP3)"
-   ],
-   "calls_inferred": []
   }
- }
 }

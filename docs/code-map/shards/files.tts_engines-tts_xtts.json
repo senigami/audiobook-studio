@@ -79,6 +79,11 @@
         {
           "name": "xtts_generate, xtts_generate_script, get_speaker_latent_path, migrate_speaker_latent_to_profile",
           "kind": "function"
+        },
+        {
+          "name": "xtts_env_ready, _xtts_env_site_packages",
+          "kind": "function",
+          "contract": "2026-07-17 (BUG 1 fix): filesystem-only check (no import, no subprocess) of whether the external ~/xtts-env has the TTS package installed -- real inference always shells out to XTTS_ENV_PYTHON as a subprocess and never imports torch/TTS in-process, so the old in-process `import TTS` check in engine.py#check_env() queried the wrong interpreter and permanently gated XTTS needs_setup."
         }
       ],
       "calls": [
@@ -199,16 +204,17 @@
         }
       ],
       "calls": [
-        "app/engines/audio_ops.py",
-        "app/engines/proc_utils.py",
-        "app/engines/voice/base.py#StudioTTSEngine",
-        "app/engines/voice/sdk.py#*",
+        "studio_plugin_sdk/__init__.py#StudioTTSEngine,TTSRequest,TTSResult,VerificationResult",
+        "studio_plugin_sdk/proc.py#run_cmd_stream",
+        "studio_plugin_sdk/audio.py#wav_to_mp3",
         "tts_engines/tts_xtts/plugin/core/implementation.py#xtts_generate"
       ],
       "called_by": [],
       "notes": [
         "must NOT import app.api/orchestration/db",
-        "PL-3 (2026-07-04): run_test() is now a one-line super().run_test(asset_search_order=[...], default_text=...) delegating to StudioTTSEngine's shared implementation"
+        "PL-3 (2026-07-04): run_test() is now a one-line super().run_test(asset_search_order=[...], default_text=...) delegating to StudioTTSEngine's shared implementation",
+        "2026-07-16 (010 task 04): zero app.* imports anywhere -- SDK types/StudioTTSEngine/run_cmd_stream now from studio_plugin_sdk directly (was app.engines.*). _wav_to_mp3 delegates to studio_plugin_sdk.audio.wav_to_mp3(quality=_MP3_QUALITY=\"2\", matching host default) with the SDK default runner.",
+        "2026-07-17 (BUG 1 fix): check_env() no longer does an in-process `import TTS` (checks the wrong interpreter, the server venv where XTTS deps are never installed) -- delegates to implementation.py#xtts_env_ready() instead."
       ],
       "calls_inferred": []
     },
@@ -415,7 +421,7 @@
       "notes": [
         "PL-1 (2026-07-04): local _get_ctx() kept as a thin patchable shim, body now delegates to the shared get_plugin_ctx(engine_id) factory",
         "2026-07-04 follow-up: _group_is_done's bare chunk_path.exists() replaced with ctx.is_valid_segment_artifact(chunk_path) -- last of the 4 render-path reuse gates to use the validated-artifact standard (xtts bake, voxtral bake, mixed already did via PL-2's group_needs_render)",
-        "handle_xtts_standard now guards the empty-script case (rc=0, falls through to the existing stitch block) instead of calling generate_via_bridge with empty text/script (2026-07-05 escaped-defect fix) \u2014 a fan-out sibling (or an earlier run) can leave every group in this chapter already satisfied, and the bridge call used to 422 on 'text must not be empty'"
+        "handle_xtts_standard now guards the empty-script case (rc=0, falls through to the existing stitch block) instead of calling generate_via_bridge with empty text/script (2026-07-05 escaped-defect fix) — a fan-out sibling (or an earlier run) can leave every group in this chapter already satisfied, and the bridge call used to 422 on 'text must not be empty'"
       ],
       "calls_inferred": [
         "app/studio_plugin_sdk/plugin_utils.py#get_plugin_ctx",

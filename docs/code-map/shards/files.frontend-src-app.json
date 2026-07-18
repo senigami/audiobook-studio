@@ -36,7 +36,8 @@
         "frontend/src/pages/Voices/VoicesPage.tsx",
         "frontend/src/pages/Voices/components/VoiceUtils.tsx",
         "frontend/src/pages/Welcome/WelcomePage.tsx",
-        "frontend/src/types/index.ts"
+        "frontend/src/types/index.ts",
+        "frontend/src/pages/Book/ReaderPage.tsx"
       ],
       "called_by": [
         "frontend/src/main.tsx"
@@ -49,7 +50,8 @@
         "F15 (2026-07-04): surfaces useInitialData's new `error` state as a retryable startup banner (role=alert, 'Retry now' button) in place of the silent spinner while a fetch is failing; only claims 'retrying automatically' when !initialData (true startup phase, where the poll loop actually retries) -- a later post-startup refetch failure doesn't re-arm that loop",
         "LF-5 (2026-07-05): extracted useToast/useStartupOverlay/useChapterRedirect (630->560 lines); route table + shell composition stay per simplification/04's split boundary. Fusion-reviewed clean (independent React-hooks-correctness pass confirmed identical dep arrays/cleanup timing against the pre-image).",
         "2026-07-08: new window 'studio-toast' (APP_TOAST_EVENT) listener forwards emitToast() messages from anywhere in the app into the existing showToast pipeline, decoupling toast-emitting utility code from the hook. New /project/:projectId/details route lazy-loads ProjectViewPage (ProjectDetailPage.tsx's ProjectView export) wrapped in ProjectViewRoute -- wires up components that previously had zero runtime importers (see those files' notes).",
-        "Task 012 (2026-07-11): the /engines route now also passes settings={initialData?.settings} into EnginesPage, matching the pattern already used for five other routes."
+        "Task 012 (2026-07-11): the /engines route now also passes settings={initialData?.settings} into EnginesPage, matching the pattern already used for five other routes.",
+        "2026-07-17 (synced_reader Task 9): added the lazy-loaded ReaderPage route at /book/:bookId/chapter/:chapterId/reader, alongside the existing /book/:bookId/chapter/:chapterId route."
       ],
       "calls_inferred": [
         "frontend/src/app/layout/AppShell#AppShell",

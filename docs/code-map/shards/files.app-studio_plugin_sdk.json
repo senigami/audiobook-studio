@@ -1,7 +1,7 @@
 {
   "files": {
     "app/studio_plugin_sdk/__init__.py": {
-      "purpose": "Public SDK namespace for plugin handlers and TTS engine implementations",
+      "purpose": "SHIM (2026-07-16, 010 SDK inversion task 01) -- re-exports from the real top-level studio_plugin_sdk package; keeps host-side exports (BaseVoiceEngine, EngineHealthModel, Engine*Error etc.) for app importers that the top-level SDK deliberately does not export.",
       "exports": [
         {
           "name": "StudioTTSEngine, TTSRequest, TTSResult, TimingEvent, VerificationResult, VoiceProcessingHooks, SynthesisPlan, StudioPluginContext, JobSpec, JobResult",
@@ -19,10 +19,7 @@
         }
       ],
       "calls": [
-        "app/engines/voice/base.py#StudioTTSEngine",
-        "app/engines/voice/sdk.py#*",
-        "app/studio_plugin_sdk/context.py#*",
-        "app/studio_plugin_sdk/plugin_utils.py#get_plugin_ctx,load_settings_schema"
+        "studio_plugin_sdk/__init__.py#*"
       ],
       "called_by": [
         "app/orchestration/tasks/synthesis.py",
@@ -39,27 +36,12 @@
         "tts_engines/tts_xtts/plugin/studio/voice_adapter.py"
       ],
       "notes": [
-        "registered in sys.modules by plugin_loader.py for cross-process visibility"
-      ],
-      "calls_inferred": []
-    },
-    "app/studio_plugin_sdk/_import_utils.py": {
-      "purpose": "Shared plugin import utility for synthetic package module hierarchy creation",
-      "exports": [
-        {
-          "name": "ensure_plugin_package_hierarchy",
-          "kind": "function"
-        }
-      ],
-      "calls": [],
-      "called_by": [],
-      "notes": [
-        "extracted from duplicate implementations to avoid cross-plugin namespace collisions"
+        "module identity preserved: objects here ARE the studio_plugin_sdk.* objects, pinned by tests/engines/test_sdk_module_identity.py"
       ],
       "calls_inferred": []
     },
     "app/studio_plugin_sdk/context.py": {
-      "purpose": "Plugin SDK context object and job dataclasses; exposes 13 service groups via late imports",
+      "purpose": "SHIM (2026-07-16) -- re-export from studio_plugin_sdk.context (the real implementation MOVED there; see that shard's record for the full contract).",
       "exports": [
         {
           "name": "JobSpec, JobResult",
@@ -77,34 +59,18 @@
         }
       ],
       "calls": [
-        "app/api/ws.py#broadcast_*",
-        "app/core/config.py",
-        "app/db/chapters.py",
-        "app/db/queue.py",
-        "app/db/segments.py#*",
-        "app/db/speakers.py#*",
-        "app/db/state_jobs.py#update_job",
-        "app/domain/chunk_groups.py#build_chunk_groups",
-        "app/engines/audio_ops.py#*",
-        "app/engines/behavior.py#*",
-        "app/engines/voice_engines.py",
-        "app/jobs/handlers/bridge_helpers.py#generate_via_bridge",
-        "app/jobs/worker_voice.py",
-        "app/tts_server/plugin_loader.py",
-        "app/utils/text/textops_cleaning.py",
-        "app/utils/text/textops_splitting.py"
+        "studio_plugin_sdk/context.py#*"
       ],
       "called_by": [
         "app/tts_server/plugin_loader.py"
       ],
       "notes": [
-        "all app.* imports late-imported inside wrapper methods to enforce zero side effects on import",
-        "2026-07-04 follow-up: standard_handler.py's _group_is_done upgraded to the same validated-artifact standard via a new is_valid_segment_artifact(path) public wrapper around _is_valid_segment_artifact -- closes queue-jobs.md \u00a73.7's residual drift (spec now 1.11.2), no known reuse-gate drift remains across any of the 4 render paths"
+        "module identity preserved: objects here ARE the studio_plugin_sdk.* objects, pinned by tests/engines/test_sdk_module_identity.py"
       ],
       "calls_inferred": []
     },
     "app/studio_plugin_sdk/errors.py": {
-      "purpose": "Plugin SDK exception hierarchy with cross-compatible BridgeError",
+      "purpose": "SHIM (2026-07-16) -- re-export from studio_plugin_sdk.errors.",
       "exports": [
         {
           "name": "StudioException, BridgeError, ValidationError",
@@ -112,7 +78,7 @@
         }
       ],
       "calls": [
-        "app/engines/errors.py#EngineBridgeError"
+        "studio_plugin_sdk/errors.py#*"
       ],
       "called_by": [
         "app/tts_server/plugin_loader.py",
@@ -123,12 +89,12 @@
         "tts_engines/tts_xtts/plugin/studio/standard_handler.py"
       ],
       "notes": [
-        "BridgeError dual-inherits for compatibility with EngineBridgeError"
+        "module identity preserved: objects here ARE the studio_plugin_sdk.* objects, pinned by tests/engines/test_sdk_module_identity.py"
       ],
       "calls_inferred": []
     },
     "app/studio_plugin_sdk/plugin_utils.py": {
-      "purpose": "Shared plugin-side helpers: PL-1 context factory + PL-3 settings-schema loader + PL-2 segment-marker output handler factory",
+      "purpose": "SHIM (2026-07-16) -- re-export from studio_plugin_sdk.plugin_utils.",
       "exports": [
         {
           "name": "get_plugin_ctx",
@@ -147,14 +113,28 @@
         }
       ],
       "calls": [
-        "app/studio_plugin_sdk/context.py#StudioPluginContext",
-        "app/studio_plugin_sdk/context.py#StudioPluginContext.group_needs_render"
+        "studio_plugin_sdk/plugin_utils.py#*"
       ],
       "called_by": [],
       "notes": [
-        "extracted from 9 duplicated _get_ctx() lazy-singleton blocks (PL-1) and 2 duplicated _load_settings_schema()s (PL-3), 2026-07-04",
-        "tts_mixed/handler.py additionally keeps its own separate _ctx_instance/set_ctx() injection hook (live, called from app/orchestration/tasks/synthesis.py) -- untouched by this factory; harmless because StudioPluginContext is stateless (holds only engine_id)",
-        "PL-2 (2026-07-04): make_segment_output_handler added, replacing 4 duplicated on_output closures; two genuine non-formula behavioral differences preserved as explicit params (on_group_completed/on_group_started hooks for xtts's j.* mutations; emit_on_save=False for voxtral segments.py's SEGMENT_SAVED-skips-update_job asymmetry) rather than inferred from engine_id"
+        "module identity preserved: objects here ARE the studio_plugin_sdk.* objects, pinned by tests/engines/test_sdk_module_identity.py"
+      ],
+      "calls_inferred": []
+    },
+    "app/studio_plugin_sdk/_import_utils.py": {
+      "purpose": "SHIM (2026-07-16) -- re-export from studio_plugin_sdk._import_utils.",
+      "exports": [
+        {
+          "name": "ensure_plugin_package_hierarchy",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "studio_plugin_sdk/_import_utils.py#*"
+      ],
+      "called_by": [],
+      "notes": [
+        "module identity preserved: objects here ARE the studio_plugin_sdk.* objects, pinned by tests/engines/test_sdk_module_identity.py"
       ],
       "calls_inferred": []
     }

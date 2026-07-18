@@ -682,7 +682,9 @@
         "frontend/src/pages/Book/components/ChapterTable.tsx",
         "frontend/src/pages/ProjectDetail/components/ChapterList.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-16 (PR01): new `preparing` tier -- isPreparing = isTrulyProcessing && (reason_code in {SEGMENT_PENDING, LOADING_MODEL} || indeterminate===true), same predicate useStudioChapter.ts uses; renders a dimmed spinner-less orb (.orb-is-preparing pulse, no Loader2). The completed-vs-total segment arc now also renders during running/preparing (not just idle), never fabricating an advance during the indeterminate window."
+      ],
       "calls_inferred": []
     },
     "frontend/src/components/ui/Switch.tsx": {
@@ -832,6 +834,47 @@
       "notes": [
         "2026-07-15 (voice-variant-tagging-and-ia task012, NEW FILE): fixes a genuine pre-existing bug -- VariantEditor's old badge built its border as `1px solid ${engineBadge.color}33` where color was already a var() reference; appending '33' produced invalid CSS the browser silently dropped, so that badge rendered borderless. New --accent-tint-border/--cloud-tint-border tokens (theme/tokens.css) make the intended border actually render."
       ],
+      "calls_inferred": []
+    },
+    "frontend/src/components/reader/ReaderView.tsx": {
+      "purpose": "Player-piano focal-block reader: renders the active timing group's text with prev/next faint for continuity (synced_reader Task 8)",
+      "exports": [
+        {
+          "name": "ReaderView",
+          "kind": "component",
+          "contract": "props: activeGroup/prev/next/groupProgress/isTrackingThisChapter/segmentTextById, optional onActiveBlockClick (Task 9). Never fetches or owns timing/player-bus state itself -- pure presentational consumer. groupProgress (0-1) drives a Framer Motion translateY/opacity ease; prefers-reduced-motion swaps to a plain non-animated div. isTrackingThisChapter=false -> idle state; true with activeGroup=null -> 'sync unavailable -- re-render this chapter' (no fabricated estimate)."
+        }
+      ],
+      "calls": [
+        "frontend/src/hooks/useMediaQuery.ts"
+      ],
+      "called_by": [
+        "frontend/src/components/reader/ReaderContainer.tsx",
+        "frontend/src/pages/Book/lib/useChapterReaderSync.ts"
+      ],
+      "notes": [
+        "2026-07-17 (Task 9): gained optional onActiveBlockClick prop wired onto the active block's onClick; omitting it preserves the exact prior non-interactive behavior -- the reader still never seeks itself."
+      ],
+      "calls_inferred": []
+    },
+    "frontend/src/components/reader/ReaderContainer.tsx": {
+      "purpose": "Three-state display escalation for the reader: embedded card -> expanded full-browser overlay -> OS fullscreen (synced_reader Task 8)",
+      "exports": [
+        {
+          "name": "ReaderContainer",
+          "kind": "component",
+          "contract": "displayState driven by useFullscreen.isFullscreen (not tracked independently) + its own embedded<->expanded step. Embedded card stays mounted across every transition (overlay is position:fixed above it) so useFocusTrap's stored previously-focused element can still be refocused on close. role=dialog/aria-modal + useFocusTrap handle focus-in/restore. Escape closes expanded->embedded; native fullscreen exit converges to 'expanded' not 'embedded'. Optional startExpanded prop (Task 9, default false) mounts directly into 'expanded' for the standalone ReaderPage route."
+        }
+      ],
+      "calls": [
+        "frontend/src/hooks/useFullscreen.ts",
+        "frontend/src/hooks/useFocusTrap.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Book/components/ChapterReaderCard.tsx",
+        "frontend/src/pages/Book/ReaderPage.tsx"
+      ],
+      "notes": [],
       "calls_inferred": []
     }
   }

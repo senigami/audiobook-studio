@@ -98,15 +98,15 @@
         }
       ],
       "calls": [
-        "app/engines/audio_ops.py#wav_to_mp3",
-        "app/engines/voice/base.py#StudioTTSEngine",
-        "app/engines/voice/sdk.py#*",
+        "studio_plugin_sdk/__init__.py#StudioTTSEngine,TTSRequest,TTSResult,VerificationResult",
+        "studio_plugin_sdk/audio.py#wav_to_mp3",
         "tts_engines/tts_voxtral/plugin/core/implementation.py#*"
       ],
       "called_by": [],
       "notes": [
         "must NOT import app.api/domain/orchestration/db",
-        "PL-3 (2026-07-04): run_test() is now a one-line super().run_test(asset_search_order=[...], default_text=..., settings=settings or {}) delegating to StudioTTSEngine's shared implementation"
+        "PL-3 (2026-07-04): run_test() is now a one-line super().run_test(asset_search_order=[...], default_text=..., settings=settings or {}) delegating to StudioTTSEngine's shared implementation",
+        "2026-07-16 (010 task 05): zero app.* imports -- SDK types/StudioTTSEngine from studio_plugin_sdk; new module constant _MP3_QUALITY=\"2\" (host-default value); _wav_to_mp3 delegates to studio_plugin_sdk.audio.wav_to_mp3 with the SDK default runner."
       ],
       "calls_inferred": []
     },

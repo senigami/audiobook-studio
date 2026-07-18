@@ -866,6 +866,59 @@
         "2026-07-15 (voice-variant version-history task007, NEW FILE): fetches versions via api.listVoiceVersions on mount/voiceName change."
       ],
       "calls_inferred": []
+    },
+    "frontend/src/hooks/useFullscreen.ts": {
+      "purpose": "Wraps the browser Fullscreen API (synced_reader Task 8 -- confirmed no existing helper anywhere in this frontend)",
+      "exports": [
+        {
+          "name": "useFullscreen",
+          "kind": "hook",
+          "contract": "(elementRef) -> {isFullscreen, isSupported, enter, exit, toggle}. isFullscreen derived purely from document.fullscreenElement===elementRef.current via the fullscreenchange event (never tracked independently, so a native Escape-driven exit still resolves correctly). isSupported recomputed every effect flush (no dep array) since callers may attach the ref to a DOM node that mounts after first render."
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/components/reader/ReaderContainer.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/hooks/useChapterTiming.ts": {
+      "purpose": "Fetch hook for the chapter_segment_timing serving route (synced_reader Task 7, cache removed in a same-day follow-up)",
+      "exports": [
+        {
+          "name": "useChapterTiming",
+          "kind": "hook",
+          "contract": "(chapterId, projectId) -> wraps fetchChapterTiming with a stale-response guard (useRenderGroups.ts pattern). 2026-07-17: the original cross-mount cache (keyed by `${projectId}:${chapterId}`) was REMOVED after an adversarial review found it served stale groups to any later remount once a chapter re-rendered mid-session, silently bypassing the backend route's own audio_generated_at staleness 404. Always fetches fresh on mount/dep-change now, matching useRenderGroups.ts/useChapterAnalysis.ts's existing no-cross-mount-cache pattern -- there is no render-completion invalidation signal anywhere in this frontend to reuse instead."
+        }
+      ],
+      "calls": [
+        "frontend/src/api/fetchChapterTiming.ts#fetchChapterTiming"
+      ],
+      "called_by": [
+        "frontend/src/hooks/useReaderSync.ts",
+        "frontend/src/pages/Book/lib/useChapterReaderSync.ts"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/hooks/useReaderSync.ts": {
+      "purpose": "Pure sync-math layer gating on the global player bus before computing the active reading group (synced_reader Task 7)",
+      "exports": [
+        {
+          "name": "useReaderSync",
+          "kind": "hook",
+          "contract": "(timing, playerBus, chapterAudioUrl) -- gates on playerBus.scope==='chapter' && playerBus.audioUrl===chapterAudioUrl before computing activeGroup/groupProgress/prev/next via a binary search over timing.groups on start_ms. An exact end_ms/start_ms tie resolves to the START of the next group. Out-of-range positions clamp to the first/last group rather than returning null. Must never assume the bus is always about this chapter -- Booth/previews/book-continuous-playback share the same global bus."
+        }
+      ],
+      "calls": [
+        "frontend/src/store/playerBus.ts"
+      ],
+      "called_by": [
+        "frontend/src/pages/Book/lib/useChapterReaderSync.ts"
+      ],
+      "notes": [],
+      "calls_inferred": []
     }
   }
 }
