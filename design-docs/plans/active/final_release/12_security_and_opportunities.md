@@ -56,7 +56,7 @@ Audited `app/api/tts_api.py` (the external "Studio as a TTS gateway" sub-app at 
 
 ## Part 2 — Product opportunities (post-release backlog, owner to cherry-pick)
 
-**Moved 2026-07-14 to [`design-docs/plans/post_release_backlog.md`](../../post_release_backlog.md)**
+**Moved 2026-07-14 to `design-docs/plans/FUTURE_WORK.md`**
 — the canonical, standalone home for post-2.0 ideas (this doc's Part 1 security content is
 release-scoped and stays here; product-opportunity ideas don't belong mixed in with security
 findings, and `active/` gets archived once the release ships while the backlog should persist).
