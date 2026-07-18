@@ -35,11 +35,24 @@ in COMPLETED_WORK or this ledger, and most are *architecture rationale* that a u
 would not carry. This is the exact delete-first / assert-later pattern the ledger exists to prevent.
 
 - **Nothing is lost:** all 124 are recoverable from git at `2dd721a4^`.
-- **Do-now:** spot-check that the load-bearing rationale (two-process architecture, dual state store,
-  plugin-first engines, orchestrator design) is captured in `design-docs/decisions/` (ADRs) and the
-  specs — those are the forward-relevant homes. Where it is, the git-archived plan is genuinely
-  redundant; where it isn't, recover a summary from git before it's forgotten. Until that check runs,
-  treat "the wiki has the history" as unverified for this deleted set.
+- **Rationale-preservation check — done 2026-07-18: substantially preserved, no lost load-bearing
+  rationale.** The deleted corpus was execution scaffolding (phase 0–13 plans, task folders, audits,
+  checklists) plus v2 design drafts. Their *decisions* crystallized into the **15 ADRs**
+  (two-process `0001`, clean-break `0002`, dual-state `0003`, plugin-first `0004`, websocket `0005`,
+  boot `0006`, path-containment `0007`, voice layout `0008`, app-shell/book-pipeline `0009`, audio
+  player `0010`, frontend-state `0011`, enrich-kernel `0012`, orphan-reconcile `0013`,
+  directors-console `0014`, attribution-color `0015`) and the **23 specs** (system-architecture,
+  data-model, queue-jobs, live-events, event-stream-processing-schema, engines-and-plugins,
+  plugin-contract, progress-presentation, code-organization, site-shell-and-book-pipeline, …); their
+  *outcomes* are in code + `wiki/Changelog.md`. Mapping held for every major topic
+  (TTS-server/API→`0001`+system-architecture+engines; queuing→queue-jobs; progress/routing→`0012`+
+  progress-presentation; domain model→data-model; event bus→`0005`+live-events; voice engine→`0004`+
+  plugin-contract; frontend state→`0011`; IA/nav→`0009`; editor→`0014`; conversion→`0002`).
+- **Thin spots (minor, not blocking):** settings architecture has no single spec (distributed across
+  plugin-contract/security/queue-jobs — acceptable, settings isn't monolithic); the read-along
+  reader's 424-line UX design rationale is git-only, though its load-bearing *contract* (timing
+  sidecar) is in `data-model.md`. Neither is lost (git-recoverable); recover into a spec/ADR only if
+  a future change needs the rationale. **No blanket recovery needed.**
 
 ## Part 1c — Built but NOT complete / NOT shipped (owner-corrected 2026-07-18 — DO NOT DELETE)
 
@@ -152,8 +165,9 @@ wording (do-now) — it's the inverse of a gap: a doc describing more than exist
     §1c): HF voice (needs sign-off), AI casting (placeholder/future), recording-cue (owner image-gen
     pending). The two entries drafted earlier were **reverted** — no CL entry until each is genuinely
     complete, and their plans are **not deletable**.
-  - **Part 0 do-now:** verify the 124 #153-deleted archived plans' rationale is captured in
-    ADRs/specs; recover any that isn't (git `2dd721a4^`).
+  - **Part 0: done** — the 124 #153-deleted plans' rationale is substantially preserved in the 15
+    ADRs + 23 specs; no lost load-bearing rationale, all git-recoverable. Two minor thin spots noted,
+    neither blocking.
   - **`COMPLETED_WORK.md` needs a fuller accuracy audit** — it wrongly listed 3 items as shipped;
     others may overclaim. Don't delete a plan on its word without owner/on-disk confirmation.
   - Then doc 20 §B1 (repoint + delete shipped-feature provenance) and delete verified source plans.
