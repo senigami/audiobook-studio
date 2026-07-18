@@ -52,7 +52,8 @@
         "frontend/src/pages/Book/stages/PublishStage.tsx",
         "frontend/src/pages/ChapterEditor/components/DirectorsConsole",
         "frontend/src/pages/ChapterEditor/components/DirectorsConsole/index.tsx",
-        "frontend/src/types/index.ts"
+        "frontend/src/types/index.ts",
+        "frontend/src/pages/Book/components/ChapterReaderCard.tsx"
       ],
       "called_by": [
         "frontend/src/pages/Book/index.ts"
@@ -62,7 +63,8 @@
         "2026-07-09: new 'book' entry added to BOOK_STAGES ahead of 'contents'; StageContent renders <BookStage/> (imported as BookInfoStage) for stage==='book'. The book-level tab bar (BOOK_STAGES.map) now shows a leading 'Book' tab.",
         "2026-07-10: ChapterWorkspace's studio|review toggle replaced by <DirectorsConsole/> (directors_console_activation task 002); StudioStage.tsx/ReviewStage.tsx deleted.",
         "2026-07-10: Root layout for Book page; wraps stages with BookDataProvider, manages stage nav and chapter workspace routing",
-        "2026-07-11 (task 008): ChapterWorkspace now also destructures `jobs` from useBookDataContext() (already provided by the context) and passes it to <ChapterWorkspaceHeader jobs={jobs} />."
+        "2026-07-11 (task 008): ChapterWorkspace now also destructures `jobs` from useBookDataContext() (already provided by the context) and passes it to <ChapterWorkspaceHeader jobs={jobs} />.",
+        "2026-07-17 (Task 9): ChapterWorkspace now renders <ChapterReaderCard bookId chapter /> right after ChapterWorkspaceHeader (guarded on chapter resolved), before the DirectorsConsole/Lexicon row -- the embedded read-along reader entry point."
       ],
       "calls_inferred": [
         "@/pages/Book/BookDataContext#*",
@@ -204,13 +206,16 @@
         "frontend/src/pages/Book/lib/chapterLifecycle.ts",
         "frontend/src/store/playerBus.ts",
         "frontend/src/types/index.ts",
-        "frontend/src/utils/jobSelection.ts"
+        "frontend/src/utils/jobSelection.ts",
+        "frontend/src/pages/Book/lib/chapterAudioUrl.ts#buildChapterAudioUrl"
       ],
       "called_by": [
         "frontend/src/pages/Book/stages/ContentsStage.tsx",
         "frontend/src/pages/Book/stages/ManuscriptStage.tsx"
       ],
-      "notes": [],
+      "notes": [
+        "2026-07-17 (Task 9): inline audioUrl template expression replaced with buildChapterAudioUrl(chapter) (lib/chapterAudioUrl.ts) so this play button and the reader's useReaderSync gate can never drift apart. No behavior change."
+      ],
       "calls_inferred": [
         "@/components/progress/PredictiveProgressBar",
         "@/pages/Book/lib/chapterLifecycle#deriveChapterLifecycle",
@@ -328,7 +333,7 @@
       "purpose": "Module exports barrel for Book page",
       "exports": [
         {
-          "name": "BookIndexRedirect, BookLayout, BookDataProvider, useBookDataContext, useBookData, BookStage, BOOK_STAGE_LABELS, BOOK_STAGES",
+          "name": "BookIndexRedirect, BookLayout, BookDataProvider, useBookDataContext, useBookData, BookStage, BOOK_STAGE_LABELS, BOOK_STAGES, ReaderPage",
           "kind": "component/hook/type/const"
         }
       ],
@@ -336,7 +341,8 @@
         "frontend/src/pages/Book/BookDataContext.tsx",
         "frontend/src/pages/Book/BookLayout.tsx",
         "frontend/src/pages/Book/lib/stages.ts",
-        "frontend/src/pages/Book/useBookData.ts"
+        "frontend/src/pages/Book/useBookData.ts",
+        "frontend/src/pages/Book/ReaderPage.tsx"
       ],
       "called_by": [
         "frontend/src/app/App.tsx"
@@ -566,7 +572,8 @@
         "2026-07-08: the inline file-input/import-row markup was replaced by <ChapterImportBar onImportFiles={handleImportFiles} submitting={actions.submitting} compact />, rendered in the stage's action row. handleImportFiles now accepts multiple files (FileList | File[]), filters through isSupportedChapterImportFile, emits a toast per rejected file, and creates chapters sequentially at chapters.length + index so a multi-file drop preserves sort order.",
         "2026-07-09 (toast fixes): handleImportFiles now emits a per-file toast (`Couldn't import \"${file.name}\". Please try again.`) when a queued import create fails. handleExportSample is now wrapped in try/catch, emitting a toast both on a thrown error and on a success response with an empty/missing url (previously threw/failed silently with no user feedback). The modal-submit handleCreateChapter no longer emits its own toast on failure \u2014 a same-session follow-up removed that call as redundant once useProjectActions.handleCreateChapter itself started toasting on failure.",
         "2026-07-11 (task 010, Option B / Gate 2b): removed the inline ChapterTextPanel editor, focusMode toggle/state, and the two-column workspace grid \u2014 now a single-column ChapterTable board. Verified redundant: the Chapter Workspace's Write mode already renders the identical ChapterTextPanel (variant=\"immediate\") against the same per-chapter scope (INV-1 respected).",
-        "2026-07-11 (task 010 Gate 2): added a collapsible ContentsBookmarksPanel (local, not exported) using useBookBookmarks(bookId) from @/store/bookmarks, rendered via the shared BookmarkList component; book-scoped only."
+        "2026-07-11 (task 010 Gate 2): added a collapsible ContentsBookmarksPanel (local, not exported) using useBookBookmarks(bookId) from @/store/bookmarks, rendered via the shared BookmarkList component; book-scoped only.",
+        "2026-07-16 (PR brief 08): handleExportSample now calls api.exportChapterVideo and downloads the blob via downloadBlob (was: open audio URL). Same change applied to ManuscriptStage.tsx and ProjectDetail/ProjectDetailPage.tsx's equivalent handlers."
       ],
       "calls_inferred": [
         "@/pages/Book/components/*"
@@ -835,6 +842,87 @@
         "@/utils/chapterEditorHelpers#resolveVoiceEngineStatus",
         "@/utils/voiceProfiles#*"
       ]
+    },
+    "frontend/src/pages/Book/lib/chapterAudioUrl.ts": {
+      "purpose": "Single shared expression for a chapter's own rendered-audio asset URL (synced_reader Task 9)",
+      "exports": [
+        {
+          "name": "buildChapterAudioUrl",
+          "kind": "function",
+          "contract": "(chapter) -> string | null. Extracted so ChapterTable.tsx's play button and the reader's useReaderSync gate can never independently drift (previously two inline string templates)."
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Book/components/ChapterTable.tsx",
+        "frontend/src/pages/Book/lib/useChapterReaderSync.ts"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Book/lib/useChapterReaderSync.ts": {
+      "purpose": "Shared hook wiring the reader stack into the Book tab's two entry points (synced_reader Task 9)",
+      "exports": [
+        {
+          "name": "useChapterReaderSync",
+          "kind": "hook",
+          "contract": "wires useChapterTiming + the global playerBus + useReaderSync + a lightweight local api.fetchSegments(chapterId) call into segmentTextById and the props ReaderContainer/ReaderView need. Owns the click-to-seek handler (onActiveBlockClick -> playerBus.seek(activeGroup.start_ms/1000)) so bus position stays the single source of truth. Used by both ChapterReaderCard and ReaderPage so they can't diverge."
+        }
+      ],
+      "calls": [
+        "frontend/src/hooks/useChapterTiming.ts#useChapterTiming",
+        "frontend/src/hooks/useReaderSync.ts#useReaderSync",
+        "frontend/src/store/playerBus.ts",
+        "frontend/src/pages/Book/lib/chapterAudioUrl.ts#buildChapterAudioUrl"
+      ],
+      "called_by": [
+        "frontend/src/pages/Book/components/ChapterReaderCard.tsx",
+        "frontend/src/pages/Book/ReaderPage.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Book/components/ChapterReaderCard.tsx": {
+      "purpose": "Embedded reader entry point mounted in the Chapter Workspace (synced_reader Task 9, ReaderContainer display state 1)",
+      "exports": [
+        {
+          "name": "ChapterReaderCard",
+          "kind": "component",
+          "contract": "mounted in BookLayout.tsx's ChapterWorkspace near ChapterWorkspaceHeader (NOT inside DirectorsConsole/Booth). Also renders an 'Open Full Reader' link to the standalone ReaderPage route."
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/Book/lib/useChapterReaderSync.ts#useChapterReaderSync",
+        "frontend/src/components/reader/ReaderContainer.tsx"
+      ],
+      "called_by": [
+        "frontend/src/pages/Book/BookLayout.tsx"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Book/ReaderPage.tsx": {
+      "purpose": "Standalone full-page reader route (synced_reader Task 9)",
+      "exports": [
+        {
+          "name": "ReaderPage",
+          "kind": "component",
+          "contract": "fetches its own chapter via api.fetchChapter (no BookDataProvider -- intentionally lightweight/standalone), reuses useChapterReaderSync, renders ReaderContainer with startExpanded"
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/Book/lib/useChapterReaderSync.ts#useChapterReaderSync",
+        "frontend/src/components/reader/ReaderContainer.tsx",
+        "frontend/src/api/index.ts#fetchChapter"
+      ],
+      "called_by": [
+        "frontend/src/app/App.tsx",
+        "frontend/src/pages/Book/index.ts"
+      ],
+      "notes": [
+        "routed at /book/:bookId/chapter/:chapterId/reader"
+      ],
+      "calls_inferred": []
     }
   }
 }

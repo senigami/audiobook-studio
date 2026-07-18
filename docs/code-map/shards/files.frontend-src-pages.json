@@ -625,7 +625,8 @@
       "called_by": [],
       "notes": [
         "RECENT_DONE_WINDOW_SECONDS=60",
-        "2026-07-08: now reachable via App.tsx's /project/:projectId/details route (ProjectViewPage lazy import of this file's ProjectView export) -- resolves the prior 'zero runtime importers' flag."
+        "2026-07-08: now reachable via App.tsx's /project/:projectId/details route (ProjectViewPage lazy import of this file's ProjectView export) -- resolves the prior 'zero runtime importers' flag.",
+        "2026-07-16 (PR brief 08): its export-sample handler now calls api.exportChapterVideo and downloads the blob (was: open audio URL), matching Book/stages/ContentsStage.tsx and ManuscriptStage.tsx."
       ],
       "calls_inferred": [
         "frontend/src/components/CharactersTab#CharactersTab",
@@ -1294,14 +1295,19 @@
       ],
       "calls": [
         "frontend/src/types/index.ts",
-        "frontend/src/pages/Voices/components/metadata/recordingPromptSuggester.ts"
+        "frontend/src/pages/Voices/components/metadata/recordingPromptSuggester.ts",
+        "frontend/src/pages/VoiceLab/iconPromptFragments.ts#visualFragmentsForAttributes",
+        "frontend/src/pages/VoiceLab/imagePromptComposer.ts#composeImageDescription"
       ],
       "called_by": [
         "frontend/src/pages/VoiceLab/components/VoiceDetailHeader.tsx"
       ],
       "notes": [
         "2026-07-16 (user-reported gap): now leads with the matched archetype's appearance_description (via the shared findMatchingArchetype) instead of only ever concatenating raw attribute keywords -- appearance_description exists specifically for visual/appearance guidance and was previously unused here.",
-        "no API calls"
+        "no API calls",
+        "2026-07-17 (square-portrait-icon-prompt): output reframed from 'Circular avatar portrait icon' to 'Square 1:1 head-and-shoulders portrait, flat illustration, uniform style'. class/age/gender/tone/timbre now render as visual fragments via iconPromptFragments.ts on both paths (archetype-match appends manual-attribute visuals differing from the archetype; composed path builds subject+details instead of a bare keyword join).",
+        "2026-07-17 (default-portrait-tooling): composed branch now calls imagePromptComposer.ts#composeImageDescription instead of joining visualFragmentsForAttributes output with semicolons.",
+        "Doc-comment archetype count updated 39->103."
       ],
       "calls_inferred": []
     },
@@ -1471,7 +1477,7 @@
       "flows": [],
       "notes": [
         "2026-07-12: Added buildSparklineAreaPath() (baseline-anchored fill path, closes at SPARK_HEIGHT), a scaleY() helper factored out of the existing point-scaling math, and pressureTier() (3-tier: normal <70 / elevated >=70 current-value / hot sustained>=90 for 2 samples, reusing existing isSustainedHighPressure). ResourceRow now renders a dashed threshold reference line at the 90% mark, a semi-transparent tier-colored area fill under the line, and colors the polyline/dot/value text by tier instead of only swapping the trailing dot between two colors. Follow-up in the same file: each row now also renders a `system-resource-strip__meter-row` below the sparkline -- a thin horizontal bar (`system-resource-strip__meter`) whose fill width tracks the current pct and whose CSS `transition: width` (in activity.css) animates smoothly between the ~2s polling ticks instead of snapping.",
-        "2026-07-12: designed via the designer agent against Quiet Studio tokens (no new colors -- var(--color-wave)/var(--accent)/var(--warning-text-strong) only). Sparkline uses viewBox+preserveAspectRatio to stretch to the row's full width rather than a fixed pixel size (fixed same day after a layout-space complaint)."
+        "2026-07-12: designed via the designer agent against Quiet Studio tokens (no new colors -- var(--color-wave)/var(--action-primary)/var(--warning-text-strong) only). Sparkline uses viewBox+preserveAspectRatio to stretch to the row's full width rather than a fixed pixel size (fixed same day after a layout-space complaint)."
       ]
     },
     "frontend/src/pages/VoiceLab/components/PublishToHuggingFaceModal.tsx": {
@@ -1534,7 +1540,8 @@
       ],
       "notes": [
         "2026-07-16 (owner-requested): added ArchetypeQuickPick above the 6 fields -- picking an archetype overwrites all of ONE_FIELDS+MANY_FIELDS at once (class/gender/age/pace via OneSelect, tone/timbre via ManySelect), a fast starting point before fine-tuning individual fields for this recording session.",
-        "2026-07-15 (task 007, voice-card-consolidation, P7): NEW FILE."
+        "2026-07-15 (task 007, voice-card-consolidation, P7): NEW FILE.",
+        "2026-07-17: passes its `value` (the 6 matcher fields) as ArchetypeQuickPick's attrs so the library re-narrows live as fields change."
       ],
       "calls_inferred": []
     },
@@ -1544,7 +1551,8 @@
       "calls": [],
       "called_by": [],
       "notes": [
-        "2026-07-15: NEW FILE \u2014 New component. Calls suggestRecordingPrompt(attrs) unmodified. Since suggestRecordingPrompt() returns null for the true zero-selection case (hasMeaningfulAttrs gate) -- distinct from composeFallback(), which only runs once some attrs are set but none score a close match, and always returns a real prompt -- this component supplies its own GENERIC_SKIP_PROMPT/GENERIC_SKIP_DIRECTION strings for that null case so the card never renders empty."
+        "2026-07-15: NEW FILE \u2014 New component. Calls suggestRecordingPrompt(attrs) unmodified. Since suggestRecordingPrompt() returns null for the true zero-selection case (hasMeaningfulAttrs gate) -- distinct from composeFallback(), which only runs once some attrs are set but none score a close match, and always returns a real prompt -- this component supplies its own GENERIC_SKIP_PROMPT/GENERIC_SKIP_DIRECTION strings for that null case so the card never renders empty.",
+        "2026-07-17: doc comment updated -- the composed path now yields a full cueComposer.ts passage; rendering unchanged (prompt + direction note)."
       ]
     },
     "frontend/src/pages/VoiceLab/components/record/RecordControls.tsx": {
@@ -1626,7 +1634,8 @@
         "2026-07-15 (round2 plan-coverage F3.1): inline CLASS/GENDER/AGE combobox header labels tinted to their pill hue via categoryForAttributeKey.",
         "2026-07-15 (voice-variant-tagging-and-ia task001): threads voice metadata into IconUpload's copy-prompt button (superseded by task003's relocation above).",
         "Flagged (round2 task007, not yet fixed as of that task): a stale-fallback-id bug can permanently disable Save via requiredMissing when VoiceLabPage's metadata list hydrates asynchronously after first paint -- see docs/code-map/queue history / design-critique follow-ups for status.",
-        "2026-07-15: NEW FILE \u2014 New component: same state shape/handlers as MetadataEditorModal (attrs, tags, description, languages, iconPath, saving, error, iconError), same handleSave -> api.patchVoiceMetadata(voice.id, patch), same requiredMissing gating. Renders IconUpload, description textarea, languages input, OneSelect x5, ManySelect x6, TagsInput, error banner, and an explicit Save button -- no dialog chrome, no useFocusTrap, no Escape handling. Explicit-Save (not autosave-on-change) was chosen and documented in the file's header comment: no debounce infra exists, autosave-per-field-change would spam PATCH calls, and would lose the single commit point needed to surface 422 errors cleanly."
+        "2026-07-15: NEW FILE \u2014 New component: same state shape/handlers as MetadataEditorModal (attrs, tags, description, languages, iconPath, saving, error, iconError), same handleSave -> api.patchVoiceMetadata(voice.id, patch), same requiredMissing gating. Renders IconUpload, description textarea, languages input, OneSelect x5, ManySelect x6, TagsInput, error banner, and an explicit Save button -- no dialog chrome, no useFocusTrap, no Escape handling. Explicit-Save (not autosave-on-change) was chosen and documented in the file's header comment: no debounce infra exists, autosave-per-field-change would spam PATCH calls, and would lose the single commit point needed to surface 422 errors cleanly.",
+        "2026-07-17: passes the voice's current attrs state to ArchetypeQuickPick so the library narrows by the voice's existing metadata."
       ]
     },
     "frontend/src/pages/VoiceLab/components/VariantsTab.tsx": {
@@ -1651,6 +1660,46 @@
         "2026-07-15 (round2 task009): slimmed to a thin VariantsSection wrapper -- removed the promoted default-variant-only VoiceSettingsPanel (now redundant with VariantEditor's own per-variant version) and all its settings-related props.",
         "2026-07-15 (task004, original creation): also promoted a VoiceSettingsPanel for the voice's default variant, since per-voice plugin settings had no other reachable home at the time."
       ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/VoiceLab/iconPromptFragments.ts": {
+      "purpose": "Pure visual-fragment vocabulary + composer turning taxonomy values into portrait visual descriptors (2026-07-17, square-portrait-icon-prompt)",
+      "exports": [
+        {
+          "name": "CLASS_VISUALS, AGE_VISUALS, GENDER_VISUALS, TONE_VISUALS, TIMBRE_VISUALS",
+          "kind": "const",
+          "contract": "Record<string,string> maps; gender presentation-only, never stereotyped wardrobe"
+        },
+        {
+          "name": "visualFragmentsForAttributes",
+          "kind": "function",
+          "contract": "(attrs, exclude?) -> {subject, details}; exclude suppresses values already expressed by a matched archetype; unknown values pass through as keywords; gender not-applicable renders nothing"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/VoiceLab/iconPrompt.ts",
+        "frontend/src/pages/VoiceLab/imagePromptComposer.ts"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/VoiceLab/imagePromptComposer.ts": {
+      "purpose": "Mad-lib composed image-description builder for the non-archetype-match icon-prompt path (2026-07-17, default-portrait-tooling)",
+      "exports": [
+        {
+          "name": "composeImageDescription",
+          "kind": "function",
+          "contract": "(attrs) -> string. Reuses iconPromptFragments.ts's vocab unchanged; sentence structure varies by class and by tone/timbre count (0/1/2/3+), mirroring cueComposer.ts's philosophy instead of a flat semicolon-join."
+        }
+      ],
+      "calls": [
+        "frontend/src/pages/VoiceLab/iconPromptFragments.ts#visualFragmentsForAttributes"
+      ],
+      "called_by": [
+        "frontend/src/pages/VoiceLab/iconPrompt.ts"
+      ],
+      "notes": [],
       "calls_inferred": []
     }
   }

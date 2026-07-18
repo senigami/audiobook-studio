@@ -106,7 +106,9 @@
         "app/tts_server/health.py#call_check_env",
         "app/tts_server/plugin_validation.py#validate_studio_handlers",
         "app/tts_server/settings_store.py#*",
-        "app/utils/text/textops_cleaning.py"
+        "app/utils/text/textops_cleaning.py",
+        "studio_plugin_sdk/__init__.py#*",
+        "app/tts_server/plugin_manifest.py#*"
       ],
       "called_by": [
         "app/studio_plugin_sdk/context.py",
@@ -115,9 +117,11 @@
         "app/orchestration/progress/service.py"
       ],
       "notes": [
-        "registers studio_plugin_sdk as sys.modules alias at import time",
         "AST-based import gate rejects module-level app.* imports in plugin handlers",
-        "manifest requires contract_version/sdk_version/settings_schema_version/event_envelope_version"
+        "manifest requires contract_version/sdk_version/settings_schema_version/event_envelope_version",
+        "2026-07-16 (010 SDK inversion task 02): the _register_sdk_alias sys.modules hack was DELETED -- `import studio_plugin_sdk` now resolves ONLY via the real top-level package; no alias, no dual module objects.",
+        "2026-07-16 (simplification-005): manifest parsing/validation (_load_manifest, _validate_manifest, _load_optional_json, _check_dependencies, get_manifest_max_concurrent_workers) extracted to app/tts_server/plugin_manifest.py (998->738 lines); this module keeps instantiation/registry (LoadedPlugin, discover_plugins, _load_plugin, _import_engine_class, _validate_engine_signatures, get_plugin_dir).",
+        "2026-07-17 (BUG 1 fix): _load_plugin step 6 skips _check_dependencies (treats deps_ok=True) when the manifest declares dependency_check=\"external\" (see plugin_manifest.py#_validate_manifest and plugin-contract.md v1.8.0) -- fixes XTTS being permanently gated needs_setup because the server-venv dependency check queried the wrong interpreter (real inference always shells out to XTTS_ENV_PYTHON as a subprocess)."
       ],
       "calls_inferred": []
     },
@@ -147,7 +151,8 @@
       "notes": [
         "LF-7 (2026-07-04): extracted from app/tts_server/server.py (1351->914 lines) — every containment/symlink check preserved verbatim, route decorators stay in server.py as thin wrappers per its 'sole HTTP boundary' docstring",
         "_staging dict + _staging_lock (module-level) are the two-phase preview/confirm token store — tests reset via monkeypatch.setattr(plugin_staging_mod, '_staging', {}), NOT server_mod._staging",
-        "reaches back into server.py only via lazy 'from app.tts_server import server as _server' inside functions (not module-level) so monkeypatch.setattr(server_mod, 'load_plugins', ...) in tests still intercepts the reload call correctly"
+        "reaches back into server.py only via lazy 'from app.tts_server import server as _server' inside functions (not module-level) so monkeypatch.setattr(server_mod, 'load_plugins', ...) in tests still intercepts the reload call correctly",
+        "2026-07-16 (010 task 16, test seam only): preview_github_repo is now a thin wrapper -- extracted _clone_and_stage(git_url, plugins_dir) as its post-validation body; preview_github_repo = _clone_and_stage(_normalize_github_repo_url(git_url), plugins_dir). URL validation unchanged (still rejects everything except https://github.com/<owner>/<repo>)."
       ],
       "calls_inferred": [
         "app/tts_server/server.py#load_plugins (lazy, function-local import, avoids circular import)"
@@ -204,7 +209,8 @@
         "task cancellation cooperative via /tasks/{id}/cancel",
         "COR-B-4 (2026-07-16): _cancelled_tasks changed from a bare set[str] to a dict[str, float] (task_id -> cancellation monotonic timestamp). cancel_task now sweeps entries older than _CANCELLED_TASK_TTL_SECONDS (300s) on every call via _sweep_cancelled_tasks. Previously the set was only cleaned in the /synthesize finally block for a matching task_id, so a task cancelled but never synthesized (a fan-out child cancelled before its own /synthesize, or a job cancelled while still queued) left a permanent entry -- unbounded growth over uptime. _is_task_cancelled semantics unchanged within the TTL window.",
         "LF-7 (2026-07-04): plugin import/staging pipeline (zip upload, GitHub-repo preview, confirm/cancel, containment/symlink checks, _staging store) extracted to app/tts_server/plugin_staging.py (1351->914 lines); route decorators stay here as thin wrappers per this module's 'sole HTTP boundary' docstring",
-        "BE-4 (2026-07-04): /synthesize's timing_dict computation now calls app/utils/render_timing.py#derive_segment_timing_fields instead of an inline duplicate formula; model_load_seconds computation (None-default) stays local, deliberately not shared with orchestrator_helpers.py's 0.0-default version"
+        "BE-4 (2026-07-04): /synthesize's timing_dict computation now calls app/utils/render_timing.py#derive_segment_timing_fields instead of an inline duplicate formula; model_load_seconds computation (None-default) stays local, deliberately not shared with orchestrator_helpers.py's 0.0-default version",
+        "2026-07-17 (BUG 1 fix): POST /engines/{id}/install now refuses (400) for dependency_check=\"external\" engines instead of pip-installing their requirements.txt into the server's own venv."
       ],
       "calls_inferred": [
         "app/db/performance.py#record_render_sample",
@@ -252,6 +258,36 @@
       "notes": [
         "delegates test execution to plugin.engine.run_test()",
         "no automatic verification on startup"
+      ],
+      "calls_inferred": []
+    },
+    "app/tts_server/plugin_manifest.py": {
+      "purpose": "Manifest parsing, validation, dependency-check, and concurrency-limit surface (split out of plugin_loader.py, 2026-07-16)",
+      "exports": [
+        {
+          "name": "_load_manifest, _load_optional_json, get_manifest_max_concurrent_workers",
+          "kind": "function"
+        },
+        {
+          "name": "_validate_manifest",
+          "kind": "function",
+          "contract": "validates manifest shape/versions. 2026-07-16: optional top-level distribution block (host/base_url/repo/git_url/topic strings, pin_ref string-or-null, official bool) validated when present via new _validate_distribution(), no field required. 2026-07-17 (BUG 1): also validates optional dependency_check field (must be \"external\" when present, plugin-contract.md v1.8.0). W-PERF: also validates optional behavior.export_format (enum) and behavior.supports_per_span_voice/supports_emotion_style/supports_prosody/supports_break (booleans) when present."
+        },
+        {
+          "name": "_check_dependencies",
+          "kind": "function"
+        },
+        {
+          "name": "_validate_distribution, _validate_sanitize_categories",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "app/tts_server/plugin_loader.py"
+      ],
+      "notes": [
+        "split out of plugin_loader.py (998->738 lines) following the plugin_staging.py precedent (one file per pipeline stage)"
       ],
       "calls_inferred": []
     }

@@ -563,7 +563,8 @@
       "notes": [
         "2026-07-12: Regenerated from voice_archetypes.json: RecordingArchetype interface gains sample_text: string; every one of the 39 records gets the new field.",
         "Update both this const and the source JSON when the archetype table changes.",
-        "2026-07-10: Frontend-bundled copy of the 39 curated voice archetype rows (design-docs/reference/voice-archetypes/voice_archetypes.json) \u2014 hand-maintained TS const, same bundling convention as taxonomy.ts."
+        "2026-07-10: Frontend-bundled copy of the 39 curated voice archetype rows (design-docs/reference/voice-archetypes/voice_archetypes.json) \u2014 hand-maintained TS const, same bundling convention as taxonomy.ts.",
+        "2026-07-17: expanded 39->103 entries (64 new archetypes across 8 genre buckets -- gothic/horror, sci-fi/space, fantasy/myth, folklore/trickster, historical, pulp/superhero/crime, adventure/RPG, post-apocalyptic/cyberpunk). Regenerated from design-docs/reference/voice-archetypes/voice_archetypes.json (now the source of truth, not the original xlsx). Pre-existing 39 entries byte-identical; appearance_description strings for 29 of the original 39 were separately rewritten portrait-safe (head-and-shoulders framing only, no below-the-chest anatomy) as part of the square-portrait icon-prompt work."
       ],
       "calls_inferred": []
     },
@@ -599,11 +600,17 @@
         {
           "name": "SuggestionResult",
           "kind": "type"
+        },
+        {
+          "name": "scoreArchetype",
+          "kind": "function",
+          "contract": "2026-07-17: exported (was module-private) so ArchetypeQuickPick.tsx can rank all archetypes by the user's current attribute selections without reimplementing scoring. No behavior change."
         }
       ],
       "calls": [
         "frontend/src/pages/Voices/components/metadata/recordingArchetypes.ts",
-        "frontend/src/pages/Voices/components/metadata/recordingFragments.ts"
+        "frontend/src/pages/Voices/components/metadata/recordingFragments.ts",
+        "frontend/src/pages/Voices/components/metadata/cueComposer.ts#composeCuePassage"
       ],
       "called_by": [
         "frontend/src/pages/Voices/components/ScriptEditor.tsx",
@@ -614,7 +621,8 @@
         "2026-07-12: SuggestionResult gains sampleText: string | null. suggestRecordingPrompt() returns the matched archetype's sample_text when confidence is close/exact; composeFallback() (the no-close-match path) always returns sampleText: null -- deliberately no composed fallback for spoken sample text, since an invented line is worse than leaving whatever's already set alone.",
         "Returns null when attrs is absent/empty \u2014 caller (ScriptEditor.tsx) disables its Suggest button in that case rather than showing a generic suggestion.",
         "Thresholds are named constants (EXACT_THRESHOLD=10, CLOSE_THRESHOLD=6 of a 12-point max) validated against the real 39-archetype data before tests were written.",
-        "2026-07-10: suggestRecordingPrompt(attrs) \u2014 scores VoiceAttributes against the 39 archetypes (class/gender/age exact-match + tone/timbre Jaccard overlap + pace); exact/close match returns that archetype's prompt verbatim, otherwise composes a fallback from a Class-opening line + Pace-cue + tone/timbre fragments. Pure, no API call \u2014 mirrors iconPrompt.ts's buildIconPrompt() pattern."
+        "2026-07-10: suggestRecordingPrompt(attrs) \u2014 scores VoiceAttributes against the 39 archetypes (class/gender/age exact-match + tone/timbre Jaccard overlap + pace); exact/close match returns that archetype's prompt verbatim, otherwise composes a fallback from a Class-opening line + Pace-cue + tone/timbre fragments. Pure, no API call \u2014 mirrors iconPrompt.ts's buildIconPrompt() pattern.",
+        "2026-07-17: composeFallback() now delegates to cueComposer.ts#composeCuePassage -- SuggestionResult.sampleText is now populated on the composed path too (previously always null there). Archetype-match path/scoring/thresholds/exports otherwise unchanged. Doc-comment archetype count updated 39->103."
       ],
       "calls_inferred": []
     },
@@ -811,7 +819,7 @@
       "calls_inferred": []
     },
     "frontend/src/pages/Voices/components/metadata/ArchetypeQuickPick.tsx": {
-      "purpose": "Shared combobox over the 39-row voice archetype table (recordingArchetypes.ts): picking an archetype name fills class/gender/age/tone/timbre/pace at once. Bare picker with no local selection state -- the caller's own fields are the only source of truth. Owner-confirmed: a pick OVERWRITES all six fields unconditionally (a deliberate reset), never merges with whatever was already set.",
+      "purpose": "Ranked character-library dropdown over the recordingArchetypes table (103 rows as of 2026-07-17, was 39). Rewritten 2026-07-17 from a flat SearchableSelect combobox: new optional attrs? prop ranks archetypes by the shared scoreArchetype() (recordingPromptSuggester.ts) when the caller's current selections have any value, sectioned into 'Best matches' (score>=CLOSE_THRESHOLD) and 'All characters' -- narrowing never hides entries. No attrs -> alphabetical searchable list (prior behavior). onPick contract unchanged (overwrites all 6 fields).",
       "exports": [
         {
           "name": "ArchetypeQuickPick",
@@ -820,11 +828,22 @@
         {
           "name": "ArchetypeQuickPickFields, ArchetypeQuickPickProps",
           "kind": "type"
+        },
+        {
+          "name": "rankArchetypes, matchTier, hasMeaningfulAttrs",
+          "kind": "function",
+          "contract": "2026-07-17: exported ranking/narrowing primitives (RankedArchetype, ArchetypeMatchTier types)"
+        },
+        {
+          "name": "PortraitThumbnail (internal), dev-only copy-visual-prompt button",
+          "kind": "component",
+          "contract": "2026-07-17 (default-portrait-tooling): each row gained a thumbnail looked up at defaultPortraitPath(archetype) (silently renders nothing on 404) and a 'copy visual prompt' button gated behind useDevMode() -- never shown to ordinary users"
         }
       ],
       "calls": [
-        "frontend/src/components/forms/SearchableSelect.tsx",
         "frontend/src/pages/Voices/components/metadata/recordingArchetypes.ts",
+        "frontend/src/pages/Voices/components/metadata/recordingPromptSuggester.ts#scoreArchetype",
+        "frontend/src/pages/Voices/components/metadata/simpleArchetypeIcon.ts#defaultPortraitPath",
         "frontend/src/types/index.ts"
       ],
       "called_by": [
@@ -834,6 +853,39 @@
       "notes": [
         "2026-07-16 (owner-requested, NEW FILE): wired into OverviewTab.tsx (above the ATTRIBUTES section, overwrites class/gender/age -- tone/timbre/pace since moved to per-variant VariantEditor editing by the later 0c7a97bd commit) and ArchetypePicker.tsx (above its 6 fields, overwrites all six, a fast start for a Record-mode session)."
       ],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/components/metadata/cueComposer.ts": {
+      "purpose": "Mad-lib cue composition engine: a real slot-based read-aloud passage that mutates with taxonomy selections (2026-07-17)",
+      "exports": [
+        {
+          "name": "composeCuePassage",
+          "kind": "function",
+          "contract": "(attrs: VoiceAttributes) -> ComposedCue {passage, sampleText, directionNote}. 8 tone theme families (majority-count pick, declaration-order tie-break) x 5 class frames x 24 timbre texture pairs; pace restructures sentence shape; light age tint; gender deliberately no-op. Pure, deterministic. Replaces the thin composeFallback direction-only string recordingPromptSuggester.ts previously produced."
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Voices/components/metadata/recordingPromptSuggester.ts"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/pages/Voices/components/metadata/simpleArchetypeIcon.ts": {
+      "purpose": "Canonical, reusable per-archetype DEFAULT-PORTRAIT prompt + filename-slug generator (2026-07-17, default-portrait-tooling)",
+      "exports": [
+        {
+          "name": "buildSimpleArchetypeIconPrompt, slugifyArchetypeName, defaultPortraitPath",
+          "kind": "function",
+          "contract": "deliberately flat/generic, never reads appearance_description -- every user who never customizes a voice sees the SAME pre-generated default image per archetype, distinct from iconPrompt.ts#buildIconPrompt's detailed per-person prompt. Main consumers are the dev-only export script and ArchetypeQuickPick's image-lookup-by-slug."
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/pages/Voices/components/metadata/ArchetypeQuickPick.tsx",
+        "frontend/scripts/exportArchetypePortraitPrompts.ts"
+      ],
+      "notes": [],
       "calls_inferred": []
     }
   }

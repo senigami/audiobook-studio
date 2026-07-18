@@ -233,7 +233,8 @@
         "2026-07-10: updateSegment's data param gained an optional text_content field (Revise mode's commit path) \u2014 additive, backend already accepted it via update_segment's untyped **updates.",
         "2026-07-10: Unified REST API client with fetch-based transport and response parsing",
         "2026-07-10: fetchChapter(chapterId, projectId?) now appends ?project_id=... when a projectId is supplied.",
-        "2026-07-12: added SystemResourcesResponse type + api.fetchSystemResources() (GET /api/system/resources)."
+        "2026-07-12: added SystemResourcesResponse type + api.fetchSystemResources() (GET /api/system/resources).",
+        "2026-07-16 (PR brief 08): added api.exportChapterVideo(chapterId, {projectId?, orientation?, duration?}) -> Blob, POSTing to /api/chapters/{id}/export-video. The prior api.exportSample (audio-URL) is now unused by any caller (candidate for follow-up cleanup)."
       ],
       "calls_inferred": [
         "@/api/types#RenderGroupsResponse",
@@ -268,6 +269,45 @@
       "calls": [],
       "called_by": [
         "frontend/src/api/index.ts"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/api/contracts/chapterTiming.ts": {
+      "purpose": "Typed chapter_segment_timing contract matching the backend schema exactly (synced_reader Task 7)",
+      "exports": [
+        {
+          "name": "ChapterTimingPayload, ChapterTimingGroup",
+          "kind": "type",
+          "contract": "mirrors app/domain/chapters/timing.py's ChapterGroupTiming/ChapterGroupTimingEntry field-for-field"
+        },
+        {
+          "name": "parseChapterTimingPayload",
+          "kind": "function",
+          "contract": "shallow shape validator, mirrors peaksSidecar.ts's parsePeaksSidecar"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "frontend/src/api/fetchChapterTiming.ts"
+      ],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "frontend/src/api/fetchChapterTiming.ts": {
+      "purpose": "Fetches the Task 5 timing serving route (synced_reader Task 7)",
+      "exports": [
+        {
+          "name": "fetchChapterTiming",
+          "kind": "function",
+          "contract": "(projectId, chapterId) -> validated ChapterTimingPayload | null on any 404/network/shape failure. Mirrors fetchPeaksSidecar.ts."
+        }
+      ],
+      "calls": [
+        "frontend/src/api/contracts/chapterTiming.ts#parseChapterTimingPayload"
+      ],
+      "called_by": [
+        "frontend/src/hooks/useChapterTiming.ts"
       ],
       "notes": [],
       "calls_inferred": []

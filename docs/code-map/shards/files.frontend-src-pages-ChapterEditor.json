@@ -488,6 +488,11 @@
         {
           "name": "ScriptView",
           "kind": "component"
+        },
+        {
+          "name": "snapOffsetToWordBoundary",
+          "kind": "function",
+          "contract": "INV-SNAP-2 (2026-07-17): UX-preview twin of the backend's _snap_offset_to_word_boundary (app/domain/chapters/operations.py) -- handleSelection() snaps range.startOffset/endOffset against each endpoint's own span text before setPendingSelection; must stay algorithmically identical to the backend (comments in both files cross-reference the other). Backend is the authoritative enforcement point regardless of what this preview computes."
         }
       ],
       "calls": [

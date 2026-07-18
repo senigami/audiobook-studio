@@ -1,246 +1,249 @@
 {
- "files": {
-  "app/utils/__init__.py": {
-   "purpose": "Empty module marker",
-   "exports": [],
-   "calls": [],
-   "called_by": [
-    "app/api/routers/voices_actions.py",
-    "app/api/routers/voices_management.py"
-   ],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "app/utils/pathing.py": {
-   "purpose": "Path traversal-safe file access helpers",
-   "exports": [
-    {
-     "name": "contained_path, safe_basename, safe_stem, safe_join, safe_join_flat, find_secure_file, secure_join_flat",
-     "kind": "function"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "app/api/routers/analysis.py",
-    "app/api/routers/generation.py",
-    "app/api/routers/projects_backups.py",
-    "app/api/routers/projects_helpers.py",
-    "app/api/routers/system.py",
-    "app/api/routers/voices_bundles.py",
-    "app/api/routers/voices_huggingface.py",
-    "app/core/config.py"
-   ],
-   "notes": [
-    "SECURITY: abspath+realpath+startswith barrier pattern recognized by static analyzers",
-    "find_secure_file enumerates root matching entry.name to prevent TOCTOU"
-   ],
-   "calls_inferred": []
-  },
-  "app/utils/render_timing.py": {
-   "purpose": "Shared segment-render timing math (synthesis_duration/sum_segment_render/inter_group_overhead), deliberately outside both app.tts_server and app.orchestration",
-   "exports": [
-    {
-     "name": "get_timing_val",
-     "kind": "function",
-     "contract": "reads `key` from a timing payload that may be a dict or an object"
+  "files": {
+    "app/utils/__init__.py": {
+      "purpose": "Empty module marker",
+      "exports": [],
+      "calls": [],
+      "called_by": [
+        "app/api/routers/voices_actions.py",
+        "app/api/routers/voices_management.py"
+      ],
+      "notes": [],
+      "calls_inferred": []
     },
-    {
-     "name": "derive_segment_timing_fields",
-     "kind": "function",
-     "contract": "(chapter_render_started_at, chapter_render_completed_at, segments) -> (synthesis_duration_seconds, sum_segment_render_seconds, inter_group_overhead_seconds)"
-    }
-   ],
-   "calls": [],
-   "called_by": [],
-   "notes": [
-    "BE-4 (2026-07-04): extracted to dedupe identical formula computed independently in server.py's /synthesize response and orchestrator_helpers.py's _record_render_stats_inner",
-    "deliberately does NOT include model_load_seconds -- server.py defaults it to None (no engine-activity timestamp), orchestrator_helpers.py has always defaulted it to 0.0; a real, pre-existing divergence preserved on purpose, not unified",
-    "kept outside app.tts_server and app.orchestration so neither process-boundary side imports the other's internals (system-architecture.md two-process model)"
-   ],
-   "calls_inferred": []
-  },
-  "app/utils/render_trace.py": {
-   "purpose": "Structured diagnostics for render lifecycle when STUDIO_RENDER_TRACE enabled",
-   "exports": [
-    {
-     "name": "is_enabled, trace",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/core/config.py#TRANSIENT_DIR"
-   ],
-   "called_by": [
-    "app/api/routers/generation.py",
-    "app/domain/chapters/operations.py",
-    "app/orchestration/scheduler/orchestrator_publish.py"
-   ],
-   "notes": [
-    "thread-safe via _LOCK",
-    "no exception on I/O failure"
-   ],
-   "calls_inferred": []
-  },
-  "app/utils/socket_trace.py": {
-   "purpose": "Logs outbound WebSocket frames to JSONL when STUDIO_SOCKET_TRACE set",
-   "exports": [
-    {
-     "name": "trace_outbound_socket_frame",
-     "kind": "function"
-    }
-   ],
-   "calls": [],
-   "called_by": [],
-   "notes": [
-    "no-op on write failure"
-   ],
-   "calls_inferred": []
-  },
-  "app/utils/subprocess_utils.py": {
-   "purpose": "Subprocess utilities for audio probing and output handling",
-   "exports": [
-    {
-     "name": "coerce_subprocess_output, write_subprocess_output, probe_audio_duration",
-     "kind": "function"
+    "app/utils/pathing.py": {
+      "purpose": "Path traversal-safe file access helpers",
+      "exports": [
+        {
+          "name": "contained_path, safe_basename, safe_stem, safe_join, safe_join_flat, find_secure_file, secure_join_flat",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "app/api/routers/analysis.py",
+        "app/api/routers/generation.py",
+        "app/api/routers/projects_backups.py",
+        "app/api/routers/projects_helpers.py",
+        "app/api/routers/system.py",
+        "app/api/routers/voices_bundles.py",
+        "app/api/routers/voices_huggingface.py",
+        "app/core/config.py"
+      ],
+      "notes": [
+        "SECURITY: abspath+realpath+startswith barrier pattern recognized by static analyzers",
+        "find_secure_file enumerates root matching entry.name to prevent TOCTOU"
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "probe_audio_stream_info",
-     "kind": "function",
-     "contract": "(audio_path) -> (sample_rate:int, channels:int); mirrors probe_audio_duration's error-handling shape (returns (0,0) on any ffprobe failure, never raises)."
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "app/engines/audio_ops.py",
-    "app/orchestration/scheduler/orchestrator_helpers.py"
-   ],
-   "notes": [
-    "probe_audio_duration silently returns 0.0 on ffprobe failure"
-   ],
-   "calls_inferred": []
-  },
-  "app/utils/text/__init__.py": {
-   "purpose": "Empty module marker for text subpackage",
-   "exports": [],
-   "calls": [],
-   "called_by": [],
-   "notes": [],
-   "calls_inferred": []
-  },
-  "app/utils/text/lexicon.py": {
-   "purpose": "Project-level pronunciation lexicon substitution",
-   "exports": [
-    {
-     "name": "apply_lexicon",
-     "kind": "function"
-    }
-   ],
-   "calls": [],
-   "called_by": [
-    "tts_engines/tts_mixed/handler.py",
-    "tts_engines/tts_voxtral/plugin/studio/handler.py",
-    "tts_engines/tts_voxtral/plugin/studio/segments.py",
-    "tts_engines/tts_xtts/plugin/studio/bake.py",
-    "tts_engines/tts_xtts/plugin/studio/segments.py",
-    "tts_engines/tts_xtts/plugin/studio/standard_handler.py"
-   ],
-   "notes": [
-    "ZERO-IMPACT INVARIANT: empty entries returns text unchanged",
-    "whole-word case-insensitive regex substitution, project scope only"
-   ],
-   "calls_inferred": []
-  },
-  "app/utils/text/textops.py": {
-   "purpose": "Centralized text statistics and chapter metrics API",
-   "exports": [
-    {
-     "name": "get_text_stats, compute_chapter_metrics",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/engines/behavior.py#DEFAULT_BASELINE_ENGINE_CPS,DEFAULT_SENT_CHAR_LIMIT",
-    "app/utils/text/textops_cleaning.py#*",
-    "app/utils/text/textops_helpers.py#*",
-    "app/utils/text/textops_splitting.py#*"
-   ],
-   "called_by": [
-    "app/domain/chunk_groups.py",
-    "tts_engines/tts_mixed/handler.py",
-    "tts_engines/tts_xtts/plugin/studio/bake.py",
-    "tts_engines/tts_xtts/plugin/studio/segments.py",
-    "tts_engines/tts_xtts/plugin/studio/standard_handler.py"
-   ],
-   "notes": [
-    "re-exports public functions from sibling modules as unified API"
-   ],
-   "calls_inferred": []
-  },
-  "app/utils/text/textops_cleaning.py": {
-   "purpose": "TTS text normalization: punctuation/quote/acronym/ASCII sanitization",
-   "exports": [
-    {
-     "name": "clean_text_for_tts, consolidate_single_word_sentences, sanitize_text, pack_text_to_limit",
-     "kind": "function"
+    "app/utils/render_timing.py": {
+      "purpose": "Shared segment-render timing math (synthesis_duration/sum_segment_render/inter_group_overhead), deliberately outside both app.tts_server and app.orchestration",
+      "exports": [
+        {
+          "name": "get_timing_val",
+          "kind": "function",
+          "contract": "reads `key` from a timing payload that may be a dict or an object"
+        },
+        {
+          "name": "derive_segment_timing_fields",
+          "kind": "function",
+          "contract": "(chapter_render_started_at, chapter_render_completed_at, segments) -> (synthesis_duration_seconds, sum_segment_render_seconds, inter_group_overhead_seconds)"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "BE-4 (2026-07-04): extracted to dedupe identical formula computed independently in server.py's /synthesize response and orchestrator_helpers.py's _record_render_stats_inner",
+        "deliberately does NOT include model_load_seconds -- server.py defaults it to None (no engine-activity timestamp), orchestrator_helpers.py has always defaulted it to 0.0; a real, pre-existing divergence preserved on purpose, not unified",
+        "kept outside app.tts_server and app.orchestration so neither process-boundary side imports the other's internals (system-architecture.md two-process model)"
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "SANITIZE_CATEGORIES, DEFAULT_CATEGORY_ORDER",
-     "kind": "constant"
-    }
-   ],
-   "calls": [
-    "app/utils/text/textops_helpers.py#preprocess_text",
-    "app/utils/text/textops_splitting.py#split_sentences"
-   ],
-   "called_by": [
-    "app/engines/behavior.py",
-    "app/studio_plugin_sdk/context.py",
-    "app/tts_server/plugin_loader.py"
-   ],
-   "notes": [
-    "SECURITY: regex quantifiers bounded {1,500} to prevent ReDoS",
-    "smart quotes -> straight -> stripped"
-   ],
-   "calls_inferred": []
-  },
-  "app/utils/text/textops_helpers.py": {
-   "purpose": "Foundational text preprocessing utilities",
-   "exports": [
-    {
-     "name": "CHAPTER_RE",
-     "kind": "constant"
+    "app/utils/render_trace.py": {
+      "purpose": "Structured diagnostics for render lifecycle when STUDIO_RENDER_TRACE enabled",
+      "exports": [
+        {
+          "name": "is_enabled, trace",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/core/config.py#TRANSIENT_DIR"
+      ],
+      "called_by": [
+        "app/api/routers/generation.py",
+        "app/domain/chapters/operations.py",
+        "app/orchestration/scheduler/orchestrator_publish.py"
+      ],
+      "notes": [
+        "thread-safe via _LOCK",
+        "no exception on I/O failure"
+      ],
+      "calls_inferred": []
     },
-    {
-     "name": "normalize_newlines, preprocess_text, safe_filename, format_duration",
-     "kind": "function"
+    "app/utils/socket_trace.py": {
+      "purpose": "Logs outbound WebSocket frames to JSONL when STUDIO_SOCKET_TRACE set",
+      "exports": [
+        {
+          "name": "trace_outbound_socket_frame",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "no-op on write failure"
+      ],
+      "calls_inferred": []
+    },
+    "app/utils/subprocess_utils.py": {
+      "purpose": "Subprocess utilities for audio probing and output handling",
+      "exports": [
+        {
+          "name": "coerce_subprocess_output, write_subprocess_output, probe_audio_duration",
+          "kind": "function"
+        },
+        {
+          "name": "probe_audio_stream_info",
+          "kind": "function",
+          "contract": "(audio_path) -> (sample_rate:int, channels:int); mirrors probe_audio_duration's error-handling shape (returns (0,0) on any ffprobe failure, never raises)."
+        }
+      ],
+      "calls": [
+        "studio_plugin_sdk/proc.py#coerce_subprocess_output"
+      ],
+      "called_by": [
+        "app/engines/audio_ops.py",
+        "app/orchestration/scheduler/orchestrator_helpers.py"
+      ],
+      "notes": [
+        "probe_audio_duration silently returns 0.0 on ffprobe failure",
+        "2026-07-16 (010 SDK inversion task 03): coerce_subprocess_output MOVED to studio_plugin_sdk.proc; re-exported here for app callers (app/api/utils.py, write_subprocess_output)."
+      ],
+      "calls_inferred": []
+    },
+    "app/utils/text/__init__.py": {
+      "purpose": "Empty module marker for text subpackage",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [],
+      "calls_inferred": []
+    },
+    "app/utils/text/lexicon.py": {
+      "purpose": "Project-level pronunciation lexicon substitution",
+      "exports": [
+        {
+          "name": "apply_lexicon",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "tts_engines/tts_mixed/handler.py",
+        "tts_engines/tts_voxtral/plugin/studio/handler.py",
+        "tts_engines/tts_voxtral/plugin/studio/segments.py",
+        "tts_engines/tts_xtts/plugin/studio/bake.py",
+        "tts_engines/tts_xtts/plugin/studio/segments.py",
+        "tts_engines/tts_xtts/plugin/studio/standard_handler.py"
+      ],
+      "notes": [
+        "ZERO-IMPACT INVARIANT: empty entries returns text unchanged",
+        "whole-word case-insensitive regex substitution, project scope only"
+      ],
+      "calls_inferred": []
+    },
+    "app/utils/text/textops.py": {
+      "purpose": "Centralized text statistics and chapter metrics API",
+      "exports": [
+        {
+          "name": "get_text_stats, compute_chapter_metrics",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/engines/behavior.py#DEFAULT_BASELINE_ENGINE_CPS,DEFAULT_SENT_CHAR_LIMIT",
+        "app/utils/text/textops_cleaning.py#*",
+        "app/utils/text/textops_helpers.py#*",
+        "app/utils/text/textops_splitting.py#*"
+      ],
+      "called_by": [
+        "app/domain/chunk_groups.py",
+        "tts_engines/tts_mixed/handler.py",
+        "tts_engines/tts_xtts/plugin/studio/bake.py",
+        "tts_engines/tts_xtts/plugin/studio/segments.py",
+        "tts_engines/tts_xtts/plugin/studio/standard_handler.py"
+      ],
+      "notes": [
+        "re-exports public functions from sibling modules as unified API"
+      ],
+      "calls_inferred": []
+    },
+    "app/utils/text/textops_cleaning.py": {
+      "purpose": "TTS text normalization: punctuation/quote/acronym/ASCII sanitization",
+      "exports": [
+        {
+          "name": "clean_text_for_tts, consolidate_single_word_sentences, sanitize_text, pack_text_to_limit",
+          "kind": "function"
+        },
+        {
+          "name": "SANITIZE_CATEGORIES, DEFAULT_CATEGORY_ORDER",
+          "kind": "constant"
+        }
+      ],
+      "calls": [
+        "app/utils/text/textops_helpers.py#preprocess_text",
+        "app/utils/text/textops_splitting.py#split_sentences"
+      ],
+      "called_by": [
+        "app/engines/behavior.py",
+        "app/studio_plugin_sdk/context.py",
+        "app/tts_server/plugin_loader.py"
+      ],
+      "notes": [
+        "SECURITY: regex quantifiers bounded {1,500} to prevent ReDoS",
+        "smart quotes -> straight -> stripped"
+      ],
+      "calls_inferred": []
+    },
+    "app/utils/text/textops_helpers.py": {
+      "purpose": "Foundational text preprocessing utilities",
+      "exports": [
+        {
+          "name": "CHAPTER_RE",
+          "kind": "constant"
+        },
+        {
+          "name": "normalize_newlines, preprocess_text, safe_filename, format_duration",
+          "kind": "function"
+        }
+      ],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "preprocess_text destructive; applied before splitting"
+      ],
+      "calls_inferred": []
+    },
+    "app/utils/text/textops_splitting.py": {
+      "purpose": "Text segmentation: chapter/part splitting, sentence detection, long-sentence breaking, file export",
+      "exports": [
+        {
+          "name": "split_by_chapter_markers, split_into_parts, write_chapters_to_folder, split_sentences, safe_split_long_sentences, find_long_sentences",
+          "kind": "function"
+        }
+      ],
+      "calls": [
+        "app/engines/behavior.py#DEFAULT_SAFE_SPLIT_TARGET,DEFAULT_SENT_CHAR_LIMIT",
+        "app/utils/text/textops_helpers.py#*"
+      ],
+      "called_by": [
+        "app/studio_plugin_sdk/context.py"
+      ],
+      "notes": [
+        "greedy split preferring paragraph->newline->sentence->space boundaries"
+      ],
+      "calls_inferred": []
     }
-   ],
-   "calls": [],
-   "called_by": [],
-   "notes": [
-    "preprocess_text destructive; applied before splitting"
-   ],
-   "calls_inferred": []
-  },
-  "app/utils/text/textops_splitting.py": {
-   "purpose": "Text segmentation: chapter/part splitting, sentence detection, long-sentence breaking, file export",
-   "exports": [
-    {
-     "name": "split_by_chapter_markers, split_into_parts, write_chapters_to_folder, split_sentences, safe_split_long_sentences, find_long_sentences",
-     "kind": "function"
-    }
-   ],
-   "calls": [
-    "app/engines/behavior.py#DEFAULT_SAFE_SPLIT_TARGET,DEFAULT_SENT_CHAR_LIMIT",
-    "app/utils/text/textops_helpers.py#*"
-   ],
-   "called_by": [
-    "app/studio_plugin_sdk/context.py"
-   ],
-   "notes": [
-    "greedy split preferring paragraph->newline->sentence->space boundaries"
-   ],
-   "calls_inferred": []
   }
- }
 }
