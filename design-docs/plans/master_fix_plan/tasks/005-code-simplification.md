@@ -1,6 +1,12 @@
 # 005 — Code simplification (W2)
 
-**Status: NOT STARTED** — QW-6 dead-CSS removal (deferred from 001) is pending here; `CastPalette.tsx` is now 745 lines and needs the split called out in simplification/04. DC-1b remains gated on task 004 (RST-8). No sub-parts have been executed yet.
+**Status: MOSTLY DONE (2026-07-17)** — FE dead-code removal, styling separation (`components.css` →
+an 11-file split), large-file splits (incl. `ChapterHeader.tsx`), backend cleanup, and plugin SDK
+consolidation have all shipped (see `COMPLETED_WORK.md`). Remaining, per `REMAINING_TASKS.md`: LF-6
+(`progress/service.py` `enrich()` extraction, deliberately deferred to a supervised follow-up), BE-6
+(`app/jobs` package rename/move, deferred to its own dedicated session — widest blast radius in this
+phase), the four-way input-class consolidation, U10 z-index, and LF-1 (`useStudioChapter.ts` split,
+blocked on DC-1a — no payoff since DC-1b closed will-not-delete).
 
 **Goal:** the simplification refactor — remove FE dead code, separate styling, split oversized files,
 clean the backend, consolidate plugin duplication. Behavior-preserving.

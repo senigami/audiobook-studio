@@ -1,6 +1,6 @@
 # 008 — UX / A11y / Perf backlog (W7 + W8)
 
-**Status: PARTIAL (2026-06-21)** — breakdown:
+**Status: MOSTLY DONE (2026-07-17)** — breakdown:
 
 **DONE (A11y):** A4 icon-button aria-labels, A6 live regions, A7 JsonSchemaForm label association, A8 StatusOrb `role=img`, A10 landmarks/headings, A11 `--text-muted` contrast, A12 `prefers-reduced-motion`.
 
@@ -10,7 +10,9 @@
 
 **PENDING (A11y):** none — A11/A12 done *(done 2026-07-01 — `frontend/src/theme/tokens.css:35` light `#5c6a80` / `:266` dark `#8b95a8`; global `@media (prefers-reduced-motion: reduce)` block in `frontend/src/theme/base.css:1-16`)*.
 
-**PENDING (UX):** U1 undo toasts, U2 focus management, U4 startup experience, U5 queue-drawer affordances, U6 guided failure recovery, U7 ActionMenu correctness, U11 resync→queue flow, U12 cancel single queued job, U13 first-run onboarding, U14 route transitions.
+**DONE (UX):** U1 undo toasts, U2 focus management, U5 queue-drawer affordances, U6 guided failure recovery, U11 resync→queue flow, U12 cancel single queued job, U14 route transitions, and a responsive sweep (R6-T7) — see `COMPLETED_WORK.md`. U7 ActionMenu correctness was dropped from scope 2026-07-14 (no confirmed bug).
+
+**PENDING (UX):** U4 first-run/startup experience, U13 first-run onboarding — see `REMAINING_TASKS.md`.
 
 **Goal:** the cosmetic, accessibility, and performance polish items that gate release stages 5–6.
 **Authoritative sources:** [`final_release/10_ux_improvements.md`](../../active/final_release/10_ux_improvements.md)
