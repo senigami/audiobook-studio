@@ -265,8 +265,8 @@ and `samples/` sit at top level)." That means:
 ## 8. Open questions carried back to the product/spec docs
 
 The follow-through on these action items (the `upload_folder` switch, the generated README,
-engine-asset inclusion) is tracked as an executable plan at
-`design-docs/plans/active/huggingface_voice_upload/`.
+engine-asset inclusion) has shipped — see `design-docs/specs/voice-bundles.md`'s 1.7.0/1.8.0
+changelog entries.
 
 1. Should Studio's local `tts_voices/<id>/` on-disk layout be made to exactly match the Hub loose
    layout byte-for-byte (so `upload_folder` truly needs zero `ignore_patterns`), or will local

@@ -77,7 +77,7 @@ Can start in parallel with Stage 4 (different files); finish before Stage 6.
 
 ## Post-release backlog (explicitly NOT gating)
 
-**See [`design-docs/plans/post_release_backlog.md`](../../post_release_backlog.md)** — the
+**See `design-docs/plans/FUTURE_WORK.md`** — the
 canonical list of post-2.0 product/engineering ideas (ACX QA, audition panel, lexicon, dynamic
 VRAM-aware concurrency throttling, …), captured as they come up so nothing gets lost, scoped
 later when the owner picks one to schedule. Also not gating: doc 05's deferred rename

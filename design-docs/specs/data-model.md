@@ -350,7 +350,7 @@ Cross-reference: `audio-player.md` §5.4.
 
 ## Chapter timing sidecar (derived, finalization-produced artifact)
 
-Lets the Book-tab player-piano read-along reader (§ design-docs/plans/active/synced_reader/) track which rendered **chunk group** (the render unit consecutive same-character `chapter_segments` rows are merged into — see `app/domain/chunk_groups.py`) is currently playing, without any word-level estimation or forced alignment.
+Lets the Book-tab player-piano read-along reader (shipped; see `wiki/Changelog.md`) track which rendered **chunk group** (the render unit consecutive same-character `chapter_segments` rows are merged into — see `app/domain/chunk_groups.py`) is currently playing, without any word-level estimation or forced alignment.
 
 **Not a database or manifest field**, same reasoning as the peaks sidecar above: a self-describing, versioned sibling file, `<chapter_wav_stem>.timing.json` next to the chapter WAV.
 
@@ -390,7 +390,7 @@ Lets the Book-tab player-piano read-along reader (§ design-docs/plans/active/sy
 
 **Interaction with existing GC.** The per-book orphan-segment GC (`reconcile_orphan_segment_files_for_project`, `app/db/segment_gc.py`, see § Segment audio artifacts & orphan reconciliation above) only deletes files under a chapter's `segments/` dir — it does not touch chapter-level `.timing.json` sidecars living alongside the chapter WAV.
 
-Cross-reference: `design-docs/plans/active/synced_reader/` (design docs 00–04).
+Cross-reference: `wiki/Changelog.md` (read-along reader shipped 2026-07-17).
 
 ---
 

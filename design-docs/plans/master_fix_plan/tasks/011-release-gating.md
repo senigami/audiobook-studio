@@ -20,17 +20,25 @@ not automate or skip them.
   **SP9** spec-conformance cross-check pass (**gates the tag**), release notes + install matrix + version tag.
 - **Stage 6 — Resource cleanup before the squash merge (owner-decided 2026-06-20):** the working branch
   squash-merges to `main`, so all planning scaffolding can be stripped at release and never lands in
-  production history. **Delete:** `design-docs/plans/master_fix_plan/`, the open source plans it references
-  (`simplification/`, `book_view_redesign/`, `final_release/`, `audio_player_waveform_scrubber/`,
-  `master_agnostic_tasks.md`, etc.), and `design-docs/plans/_archive/`.
+  production history. **Partially done ahead of schedule (2026-07-17 doc-cleanup pass):** every
+  completed plan folder confirmed to have no spec citing its path was deleted already —
+  `design-docs/plans/_archive/` (except the one fragment `interface-localization.md` cites),
+  `COMPLETED_WORK_REPORT.md`, `MOVE_MAP.md`, and several completed `active/` folders; their
+  narrative now lives in the wiki changelog rather than a `COMPLETED_WORK_REPORT.md`. **Still to
+  delete at Stage 6:** `design-docs/plans/master_fix_plan/`, and the remaining open-source plan
+  folders once they too are done (`simplification/`, `final_release/`, `master_agnostic_tasks.md`, etc.).
   **KEEP (owner — still useful, to be linked from the in-app debug/hidden-pages section):** the
   **style guide** and the **demo/showcase + workup pages** (`frontend/src/demo/`, the `docs/demo/`
   build, the in-app styleguide route).
-  **Preserve as durable docs:** `design-docs/plans/COMPLETED_WORK_REPORT.md` (feeds wiki/changelog/highlights).
-  **Before deleting spec-cited plans, repoint or inline their provenance** — `design-docs/specs/` link into
-  several of them (`site_experience_north_star.md` ×9, `audio_player_scrubbing_waveform_proposal.md` ×3,
-  the `v2_*` provenance set, `site_redesign_rollout/`, `phases/phase_12_multilingual_*`); rewrite those
-  spec references to the report or remove the links so no spec is left with a dangling pointer.
+  **Before deleting any remaining spec-cited plan, repoint or inline its provenance first** —
+  `design-docs/specs/` still link into `reference/site_experience_north_star.md`,
+  `reference/audio_player_scrubbing_waveform_proposal.md`, the `reference/v2_*` set,
+  `reference/site_redesign_rollout/`, `_archive/phases/phase_12_multilingual_*`, and
+  `pr-dispatch/08-video-utils-decision.md`; rewrite those spec references or remove the links so no
+  spec is left with a dangling pointer. (`active/audio_player_waveform_scrubber/`,
+  `active/huggingface_voice_upload/`, and `active/synced_reader/` were already deleted and their
+  citations repointed to `wiki/Changelog.md` in the 2026-07-17 docs consolidation — no longer on
+  this list.)
 
 **Map links:** W12. Consumes outputs of W1/W2/W6/W7/W8/W9/W11. SP9 enforces INV-1 across all specs.
 Owner gates per INV-8.

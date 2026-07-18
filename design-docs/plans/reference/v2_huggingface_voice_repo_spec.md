@@ -9,9 +9,9 @@
 > For the implementation-level "how" of pushing this layout to the Hub (concrete
 > `huggingface_hub` API calls, LFS/Xet gotchas, auth UX, and whether `upload_folder` can point
 > straight at the local bundle dir), see
-> `design-docs/plans/reference/v2_huggingface_upload_implementation.md`. The active plan closing
-> the gap between this spec and the shipped code is
-> `design-docs/plans/active/huggingface_voice_upload/`.
+> `design-docs/plans/reference/v2_huggingface_upload_implementation.md`. The gap between this spec
+> and the shipped code has been closed — see `design-docs/specs/voice-bundles.md`'s 1.7.0/1.8.0
+> changelog entries.
 
 ## 1. Goal
 

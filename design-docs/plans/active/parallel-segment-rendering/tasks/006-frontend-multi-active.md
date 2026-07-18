@@ -123,7 +123,7 @@ Write these **before** the implementation; per **R1** each must fail on current 
 - `../01-map.md` — Part G (frontend multi-active), INV-1/INV-4/INV-5/INV-9, connection **D → progress service → G** (the two-layer wire path), Risk R-E.
 - `../00-overview.md` — Scope item 7 (frontend multi-active) and Scope OUT (Phase 2 visualizer deferred).
 - `../02-roadmap.md` — W-PAR task 006; depends on 003; blocks 007; milestone M-PAR-3.
-- W-MIX W4 precedent: `design-docs/plans/active/mixed-synthesis-fused-proposal/tasks/004-frontend-preparing-presentation.md` — the two-layer lesson that this task must not repeat as an omission.
+- W-MIX W4 precedent (plan folder since retired, task shipped): the two-layer lesson (`live-jobs.ts` extraction + overlay whitelist both need the new field, not just one) that this task must not repeat as an omission.
 - Phase-2 visualizer: `../10-phase2-render-monitor.md` — the dedicated block-field render monitor is out of scope here.
 
 ## Out of scope

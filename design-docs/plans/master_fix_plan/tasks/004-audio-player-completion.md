@@ -4,8 +4,8 @@
 
 **Goal:** finish the global audio player: make it **scope-agnostic and segment-aware**, and port the
 waveform-tape scrubber from the demo mock to the live app.
-**Authoritative sources:** [`audio_player_waveform_scrubber/`](../../active/audio_player_waveform_scrubber/README.md)
-W1–W3 (06-16) **+** [`simplification/07`](../../active/simplification/07_restore_lost_functionality.md) RST-8
+**Authoritative sources:** the waveform-scrubber port (W1–W3, 06-16, shipped — see `wiki/Changelog.md`)
+**+** [`simplification/07`](../../active/simplification/07_restore_lost_functionality.md) RST-8
 (segment-awareness, 06-19). **These two describe the same player — execute them together.**
 **Supersedes:** `audio_player_scrubbing_waveform_proposal.md` (archived).
 
