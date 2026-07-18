@@ -107,7 +107,7 @@ Execution plan: [active/performance_script_model_execution/](active/performance_
   (tree no longer dead — real routes/components depend on it).
   - [ ] Remaining gap: spans don't survive source-text resync — scoped in [proposals/span_resync_preservation.md](proposals/span_resync_preservation.md)
 
-- [~] **004** — Audio player + waveform scrubber — [task file](master_fix_plan/tasks/004-audio-player-completion.md) · [scrubber plan](active/audio_player_waveform_scrubber/README.md) · [completion plan](active/audio_player_completion_004/README.md)
+- [~] **004** — Audio player + waveform scrubber — [task file](master_fix_plan/tasks/004-audio-player-completion.md) · [completion plan](active/audio_player_completion_004/README.md) (waveform-scrubber plan shipped and removed; see `wiki/Changelog.md`)
   W1–W3 done: scope-agnostic player, PlayerBar tape wiring, peaks-sidecar source-swap,
   RST-8 segment/block navigation fix. "Play book" whole-book affordance dropped (duplicative of
   `ContinueListeningCard`).
@@ -184,7 +184,7 @@ Execution plan: [active/performance_script_model_execution/](active/performance_
   - [ ] Stage 6: Pinokio PK3 (publish wrapper — owner) · PK7 (demo bundle refresh, needs 007) · PK8 (smoke test macOS+Windows) · PK5/PK6/PK9/PK10 (update-flow hardening, deep-reset, version-pinning, bash-only doc)
   - [ ] Stage 6: SP9 spec-conformance cross-check pass *(gates the tag)*
   - [ ] Stage 6: release notes + install matrix + v2.0.0 tag
-  - [ ] Stage 6 cleanup: strip planning scaffolding before squash merge; **before deleting spec-cited plans, repoint provenance** — specs still link into `reference/site_experience_north_star.md`, `reference/audio_player_scrubbing_waveform_proposal.md`, the `reference/v2_*` set, `reference/site_redesign_rollout/`, `active/audio_player_waveform_scrubber/`, `active/huggingface_voice_upload/`, `active/synced_reader/`, `pr-dispatch/08-video-utils-decision.md`
+  - [ ] Stage 6 cleanup: strip planning scaffolding before squash merge; **before deleting spec-cited plans, repoint provenance** — specs still link into `reference/site_experience_north_star.md`, `reference/audio_player_scrubbing_waveform_proposal.md`, the `reference/v2_*` set, `reference/site_redesign_rollout/`, `pr-dispatch/08-video-utils-decision.md` (docs cleanup round 2 already repointed and removed `active/audio_player_waveform_scrubber/`, `active/huggingface_voice_upload/`, `active/synced_reader/`)
 
   > 👁 **VISUAL CHECK — Stage 1 (owner-run render verification)**
   > Run these in the live app — not tests, not the demo:
@@ -233,7 +233,7 @@ Execution plan: [active/performance_script_model_execution/](active/performance_
     copy button, mad-lib composed cue/image prompts, square-portrait output) — this worktree had
     no local Python venv, so backend click-through wasn't possible this session
 
-- [~] **HuggingFace voice browse + upload** — [plan](active/v2_huggingface_voice_interface.md) — LIVE as of 2026-07-03; import/browse/export/upload/token-handling/provenance all shipped, Hub-repo-shape gaps closed via [active/huggingface_voice_upload/](active/huggingface_voice_upload/README.md) (2026-07-12).
+- [~] **HuggingFace voice browse + upload** — [plan](active/v2_huggingface_voice_interface.md) — LIVE as of 2026-07-03; import/browse/export/upload/token-handling/provenance all shipped, Hub-repo-shape gaps closed (2026-07-12, see `voice-bundles.md` 1.7.0/1.8.0).
   - [~] Build voice asset from downloaded audio — NOT a distinct HF step; `bridge.py`'s
     `build_voice_asset` is itself unimplemented for the TTS Server path. User picks an engine and
     clicks the existing "Build" action instead. Flagged: an end-to-end async job that also
