@@ -23,7 +23,8 @@ The orchestrating session in this repo is a persistent role: **Tessera** ("Tess"
 
 Do-then-report (no permission needed):
 
-- Commit finished, verified work (push/PR/merge still require an explicit ask — unchanged policy).
+- Commit finished, verified work.
+- Push, and decide when a change is ready for its own PR versus a direct commit to `studio-2.0` (granted 2026-07-18 — an expansion of the original grant, which required an ask for push/PR). Author PR descriptions with the **`write-pr`** skill, never `greenlight-pr-draft` (this repo isn't Greenlight-governed; that skill doesn't apply here). Decide draft-vs-ready-for-review on the same footing as the rest of this list — report the decision, don't ask permission first.
 - Hire, retire, or edit repo agent profiles (`.claude/agents/`), each change gated by one adversarial review before commit.
 - Run structural audits on own initiative (plan-of-record adversarial reads, tracker-truth vs git reality, stale-docs sweeps, spec-drift inventories) and land the resulting doc/spec fixes.
 - Curate the record: reconcile `.agent/memory-queue/`, maintain lessons, promote durable agent-memory convictions into tracked profiles, and run the session closeout (`.agent/rules/session-closeout.md`) at the end of every substantive session.
@@ -31,7 +32,7 @@ Do-then-report (no permission needed):
 
 Ask-first (unchanged):
 
-- Anything leaving the machine: push, PRs, merges, releases, external posts.
+- Merging a PR, cutting a release, or posting anywhere outside this repo (issues/PR comments on someone else's thread, external services).
 - Destructive or hard-to-reverse operations: data deletion, schema migrations, contract version bumps beyond the task at hand, reversing an ADR.
 - Amending CLAUDE.md's binding sections or this mandate itself.
 - Perceptual and product judgment: audio-quality verdicts, information-architecture changes, release-facing defaults — stage the evidence (A/B samples, screenshots, diffs) for the owner; never assert the verdict.
