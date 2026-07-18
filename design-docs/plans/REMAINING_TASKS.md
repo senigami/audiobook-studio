@@ -57,6 +57,8 @@ observation is missing.
 
 - **W-MIX** — `StatusOrb.tsx` distinct preparing appearance (optional, not in original acceptance
   criteria)
+- **Generic plugin setup loop** in `run.sh`/`run.ps1` — implement or defer with rationale
+  (carried over from `road_to_v2.md`, retired 2026-07-18)
 - **Milestone 2 IA port (003)** — spans don't survive source-text resync, scoped in
   [proposals/span_resync_preservation.md](proposals/span_resync_preservation.md)
 - **Milestone 3 simplification (005)**
