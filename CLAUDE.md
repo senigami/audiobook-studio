@@ -6,7 +6,7 @@ Audiobook Studio is a local-first FastAPI + React app that turns manuscripts int
 
 ## Lessons (auto-loaded, always-on)
 
-Read `docs/lessons/INDEX.md` at session start — a capped list of project-specific operational lessons (things that cost a real debugging round to learn). Its topic-pointer section names situations that warrant reading a full shard from `docs/lessons/topics/`.
+Read `design-docs/lessons/INDEX.md` at session start — a capped list of project-specific operational lessons (things that cost a real debugging round to learn). Its topic-pointer section names situations that warrant reading a full shard from `design-docs/lessons/topics/`.
 
 ## Owner directives (binding)
 
@@ -149,20 +149,20 @@ React 19 + TypeScript + Vite, React Router, Framer Motion. Standard shape under 
 ## Notes
 
 - Files over 500 lines are candidates for splitting; over 600 should be refactored when touched for meaningful changes — along existing boundaries, not mechanically by line count (`modular_architecture.md`).
-- `docs/` is the public GitHub Pages site: `index.html`, `demo/`, `handbook/`, `user-guide/`, `assets/`, and the plugin SDK under `docs/plugin-sdk/` (`plugin-guide.md`, `plugin-submission-guidelines.md`, `plugin-template/`, `studio-as-tts-gateway.md`). `design-docs/plans/` holds the v2 conversion roadmap and phase delivery plans.
+- `docs/` is **published as-is** by GitHub Pages (`main:/docs`, https://senigami.github.io/audiobook-studio/) — treat everything under it as public. It holds only: `index.html`, `demo/`, `handbook/`, `user-guide/`, `assets/`, `coming-soon-*.html`, `v1.html`, and the plugin SDK under `docs/plugin-sdk/` (`plugin-guide.md`, `plugin-submission-guidelines.md`, `plugin-template/`, `studio-as-tts-gateway.md`). Internal dev-tooling output (code map, design-critique reports, lessons, review checklists) lives under `design-docs/` instead (`code-map/`, `design-critique/`, `lessons/`, `checklists/`) — never add tool output directly to `docs/` without checking it belongs on the public site first. `design-docs/plans/` holds the v2 conversion roadmap and phase delivery plans.
 - Update `wiki/` pages and add a dated `wiki/Changelog.md` entry when shipped behavior changes. CI (`.github/workflows/ci.yml`) runs ruff + pytest and eslint + vitest + build; `codeql.yml` runs security scanning.
 
-## Code map (docs/code-map/)
+## Code map (design-docs/code-map/)
 
 This repo has a persistent code map in the **sharded layout**: `map.json` holds the core
 (`meta`+`flows`+`invariants`+`modules`+`coupling`+`hotspots`+`data`); per-file records live
-in `docs/code-map/shards/files.<slug>.json`, routed by longest-prefix match against
-`meta.shards` (or one command: `docs/code-map/tools/lookup.sh <path>`); `file_hashes` +
-`repo_checksum` live in `docs/code-map/hashes.json`. Load the core before any cross-cutting
+in `design-docs/code-map/shards/files.<slug>.json`, routed by longest-prefix match against
+`meta.shards` (or one command: `design-docs/code-map/tools/lookup.sh <path>`); `file_hashes` +
+`repo_checksum` live in `design-docs/code-map/hashes.json`. Load the core before any cross-cutting
 task, pulling shard records on demand — a task scoped to one module can load that module's
 whole shard as its briefing. When debugging or changing a function's
 signature, run the map's **symbol trace** on it (callers/callees with sites) instead of
 exploring by hand; for "what can be simplified", request the simplification report.
 **After any task that changes mapped code, append a changelog-queue entry to
-`docs/code-map/queue/` before declaring the task done — part of the definition of
+`design-docs/code-map/queue/` before declaring the task done — part of the definition of
 done, not optional.** See the `map-code` skill.

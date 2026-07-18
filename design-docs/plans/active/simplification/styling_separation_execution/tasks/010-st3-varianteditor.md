@@ -102,7 +102,7 @@ swept into that other lane's commit (`d84af80f`, "Convert MetadataEditorModal.ts
 classes (task 014, 1/6)") rather than landing in this task's own commit — verified byte-identical
 against what this task wrote (brace-balanced, ends with `.variant-editor__footer-btn`). Content is
 correct and already on the branch; only `VariantEditor.tsx` + this task file + a standalone
-code-map queue entry (`docs/code-map/queue/2026-07-10-st3-varianteditor.json`, since the shared
+code-map queue entry (`design-docs/code-map/queue/2026-07-10-st3-varianteditor.json`, since the shared
 batch-in-progress queue entry was also being concurrently written) needed a commit here.
 
 ## Dependencies

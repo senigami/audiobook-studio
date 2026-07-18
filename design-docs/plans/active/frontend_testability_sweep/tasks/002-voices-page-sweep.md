@@ -30,7 +30,7 @@ Fix the page that caused the live incident this plan originated from: zero `data
 - [ ] `ActionMenu` calls in this page pass `entityLabel`.
 - [ ] `ScriptEditor`'s primary action buttons have `data-testid`.
 - [ ] `npx tsc -b --force` clean; existing Voices tests pass unchanged.
-- [ ] Append a `docs/code-map/queue/` entry.
+- [ ] Append a `design-docs/code-map/queue/` entry.
 
 ## Dependencies
 

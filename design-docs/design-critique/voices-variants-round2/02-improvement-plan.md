@@ -113,4 +113,4 @@ The structural payload. Do not start before OD-1 is resolved. **Final shape (OD-
 - design-system.md **§5**: flip "target → current" once F3/pills adoption confirmed; note headers now carry facet hue.
 - design-system.md **§6**: register the new `MultiSelect` primitive (Phase 3).
 - If Phase 4 changes the documented Voice Lab IA, update the matching spec (bump `spec_version`, add a changelog row) in the same commit — CLAUDE.md binding.
-- Append a `docs/code-map/queue/` changelog entry after any mapped-source change.
+- Append a `design-docs/code-map/queue/` changelog entry after any mapped-source change.

@@ -87,7 +87,7 @@ present, they were already all `var(--token)`):
   meant to be in-scope).
 
 **Not touched:** the shared code-map changelog-queue batch entry at
-`docs/code-map/queue/2026-07-10-st3-inline-style-to-css-batch-in-progress.json` already describes
+`design-docs/code-map/queue/2026-07-10-st3-inline-style-to-css-batch-in-progress.json` already describes
 this file's exact change (written by a parallel lane ahead of time) — left it as-is, uncommitted,
 since it bundles many other in-progress ST-3 tasks (004-017) not done in this commit; a consolidator
 commit will need to pick it up later.

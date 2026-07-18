@@ -6,7 +6,7 @@ persistent auto-memory system (a `user`, `feedback`, `project`, or `reference` m
 system's own criteria) — and a session running in the main checkout that should check whether any
 queued entries are sitting unreconciled before assuming memory is fully up to date. This is the
 worktree analogue of
-[`docs/code-map/queue/`](/Users/stevendunn/GitHub-Steven/audiobook-factory/docs/code-map/queue) — same
+[`design-docs/code-map/queue/`](/Users/stevendunn/GitHub-Steven/audiobook-factory/design-docs/code-map/queue) — same
 shape, same reason for existing: a cheap, append-only, git-tracked buffer that survives something a
 direct write would not, plus the same expectation that the buffer actually gets drained, not just
 filled.

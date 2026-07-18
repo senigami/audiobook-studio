@@ -159,7 +159,7 @@ function buildCallbacks(): MutationCollectorCallbacks {
 4. Run `npm -C frontend run test -- --run useChapterAssignments` and confirm the **existing, unmodified** `frontend/tests/unit/hooks/useChapterAssignments.test.tsx` still passes with zero edits — this is your proof the rework is behavior-preserving for today's discrete-click call pattern.
 5. Run `npm -C frontend run test -- --run MutationCollector` for the new suite.
 6. Run `npm -C frontend run lint` and `npm -C frontend run build` (or `tsc -b`) on the touched files.
-7. Append a changelog-queue entry to `docs/code-map/queue/` per this repo's code-map convention (new file + two modified files).
+7. Append a changelog-queue entry to `design-docs/code-map/queue/` per this repo's code-map convention (new file + two modified files).
 
 ## Acceptance criteria
 
@@ -169,7 +169,7 @@ function buildCallbacks(): MutationCollectorCallbacks {
 - [ ] `frontend/tests/unit/hooks/useChapterAssignments.test.tsx` passes **unmodified** (this proves no regression in the existing B2 revision-id fix or the 409/onConflict path).
 - [ ] A rapid-fire scenario (two `enqueueAssign` calls before any flush) produces exactly one network call, not two — verified by a real test, not asserted by inspection.
 - [ ] `npm -C frontend run lint` and `npm -C frontend run test -- --run` (full suite) both clean.
-- [ ] `docs/code-map/queue/` has a new entry for this change.
+- [ ] `design-docs/code-map/queue/` has a new entry for this change.
 
 ## Map links
 

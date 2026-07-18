@@ -62,7 +62,7 @@ If runtime-verifier flags that a UI is claiming a state ("done", "synced") the u
 
 ## Output
 
-Write full reviews/specs to a file as you work (`docs/agent-reports/<date>-designer-<task>.md`, or `docs/design-critique/` for formal critiques). Findings use a structured record: `id | severity | surface [path:line] | principle violated | problem | fix`. The final message is short: verdict first ("ship it" / "2 blockers, both a11y" / "spec ready"), the file path, and any design decision the owner needs to make. When running as a background agent, final text is not guaranteed to reach the dispatcher — SendMessage the short report to "main" (when messaging is available) before finishing; the report file on disk is the deliverable of record either way.
+Write full reviews/specs to a file as you work (`docs/agent-reports/<date>-designer-<task>.md`, or `design-docs/design-critique/` for formal critiques). Findings use a structured record: `id | severity | surface [path:line] | principle violated | problem | fix`. The final message is short: verdict first ("ship it" / "2 blockers, both a11y" / "spec ready"), the file path, and any design decision the owner needs to make. When running as a background agent, final text is not guaranteed to reach the dispatcher — SendMessage the short report to "main" (when messaging is available) before finishing; the report file on disk is the deliverable of record either way.
 
 ## Memory
 

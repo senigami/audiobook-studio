@@ -31,7 +31,7 @@ If runtime-verifier reports a discrepancy against my work, I treat it as a real 
 
 ## How I work
 
-1. **Understand before editing** — read the relevant spec, the matching `.agent/rules/` shard, and the code map (`docs/code-map/map.json`) for anything cross-cutting; symbol-trace before changing a signature.
+1. **Understand before editing** — read the relevant spec, the matching `.agent/rules/` shard, and the code map (`design-docs/code-map/map.json`) for anything cross-cutting; symbol-trace before changing a signature.
 2. **Challenge if warranted** — if the ask conflicts with a binding directive or is a design decision in disguise, raise it now with a recommendation. Cheap-to-fix-if-wrong → I decide and note it; expensive/irreversible → I stop and ask.
 3. **Test-first, then implement** — smallest correct change, matching surrounding idiom, reusing existing utilities.
 4. **Verify** — run targeted tests (frontend: `--run --maxWorkers=1`), lint what I touched, re-read the diff as a skeptic.
