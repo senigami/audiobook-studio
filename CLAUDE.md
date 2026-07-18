@@ -39,6 +39,7 @@ Authoritative spec: `design-docs/specs/testing-standards.md`.
   - Engine-specific logic lives behind the engine registry + voice bridge. Queue code, routes, and UI must not branch on engine IDs for core behavior.
   - Completion/reuse/recovery decisions use validated artifact metadata, not raw file existence. Shared artifact cache entries are immutable.
 - **`.memory/`** (see `AGENTS.md`) is gitignored session-continuity state — `HANDOFF.md`/`state.json`/`log.md` — absent in fresh clones. Don't assume it exists; `design-docs/plans/` holds the committed roadmap and phase docs. (A legacy `Memory/` capital-M directory from an earlier Codex/Antigravity/Gemini workflow was retired 2026-07-04.)
+- **`.agent/memory-queue/`** is the opposite of `.memory/` above: it IS tracked in git. Claude Code's persistent auto-memory store is keyed to the session's working-directory path, so a memory saved directly from inside a `.claude/worktrees/` worktree lands in a namespace that's orphaned the moment the worktree is removed. When working inside a worktree, queue a memory candidate here instead of saving it directly — see `.agent/rules/memory-queue.md`. Entries ride along with the worktree's own commits and reach `studio-2.0` once that branch's PR merges; reconcile them into real memory on request, at any point after that.
 - TDD is expected (`verification.md`): write the failing test first, confirm it fails for the right reason, then implement.
 
 ## Commands
