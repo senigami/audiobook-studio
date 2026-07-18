@@ -28,42 +28,61 @@ no history — the narrative lives in the wiki.
 - **`.claude/agents/{designer,engineer,runtime-verifier}.md`** — agent report output path moved
   `docs/agent-reports/` → `.agent/reports/` (the dir never existed, so nothing to migrate; this
   closes the same "internal output into the published site" trap the docs move addressed).
+- **`_archive/` eliminated.** The category is retired — the repo keeps no archive going forward
+  (a done plan is deleted outright, narrative to the wiki). Its one surviving fragment, the
+  **localization interface inventory**, was **relocated, not deleted** — see the critical finding
+  below — to `plans/proposals/localization_interface_{plan.md,examples/}`, and its three citers
+  (`interface-localization.md`, `specs/README.md`, `master_fix_plan/012`) repointed.
 
-## B. Release-gating remainder (repoint-then-delete — deliberate, NOT a blitz)
+## ⚠ Critical finding: "stale" ≠ "in reference/ or _archive/"
 
-Each doc below is **done/superseded** and a deletion candidate, but is cited **by a spec or ADR as
-provenance**. The binding rule (CLAUDE.md canonical-specs; plans `README.md`) is: repoint the
-citing spec first, then delete. This is a ~10-spec-file edit and should be one focused, reviewed
-commit near the tag — mass-editing specs right before release is exactly the "expensive if wrong"
-case, so it is sequenced here rather than done blind.
+The single most important correction to the naive "delete what's archived" plan: **a
+provenance-cited plan is only deletable if the feature it documents actually SHIPPED.** Several
+docs sitting in `_archive/`/`reference/`/`proposals/` are the **design source for DEFERRED
+features** — cited by an *active* spec for work that isn't built yet. Deleting those would gut the
+spec. They must be kept (relocated out of misleading folders), never deleted:
 
-For each: repoint the citing spec's reference to the wiki changelog (or reword to drop the dead
-path, keeping self-describing IDs), then `git rm` the doc.
+- **Localization** (`interface-localization.md` `status: active`; impl deferred, `completion=0`,
+  `frontend/src/i18n/` is a dark scaffold) — the `phase_12_multilingual` inventory is its working
+  text-map/locale-JSON source. **Relocated to `proposals/`** (done, this pass).
+- **W-PERF performance script** (`performance-script-format.md`: "AI extraction pipeline and export
+  layer explicitly deferred… nothing writes/reads `performance_data` in production yet") —
+  `proposals/performance_script_model/` is its design source. **Keep** (already in `proposals/`).
+- **HuggingFace voice interface / AI casting** (open owner decision in `REMAINING_TASKS.md`) —
+  `reference/v2_voice_system_interface.md`, `reference/v2_huggingface_voice_repo_spec.md`, and the
+  `research_*` proposals back it. **Keep** until that decision lands.
 
-| Stale doc (under `design-docs/`) | Repoint these first |
+## B. Release-gating remainder — repoint-then-delete (deliberate, NOT a blitz)
+
+Split by feature status. Only **B1** deletes; **B2** stays.
+
+### B1 — SHIPPED feature → repoint the citing spec, then `git rm`
+Repoint each citation to the wiki changelog (or reword to drop the dead path, keeping self-describing
+IDs), then delete. ~8 spec files; one focused, reviewed commit — mass-editing specs right before the
+tag is the "expensive if wrong" case, so sequenced, not blind.
+
+| Stale doc (feature shipped) | Repoint these first |
 |---|---|
 | `plans/reference/site_experience_north_star.md` | specs/{voice-bundles, audio-player, design-system, site-shell-and-book-pipeline} |
 | `plans/reference/site_redesign_rollout/` | specs/{voice-bundles, design-system, site-shell-and-book-pipeline}, decisions/ADR-0010 |
 | `plans/reference/v2_plugin_sdk.md` | specs/engine-bundle-template/{README.md, engine.py} |
-| `plans/reference/v2_voice_system_interface.md` | specs/engine-bundle-template/engine.py |
-| `plans/reference/v2_voice_tag_taxonomy.md` | specs/{voice.schema.json, voice-taxonomy.json} |
-| `plans/reference/v2_huggingface_voice_repo_spec.md` | specs/voice.schema.json |
 | `plans/reference/v2_engine_bundle_github_distribution.md` | specs/engine-bundle-template/README.md |
+| `plans/reference/v2_voice_tag_taxonomy.md` (taxonomy 2.0 shipped; `voice-taxonomy.json` is canonical) | specs/{voice.schema.json, voice-taxonomy.json} |
 | `plans/proposals/audio_player_scrubbing_waveform_proposal.md` | specs/audio-player.md |
-| `plans/proposals/performance_script_model/` | specs/performance-script-format.md |
-| `plans/proposals/research_character_brief_extraction_and_persona_casting.md` | specs/voice-bundles.md |
-| `plans/proposals/research_voice_engine_marketplace_ui_prior_art.md` | specs/engines-and-plugins.md |
 | `plans/pr-dispatch/08-video-utils-decision.md` (+ the `pr-dispatch/` dir) | specs/video-sample.md |
-| `plans/_archive/phases/phase_12_multilingual_interface_*` (22 files) | specs/{interface-localization.md, README.md} |
+
+### B2 — DEFERRED feature design source → KEEP (do not delete)
+`plans/proposals/localization_interface_*`, `plans/proposals/performance_script_model/`,
+`plans/reference/v2_voice_system_interface.md`, `plans/reference/v2_huggingface_voice_repo_spec.md`,
+`plans/proposals/research_*`. Retire each only when its feature ships or is formally dropped.
 
 **Also in scope for Stage 6, no repoint needed** (verify done + wiki-covered, then delete):
-- Done workstream folders under `plans/active/` whose work shipped and whose only remaining items
-  are owner visual checks tracked in `REMAINING_TASKS.md` — e.g. `simplification/`,
-  `parallel-segment-rendering/`, `book_*_ia_proposal.md`, `frontend_testability_sweep/`. Cross-check
-  each against `REMAINING_TASKS.md`/`COMPLETED_WORK.md` before removing; keep any with genuinely open
-  code.
-- `plans/master_fix_plan/` and the `master_fix_plan/OVERNIGHT_LOG.md` — the master map + session
-  narrative; retire once its remaining pointers are all closed.
+- Done workstream folders under `plans/active/` whose only remaining items are owner visual checks
+  tracked in `REMAINING_TASKS.md` — e.g. `simplification/`, `parallel-segment-rendering/`,
+  `book_*_ia_proposal.md`, `frontend_testability_sweep/`. Cross-check each against
+  `REMAINING_TASKS.md`/`COMPLETED_WORK.md`; keep any with genuinely open code.
+- `plans/master_fix_plan/` (+ `OVERNIGHT_LOG.md`) — the master map + session narrative; retire once
+  its remaining pointers are all closed.
 
 ## C. Keep — forward-relevant (do not retire)
 

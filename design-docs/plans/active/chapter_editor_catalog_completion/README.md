@@ -30,7 +30,7 @@ catalog-additions bullet list remains unbuilt — this plan decomposes that list
 
 Whoever executes a task updates its `Status:` line and ticks its checkboxes in the same change as
 the work. When every task is complete, move this folder to
-`design-docs/plans/_archive/chapter_editor_catalog_completion/` and update `TASKS.md`'s "Chapter
+deleted outright (narrative to `wiki/Changelog.md`; the repo keeps no `_archive/`) and update `REMAINING_TASKS.md`'s "Chapter
 editor art-program" catalog-additions bullets to reflect completion (do not delete that section —
 convert its bullets to `[x]` with a pointer here, matching this repo's convention for closing out a
 tracked backlog).

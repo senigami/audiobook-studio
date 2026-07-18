@@ -37,9 +37,10 @@ your question:
 | `master_fix_plan/` | The structural map (workstream connections, invariants, sub-plan routing) — not a status source. |
 | `active/` | Plans with **open work**, each an authoritative data source the master points at. |
 | `reference/` | **Done/superseded** plans kept because a spec **cites them as provenance** — do not delete without repointing the citing spec first (see `REMAINING_TASKS.md`'s release-gating checklist). |
-| `proposals/` | **Undecided design drafts** awaiting a decision before they become work. |
+| `proposals/` | **Undecided design drafts** + **design sources for deferred features** awaiting a decision/scheduling before they become work (e.g. `localization_interface_*` — the interface-localization inventory an active spec cites, feature deferred post-v2). |
 | `pr-dispatch/` | Self-contained PR briefs. All but one shipped and merged 2026-07-16/17 and were deleted; `08-video-utils-decision.md` stays because `design-docs/specs/video-sample.md` cites it in its `sources:` list. |
-| `_archive/phases/phase_12_multilingual_*` | The one surviving fragment of the deleted `_archive/` — kept because `interface-localization.md` cites it directly as the localization design source. Everything else that was in `_archive/` (149 files: v1→v2 conversion docs, phase 0–13 conversion plan, completed delivery folders) is gone; its narrative lives in the wiki changelog now. |
+
+`_archive/` was **retired 2026-07-18** — the repo keeps no archive going forward. A completed plan is deleted outright (its narrative lives in `wiki/Changelog.md`), never archived. Its last surviving fragment (the localization inventory) was relocated to `proposals/localization_interface_*` because it's the design source for a still-deferred feature, not a done plan.
 
 Everything below is accounted for in exactly one bucket. The master plan covers every item in
 `active/` and `proposals/`; `reference/` holds no open work the master needs to schedule.

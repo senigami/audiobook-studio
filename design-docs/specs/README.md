@@ -83,7 +83,7 @@ internet connection is required during synthesis.
 | Text processing pipeline | `text-processing.md` | `plugin-contract.md` (chunk limit), `queue-jobs.md` (segment granularity) |
 | TTS engine plugins | `plugin-contract.md`, `engines-and-plugins.md` | `system-architecture.md` (watchdog/bridge), `voice-bundles.md` |
 | Voice data & bundles | `voice-bundles.md` | `data-model.md` (voice directory layout), `install-distribution.md` (defaults) |
-| Interface localization / locale packs | `interface-localization.md` | `site-shell-and-book-pipeline.md` (shell/book labels), `design-system.md` (layout expansion), `design-docs/plans/_archive/phases/phase_12_multilingual_interface_examples/` |
+| Interface localization / locale packs | `interface-localization.md` | `site-shell-and-book-pipeline.md` (shell/book labels), `design-system.md` (layout expansion), `design-docs/plans/proposals/localization_interface_examples/` |
 | Progress & ETA | `progress-presentation.md` | `live-events.md` (progress event envelope), `queue-jobs.md` (ETA ownership) |
 | REST API & external TTS | `api-conventions.md` | `security.md` (API key auth), `queue-jobs.md` (job IDs) |
 | Data persistence | `data-model.md` | `system-architecture.md` (state stores), `queue-jobs.md` (two stores) |
