@@ -9,7 +9,6 @@ Source: repo structure and frontend route/stage code.
 - Path: open Library, click a project card or row
 - Pain points:
   - Open and delete live in the same row/card affordances.
-  - The live app still has a legacy `ProjectLibrary -> ProjectDetail` hop, while the mock handoff goes more directly into the book surface.
 
 ## 2. Contents / Manuscript
 
