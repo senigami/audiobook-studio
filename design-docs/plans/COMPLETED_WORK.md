@@ -107,14 +107,18 @@ post-release is in [FUTURE_WORK.md](FUTURE_WORK.md).
 - **Recording cue & persona sample expansion.** Mad-lib cue composer, filtered character-library
   ranking, square-portrait image prompts, character library expanded 39→103 archetypes across 8
   genre buckets, dev-mode-gated portrait-prompt export tooling. Established repo-wide convention:
-  `useDevMode()` gates contributor-only/in-progress/beta tooling, not just debugging. (Owner
-  actions — generating the portrait images and a live end-to-end verification — remain, see
-  Remaining Tasks.)
-- **HuggingFace voice browse + upload.** Live as of 2026-07-03: import/browse/export/upload/
-  token-handling/provenance all shipped; Hub-repo-shape gaps closed 2026-07-12.
-- **AI casting + voice metadata UI.** `VoiceProfile` extensions, controlled vocabulary, casting
-  card/contract, Voice Lab UX, "Suggest voices for this character" action — all shipped. (Two
-  product-scope decisions on both this and the HF work remain open — see Remaining Tasks.)
+  `useDevMode()` gates contributor-only/in-progress/beta tooling, not just debugging. **NOT
+  complete — the owner's portrait-image generation and a live end-to-end verification are still
+  outstanding, so the source plan stays in place until then** (see Remaining Tasks).
+- **HuggingFace voice browse + upload.** Code + endpoints landed (import/browse/export/upload/
+  token-handling/provenance; spec `voice-bundles.md` 1.3.0–1.9.0, 2026-07-03/07-12). **NOT yet
+  owner-signed-off — untested end-to-end; treated as built-but-unverified, not shipped.** See
+  Remaining Tasks. *(Corrected 2026-07-18: the earlier "all shipped/live" claim was overstated.)*
+- **AI casting + voice metadata UI.** **NOT shipped — marked future in the app, currently
+  placeholder UI.** The taxonomy-driven attribute scoring exists, but the AI-casting surface is a
+  placeholder pending an owner scope decision (see Remaining Tasks / Future Work). *(Corrected
+  2026-07-18: the earlier "all shipped" claim was wrong — this belongs under future work, not
+  completed.)*
 - **Voice-variant version history.** Filesystem-based `versions/` schema per variant,
   non-destructive rebuild snapshots, promote-to-active, A/B panel.
 - **Voice variant tagging + IA redesign.** Per-variant `performance_tags`, count-based variant

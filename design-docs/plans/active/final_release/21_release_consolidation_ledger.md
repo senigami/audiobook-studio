@@ -23,6 +23,41 @@ coverage (wiki concept page / handbook). `✓` verified present · `⚠` gap —
 
 ---
 
+## Part 0 — Already-deleted plans (pre-session, #153) — accounting gap
+
+**Owner question (2026-07-18): "did the deleted archived plans get an entry in the report?" Answer:
+no.** PR #153 (before this session) deleted **124 files** under `design-docs/plans/_archive/` — the
+v2-conversion design corpus: `v2_conversion_roadmap.md`, `v2_tts_server.md`, `v2_local_tts_api.md`,
+`v2_queuing_system.md`, `v2_folder_structure.md`, `domain_data_model.md`, `event_bus.md`,
+`voice_engine_impl.md`, `player_piano_scrolling_plan.md`, the phase 0–12 conversion plans, etc. —
+under a blanket "narrative now lives in `wiki/Changelog.md`" claim. **None got an individual entry**
+in COMPLETED_WORK or this ledger, and most are *architecture rationale* that a user-facing changelog
+would not carry. This is the exact delete-first / assert-later pattern the ledger exists to prevent.
+
+- **Nothing is lost:** all 124 are recoverable from git at `2dd721a4^`.
+- **Do-now:** spot-check that the load-bearing rationale (two-process architecture, dual state store,
+  plugin-first engines, orchestrator design) is captured in `design-docs/decisions/` (ADRs) and the
+  specs — those are the forward-relevant homes. Where it is, the git-archived plan is genuinely
+  redundant; where it isn't, recover a summary from git before it's forgotten. Until that check runs,
+  treat "the wiki has the history" as unverified for this deleted set.
+
+## Part 1c — Built but NOT complete / NOT shipped (owner-corrected 2026-07-18 — DO NOT DELETE)
+
+Three items COMPLETED_WORK listed as "shipped" are not, per owner review. Their plans stay; no CL
+entry until they're genuinely complete. (This is why the ledger gates deletion on owner confirmation,
+not on COMPLETED_WORK's word.)
+
+- **HuggingFace voice browse/upload** — code + endpoints landed, but **untested end-to-end; needs
+  owner sign-off**. The premature CL entry (written earlier 07-18) was reverted. Keep the plan.
+- **AI casting + voice-metadata UI** — **marked future in the app; placeholder UI**, not shipped.
+  Belongs in Future Work, not Completed. CL entry stays unwritten. The `Voices` wiki page (line ~132)
+  describes a "voice suggestion panel" as if live — **⚠ verify/soften that wording** (it may
+  overclaim a placeholder). Keep the plan.
+- **Recording-cue / persona expansion** — mad-lib composer + 103-archetype library code landed, but
+  the **owner's portrait-image generation + live E2E verification are outstanding**. The premature CL
+  entry was reverted. Keep `active/chapter_editor_catalog_completion/` (recording-cue parts) until
+  the owner completes it.
+
 ## Part 1 — Shipped (verify → then delete source plan)
 
 ### Progress / ETA · Parallel rendering
@@ -59,9 +94,9 @@ coverage (wiki concept page / handbook). `✓` verified present · `⚠` gap —
 | Voice taxonomy v2 Phase G (`language`/`style`, Edit Metadata UI, HF tag maps, schema 2.0) | 2026-07-03 ✓ | Voices-and-Voice-Profiles, `user-guide/voice-tags-icons.md` `?` | `reference/v2_voice_tag_taxonomy.md` (B1) | [ ] |
 | Voice-variant version history + A/B panel | 2026-07-15 ✓ | Voices `?` | — | [ ] |
 | Voice variant tagging + catalog IA redesign | 2026-07-15 ✓ | Voices `?` | — | [ ] |
-| HuggingFace voice browse + upload | ✓ **written 07-18** (CL 2026-07-12, import note 07-03) | Voices `?` | — | [x] CL |
-| AI casting + voice metadata UI ("Suggest voices for character") | ⚠ **HELD — no clean landing date/spec row for the "Suggest voices" action; product-scope (release vs fast-follow) undecided.** Needs sourcing + owner scope call before a public CL entry | Voices `?` | — (blocked: CL entry + scope decision) | [ ] |
-| Recording cue & persona sample expansion (mad-lib composer, 103-archetype library, portraits) | ✓ **written 07-18** (CL 2026-07-17, PR #146) | Recording-Guide `?` | `active/chapter_editor_catalog_completion/` (recording-cue parts) | [x] CL |
+| ~~HuggingFace voice browse + upload~~ **→ NOT COMPLETE (owner, 07-18): built but untested, needs owner sign-off. Moved to §1c. CL entry reverted.** | — | — | **do not delete** | — |
+| ~~AI casting + voice metadata UI~~ **→ NOT SHIPPED (owner, 07-18): marked future in the app, placeholder UI. Moved to §1c / Future. COMPLETED_WORK corrected.** | — | — | **do not delete** | — |
+| ~~Recording cue & persona expansion~~ **→ NOT COMPLETE (owner, 07-18): owner's portrait image-generation still outstanding; keep the plan. CL entry reverted. Moved to §1c.** | — | — | **do not delete** | — |
 
 ### Chapter editor · Reader · Misc
 | Item | CL section | UD | Retires | Verify |
@@ -81,10 +116,13 @@ Checked each shipped feature against the wiki concept page that should describe 
 Workspace), variant version history + A/B (`Voices` §Variant Version History), variant tags/switcher
 (`Voices` §Variant Tags), taxonomy/tags/icons (`Voices` §Tags), series suggestions
 (`Library-and-Projects`), recording-cue "Suggest From Voice Qualities" (`Recording-Guide` — describes
-the compose-from-tags mechanism), **AI casting suggestion panel** (`Voices` line 132: "scored
-recommendations in the Casting stage's voice suggestion panel" — so the *user doc* covers it even
-though its changelog entry is held), interactive demo (`Live-Demos`), TTS gateway (`Settings`
+the compose-from-tags mechanism), interactive demo (`Live-Demos`), TTS gateway (`Settings`
 §API/Integrations + `docs/plugin-sdk/studio-as-tts-gateway.md`).
+
+**⚠ Overclaim (owner-corrected 07-18):** `Voices` line ~132 describes a "voice suggestion panel"
+with "scored recommendations in the Casting stage" as if live — but AI casting is **placeholder /
+future** per owner. The wiki documents a feature that isn't really shipped. Soften or gate that
+wording (do-now) — it's the inverse of a gap: a doc describing more than exists.
 
 **User-doc gaps ⚠ (→ do-now):**
 - **Parallel rendering** — `Queue-and-Jobs.md` has no mention of cap>1 / concurrent segments /
@@ -110,11 +148,14 @@ though its changelog entry is held), interactive demo (`Live-Demos`), TTS gatewa
   standalone repo extraction (X1-X6/V1-V3) + trust-warning E2E; Director's Console per-mode polish
   catalog; voice namespace rename + doc-06 infra stub decisions.
 - **Doc reduction (this workstream):**
-  - **Missing wiki changelog entries** (spot-checked 2026-07-18): **HuggingFace voice** and
-    **recording-cue/persona** entries were written 07-18 (done). **AI casting** is HELD — no clean
-    landing date or spec row for the "Suggest voices" action, and its release-vs-fast-follow scope is
-    an open owner decision; it needs sourcing + that scope call before a public CL entry. Its source
-    plan must not be deleted until then.
+  - **The 3 "missing changelog entry" items are actually not-complete** (owner-corrected 07-18, see
+    §1c): HF voice (needs sign-off), AI casting (placeholder/future), recording-cue (owner image-gen
+    pending). The two entries drafted earlier were **reverted** — no CL entry until each is genuinely
+    complete, and their plans are **not deletable**.
+  - **Part 0 do-now:** verify the 124 #153-deleted archived plans' rationale is captured in
+    ADRs/specs; recover any that isn't (git `2dd721a4^`).
+  - **`COMPLETED_WORK.md` needs a fuller accuracy audit** — it wrongly listed 3 items as shipped;
+    others may overclaim. Don't delete a plan on its word without owner/on-disk confirmation.
   - Then doc 20 §B1 (repoint + delete shipped-feature provenance) and delete verified source plans.
   - CL spot-check: **done** (Part 1). User-doc spot-check: **done** (Part 1b).
   - **Fill the 5 user-doc gaps** (Part 1b): parallel rendering (`Queue-and-Jobs`), waveform scrubber

@@ -13,6 +13,11 @@ section — nothing was dropped, only combined into one list.)*
 
 ## Deferred from the v2.0 plan itself
 
+- **AI casting + voice-metadata UI** — marked future in the app; the AI-casting surface is currently
+  **placeholder UI**, not a shipped feature (COMPLETED_WORK wrongly listed it as shipped — corrected
+  2026-07-18). Plan: `active/v2_voice_metadata_and_casting.md`. The taxonomy-driven attribute scoring
+  exists; the AI-driven casting surface awaits an owner scope decision (release vs fast-follow). See
+  also "Dialogue detection & cast suggestions" below and the HF/casting item in `REMAINING_TASKS.md`.
 - **Localization** — `i18next`/`react-i18next` chosen, `frontend/src/i18n/` scaffolded dark (zero
   side effects, not wired into app root), one sample catalog (`WelcomePage`). Repo-wide string
   extraction, provider wiring, and additional locale catalogs still outstanding.
