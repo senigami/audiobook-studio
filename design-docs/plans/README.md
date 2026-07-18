@@ -26,7 +26,7 @@ outright (history now lives in the wiki/changelog, not here) rather than archive
 | `TASKS.md` | **Live status** — the one checklist to check or update; every other doc defers to it. |
 | `post_release_backlog.md` | Post-2.0 ideas, not yet scoped or gating — a raw capture list, not a to-do list. |
 | `master_fix_plan/` | The structural map (workstream connections, invariants, sub-plan routing) — not a status source. |
-| `active/` | Plans with **open work**, each an authoritative data source the master points at. A few completed plans remain here only because a binding spec still cites their path as its live-implementation record (`audio_player_waveform_scrubber/`, `huggingface_voice_upload/`, `synced_reader/`) — repoint those spec citations before deleting. |
+| `active/` | Plans with **open work**, each an authoritative data source the master points at. |
 | `reference/` | **Done/superseded** plans kept because a spec **cites them as provenance** — do not delete without repointing the citing spec first (see `TASKS.md`'s Stage 6 note). |
 | `proposals/` | **Undecided design drafts** awaiting a decision before they become work. |
 | `pr-dispatch/` | Self-contained PR briefs. All but one shipped and merged 2026-07-16/17 and were deleted; `08-video-utils-decision.md` stays because `design-docs/specs/video-sample.md` cites it in its `sources:` list. |
@@ -47,10 +47,7 @@ Routing only — for current status/remaining work, check [TASKS.md](TASKS.md).
 | [simplification/](active/simplification/00_overview.md) | Dead-code/dup removal, large-file splits, CSS separation. Most sub-parts done; LF-1/LF-6/BE-6/doc-06 remain (see TASKS.md 005/006). |
 | [parallel-segment-rendering/](active/parallel-segment-rendering/README.md) | W-PAR: per-engine concurrent segment rendering. Phases 1–3 shipped and the shipped default; a handful of owner live-render visual checks remain (see TASKS.md). |
 | [performance_script_model_execution/](active/performance_script_model_execution/README.md) | W-PERF execution plan. Workloads 1–3 (safe foundation) shipped; AI extraction pipeline + multi-target export layer (tasks 005–012) deferred pending an owner schedule decision. |
-| [audio_player_waveform_scrubber/](active/audio_player_waveform_scrubber/README.md) | Tasks 001–007 shipped; 008–012 superseded by `audio_player_completion_004/`. Kept in `active/` only because `audio-player.md` cites it as the live-port record for Workloads 0–2 — repoint that citation before deleting. |
 | [audio_player_completion_004/](active/audio_player_completion_004/README.md) | Remaining audio-player work (tape wiring, peaks sidecar, segment-nav fix). Owner visual sign-off pending. |
-| [huggingface_voice_upload/](active/huggingface_voice_upload/README.md) | All 5 tasks shipped (Hub bundle shape, atomic upload, engine-asset inclusion). Kept in `active/` because `voice-bundles.md`'s changelog cites it — repoint before deleting. |
-| [synced_reader/](active/synced_reader/00-overview.md) | Player-piano read-along reader. All tasks shipped/accepted per `status.json`. Kept in `active/` because `data-model.md` cross-references it directly — repoint before deleting. |
 | [chapter_editor_catalog_completion/](active/chapter_editor_catalog_completion/README.md) | Research-only plan (not yet dispatched) for the Director's Console catalog additions still open in TASKS.md's "Chapter editor art-program" section. |
 | [frontend_testability_sweep/](active/frontend_testability_sweep/README.md) | Saved-for-later plan (not yet dispatched): stable-selector convention for agent/Playwright reliability. |
 | [master_agnostic_tasks.md](active/master_agnostic_tasks.md) | Namespace rename (`plugins/`→`tts_engines/`), MobileNav focus-trap, CONTRIBUTING. Master W6. |
