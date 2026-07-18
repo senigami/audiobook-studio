@@ -104,25 +104,28 @@ post-release is in [FUTURE_WORK.md](FUTURE_WORK.md).
   follow-on polish items per mode remains — see Remaining Tasks.)
 - **Dynamic recording-guide prompts.** "Suggest from voice qualities" scores a voice's tagged
   attributes against 39 curated archetypes and suggests a recording prompt/sample text.
-- **Recording cue & persona sample expansion.** Mad-lib cue composer, filtered character-library
-  ranking, square-portrait image prompts, character library expanded 39→103 archetypes across 8
-  genre buckets, dev-mode-gated portrait-prompt export tooling. Established repo-wide convention:
-  `useDevMode()` gates contributor-only/in-progress/beta tooling, not just debugging. **NOT
-  complete — the owner's portrait-image generation and a live end-to-end verification are still
-  outstanding, so the source plan stays in place until then** (see Remaining Tasks).
-- **HuggingFace voice browse + upload.** Code + endpoints landed (import/browse/export/upload/
-  token-handling/provenance; spec `voice-bundles.md` 1.3.0–1.9.0, 2026-07-03/07-12). **NOT yet
-  owner-signed-off — untested end-to-end; treated as built-but-unverified, not shipped.** See
-  Remaining Tasks. *(Corrected 2026-07-18: the earlier "all shipped/live" claim was overstated.)*
-- **AI casting + voice metadata UI.** **NOT shipped — marked future in the app, currently
-  placeholder UI.** The taxonomy-driven attribute scoring exists, but the AI-casting surface is a
-  placeholder pending an owner scope decision (see Remaining Tasks / Future Work). *(Corrected
-  2026-07-18: the earlier "all shipped" claim was wrong — this belongs under future work, not
-  completed.)*
 - **Voice-variant version history.** Filesystem-based `versions/` schema per variant,
   non-destructive rebuild snapshots, promote-to-active, A/B panel.
 - **Voice variant tagging + IA redesign.** Per-variant `performance_tags`, count-based variant
   switcher, default-variant star, restored icon-prompt affordance, consolidated overflow menu.
+
+## Built, not yet complete (do not treat as shipped)
+
+Two items were listed above as "shipped" until an owner review on 2026-07-18 corrected both — kept
+here, clearly separated, rather than in the shipped list above, until each is actually done. (A
+third corrected item, AI casting + voice-metadata UI, was a placeholder mislabeled as shipped; it's
+been moved entirely to `FUTURE_WORK.md` rather than kept here, since the UI itself doesn't exist yet.)
+
+- **Recording cue & persona sample expansion.** Mad-lib cue composer, filtered character-library
+  ranking, square-portrait image prompts, character library expanded 39→103 archetypes across 8
+  genre buckets, dev-mode-gated portrait-prompt export tooling. Established repo-wide convention:
+  `useDevMode()` gates contributor-only/in-progress/beta tooling, not just debugging. **Not
+  complete** — the owner's portrait-image generation and a live end-to-end verification are still
+  outstanding, so the source plan stays in place until then (see Remaining Tasks).
+- **HuggingFace voice browse + upload.** Code + endpoints landed (import/browse/export/upload/
+  token-handling/provenance; spec `voice-bundles.md` 1.3.0–1.9.0, 2026-07-03/07-12). **Not yet
+  owner-signed-off** — untested end-to-end; treated as built-but-unverified, not shipped (see
+  Remaining Tasks).
 
 ## Cleanup along the way
 
@@ -137,7 +140,7 @@ post-release is in [FUTURE_WORK.md](FUTURE_WORK.md).
 
 ## Documentation consolidation (this pass)
 
-- Deleted ~150 completed-plan files from `_archive/` and 10 of 11 merged-PR briefs from
+- Deleted 124 completed-plan files from `_archive/` and 10 of 11 merged-PR briefs from
   `pr-dispatch/` — narrative history now lives in `wiki/Changelog.md`.
 - Deleted 3 more completed plan folders that were only being kept for a spec citation
   (`audio_player_waveform_scrubber/`, `huggingface_voice_upload/`, `synced_reader/`) and repointed

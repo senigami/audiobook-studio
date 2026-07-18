@@ -15,7 +15,8 @@ no history — the narrative lives in the wiki.
 
 ## A. Retired now (this pass — safe, self-contained)
 
-- **`design-docs/design-critique/`** (12 files, authored 2026-07-11) — a development aid; its
+- **`docs/design-critique/`** (12 files, authored 2026-07-11 — moved to `design-docs/` earlier this
+  branch, then retired here) — a development aid; its
   findings (A11Y-3, H-5, F3.1/F3.2/F5.7, etc.) were acted on and shipped. Code carries the "why"
   as inline `(design-critique follow-up)` comments, which don't depend on the files existing. One
   real provenance citation — a `design-system.md` v1.16.0 changelog row — was repointed (finding

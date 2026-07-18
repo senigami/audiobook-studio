@@ -52,5 +52,7 @@ Every item here is an addition to the already-shipped Director's Console (`front
 ## Map links out
 
 - Source design doc: [`design-docs/workflows/chapter-editor-modes.md`](../../../workflows/chapter-editor-modes.md).
-- Prior execution history: [`_archive/directors_console_activation/README.md`](../../_archive/directors_console_activation/README.md) (the scaffold-and-wire-in pass this plan follows on from).
+- Prior execution history: the `directors_console_activation` plan (the scaffold-and-wire-in pass
+  this plan follows on from) was deleted in #153 — its narrative lives in `wiki/Changelog.md`;
+  git-recoverable at `2dd721a4^` if the original plan text is needed.
 - Status ledger: `design-docs/plans/TASKS.md`, "Chapter editor art-program" section.
