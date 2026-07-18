@@ -11,20 +11,24 @@ The Library is your control center for all audiobooks in progress. Reach it from
 
 ## Opening a Book
 
-Clicking a book card opens it into the **Book Pipeline** — a routed set of stage tabs. The URL changes to `/book/:id/<stage>` (for example `/book/abc123/manuscript`). Each stage is a dedicated route:
+Clicking a book card opens it into the book's tab bar. The URL changes to `/book/:id/<tab>` (for example `/book/abc123/contents`). Each tab is a dedicated route:
 
-| Stage | Route segment | Purpose |
-|-------|--------------|---------|
-| Manuscript | `manuscript` | Add, edit, and import chapter text; text analysis |
-| Casting | `casting` | Assign narrator and character voices |
-| Chapter Workspace | `studio` | Generate, assign, revise, and review audio via the Director's Console |
-| Publish | `publish` | Book metadata, assemblies, backups, export |
+| Tab | Route segment | Purpose |
+|-----|--------------|---------|
+| Book | `book` | Project identity (title, author, series, description, cover) and Continue Listening |
+| Contents | `contents` | Chapter board: add, import, reorder, and open chapters |
+| Cast | `cast` | Assign narrator and character voices |
+| Lexicon | `lexicon` | Per-book pronunciation overrides |
+| Publish | `publish` | Assemblies and final export |
+| Backups | `backups` | Dated ZIP snapshots of the project |
+
+Opening a chapter from Contents enters the **Chapter Workspace** at its own route, `/book/:id/chapter/:chapterId`.
 
 Legacy `/project/:id` and `/chapter/:id` URLs still work — they redirect to the corresponding book pipeline route so bookmarks are not broken.
 
-## Manuscript Stage
+## Contents Tab
 
-The Manuscript stage is where you manage the structure and text of your book.
+The Contents tab is where you manage the structure of your book.
 
 - **Add Chapter**: Upload a `.txt` file or paste text directly.
 - **Reorder**: Drag and drop chapters to change their sequence.
@@ -43,9 +47,9 @@ Each chapter features a **Status Orb** that provides instant visual feedback and
 
 **Pro Tip**: Click any non-rendering Orb to access a contextual action menu (e.g., "Rebuild Audio", "Queue Remaining").
 
-## Casting Stage
+## Cast Tab
 
-The Casting stage is where you assign voices to narrators and characters.
+The Cast tab is where you assign voices to narrators and characters.
 
 - **Narrator (default)**: The first pinned row is always the Narrator — the fallback voice for any unassigned line.
 - **Assign Profiles**: Link a project character to a Voice profile from your Voice Library.
@@ -68,14 +72,15 @@ Other things you'll still find inside the Chapter Workspace:
 
 See [[Queue and Jobs]] for details on how generation jobs flow through the system.
 
-## Publish Stage
+## Publish Tab
 
-The Publish stage is where you edit book metadata and export the final audiobook.
+The Publish tab is where you assemble and export the final audiobook.
 
-- **Book Info**: Edit the title, author, series, and cover art here (not in Manuscript, which is read-only for metadata).
+- **Identity Strip**: A slim, read-only summary of the book's identity (title, author, series, cover). Editing happens on the **Book** tab, not here.
 - **Assemblies**: A receipt-style history of every past assembly, including duration, file size, and a "Latest" badge.
-- **Backups**: Save or download dated ZIP snapshots of the project (with or without audio).
 - **Assemble Audiobook**: Compiles the final `.m4b` from the cached M4A chapter files.
+
+Backups moved to their own **Backups** tab (see below).
 
 ### Assembly History
 
@@ -89,9 +94,9 @@ The Assemblies panel shows:
 
 Assembly uses **Incremental Concatenation** — it stitches existing M4A chapter encodes together without re-encoding. Subsequent assemblies after partial chapter updates are fast.
 
-### Backups
+## Backups Tab
 
-The Backups panel lets you save or download dated ZIP snapshots of the project.
+The Backups tab lets you save or download dated ZIP snapshots of the project.
 
 - **Save**: Writes a backup to the `backups/` folder inside the project directory.
 - **Download**: Creates the same ZIP and sends it to your browser immediately.
@@ -99,7 +104,7 @@ The Backups panel lets you save or download dated ZIP snapshots of the project.
 
 ## Covers and Metadata
 
-Book cover and metadata (title, author, series) are edited in the **Publish** stage under Book Info.
+Book cover and metadata (title, author, series, description) are edited on the **Book** tab. The Publish tab shows them read-only in its identity strip.
 
 ---
 

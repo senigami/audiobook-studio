@@ -13,16 +13,18 @@ Understanding how Audiobook Studio organizes data is key to a smooth workflow.
 
 ## Book Pipeline
 
-Projects open into a routed pipeline at `/book/:id/<stage>`:
+Projects open into a routed set of book tabs at `/book/:id/<tab>`:
 
-| Stage | Purpose |
-|-------|---------|
-| **Manuscript** | Add, edit, and import chapter text; run text analysis |
-| **Casting** | Assign narrator (pinned) and character voices |
-| **Chapter Workspace** | Generate, assign, revise, and review audio via the Director's Console (Cast, Booth, Revise, Write) |
-| **Publish** | Book metadata, assemblies, backups, and final export |
+| Tab | Purpose |
+|-----|---------|
+| **Book** | The project's front door: edit its identity (title, author, series, description, cover) and pick up playback via Continue Listening |
+| **Contents** | The chapter board: add, import, reorder, and open chapters |
+| **Cast** | Assign narrator (pinned) and character voices |
+| **Lexicon** | Per-book pronunciation overrides |
+| **Publish** | Assemblies and final export |
+| **Backups** | Dated ZIP snapshots of the project |
 
-The old separate **Studio** and **Review** stages have been merged into one Chapter Workspace, switched between via the Director's Console's four tools instead of a top-level tab.
+Opening a chapter from Contents enters the **Chapter Workspace** at `/book/:id/chapter/:chapterId`. The old separate **Studio** and **Review** stages have been merged into this one workspace, switched between via the Director's Console's four tools (Cast, Booth, Revise, Write) instead of a top-level tab.
 
 ## Left Rail Navigation
 
