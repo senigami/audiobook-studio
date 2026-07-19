@@ -108,21 +108,79 @@ def test_reordered_duplicates_do_not_cross_match_but_unique_sentence_is_preserve
 
 
 def test_whitespace_falsifier_strip_after_concat():
-    """Invariant I3: split_into_sentences (preserve_gap=True) still strips at least
-    ' \\t\\r' off each whole sentence's edges; fragments are raw substrings of an
-    already-once-stripped sentence. Concatenating existing fragments and stripping the
-    OUTER edges (not comparing raw un-stripped slices) must match the fresh sentence."""
-    # Simulates a sentence "Hello world." that was split into two fragment rows whose
-    # raw text, when concatenated, has no extra whitespace at the join -- but the
-    # fresh sentence value itself may carry a leading/trailing artifact stripped by
-    # the splitter. Both sides go through _norm() (.strip()) before comparison.
-    existing = [_row("l", "Hello "), _row("r", "world.")]
-    fresh = ["  Hello world.  "]  # as if the splitter's stripping left outer whitespace
+    """Invariant I3, genuine falsifier (corrected 2026-07-19 after both Fable and
+    Constance's code reviews found the original version didn't exercise this): with
+    the DB's actual preserve_gap=True splitter, an interior sentence's yielded text
+    INCLUDES the trailing whitespace gap before the next sentence, unstripped
+    (textops_splitting.py's preserve_gap branch does not call .strip() at all -- only
+    _norm()'s .strip() in this module does). So a fragment created by splitting that
+    sentence can itself carry trailing gap whitespace mid-concatenation. This test
+    puts the whitespace artifact on the EXISTING/fragment side, not the fresh side, so
+    it actually exercises _find_fragment_run's acc.strip() step -- deleting that strip
+    would make this test fail, which is what makes it a real falsifier."""
+    # The fragment run's raw concatenation is "Hello  world. " (gap after the split
+    # point, plus the sentence's own trailing gap) -- only stripping the OUTER edges
+    # of the full concatenation (not each piece individually) reproduces the fresh
+    # sentence's normalized form.
+    existing = [_row("l", "Hello "), _row("r", " world. ")]
+    fresh = ["Hello  world."]
 
     result = align_segments(existing, fresh)
 
     assert len(result.preserved) == 1
     assert result.preserved[0].existing_ids == ["l", "r"]
+
+
+def test_duplicate_content_with_a_genuine_fragment_split_is_not_destroyed():
+    """Regression for a real bug Fable's code review caught (2026-07-19): a chapter
+    with a manually-split sentence whose text ALSO appears verbatim elsewhere must not
+    lose the split just because the whole-sentence content happens to be duplicated.
+    This is a pure resave -- nothing edited at all -- and the original blanket
+    duplicate-sensitivity gate destroyed all three rows every time. A genuine
+    multi-row fragment run is exempted from the duplicate gate (it's an explicit user
+    action); a length-1 match is not (still ambiguous, stays position/uniqueness-gated,
+    per test_reordered_duplicates_... above)."""
+    existing = [
+        _row("frag1", "Re"),
+        _row("frag2", "peat."),
+        _row("whole2", "Repeat."),
+    ]
+    fresh = ["Repeat.", "Repeat."]  # unchanged manuscript -- a no-op resave
+
+    result = align_segments(existing, fresh)
+
+    by_index = {p.fresh_index: p.existing_ids for p in result.preserved}
+    # The genuine 2-row fragment split is recognized and preserved.
+    assert by_index.get(0) == ["frag1", "frag2"]
+    # The lone whole-row duplicate occurrence is NOT cross-matched by content search
+    # (still ambiguous as a single-row candidate) -- it's conservatively treated as
+    # new/unprocessed rather than guessed at, which is safe (no wrong assignment),
+    # even though it costs one row's assignment on this pure resave.
+    assert 1 in result.new_sentence_indices
+    assert "whole2" in result.unmatched_existing_ids
+
+
+def test_reordered_duplicate_split_variant_still_does_not_cross_match():
+    """Same bug class as above, reordered: confirms the fix doesn't reintroduce
+    cross-matching for duplicate content once fragment-run recognition is allowed --
+    here BOTH occurrences resolve correctly (the whole row via position-anchored pass
+    1, the fragment run via pass 2), with no cross-match between them."""
+    existing = [
+        _row("whole1", "Repeat."),
+        _row("frag1", "Re"),
+        _row("frag2", "peat."),
+    ]
+    fresh = ["Repeat.", "Repeat."]
+
+    result = align_segments(existing, fresh)
+
+    by_index = {p.fresh_index: p.existing_ids for p in result.preserved}
+    # Position-anchored pass 1 matches fresh[0] to the whole row at the same index.
+    assert by_index.get(0) == ["whole1"]
+    # The fragment run is recognized for fresh[1] -- not cross-matched to whole1.
+    assert by_index.get(1) == ["frag1", "frag2"]
+    assert result.new_sentence_indices == []
+    assert result.unmatched_existing_ids == set()
 
 
 def test_genuinely_edited_sentence_reports_discard_for_that_sentence_only():

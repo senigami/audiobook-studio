@@ -63,9 +63,21 @@ def align_segments(existing_rows: list[dict], fresh_sentences: list[str]) -> Ali
            concatenation equals the sentence (Invariant I3: strip AFTER concatenation,
            never compare raw un-stripped slices). Unbounded run length -- assignments
            accumulate across separate edits with no re-merge in between, so a run can be
-           longer than the 3 fragments a single split action produces. Also gated on the
-           same content-uniqueness rule as (a) -- a duplicate-sensitive sentence never
-           searches past position, even for a candidate fragment run.
+           longer than the 3 fragments a single split action produces.
+
+           CORRECTED (2026-07-19, after a code review found the original blanket gate
+           destroyed data): a genuine multi-row fragment run (length >= 2) is ALWAYS
+           eligible, even for duplicate-sensitive content -- a multi-row split is an
+           explicit, deliberate user action, categorically different from a
+           naturally-occurring duplicate whole sentence, and recognizing it is safe. A
+           length-1 "run" (i.e., a single whole row) found by the same search function
+           is NOT exempted -- it is exactly the single-row case in (a) and stays gated by
+           content-uniqueness for the same cross-match-safety reason. Concretely: a
+           chapter with a manually-split sentence whose text ALSO appears verbatim
+           elsewhere (e.g. repeated dialogue) must not lose the split on a resave just
+           because the sentence's whole-text is duplicated -- only single-row ambiguity
+           is dangerous; a >=2-row run's existence is itself strong evidence of a real,
+           intentional split.
     3. Anything still unresolved is a new/changed sentence -- caller creates a fresh row.
     """
     n_existing = len(existing_rows)
@@ -102,9 +114,14 @@ def align_segments(existing_rows: list[dict], fresh_sentences: list[str]) -> Ali
                     matched = True
                     break
 
-        if not matched and not is_duplicate_sensitive:
+        if not matched:
             run = _find_fragment_run(existing_rows, used, sent)
-            if run:
+            # A genuine multi-row fragment run (>= 2 rows) is always eligible, even for
+            # duplicate-sensitive content -- a multi-row split is an explicit user
+            # action, categorically different from a naturally-occurring duplicate
+            # whole sentence. A length-1 "run" IS the single-row case above and stays
+            # gated by content-uniqueness (see the corrected docstring for why).
+            if run and (len(run) > 1 or not is_duplicate_sensitive):
                 preserved.append(
                     PreservedRun(fresh_index=i, existing_ids=[existing_rows[k]["id"] for k in run])
                 )
