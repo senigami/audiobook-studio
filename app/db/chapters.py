@@ -218,10 +218,12 @@ def update_chapter(chapter_id: str, **updates) -> bool:
             values.append(chapter_id)
             cursor.execute(f"UPDATE chapters SET {', '.join(fields)} WHERE id = ?", values)
             updated = cursor.rowcount > 0
+            lost_assignments_count = 0
             if updated and is_text_update:
                 try:
                     from .segments import sync_chapter_segments
-                    sync_chapter_segments(chapter_id, updates["text_content"], conn=conn)
+                    sync_result = sync_chapter_segments(chapter_id, updates["text_content"], conn=conn)
+                    lost_assignments_count = sync_result.get("lost_assignments_count", 0)
                 except Exception as e:
                     logger.error(
                         "Failed to sync segments for chapter %s: %s; rolling back chapter text update",
@@ -231,6 +233,12 @@ def update_chapter(chapter_id: str, **updates) -> bool:
                     return False
 
             conn.commit()
+            # Task 6 (RC-1 fix): surface the loss count on an ordinary save, not just the
+            # explicit resync route's preview. Backward compatible -- both existing
+            # callers (api_update_chapter_details, the backup-restore path) discard the
+            # return value today, and `bool(result)` on the returned dict is still True.
+            if is_text_update:
+                return {"success": updated, "lost_assignments_count": lost_assignments_count}
             return updated
 
 

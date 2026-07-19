@@ -177,7 +177,7 @@ export const api = {
     const res = await fetch(`/api/projects/${projectId}/chapters`, { method: 'POST', body: formData });
     return parseApiResponse(res);
   },
-  updateChapter: async (chapterId: string, data: { title?: string; text_content?: string; speaker_profile_name?: string | null }): Promise<{status: string, chapter: Chapter}> => {
+  updateChapter: async (chapterId: string, data: { title?: string; text_content?: string; speaker_profile_name?: string | null }): Promise<{status: string, chapter: Chapter, lost_assignments_count: number}> => {
     const formData = new FormData();
     if (data.title) formData.append('title', data.title);
     if (data.text_content !== undefined) formData.append('text_content', data.text_content ?? '');

@@ -640,6 +640,12 @@ def sync_chapter_segments(chapter_id: str, text_content: str, conn=None):
     removed_rows = [row for row in existing if row["id"] not in preserved_ids]
     removed_ids = [row["id"] for row in removed_rows]
     removed_files = [row.get("audio_file_path") for row in removed_rows if row.get("audio_file_path")]
+    # Task 6: surface how many manual assignments were actually lost, so an ordinary save
+    # (not just the explicit resync route) can warn the user -- see
+    # design-docs/plans/active/span_resync_preservation_fix/. Additive: the three existing
+    # callers (create_chapter, update_chapter, the explicit resync route) all discard the
+    # old bare `True` return today, so this shape change is backward compatible.
+    lost_assignments_count = sum(1 for row in removed_rows if row.get("character_id"))
     try:
         from .chapters import cleanup_chapter_audio_files
         cleanup_chapter_audio_files(
@@ -655,4 +661,4 @@ def sync_chapter_segments(chapter_id: str, text_content: str, conn=None):
             exc_info=True,
         )
 
-    return True
+    return {"success": True, "lost_assignments_count": lost_assignments_count}

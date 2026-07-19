@@ -268,17 +268,24 @@ def save_script_assignments(
 
 
 def get_resync_preview(chapter_id: str, new_text: str) -> dict[str, Any]:
-    """Calculates the impact of a source text resync without modifying the database."""
+    """Calculates the impact of a source text resync without modifying the database.
+
+    Uses the SAME shared alignment function as the real sync (align_segments) so this
+    preview cannot drift from what a real save will actually do -- see
+    design-docs/plans/active/span_resync_preservation_fix/ (RC-1 fix, Task 5). Remains a
+    pure read: no DB writes.
+    """
     from app.db.nlp import split_into_sentences
+    from app.db.segment_alignment import align_segments
 
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT s.text_content, s.character_id, s.speaker_profile_name, c.name as character_name
+            SELECT s.id, s.text_content, s.character_id, s.speaker_profile_name, c.name as character_name
             FROM chapter_segments s
             LEFT JOIN characters c ON s.character_id = c.id
-            WHERE s.chapter_id = ? 
+            WHERE s.chapter_id = ?
             ORDER BY s.segment_order ASC
             """,
             (chapter_id,),
@@ -289,30 +296,43 @@ def get_resync_preview(chapter_id: str, new_text: str) -> dict[str, Any]:
 
     total_old = len(existing)
     total_new = len(new_sentences)
+
+    alignment = align_segments(existing, new_sentences)
+    existing_by_id = {row["id"]: row for row in existing}
+
+    # preserved_assignments_count is at fresh-sentence granularity: a preserved run of
+    # N fragment rows for one sentence counts once if ANY row in it carries a character
+    # assignment (a fragment run and a whole-sentence match are both "one sentence" from
+    # the preview's point of view).
     preserved_count = 0
+    for run in alignment.preserved:
+        if any(existing_by_id[rid].get("character_id") for rid in run.existing_ids):
+            preserved_count += 1
+
     lost_assignments_count = 0
     affected_character_names = set()
-
-    preserved_indices = set()
-
-    for i, sent in enumerate(new_sentences):
-        if i < len(existing) and (existing[i].get("text_content") or "").strip() == sent.strip():
-            preserved_indices.add(i)
-            if existing[i].get("character_id"):
-                preserved_count += 1
-
-    for i, row in enumerate(existing):
-        if i not in preserved_indices and row.get("character_id"):
+    for rid in alignment.unmatched_existing_ids:
+        row = existing_by_id[rid]
+        if row.get("character_id"):
             lost_assignments_count += 1
             affected_character_names.add(row.get("character_name") or "Unknown")
 
+    # is_destructive is keyed purely to actual assignment loss (RC-1 fix, Task 5 follow-up
+    # -- both Fable and Constance's code reviews independently found the same bug): the old
+    # `total_new < total_old` row-count heuristic was a valid proxy for "something got
+    # destroyed" BEFORE align_segments existed, since a legitimate manual split had no way
+    # to shrink the row count while preserving assignments. Now a preserved multi-row
+    # fragment run legitimately maps to one fresh sentence, so total_new < total_old on its
+    # own no longer implies loss -- it produced a contradictory UI (a destructive-resync
+    # warning directly above "all assignments preserved"). Row-count shrinkage with zero
+    # actual assignment loss is not destructive in the sense this function's fields describe.
     return {
         "total_segments_before": total_old,
         "total_segments_after": total_new,
         "preserved_assignments_count": preserved_count,
         "lost_assignments_count": lost_assignments_count,
         "affected_character_names": sorted(list(affected_character_names)),
-        "is_destructive": lost_assignments_count > 0 or (total_new < total_old and total_old > 0)
+        "is_destructive": lost_assignments_count > 0
     }
 
 
