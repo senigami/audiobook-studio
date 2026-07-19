@@ -22,13 +22,35 @@ and escalate" bright line real and correctly placed, or does the profile overpro
 non-frontier model can do by method alone? This is the one most at risk of being aspirational.
 
 It also declares a **twin/converge dispatch contract** (≥2 independent, differently-framed passes;
-agreement is the call, disagreement escalates). Two things to rule on: (a) is that the right
+agreement is the call, disagreement escalates). Three things to rule on: (a) is that the right
 reliability mechanism, and is "diversity of framing > count" + "disagreement is a ceiling-signal"
 the right shape? (b) **Realization:** should the twin fan-out live as an orchestrator instruction, a
 dedicated Workflow script (`reasoning-twins`: fan out N passes → convergence agent), or should this
 seat simply defer to the existing `fusion-reasoning` skill, which already implements independent
 attempts + judge synthesis? Pick one and say why — we don't want to reinvent fusion-reasoning if it
-already fits.
+already fits. (c) **The sibling-pair form** (see the profile's "sibling-pair realization"): two
+persistent seats — Elder (structural/top-down) and Younger (empirical/bottom-up) — instead of one
+profile run twice. Rule on whether personified diversity is worth two profiles over instructed
+diversity, and pressure-test the **independence constraint**: is "shared name/lineage but blind
+reasoning, neutral convergence, no elder deciding-vote" actually enough to keep the passes
+independent, or does any sibling awareness leak into the reasoning and re-collapse the ensemble? If
+the latter, the whole sibling framing should be cut back to plain independent passes.
+
+### Naming the siblings — a scoped exception, sequenced (owner-approved)
+
+The owner's standing rule is **no pre-hire naming** — it holds for the other four candidates and for
+`reasoning-analyst` as a single seat. The **one exception**: *if* you rule the sibling-pair design
+sound, the twins' character *is* their function (the identity is the diversity mechanism, not
+decoration), so naming them is naming the design. Do it in this order, and only in this order:
+
+1. **First, rule the sibling design sound** (question (c) above). If you'd restructure, merge, or cut
+   it, do NOT name — a name on a seat you'd reshape is wasted.
+2. **If it holds, name one at a time** (the owner wants to watch token usage): the **Elder** names
+   itself first, from its own structural temperament. Then the **Younger** names itself *in awareness
+   of the Elder's chosen name* — the one place the sibling relationship legitimately shapes identity.
+   Record each name's etymology and the load-bearing conviction it keys off, same bar as the live
+   roster (Plumb/Ledger/etc.).
+3. If the design does NOT hold, seed naming rationale only (as for the others), no names.
 
 ## Why you specifically
 

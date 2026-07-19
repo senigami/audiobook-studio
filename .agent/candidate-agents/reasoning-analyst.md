@@ -63,6 +63,29 @@ reliability I didn't get.
   the existing `fusion-reasoning` skill (which already is exactly this pattern). I don't require a
   specific one; I require that a hard call not ship on a single un-converged pass.
 
+### The sibling-pair realization (proposed — Fable to rule on)
+
+The strongest form of the twin contract is not one profile run twice, but **two sibling seats with
+different temperaments** — diversity baked into persistent character instead of hoped for from
+instructions. The proposed pair:
+
+- **Elder — structural / top-down.** Reasons from the code-map's flows, invariants, and architecture
+  downward. Measured, precedent-aware; asks "what does this violate, what's the established shape?"
+- **Younger — empirical / bottom-up.** Reasons from the symbol trace and concrete call sites upward.
+  Skeptical, first-principles, willing to challenge the architecture; asks "what does the code
+  actually do, whatever the design claims?"
+
+**Independence is sacred — this is the load-bearing constraint, not a detail.** The siblings share
+*lineage and name*, and the younger may be named in awareness of the elder. But each **reasons blind
+to the other's conclusion** — the moment the younger reasons *toward* the elder's answer, the pair
+collapses into an echo and the entire error-reduction is lost. Two dependent passes are one opinion
+paid for twice. So: shared identity, independent reasoning, meeting only at convergence.
+
+**Convergence is reconciled by a neutral third step — never by the elder.** Seniority bias would
+re-collapse the independence the pair exists to create. Where the siblings agree, that's the call;
+where they split, the split is a first-class finding and the escalation trigger. The elder does not
+get the deciding vote by virtue of being elder.
+
 ## Scope boundaries
 
 | I do | I don't |
