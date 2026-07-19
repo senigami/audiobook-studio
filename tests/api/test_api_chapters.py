@@ -209,3 +209,62 @@ def test_chapter_asset_route_rejects_path_traversal(clean_db, client):
         )
 
         assert response.status_code == 404
+
+
+def test_chapter_update_surfaces_lost_assignments_count(clean_db, client):
+    """RC-1 fix, Task 6 API-level test: an ordinary PUT /chapters/{id} text save that
+    actually destroys a manual assignment surfaces the count in the JSON response, and
+    a save that preserves everything surfaces 0 -- not just the explicit resync route's
+    preview."""
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments
+    from app.db.characters import create_character
+    from app.db import update_segment
+
+    pid = create_project("PLA1")
+    cid = create_chapter(pid, "CLA1", "First sentence. Second sentence.")
+    sync_chapter_segments(cid, "First sentence. Second sentence.")
+    segs = get_chapter_segments(cid)
+    second_id = segs[1]["id"]
+
+    villain = create_character(pid, "Villain")
+    update_segment(second_id, character_id=villain)
+
+    # A genuine edit to the assigned sentence: real loss.
+    response = client.put(
+        f"/api/chapters/{cid}",
+        data={"text_content": "First sentence. Completely different text."},
+    )
+    assert response.status_code == 200
+    assert response.json()["lost_assignments_count"] == 1
+
+    # A clean save (identical text) reports zero.
+    response2 = client.put(
+        f"/api/chapters/{cid}",
+        data={"text_content": "First sentence. Completely different text."},
+    )
+    assert response2.status_code == 200
+    assert response2.json()["lost_assignments_count"] == 0
+
+
+def test_sync_segments_route_surfaces_lost_assignments_count(clean_db, client):
+    """Same guarantee for the explicit /sync-segments route."""
+    from app.db.projects import create_project
+    from app.db.chapters import create_chapter
+    from app.db.segments import sync_chapter_segments, get_chapter_segments
+    from app.db.characters import create_character
+    from app.db import update_segment
+
+    pid = create_project("PLA2")
+    cid = create_chapter(pid, "CLA2", "One. Two.")
+    sync_chapter_segments(cid, "One. Two.")
+    segs = get_chapter_segments(cid)
+    second_id = segs[1]["id"]
+
+    hero = create_character(pid, "Hero")
+    update_segment(second_id, character_id=hero)
+
+    response = client.post(f"/api/chapters/{cid}/sync-segments", json={"text": "One. Different."})
+    assert response.status_code == 200
+    assert response.json()["lost_assignments_count"] == 1

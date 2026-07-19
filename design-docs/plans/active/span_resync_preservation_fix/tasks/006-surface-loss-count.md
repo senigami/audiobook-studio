@@ -1,4 +1,12 @@
-Status: pending
+Status: partially complete — 2026-07-19. Backend done and tested (return-shape change, threading,
+both API routes surface the count, 2 API-level tests, 1081+ broader tests pass). **Frontend NOT
+done — deliberately left open, not silently skipped:** wiring `useChapterPersistence.ts` to show a
+user-facing warning is an information-architecture/UI change; per this repo's mandate, that kind of
+perceptual/IA judgment gets staged for the designer (Veronica)/owner, not shipped unilaterally by
+this task. The TS response type (`frontend/src/api/index.ts`) was updated so `lost_assignments_count`
+is available to a future consumer, but no UI surfaces it yet. Fable's code review caught this
+mid-task (the stated purpose — "so the UI can warn the user" — isn't reachable by any real user
+until the frontend half lands); recording it explicitly rather than marking the task done.
 Depends on: Task 4
 
 # Task 6 — surface `lost_assignments_count` on the save response
@@ -43,10 +51,19 @@ but still possible for genuinely-edited sentences).
 
 ## Acceptance criteria
 
-- [ ] `sync_chapter_segments`'s new return shape doesn't break any of its 3 call sites.
-- [ ] The chapter-update API response includes the loss count.
-- [ ] Frontend shows a warning when the count is non-zero, reusing existing UI pattern if one exists.
-- [ ] Test confirms a genuine-loss save surfaces a non-zero count; a clean save surfaces 0.
+- [x] `sync_chapter_segments`'s new return shape doesn't break any of its 3 call sites — confirmed
+      by exhaustive grep (excluding stale worktrees) and 1081+ tests passing.
+- [x] The chapter-update API response includes the loss count (`PUT /chapters/{id}` and the
+      explicit `/sync-segments` route, both).
+- [ ] **Frontend shows a warning when the count is non-zero — NOT DONE, deliberately.** An existing
+      `ResyncPreviewModal.tsx` pattern exists to reuse (`is_destructive`/`lost_assignments_count`
+      already drive its warning icon/copy), so this is mechanically straightforward — but wiring it
+      into the ordinary-save path (`useChapterPersistence.ts`) is a real UI/IA decision (when does
+      the warning show, does it block the save, does it reuse the modal or need a lighter inline
+      form) that should go through the designer/owner, not be decided unilaterally here.
+- [x] Test confirms a genuine-loss save surfaces a non-zero count; a clean save surfaces 0 —
+      `tests/api/test_api_chapters.py::test_chapter_update_surfaces_lost_assignments_count` and
+      `::test_sync_segments_route_surfaces_lost_assignments_count`.
 
 ## Out of scope
 
