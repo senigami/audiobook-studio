@@ -14,6 +14,7 @@ Files:
 - [voices-casting.md](voices-casting.md)
 - [queue-activity-review-publish.md](queue-activity-review-publish.md)
 - [settings-engines-integrations.md](settings-engines-integrations.md)
+- [pain-points.md](pain-points.md) — cross-cutting friction points extracted from the four audits above
 
 Design exploration (forward-looking, not current-state audit):
 

@@ -4,35 +4,18 @@
 > mis-named-but-live `app/jobs` package. All behavior-preserving; `pytest -q` (incl. plugin suites)
 > green per task. The backend is broadly sound — this is targeted debt removal, not restructuring.
 
-> **AUDIT CORRECTION (2026-07-01):** (1) **BE-1's `schema_data` claim is WRONG** — those variables
-> are consumed by `isinstance(schema_data, dict)` validation checks; they are live code, not dead.
-> Do NOT delete. (2) **BE-3's target file** is `app/api/contracts/events.py` (not
-> `scheduler/events.py`); the duplication itself is still present. (3) **BE-2 scope grew** from ~10
-> to 12 modules: `app/infra/subprocess/__init__.py` and `app/infra/db/__init__.py` (created after
-> this plan) inherited the same dead `INTENDED_*`/`FORBIDDEN_*` constants pattern. (4) BE-4/BE-5
-> still valid (line anchors drifted, shape unchanged). (5) BE-6 still valid and still the
-> highest-risk item: `app/jobs/` unchanged, 97 live references across ~40 files. (6) `speakers.py`
-> still one 669-line file.
+**Done:** BE-1 (4 of 5 sub-items; the 5th confirmed invalid), BE-4. Still open: BE-2, BE-3, BE-5,
+BE-6.
 
 ---
 
-## BE-1 — Remove confirmed backend dead code *(done 2026-07-04 — 4 of 5 sub-items; the 5th is confirmed invalid, not attempted)*
-
-One commit; each item verified to have zero live callers.
-
-| Item | Location | Action |
-|------|----------|--------|
-| `REPORT_DIR`/`UPLOAD_DIR` import + `REPORT_DIR = REPORT_DIR` alias | `app/api/web.py:13,25` | Remove. `UPLOAD_DIR` only appears in a docstring; the endpoint uses `COVER_DIR`. Fix `tests/api/test_api_analysis_extended.py:65` to patch `app.api.routers.analysis.REPORT_DIR` (the web.py patch is a no-op today). **DONE, `commit 2c0b6f83`** — the analysis test's patch-target fix landed too; flagged that `app.core.config.REPORT_DIR` (a third, pre-existing patch line in the same test) is what actually drives the tested behavior, so the fixed line is correct but still redundant — not expanded beyond the instructed change. |
-| `tts_generate_stub` | `app/api/web.py:412-414` | Delete. Docstring claims tests patch it; no such test exists (grep: only the declaration). **DONE, `commit 2c0b6f83`.** |
-| Dead dual-mode (`isinstance(..., dict)`) job access | `app/orchestration/progress/service.py:487-538` | `get_jobs()` always returns `Job` dataclasses; replace the `hasattr/isinstance` ladder with direct attribute access (`existing_job.speaker_profile or "default"`, etc.). **DONE, `commit bfbbdf02`** — both occurrences (the ladder + a second inline dead-pattern in the `voice_event` call) replaced; revert-checked against `tests/api/test_websocket_broadcast.py::test_voice_test_job_telemetry_isolation`. |
-| `_should_emit()` public shim | `app/orchestration/progress/service.py:1339-1357` | Delete. No test calls it (refs are comments/docstrings; tests assert via `publish()` return). **Do before LF-6.** **DONE, `commit bfbbdf02`** — zero real callers reconfirmed before deletion. |
-| Unused `schema_data` vars | `app/tts_server/server.py:892-900, 1045-1053, 1165-1173` | **INVALID (2026-07-01 audit correction) — do NOT delete; these are live validation code (`isinstance(schema_data, dict)` checks). Not attempted.** |
-
-**Verify:** `pytest -q`; revert-check the dict-mode removal by confirming an existing voice-test
-job path still publishes correctly. **Risk:** low (low-med for the service.py edits — covered by
-the progress suite). **Spec:** none.
-
-*(Full backend suite after both BE-1 commits: 2221 passed, 3 skipped — no change from baseline.)*
+## BE-1 — Remove confirmed backend dead code — DONE (2026-07-04)
+Removed the `REPORT_DIR`/`UPLOAD_DIR` web.py alias + fixed the analysis test patch target
+(`2c0b6f83`), deleted `tts_generate_stub` (`2c0b6f83`), replaced the dead `isinstance(dict)` dual-mode
+job-access ladder and deleted the `_should_emit()` public shim (`bfbbdf02`, revert-checked). The 5th
+sub-item (`schema_data` vars in `tts_server/server.py`) was **confirmed live** (consumed by
+`isinstance(schema_data, dict)` validation) and not touched. Full backend suite unchanged
+(2221 passed / 3 skipped).
 
 ---
 
@@ -40,9 +23,9 @@ the progress suite). **Spec:** none.
 
 **Why:** module-level tuples (`INTENDED_UPSTREAM_CALLERS`, `INTENDED_DOWNSTREAM_DEPENDENCIES`,
 `FORBIDDEN_DIRECT_IMPORTS`) are read **nowhere** — pure documentation that silently rots. Present in
-~10 modules (e.g. `progress/service.py:26-39`, `scheduler/orchestrator.py:41-57`,
-`engines/bridge_utils.py:8-22`, the `domain/*/service.py` files, `core/logging.py:7-14`, the two
-plugin `app_adapter.py` files).
+~12 modules (e.g. `progress/service.py`, `scheduler/orchestrator.py`, `engines/bridge_utils.py`,
+the `domain/*/service.py` files, `core/logging.py`, `app/infra/subprocess/__init__.py`,
+`app/infra/db/__init__.py`, the two plugin `app_adapter.py` files).
 
 **Two options:**
 - (a) Replace each with a one-line comment (`# Upstream: orchestrator only; no direct router/engine imports.`), **or**
@@ -59,8 +42,9 @@ Recommend (b) for the load-bearing boundaries (orchestration ↔ routers/engines
 ## BE-3 — Dedupe `events.py` command sets
 
 **Why:** `JobLifecycleCommand(str, Enum)` members already compare equal to their string values, yet
-`JOB_LIFECYCLE_COMMANDS` (30-47) and `COMMAND_TOPIC_SCOPES` (49-103) list each command **twice** —
-enum member *and* raw string ("Allow string versions" comments). The raw duplicates are redundant.
+`JOB_LIFECYCLE_COMMANDS` and `COMMAND_TOPIC_SCOPES` in `app/api/contracts/events.py` list each
+command **twice** — enum member *and* raw string ("Allow string versions" comments). The raw
+duplicates are redundant.
 
 **Steps:** remove the raw-string duplicates; keep enum members. Add/confirm a test that a raw string
 (e.g. `"JOB_QUEUED" in JOB_LIFECYCLE_COMMANDS`) still resolves true (it does, via `str` enum) so the
@@ -70,31 +54,13 @@ behavior change.
 
 ---
 
-## BE-4 — Remove duplicate segment-timing math *(done 2026-07-04, `commit 0cba74d8`)*
-
-**Why:** `app/tts_server/server.py:651-714` computes `model_load_seconds`,
-`synthesis_duration_seconds`, `sum_segment_render_seconds`, `inter_group_overhead_seconds` and ships
-them in the response's `timing` dict — then `app/orchestration/scheduler/orchestrator_helpers.py:174-262`
-(`_record_render_stats_inner`) **re-derives the same values** from the raw segment list. Both also
-define an identical local `get_val(obj, key)`.
-
-**Steps:** have `_record_render_stats_inner` read the pre-computed `timing` fields from the server
-response instead of re-deriving. If a defensive re-derive must stay (older response without
-`timing`), extract `get_val` + the formula into one shared util (e.g. `app/orchestration/progress/`
-or a timing helper) imported by both — single source of truth.
-**Verify:** `pytest -q`; the timing/performance-sample tests must show identical recorded values
-(revert-check against a captured response fixture). **Effort:** M · **Risk:** med (touches recorded
-performance samples that feed ETA). **Spec:** none.
-
-*(Executor note: the shared formula landed in `app/utils/render_timing.py` — deliberately outside
-both `app.tts_server` and `app.orchestration`, since either side importing the other's internals
-would violate the two-process boundary in `system-architecture.md`. `_record_render_stats_inner`
-now prefers `timing_payload`'s precomputed `synthesis_duration_seconds`/`sum_segment_render_seconds`/
-`inter_group_overhead_seconds` when present, falling back to the shared derive function only when
-absent. `model_load_seconds` was deliberately NOT unified — a real, pre-existing divergence was
-found: server.py defaults it to `None` with no engine-activity timestamp, orchestrator_helpers has
-always defaulted it to `0.0`. Preserved exactly rather than silently merged. Full suite 2221
-passed/3 skipped, identical to pre-change; timing/ETA-specific suites green.)*
+## BE-4 — Remove duplicate segment-timing math — DONE (2026-07-04, `0cba74d8`)
+Shared formula extracted to `app/utils/render_timing.py` (outside both `app.tts_server` and
+`app.orchestration`, to respect the two-process boundary); `_record_render_stats_inner` now prefers
+the server response's precomputed `timing` fields, falling back to the shared derive only when
+absent. `model_load_seconds` deliberately **not** unified — a real pre-existing divergence (server
+defaults `None`, orchestrator `0.0`) was preserved, not silently merged. Full suite unchanged;
+timing/ETA suites green.
 
 ---
 
@@ -137,8 +103,8 @@ worker. Real callers:
 plugin coupling — the riskiest item in this phase; do it alone, not bundled). **Spec:**
 `code-organization.md` module map + `modular_architecture.md` if either names `app/jobs`; changelog.
 
-> Sequencing note: BE-6 is independent of the others but is the highest-risk; land BE-1..BE-5 first
-> to bank easy wins, then do BE-6 in isolation.
+> Sequencing note: BE-6 is independent of the others but is the highest-risk; land BE-2/BE-3/BE-5
+> first to bank easy wins, then do BE-6 in isolation.
 
 ---
 

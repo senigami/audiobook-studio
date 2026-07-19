@@ -6,6 +6,10 @@
 > Interleave with Phase 2: when a file is both an LF split *and* a styling hotspot, **split first**,
 > then convert the smaller pieces.
 
+**Done:** LF-5 (`App.tsx`, `fc02e769`), LF-7 (`tts_server/server.py` → `plugin_staging.py`,
+`b00ed04e`), and the emit-gate half of LF-6 (`8d2ee030`). Still open: LF-1, LF-2, LF-3, LF-4, and
+the `enrich()` half of LF-6 (see below).
+
 ---
 
 ## Frontend
@@ -44,58 +48,36 @@ its contract exactly and keep `sources:` accurate. Heavy existing test coverage 
 `pages/Voices/components/metadata/`; modal drops to ~200 lines and the widgets become unit-testable.
 **Effort:** M · **Risk:** low. (Also a styling hotspot #2 — split first, then ST-3.)
 
-### LF-5 — `App.tsx` (564) → extract hooks *(done 2026-07-04, `fc02e769`; 630→560 lines)*
-**Conflates:** routing, toast state+timing, startup overlay timing, queue-drawer state, the
-`/chapter/:id` redirect fetch.
-**Split:** `useToast`, `useStartupOverlay`, `useChapterRedirect`. Route table + shell composition
-stay. Drops under ~350 lines. **Effort:** M · **Risk:** low.
-*(Actual: 560 lines, not sub-350 — the ~350 estimate predated F14/F15's ~50-line error-banner
-addition. Route table + shell composition, as scoped, account for the remainder. All 24
-`App.test.tsx` cases + full frontend suite green, unmodified.)*
+### LF-5 — `App.tsx` → extract hooks — DONE (2026-07-04, `fc02e769`; 630→560 lines)
+Extracted `useToast`/`useStartupOverlay`/`useChapterRedirect`; route table + shell composition
+retained; full frontend suite + all `App.test.tsx` cases green, unmodified.
 
 ---
 
 ## Backend
 
-### LF-6 — `progress/service.py` (1503, verified 2026-07-02) → emit-gate + kernel *(emit-gate half done 2026-07-04, `8d2ee030`; 1503→1283 lines)*
-**Conflates (verified seams):** (1) `publish()` + `_build_progress_payload()` public API
-(~171–578); (2) `enrich()` §4A math kernel (~652–1054), also called from `ws.py` and the snapshot
-handler; (3) the emit rate-limit gate `_claim_emit_slot()`/`_should_emit_unlocked()` (~1178–1382).
-**Split:** extract the emit-gate to `progress/emit_gate.py`; confirm `enrich()` is independently
-importable/testable (extract to its own module if not). `design-docs/plans/progress_routing_unification/`
-already describes this split — follow it. **Do BE-1's `_should_emit` shim removal first.**
-**Effort:** L · **Risk:** med — this is hot, recently-stabilized progress code. Keep the RLock
-discipline and event routing identical; lean on the existing progress test suite + revert-check.
-**Spec:** `progress-presentation.md` `sources:` only if paths change (no version bump for a pure
-split that preserves behavior).
+### LF-6 — `progress/service.py` (1503) → emit-gate + kernel — emit-gate DONE, `enrich()` OPEN
+Emit-gate half done (2026-07-04, `8d2ee030`; 1503→1283 lines): `_claim_emit_slot` /
+`_should_emit_unlocked` / `_apply_progress_regression_guard` moved to `progress/emit_gate.py` as
+`EmitGateMixin`, same lock instance and attribute names; progress suite green. Do BE-1's
+`_should_emit` shim removal first (done).
 
-*(Done, emit-gate only: `_claim_emit_slot`/`_should_emit_unlocked`/`_apply_progress_regression_guard`
-moved into `progress/emit_gate.py` as `EmitGateMixin`, mixed into `ProgressService`. Same `self._lock`
-instance, same attribute names — the existing emit-race/deadlock test suite that reaches into
-`svc._claim_emit_slot`/`svc._last_emit_tick_by_job` directly passes unmodified. Full backend suite
-green (2221→2222 passed after T5), progress suite (297 tests) green.
-**`enrich()` NOT extracted** — deliberately deferred. It's a ~450-line kernel dense with numbered
-historical bug fixes (FIX 2/3/6, job-47213119, Task 006-A/006-B, §4A.x cross-references) that a
-prior dedicated effort (`design-docs/plans/_archive/progress_routing_unification/`) had to carefully
-unwind. A solo mechanical cut-paste risks a transcription error subtle enough that "tests still
-pass" wouldn't catch it — this half needs a session with closer supervision, not a rushed bundle
-into a general cleanup sweep.)*
+**Still open — extract `enrich()`:** the ~450-line §4A math kernel (also called from `ws.py` and the
+snapshot handler) was **deliberately deferred**. It is dense with numbered historical bug fixes
+(FIX 2/3/6, job-47213119, Task 006-A/006-B, §4A.x cross-references) that a prior dedicated effort
+(`design-docs/plans/_archive/progress_routing_unification/`) had to carefully unwind. A solo
+mechanical cut-paste risks a transcription error subtle enough that "tests still pass" wouldn't
+catch it — this half needs a session with closer supervision, not a rushed bundle into a general
+cleanup sweep. **Risk:** med. **Spec:** `progress-presentation.md` `sources:` only if paths change.
 
-### LF-7 — `tts_server/server.py` (1333) → extract plugin-staging module *(done 2026-07-04, `commit b00ed04e`; 1351→914 lines, new `plugin_staging.py` 493 lines; every containment/symlink check moved verbatim, zero behavior change; full suite 2221 passed/3 skipped identical to pre-change; security + zip-install + trust-boundary suites green)*
-**Conflates (verified seams):** core synthesis endpoints (`/synthesize`, `/preview`, `/plan`,
-~531–815) vs. the plugin import/staging pipeline (zip upload, preview/staging, GitHub preview,
-confirm/cancel, `_sweep_orphaned_staging_dirs`, helpers `_normalize_github_repo_url`,
-`_reject_staging_symlinks`, `_parse_requirements`, the `_staging` dict + lock — ~850–end).
-**Split:** move the staging concern to `app/tts_server/plugin_staging.py`; `server.py` keeps
-synthesis + wiring. **Effort:** L · **Risk:** med — security-sensitive (symlink rejection, path
-containment). Preserve every containment check exactly; CodeQL must still recognize the pattern
-(`security.md`). **Spec:** `system-architecture.md` / `engines-and-plugins.md` if they pin
-`server.py` responsibilities — update references, no behavior change.
+### LF-7 — `tts_server/server.py` → extract plugin-staging module — DONE (2026-07-04, `b00ed04e`)
+Staging pipeline moved to `app/tts_server/plugin_staging.py` (1351→914 lines, new module 493 lines);
+every containment/symlink check moved verbatim, zero behavior change; full suite + security /
+zip-install / trust-boundary suites green.
 
 ---
 
 ### Phase 3 done-check
 Each split is one commit, same public surface, suite green (backend: `pytest -q` incl. plugin
-suites; frontend: memory-safe vitest). No file the audit flagged remains over ~600 lines without a
-documented reason. Owner visual check for the frontend component splits (LF-2/3/4/5). Specs'
-`sources:` lists updated where paths moved.
+suites; frontend: memory-safe vitest). Owner visual check for the frontend component splits
+(LF-2/3/4). Specs' `sources:` lists updated where paths moved.
