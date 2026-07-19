@@ -55,6 +55,28 @@ The **only** time-boxed, irreplaceable step is **capturing Fable's reference ana
 run on Opus (available anytime); the judge comparison and the mechanism-distillation are not
 Fable-gated. Spend the Fable window on reference capture, not on mechanics.
 
+## Sequencing — adaptive, start with the 6
+
+Run **one scenario per activity type first** (RC-1, AR-1, BR-1, AD-2, PL-2, SD-1). For each type,
+only escalate to the menu's **second** candidate if the twins-vs-Fable comparison on the first
+reveals a real gap — and only after a retrospective on what the gap was and what mechanism would
+close it. If the twins are dialed in on the first (they match the Fable reference), the second is
+skipped. Coverage is gap-driven, not exhaustive.
+
+## Dual purpose — findings feed the roadmap
+
+The scenarios are real analysis of Studio 2.0, not throwaway test prompts. Every actionable finding
+a reference (or a twin run) surfaces — a root cause, a design, a plan, a bug, a drift correction —
+routes into the app's plans / `REMAINING_TASKS.md` as implementable work. Calibration improves the
+twins **and** advances the product. Findings are catalogued in `findings-summary.md`.
+
+**Benchmark integrity (the one constraint):** do **not** implement a scenario's finding until the
+twins have run that scenario. Fixing the RC-1 bug or correcting the SD-1 lesson before Phase 2 would
+change the very code the twins analyze and destroy their half of the benchmark. Bank findings now;
+implement after the twin run for that scenario, then route to plans. (A finding whose implementation
+touches nothing the scenario briefs on — e.g. a brand-new plan doc — can be drafted earlier; the
+safe default is twin-run-first.)
+
 ## The range of scenarios (activity taxonomy)
 
 Cover the span of what the system actually does — each a REAL, open, beneficial repo problem, not a
@@ -74,11 +96,15 @@ The concrete scenario menu is being assembled in `scenario-menu.md` (scouted fro
 
 ## Phases & status
 
-- **Phase 1 (now):** assemble the scenario menu (scout, running); hire the twins Constance/Petra
-  (drafting, running — per `../candidate-agents/FABLE-PRIMING-OUTPUT.md`); then capture Fable
-  references on the chosen scenarios (Fable-gated, owner-approved subagent pattern).
-- **Phase 2 (anytime after):** run the twins per scenario; neutral-judge diff vs. the Fable
-  reference; write the gap → mechanism catalog.
+- **Phase 1 — DONE (2026-07-18):** twins hired (Constance/Petra, PR #163); scenario menu scouted
+  (12 candidates); 6 answer-neutral briefings written; **6 Fable references captured**, one per
+  activity type (RC-1, AR-1, BR-1, AD-2, PL-2, SD-1). The Fable-gated work is complete — the clock
+  is off.
+- **Phase 2 (anytime):** run the twins on the same 6 briefings via `fusion-reasoning`; neutral-judge
+  diff vs. the Fable reference; write the gap → mechanism catalog; escalate to a type's second
+  scenario only on a real gap (adaptive sequencing).
+- **Findings routing (ongoing):** `findings-summary.md` catalogues each reference's actionable
+  finding and where it routes; implement after each scenario's twin run (benchmark integrity).
 
 ## Files
 
