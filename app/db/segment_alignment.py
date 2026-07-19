@@ -2,10 +2,19 @@
 Content-anchored alignment between a chapter's existing segment rows and a freshly
 split sentence list.
 
-This is the SINGLE shared alignment function for both ``sync_chapter_segments``
-(app/db/segments.py) and ``get_resync_preview`` (app/domain/chapters/operations.py).
-Any future change to matching logic must touch only this module -- the RC-1 bug this
-replaces existed because those two callers duplicated the same rule and drifted.
+This is INTENDED to be the single shared alignment function for both
+``sync_chapter_segments`` (app/db/segments.py) and ``get_resync_preview``
+(app/domain/chapters/operations.py) -- the RC-1 bug this replaces existed because those
+two callers duplicated the same rule and drifted. Any future change to matching logic
+must touch only this module.
+
+STATUS (2026-07-19, per Petra's Task 4 code review): only ``sync_chapter_segments`` is
+wired to this module so far (Task 4). ``get_resync_preview`` still uses the old
+position-only rule (Task 5, not yet landed) -- until it lands, the preview can report a
+false "destructive"/loss warning for a save that the actual sync will preserve
+(reproduced: a manually-assigned sentence moved by a reorder shows as lost in the
+preview but survives the real sync). Do not read this docstring as claiming the drift is
+already eliminated end-to-end.
 
 Pure function: no DB access, no side effects. See
 design-docs/plans/active/span_resync_preservation_fix/ for the full design and the

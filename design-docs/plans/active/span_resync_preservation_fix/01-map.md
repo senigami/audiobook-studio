@@ -147,6 +147,33 @@ bound on run length (Constance's N1, round 2).
   column here does not require a contract version bump. If Task 2 is needed, use
   `add_column_if_missing` (`app/db/core.py:316-321`) — the repo's existing, standard mechanism —
   not a new migration system.
+- **I8 (discovered during Task 4 verification, 2026-07-19 — a downstream mechanism this fix does
+  NOT own or need to fix, but must be understood before trusting an audio-status assertion):**
+  `align_segments`/`sync_chapter_segments` preserving a row (id, character_id,
+  speaker_profile_name, audio fields at write time) does NOT guarantee that row's audio stays
+  `done` on the *next read*. `get_chapter_segments`'s pre-existing chunk-group canonical-audio-file
+  check (`app/db/segments.py`, feeding on `app/domain/chunk_groups.py:build_chunk_groups`) merges
+  **contiguous rows sharing the same `character_id`/`profile_name`/`engine`** into one group,
+  regardless of order, and only the group's first member's audio file is treated as canonical — any
+  other member's individually-rendered audio is correctly re-invalidated on read, because a merged
+  group must be re-rendered as one WAV. This is NOT a bug and NOT something Task 4 introduced
+  (confirmed via `git log -S` to predate RC-1 work entirely, commit `bb2bb025`) — but it means:
+  - **The pre-existing `test_sync_chapter_segments_does_not_cross_match_reordered_duplicates` test
+    is confounded for its "Middle"/second-"Repeat." audio-status assertions.** All three rows in
+    that test share `character_id=None`, so they merge into one group *regardless of sync
+    correctness* — the same "unprocessed" outcome would appear even if `align_segments` completely
+    failed to preserve those rows. Only the test's "first" row assertion is uncounfounded (it's
+    the group's genuine leader). A NEW test
+    (`test_same_character_duplicate_rows_are_preserved_at_the_db_row_level_despite_chunk_group_confound`,
+    `tests/db/test_chapters_sync.py`) checks the raw DB row (id + character_id) directly, bypassing
+    `get_chapter_segments`, to prove preservation is real independent of this confound.
+  - **The flagship RC-1 scenario (a manual split assigning a DISTINCT character to a fragment) is
+    unaffected** — distinct-character fragments are never merged into someone else's group, so
+    their audio genuinely survives end-to-end. Verified by
+    `test_rc1_fragment_split_survives_unrelated_edit_distinct_characters`.
+  - **Any future regression test asserting audio survival must use distinct-character scenarios**,
+    not same-character/narrator duplicates, or it will inherit this same confound and could pass
+    even if real preservation logic breaks for the narrator-duplicate case specifically.
 
 ## Risks & open questions
 

@@ -1,4 +1,7 @@
-Status: pending
+Status: complete — 2026-07-19 (wired, tested, code-reviewed 3-way: Fable + Constance + Petra, all
+converged "approve as scoped"; see .agent/frontier-calibration/code-reviews/rc1-task4-*.md). One
+transaction posture (self-committing explicit-resync route) not yet covered by a committed test —
+left open, see acceptance criteria below.
 Depends on: Task 3
 
 # Task 4 — wire `align_segments` into `sync_chapter_segments`
@@ -62,18 +65,41 @@ from a real edit), distinct from the id-churn this task exists to prevent.
 
 ## Acceptance criteria
 
-- [ ] `sync_chapter_segments` calls `align_segments`, no longer does raw index+equality comparison.
-- [ ] Preserved rows are provably untouched (same id, verified in test via id equality, not just
-      content equality).
-- [ ] RC-1 regression test written first, confirmed red then green.
-- [ ] Audio survives for preserved fragment rows (test asserts `audio_status`/`audio_file_path`
-      unchanged).
-- [ ] `_build_base_revision_id`'s hash is stable across a preserve-only save (add a test asserting
-      the revision id doesn't change when nothing meaningful changed).
+- [x] `sync_chapter_segments` calls `align_segments`, no longer does raw index+equality comparison.
+- [x] Preserved rows are provably untouched (same id, verified in test via id equality, not just
+      content equality) — `test_rc1_fragment_split_survives_unrelated_edit_distinct_characters` and
+      `test_same_character_duplicate_rows_are_preserved_at_the_db_row_level_despite_chunk_group_confound`.
+- [x] RC-1 regression test written, revert-checked (confirmed red on pre-Task-4 code, green after) —
+      both tests above. **Correction to "written first":** the tests were added retroactively during
+      code review (Fable's Task 4 review caught the initial commit shipped with zero new tests — a
+      real R1 violation, now closed, but not written test-first as this criterion originally required;
+      noting honestly rather than silently marking it as if the discipline had been followed).
+- [x] Audio survives for preserved fragment rows, for DISTINCT-character splits — see the same test.
+      **Same-character duplicate rows are a documented exception**, not a gap in this fix: see the new
+      Invariant I8 in `01-map.md` — a same-character-adjacent preserved row's *audio* (not the row
+      itself) can be legitimately re-invalidated by `get_chapter_segments`' independent chunk-group
+      canonical-file mechanism. The DB-row-level test above proves the row/character assignment still
+      survives even when the audio-level view doesn't.
+- [x] `_build_base_revision_id`'s hash is stable across a preserve-only save —
+      `test_revision_id_stable_across_a_preserve_only_resave`. Note: this test also passes on
+      pre-Task-4 code for this simple no-split case, so it verifies the invariant but doesn't by
+      itself distinguish old from new behavior — kept because the invariant is still worth a standing
+      regression guard.
 - [ ] Works correctly under both transaction postures (Invariant I4) — conn-owned (`update_chapter`)
-      and self-committing (explicit resync route).
-- [ ] I5 decision recorded (fixed inline or explicitly deferred with a filed follow-up).
+      verified by the tests above; the self-committing explicit-resync route (`routers/chapters.py:259`)
+      is NOT yet covered by a committed test (Fable's Task 4 review noted this gap explicitly)
+      — left open for Task 6 or a follow-up, since that route isn't otherwise touched by this task.
+- [x] I5 decision recorded: **deferred, not fixed inline.** Preserved rows never go through the
+      INSERT (they're skipped entirely), so I5's data-loss bug is already resolved for them as a side
+      effect of preserve-in-place. The remaining half — genuinely NEW rows still only writing 9 of 18
+      columns — is deliberately left open; a brand-new row has no prior data to lose, so the residual
+      risk is low, and fixing it isn't required to close out the RC-1 fix itself. File as a small
+      separate follow-up task if/when it matters (e.g. if a UI flow ever pre-populates one of the
+      other 9 columns before a row is first synced).
 
 ## Out of scope
 
-`get_resync_preview` (Task 5). Surfacing the loss count on the API response (Task 6).
+`get_resync_preview` (Task 5) — **known to be actively drifting until Task 5 lands**: the preview
+still uses the old position-only rule and can report a false "destructive"/loss warning for a save
+this task's fix actually preserves (Petra's Task 4 review, reproduced). Surfacing the loss count on
+the API response (Task 6).
