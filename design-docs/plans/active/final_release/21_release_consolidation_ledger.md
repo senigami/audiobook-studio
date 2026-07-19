@@ -116,7 +116,7 @@ not on COMPLETED_WORK's word.)
 |---|---|---|---|---|
 | Director's Console (Cast/Booth/Revise/Write) | 2026-07-10 ✓ | user-guide/chapter-editor `?` | `active/chapter_editor_catalog_completion/` (scaffold parts; polish backlog → do-now) | [ ] |
 | Read-along reader (player-piano sync + timing sidecar + backup restore) | 2026-07-17 ✓ | Concepts `?` | `active/` synced_reader residue (already deleted per #153) | [ ] |
-| Series suggestions on project create/edit | 2026-07-11 ✓ | Library-and-Projects `?` | `active/library_project_usability/` (series parts) | [ ] |
+| ~~Series suggestions on project create/edit~~ **→ NOT COMPLETE (verified 2026-07-18): only series *position* shipped; the series text input is still a plain `<input>`, no combo-box/typeahead against existing library series as task 001 requires. CL entry overclaims — keep the plan.** | — | — | **do not delete** | — |
 | Security hardening (fable Tier 0/1) | 2026-07-16 ✓ | — | `master_fix_plan/tasks/009` | [ ] |
 | Interactive demo reconciled to shipping app | 2026-07-16 ✓ | Live-Demos `?` | — | [ ] |
 | Cleanup-along-the-way (demo_bundle path bug, Export/Bake delete + M4B fix, video util) | 2026-07-04/16 ✓ | — | — | [ ] |
