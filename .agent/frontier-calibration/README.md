@@ -34,48 +34,51 @@ The deliverable of this program is a **gap → mechanism catalog**.
   in-general lacks — on some questions they tie or win); (3) **distill durable mechanisms** that
   close the remaining gap and bank them permanently.
 
-## Method (per scenario)
+## Method — the calibration task is PLAN REVIEW
 
-1. **Same clean briefing** to both Fable and the twins — states the question and the evidence
-   pointers, **never a suspected answer** (Fable's own residual-risk note: a shared briefing that
-   pre-frames the answer is the largest remaining correlation channel; avoid it).
-2. **Fable reference** (time-boxed — capture NOW): Fable produces its analysis; bank it + the exact
-   briefing.
-3. **Twins** (Opus, anytime — NOT Fable-gated): Constance + Petra run via `fusion-reasoning`
-   (independent blind passes, neutral judge convergence).
-4. **Neutral judge diff**: where did the twins fall short of the Fable reference? Missing evidence?
-   A framing they didn't try? Insufficient adversarial refutation? A conceptual leap they didn't
-   make?
-5. **Gap → mechanism**: for each shortfall, propose the durable mechanism (code-map-class) that would
-   have closed it. Some become real builds — the way the code-map itself was.
+We do **not** fix anything in this program. The findings are identified and banked; the calibration
+compares the twins against Fable on the concrete, high-value job of **reviewing an implementation
+plan** — the point where catching a gap, risk, or missed edge case saves real cost before code is
+written.
+
+1. **Findings (Phase 1 — done):** Fable analyzed 6 real scenarios → the findings (problems
+   identified), banked in `findings-summary.md` + `references/`. No fix is implemented.
+2. **Build the plan the normal way (Phase 2):** turn a finding into a real implementation plan via
+   the normal planning process (plan-architect / engineer), landing in `design-docs/plans/`. The
+   plan-builder is neither Fable nor the twins.
+3. **Independent plan review (Phase 3):** the **twins** review the plan (Opus, via `fusion-reasoning`)
+   AND **Fable** reviews the same plan — each blind to the other's review. A plan review surfaces
+   gaps, risks, missed edge cases, sequencing errors, and unstated assumptions.
+4. **Compare** the twins' review findings against Fable's on the same plan: what did Fable catch
+   that the twins missed (and vice-versa)?
+5. **Gap → mechanism:** for each shortfall, the durable mechanism (code-map-class) that would have
+   closed it.
 
 ## Scarcity rule
 
-The **only** time-boxed, irreplaceable step is **capturing Fable's reference analyses**. The twins
-run on Opus (available anytime); the judge comparison and the mechanism-distillation are not
-Fable-gated. Spend the Fable window on reference capture, not on mechanics.
+Two Fable-gated steps. (1) The **scenario references** — DONE. (2) **Fable's plan reviews** — the new
+critical path: Fable expires soon, and a plan must exist before Fable can review it. So build the
+plan promptly and capture Fable's review while it's here; the twins review anytime on Opus. Spend the
+remaining Fable window on plan reviews, not on building or fixing.
 
-## Sequencing — adaptive, start with the 6
+## Sequencing — adaptive, start with one plan
 
-Run **one scenario per activity type first** (RC-1, AR-1, BR-1, AD-2, PL-2, SD-1). For each type,
-only escalate to the menu's **second** candidate if the twins-vs-Fable comparison on the first
-reveals a real gap — and only after a retrospective on what the gap was and what mechanism would
-close it. If the twins are dialed in on the first (they match the Fable reference), the second is
-skipped. Coverage is gap-driven, not exhaustive.
+Build and calibrate on **one plan first**. Compare the twins' plan-review against Fable's on that
+plan; if the twins are dialed in (they catch what Fable catches), the calibration is answered and we
+don't need more. Only if a real gap shows do we build and review the next plan — after a
+retrospective on what the gap was and what mechanism would close it. Gap-driven, not exhaustive.
 
 ## Dual purpose — findings feed the roadmap
 
 The scenarios are real analysis of Studio 2.0, not throwaway test prompts. Every actionable finding
-a reference (or a twin run) surfaces — a root cause, a design, a plan, a bug, a drift correction —
 routes into the app's plans / `REMAINING_TASKS.md` as implementable work. Calibration improves the
 twins **and** advances the product. Findings are catalogued in `findings-summary.md`.
 
-**Benchmark integrity (the one constraint):** do **not** implement a scenario's finding until the
-twins have run that scenario. Fixing the RC-1 bug or correcting the SD-1 lesson before Phase 2 would
-change the very code the twins analyze and destroy their half of the benchmark. Bank findings now;
-implement after the twin run for that scenario, then route to plans. (A finding whose implementation
-touches nothing the scenario briefs on — e.g. a brand-new plan doc — can be drafted earlier; the
-safe default is twin-run-first.)
+**No fixing in this program.** Findings are banked, then turned into implementation plans built the
+*normal* way — and it is the **plan** that the twins and Fable review and that the calibration
+compares. Nothing from a finding is implemented as part of calibration; when a plan is later approved
+it ships through the normal build/review flow like any other work. This keeps the calibration clean
+(the reviewers judge a fixed plan, not a moving codebase) and still advances the product.
 
 ## The range of scenarios (activity taxonomy)
 
@@ -100,11 +103,14 @@ The concrete scenario menu is being assembled in `scenario-menu.md` (scouted fro
   (12 candidates); 6 answer-neutral briefings written; **6 Fable references captured**, one per
   activity type (RC-1, AR-1, BR-1, AD-2, PL-2, SD-1). The Fable-gated work is complete — the clock
   is off.
-- **Phase 2 (anytime):** run the twins on the same 6 briefings via `fusion-reasoning`; neutral-judge
-  diff vs. the Fable reference; write the gap → mechanism catalog; escalate to a type's second
-  scenario only on a real gap (adaptive sequencing).
-- **Findings routing (ongoing):** `findings-summary.md` catalogues each reference's actionable
-  finding and where it routes; implement after each scenario's twin run (benchmark integrity).
+- **Phase 2 (next):** build an implementation plan from a chosen finding, the *normal* way
+  (plan-architect / engineer), into `design-docs/plans/`. No fixing.
+- **Phase 3 (Fable-gated):** the twins review the plan (Opus / `fusion-reasoning`) and Fable reviews
+  the same plan, each blind to the other; compare the two reviews; write the gap → mechanism catalog.
+  Build the plan promptly so Fable can review before it expires. Adaptive: one plan first, escalate
+  only on a real gap.
+- **Findings routing (ongoing):** `findings-summary.md` catalogues each finding and the plan it
+  feeds; plans ship through the normal flow once approved — not as part of calibration.
 
 ## Files
 

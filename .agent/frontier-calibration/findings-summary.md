@@ -1,9 +1,13 @@
 # Frontier Calibration — findings summary (Phase 1 Fable references)
 
 These are the actionable findings from the 6 Fable reference analyses (2026-07-18). They are **real
-analysis of Studio 2.0**, and each routes toward the roadmap. **Benchmark integrity:** a finding is
-implemented only *after* the twins have run that scenario (Phase 2) — implementing early would alter
-the code the twins analyze. Status below reflects that hold.
+analysis of Studio 2.0**, and each feeds an implementation plan built the *normal* way.
+
+**No fixing happens as part of this program.** The calibration reviews the *plans* (twins vs. Fable),
+not the code — see the README's "Method — the calibration task is PLAN REVIEW." The last column below
+names the plan each finding feeds; a plan ships through the normal build/review flow once approved,
+separately from calibration. (The "HOLD" wording in that column predates the plan-review pivot and
+simply means "no direct fix — this becomes a plan.")
 
 | # | Finding (Fable reference) | Value to Studio 2.0 | Routes to | Implement status |
 |---|---|---|---|---|
