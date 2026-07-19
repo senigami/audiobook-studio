@@ -317,13 +317,22 @@ def get_resync_preview(chapter_id: str, new_text: str) -> dict[str, Any]:
             lost_assignments_count += 1
             affected_character_names.add(row.get("character_name") or "Unknown")
 
+    # is_destructive is keyed purely to actual assignment loss (RC-1 fix, Task 5 follow-up
+    # -- both Fable and Constance's code reviews independently found the same bug): the old
+    # `total_new < total_old` row-count heuristic was a valid proxy for "something got
+    # destroyed" BEFORE align_segments existed, since a legitimate manual split had no way
+    # to shrink the row count while preserving assignments. Now a preserved multi-row
+    # fragment run legitimately maps to one fresh sentence, so total_new < total_old on its
+    # own no longer implies loss -- it produced a contradictory UI (a destructive-resync
+    # warning directly above "all assignments preserved"). Row-count shrinkage with zero
+    # actual assignment loss is not destructive in the sense this function's fields describe.
     return {
         "total_segments_before": total_old,
         "total_segments_after": total_new,
         "preserved_assignments_count": preserved_count,
         "lost_assignments_count": lost_assignments_count,
         "affected_character_names": sorted(list(affected_character_names)),
-        "is_destructive": lost_assignments_count > 0 or (total_new < total_old and total_old > 0)
+        "is_destructive": lost_assignments_count > 0
     }
 
 

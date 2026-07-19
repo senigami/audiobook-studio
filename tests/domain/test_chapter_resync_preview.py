@@ -74,3 +74,59 @@ def test_preview_is_a_pure_read_no_db_writes():
 
     after = get_chapter_segments(cid)
     assert before == after
+
+
+def test_preview_is_not_destructive_for_a_split_that_shrinks_row_count_with_zero_loss():
+    """Regression for a bug both Fable and Constance's code reviews independently found:
+    a manually-split sentence's row count naturally shrinks back to 1 fresh sentence when
+    consolidated, but that shrinkage alone must not mark the resync destructive when zero
+    assignments were actually lost -- the old `total_new < total_old` heuristic produced a
+    contradictory UI (a destructive warning directly above "all assignments preserved")."""
+    from app.db.segments import sync_chapter_segments, get_chapter_segments
+    from app.db.core import get_connection
+    from app.db.characters import create_character
+
+    pid = create_project("PP4")
+    cid = create_chapter(pid, "CP4", text_content="The quick fox. Second sentence.")
+
+    sync_chapter_segments(cid, "The quick fox. Second sentence.")
+    segs = get_chapter_segments(cid)
+    whole_id = segs[0]["id"]
+    second_id = segs[1]["id"]
+
+    fox_char = create_character(pid, "Fox")
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM chapter_segments WHERE id = ?", (whole_id,))
+        cursor.execute(
+            """
+            INSERT INTO chapter_segments (id, chapter_id, segment_order, text_content, character_id, audio_status)
+            VALUES ('l_frag', ?, 0, 'The ', NULL, 'unprocessed')
+            """,
+            (cid,),
+        )
+        cursor.execute(
+            """
+            INSERT INTO chapter_segments (id, chapter_id, segment_order, text_content, character_id, audio_status)
+            VALUES ('m_frag', ?, 1, 'quick ', ?, 'unprocessed')
+            """,
+            (cid, fox_char),
+        )
+        cursor.execute(
+            """
+            INSERT INTO chapter_segments (id, chapter_id, segment_order, text_content, character_id, audio_status)
+            VALUES ('r_frag', ?, 2, 'fox. ', NULL, 'unprocessed')
+            """,
+            (cid,),
+        )
+        cursor.execute("UPDATE chapter_segments SET segment_order = 3 WHERE id = ?", (second_id,))
+        conn.commit()
+
+    # 4 existing rows (3 fragments + 1 whole) -> 2 fresh sentences: total_new < total_old,
+    # but nothing is actually lost -- all 3 fragments and the second sentence are unchanged.
+    preview = get_resync_preview(cid, "The quick fox. Second sentence.")
+
+    assert preview["total_segments_before"] == 4
+    assert preview["total_segments_after"] == 2
+    assert preview["lost_assignments_count"] == 0
+    assert preview["is_destructive"] is False
