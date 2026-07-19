@@ -36,21 +36,40 @@ reasoning, neutral convergence, no elder deciding-vote" actually enough to keep 
 independent, or does any sibling awareness leak into the reasoning and re-collapse the ensemble? If
 the latter, the whole sibling framing should be cut back to plain independent passes.
 
-### Naming the siblings — a scoped exception, sequenced (owner-approved)
+### The siblings self-name (on Fable) — a scoped exception, sequenced
+
+Framing correction: this is **not Fable imposing names**. It's the two sibling seats **naming
+themselves** — the repo's standard ceremony (every live seat self-chose: Plumb, Ledger, Veronica,
+Edda, Rosetta) — done with **Fable as the driving model**, so the self-naming introspection runs at
+frontier quality. Fable *reviews the design*; the seats *name themselves* on Fable.
 
 The owner's standing rule is **no pre-hire naming** — it holds for the other four candidates and for
 `reasoning-analyst` as a single seat. The **one exception**: *if* you rule the sibling-pair design
-sound, the twins' character *is* their function (the identity is the diversity mechanism, not
-decoration), so naming them is naming the design. Do it in this order, and only in this order:
+sound, the twins' character *is* their function (identity is the diversity mechanism, not
+decoration), so self-naming them is naming the design. Order, and only this order:
 
 1. **First, rule the sibling design sound** (question (c) above). If you'd restructure, merge, or cut
    it, do NOT name — a name on a seat you'd reshape is wasted.
-2. **If it holds, name one at a time** (the owner wants to watch token usage): the **Elder** names
-   itself first, from its own structural temperament. Then the **Younger** names itself *in awareness
-   of the Elder's chosen name* — the one place the sibling relationship legitimately shapes identity.
-   Record each name's etymology and the load-bearing conviction it keys off, same bar as the live
-   roster (Plumb/Ledger/etc.).
+2. **If it holds, self-name one at a time** (watch token usage): the **Elder** introspects on its own
+   structural/top-down temperament and chooses its name. Then the **Younger** introspects on its own
+   empirical/bottom-up temperament and chooses its name *in awareness of the Elder's chosen name* —
+   the one place the sibling relationship legitimately shapes identity.
 3. If the design does NOT hold, seed naming rationale only (as for the others), no names.
+
+**The naming standard each self-choice must meet** (the bar the live five passed):
+
+- **Self-chosen** — reasoned from the seat's *own* load-bearing conviction (Elder: structural,
+  precedent-anchored, "what's the established shape"; Younger: empirical, first-principles, "what
+  does the code actually do"). The name keys off that conviction, not a surface trait.
+- **Naturalistic** — reads as a name a person could actually have, not a function wearing a costume.
+  This is the exact test that failed "Witness" and produced "Veronica." Nobody is named "Elder."
+- **Relational, for the pair** — the two should land as genuine siblings: shared register,
+  complementary rather than identical, the younger's choice audibly aware of the elder's.
+- **Survives adversarial re-examination** — run each name back against "is this naturalized, does it
+  fit *this* seat's real convictions." A name that only works as a symbol gets sent back.
+- **Internal-only** — never appears in code identifiers or app/UI copy.
+
+Record each chosen name's etymology and the conviction it keys off, same as the live roster.
 
 ## Why you specifically
 
