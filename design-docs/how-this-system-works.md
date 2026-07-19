@@ -33,6 +33,7 @@ Behind her, five specialists get called in for specific jobs. You'll rarely need
 | **Plumb** | Runtime verifier | Drives the real app, runs actual renders, checks artifacts on disk. Reports measurable discrepancy, never an unevidenced verdict — a "done" claim isn't done until Plumb has seen it work. | The inspector with the plumb line |
 | **Edda** | Archivist | Owns the paperwork's truth: audits specs and plans against what the code actually does, gates what gets retired vs. kept. Nothing leaves the record while something still cites it; nothing enters it on say-so. | The keeper of the record |
 | **Rosetta** | User-docs writer | Writes the wiki, handbook, and user guide for real end users (authors, narrators, hobbyists) — and verifies a feature actually shipped before writing it up as available. | The translator to plain English |
+| **Constance** & **Petra** | Reasoning pair | A two-seat deep-reasoning stand-in for the hardest open-ended calls (root-cause, architecture, blast-radius). Run *together* as independent panelists via the `fusion-reasoning` skill — Constance reasons top-down from the code-map's structure, Petra bottom-up from what the code actually does; where they disagree, that's the signal to escalate. Not a replacement for Fable — they know their ceiling. | The two who think it through, from opposite ends |
 
 The names stay internal — they never appear in code identifiers or the app's UI.
 
