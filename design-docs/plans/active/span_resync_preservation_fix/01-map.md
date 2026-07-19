@@ -150,6 +150,29 @@ bound on run length (Constance's N1, round 2).
 
 ## Risks & open questions
 
+- **R0 (BR-2's blast-radius pass on this exact design, 2026-07-19 — ranked by breakage likelihood,
+  folded in for the build):**
+  1. Preview drift (already I2/Task 5) — the mandatory co-change, restated as the #1 risk by an
+     independent blast-radius analysis too.
+  2. **The 9-column INSERT interaction (I5) is the single most likely silent-regression point** —
+     confirmed independently: if "preserve" is ever implemented as delete-all-then-reinsert-with-
+     old-id rather than true skip-the-row, ids/audio survive but the other 9 metadata columns are
+     still nulled even for "preserved" rows. Task 4 must literally skip the DB write for preserved
+     rows, not just preserve their id.
+  3. **`preserved_ids` correctness feeding file cleanup** (already added to Task 4, above) — a
+     run half-marked preserved would delete audio files that DB rows still reference.
+  4. Duplicate-sentence cross-matching (already I2).
+  5. Transaction-posture/signature compatibility across all three call sites (already I4).
+  6. **New, not previously flagged: `preserved_assignments_count`'s unit is ambiguous** — a
+     preserved *run* of N fragment rows corresponds to 1 fresh sentence; deciding whether the
+     preview counts rows or sentences is a real spec decision (record it in
+     `design-docs/specs/data-model.md` or `text-processing.md`, not silently pick one).
+  7. Schema-free migration: confirmed none needed (I7) — old fragment rows are matched
+     retroactively by content on the first post-fix save.
+  Also confirmed OUT of blast radius (no change needed): `_split_segment_at_offset`/
+  `_apply_range_assignment` (untouched), `compact_script_view` (unaffected under schema-free —
+  no stored anchors to dangle), the DB schema/API contract shapes, and the chapter-level
+  `audio_status='unprocessed'` stamp on save (intentionally kept, not a regression).
 - **R1 (risk):** `align_segments`'s fragment-run matching (unbounded contiguous rows → 1 sentence)
   combined with duplicate-sentence disambiguation (I2) is the trickiest correctness surface in this
   plan. Task 7's test suite must cover the intersection: a duplicated sentence that *also* has a
