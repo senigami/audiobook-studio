@@ -28,12 +28,30 @@ content search, not fuzzy matching) — if so, that row's assignment should be p
 re-indexed, not discarded. Only fall through to "no match, discard" if the content genuinely isn't
 present in the fresh sentence list at all.
 
-**Constraint — must not break `tests/db/test_chapters_sync.py:94`
-(`test_sync_chapter_segments_does_not_cross_match_reordered_duplicates`):** when the same content
-appears at multiple fresh indices (duplicates), do not just find "the content somewhere" — preserve
-first-occurrence-by-original-position semantics. If unsure how to reconcile, read that test's exact
-setup/assertions before writing code (3 segments, text "Repeat. Middle. Repeat." reordered to
-"Repeat. Repeat. Middle." — first row's audio must survive, the other two must NOT).
+**Use one monotonic, order-preserving matching algorithm** (a `difflib.SequenceMatcher`-style
+approach: matches must be non-decreasing in both the existing-row sequence and the fresh-sentence
+sequence) — not an ad hoc "search for the content somewhere" — so this task's aligner is a strict
+subset of what Task 4's `align_segments` will do, and Task 4 can supersede it cleanly (see "Superseded
+by" below).
+
+**IMPORTANT — this task REQUIRES updating an existing test's assertions, not just avoiding breaking
+it.** `tests/db/test_chapters_sync.py:94`
+(`test_sync_chapter_segments_does_not_cross_match_reordered_duplicates`) creates 3 segments
+("Repeat.", "Middle.", "Repeat.") with distinct audio, reorders the text to
+("Repeat.", "Repeat.", "Middle."), and its CURRENT assertions say `Middle`'s audio goes
+`unprocessed` after the reorder. **That assertion encodes the exact bug this task fixes** — "Middle."
+has only one occurrence (it's not a duplicate), so once this task's content-aware fallback ships, it
+MUST be recognized and preserved at its new position, not discarded. Read the test's full
+setup/assertions (`tests/db/test_chapters_sync.py:99-133`) before writing code. This task's
+correctness bar for that test:
+- The **"Repeat." duplicate-disambiguation assertions stay exactly as they are today** — reordered
+  identical content must never cross-match to the wrong row's audio (this is the behavior the test
+  name protects, and it survives this fix).
+- The **"Middle." assertion must be updated** to assert its audio/assignment IS preserved at its new
+  position (not `unprocessed`) — this is part of this task's deliverable, not a side effect to avoid.
+If your implementation makes both of these true simultaneously, you've implemented the fix correctly.
+If you find yourself trying to keep the old "Middle → unprocessed" assertion passing, stop — that
+assertion is the bug, not a spec to protect.
 
 ## Steps
 
@@ -42,16 +60,28 @@ setup/assertions before writing code (3 segments, text "Repeat. Middle. Repeat."
    **inserted** sentence before sentence 1 (no reordering, no duplicates — pure insertion). Assert
    sentence 2 and 3's original assignments/audio survive at their new indices. Confirm this test
    FAILS on current code (stash nothing needed — it's new code, just run it and confirm red).
-2. Implement the content-aware fallback in `sync_chapter_segments` per "Target behavior" above.
-3. Run the new test — confirm green.
-4. Run the full existing test file (`pytest tests/db/test_chapters_sync.py -v`) — confirm
-   `test_sync_chapter_segments_does_not_cross_match_reordered_duplicates` still passes unmodified.
+2. **Update `test_sync_chapter_segments_does_not_cross_match_reordered_duplicates`'s assertions**
+   per "Target behavior" above — the "Middle." assertion changes from `unprocessed` to preserved;
+   the "Repeat." duplicate assertions do not change. Confirm the updated test FAILS on current
+   (pre-fix) code for the Middle assertion specifically — that's your proof this test was
+   previously asserting the bug.
+3. Implement the content-aware fallback in `sync_chapter_segments` per "Target behavior" above.
+4. Run both tests from steps 1-2 — confirm green.
 5. Run the full `tests/db/` suite to catch any other regression.
+
+## Superseded by
+
+This task's aligner is a minimal version of Task 4's `align_segments` (same algorithm class:
+monotonic, order-preserving matching). When Workload C lands, Task 4 supersedes this task's inline
+logic entirely — don't maintain two aligners long-term. Note this explicitly in Task 4's PR.
 
 ## Acceptance criteria
 
-- [ ] New regression test added, confirmed red on pre-fix code, green after.
-- [ ] `test_sync_chapter_segments_does_not_cross_match_reordered_duplicates` still passes, unmodified.
+- [ ] New regression test (pure insertion, no duplicates) added, confirmed red on pre-fix code,
+      green after.
+- [ ] `test_sync_chapter_segments_does_not_cross_match_reordered_duplicates` updated: "Middle." now
+      asserted preserved (not `unprocessed`) at its new position; "Repeat." duplicate assertions
+      unchanged; confirm the updated Middle assertion is red on pre-fix code, green after.
 - [ ] Full `tests/db/` suite green.
 - [ ] No change to `get_resync_preview` in this task (separate workload).
 

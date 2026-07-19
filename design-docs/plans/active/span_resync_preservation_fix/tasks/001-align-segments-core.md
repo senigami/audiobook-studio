@@ -29,7 +29,9 @@ def align_segments(existing_rows: list[dict], fresh_sentences: list[str]) -> Ali
 
     Returns an AlignmentResult (define as a dataclass or TypedDict) describing, per fresh sentence
     index, either:
-      - PRESERVE: a contiguous run of existing row ids (1-3 rows) whose stripped concatenation
+      - PRESERVE: a contiguous run of existing row ids (UNBOUNDED length, not capped at 3 —
+        assignments accumulate across separate edits with no re-merge in between, so 4+-row runs
+        are real) whose stripped concatenation
         equals this sentence — these rows are untouched.
       - DISCARD_AND_CREATE: no matching run found — this sentence gets a fresh row (today's
         existing behavior for genuinely new/changed sentences).
@@ -43,9 +45,12 @@ def align_segments(existing_rows: list[dict], fresh_sentences: list[str]) -> Ali
 For each fresh sentence, in order, try in this sequence:
 1. **Exact single-row match**: `existing[i].text_content.strip() == fresh_sentences[i].strip()`
    (today's rule — cheapest, keep it as the fast path).
-2. **Fragment-run match**: does a contiguous run of 1-3 existing rows starting near this position
-   have `strip(concat(run[j].text_content for j in run)) == strip(fresh_sentences[i])`? (This is
-   Invariant I3's resolved falsifier — strip AFTER concatenation, never compare raw slices.)
+2. **Fragment-run match**: extend a candidate run of contiguous existing rows one row at a time
+   while `strip(concat(run so far))` remains a proper PREFIX of `strip(fresh_sentences[i])`; a match
+   is confirmed when the concatenation exactly equals the fresh sentence. No upper bound on run
+   length — do not cap at 3. (This is Invariant I3's resolved falsifier — strip AFTER concatenation,
+   never compare raw slices; also verify against the DB's actual `preserve_gap=True` call, not the
+   library default.)
 3. **No match** → this sentence is new/changed; its rows (if content used to occupy this slot) are
    discarded.
 
@@ -62,8 +67,14 @@ fresh occurrence.
    - A 2-fragment sub-sentence split, unrelated sentence edited elsewhere → fragments preserved.
    - A 3-fragment split (left/middle/right from `_apply_range_assignment`'s two-call pattern) →
      all 3 preserved as one run.
+   - A 4+-fragment run (simulate accumulated separate edits producing 4 or 5 contiguous fragment
+     rows for one sentence, not from a single `_apply_range_assignment` call) → all preserved as
+     one run. This is the unbounded-length case (Constance's N1, round 2) — do not skip it.
    - The exact scenario from `tests/db/test_chapters_sync.py:94` (reordered duplicates) — assert
-     `align_segments` alone (not the full sync) produces the non-cross-matching result.
+     `align_segments` alone (not the full sync) correctly does NOT cross-match the "Repeat."
+     duplicates AND correctly preserves the uniquely-identified "Middle." sentence across its
+     position move (per Invariant I2's corrected reading — the current test's "Middle →
+     unprocessed" assertion is the bug, not the spec; `align_segments` should preserve Middle).
    - A sentence with leading/trailing whitespace in the original manuscript, split into fragments,
      re-synced with the same manuscript — assert the strip-then-compare (I3) logic matches
      correctly (this is the falsifier case — must pass).
@@ -77,10 +88,11 @@ fresh occurrence.
 
 - [ ] `align_segments` is a pure function — no DB calls, no side effects, fully unit-testable.
 - [ ] All 6 test cases in Steps above pass, each confirmed red-then-green (R1).
-- [ ] Handles 1-3 row fragment runs (not just 2).
+- [ ] Handles unbounded fragment runs (test at least 4 fragments from accumulated separate edits, not just the single-call 3-fragment case).
 - [ ] Implements the strip-after-concat rule (Invariant I3), not raw concatenation.
-- [ ] Reproduces `test_sync_chapter_segments_does_not_cross_match_reordered_duplicates`'s exact
-      outcome when fed that test's exact scenario.
+- [ ] Reproduces `test_sync_chapter_segments_does_not_cross_match_reordered_duplicates`'s CORRECTED
+      outcome (per Invariant I2, round 2) when fed that test's exact scenario: "Repeat." duplicates
+      do not cross-match; "Middle." is preserved across its position move, not `unprocessed`.
 
 ## If this task's tests reveal schema-free is insufficient
 

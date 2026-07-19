@@ -21,14 +21,22 @@ sentences.
 ## Why "preserve in place" and not "recreate with same content" (read before implementing)
 
 Recreating a row (even with identical content) mints a new row id. `_build_base_revision_id`
-(`app/domain/chapters/helpers.py:116-136`) hashes segment ids for optimistic concurrency — new ids
-on every save would churn that hash and risk spurious `RevisionMismatch` conflicts for the user, even
-though nothing meaningfully changed. Preserving the row means: don't touch it at all — no
-delete, no insert, no update — for any row `align_segments` says to keep.
+(`app/domain/chapters/helpers.py:116-136`) hashes segment id, order, AND text for optimistic
+concurrency — new ids on every save would churn that hash and risk spurious `RevisionMismatch`
+conflicts for the user, even though nothing meaningfully changed. Preserving the row means: its id,
+`character_id`, `speaker_profile_name`, and audio fields are never touched (no delete, no insert, no
+content update) for any row `align_segments` says to keep. **`segment_order` is the one exception**
+(Invariant I1a) — if an earlier edit shifted this row's position, its `segment_order` IS updated to
+match, and that's a legitimate, expected contribution to the revision hash (a real position change
+from a real edit), distinct from the id-churn this task exists to prevent.
 
 ## Steps
 
-1. Confirm Task 0 (index-cascade fix) has landed first — this task builds on it.
+1. Confirm Task 0 (index-cascade fix) has landed first — this task builds on it, and this task's
+   `align_segments` call SUPERSEDES Task 0's inline aligner entirely (same algorithm class,
+   generalized to fragment-runs). Remove or delegate Task 0's standalone matching logic to
+   `align_segments` as part of this task, so there is exactly one aligner in the codebase after
+   this lands.
 2. Replace the sentence-comparison loop with: call `align_segments(existing_rows, fresh_sentences)`.
 3. For each `PRESERVE` result: skip entirely (no DB write for that row).
 4. For each `DISCARD_AND_CREATE` result: today's existing behavior (delete old row if present,
