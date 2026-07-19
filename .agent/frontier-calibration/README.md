@@ -111,6 +111,13 @@ The concrete scenario menu is being assembled in `scenario-menu.md` (scouted fro
   only on a real gap.
 - **Findings routing (ongoing):** `findings-summary.md` catalogues each finding and the plan it
   feeds; plans ship through the normal flow once approved — not as part of calibration.
+- **Phase 4 (owner-directed, 2026-07-19):** IMPLEMENT an approved plan's fix as real code (this is
+  the one point where calibration produces a shipped change, not just banked analysis), then run
+  the same twins-vs-Fable comparison on the resulting **diff** — a code review, not a plan review.
+  Standing policy going forward: **Fable signs off on code changes when Fable is available; the
+  twins sign off going forward regardless.** Compare the two sign-offs each time and watch for gaps,
+  the same discipline as Phase 3. First test case: the RC-1 fix (most-reviewed plan, two full
+  rounds already).
 
 ## Files
 
