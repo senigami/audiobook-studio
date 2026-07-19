@@ -40,7 +40,14 @@ from a real edit), distinct from the id-churn this task exists to prevent.
 2. Replace the sentence-comparison loop with: call `align_segments(existing_rows, fresh_sentences)`.
 3. For each `PRESERVE` result: skip entirely (no DB write for that row).
 4. For each `DISCARD_AND_CREATE` result: today's existing behavior (delete old row if present,
-   insert new row, invalidate audio via `cleanup_chapter_audio_files`).
+   insert new row, invalidate audio via `cleanup_chapter_audio_files`). **Critical — BR-2's
+   blast-radius analysis of this exact design found a new risk not caught by RC-1's own plan
+   reviews:** the set of ids passed to `cleanup_chapter_audio_files` for deletion must be built
+   ONLY from rows in the `DISCARD_AND_CREATE` set — never from a raw "all rows not in the fresh
+   list" computation that could accidentally include a `PRESERVE`d row's old id if any bookkeeping
+   step re-derives the discard set incorrectly. Add an explicit test: a chapter with both a
+   preserved fragment run and a genuinely-discarded row in the same save — assert the preserved
+   run's audio file is NOT touched by the cleanup pass.
 5. **Inline fix for Invariant I5 (owner-recommended, see `01-map.md` Open Questions):** since this
    task already touches the INSERT statement (`segments.py:566-569`), extend it to write all 18
    columns (or explicitly default the extra 9 sensibly) instead of only 9 — this fixes the
