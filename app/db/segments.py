@@ -504,6 +504,7 @@ def sync_chapter_segments(chapter_id: str, text_content: str, conn=None):
     import logging
     logger = logging.getLogger(__name__)
     from .nlp import split_into_sentences
+    from .segment_alignment import align_segments
     sentences = split_into_sentences(text_content)
 
     def _sync_with_conn(conn):
@@ -514,59 +515,117 @@ def sync_chapter_segments(chapter_id: str, text_content: str, conn=None):
         cursor.execute("SELECT project_id FROM chapters WHERE id = ?", (chapter_id,))
         crow = cursor.fetchone()
         project_id = crow["project_id"] if crow else None
+        existing_by_id = {row["id"]: row for row in existing}
 
-        # 2. Preserve unchanged sentences at the same index when possible.
-        new_segments = []
+        # 2. Content-anchored alignment (RC-1 fix): preserve matched runs (including
+        # multi-row fragment runs from manual sub-sentence splits) IN PLACE -- never
+        # delete-and-reinsert them, which is what kept destroying manual assignments
+        # (see design-docs/plans/active/span_resync_preservation_fix/).
+        alignment = align_segments(existing, sentences)
+
+        preserved_by_fresh_index = {}
         preserved_ids = set()
+        for run in alignment.preserved:
+            preserved_by_fresh_index[run.fresh_index] = run.existing_ids
+            preserved_ids.update(run.existing_ids)
+
+        unmatched_ids = alignment.unmatched_existing_ids
+        removed_rows = [existing_by_id[rid] for rid in unmatched_ids]
+        removed_audio_paths = {r.get("audio_file_path") for r in removed_rows if r.get("audio_file_path")}
+
+        # 3. Lay out the final row set in fresh-sentence order. A fragment run's rows
+        # keep their own text_content and relative order; only segment_order may change
+        # (Invariant I1a) -- id, character_id, speaker_profile_name, and audio fields on
+        # a preserved row are untouched here, and are only overwritten below if that
+        # exact row shares an audio file with a removed row (the shared-audio-invalidation
+        # pass, unchanged from before).
+        final_rows = []
+        order = 0
         for i, sent in enumerate(sentences):
-            existing_row = None
-            if i < len(existing) and (existing[i].get("text_content") or "").strip() == sent.strip():
-                existing_row = existing[i]
+            run_ids = preserved_by_fresh_index.get(i)
+            if run_ids:
+                for rid in run_ids:
+                    row = existing_by_id[rid]
+                    final_rows.append({
+                        "id": rid,
+                        "segment_order": order,
+                        "orig_segment_order": row.get("segment_order"),
+                        "text_content": row.get("text_content"),
+                        "character_id": row.get("character_id"),
+                        "speaker_profile_name": row.get("speaker_profile_name"),
+                        "audio_status": row.get("audio_status", "unprocessed"),
+                        "audio_file_path": row.get("audio_file_path"),
+                        "audio_generated_at": row.get("audio_generated_at"),
+                        "preserved": True,
+                    })
+                    order += 1
+            else:
+                final_rows.append({
+                    "id": str(time.time_ns()) + f"_{i}",
+                    "segment_order": order,
+                    "orig_segment_order": None,
+                    "text_content": sent,
+                    "character_id": None,
+                    "speaker_profile_name": None,
+                    "audio_status": "unprocessed",
+                    "audio_file_path": None,
+                    "audio_generated_at": None,
+                    "preserved": False,
+                })
+                order += 1
 
-            seg_id = existing_row["id"] if existing_row else str(time.time_ns()) + f"_{i}"
-            if existing_row:
-                preserved_ids.add(existing_row["id"])
-            new_segments.append({
-                'id': seg_id,
-                'chapter_id': chapter_id,
-                'segment_order': i,
-                'text_content': sent,
-                'character_id': existing_row.get("character_id") if existing_row else None,
-                'speaker_profile_name': existing_row.get("speaker_profile_name") if existing_row else None,
-                'audio_status': existing_row.get("audio_status", 'unprocessed') if existing_row else 'unprocessed',
-                'audio_file_path': existing_row.get("audio_file_path") if existing_row else None,
-                'audio_generated_at': existing_row.get("audio_generated_at") if existing_row else None,
-            })
+        # 4. Shared-audio invalidation: a preserved row whose audio file is shared with a
+        # removed row must still be force-invalidated (protects the existing
+        # test_chapters_sync.py shared-audio-invalidation test).
+        for r in final_rows:
+            if r["preserved"] and r["audio_file_path"] in removed_audio_paths:
+                r["audio_status"] = "unprocessed"
+                r["audio_file_path"] = None
+                r["audio_generated_at"] = None
 
-        invalidated_audio_paths = {
-            row.get("audio_file_path")
-            for row in existing
-            if row["id"] not in preserved_ids and row.get("audio_file_path")
-        }
-        for seg in new_segments:
-            if seg["id"] not in preserved_ids:
-                continue
-            if seg.get("audio_file_path") in invalidated_audio_paths:
-                seg["audio_status"] = "unprocessed"
-                seg["audio_file_path"] = None
-                seg["audio_generated_at"] = None
-
-        # 3. Replace all (cleaner than complex sync)
-        cursor.execute("DELETE FROM chapter_segments WHERE chapter_id = ?", (chapter_id,))
-
-        insert_data = [
-            (
-                seg['id'], seg['chapter_id'], seg['segment_order'], seg['text_content'],
-                seg['character_id'], seg['speaker_profile_name'], seg['audio_status'],
-                seg['audio_file_path'], seg['audio_generated_at']
+        # 5. Execute the minimal write set. Preserved rows whose order didn't move and
+        # whose audio wasn't just invalidated get NO DB write at all -- this is the
+        # actual "preserve in place" guarantee, not delete-and-reinsert-with-old-id.
+        if unmatched_ids:
+            cursor.executemany(
+                "DELETE FROM chapter_segments WHERE id = ?",
+                [(rid,) for rid in unmatched_ids],
             )
-            for seg in new_segments
-        ]
 
-        cursor.executemany("""
-            INSERT INTO chapter_segments (id, chapter_id, segment_order, text_content, character_id, speaker_profile_name, audio_status, audio_file_path, audio_generated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, insert_data)
+        for r in final_rows:
+            if not r["preserved"]:
+                cursor.execute(
+                    """
+                    INSERT INTO chapter_segments
+                        (id, chapter_id, segment_order, text_content, character_id,
+                         speaker_profile_name, audio_status, audio_file_path, audio_generated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        r["id"], chapter_id, r["segment_order"], r["text_content"],
+                        r["character_id"], r["speaker_profile_name"], r["audio_status"],
+                        r["audio_file_path"], r["audio_generated_at"],
+                    ),
+                )
+                continue
+
+            orig = existing_by_id[r["id"]]
+            order_changed = r["segment_order"] != r["orig_segment_order"]
+            audio_changed = (
+                r["audio_status"] != orig.get("audio_status")
+                or r["audio_file_path"] != orig.get("audio_file_path")
+                or r["audio_generated_at"] != orig.get("audio_generated_at")
+            )
+            if not order_changed and not audio_changed:
+                continue  # genuinely untouched -- skip the DB write entirely
+            cursor.execute(
+                """
+                UPDATE chapter_segments
+                SET segment_order = ?, audio_status = ?, audio_file_path = ?, audio_generated_at = ?
+                WHERE id = ?
+                """,
+                (r["segment_order"], r["audio_status"], r["audio_file_path"], r["audio_generated_at"], r["id"]),
+            )
 
         return existing, preserved_ids, project_id
 
