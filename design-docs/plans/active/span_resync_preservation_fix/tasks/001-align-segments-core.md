@@ -1,4 +1,9 @@
-Status: pending
+Status: in-progress — core implemented + tested (app/db/segment_alignment.py,
+tests/db/test_segment_alignment.py), 2026-07-19. Not yet wired into Tasks 3-5. One design
+refinement made beyond the spec: single-row content search AND fragment-run search are both
+gated on content-uniqueness (a sentence appearing more than once in either the fresh or existing
+list never searches past position) — this is what makes the corrected reordered-duplicates test
+pass without cross-matching. Awaiting code review (Phase 4 twins-vs-Fable comparison).
 Depends on: none (new pure function + its own tests)
 
 # Task 1 — `align_segments`: schema-free fragment-run recognition
