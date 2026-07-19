@@ -97,11 +97,21 @@ async def api_update_chapter_details(
             normalized_profile_name = None
         updates["speaker_profile_name"] = normalized_profile_name
 
+    lost_assignments_count = 0
     if updates:
-        update_chapter(chapter_id, **updates)
+        result = update_chapter(chapter_id, **updates)
+        if isinstance(result, dict):
+            lost_assignments_count = result.get("lost_assignments_count", 0)
         broadcast_chapter_updated(chapter_id)
 
-    return JSONResponse({"status": "ok", "chapter": get_chapter(chapter_id)})
+    # Task 6 (RC-1 fix): surface how many manual assignments an ordinary text save
+    # actually lost, so the UI can warn -- previously only the explicit resync route's
+    # preview showed this.
+    return JSONResponse({
+        "status": "ok",
+        "chapter": get_chapter(chapter_id),
+        "lost_assignments_count": lost_assignments_count,
+    })
 
 
 @router.delete("/chapters/{chapter_id}")
@@ -255,6 +265,9 @@ async def api_bulk_update_segments(req: BulkSegmentsUpdate):
 async def api_sync_segments(chapter_id: str, request: Request):
     data = await request.json()
     text = data.get("text")
+    lost_assignments_count = 0
     if text is not None:
-        await anyio.to_thread.run_sync(sync_chapter_segments, chapter_id, text)
-    return JSONResponse({"status": "ok"})
+        result = await anyio.to_thread.run_sync(sync_chapter_segments, chapter_id, text)
+        if isinstance(result, dict):
+            lost_assignments_count = result.get("lost_assignments_count", 0)
+    return JSONResponse({"status": "ok", "lost_assignments_count": lost_assignments_count})
