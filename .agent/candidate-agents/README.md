@@ -23,13 +23,16 @@ Fable → decide → switch back" pattern this follows.
   work. Frontmatter uses the role name only. See CLAUDE.md's roster block for how the current
   five were named.
 - **`model: inherit`** — the repo's quality seats ride the dispatching session's model
-  (downshift per-spawn for mechanical slices). Don't pin a dated slug.
+  (downshift per-spawn for mechanical slices). Don't pin a dated slug. **One deliberate exception:**
+  `reasoning-analyst` pins `model: opus` and is meant to run at max reasoning effort — reasoning
+  depth is its whole purpose, so it rides the strongest background-reachable tier rather than
+  inheriting a possibly-weaker session model.
 - **Seven-section anatomy** (agent-profiles skill): frontmatter → identity → convictions →
   scope boundaries → quality criteria → deliverable protocol → memory hook.
 - **Convictions are grounded in real repo facts**, the way the live profiles are — each cites
   the actual bug class, invariant, or contract the seat would defend.
 
-## The current pool (drafted 2026-07-18, pending Fable review)
+## The current pool (drafted 2026-07-18, pending Fable priming)
 
 | File | Seat | Strongest case for it | Collision risk to adjudicate |
 |---|---|---|---|
@@ -37,6 +40,7 @@ Fable → decide → switch back" pattern this follows.
 | `release-engineer.md` | Release & packaging | v2.0.0 clean-break release imminent; `run.sh`/`run.ps1` cross-platform provisioning, `~/xtts-env`, `demo.zip`, Pinokio wrapper | vs. `engineer` (feature work) and `runtime-verifier` (drives the app) |
 | `performance-engineer.md` | Performance | Render pipeline, parallel-segment render (cap>1 default), GPU/exclusive gates, ETA/progress math, test-suite memory safety | vs. `runtime-verifier` (measures outcomes) and `engineer` (implements) |
 | `plugin-sdk-steward.md` | Plugin/SDK ecosystem | `studio_plugin_sdk`, versioned `manifest.json` contracts, engine registry + voice bridge, the "no engine-ID branching in core" invariant, third-party engine authors | vs. `engineer` (builds engines) and `archivist` (owns contract-doc drift) |
+| `reasoning-analyst.md` | Deep reasoning / frontier stand-in | The hard open-ended calls (root-cause, architecture, blast radius) you'd want Fable for — method-driven: code-map + blast-radius + adversarial multi-hypothesis, run as ≥2 converging twin passes (Opus/max), with honest escalation past its ceiling. Proposes a **sibling-pair form** (Elder=structural/top-down, Younger=empirical/bottom-up) — personified diversity, independence-sacred, Fable to rule + name if sound | vs. `engineer` (implements), `runtime-verifier` (checks disk reality), global `reviewer` (critiques one diff) |
 
 ## Role sketches — existence not yet decided (for Fable to rule on)
 
