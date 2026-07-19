@@ -51,7 +51,7 @@ Two things are your call:
 - **`/model`** — which model runs the main conversation. Day to day, a strong efficient model; for the hardest calls, the frontier model nicknamed **Fable**.
 - **`/effort`** — how much the model thinks before answering. Low is fast and right for most things; high is slower and worth it when something is genuinely hard.
 
-**One hard rule: Fable never runs unattended.** It only runs when you're personally driving the conversation. If background work needs that level of judgment, the system stops, writes a tight briefing, and asks you to switch over yourself — make the call, switch back. Every time.
+**One hard rule: Fable never runs in the background without your approval.** Day to day it runs only when you're personally driving the conversation. If background work needs that level of judgment, the system stops, writes a tight briefing, and asks first — and only with your explicit go-ahead does it either hand the call to you (switch over, decide, switch back) or dispatch a Fable agent under supervision, whose output the orchestrator then verifies before anything lands. What it never does is spend Fable autonomously, on its own initiative.
 
 ---
 
