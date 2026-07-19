@@ -34,10 +34,18 @@ failing, if not re-pointed), and 9 cross-repo lazy-import call sites (2 SDK, 7 p
    the reference: `app/orchestration/handlers/`, dropping the `worker_` prefix. **Blocking — nothing
    else proceeds without this.**
 2. **Stage 1 — move + identity-preserving shim.** Physically move modules; `app/jobs/__init__.py`
-   installs the SAME module objects under old names via `sys.modules` aliasing (precedent:
-   `app/studio_plugin_sdk`). No importer changes yet. Gate: full pytest green; explicit identity
-   check (`sys.modules["app.jobs.registry"] is sys.modules["<new>.registry"]`); one mocked bridge
-   test deliberately broken-then-fixed to prove the shim doesn't silently un-mock it (R1-style).
+   installs the SAME module objects under old names via `sys.modules` aliasing. **CORRECTED
+   PRECEDENT (both twin reviews independently caught this — the original citation was wrong):**
+   do NOT model this on `app/studio_plugin_sdk/__init__.py` — that file is a plain symbol
+   re-export and does NOT preserve module-object identity; copied literally it builds exactly the
+   naive shim Hazard 3 warns about. The correct mechanism is `_import_utils.py:36-50`'s
+   `ensure_plugin_package_hierarchy` pattern (actual `sys.modules[...] = <same object>` aliasing).
+   No importer changes yet. Gate: full pytest green; explicit identity check across EVERY moved
+   submodule, not just `registry` (`sys.modules["app.jobs.registry"] is sys.modules["<new>.registry"]`,
+   and the same for `worker_voice`, `worker_metrics`, `handlers.bridge_helpers`, `handlers.audiobook`
+   — Petra's finding: a single-submodule check under-covers); at least one mocked test per moved
+   submodule deliberately broken-then-fixed to prove the shim doesn't silently un-mock it (R1-style),
+   not just one bridge test.
 3. **Stage 2 — rewire runtime importers**: `boot.py:97`, `orchestrator_helpers.py:36`,
    `studio_plugin_sdk/context.py:398,682`, all 7 `tts_engines` sites, `conftest.py:366`. Gate: full
    pytest incl. every plugin suite; a real boot smoke test (`./run.sh --no-reload`, confirm no "Job

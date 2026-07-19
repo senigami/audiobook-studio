@@ -14,10 +14,22 @@ re-importing"). If the env value flips between a task's reserve and release, the
 down the wrong branch and leaks the class/engine-id/global-backstop slots permanently (ON→OFF) or
 wedges the exclusive gate (OFF→ON). Enough leaks and every future synthesis is denied until restart.
 
-**Fix**: record which admission path was taken *in the reservation result itself* (not re-derived
-from re-reading the env at release time), and release by that record. Test: toggle the env between
-a task's reserve and release; assert the correct slots are released regardless of the toggle
-(this is the regression test — confirm it fails on current code first, R1).
+**Fix — CORRECTED (all 3 reviewers found the original "record in the reservation result" phrasing
+underspecified/wrong; adopting Constance's simplest fix, which all reviewers' fact-finding
+independently supports):** `release_task_resources` never actually receives the reservation
+result — there are 4 release call sites (`orchestrator.py:220,260,796`, `segment_synthesis.py:197`),
+and the cancel path (`orchestrator.py:796`) rebuilds its claim dict fresh from `task.resource_claim`,
+with no access to reserve-time state at all; `ResourceClaim` is also frozen, so nothing can be
+stamped onto it either. **Do NOT thread a token through callers.** Instead: since every individual
+gate's `release()` is already idempotent (a release on a gate you never held is a safe no-op) and
+task ids are unique, make `release_task_resources` unconditionally attempt release on **all**
+gates a claim could possibly hold (global backstop, class semaphore, engine-id semaphore, exclusive
+gate) — never branch on re-reading `_engine_class_admission_enabled()` at release time at all. This
+requires zero caller/plumbing changes and is robust to the env flipping at any point, including the
+cancel path. Test: toggle the env between a task's reserve and its release (cover the NORMAL
+completion path AND the cancel path at `:796` specifically — the earlier fix proposals silently
+missed the cancel path); assert no slots leak and nothing double-releases incorrectly, regardless of
+toggle direction or which release site runs (confirm current code fails this first, R1).
 
 ### Task 2 — F4: per-engine live limit applied to the wrong (class) semaphore — latent starvation
 
@@ -26,12 +38,22 @@ a task's reserve and release; assert the correct slots are released regardless o
 today (only one "gpu"-class engine exists), but a second same-class engine with a lower effective
 cap would be starved by a sibling's activity even with room in its own per-engine-id semaphore.
 
-**Fix**: apply the live limit to the per-engine-id semaphore only; let the class semaphore continue
-to gate on the class's own (grow-only) structural cap, uncoupled from any single engine's live
-limit. Test: two same-class engines, one throttled to limit=1 with the sibling occupying the class
-semaphore — assert the throttled engine is NOT denied at the class gate when its own per-engine-id
-semaphore has room. (Requires a test double / second synthetic engine-class to make this checkable
-without a real second GPU engine.)
+**Fix (confirmed correct as originally specified by all 3 reviewers — Constance verified it loses no
+live throttling, since `live_limit` is only ever resolved when `engine_id` is present, the same
+condition the id-gate itself runs on):** apply the live limit to the per-engine-id semaphore only;
+let the class semaphore continue to gate on the class's own (grow-only) structural cap, uncoupled
+from any single engine's live limit. **Guard required (Petra's P2, both twins flagged it):** assert
+`engine_class` implies `engine_id` is non-empty at claim-build or reserve-entry time — do NOT ship
+this fix unguarded, since a future claim with `engine_class` set but `engine_id` empty would silently
+skip live-cap enforcement entirely (the exact latent-hole class this fix exists to close). Test: two
+same-class engines, one throttled to limit=1 with the sibling occupying the class semaphore — assert
+the throttled engine is NOT denied at the class gate when its own per-engine-id semaphore has room;
+plus a test that a claim with `engine_class` set and `engine_id` empty is rejected/asserted, not
+silently under-enforced. (Requires a test double / second synthetic engine-class.)
+
+**Sequencing note (Petra's P3):** Task 1 and this task both rewrite the reserve/release body —
+land them together or in strict sequence, not as independently-parallelized slices, or they will
+conflict.
 
 ### Task 3 — F5: clearing a `tts_engine_caps` override via Settings can't override a set env var
 
@@ -40,9 +62,16 @@ An *empty* `{}` in stored settings is treated as absent (`cap_settings.py:94`), 
 Settings sees no effect. Same shape, smaller, for a malformed `tts_parallel_cap` value silently
 falling through rather than erroring.
 
-**Fix**: distinguish "no override stored" from "override explicitly cleared" (e.g., a sentinel or a
-presence flag) so settings precedence over env holds for the clear case too. Test: set env override,
-clear via settings, assert the global/default cap now applies.
+**Fix — CORRECTED (Constance found the originally-proposed sentinel/presence-flag mechanism is
+infeasible: `_normalize_settings` (`state_settings.py:129-138`) always materializes
+`tts_engine_caps`, so nothing distinguishes cleared-from-absent by the time `cap_settings.py:94`
+sees it). Correct, simpler fix:** drop the `and raw` truthiness gate at `cap_settings.py:94` entirely
+— an explicitly-stored empty dict should mean "no per-engine overrides," full stop, and take
+precedence over the env var like every other stored setting does. Test: set env override, clear via
+settings (stores `{}`), assert the global/default cap now applies. **Verify before building a
+fix+test for the malformed-`tts_parallel_cap` sub-variant** — Constance flagged it's likely
+unreachable at runtime because normalization coerces the value first; confirm reachability before
+spending the effort.
 
 ### Task 4 — F1: silent clamp UX (known, accepted debt — lower priority, ties to FUTURE_WORK)
 
