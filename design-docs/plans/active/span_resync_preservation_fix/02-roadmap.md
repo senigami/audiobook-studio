@@ -49,14 +49,38 @@ Task 3 (finalize align_segments as the shared export)
 Task 4 + Task 5 done ──► Task 7 (full regression suite, incl. R1 revert-check)
 ```
 
-## Milestones
+## Milestones — status as of 2026-07-19
 
-1. **M1 (Workload A done):** index-cascade bug fixed and shipped independently — de-risks the rest.
-2. **M2 (Workload B done):** `align_segments` exists, is unit-tested against I2 (duplicates) and I3
-   (the whitespace falsifier) in isolation, with no production code depending on it yet.
-3. **M3 (Workload C done):** both consumers wired; the original RC-1 bug is fixed in the running app.
-4. **M4 (Workload D done):** full regression suite green, including a revert-checked test that fails
-   on pre-Workload-C code and passes after.
+1. **M1 (Task 0, index-cascade):** SUPERSEDED, not built separately — Task 4's `align_segments`
+   wiring subsumes it entirely (per the plan's own instruction that Task 4 supersedes Task 0's
+   throwaway aligner). No standalone Task 0 code exists; not needed.
+2. **M2 (Workload B) — DONE.** `align_segments` implemented (`app/db/segment_alignment.py`),
+   unit-tested (9 tests), 3-way reviewed twice (round 1 found and fixed a real duplicate-content
+   data-loss bug; round 2 confirmed correct). Schema-free (Task 2/stored-anchor fallback) was never
+   needed — the schema-free design held under adversarial review.
+3. **M3 (Workload C) — DONE.** `sync_chapter_segments` (Task 4) and `get_resync_preview` (Task 5)
+   both wired to the shared `align_segments`; loss count surfaced on the save API response
+   (Task 6, backend half — frontend UI deliberately deferred to design review). All 3-way reviewed;
+   Task 4's review surfaced and fixed a real, adjacent bug (`is_destructive` false positive) and a
+   genuine architectural finding (the chunk-group audio-invalidation interaction, recorded as
+   Invariant I8).
+4. **M4 (Workload D, full regression) — SUBSTANTIALLY COVERED, not a separate pass.** Regression
+   coverage was built incrementally with each task rather than as one final Task 7 pass: the
+   flagship distinct-character scenario, the duplicate/fragment intersection, the whitespace
+   falsifier, the reordered-duplicates case, and the preview-parity cases are all covered by
+   committed, revert-checked tests across Tasks 1/4/5/6 (1083 tests pass total, db/+domain/+api/).
+   **Remaining gap, honestly flagged (not silently closed):** the self-committing explicit-resync
+   transaction posture (Invariant I4's other half) has no committed test — both Fable's Task 4 and
+   Task 5 reviews noted this. Low risk (that route isn't otherwise touched), but open.
+
+## Session summary (2026-07-19 night session)
+
+Implemented, 3-way-reviewed (Fable + Constance + Petra, code-review not just plan-review), and
+merged: Task 1 (`align_segments` core — one real bug found and fixed), Task 4 (wired into sync — one
+real bug found and fixed, one architectural finding recorded), Task 5 (wired into preview — closed a
+live false-warning bug), Task 6 backend half (loss count surfaced on save; frontend UI deliberately
+deferred to design review, not silently skipped). See `.agent/frontier-calibration/code-reviews/`
+for the full review trail and the calibration program's running Fable-vs-twins comparison.
 
 ## Coverage table (findings this plan addresses)
 
