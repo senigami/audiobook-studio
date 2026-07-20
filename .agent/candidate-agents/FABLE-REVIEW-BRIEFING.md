@@ -1,3 +1,5 @@
+> **Superseded 2026-07-20.** Dated record of the reasoning pair's original naming ceremony (they first self-named **Constance** / **Petra** on 2026-07-18). Both seats were re-named under a bias-neutral discipline on 2026-07-20 — the elder is now **Esther** (`reasoning-elder`), the younger **Tamsin** (`reasoning-younger`). Preserved as history and intentionally NOT rewritten. Current roster: `.claude/agents/reasoning-elder.md` / `reasoning-younger.md` and CLAUDE.md.
+
 # Fable review briefing — candidate agent pool
 
 **For:** a Fable-driven session (owner at the wheel), while Fable is available (through 2026-07-19).

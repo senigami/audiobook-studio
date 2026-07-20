@@ -63,5 +63,5 @@ residual. Nothing in the files read here sets it.
 
 - Whether any deployment/launch script or user-local `.env` sets `ENGINE_CLASS_ADMISSION` to a
   disable value (not searched exhaustively; nothing suggests it).
-- Whether parallel behavior is *observably* correct at runtime (that's Plumb's domain) — this
+- Whether parallel behavior is *observably* correct at runtime (that's Amina's domain) — this
   reference only settles the default of the admission gate.

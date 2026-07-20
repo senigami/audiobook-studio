@@ -1,9 +1,9 @@
-# RC-1 v2 plan review — Petra (empirical / bottom-up panelist)
+# RC-1 v2 plan review — Tamsin (empirical / bottom-up panelist)
 
 **Plan folder:** `design-docs/plans/active/span_resync_preservation_fix/`
 (`README.md`, `00-overview.md`, `01-map.md`, `02-roadmap.md`, `tasks/000-007`)
 **Lens:** reasoned up from the actual code paths and the frozen test's exact assertions, not from the
-plan's self-description. Independent, complete review — nothing deferred to Constance.
+plan's self-description. Independent, complete review — nothing deferred to Esther.
 
 ## Ground truth re-loaded
 

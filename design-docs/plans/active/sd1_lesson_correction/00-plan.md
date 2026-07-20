@@ -41,5 +41,5 @@ AD-2's Task 5 depends on this plan landing — do not fix the same claim twice i
 
 ## Out of scope
 
-Verifying parallel rendering is *observably* correct at runtime (Plumb's/runtime-verifier's domain,
+Verifying parallel rendering is *observably* correct at runtime (Amina's/runtime-verifier's domain,
 not this doc fix) — this plan only settles what the gate's default *is*, already confirmed by SD-1.

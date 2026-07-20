@@ -74,7 +74,7 @@ fresh occurrence.
      all 3 preserved as one run.
    - A 4+-fragment run (simulate accumulated separate edits producing 4 or 5 contiguous fragment
      rows for one sentence, not from a single `_apply_range_assignment` call) → all preserved as
-     one run. This is the unbounded-length case (Constance's N1, round 2) — do not skip it.
+     one run. This is the unbounded-length case (Esther's N1, round 2) — do not skip it.
    - The exact scenario from `tests/db/test_chapters_sync.py:94` (reordered duplicates) — assert
      `align_segments` alone (not the full sync) correctly does NOT cross-match the "Repeat."
      duplicates AND correctly preserves the uniquely-identified "Middle." sentence across its

@@ -8,9 +8,9 @@ twice-plan-reviewed invariants.
 
 - **Fable: needs changes — blocker.** Hand-traced a concrete input and confirmed a deterministic,
   always-reachable data-loss bug in the shipped code.
-- **Constance: algorithm sound; tests incomplete — don't treat as proven.** Explicitly tried to
+- **Esther: algorithm sound; tests incomplete — don't treat as proven.** Explicitly tried to
   construct a cross-match against I1/I2/I3 and reported she couldn't find one.
-- **Petra: approve with required follow-ups.** Flagged the same area (duplicate × fragment-run
+- **Tamsin: approve with required follow-ups.** Flagged the same area (duplicate × fragment-run
   intersection) as the plan's own named #1 risk, untested — but did not construct a concrete
   failing input.
 
@@ -32,7 +32,7 @@ Both twins reasoned about the *shape* of the risk correctly (the plan's own R1 n
 intersection) but stopped at "this needs a test," not "let me construct the adversarial input
 myself." Fable's review explicitly did the latter: built a concrete scenario, hand-traced it against
 the literal control flow line-by-line, and verified the result against what the code would actually
-do — the same discipline the reasoning-analyst design asks of Constance/Petra, but this round they
+do — the same discipline the reasoning-analyst design asks of Esther/Tamsin, but this round they
 described the risk rather than exercising it.
 
 **Durable takeaway for the reasoning-analyst profiles:** "flag an untested risk area" is not
@@ -48,7 +48,7 @@ multi-row split is an explicit user action, categorically different from a natur
 duplicate whole sentence. A length-1 match stays gated (same ambiguity as the single-row case).
 Confirmed this preserves every prior test's outcome and added 2 new regression tests reproducing
 both Fable's exact scenario and a reordered variant. Also fixed the whitespace-falsifier test both
-Fable and Constance independently flagged as not exercising what it claimed — verified the corrected
+Fable and Esther independently flagged as not exercising what it claimed — verified the corrected
 version genuinely fails without the strip step before treating it as fixed.
 
 **9/9 tests pass, ruff clean, all fixes independently verified (not just applied on trust).**

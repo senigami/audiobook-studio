@@ -1,4 +1,4 @@
-# AD-2 plan review — Petra (empirical / bottom-up panelist)
+# AD-2 plan review — Tamsin (empirical / bottom-up panelist)
 
 **Reviewed:** `design-docs/plans/active/ad2_cap_resolution_hardening/00-plan.md`
 **Ground truth loaded:** code-map core + shards for `resources.py`, `cap_settings.py`; symbol-traced

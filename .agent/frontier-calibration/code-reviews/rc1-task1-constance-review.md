@@ -1,6 +1,6 @@
 # RC-1 Task 1 code review — `align_segments` (structural / top-down pass)
 
-Reviewer: Constance (elder, structural half of the reasoning pair)
+Reviewer: Esther (elder, structural half of the reasoning pair)
 Branch: `implement/rc1-align-segments`
 Files: `app/db/segment_alignment.py`, `tests/db/test_segment_alignment.py`
 Anchor: `design-docs/plans/active/span_resync_preservation_fix/01-map.md` (I1–I7, R0–R1)

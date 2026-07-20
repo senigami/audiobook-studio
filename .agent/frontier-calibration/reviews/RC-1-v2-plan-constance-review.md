@@ -1,9 +1,9 @@
-# RC-1 v2 plan review — Constance (structural / top-down panelist)
+# RC-1 v2 plan review — Esther (structural / top-down panelist)
 
 **Plan under review:** `design-docs/plans/active/span_resync_preservation_fix/` (README + 00-overview
 + 01-map + 02-roadmap + tasks/000-007). Supersedes `00-plan.md`.
 **Prior review:** `.agent/frontier-calibration/reviews/RC-1-plan-constance-review.md` (G1-G5).
-**Ensemble note:** Independent structural pass, not converged with Petra. One panelist input.
+**Ensemble note:** Independent structural pass, not converged with Tamsin. One panelist input.
 
 ## Map ritual (re-run on current code, `ebf484b`)
 
@@ -30,7 +30,7 @@ say-so:
 remedy.** The pivot from "re-derive fragments at a recorded offset" to **preserve-in-place
 fragment-run recognition** is the right move: it dissolves G1 entirely (no offset reconstruction, so
 the chained-3-way-split problem simply doesn't arise), and it preserves audio and revision-id
-stability for free (Petra's finding) instead of managing them as side effects. G1-G5 are addressed.
+stability for free (Tamsin's finding) instead of managing them as side effects. G1-G5 are addressed.
 But the trace surfaces **one correctness must-fix (N1)** and **one spec inconsistency that must be
 clarified before Task 4 (N2)**; N3/N4 are refinements. With N1 and N2 resolved, I'd call this
 build-ready. Confidence: **high** on N1/N2 (verified in source); the rest of the plan I'd pass.
@@ -110,7 +110,7 @@ impact. Folds into N2's clarification.
 
 N1 is a concrete correctness bug in the spec, not a judgment call — it should just be fixed, no
 escalation. N2 is a spec-consistency fix. Neither clears my ceiling. The one place I'd still want
-Petra's empirical pass converged before build is R1 (the fragment-run × duplicate-disambiguation
+Tamsin's empirical pass converged before build is R1 (the fragment-run × duplicate-disambiguation
 intersection) *as widened by N1* to unbounded runs — greedy prefix-matching across duplicated
 adjacent content is where a locally-correct greedy choice can be globally wrong, and an empirical
 probe of the real input space is worth more there than more top-down reasoning from me. If she and I

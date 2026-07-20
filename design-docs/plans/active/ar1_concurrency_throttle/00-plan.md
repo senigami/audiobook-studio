@@ -20,7 +20,7 @@ mid-render OOM (losing in-flight work); too-low wastes throughput. No mechanism 
    Exports two pure functions: `get_pressure_penalty() -> int`, `get_pressure_state() -> dict`.
 2. **One-line integration inside the chokepoint**: `resolve_effective_cap`
    (`app/orchestration/scheduler/cap_settings.py:156`) subtracts the penalty **AFTER** the
-   manifest-ceiling clamp, not before — **Petra's plan review caught a real arithmetic bug here**:
+   manifest-ceiling clamp, not before — **Tamsin's plan review caught a real arithmetic bug here**:
    subtracting before the clamp lets `min()` swallow the penalty whenever the configured cap exceeds
    the manifest ceiling (e.g. `min(8-1, 4) = 4`, unchanged — the penalty vanishes). Correct order:
    `max(1, min(requested, manifest_ceiling) - penalty)`. This bug is insidious because at the default
@@ -47,23 +47,23 @@ mid-render OOM (losing in-flight work); too-low wastes throughput. No mechanism 
   in the Studio daemon.
 - **Genuine twin disagreement on the correct transport (escalate — this is exactly the kind of split
   the twin design exists to surface, not to average):**
-  - **Constance**: ride the TTS server's existing `/health` heartbeat (the watchdog already polls
+  - **Esther**: ride the TTS server's existing `/health` heartbeat (the watchdog already polls
     it; the xtts-env subprocess holds the real CUDA context, so sampling there is free and accurate).
-  - **Petra**: call NVML/`nvidia-smi` directly from the Studio daemon, reading global board memory
+  - **Tamsin**: call NVML/`nvidia-smi` directly from the Studio daemon, reading global board memory
     (host-total, not per-process) — demote/drop in-process `torch` entirely; this also stays correct
     if synthesis is ever remote over HTTP, where `/health`-heartbeat-piggybacking would not.
   - **Both agree**: don't sample via in-process `torch` in Studio. They disagree on subprocess-poll
     vs. heartbeat-piggyback for reaching the real number. **Recommend the owner/engineer pick one at
     build time** rather than this plan guessing — it's a concrete, bounded implementation choice with
     both options now well-specified, not an open research question.
-- **Goal-honesty gap (Petra, F3/F4 — must be stated plainly, not silently scoped around):** the
+- **Goal-honesty gap (Tamsin, F3/F4 — must be stated plainly, not silently scoped around):** the
   `try_acquire`-based mechanism can only stop *new* admissions; it cannot evict an already-running
   worker. If N model copies are already resident when pressure spikes, throttling relieves nothing
   until one finishes and releases. **This design is OOM *mitigation* (smooths the ramp-up), not OOM
   *prevention*** — the crash-and-recover path (watchdog restart + task recovery) remains the actual
   backstop for an OOM that happens anyway. State this honestly in whatever announces the feature;
   don't oversell it as "prevents OOM."
-- **ETA-jitter regression risk (Petra, F5 — needs an explicit decision, not left implicit):** since
+- **ETA-jitter regression risk (Tamsin, F5 — needs an explicit decision, not left implicit):** since
   the throttle penalty feeds `resolve_effective_cap` and the ETA bracket reads the same function, a
   fluctuating penalty could make ETAs visibly jump, colliding with this repo's no-ETA-jump principle.
   Decide explicitly: either test that ETA doesn't jump under a changing penalty, or have the ETA
@@ -73,8 +73,8 @@ mid-render OOM (losing in-flight work); too-low wastes throughput. No mechanism 
 
 ## Tasks
 
-1. **Implement the sampling transport per the owner's pick** (Constance's `/health`-heartbeat vs.
-   Petra's NVML/`nvidia-smi`-from-Studio-daemon — both are now fully specified; this is no longer a
+1. **Implement the sampling transport per the owner's pick** (Esther's `/health`-heartbeat vs.
+   Tamsin's NVML/`nvidia-smi`-from-Studio-daemon — both are now fully specified; this is no longer a
    research task, just an implementation choice). Do NOT implement in-process `torch.cuda` sampling
    in the Studio daemon — both twins independently ruled it out.
 2. **Implement `MemoryPressureMonitor`** per the design above, wired only from `boot_studio()`.

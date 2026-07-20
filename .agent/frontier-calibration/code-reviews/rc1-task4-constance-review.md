@@ -1,8 +1,8 @@
-# Constance — code review: RC-1 Task 4 (wire `align_segments` into `sync_chapter_segments`)
+# Esther — code review: RC-1 Task 4 (wire `align_segments` into `sync_chapter_segments`)
 
 - **Branch/commit:** `implement/rc1-task4-wire-sync` @ `7ccd0f3a`
 - **File in scope:** `app/db/segments.py` (`sync_chapter_segments`, +107/-48)
-- **Ensemble status:** LONE PASS — dispatched solo, no Petra pass, no neutral judge. This output is
+- **Ensemble status:** LONE PASS — dispatched solo, no Tamsin pass, no neutral judge. This output is
   **un-ensembled**; it did not get the reliability that convergence buys. Flagging per the twin
   contract.
 - **Map ritual:** code-map core loaded; `app/db/segments.py` shard pulled; `app/db/segment_alignment.py`
@@ -161,4 +161,4 @@ lives in the orchestrator/render-gating path, not in this diff. Record it; don't
 
 No owner's-call trigger met. The two plan-vs-diff gaps (I5 documentation, loss-count deferral) are
 recordable decisions, not irreversible calls. The adjacent render-gating question should be handed to
-`runtime-verifier` (Plumb) for an actual end-to-end render, not decided from analysis.
+`runtime-verifier` (Amina) for an actual end-to-end render, not decided from analysis.

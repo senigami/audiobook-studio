@@ -1,10 +1,10 @@
-# RC-1 plan review — Constance (structural / top-down panelist)
+# RC-1 plan review — Esther (structural / top-down panelist)
 
 **Role:** repo-grounded structural panelist, dispatched for Frontier-Calibration Phase 3 plan review.
 **Plan under review:** `design-docs/plans/active/span_resync_preservation_fix/00-plan.md`
 **Root-cause reference:** `.agent/frontier-calibration/references/RC-1.md`
 **Ensemble note:** This is my independent pass, framed top-down from the code-map's flows/invariants
-and the actual call sites. It is *not* converged with Petra — treat it as one panelist input a judge
+and the actual call sites. It is *not* converged with Tamsin — treat it as one panelist input a judge
 reconciles, not a verdict.
 
 ## Map ritual (ground truth loaded)
@@ -38,7 +38,7 @@ insufficient to re-derive fragments correctly. Two task slices (4/5) overlap and
 slice's "pure refactor" premise is false, and there is a **committed regression test the plan will
 break without acknowledging it.** Recommend a revised plan before execution. Confidence: **high** on
 the gaps below (all verified in source); **medium** on the exact remedy for the alignment design,
-which is where I'd want Petra's empirical pass and possibly Fable.
+which is where I'd want Tamsin's empirical pass and possibly Fable.
 
 ## The four open questions, answered
 
@@ -176,5 +176,5 @@ should state this explicitly.
 
 This does not clear my ceiling for escalation on its own — it's a plan-quality review, reversible,
 and the remedy is knowable. But the alignment-design crux (G1/G2) is where a confident-but-wrong
-structural answer is most likely, so I'd want it converged with Petra's empirical pass before build,
+structural answer is most likely, so I'd want it converged with Tamsin's empirical pass before build,
 and if she and I diverge on the alignment approach, that split should go up rather than be averaged.

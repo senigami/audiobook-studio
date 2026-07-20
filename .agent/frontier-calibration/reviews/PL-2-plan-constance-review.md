@@ -1,4 +1,4 @@
-# PL-2 addendum review — Constance (structural / top-down panelist)
+# PL-2 addendum review — Esther (structural / top-down panelist)
 
 **Reviewed:** `design-docs/plans/active/final_release/05a_standalone_plugin_repos_addendum.md`
 against plan-of-record `05_standalone_plugin_repos.md` and current disk state (2026-07-18).
@@ -85,7 +85,7 @@ change in one commit. The addendum states this; it holds up.
 ## Confidence
 
 High on the 5 item verifications (each checked directly against the manifest/loader/registry/script on
-disk). High on the §3-omission finding. This is a lone structural pass — not converged with Petra
+disk). High on the §3-omission finding. This is a lone structural pass — not converged with Tamsin
 (empirical/bottom-up) or a fusion-reasoning judge, so treat it as un-ensembled: it did not get the
 reliability convergence buys. The falsifier for my main finding would be an intent that the addendum
 deliberately leaves §3 to a separate stale-doc sweep — if so, a one-line pointer to that sweep would

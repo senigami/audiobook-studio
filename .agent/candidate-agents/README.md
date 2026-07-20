@@ -55,7 +55,7 @@ non-overlapping:
   SQLite schema, `state.json`. *Risk:* may be a bounded *task* the `engineer` owns, not a
   standing seat.
 - **Accessibility specialist** — owns WCAG 2.2 AA conformance end-to-end. *Risk:* `designer`
-  (Veronica) already owns accessibility floors and design-system conformance. Distinct seat or
+  (Junia) already owns accessibility floors and design-system conformance. Distinct seat or
   her mandate?
 
 ## Hire-time checklist (when pulling a candidate)

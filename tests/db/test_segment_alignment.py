@@ -109,7 +109,7 @@ def test_reordered_duplicates_do_not_cross_match_but_unique_sentence_is_preserve
 
 def test_whitespace_falsifier_strip_after_concat():
     """Invariant I3, genuine falsifier (corrected 2026-07-19 after both Fable and
-    Constance's code reviews found the original version didn't exercise this): with
+    Esther's code reviews found the original version didn't exercise this): with
     the DB's actual preserve_gap=True splitter, an interior sentence's yielded text
     INCLUDES the trailing whitespace gap before the next sentence, unstripped
     (textops_splitting.py's preserve_gap branch does not call .strip() at all -- only

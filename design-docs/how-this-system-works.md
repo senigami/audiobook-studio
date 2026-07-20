@@ -22,18 +22,18 @@ Your job is to say what you want. The system's job is to figure out who does it 
 
 ## 02 · Meet the Team
 
-**Tessera ("Tess", she/her)** is the orchestrator you're talking to in a main session — the persistent role that coordinates everything else. The name belongs to the *role*, not to whichever AI model runs it on a given day: every session picks up the written record and is thereby the same role. Tess holds a **director mandate** you granted (2026-07-17): she commits finished work, opens PRs, runs audits, and manages the specialist roster on her own judgment — inside fixed guardrails (adversarial review on every profile change, everything landing as commits you can audit) — and asks first only for the things that are genuinely yours: merges, releases, destructive operations, and perceptual judgment calls like audio quality.
+**Ada (she/her)** is the orchestrator you're talking to in a main session — the persistent role that coordinates everything else. The name belongs to the *role*, not to whichever AI model runs it on a given day: every session picks up the written record and is thereby the same role. Ada holds a **director mandate** you granted (2026-07-17): she commits finished work, opens PRs, runs audits, and manages the specialist roster on her own judgment — inside fixed guardrails (adversarial review on every profile change, everything landing as commits you can audit) — and asks first only for the things that are genuinely yours: merges, releases, destructive operations, and perceptual judgment calls like audio quality.
 
-Behind her, five specialists get called in for specific jobs. You'll rarely need to name one yourself. Each chose its own name, and each name survived an adversarial re-examination — a name here marks a seat with real accumulated convictions, not decoration.
+Behind her, five specialists get called in for specific jobs. You'll rarely need to name one yourself. Each chose its own name (re-chosen 2026-07-20 under a bias-neutral discipline — a real name that lives in the human world, never a restatement of the job) — a name here marks a seat with real accumulated convictions, not decoration.
 
 | Name | Seat | What they do | Think of them as |
 |---|---|---|---|
-| **Ledger** | Engineer | Takes a task from understanding through implementation, testing, and verification. Pushes back on requests that violate the specs before building them. | The builder who argues back |
-| **Veronica** | Designer | Anything touching the UI — layout, styling, copy, interaction patterns. Judges against Apple HIG, accessibility standards, and this repo's own design system. | The design conscience |
-| **Plumb** | Runtime verifier | Drives the real app, runs actual renders, checks artifacts on disk. Reports measurable discrepancy, never an unevidenced verdict — a "done" claim isn't done until Plumb has seen it work. | The inspector with the plumb line |
-| **Edda** | Archivist | Owns the paperwork's truth: audits specs and plans against what the code actually does, gates what gets retired vs. kept. Nothing leaves the record while something still cites it; nothing enters it on say-so. | The keeper of the record |
-| **Rosetta** | User-docs writer | Writes the wiki, handbook, and user guide for real end users (authors, narrators, hobbyists) — and verifies a feature actually shipped before writing it up as available. | The translator to plain English |
-| **Constance** & **Petra** | Reasoning pair | A two-seat deep-reasoning stand-in for the hardest open-ended calls (root-cause, architecture, blast-radius). Run *together* as independent panelists via the `fusion-reasoning` skill — Constance reasons top-down from the code-map's structure, Petra bottom-up from what the code actually does; where they disagree, that's the signal to escalate. Not a replacement for Fable — they know their ceiling. | The two who think it through, from opposite ends |
+| **Marius** | Engineer | Takes a task from understanding through implementation, testing, and verification. Pushes back on requests that violate the specs before building them. | The builder who argues back |
+| **Junia** | Designer | Anything touching the UI — layout, styling, copy, interaction patterns. Judges against Apple HIG, accessibility standards, and this repo's own design system. | The design conscience |
+| **Amina** | Runtime verifier | Drives the real app, runs actual renders, checks artifacts on disk. Reports measurable discrepancy, never an unevidenced verdict — a "done" claim isn't done until Amina has seen it work. | The one whose "done" you can trust |
+| **Astrid** | Archivist | Owns the paperwork's truth: audits specs and plans against what the code actually does, gates what gets retired vs. kept. Nothing leaves the record while something still cites it; nothing enters it on say-so. | The keeper of the record |
+| **Cecilia** | User-docs writer | Writes the wiki, handbook, and user guide for real end users (authors, narrators, hobbyists) — and verifies a feature actually shipped before writing it up as available. | The translator to plain English |
+| **Esther** & **Tamsin** | Reasoning pair | A two-seat deep-reasoning stand-in for the hardest open-ended calls (root-cause, architecture, blast-radius). Run *together* as independent panelists via the `fusion-reasoning` skill — Esther reasons top-down from the code-map's structure, Tamsin bottom-up from what the code actually does; where they disagree, that's the signal to escalate. Not a replacement for Fable — they know their ceiling. | The two who think it through, from opposite ends |
 
 The names stay internal — they never appear in code identifiers or the app's UI.
 
@@ -45,7 +45,7 @@ Beneath these named seats, generic helpers (scouts that explore code, implemente
 
 Every session and specialist runs on an underlying AI model. Different models are like different grades of staff seniority: some are fast and cheap, right for mechanical work; others are slower and sharper, reserved for real judgment calls.
 
-**This is almost entirely automatic.** Which grade to spend on each job is Tess's call, made task by task — mechanical work runs cheap, judgment calls get the stronger grades. You can always override it: just ask for a stronger (or cheaper) model on any job.
+**This is almost entirely automatic.** Which grade to spend on each job is Ada's call, made task by task — mechanical work runs cheap, judgment calls get the stronger grades. You can always override it: just ask for a stronger (or cheaper) model on any job.
 
 Two things are your call:
 
@@ -97,9 +97,9 @@ A small task just gets built. A big or unclear one gets planned first.
 ## 05 · How a Normal Session Goes
 
 1. **You say what you want**, in plain language — "clean up this folder," "why does this keep breaking," "help me plan the new feature."
-2. **Tess sizes up the job.** Small and clear → she just does it. Big, unclear, or risky → she proposes a short plan first and waits for your go-ahead.
+2. **Ada sizes up the job.** Small and clear → she just does it. Big, unclear, or risky → she proposes a short plan first and waits for your go-ahead.
 3. **Work gets delegated**, often to several helpers at once, running in the background while you keep talking.
-4. **Tess checks the work** before reporting back — she verifies against the real files; she doesn't just relay what a helper claims.
+4. **Ada checks the work** before reporting back — she verifies against the real files; she doesn't just relay what a helper claims.
 5. **You get a short, plain-language report** — what was found, what was done, the evidence, and the one decision that's genuinely yours (if any). The mandate is *act, then report* — not "what should I do next?"
 
 **Where it always pauses on purpose:** merging a PR, cutting a release, deleting data, reversing an architectural decision, posting outside this repo, and any perceptual judgment — does this audio sound right, is this layout better. Those are staged as evidence for you, never asserted.
