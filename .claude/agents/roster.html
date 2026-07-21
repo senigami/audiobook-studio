@@ -1,0 +1,451 @@
+<title>The Cast — Audiobook Studio</title>
+<style>
+  :root {
+    --paper: #EDEAE0;
+    --paper-raised: #F8F6EF;
+    --paper-sunken: #E2DED2;
+    --ink: #23211D;
+    --ink-soft: #5B564C;
+    --ink-faint: #8D8879;
+    --signal: #2F6E63;
+    --signal-soft: #E4EDE9;
+    --lead: #8B2F2A;
+    --lead-soft: #F1E4E1;
+    --rule: rgba(35, 33, 29, 0.14);
+    --rule-strong: rgba(35, 33, 29, 0.24);
+    --shadow: 0 1px 2px rgba(35,33,29,0.06), 0 6px 20px -8px rgba(35,33,29,0.18);
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #14171A;
+      --paper-raised: #1D2124;
+      --paper-sunken: #0F1214;
+      --ink: #E9E6DC;
+      --ink-soft: #A6A196;
+      --ink-faint: #6F6A5F;
+      --signal: #64C3B3;
+      --signal-soft: #1B2C29;
+      --lead: #E0837A;
+      --lead-soft: #2E1E1C;
+      --rule: rgba(233, 230, 220, 0.14);
+      --rule-strong: rgba(233, 230, 220, 0.24);
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 30px -10px rgba(0,0,0,0.5);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #14171A; --paper-raised: #1D2124; --paper-sunken: #0F1214;
+    --ink: #E9E6DC; --ink-soft: #A6A196; --ink-faint: #6F6A5F;
+    --signal: #64C3B3; --signal-soft: #1B2C29;
+    --lead: #E0837A; --lead-soft: #2E1E1C;
+    --rule: rgba(233, 230, 220, 0.14); --rule-strong: rgba(233, 230, 220, 0.24);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 30px -10px rgba(0,0,0,0.5);
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --paper: #EDEAE0; --paper-raised: #F8F6EF; --paper-sunken: #E2DED2;
+    --ink: #23211D; --ink-soft: #5B564C; --ink-faint: #8D8879;
+    --signal: #2F6E63; --signal-soft: #E4EDE9;
+    --lead: #8B2F2A; --lead-soft: #F1E4E1;
+    --rule: rgba(35, 33, 29, 0.14); --rule-strong: rgba(35, 33, 29, 0.24);
+    --shadow: 0 1px 2px rgba(35,33,29,0.06), 0 6px 20px -8px rgba(35,33,29,0.18);
+    color-scheme: light;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: ui-serif, Palatino, "Iowan Old Style", "Palatino Linotype", "URW Palladio L", Georgia, serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+  }
+
+  .sans {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .mono {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .page {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: clamp(28px, 6vw, 64px) clamp(20px, 5vw, 40px) 56px;
+  }
+
+  /* ---------- Masthead ---------- */
+  .masthead {
+    text-align: center;
+    padding-bottom: 28px;
+  }
+  .masthead .kicker {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 10px;
+  }
+  .masthead h1 {
+    font-size: clamp(2rem, 5vw, 2.9rem);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .masthead p.sub {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    color: var(--ink-soft);
+    font-size: 0.98rem;
+    max-width: 46ch;
+    margin: 14px auto 0;
+    text-wrap: balance;
+  }
+
+  .waveform {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 3px;
+    height: 22px;
+    margin: 26px 0 0;
+    opacity: 0.55;
+  }
+  .waveform span {
+    display: block;
+    width: 2.5px;
+    background: var(--signal);
+    border-radius: 2px;
+  }
+
+  hr.rule {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 30px 0;
+  }
+
+  /* ---------- Lead card (Ada) ---------- */
+  .lead-card {
+    position: relative;
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--lead);
+    border-radius: 6px;
+    padding: clamp(20px, 4vw, 32px);
+    box-shadow: var(--shadow);
+  }
+  .lead-card .role-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--lead);
+    margin: 0 0 10px;
+  }
+  .lead-card .role-tag::before {
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--lead);
+  }
+  .lead-card h2 {
+    margin: 0;
+    font-size: clamp(1.6rem, 3.4vw, 2.1rem);
+    font-weight: 600;
+  }
+  .lead-card .title {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    color: var(--ink-soft);
+    font-size: 0.92rem;
+    margin: 4px 0 14px;
+  }
+  .lead-card p.desc {
+    margin: 0;
+    max-width: 62ch;
+    font-size: 1.02rem;
+    color: var(--ink);
+  }
+  .seat-key {
+    font-size: 0.74rem;
+    color: var(--ink-faint);
+    background: var(--paper-sunken);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 2px 8px;
+    display: inline-block;
+    margin-top: 16px;
+  }
+
+  /* ---------- Section label ---------- */
+  .section-label {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 40px 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-label::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--rule);
+  }
+
+  /* ---------- Cast grid ---------- */
+  .cast-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 20px 20px 18px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .card .role-tag {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.66rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--signal);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .card .role-tag::before {
+    content: "";
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--signal);
+  }
+  .card h3 {
+    margin: 0;
+    font-size: 1.32rem;
+    font-weight: 600;
+  }
+  .card .title {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    color: var(--ink-soft);
+    font-size: 0.86rem;
+    margin-top: -6px;
+  }
+  .card p.desc {
+    margin: 0;
+    font-size: 0.94rem;
+    color: var(--ink);
+    flex: 1;
+  }
+  .card .seat-key {
+    align-self: flex-start;
+    margin-top: 2px;
+  }
+
+  /* ---------- Sibling pair card ---------- */
+  .pair-card {
+    grid-column: 1 / -1;
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 20px clamp(18px, 3vw, 28px);
+    box-shadow: var(--shadow);
+  }
+  .pair-card .pair-label {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.66rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--signal);
+    margin-bottom: 12px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .pair-card .pair-label::before {
+    content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--signal);
+  }
+  .pair-body {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 18px;
+    align-items: center;
+  }
+  .pair-body .half h3 { margin: 0 0 2px; font-size: 1.28rem; font-weight: 600; }
+  .pair-body .half .title {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    color: var(--ink-soft); font-size: 0.84rem; margin-bottom: 8px;
+  }
+  .pair-body .half p.desc { margin: 0 0 8px; font-size: 0.92rem; }
+  .pair-divider {
+    width: 1px;
+    align-self: stretch;
+    background: var(--rule-strong);
+  }
+  .pair-note {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.82rem;
+    color: var(--ink-faint);
+    border-top: 1px dashed var(--rule);
+    margin-top: 16px;
+    padding-top: 12px;
+  }
+
+  @media (max-width: 620px) {
+    .pair-body { grid-template-columns: 1fr; }
+    .pair-divider { width: 100%; height: 1px; }
+  }
+
+  /* ---------- Colophon ---------- */
+  .colophon {
+    margin-top: 48px;
+    padding-top: 20px;
+    border-top: 1px solid var(--rule);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.8rem;
+    color: var(--ink-faint);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .lead-card, .card, .pair-card {
+      animation: rise 0.5s ease both;
+    }
+    .card:nth-of-type(1) { animation-delay: 0.02s; }
+    .card:nth-of-type(2) { animation-delay: 0.06s; }
+    .card:nth-of-type(3) { animation-delay: 0.10s; }
+    .card:nth-of-type(4) { animation-delay: 0.14s; }
+    .card:nth-of-type(5) { animation-delay: 0.18s; }
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  a { color: inherit; }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <p class="kicker">Audiobook Studio · Internal Roster</p>
+    <h1>The Cast</h1>
+    <p class="sub">The persistent agent team behind this repo — who answers to what name, and what each seat actually owns. Re-cast 2026-07-20 under a bias-neutral naming pass: every name here lives in the human world first.</p>
+    <div class="waveform" aria-hidden="true" id="wave"></div>
+  </header>
+
+  <section class="lead-card">
+    <p class="role-tag">Orchestrator</p>
+    <h2>Ada</h2>
+    <p class="title">Persistent orchestrating role · runs the main session</p>
+    <p class="desc">Coordinates every specialist below, holds the owner's director mandate, and reports what she found and did — not what she's about to ask permission for. Verifies a helper's claim against the real files before relaying it. Named for Ada Lovelace, who wrote out what a machine would actually do, operation by operation, rather than what was claimed for it.</p>
+    <span class="seat-key mono">the main session — no dispatch key</span>
+  </section>
+
+  <p class="section-label">Specialists</p>
+
+  <div class="cast-grid">
+
+    <div class="card">
+      <p class="role-tag">Engineer</p>
+      <h3>Marius</h3>
+      <p class="title">Implementation, testing, verification</p>
+      <p class="desc">Takes a task from understanding through shipped code. Pushes back — before building, not after — when a request conflicts with the specs, the tests, or the architecture.</p>
+      <span class="seat-key mono">engineer</span>
+    </div>
+
+    <div class="card">
+      <p class="role-tag">Designer</p>
+      <h3>Junia</h3>
+      <p class="title">UI, UX, accessibility</p>
+      <p class="desc">The user's advocate in the room. Judges every surface against the design system and accessibility floors, and insists on evidence over the builder's account of what shipped.</p>
+      <span class="seat-key mono">designer</span>
+    </div>
+
+    <div class="card">
+      <p class="role-tag">Runtime Verifier</p>
+      <h3>Amina</h3>
+      <p class="title">Drives the real app, checks the real artifacts</p>
+      <p class="desc">A "done" claim isn't done until Amina has seen it work — the real render, the real request, the real file on disk, not just its unit tests.</p>
+      <span class="seat-key mono">runtime-verifier</span>
+    </div>
+
+    <div class="card">
+      <p class="role-tag">Archivist</p>
+      <h3>Astrid</h3>
+      <p class="title">Spec and paperwork truth</p>
+      <p class="desc">Audits specs and plans against what the code actually does, and decides what's safe to retire. Nothing leaves the record while something still cites it.</p>
+      <span class="seat-key mono">archivist</span>
+    </div>
+
+    <div class="card">
+      <p class="role-tag">User-Docs Writer</p>
+      <h3>Cecilia</h3>
+      <p class="title">Wiki, handbook, user guide</p>
+      <p class="desc">Writes for the listener on the far side of the audio — the one who'll never read the source — and checks a feature actually shipped before writing it up as available.</p>
+      <span class="seat-key mono">user-docs-writer</span>
+    </div>
+
+    <div class="pair-card">
+      <p class="pair-label">Reasoning Pair · dispatched together, never solo</p>
+      <div class="pair-body">
+        <div class="half">
+          <h3>Esther</h3>
+          <p class="title">Elder · structural, top-down</p>
+          <p class="desc">Reasons downward from the code-map's invariants and recorded shape, treating established form as evidence. Owns escalation when a call exceeds the pair's own authority.</p>
+          <span class="seat-key mono">reasoning-elder</span>
+        </div>
+        <div class="pair-divider" aria-hidden="true"></div>
+        <div class="half">
+          <h3>Tamsin</h3>
+          <p class="title">Younger · empirical, bottom-up</p>
+          <p class="desc">Reasons upward from what the code actually does — the call site, the trace, the observed behavior — rather than what the design claims for itself.</p>
+          <span class="seat-key mono">reasoning-younger</span>
+        </div>
+      </div>
+      <p class="pair-note">A durable, repo-grounded stand-in for the hardest open-ended calls (root-cause, architecture, blast-radius) — run as two independent panelists via <code class="mono">fusion-reasoning</code>. Where the two disagree, that split is the signal to escalate, not something either resolves alone. Not a replacement for a frontier model on the genuinely hardest call — escalating to one is their first duty there.</p>
+    </div>
+
+  </div>
+
+  <p class="colophon">
+    <span>Names are self-chosen, internal-only, and belong to the role — not to any one session or model.</span>
+    <span class="mono">last cast 2026-07-20</span>
+  </p>
+
+</div>
+
+<script>
+  (function () {
+    var wave = document.getElementById('wave');
+    if (!wave) return;
+    var bars = 46;
+    var heights = [];
+    var seed = 7;
+    function rand() { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
+    for (var i = 0; i < bars; i++) {
+      var base = Math.sin(i / bars * Math.PI) * 16 + 4;
+      heights.push(Math.max(3, base * (0.45 + rand() * 0.9)));
+    }
+    wave.innerHTML = heights.map(function (h) {
+      return '<span style="height:' + h.toFixed(1) + 'px"></span>';
+    }).join('');
+  })();
+</script>
