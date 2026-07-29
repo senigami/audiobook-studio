@@ -1,0 +1,7 @@
+# OD-0008: Shared crew doctrine is written once; each profile inlines a compact pointer block
+Status: accepted        Date: 2026-07-29
+Scope: .claude/agents/_shared/crew-doctrine.md; .claude/agents/_shared/reasoning-pair-contract.md; every seat profile's "Crew doctrine" section
+Context: Pasting the same doctrine into every profile costs it on every dispatch and drifts the moment one copy is edited and the others are not. The reasoning pair's shared half was the concrete case: roughly 65 lines of identical twin-panelist contract text appeared in both sibling profiles before this change.
+Decision: "Written once. Every profile under `.claude/agents/` inlines the compact block and points here for the full text. If a rule here and a rule in a profile disagree, the profile's seat-specific rule wins for that seat only — everything not contradicted still binds."
+Consequences: Two shared files now exist: crew-doctrine.md (all seats) and reasoning-pair-contract.md (the pair). The compact block in a profile is the operative copy for dispatch; the shared file holds the full reasoning. A shared file must never be replaced by a bare pointer with no compact block — a profile is auto-loaded and a shared file is only read when followed, so pointer-izing an operative rule disarms it.
+Disconfirming evidence: A profile's compact block and the shared file it points to are found to have drifted apart on a rule that matters, despite this single-source structure being followed — i.e. writing it once did not actually prevent the divergence it was meant to prevent.

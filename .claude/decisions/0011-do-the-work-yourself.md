@@ -1,0 +1,7 @@
+# OD-0011: Do the work yourself — no re-delegation, and findings must exist on disk before a report is believed
+Status: accepted        Date: 2026-07-25
+Scope: .claude/agents/_shared/crew-doctrine.md "Do the work yourself" section; all dispatch briefs
+Context: On 2026-07-25 a named-role agent spawn replied that work had been dispatched and it would report back once complete, after four tool calls in 41 seconds, with no output file written. An earlier instance, 2026-07-06, had two investigation subagents each return after two or three tool calls with a placeholder message instead of findings, trusted at face value.
+Decision: "Never re-delegate your own job. Never reply that work is running in the background, and never return a summary of work you did not do. Findings go to your named output file as you work; the chat reply is at most three lines — done / not-done, the file path, anything needing a decision. A confident report produced by two or three tool calls is the cheapest thing to write and the most expensive thing to believe (OD-0011)."
+Consequences: Every dispatch brief must require a findings file at a named path and the dispatcher must check it exists on disk before believing the reply; a reply alone is a claim, not evidence.
+Disconfirming evidence: A dispatch that followed this rule (named output file, on-disk check performed) is later shown to have shipped an empty or wrong finding anyway — i.e. checking for file existence didn't actually catch the re-delegation failure it exists to catch.

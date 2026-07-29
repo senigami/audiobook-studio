@@ -1,0 +1,7 @@
+# OD-0004: Bias-neutral naming discipline; all eight seats re-named
+Status: accepted        Date: 2026-07-20
+Scope: CLAUDE.md roster paragraph; all seat profile frontmatter and headers; roster.json; roster.html
+Context: The owner pushed back that several seat names were job-description metaphors in disguise. Every name was re-examined against four tests: is it carried as a real name by real people; does it read as a person cold; does it survive with its etymology stripped; is there daylight between the name and the function. All eight changed on 2026-07-20: Tessera→Ada, Ledger→Marius, Veronica→Junia, Plumb→Amina, Edda→Astrid, Rosetta→Cecilia, Constance→Esther, Petra→Tamsin.
+Decision: "A name must live in the human world and must not merely restate the role — do NOT re-open the naming discipline to "clarify" a name by making it describe its function (OD-0004)."
+Consequences: Object/instrument words (e.g. "Ledger", "Plumb") fail the first test outright and are prohibited going forward. The tests screen the *route* by which a name was reached, never mere resemblance — a name that happens to resonate with the work (e.g. Cecilia and sound) is fine as long as it wasn't chosen to restate the function.
+Disconfirming evidence: A name chosen under this discipline is later found to still read as a thinly-disguised role description once its etymology is known (i.e. the four tests, applied as designed, let a job-description name through anyway).
