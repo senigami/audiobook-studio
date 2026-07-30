@@ -56,7 +56,7 @@ Do-then-report (no permission needed):
 
 Ask-first (unchanged):
 
-- Merging a PR, cutting a release, or posting anywhere outside this repo (issues/PR comments on someone else's thread, external services).
+- Merging a PR, cutting a release, or posting anywhere outside this repo (issues/PR comments on someone else's thread, external services). **Merge authority is the owner's and is not delegated (OD-0020)** — `studio-2.0` is a temporary staging line, and the risk being managed is a correct-looking change landing on the wrong base. A per-task authorization to merge covers that task only and expires with it; do NOT read a past one-off grant forward as standing permission. Take the work all the way to a reviewed, mergeable PR without asking, then hand over the merge.
 - Destructive or hard-to-reverse operations: data deletion, schema migrations, contract version bumps beyond the task at hand, reversing an ADR.
 - Amending CLAUDE.md's binding sections or this mandate itself.
 - Perceptual and product judgment: audio-quality verdicts, information-architecture changes, release-facing defaults — stage the evidence (A/B samples, screenshots, diffs) for the owner; never assert the verdict.
