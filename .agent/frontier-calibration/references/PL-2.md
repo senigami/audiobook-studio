@@ -155,10 +155,10 @@ Two layers:
   `tests/tts_server/test_install_flow_e2e.py`'s pattern — the existing tests use local git
   fixtures; add one test parameterizable to the real repo URL, skipped by default
   (network-marked), exercising preview → confirm → refresh → engine listed.
-- **Clean-machine acceptance (release gate, owner/Plumb-run):** Studio install with
+- **Clean-machine acceptance (release gate, owner/Amina-run):** Studio install with
   `tts_engines/tts_xtts/` deleted → clone from GitHub → refresh → `GET /api/engines` shows
   `available`/`needs_setup` → install deps → Verify → `verified` → one-sentence render → audio.
-  This is dispatched to runtime-verifier (Plumb) — it is behavioral verification, exactly
+  This is dispatched to runtime-verifier (Amina) — it is behavioral verification, exactly
   that role's mandate.
 
 *Gate:* doc 05 5.1 acceptance verbatim; evidence (command log + artifact) staged.
@@ -187,7 +187,7 @@ Same-change obligations, per repo rules:
   rename as already-shipped (it is), and §5.2 update-flow as post-v2.
 - **6.2 handbook/wiki:** Settings → TTS Engines user docs — ZIP install, GitHub-URL install,
   registry install, dependency setup, trust prompts. Dated `wiki/Changelog.md` entry.
-  Dispatch: user-docs-writer (Rosetta), gated on Slices 5–6 actually passing.
+  Dispatch: user-docs-writer (Cecilia), gated on Slices 5–6 actually passing.
 - **6.3 contributor guide:** "Publishing a TTS plugin" — repo shape (as shipped, i.e. the real
   in-tree layout, not doc 05 §2.2's aspirational one), `distribution` block, the four manifest
   version fields, registry submission, trust model. Must state the standalone-plugin rule:
@@ -195,7 +195,7 @@ Same-change obligations, per repo rules:
 - **spec sync:** `install-distribution.md` bump if any behavior changed (registry URL, network
   test); `plugin-contract.md` only if the residue decision (Slice 0) adds a documented exception.
 
-*Gate:* Edda-style check — no doc claims "shipped" for anything Slice 6's evidence doesn't cover.
+*Gate:* Astrid-style check — no doc claims "shipped" for anything Slice 6's evidence doesn't cover.
 
 ### Release-gating dependencies (call-out)
 

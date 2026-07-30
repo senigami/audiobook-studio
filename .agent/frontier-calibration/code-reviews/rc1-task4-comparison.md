@@ -12,11 +12,11 @@ combining all named dimensions and **execute it via Bash**, not hand-trace.
   pre-existing committed duplicate test is **confounded**, not just "also affected." Found the
   commit shipped with **zero tests** (a real R1 violation), the task file never updated, and I5's
   required decision never recorded.
-- **Constance: approve**, with the gate producing one real finding — an emergent fragment-run vs.
+- **Esther: approve**, with the gate producing one real finding — an emergent fragment-run vs.
   whole-row-duplicate ordering asymmetry, caught only because she executed the combined case rather
   than reasoning about each dimension separately. Independently confirmed the chunk-group
   interaction via her own DB-backed execution.
-- **Petra: approve**, gate used deliberately as a *disconfirmation* tool (nearly flagged the dropped
+- **Tamsin: approve**, gate used deliberately as a *disconfirmation* tool (nearly flagged the dropped
   duplicate row as a bug, executed it, found it was correct I2 conservatism instead) — and separately
   found a real, new issue by tracing the call sites: `get_resync_preview` is still unwired and
   reports false destructive-save warnings, contradicting `segment_alignment.py`'s own present-tense
@@ -28,8 +28,8 @@ combining all named dimensions and **execute it via Bash**, not hand-trace.
 
 - **The specific failure mode from Task 1 (twins stop at "under-tested," never construct the
   input) did not recur.** All three reviewers this round executed real code against constructed
-  inputs. Constance's and Petra's own words confirm the gate changed their behavior, not just their
-  confidence: Constance got a finding she says she wouldn't have from hand-tracing; Petra used
+  inputs. Esther's and Tamsin's own words confirm the gate changed their behavior, not just their
+  confidence: Esther got a finding she says she wouldn't have from hand-tracing; Tamsin used
   execution to *avoid* a false positive she was tempted toward.
 - **But Fable still found something the twins didn't: the chunk-group finding's real trigger.**
   Both twins independently confirmed the mechanism exists and produces the stated outcome — but

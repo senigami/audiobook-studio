@@ -43,7 +43,7 @@ failing, if not re-pointed), and 9 cross-repo lazy-import call sites (2 SDK, 7 p
    No importer changes yet. Gate: full pytest green; explicit identity check across EVERY moved
    submodule, not just `registry` (`sys.modules["app.jobs.registry"] is sys.modules["<new>.registry"]`,
    and the same for `worker_voice`, `worker_metrics`, `handlers.bridge_helpers`, `handlers.audiobook`
-   — Petra's finding: a single-submodule check under-covers); at least one mocked test per moved
+   — Tamsin's finding: a single-submodule check under-covers); at least one mocked test per moved
    submodule deliberately broken-then-fixed to prove the shim doesn't silently un-mock it (R1-style),
    not just one bridge test.
 3. **Stage 2 — rewire runtime importers**: `boot.py:97`, `orchestrator_helpers.py:36`,

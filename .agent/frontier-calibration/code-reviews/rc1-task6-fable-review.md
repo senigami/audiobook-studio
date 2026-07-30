@@ -51,7 +51,7 @@ gives 4/4 passed. This is a real, working revert-check, not a claimed one, and t
 the exact scenario shape I found (4 existing rows: 3 fragments + 1 whole → 2 fresh sentences,
 zero actual loss) via direct SQL row manipulation rather than `_apply_range_assignment` — a valid,
 if more manual, equivalent fixture. The docstring update to `segment_alignment.py` (removing the
-stale "only sync_chapter_segments is wired" warning Petra had flagged) is also accurate as of this
+stale "only sync_chapter_segments is wired" warning Tamsin had flagged) is also accurate as of this
 commit — I confirmed both Task 4 and Task 5's wiring are in fact live in the current code.
 
 ## 2. Mechanical process checks on Task 6 itself

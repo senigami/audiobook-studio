@@ -1,4 +1,4 @@
-# Petra review — RC-1 Task 4: wire `align_segments` into `sync_chapter_segments`
+# Tamsin review — RC-1 Task 4: wire `align_segments` into `sync_chapter_segments`
 
 Branch `implement/rc1-task4-wire-sync` @ `7ccd0f3a`. Empirical/bottom-up lens: every named risk
 below was instantiated as a concrete input and **executed against the real code**, not hand-traced.

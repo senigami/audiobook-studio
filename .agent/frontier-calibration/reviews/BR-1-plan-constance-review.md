@@ -1,4 +1,4 @@
-# BR-1 plan review — Constance (structural / top-down panelist)
+# BR-1 plan review — Esther (structural / top-down panelist)
 
 **Reviewed:** `design-docs/plans/active/br1_jobs_package_move/00-plan.md` (against its source
 `.agent/frontier-calibration/references/BR-1.md`)
@@ -8,7 +8,7 @@ independently confirmed. Three non-blocking refinements below — one (F1) will 
 Stage-1 gate if the shim is built literally from the cited precedent, so fix it before executing
 Stage 1.
 
-**Ensemble disclosure:** This is a **lone Constance pass** — no Petra pass and no fusion-reasoning
+**Ensemble disclosure:** This is a **lone Esther pass** — no Tamsin pass and no fusion-reasoning
 judge accompanied this dispatch. It did not receive the reliability that convergence buys; treat it
 as one grounded opinion, not an ensembled verdict.
 
@@ -113,7 +113,7 @@ masked twice: once by the shim, once by boot's try/except. A pure test-suite-gre
 it. The plan already handles this correctly — Stage 2's gate is a **behavioral** boot+render smoke
 (a runtime-verifier job, not a green suite), and Stage 5 re-runs boot/render + final grep. No change
 needed; I confirm the mitigation is real and the "this is a runtime-verifier job" framing is the
-right call. Route Stage 2 and Stage 5 smokes to Plumb.
+right call. Route Stage 2 and Stage 5 smokes to Amina.
 
 ---
 

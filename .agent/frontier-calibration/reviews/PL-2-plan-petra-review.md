@@ -1,4 +1,4 @@
-# PL-2 addendum review — Petra (empirical / bottom-up, disk-verified)
+# PL-2 addendum review — Tamsin (empirical / bottom-up, disk-verified)
 
 **Reviewed:** `design-docs/plans/active/final_release/05a_standalone_plugin_repos_addendum.md`
 against plan of record `05_standalone_plugin_repos.md` and current disk state (branch `studio-2.0`).
@@ -94,6 +94,6 @@ Accept the 5 items. Before the doc-05 drift-resolution pass, fold in: M1 (retire
 decision), M4 (fix both Memory refs), M3 (reword item 3 to `git_url`↔`repo_url` and flag the missing
 registry `version` field + the 1.0.1/2.0.0 drift), and at minimum note M2. Resolve the 2a
 "does `plugin/studio/` ship?" question before treating S9 as a blocking pre-flight — it may be a doc
-note, not a week of work. Nothing here is an owner-authority call that Constance and I converging would
+note, not a week of work. Nothing here is an owner-authority call that Esther and I converging would
 let me make; the license (2b) and org (Slice 1) decisions the addendum already routes to the owner are
 correctly placed.

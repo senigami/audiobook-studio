@@ -1,4 +1,4 @@
-Status: complete — 2026-07-19 (wired, tested, code-reviewed 3-way: Fable + Constance + Petra, all
+Status: complete — 2026-07-19 (wired, tested, code-reviewed 3-way: Fable + Esther + Tamsin, all
 converged "approve as scoped"; see .agent/frontier-calibration/code-reviews/rc1-task4-*.md). One
 transaction posture (self-committing explicit-resync route) not yet covered by a committed test —
 left open, see acceptance criteria below.
@@ -101,5 +101,5 @@ from a real edit), distinct from the id-churn this task exists to prevent.
 
 `get_resync_preview` (Task 5) — **known to be actively drifting until Task 5 lands**: the preview
 still uses the old position-only rule and can report a false "destructive"/loss warning for a save
-this task's fix actually preserves (Petra's Task 4 review, reproduced). Surfacing the loss count on
+this task's fix actually preserves (Tamsin's Task 4 review, reproduced). Surfacing the loss count on
 the API response (Task 6).

@@ -1,4 +1,4 @@
-# BR-1 plan review — Petra (empirical / bottom-up panelist)
+# BR-1 plan review — Tamsin (empirical / bottom-up panelist)
 
 **Reviewed:** `design-docs/plans/active/br1_jobs_package_move/00-plan.md` (formalizes
 `.agent/frontier-calibration/references/BR-1.md`).
@@ -6,7 +6,7 @@
 several gate/enumeration texts are imprecise in ways an executor taking the doc literally
 could stumble on.
 **Disclosure:** I appear to have been dispatched as a single pass (no visible judge/convergence
-step). This output is un-ensembled — it did not get the reliability convergence buys. If Constance
+step). This output is un-ensembled — it did not get the reliability convergence buys. If Esther
 was dispatched in parallel, meet at the judge, not here.
 
 ## Ground truth loaded

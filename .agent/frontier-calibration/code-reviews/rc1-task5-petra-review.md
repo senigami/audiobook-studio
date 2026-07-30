@@ -1,6 +1,6 @@
 # RC-1 Task 5 code review — wire `align_segments` into `get_resync_preview`
 
-- Reviewer: Petra (empirical / bottom-up panelist)
+- Reviewer: Tamsin (empirical / bottom-up panelist)
 - Commit: `8d5b7e45` on `implement/rc1-task5-wire-preview`
 - Date: 2026-07-19
 - Files: `app/domain/chapters/operations.py::get_resync_preview` (lines 270-327), `tests/domain/test_chapter_resync_preview.py`, cross-checked against `app/db/segments.py::sync_chapter_segments` and `app/db/segment_alignment.py::align_segments`

@@ -15,7 +15,7 @@ down the wrong branch and leaks the class/engine-id/global-backstop slots perman
 wedges the exclusive gate (OFF→ON). Enough leaks and every future synthesis is denied until restart.
 
 **Fix — CORRECTED (all 3 reviewers found the original "record in the reservation result" phrasing
-underspecified/wrong; adopting Constance's simplest fix, which all reviewers' fact-finding
+underspecified/wrong; adopting Esther's simplest fix, which all reviewers' fact-finding
 independently supports):** `release_task_resources` never actually receives the reservation
 result — there are 4 release call sites (`orchestrator.py:220,260,796`, `segment_synthesis.py:197`),
 and the cancel path (`orchestrator.py:796`) rebuilds its claim dict fresh from `task.resource_claim`,
@@ -38,11 +38,11 @@ toggle direction or which release site runs (confirm current code fails this fir
 today (only one "gpu"-class engine exists), but a second same-class engine with a lower effective
 cap would be starved by a sibling's activity even with room in its own per-engine-id semaphore.
 
-**Fix (confirmed correct as originally specified by all 3 reviewers — Constance verified it loses no
+**Fix (confirmed correct as originally specified by all 3 reviewers — Esther verified it loses no
 live throttling, since `live_limit` is only ever resolved when `engine_id` is present, the same
 condition the id-gate itself runs on):** apply the live limit to the per-engine-id semaphore only;
 let the class semaphore continue to gate on the class's own (grow-only) structural cap, uncoupled
-from any single engine's live limit. **Guard required (Petra's P2, both twins flagged it):** assert
+from any single engine's live limit. **Guard required (Tamsin's P2, both twins flagged it):** assert
 `engine_class` implies `engine_id` is non-empty at claim-build or reserve-entry time — do NOT ship
 this fix unguarded, since a future claim with `engine_class` set but `engine_id` empty would silently
 skip live-cap enforcement entirely (the exact latent-hole class this fix exists to close). Test: two
@@ -51,7 +51,7 @@ the throttled engine is NOT denied at the class gate when its own per-engine-id 
 plus a test that a claim with `engine_class` set and `engine_id` empty is rejected/asserted, not
 silently under-enforced. (Requires a test double / second synthetic engine-class.)
 
-**Sequencing note (Petra's P3):** Task 1 and this task both rewrite the reserve/release body —
+**Sequencing note (Tamsin's P3):** Task 1 and this task both rewrite the reserve/release body —
 land them together or in strict sequence, not as independently-parallelized slices, or they will
 conflict.
 
@@ -62,14 +62,14 @@ An *empty* `{}` in stored settings is treated as absent (`cap_settings.py:94`), 
 Settings sees no effect. Same shape, smaller, for a malformed `tts_parallel_cap` value silently
 falling through rather than erroring.
 
-**Fix — CORRECTED (Constance found the originally-proposed sentinel/presence-flag mechanism is
+**Fix — CORRECTED (Esther found the originally-proposed sentinel/presence-flag mechanism is
 infeasible: `_normalize_settings` (`state_settings.py:129-138`) always materializes
 `tts_engine_caps`, so nothing distinguishes cleared-from-absent by the time `cap_settings.py:94`
 sees it). Correct, simpler fix:** drop the `and raw` truthiness gate at `cap_settings.py:94` entirely
 — an explicitly-stored empty dict should mean "no per-engine overrides," full stop, and take
 precedence over the env var like every other stored setting does. Test: set env override, clear via
 settings (stores `{}`), assert the global/default cap now applies. **Verify before building a
-fix+test for the malformed-`tts_parallel_cap` sub-variant** — Constance flagged it's likely
+fix+test for the malformed-`tts_parallel_cap` sub-variant** — Esther flagged it's likely
 unreachable at runtime because normalization coerces the value first; confirm reachability before
 spending the effort.
 

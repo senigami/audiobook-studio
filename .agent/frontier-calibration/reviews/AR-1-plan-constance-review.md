@@ -1,4 +1,4 @@
-# AR-1 plan review — Constance (structural / top-down panelist)
+# AR-1 plan review — Esther (structural / top-down panelist)
 
 **Date:** 2026-07-18
 **Reviewing:** `design-docs/plans/active/ar1_concurrency_throttle/00-plan.md` (+ `.agent/frontier-calibration/references/AR-1.md`)

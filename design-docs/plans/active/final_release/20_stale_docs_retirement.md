@@ -21,7 +21,7 @@ no history — the narrative lives in the wiki.
   as inline `(design-critique follow-up)` comments, which don't depend on the files existing. One
   real provenance citation — a `design-system.md` v1.16.0 changelog row — was repointed (finding
   IDs kept, dead path dropped) before deletion. The designer agent's output-location note in
-  `.claude/agents/designer.md` still points at `design-docs/design-critique/`; that's fine, the
+  `.claude/agents/junia-designer.md` still points at `design-docs/design-critique/`; that's fine, the
   dir is recreated on demand when a future critique is written.
 - **`design-docs/audits/voice_queue_event_stream_audit.md`** (+ the now-empty `audits/` dir) —
   a 2026-06-07 "implementation complete" handoff whose live contract is now

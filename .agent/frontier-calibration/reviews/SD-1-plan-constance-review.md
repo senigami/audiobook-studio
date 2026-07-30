@@ -1,8 +1,8 @@
-# SD-1 plan review — Constance (structural panelist)
+# SD-1 plan review — Esther (structural panelist)
 
 **Reviewing:** `design-docs/plans/active/sd1_lesson_correction/00-plan.md`
 **Verdict:** APPROVE — proceed as written. Confidence: high.
-**Scope note:** Un-ensembled lone pass (no Petra, no judge dispatched). Proportionate to a
+**Scope note:** Un-ensembled lone pass (no Tamsin, no judge dispatched). Proportionate to a
 one-line doc fix; flagging per protocol that this did not get convergence.
 
 ## Independent verification of the gate's actual default

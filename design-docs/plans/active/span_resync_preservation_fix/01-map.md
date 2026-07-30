@@ -17,7 +17,7 @@ never drift.
 produces at most 3 fragments, but assignments accumulate across separate edits with no re-merge in
 between — a heavily-edited sentence can carry 4+ fragment rows. Match by extending a candidate run
 while its stripped concatenation remains a proper prefix of the fresh sentence; there is no upper
-bound on run length (Constance's N1, round 2).
+bound on run length (Esther's N1, round 2).
 
 ```
  manuscript text_content
@@ -87,7 +87,7 @@ bound on run length (Constance's N1, round 2).
   manual sub-sentence splits must leave every row for that sentence's splits with the SAME id, same
   `character_id`, same `audio_status`/`audio_file_path`/`audio_generated_at`. "Preserve" means these
   fields are untouched, not "recreated with the same content."
-- **I1a (reconciles "preserve" with Task 0's re-indexing — Constance's N2, round 2):** `segment_order`
+- **I1a (reconciles "preserve" with Task 0's re-indexing — Esther's N2, round 2):** `segment_order`
   is NOT covered by I1's "untouched" guarantee. When an earlier edit shifts sentence positions, a
   preserved row's `segment_order` is rewritten to match its new position — this is expected and
   required, not a violation of "preserve in place." Preserve = id/character/speaker/audio fixed;
@@ -102,7 +102,7 @@ bound on run length (Constance's N1, round 2).
   "Middle.", "Repeat.") with distinct audio per row, reorders to ("Repeat.", "Repeat.", "Middle."),
   and its CURRENT assertions say the first row's audio survives while the other two (including the
   now-relocated, uniquely-identified "Middle.") go `unprocessed`. **That "Middle → unprocessed"
-  assertion encodes the pre-fix bug, not the protected behavior** (Petra's blocker, round 2):
+  assertion encodes the pre-fix bug, not the protected behavior** (Tamsin's blocker, round 2):
   "Middle." is not a duplicate — it has one occurrence — so once Task 0's content-aware fallback
   ships, it MUST be recognized and preserved across its position move (this is exactly what Task 0
   fixes). What must NOT change is the test's protection of the **duplicate** ("Repeat.") rows:
@@ -122,7 +122,7 @@ bound on run length (Constance's N1, round 2).
   **Correct comparison:** `strip(concat(existing[j..k].text_content)) == strip(fresh_sentence)`.
   Compare after concatenation and stripping the outer edges only — never compare un-stripped raw
   slices directly. **Task 1's test fixture must exercise the actual `preserve_gap=True` code path**,
-  not a stripped/default-mode assumption (Petra's finding, round 2).
+  not a stripped/default-mode assumption (Tamsin's finding, round 2).
 - **I4 (transaction modes):** `sync_chapter_segments` is called from three sites with two different
   transaction postures — `create_chapter` (`chapters.py:54`, conn-owned), `update_chapter`
   (`chapters.py:224`, conn-owned), and the explicit resync route (`routers/chapters.py:259`,

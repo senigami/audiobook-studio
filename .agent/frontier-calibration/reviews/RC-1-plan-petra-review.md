@@ -1,8 +1,8 @@
-# RC-1 plan review — Petra (empirical / bottom-up panelist)
+# RC-1 plan review — Tamsin (empirical / bottom-up panelist)
 
 **Plan:** `design-docs/plans/active/span_resync_preservation_fix/00-plan.md`
 **Lens:** reasoned up from the actual call sites and the symbol trace, not from the plan's
-self-description. Independent, complete review — nothing deferred to Constance.
+self-description. Independent, complete review — nothing deferred to Esther.
 
 ## Ground truth loaded
 

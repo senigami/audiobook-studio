@@ -1,8 +1,8 @@
-# RC-1 Task 5 — Code Review (Constance, structural/top-down panelist)
+# RC-1 Task 5 — Code Review (Esther, structural/top-down panelist)
 
 - **Branch/commit:** `implement/rc1-task5-wire-preview` @ `8d5b7e45`
 - **Change:** wire `align_segments` into `get_resync_preview` (`app/domain/chapters/operations.py`), replacing the duplicated position-only equality check that produced false "destructive"/loss warnings.
-- **Verdict: APPROVE.** The change correctly closes the assignment-loss drift Petra's Task 4 review found live. One minor residual (a *different* false-warning channel) noted, non-blocking.
+- **Verdict: APPROVE.** The change correctly closes the assignment-loss drift Tamsin's Task 4 review found live. One minor residual (a *different* false-warning channel) noted, non-blocking.
 - **Confidence: high.** Falsifier: if the removed-row set in the real sync were ever derived from anything other than `align_segments`' output, parity would break — verified it is not (see Finding 1).
 
 ## Framed question
@@ -21,7 +21,7 @@ This is the crux: parity is not coincidental agreement, it is the *same* computa
 
 | scenario | preview lost / destructive | REAL sync lost | verdict |
 |---|---|---|---|
-| reorder of a unique sentence (`Repeat. Middle. Repeat.` → `Repeat. Repeat. Middle.`) | 0 / False | 0 | match — the exact bug Petra reproduced, now fixed |
+| reorder of a unique sentence (`Repeat. Middle. Repeat.` → `Repeat. Repeat. Middle.`) | 0 / False | 0 | match — the exact bug Tamsin reproduced, now fixed |
 | genuine edit (`Second sentence.` → `Completely different.`) | 1 / True | 1 | match |
 | count shrink, assigned row survives (`Alpha. Beta. Gamma. Delta.` → `Alpha. Beta. Gamma.`) | 0 / **True** | 0 | lost-count matches; see Finding 3 |
 
@@ -42,4 +42,4 @@ Now counts one-per-fresh-sentence (a fragment run counts once if any row carries
 The working tree was **not** clean during this review despite the session-start snapshot saying so. Uncommitted changes appeared mid-review in `app/db/segments.py` (a Task-6 variant: `sync_chapter_segments` returns `{"success", "lost_assignments_count"}` instead of `True`), `app/db/chapters.py`, `app/api/routers/chapters.py`, plus an untracked `tests/domain/test_fable_rc1_task5_parity_probe.py`. These are **not** part of commit `8d5b7e45` and are unrelated to Task 5. Consistent with a concurrent session doing Task 6. I left them **entirely untouched** (no stash — per this repo's shared-checkout lesson, stash has lost real work here before). Parity conclusion is unaffected: I verified both the committed (HEAD) sync and the working-tree Task-6 sync derive their removed-row set from the identical `align_segments` call (`preserved_ids`/`unmatched_existing_ids` are the same set), so my runtime harness — which ran against the working tree — reports the same parity the committed pairing yields.
 
 ## Note on ensembling
-This is a single un-converged structural pass (Constance only; no Petra pass, no neutral judge in this dispatch). It did not get the reliability convergence buys — treat it as one panelist's view, not an ensembled verdict.
+This is a single un-converged structural pass (Esther only; no Tamsin pass, no neutral judge in this dispatch). It did not get the reliability convergence buys — treat it as one panelist's view, not an ensembled verdict.

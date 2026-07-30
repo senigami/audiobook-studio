@@ -1,6 +1,6 @@
-# RC-1 Task 1 (`align_segments`) — Petra adversarial code review
+# RC-1 Task 1 (`align_segments`) — Tamsin adversarial code review
 
-**Reviewer:** Petra (empirical / bottom-up lens)
+**Reviewer:** Tamsin (empirical / bottom-up lens)
 **Date:** 2026-07-19
 **Branch:** `implement/rc1-align-segments` · commit `3d973152`
 **Files:** `app/db/segment_alignment.py`, `tests/db/test_segment_alignment.py`

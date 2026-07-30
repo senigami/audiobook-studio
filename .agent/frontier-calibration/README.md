@@ -5,7 +5,7 @@
 ## What this is
 
 A standing program to calibrate this repo's durable reasoning system (the Opus **reasoning-analyst
-twins** — Constance/Petra — run via `fusion-reasoning`) against the frontier model (**Fable**),
+twins** — Esther/Tamsin — run via `fusion-reasoning`) against the frontier model (**Fable**),
 *while Fable is still available*, and turn every measured shortfall into a **durable mechanism** that
 narrows the gap.
 
@@ -99,7 +99,7 @@ The concrete scenario menu is being assembled in `scenario-menu.md` (scouted fro
 
 ## Phases & status
 
-- **Phase 1 — DONE (2026-07-18):** twins hired (Constance/Petra, PR #163); scenario menu scouted
+- **Phase 1 — DONE (2026-07-18):** twins hired (Esther/Tamsin, PR #163); scenario menu scouted
   (12 candidates); 6 answer-neutral briefings written; **6 Fable references captured**, one per
   activity type (RC-1, AR-1, BR-1, AD-2, PL-2, SD-1). The Fable-gated work is complete — the clock
   is off.

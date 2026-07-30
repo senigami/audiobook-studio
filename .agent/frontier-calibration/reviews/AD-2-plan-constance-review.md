@@ -1,6 +1,6 @@
-# AD-2 plan review — Constance (structural / top-down panelist)
+# AD-2 plan review — Esther (structural / top-down panelist)
 
-**Role:** repo-grounded structural panelist. This is a **lone, un-converged pass** (Petra not
+**Role:** repo-grounded structural panelist. This is a **lone, un-converged pass** (Tamsin not
 dispatched, no neutral judge) — flagged per contract: this verdict did not get the reliability
 that convergence buys. Treat it as one framed opinion, not an ensemble result.
 
@@ -152,6 +152,6 @@ F2 is a doc dependency-check on SD-1; no code risk. Fine.
 ## Escalation
 
 None of this is past my ceiling — these are traceable structural calls, not frontier-hard
-judgment. The one thing I'd genuinely want before this lands: **Petra's independent empirical pass**
+judgment. The one thing I'd genuinely want before this lands: **Tamsin's independent empirical pass**
 (does the F3 leak actually reproduce under CI; does clearing engine caps observably let env win),
 since this is a lone un-converged review and the F3/F5 corrections change what the tests must prove.

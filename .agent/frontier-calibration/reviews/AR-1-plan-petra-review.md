@@ -1,6 +1,6 @@
-# AR-1 concurrency-throttle plan — Petra review (empirical / bottom-up)
+# AR-1 concurrency-throttle plan — Tamsin review (empirical / bottom-up)
 
-**Reviewer:** Petra (younger sibling; empirical lens — reasoned up from call sites, not the design's self-description)
+**Reviewer:** Tamsin (younger sibling; empirical lens — reasoned up from call sites, not the design's self-description)
 **Date:** 2026-07-18
 **Plan:** `design-docs/plans/active/ar1_concurrency_throttle/00-plan.md`
 **Verdict:** **Conditional go.** The core mechanism is architecturally sound and lands on a genuinely correct single chokepoint — but the plan ships with one arithmetic bug in its stated integration order, a backwards default for the blocking process-boundary question (which is more answerable *now* than the plan claims), and an unacknowledged gap between its stated goal ("prevent mid-render OOM") and what the mechanism can actually do.
@@ -89,4 +89,4 @@ The plan counts `resolve_effective_cap` also feeding `progress/service.py:79` as
 
 ## Escalation note
 
-No frontier-escalation trigger from my seat: the calls here are grounded in traced code, not judgment beyond the ceiling. The one genuinely owner-facing decision embedded in the plan is **F5's ETA policy** (does effective-cap throttling get to move user-visible ETAs?) — that touches a release-facing behavior the owner has previously ruled on. Stage that as a decision for the owner rather than letting the implementer pick silently. Convergence check with Constance pending via the fusion-reasoning judge.
+No frontier-escalation trigger from my seat: the calls here are grounded in traced code, not judgment beyond the ceiling. The one genuinely owner-facing decision embedded in the plan is **F5's ETA policy** (does effective-cap throttling get to move user-visible ETAs?) — that touches a release-facing behavior the owner has previously ruled on. Stage that as a decision for the owner rather than letting the implementer pick silently. Convergence check with Esther pending via the fusion-reasoning judge.

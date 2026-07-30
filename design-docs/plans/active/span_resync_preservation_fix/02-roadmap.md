@@ -4,7 +4,7 @@
 
 Tests lead (R1/TDD, `design-docs/specs/testing-standards.md`). The independently-shippable
 index-cascade fix (Task 0) lands first as its own small, low-risk PR — it needs no anchor logic,
-de-risks the larger change, and delivers value even if the rest of the plan stalls (Petra's finding,
+de-risks the larger change, and delivers value even if the rest of the plan stalls (Tamsin's finding,
 `RC-1-plan-comparison.md`). The shared-alignment extraction (Task 3) must exist before either
 consumer (Tasks 4/5) can use it.
 
@@ -75,7 +75,7 @@ Task 4 + Task 5 done ──► Task 7 (full regression suite, incl. R1 revert-ch
 
 ## Session summary (2026-07-19 night session)
 
-Implemented, 3-way-reviewed (Fable + Constance + Petra, code-review not just plan-review), and
+Implemented, 3-way-reviewed (Fable + Esther + Tamsin, code-review not just plan-review), and
 merged: Task 1 (`align_segments` core — one real bug found and fixed), Task 4 (wired into sync — one
 real bug found and fixed, one architectural finding recorded), Task 5 (wired into preview — closed a
 live false-warning bug), Task 6 backend half (loss count surfaced on save; frontend UI deliberately
@@ -87,15 +87,15 @@ for the full review trail and the calibration program's running Fable-vs-twins c
 | Finding | Source | Addressed by |
 |---|---|---|
 | Core RC-1 bug (whole-sentence equality can't preserve fragments) | RC-1 reference | Tasks 1, 3, 4 |
-| Anchor model under-counts 3-way splits | Fable, Constance, Petra (all 3) | Task 1 (fragment-run, not single-offset) |
-| Re-derive mechanism nulls audio + churns revision-id | Petra | Task 4 (preserve in place, not re-derive) |
-| Conflicts with existing duplicate-sentence test | Constance | Invariant I2 + Task 1's test suite |
-| 9-column silent data loss on rebuild | Constance | Task 4 (inline fix option) — **owner decision**, see 01-map.md Open Questions |
+| Anchor model under-counts 3-way splits | Fable, Esther, Tamsin (all 3) | Task 1 (fragment-run, not single-offset) |
+| Re-derive mechanism nulls audio + churns revision-id | Tamsin | Task 4 (preserve in place, not re-derive) |
+| Conflicts with existing duplicate-sentence test | Esther | Invariant I2 + Task 1's test suite |
+| 9-column silent data loss on rebuild | Esther | Task 4 (inline fix option) — **owner decision**, see 01-map.md Open Questions |
 | `get_resync_preview` logic drift risk | RC-1 reference, plan draft | Tasks 3, 5 |
-| Test sequencing violates R1 | Fable, Petra | This roadmap's ordering (tests lead each workload) |
-| Whole-sentence index cascade | Petra | Task 0 |
+| Test sequencing violates R1 | Fable, Tamsin | This roadmap's ordering (tests lead each workload) |
+| Whole-sentence index cascade | Tamsin | Task 0 |
 | Schema-free viable but needs strip-normalization | Verification scout (2026-07-19) | Invariant I3, Task 1 |
-| `compact_script_view` anchor staleness | Petra | Invariant I6 (moot if schema-free holds — Task 2 not needed) |
+| `compact_script_view` anchor staleness | Tamsin | Invariant I6 (moot if schema-free holds — Task 2 not needed) |
 
 Not covered (explicitly out of scope, see `00-overview.md`): editor UI split-creation flow, audio
 pipeline internals, broader segment-model redesign.

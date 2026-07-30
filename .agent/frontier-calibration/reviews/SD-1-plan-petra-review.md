@@ -1,4 +1,4 @@
-# SD-1 plan review — Petra (empirical / bottom-up)
+# SD-1 plan review — Tamsin (empirical / bottom-up)
 
 **Verdict: APPROVE.** The plan's core factual claim is correct and independently verified from the
 code and git history. One minor completeness note below; it does not block.
