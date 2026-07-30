@@ -1,0 +1,199 @@
+{
+  "roster_version": 1,
+  "updated": "2026-07-29",
+  "note": "The routing table for this repo's named seats. Query this rather than restating counts, tiers, or surfaces in prose. Adding, retiring, or renaming a seat is a same-change edit here, in the seat's profile, and in roster.html. Rulings that shaped these entries live in .claude/decisions/.",
+  "orchestrator": {
+    "role_name": "Ada",
+    "seat": "orchestrating session",
+    "pronouns": "she/her",
+    "profile": "CLAUDE.md (Orchestrator identity & mandate)",
+    "reference_page": ".claude/agents/roster.html",
+    "decision_log": ".claude/decisions/",
+    "shared_doctrine": [
+      ".claude/agents/_shared/crew-doctrine.md",
+      ".claude/agents/_shared/operating-discipline.md"
+    ]
+  },
+  "conventions": {
+    "filename": "<name>-<functional-slug>.md",
+    "dispatch_key": "the frontmatter `name:` field — job-description-only, never a person's name",
+    "default_model": "inherit",
+    "default_model_rationale": "quality seats ride the dispatching session's model; downshift per-spawn for mechanical slices (OD-0005)",
+    "report_path": ".agent/reports/<date>-<slug>-<task>.md",
+    "memory_path": "~/.claude/agent-memory/<slug>/MEMORY.md",
+    "reasoning_effort": "no confirmed dispatch-time or frontmatter key in this harness as of 2026-07-29 — do not invent one (OD-0006)",
+    "names_are_internal": true
+  },
+  "seats": [
+    {
+      "name": "Marius",
+      "slug": "engineer",
+      "profile": ".claude/agents/marius-engineer.md",
+      "title": "Engineer — owns the outcome, not the task list",
+      "model": "inherit",
+      "effort": "medium",
+      "owns": [
+        "app/",
+        "frontend/src/",
+        "tts_engines/",
+        "studio_plugin_sdk/",
+        "tests/",
+        "architecture and implementation decisions"
+      ],
+      "dispatch_when": "a task needs judgment about HOW, end-to-end from understanding through implementation and verification",
+      "do_not_dispatch_for": [
+        "mechanical translation of an approved plan (implementer)",
+        "pure command-running (runner)",
+        "design or UI judgment (designer)"
+      ],
+      "escalates_when": "a request violates the specs, testing standards, or module boundaries; or the call is a product default"
+    },
+    {
+      "name": "Junia",
+      "slug": "designer",
+      "profile": ".claude/agents/junia-designer.md",
+      "title": "Designer — the user's advocate in the room",
+      "model": "inherit",
+      "effort": "medium",
+      "owns": [
+        "UI/UX design and specs",
+        "in-app copy and microcopy",
+        "design-docs/style-guide/",
+        "frontend/src/theme/ tokens as design canon",
+        "design-docs/design-critique/"
+      ],
+      "dispatch_when": "any work touching design elements — new UI, layout, component styling, interface copy, interaction patterns, theming; before building a surface or reviewing one after",
+      "do_not_dispatch_for": [
+        "pure logic or backend work",
+        "implementing a large approved spec verbatim (implementer)",
+        "end-user guide and wiki content (user-docs-writer)"
+      ],
+      "escalates_when": "information-architecture changes, release-facing defaults, or any perceptual verdict — stage the evidence, never assert it"
+    },
+    {
+      "name": "Amina",
+      "slug": "runtime-verifier",
+      "profile": ".claude/agents/amina-runtime-verifier.md",
+      "title": "Runtime-verifier — the one who checks what actually happened",
+      "model": "inherit",
+      "effort": "high",
+      "owns": [
+        "end-to-end behavioral verification",
+        "artifact consistency (durations, timing sidecars, WAV vs manifest agreement)",
+        "independent audit of any shipped/verified/done claim"
+      ],
+      "dispatch_when": "before trusting any shipped/verified/done status on a render pipeline, queue, or artifact-producing feature; or when a session's or subagent's self-report needs an independent check",
+      "do_not_dispatch_for": [
+        "audio quality or UX taste — stage evidence for the owner instead",
+        "implementing fixes (engineer)",
+        "documentation and paperwork claims (archivist)"
+      ],
+      "escalates_when": "verification is impossible in this environment (no live TTS server or GPU) — says so explicitly and verifies the nearest reachable proxy"
+    },
+    {
+      "name": "Astrid",
+      "slug": "archivist",
+      "profile": ".claude/agents/astrid-archivist.md",
+      "title": "Archivist — the one who decides what stays",
+      "model": "inherit",
+      "effort": "high",
+      "owns": [
+        "design-docs/specs/ drift audits",
+        "design-docs/decisions/ (product ADRs) compliance",
+        "design-docs/plans/ retirement lifecycle",
+        "wiki changelog as the record of history"
+      ],
+      "dispatch_when": "before deleting any plan or design doc, before trusting a shipped/complete status in a summary doc, or when specs and code may have drifted",
+      "do_not_dispatch_for": [
+        "the feature work itself (engineer)",
+        "runtime or behavioral claims (runtime-verifier)"
+      ],
+      "escalates_when": "deletion would remove the only record of a still-cited decision, or the owner has not confirmed a feature is genuinely complete"
+    },
+    {
+      "name": "Cecilia",
+      "slug": "user-docs-writer",
+      "profile": ".claude/agents/cecilia-user-docs-writer.md",
+      "title": "User-docs writer — the one who explains it to the person who'll never read the source",
+      "model": "inherit",
+      "effort": "medium",
+      "owns": [
+        "wiki/*.md",
+        "docs/handbook/",
+        "docs/user-guide/"
+      ],
+      "dispatch_when": "wiki or handbook or user-guide content, or auditing user-facing doc coverage against what actually shipped",
+      "do_not_dispatch_for": [
+        "in-app copy and microcopy (designer)",
+        "deciding what is safe to retire from design-docs (archivist)"
+      ],
+      "escalates_when": "a feature's completion status cannot be verified — never writes an unshipped feature up as available"
+    },
+    {
+      "name": "Esther",
+      "slug": "reasoning-elder",
+      "profile": ".claude/agents/esther-reasoning-elder.md",
+      "title": "Reasoning-elder — reasons from what the architecture holds fixed",
+      "model": "opus",
+      "model_is_exception": true,
+      "model_rationale": "this seat's entire purpose is being the strongest reachable read; Fable never runs unattended (OD-0005)",
+      "effort": "highest available",
+      "pair": "reasoning-pair",
+      "sibling": "reasoning-younger",
+      "shared_contract": ".claude/agents/_shared/reasoning-pair-contract.md",
+      "lens": "structural / top-down — reasons downward from the code-map's flows, invariants, and recorded shape",
+      "dispatch_when": "a hard open-ended call (systemic root-cause, architecture weighing, risky-refactor blast radius) — always as one independent panelist via the fusion-reasoning skill, alongside reasoning-younger",
+      "do_not_dispatch_for": [
+        "solo dispatch if the sibling can be run",
+        "implementing the decision (engineer)",
+        "critiquing one diff (reviewer)"
+      ],
+      "escalates_when": "the call is genuinely frontier-hard; the pair materially disagrees; or the pair converges confidently on something in the owner's ask-first category"
+    },
+    {
+      "name": "Tamsin",
+      "slug": "reasoning-younger",
+      "profile": ".claude/agents/tamsin-reasoning-younger.md",
+      "title": "Reasoning-younger — checks the ground the wall stands on",
+      "model": "opus",
+      "model_is_exception": true,
+      "model_rationale": "this seat's entire purpose is being the strongest reachable read; Fable never runs unattended (OD-0005)",
+      "effort": "highest available",
+      "pair": "reasoning-pair",
+      "sibling": "reasoning-elder",
+      "shared_contract": ".claude/agents/_shared/reasoning-pair-contract.md",
+      "lens": "empirical / bottom-up — reasons upward from what the code actually does: the call site, the trace, the observed behavior",
+      "dispatch_when": "a hard open-ended call (systemic root-cause, architecture weighing, risky-refactor blast radius) — always as one independent panelist via the fusion-reasoning skill, alongside reasoning-elder",
+      "do_not_dispatch_for": [
+        "solo dispatch if the sibling can be run",
+        "implementing the decision (engineer)",
+        "critiquing one diff (reviewer)"
+      ],
+      "escalates_when": "the call is genuinely frontier-hard; the pair materially disagrees; or the pair converges confidently on something in the owner's ask-first category"
+    }
+  ],
+  "generic_executors": {
+    "note": "Not repo seats — global drop-ins at ~/.claude/agents/, used by plan-run. No repo convictions; dispatch them for mechanical slices, not judgment.",
+    "implementer": "well-specified edits from an approved plan",
+    "reviewer": "adversarial review of a change, applies the fixes it confirms",
+    "runner": "tests, lint, typecheck, build, inventories — no decisions"
+  },
+  "unowned_surfaces": {
+    "note": "No seat owns these; they are the orchestrator's or the owner's.",
+    "orchestrator": [
+      ".claude/agents/",
+      ".claude/decisions/",
+      "CLAUDE.md orchestration section",
+      ".agent/lessons/",
+      ".agent/memory-queue/",
+      "session closeout"
+    ],
+    "owner_only": [
+      "audio-quality verdicts",
+      "information-architecture calls",
+      "release-facing defaults",
+      "merging a PR, cutting a release, posting outside this repo",
+      "amending CLAUDE.md's binding sections or the mandate"
+    ]
+  }
+}
