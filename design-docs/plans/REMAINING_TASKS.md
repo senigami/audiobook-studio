@@ -116,6 +116,22 @@ observation is missing.
       spec→provenance citation map: [active/final_release/20_stale_docs_retirement.md](active/final_release/20_stale_docs_retirement.md)**
       (Section A already done; Section B is the repoint-then-delete remainder).
 
+## Test-suite hygiene
+
+- [ ] **Finish the 2026-07-10 low-value test pruning (~40 tests still present).** The audit landed
+      (`active/final_release/audits/`) and most of its execution branches merged, but three never did:
+      Voices/VoiceLab (`751e6bd4`), backend DB (`7753b3fd`), and misc frontend pages (`f3493c36`), all
+      on `origin/studio2/phase-12.5-style`. The work is pushed and safe, just unmerged.
+      **Do not cherry-pick** — all three conflict in the same three VoiceLab test files
+      (`TestSection.test.tsx`, `VariantsSection.test.tsx`, `VoiceIconControls.test.tsx`), which have
+      moved on since. Redo the deletions against today's files instead, using each commit as the list
+      of what to remove and re-checking each against `testing-standards.md` R1–R4 before deleting
+      (a test that was low-value in July may have become load-bearing since). Rough cost: an hour.
+      Worth doing: the vitest suite leaks memory, so a smaller suite is a real win.
+      Evidence and per-branch verdicts: `.agent/reports/2026-07-29-reconcile-codeql-and-redundant.md`.
+- [ ] Fix the hardcoded-style violation at `frontend/src/pages/Voices/.../ArchetypeQuickPick.tsx:242`
+      (found in passing during the 2026-07-29 reconciliation; unrelated to the branches assessed).
+
 ---
 
 *When every item above clears and Stage 6's tag lands, this file should be empty — retire it and

@@ -192,7 +192,8 @@
       "audio-quality verdicts",
       "information-architecture calls",
       "release-facing defaults",
-      "merging a PR, cutting a release, posting outside this repo",
+      "merging a PR (not delegated while studio-2.0 is the staging target; a per-task grant expires with that task, OD-0020)",
+      "cutting a release, posting outside this repo",
       "amending CLAUDE.md's binding sections or the mandate"
     ]
   }
