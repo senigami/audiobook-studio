@@ -21,7 +21,7 @@
 | `ProjectCard` | `frontend/src/pages/ProjectDetail/components/ProjectCard.tsx` | Same class of gap | Same treatment |
 | `QueueItem` / `ReorderableQueueItem` | `frontend/src/components/queue/{QueueItem,ReorderableQueueItem}.tsx` | Root card has no `data-testid`; "Cancel"/"Drag to reorder"/"Remove from queue" labels are static, not job-scoped | Root gets `data-testid={`queue-item-${job.id}`}`; per-job labels interpolate a job title/id where feasible |
 | `GlobalQueue` | `frontend/src/components/queue/GlobalQueue.tsx` | Also renders an `<ActionMenu>` (line count TBD by task executor) | Pass `entityLabel` through if applicable |
-| Convention doc | `.agent/rules/frontend-interactions.md` | No selector-convention guidance today | New section documenting the 3-point convention above |
+| Convention doc | `design-docs/engineering-rules/frontend-interactions.md` | No selector-convention guidance today | New section documenting the 3-point convention above |
 
 ## Contracts
 

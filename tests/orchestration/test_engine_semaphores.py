@@ -732,7 +732,7 @@ class TestClaimToDictPreservesEngineClass:
                 # Cap is grow-only by design (ensure_min_cap never shrinks) --
                 # drop the "gpu" registry entry entirely rather than leave it
                 # permanently at cap=2 for every test that runs after this one
-                # in the same process (fable-flagged: this exact class of
+                # in the same process (flagged in review: this exact class of
                 # cross-test state leak is what caused the second, deeper
                 # instance of the bug this test guards against).
                 _res._engine_semaphores.pop("gpu", None)

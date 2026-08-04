@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # durations and the assembled chapter WAV's own measured duration. Small drift
 # is expected (e.g. ffmpeg concat container overhead) and only warned about;
 # drift beyond the hard ceiling means something is genuinely wrong (e.g.
-# mismatched sample rates across engines -- Fable H2) and the sidecar write
+# mismatched sample rates across engines) and the sidecar write
 # must be skipped rather than publish a wrong timeline.
 DRIFT_WARN_TOLERANCE_MS = 50
 DRIFT_HARD_CEILING_MS = 250

@@ -131,7 +131,7 @@ In `app/api/routers/engines.py` (engine-scoped runtime config — not `system.py
 - [x] `set_engine_cap` merges under lock without clobbering other engines' overrides — proven by a concurrent-write-style test (two calls for two different engine_ids, both survive).
 - [x] Existing W-PAR test suite assertions about `claim.cap`/semaphore sizing updated where they assumed the old (effective-cap) semantic; full suite green.
 - [x] `./venv/bin/python -m pytest -q` clean (2291 passed, 3 skipped — orchestrator re-ran independently, confirmed). Relevant spec (`system-architecture.md`, `queue-jobs.md`) gets a changelog row for the new API + the cap-semantic change.
-- [x] Append a code-map changelog-queue entry (`.agent/code-map/queue/`) — this changes a contract (`ResourceClaim`'s `cap` field meaning) and adds new API surface.
+- [x] Append a code-map changelog entry — this changes a contract (`ResourceClaim`'s `cap` field meaning) and adds new API surface.
 
 ## Map links
 

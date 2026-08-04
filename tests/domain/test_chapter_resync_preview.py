@@ -1,7 +1,7 @@
 """
 Tests for get_resync_preview (RC-1 fix, Task 5) -- the preview must use the SAME
 align_segments alignment as the real sync_chapter_segments, so it can't warn about a
-destructive resync that the real save will actually preserve (Tamsin's Task 4 code
+destructive resync that the real save will actually preserve (the Task 4 code
 review: this was reproducibly false before this task, and segment_alignment.py's own
 docstring flagged the drift as live until this task landed).
 """
@@ -14,7 +14,7 @@ from app.domain.chapters.operations import get_resync_preview
 
 
 def test_preview_does_not_report_destructive_for_a_reorder_the_real_sync_actually_preserves():
-    """The exact scenario Tamsin's Task 4 review reproduced as a live bug: a uniquely-
+    """The exact scenario the Task 4 review reproduced as a live bug: a uniquely-
     identified sentence (not a duplicate) moved by a reorder is preserved by the real
     sync (content search, Invariant I2) but was reported as lost by the old
     position-only preview."""
@@ -77,7 +77,7 @@ def test_preview_is_a_pure_read_no_db_writes():
 
 
 def test_preview_is_not_destructive_for_a_split_that_shrinks_row_count_with_zero_loss():
-    """Regression for a bug both Fable and Esther's code reviews independently found:
+    """Regression for a bug both independent code reviews found:
     a manually-split sentence's row count naturally shrinks back to 1 fresh sentence when
     consolidated, but that shrinkage alone must not mark the resync destructive when zero
     assignments were actually lost -- the old `total_new < total_old` heuristic produced a

@@ -46,4 +46,4 @@ these helpers; no route should call `open()` on a user-supplied path directly.
 
 ### Neutral
 - Any new path validation added to the codebase MUST use `contained_path()` or the
-  `pathing.py` helpers. This is documented in `.agent/rules/backend-paths.md`.
+  `pathing.py` helpers. This is documented in `design-docs/engineering-rules/backend-paths.md`.

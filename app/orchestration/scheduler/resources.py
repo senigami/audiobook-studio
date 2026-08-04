@@ -106,7 +106,7 @@ class ResourceClaim:
         engine_id: Concrete engine identifier (e.g. ``"tts_xtts"``). Optional —
             when set, admission also enforces a per-engine-id ceiling
             independent of the shared ``engine_class`` semaphore (task 007,
-            folded-in Fable finding), so this engine's own declared cap can
+            folded-in review finding), so this engine's own declared cap can
             never be inflated by a same-class sibling's larger request.
         manifest_max: The manifest's declared ``behavior.max_concurrent_workers``
             ceiling (task 014). Carried alongside ``cap`` (same value for
@@ -177,7 +177,7 @@ class EngineClassSemaphore:
         class_name: Optional engine-class key this semaphore was created for.
             When set to ``"exclusive"`` the semaphore hard-pins cap to 1 and
             rejects any attempt to construct or grow it past 1 (task 007,
-            folded-in Fable finding). Today only ``ResourceClaim.exclusive_claim()``
+            folded-in review finding). Today only ``ResourceClaim.exclusive_claim()``
             ever requests this class (always at cap=1) — this makes that
             invariant an explicit, enforced contract instead of an accident.
     """
@@ -374,7 +374,7 @@ _global_cap_gate = EngineClassSemaphore(cap=MAX_GLOBAL_CONCURRENT_SYNTHESIS)
 
 
 # ===========================================================================
-# Per-engine-ID semaphore registry (Fable merge-gate finding, task 007)
+# Per-engine-ID semaphore registry (merge-gate finding, task 007)
 # ===========================================================================
 #
 # The class-level registry above is keyed by ``engine_class`` (e.g. "gpu",
@@ -615,7 +615,7 @@ def reserve_task_resources(
     exclusive = bool(resource_claims.get("exclusive", False))
     engine_class = str(resource_claims.get("engine_class", ""))
     cap = int(resource_claims.get("cap", 1))
-    # Task 007 (Fable finding): optional per-engine-id ceiling, independent of
+    # Task 007 (review finding): optional per-engine-id ceiling, independent of
     # the shared class-level semaphore. Only claims that declare engine_id opt
     # into this extra gate; absent engine_id is a no-op (backward compatible).
     engine_id = str(resource_claims.get("engine_id", ""))
@@ -698,7 +698,7 @@ def reserve_task_resources(
         sem = get_engine_semaphore(engine_class, cap)
         admitted, waiting_reason = sem.try_acquire(task_id, limit=live_limit)
         if admitted and engine_id:
-            # Task 007 (Fable finding): a secondary per-engine-id ceiling so
+            # Task 007 (review finding): a secondary per-engine-id ceiling so
             # this engine's OWN declared cap can never be inflated by a
             # same-class sibling engine that requested a larger cap first
             # (the class semaphore only ever grows — commit 7dd218aa).

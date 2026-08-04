@@ -4,7 +4,7 @@ Replaces the decorative ``INTENDED_UPSTREAM_CALLERS`` / ``INTENDED_DOWNSTREAM_DE
 ``FORBIDDEN_DIRECT_IMPORTS`` tuples that used to live in these modules (BE-2). Those tuples were
 read nowhere; this test makes the same boundary intent enforced instead of documented.
 
-See ``.agent/rules/modular_architecture.md``: orchestration owns job execution lifecycle and must
+See ``design-docs/engineering-rules/modular_architecture.md``: orchestration owns job execution lifecycle and must
 not depend on the legacy ``app.jobs`` worker loop, the raw queue DB module, or reach back into
 routers/engines internals directly.
 """
@@ -75,7 +75,7 @@ def test_orchestration_engine_boundary_modules_have_no_forbidden_imports():
         header = (
             "Architectural violation: orchestration/engine boundary modules must not import "
             "the legacy app.jobs worker loop, raw queue/db internals, or router modules directly.\n"
-            "See .agent/rules/modular_architecture.md.\n"
+            "See design-docs/engineering-rules/modular_architecture.md.\n"
         )
         assert False, header + "\n".join(violations)
 

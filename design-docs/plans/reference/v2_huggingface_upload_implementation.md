@@ -233,7 +233,7 @@ and `samples/` sit at top level)." That means:
   temp/staging directory before upload. [C0, C1]
 - Minor cross-doc note (not a contradiction to resolve here, just a flag for whoever implements
   this): the repo spec's example `voice.json` references `samples/preview.wav`, while
-  `CLAUDE.md`'s binding audio-format convention states portable voice bundles are **MP3**
+  this repo's binding audio-format convention states portable voice bundles are **MP3**
   (`samples/preview.mp3`). Whichever is correct, the local bundle directory and the Hub layout
   must use the *same* extension for the "byte-identical, no transform" property in this section
   to hold — if Studio's local storage keeps a WAV master and the bundle spec expects an MP3
@@ -280,7 +280,7 @@ changelog entries.
    as model repos get no on-Hub preview at all, undermining the stated reason for choosing model
    over dataset.
 3. WAV vs MP3 for `samples/preview.*` — reconcile the repo spec's example (`preview.wav`) against
-   `CLAUDE.md`'s binding convention (portable voice bundles are MP3) before building the bundle
+   this repo's binding convention (portable voice bundles are MP3) before building the bundle
    generator, since this affects the encode-before-upload step, independent of the
    `huggingface_hub` API choice.
 4. Does Studio want the OAuth device-code login path in v1, or is paste-token sufficient for the

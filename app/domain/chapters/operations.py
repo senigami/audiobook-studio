@@ -318,7 +318,7 @@ def get_resync_preview(chapter_id: str, new_text: str) -> dict[str, Any]:
             affected_character_names.add(row.get("character_name") or "Unknown")
 
     # is_destructive is keyed purely to actual assignment loss (RC-1 fix, Task 5 follow-up
-    # -- both Fable and Esther's code reviews independently found the same bug): the old
+    # -- code review independently found the same bug): the old
     # `total_new < total_old` row-count heuristic was a valid proxy for "something got
     # destroyed" BEFORE align_segments existed, since a legitimate manual split had no way
     # to shrink the row count while preserving assignments. Now a preserved multi-row

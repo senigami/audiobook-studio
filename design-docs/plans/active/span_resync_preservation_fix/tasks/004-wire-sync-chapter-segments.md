@@ -1,5 +1,5 @@
-Status: complete — 2026-07-19 (wired, tested, code-reviewed 3-way: Fable + Esther + Tamsin, all
-converged "approve as scoped"; see .agent/frontier-calibration/code-reviews/rc1-task4-*.md). One
+Status: complete — 2026-07-19 (wired, tested, code-reviewed 3-way, all converged "approve as
+scoped"). One
 transaction posture (self-committing explicit-resync route) not yet covered by a committed test —
 left open, see acceptance criteria below.
 Depends on: Task 3
@@ -71,7 +71,7 @@ from a real edit), distinct from the id-churn this task exists to prevent.
       `test_same_character_duplicate_rows_are_preserved_at_the_db_row_level_despite_chunk_group_confound`.
 - [x] RC-1 regression test written, revert-checked (confirmed red on pre-Task-4 code, green after) —
       both tests above. **Correction to "written first":** the tests were added retroactively during
-      code review (Fable's Task 4 review caught the initial commit shipped with zero new tests — a
+      code review (the Task 4 review caught the initial commit shipped with zero new tests — a
       real R1 violation, now closed, but not written test-first as this criterion originally required;
       noting honestly rather than silently marking it as if the discipline had been followed).
 - [x] Audio survives for preserved fragment rows, for DISTINCT-character splits — see the same test.
@@ -87,7 +87,7 @@ from a real edit), distinct from the id-churn this task exists to prevent.
       regression guard.
 - [ ] Works correctly under both transaction postures (Invariant I4) — conn-owned (`update_chapter`)
       verified by the tests above; the self-committing explicit-resync route (`routers/chapters.py:259`)
-      is NOT yet covered by a committed test (Fable's Task 4 review noted this gap explicitly)
+      is NOT yet covered by a committed test (the Task 4 review noted this gap explicitly)
       — left open for Task 6 or a follow-up, since that route isn't otherwise touched by this task.
 - [x] I5 decision recorded: **deferred, not fixed inline.** Preserved rows never go through the
       INSERT (they're skipped entirely), so I5's data-loss bug is already resolved for them as a side
@@ -101,5 +101,5 @@ from a real edit), distinct from the id-churn this task exists to prevent.
 
 `get_resync_preview` (Task 5) — **known to be actively drifting until Task 5 lands**: the preview
 still uses the old position-only rule and can report a false "destructive"/loss warning for a save
-this task's fix actually preserves (Tamsin's Task 4 review, reproduced). Surfacing the loss count on
+this task's fix actually preserves (the Task 4 review, reproduced). Surfacing the loss count on
 the API response (Task 6).

@@ -34,7 +34,7 @@ The right-hand **Director's Console** (~220px) hosts mode-selector icons at the 
 - **Goal**: Pure refactor: lift the non-presentational logic of `ChapterEditorPage.tsx` into
   `frontend/src/pages/Book/studio/useStudioChapter.ts` so StudioStage can compose new chrome around
   it. Old `ChapterEditor` keeps working (it consumes the same hook) — green at every step.
-- **Read first**: `ChapterEditorPage.tsx` in full; `.agent/rules/frontend-state.md`;
+- **Read first**: `ChapterEditorPage.tsx` in full; `design-docs/engineering-rules/frontend-state.md`;
   `Memory` note `progress-debug-workflow.md` warning about handoff timing.
 - **Create/Modify**: Create `frontend/src/pages/Book/studio/useStudioChapter.ts`; modify
   `ChapterEditorPage.tsx` to consume it.

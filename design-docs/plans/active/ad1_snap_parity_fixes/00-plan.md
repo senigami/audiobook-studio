@@ -1,9 +1,9 @@
 # Plan — word-boundary snap parity fixes (from AD-1 hostile review)
 
-**Status:** DRAFT — awaiting twin + Fable plan review. No code changes made producing this plan.
-**Feeds from:** `.agent/frontier-calibration/references/AD-1.md` (Fable adversarial reference,
-2026-07-19). AD-1 found 5 findings (F1-F5); the standout is F3, a **previously undocumented** bug
-class larger than the one this review was originally scoped to find.
+**Status:** DRAFT — awaiting plan review. No code changes made producing this plan.
+**Feeds from:** an adversarial review (AD-1, 2026-07-19) that found 5 findings (F1-F5); the
+standout is F3, a **previously undocumented** bug class larger than the one this review was
+originally scoped to find.
 
 ## Findings, by severity, and what to do about each
 

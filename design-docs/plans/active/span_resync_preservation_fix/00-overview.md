@@ -11,7 +11,7 @@ equal a whole sentence, so every manual sub-sentence speaker assignment in the c
 destroyed — new rows minted with `character_id=None`, old rows deleted, audio files removed — and
 the extra row shifts every later row's index, wiping downstream whole-sentence assignments too.
 
-Full root-cause trace: `.agent/frontier-calibration/references/RC-1.md`.
+Full root-cause trace: reference RC-1.
 
 ## Goal
 
@@ -61,8 +61,8 @@ rows.
 
 ## Inputs this plan was built from
 
-- `.agent/frontier-calibration/references/RC-1.md` — original root-cause analysis
+- Reference RC-1 — original root-cause analysis
 - `design-docs/plans/active/span_resync_preservation_fix/00-plan.md` — superseded first draft
-- `.agent/frontier-calibration/reviews/RC-1-plan-comparison.md` — 3-way review synthesis
+- The RC-1 plan-comparison review — 3-way review synthesis
 - Three verification scouts (2026-07-19): the whitespace/strip falsifier, the exact existing-test
   assertions, and the full schema/column-drop accounting — findings folded into `01-map.md`.

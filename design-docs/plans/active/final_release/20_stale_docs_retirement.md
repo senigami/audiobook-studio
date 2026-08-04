@@ -20,15 +20,15 @@ no history — the narrative lives in the wiki.
   findings (A11Y-3, H-5, F3.1/F3.2/F5.7, etc.) were acted on and shipped. Code carries the "why"
   as inline `(design-critique follow-up)` comments, which don't depend on the files existing. One
   real provenance citation — a `design-system.md` v1.16.0 changelog row — was repointed (finding
-  IDs kept, dead path dropped) before deletion. The designer agent's output-location note in
-  `.claude/agents/dean-designer.md` still points at `design-docs/design-critique/`; that's fine, the
-  dir is recreated on demand when a future critique is written.
+  IDs kept, dead path dropped) before deletion. The designer agent profile's output-location note
+  still points at `design-docs/design-critique/`; that's fine, the dir is recreated on demand when a
+  future critique is written.
 - **`design-docs/audits/voice_queue_event_stream_audit.md`** (+ the now-empty `audits/` dir) —
   a 2026-06-07 "implementation complete" handoff whose live contract is now
   `design-docs/specs/event-stream-processing-schema.md`. Uncited, superseded by the spec.
-- **`.claude/agents/{designer,engineer,runtime-verifier}.md`** — agent report output path moved
-  `docs/agent-reports/` → `.agent/reports/` (the dir never existed, so nothing to migrate; this
-  closes the same "internal output into the published site" trap the docs move addressed).
+- **Agent-profile report output paths** — moved `docs/agent-reports/` to a hidden internal
+  reports directory (the dir never existed, so nothing to migrate; this closes the same "internal
+  output into the published site" trap the docs move addressed).
 - **`_archive/` eliminated.** The category is retired — the repo keeps no archive going forward
   (a done plan is deleted outright, narrative to the wiki). Its one surviving fragment, the
   **localization interface inventory**, was **relocated, not deleted** — see the critical finding

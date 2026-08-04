@@ -474,7 +474,7 @@ override chips, Output QA row, run-test/verify/install-deps/uninstall actions, d
 4. Dev-gated row: `DEV console ▸ SCENARIOS` opens `EngineDevPanel`, visible only via
    `useDevMode()` (existing gate).
 5. EngineCard is 690 lines — if restyling it pushes structure further, split along the existing
-   section boundaries above (per CLAUDE.md >600-line rule), not mechanically.
+   section boundaries above (per this repo's >600-line rule), not mechanically.
 
 **Capabilities re-homed** None lost; all EngineCard features survive restyle in place.
 

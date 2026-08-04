@@ -6,8 +6,7 @@ status: active
 created: 2026-06-10
 updated: 2026-06-16
 sources:
-  - CLAUDE.md
-  - .agent/rules/verification.md
+  - design-docs/engineering-rules/verification.md
   - pytest.ini
   - conftest.py
   - frontend/tests/
@@ -19,7 +18,7 @@ sources:
 | Version | Date       | Change |
 |---------|------------|--------|
 | 1.0.1   | 2026-06-16 | Frontmatter normalized to fenced code block; corrected audit filename `test_audit_queue_jobs.md` → `test_audit_backend_queue_jobs.md` |
-| 1.0     | 2026-06-10 | Initial spec, promoted from CLAUDE.md rules R1–R4 and the classification rubric in doc 17 |
+| 1.0     | 2026-06-10 | Initial spec, promoted from the repo's rules R1–R4 and the classification rubric in doc 17 |
 
 ## Purpose
 
@@ -244,6 +243,6 @@ Each table documents the file, test name, classification, action taken (KEEP/DEL
 
 ## See Also
 
-- **CLAUDE.md** — High-level testing guidance and isolation setup (conftest, timeouts).
+- **`conftest.py`** — isolation setup (conftest, timeouts).
 - **doc 17** (`design-docs/plans/active/final_release/17_test_quality_audit.md`) — Full audit strategy and priority sequencing.
 - **doc 18** (`design-docs/plans/active/final_release/18_canonical_specs.md`) — Spec versioning and conformance conventions.

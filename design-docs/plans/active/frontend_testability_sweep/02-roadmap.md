@@ -2,7 +2,7 @@
 
 ## Tasks
 
-- **001 — `ActionMenu.tsx` fix + convention doc.** Adds the optional `entityLabel` prop, documents the convention in `.agent/rules/frontend-interactions.md`. No dependencies — do first, everything else benefits from it.
+- **001 — `ActionMenu.tsx` fix + convention doc.** Adds the optional `entityLabel` prop, documents the convention in `design-docs/engineering-rules/frontend-interactions.md`. No dependencies — do first, everything else benefits from it.
 - **002 — Voices page sweep.** `VoiceCatalogCard.tsx`, `NarratorCard.tsx`, `ScriptEditor.tsx`, `VariantEditor.tsx`, `MetadataEditorModal.tsx`. Depends on 001 (needs `entityLabel` to exist).
 - **003 — VoiceLab page sweep.** All 6 files under `pages/VoiceLab/`. Depends on 001.
 - **004 — ProjectLibrary + ProjectDetail card sweep.** `ProjectListView.tsx`, `ProjectCard.tsx`. Depends on 001.

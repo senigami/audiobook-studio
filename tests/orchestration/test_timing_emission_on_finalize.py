@@ -267,7 +267,7 @@ def test_drift_beyond_hard_ceiling_does_not_raise_and_writes_no_sidecar(
     orchestrator, progress_service, chapter_with_groups
 ):
     """A chapter WAV whose duration wildly disagrees with the group sum
-    (TimingReconciliationError, Fable H2) must be swallowed by the hook, not
+    (TimingReconciliationError, finding H2) must be swallowed by the hook, not
     propagate and not fail the render."""
     progress_service.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}
     fixture = chapter_with_groups

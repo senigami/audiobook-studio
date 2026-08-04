@@ -82,7 +82,7 @@ describe('useInitialData', () => {
     expect(result.current.loading).toBe(false);
   });
 
-  // F15 follow-up (Fable review) — an HTTP error response (e.g. a 500) is valid,
+  // F15 follow-up (code review) — an HTTP error response (e.g. a 500) is valid,
   // parseable JSON/HTML, not a network rejection. Without a res.ok check it was
   // silently treated as a successful payload.
   it('surfaces an error for a non-ok HTTP response instead of treating the body as data', async () => {

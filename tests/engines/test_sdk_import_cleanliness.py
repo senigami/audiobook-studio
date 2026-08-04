@@ -1,6 +1,6 @@
 """SDK cleanliness gate (plan 010): studio_plugin_sdk/ must not depend on app.*.
 
-Confirmed boundary (mastermind 010, Checkpoint 2):
+Confirmed boundary:
 - ZERO module-level ``app.*`` imports anywhere in ``studio_plugin_sdk/``.
 - ZERO ``app.*`` imports of ANY kind (including function bodies) outside
   ``context.py``. ``context.py`` is the host-implemented context: its lazy

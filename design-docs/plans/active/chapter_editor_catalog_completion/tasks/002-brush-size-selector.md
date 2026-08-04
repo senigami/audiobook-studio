@@ -72,7 +72,7 @@ Per `design-docs/workflows/chapter-editor-modes.md` §5 ("Brush size (DECIDED)")
    - Paragraph mode: clicking any span within a paragraph while `brushSize === 'paragraph'` calls `onAssign` with the full paragraph's span ids, not just the clicked span's id.
    - Word mode: clicking a simulated word position calls `onAssignRange` with offsets bounding only that word (mock/stub `document.caretRangeFromPoint` since jsdom doesn't implement it — check the existing test setup for any existing Range/Selection mocking pattern before adding a new one).
 8. `npm -C frontend run test -- --run ScriptView`, `npm -C frontend run lint`.
-9. Append a `.agent/code-map/queue/` changelog entry.
+9. Append a code-map changelog entry.
 
 ## Acceptance criteria
 
@@ -82,7 +82,7 @@ Per `design-docs/workflows/chapter-editor-modes.md` §5 ("Brush size (DECIDED)")
 - [ ] Word-mode click on a span assigns only the clicked word's character range via `onAssignRange`, verified by a test asserting the exact offsets.
 - [ ] No second word-boundary algorithm exists if `span_word_boundary_snapping`'s utility has landed — verified by checking for `snapOffsetToWordBoundary` before implementing a local one.
 - [ ] `npm -C frontend run test -- --run` and `npm -C frontend run lint` clean.
-- [ ] `.agent/code-map/queue/` entry added.
+- [ ] Code-map changelog entry added.
 
 ## Map links
 

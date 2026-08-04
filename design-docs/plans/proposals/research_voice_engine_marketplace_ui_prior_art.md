@@ -80,7 +80,7 @@ inference API is invoked under the hood
 https://huggingface.co/docs/hub/models-widgets). The Hub deliberately renders **only one
 widget per model** for simplicity, inferred automatically from `pipeline_tag` unless
 manually overridden. This is a directly reusable pattern for an engine registry:
-`manifest.json`'s existing `capabilities`/`behavior` fields (per `.agent/rules/` and
+`manifest.json`'s existing `capabilities`/`behavior` fields (per this repo's engineering rules and
 `design-docs/specs/engines-and-plugins.md`) could double as the signal that picks which
 preview affordance renders on a catalog card — a "generate and play" widget for
 synthesis-capable engines vs. a plain static sample player for voice bundles, without a
@@ -369,6 +369,6 @@ it's plausible narrower tools exist that this pass didn't surface.
   adding it (finding 3).
 - `design-docs/specs/engines-and-plugins.md` — the current manifest/lifecycle spec;
   any manifest schema change from this research (e.g. a preview-sample block) needs a
-  `spec_version` bump and changelog row here per CLAUDE.md's binding contract rule.
+  `spec_version` bump and changelog row here per this repo's binding contract rule.
 - `design-docs/plans/reference/v2_engine_bundle_github_distribution.md` — the superseded
   predecessor doc 05 replaces; kept for historical reference only.

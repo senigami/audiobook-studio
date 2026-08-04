@@ -606,8 +606,8 @@ def export_hf_voice_bundle(
     """Write a portable ``<bundle_name>.asvoice.zip`` under ``output_dir``.
 
     Always includes ``voice.json`` and ``samples/preview.mp3`` (voice bundle
-    audio is MP3 per this repo's binding audio-format convention — see
-    CLAUDE.md). ``sample_mp3_bytes`` is written verbatim; this function does
+    audio is MP3 per this repo's binding audio-format convention).
+    ``sample_mp3_bytes`` is written verbatim; this function does
     not itself verify the bytes are actually MP3-encoded — that is the
     caller's responsibility. Also includes a generated ``README.md`` (via
     ``bundles.generate_readme_md`` — the same HF-card generator the

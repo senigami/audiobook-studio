@@ -22,7 +22,7 @@ Status: pending
 - [ ] Every project row/card has a `data-testid` keyed by `project.id`.
 - [ ] `ActionMenu` calls pass `entityLabel`.
 - [ ] `npx tsc -b --force` clean; existing tests pass unchanged.
-- [ ] Append a `.agent/code-map/queue/` entry.
+- [ ] Append a code-map changelog entry.
 
 ## Dependencies
 

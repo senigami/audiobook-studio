@@ -1,6 +1,6 @@
 """S5 acceptance tests: tts_voxtral is app-import-free per the plan-010 boundary.
 
-Confirmed boundary (mastermind 010, Checkpoint 2):
+Confirmed boundary:
 - ZERO ``app.*`` imports at ANY position in ``plugin/server/``, ``plugin/core/``,
   ``interface.py``, ``cli.py``.
 - ZERO module-level ``app.*`` imports in ``plugin/studio/``. Two sanctioned

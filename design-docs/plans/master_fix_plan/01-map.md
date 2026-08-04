@@ -69,7 +69,7 @@ W-PAR ──interacts──> W2 LF-6 service.py split (same file; sequence, don'
 ## Invariants (must hold across all workstreams)
 
 - **INV-1 — Specs are jointly authoritative.** Any behavior change bumps the matching `design-docs/specs/`
-  spec (`spec_version` + changelog) in the same commit. (CLAUDE.md)
+  spec (`spec_version` + changelog) in the same commit.
 - **INV-2 — Harvest before delete.** No `ProjectDetail`/`ChapterEditor` husk is deleted until the IA
   port (W4) has restored the RST-1..8 lost features it carries (W4 → then W2 DC-1b).
 - **INV-3 — No engine-ID branches in core.** Plugin/SDK work (W2, W10, W11) parameterizes; never

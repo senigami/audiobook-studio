@@ -72,7 +72,7 @@ The map (`01-map.md` part J) and prior research state that `DirectorsTool` in `t
 - [ ] A changed segment whose voice is unavailable at mode-exit time does not block or delay the mode switch itself — the switch completes immediately regardless of what `handleGenerateWithFallback`'s own modal does (see Target shape point 5).
 - [ ] No new field/callback is stuffed into the static `registry.ts` tools array for stateful behavior — stateful reporting goes through context, consistent with the existing `DirtyGuardContext` pattern (INV: don't add a second, incompatible state-reporting mechanism next to the one that already exists for the same tool-body-to-console direction).
 - [ ] `./venv/bin/python -m pytest -q` (no backend touched, should be a no-op run) and `npm -C frontend run test -- --run` both clean.
-- [ ] Relevant spec (`chapter-editor-modes.md` is a design doc, not a `design-docs/specs/` contract — check whether any `design-docs/specs/` file describes Cast's render-trigger behavior; if one exists, bump it per the binding CLAUDE.md rule, otherwise note none applies).
+- [ ] Relevant spec (`chapter-editor-modes.md` is a design doc, not a `design-docs/specs/` contract — check whether any `design-docs/specs/` file describes Cast's render-trigger behavior; if one exists, bump it per the binding spec-update rule, otherwise note none applies).
 
 ## Map links
 

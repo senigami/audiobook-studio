@@ -26,7 +26,7 @@ from typing import Any, Callable
 # had the only one of the three original ``_group_needs_render`` definitions
 # that checked validated artifact metadata rather than raw file existence.
 # xtts's and voxtral's originals used a bare ``path.exists()`` check; per
-# ``.agent/rules/modular_architecture.md`` ("raw file existence is
+# ``design-docs/engineering-rules/modular_architecture.md`` ("raw file existence is
 # insufficient for completion, reuse, or recovery"), the shared method
 # standardizes on the stricter, already-shipped mixed-plugin logic instead of
 # the weaker one — this is a deliberate upgrade of xtts/voxtral's check to an

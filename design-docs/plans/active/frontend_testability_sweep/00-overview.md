@@ -6,7 +6,7 @@ Fix stable-selector coverage gaps across the frontend so both agent-driven brows
 
 ## Success criteria
 
-1. `.agent/rules/frontend-interactions.md` documents the selector convention (accessible-name-first; `data-testid` on repeated containers keyed by entity id; shared components accept an entity-identifying prop).
+1. `design-docs/engineering-rules/frontend-interactions.md` documents the selector convention (accessible-name-first; `data-testid` on repeated containers keyed by entity id; shared components accept an entity-identifying prop).
 2. `ActionMenu.tsx` accepts an optional `entityLabel`/`entityId` prop and interpolates it into its trigger's `aria-label` (e.g. `aria-label={`More actions for ${entityLabel}`}`) — every call site updated to pass it.
 3. `pages/Voices/`, `pages/VoiceLab/`, `pages/ProjectLibrary/` each have their primary repeated-entity components (cards/rows) carrying a `data-testid` keyed by the entity's real id, matching `ChapterTable.tsx`'s existing pattern.
 4. Queue components (`QueueItem.tsx`, `ReorderableQueueItem.tsx`, `GlobalQueue.tsx`) get the same treatment — per-job `data-testid`, scoped labels.

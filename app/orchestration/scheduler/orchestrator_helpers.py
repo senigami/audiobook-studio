@@ -1979,7 +1979,7 @@ def _claim_to_dict(claim: object | None) -> dict[str, object]:
         # Without these the semaphore is never reached for real tasks.
         "engine_class": getattr(claim, "engine_class", ""),
         "cap": getattr(claim, "cap", 1),
-        # W-PAR task 007 (Fable finding): propagate engine_id so reserve/release
+        # W-PAR task 007 (review finding): propagate engine_id so reserve/release
         # can enforce the per-engine-id ceiling alongside the class-level gate.
         "engine_id": getattr(claim, "engine_id", ""),
         # W-PAR task 014: propagate the manifest ceiling separately from `cap`

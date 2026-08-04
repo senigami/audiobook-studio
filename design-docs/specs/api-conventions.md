@@ -221,7 +221,7 @@ Engine plugin manifests loaded from user-provided archives MUST be validated for
 - Plugin directory is placed under `PLUGINS_DIR` (barrier enforced by `get_plugin_dir()`)
 - No symlinks that escape the plugins root
 
-See `.agent/rules/backend-paths.md` for the full plugin path security contract.
+See `design-docs/engineering-rules/backend-paths.md` for the full plugin path security contract.
 
 ---
 

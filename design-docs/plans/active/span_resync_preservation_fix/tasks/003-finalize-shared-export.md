@@ -15,8 +15,8 @@ new logic.
 ## Steps
 
 1. Confirm `align_segments`'s module has no import-time side effects (per
-   `.agent/rules/modular_architecture.md` — importing must not start threads, mutate globals, etc.
-   A pure function module should already satisfy this; just confirm).
+   `design-docs/engineering-rules/modular_architecture.md` — importing must not start threads,
+   mutate globals, etc. A pure function module should already satisfy this; just confirm).
 2. Add a short module docstring stating it is the SINGLE shared alignment function for both
    `sync_chapter_segments` and `get_resync_preview` — future changes to matching logic must touch
    only this file.
@@ -24,8 +24,7 @@ new logic.
 
 ## Acceptance criteria
 
-- [ ] No import-time side effects (verify via the repo's existing check if one exists —
-      `.agent/code-map/checks/check_no_import_side_effects.py`).
+- [ ] No import-time side effects (verify via the repo's existing check if one exists).
 - [ ] Module docstring states the single-source-of-truth rule explicitly.
 - [ ] Both Task 4 and Task 5 can import from this module without circular-import issues (quick
       sanity import check).

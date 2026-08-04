@@ -51,7 +51,7 @@ Without this task:
   system architecture (per-engine pools), the data model (parent/child + validated-artifact
   completion), and the live-events + progress-presentation contracts (multi-active segments,
   `active_segments_map`). If specs are not bumped here, the repo's joint-authority constraint is
-  broken (CLAUDE.md: "resolve drift explicitly in the same change").
+  broken (this repo's "resolve drift explicitly in the same change" convention).
 
 ## Files to touch
 
@@ -62,7 +62,7 @@ Without this task:
 | `app/core/config.py` + `app/db/state_settings.py` | Engine cap settings | Add `TTS_PARALLEL_CAP` (global default 1) and `TTS_ENGINE_CAPS` (per-engine overrides, JSON dict). Read from env + settings DB. Validate against each engine manifest's `behavior.max_concurrent_workers` (cap may not exceed manifest max). |
 | `app/api/routers/settings.py` (or the relevant settings router) | Settings CRUD | Expose the cap toggle as a user-facing setting: read/write `TTS_PARALLEL_CAP` and per-engine caps. Return current effective caps in the settings response. |
 | `design-docs/specs/queue-jobs.md` | Scheduler contract | Bump `spec_version`; add changelog row dated 2026-06-26 referencing W-PAR. Add: per-engine counting semaphores (replace binary gates); parent/child segment scheduling; per-engine and global concurrency caps; cap-default-1 invariant; manifest `max_concurrent_workers` as the source of truth (INV-5). |
-| `design-docs/specs/system-architecture.md` | Architecture overview | Bump `spec_version`; add changelog row. Add: per-engine worker pools in the TTS server; server-side warm-worker semaphore; no engine-ID branching rule (INV-5, `.agent/rules/modular_architecture.md`); orchestrator ↔ watchdog ↔ VoiceBridge ownership split. |
+| `design-docs/specs/system-architecture.md` | Architecture overview | Bump `spec_version`; add changelog row. Add: per-engine worker pools in the TTS server; server-side warm-worker semaphore; no engine-ID branching rule (INV-5, `design-docs/engineering-rules/modular_architecture.md`); orchestrator ↔ watchdog ↔ VoiceBridge ownership split. |
 | `design-docs/specs/data-model.md` | Job / segment schema | Bump `spec_version`; add changelog row. If the parent/child job shape or validated-artifact completion fields changed the stored schema, document the new fields (`parent_job_id`, `validated_at`, etc.). If shape is unchanged, add a note confirming it. |
 | `design-docs/specs/live-events.md` | WebSocket event envelope | Bump `spec_version`; add changelog row. Add `active_segments_map` to the chapter progress event shape; add `eta_low_seconds`, `eta_high_seconds`, `eta_display` fields; add `stalled_segments` (from task 005). Confirm all new fields are in the extract → whitelist → hydration path (W4 two-layer, INV-9). |
 | `design-docs/specs/progress-presentation.md` | Frontend progress contract | Bump `spec_version`; add changelog row. Document: multiple concurrently-active segments in the per-segment bar UI; bracketed ETA display format (`"~40–70 s"` / `"estimating…"`); rAF-coalesce rule for multi-active updates; stalled-segment flag presentation. |
@@ -104,7 +104,7 @@ Every spec listed in the Files table above must:
 2. Have a dated changelog row (`2026-06-26 | W-PAR | <one-line description of the change>`).
 3. Reflect the actual post-W-PAR contract — no partial or aspirational descriptions.
 
-This is the CLAUDE.md "resolve drift explicitly" obligation. If a spec is found to be already
+This is this repo's "resolve drift explicitly" obligation. If a spec is found to be already
 accurate (no drift), add a changelog row confirming it was reviewed and no change was needed.
 
 ### Final gate

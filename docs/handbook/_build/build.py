@@ -1529,12 +1529,12 @@ page("contributing/workflow",
   h2("The flow"),
   p("<strong>Fork, branch, and open a pull request.</strong> Keep PRs focused on one change; they're squash-merged to keep history clean."),
   h2("Review"),
-  p("<strong>Expect review on correctness, scope, and tests.</strong> See " + L("testing-verification.html", "Testing &amp; Verification") + " and " + L("agent-rules.html", "Repository Agent Rules") + "."))
+  p("<strong>Expect review on correctness, scope, and tests.</strong> See " + L("testing-verification.html", "Testing &amp; Verification") + " and " + L("agent-rules.html", "Engineering Rules") + "."))
 
 page("contributing/agent-rules",
-  "Repository Agent Rules",
-  "The .agent/rules router and what each rule set covers.",
-  "The repo encodes its conventions as agent rules, so both people and AI assistants follow the same constraints.",
+  "Engineering Rules",
+  "The design-docs/engineering-rules router and what each rule set covers.",
+  "The repo encodes its conventions as engineering rules, so every contributor follows the same constraints.",
   glance([
     "A rules router maps tasks to rule sets.",
     "Key constraints like modular architecture.",

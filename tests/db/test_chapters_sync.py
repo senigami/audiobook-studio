@@ -242,7 +242,7 @@ def test_rc1_fragment_split_survives_unrelated_edit_distinct_characters(db_conn,
     """RC-1 regression, committed (R1): the flagship scenario Task 4 exists to fix -- a
     manually-split sentence, assigned to a DISTINCT character per fragment (so this test
     is not confounded by the chunk-group canonical-audio mechanism, which only merges
-    rows sharing the same character_id/profile -- see Fable's Task 4 code review).
+    rows sharing the same character_id/profile -- see the Task 4 code review).
     An edit to an UNRELATED sentence elsewhere must leave the split fragments' ids,
     character assignments, and audio completely untouched."""
     from app.db.segments import sync_chapter_segments, get_chapter_segments
@@ -321,7 +321,7 @@ def test_rc1_fragment_split_survives_unrelated_edit_distinct_characters(db_conn,
 
 def test_revision_id_stable_across_a_preserve_only_resave(db_conn, tmp_path):
     """A resave with no edits at all must not churn _build_base_revision_id's hash for
-    reasons unrelated to the actual text (Task 4's P6 rationale, Tamsin/Fable's Task 1
+    reasons unrelated to the actual text (Task 4's P6 rationale, the Task 1
     review) -- preserving row ids/order/content, not minting new ids, is what keeps this
     stable."""
     from app.db.segments import sync_chapter_segments, get_chapter_segments
@@ -358,7 +358,7 @@ def test_same_character_duplicate_rows_are_preserved_at_the_db_row_level_despite
     """Proves align_segments' preservation is real at the DB-row level (id, character_id)
     for the same-character-duplicate case, independent of get_chapter_segments' chunk-
     group canonical-audio-file check -- which invalidates the *audio* for a non-leader
-    group member regardless of whether the row itself was correctly preserved (Fable's
+    group member regardless of whether the row itself was correctly preserved (the
     Task 4 finding: the existing reordered-duplicates test is confounded for its Middle/
     duplicate-Repeat audio assertions, since that outcome would be identical even if
     preservation were totally broken). This test checks the raw chapter_segments table

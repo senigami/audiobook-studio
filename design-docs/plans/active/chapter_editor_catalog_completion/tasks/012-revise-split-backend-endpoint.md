@@ -89,14 +89,14 @@ Two shapes were possible for the new endpoint:
 
 ## Steps
 
-1. Write the failing backend test first (TDD, per `.agent/rules/verification.md`): a new test (extend `tests/api/test_api_chapters.py` or add a sibling file next to it, matching the `TestClient`/`clean_db` fixture pattern already used in `tests/api/test_api_chapters_script_view.py:10–31`) that POSTs to `/api/segments/{segment_id}/split` with `first_text`/`second_text` form fields and asserts: the original segment's `text_content` becomes `first_text` with audio invalidated; a new segment appears immediately after in `segment_order` with `text_content == second_text`, inheriting `character_id`/`speaker_profile_name`, `audio_status == 'unprocessed'`; every segment previously after the original has its `segment_order` shifted by exactly +1; the response's `segments` list matches `GET /api/chapters/{chapter_id}/segments`'s shape. Confirm it fails (404/405, route doesn't exist yet).
+1. Write the failing backend test first (TDD, per `design-docs/engineering-rules/verification.md`): a new test (extend `tests/api/test_api_chapters.py` or add a sibling file next to it, matching the `TestClient`/`clean_db` fixture pattern already used in `tests/api/test_api_chapters_script_view.py:10–31`) that POSTs to `/api/segments/{segment_id}/split` with `first_text`/`second_text` form fields and asserts: the original segment's `text_content` becomes `first_text` with audio invalidated; a new segment appears immediately after in `segment_order` with `text_content == second_text`, inheriting `character_id`/`speaker_profile_name`, `audio_status == 'unprocessed'`; every segment previously after the original has its `segment_order` shifted by exactly +1; the response's `segments` list matches `GET /api/chapters/{chapter_id}/segments`'s shape. Confirm it fails (404/405, route doesn't exist yet).
 2. Extract `_split_segment_rows` out of `_split_segment_at_offset` (`operations.py:464–502`) per step 1 above; re-run any existing test coverage touching Cast's range-assignment path to confirm the refactor is behavior-preserving.
 3. Add `split_segment_with_text` to `operations.py`.
 4. Add the `POST /segments/{segment_id}/split` route to `chapters.py`.
 5. Add the 400 (empty text) and 404 (missing segment) test cases.
 6. Run `./venv/bin/python -m pytest -q` (full suite — this touches shared `operations.py`/`chapters.py` code paths).
 7. Update `design-docs/specs/api-conventions.md` (new route in the REST URL pattern table) and `design-docs/specs/text-processing.md` (the split stage now has a second entry point — Revise's explicit-text path, alongside Cast's offset-based range-assignment path) — bump each file's `spec_version` and add a `## Changelog` row, per this repo's binding rule that a behavior change updates the matching spec in the same commit.
-8. Append a changelog-queue entry to `.agent/code-map/queue/` per the code-map convention (new route + new domain function).
+8. Append a code-map changelog entry per the code-map convention (new route + new domain function).
 
 ## Acceptance criteria
 
@@ -110,7 +110,7 @@ Two shapes were possible for the new endpoint:
 - [ ] Test written first, confirmed failing pre-implementation, then passing (R1 per `design-docs/specs/testing-standards.md`).
 - [ ] `./venv/bin/python -m pytest -q` clean.
 - [ ] `design-docs/specs/api-conventions.md` and `design-docs/specs/text-processing.md` updated with bumped `spec_version` + changelog row.
-- [ ] `.agent/code-map/queue/` changelog entry appended.
+- [ ] Code-map changelog entry appended.
 
 ## Map links
 

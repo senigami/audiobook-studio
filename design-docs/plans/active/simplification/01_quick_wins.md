@@ -36,7 +36,7 @@ Remove both lines from `package.json`, commit the updated `package-lock.json`.
 
 **Why:** `audiobook.py` (header: *"standalone reference script; the main application uses
 app/engines.py instead"*) and `audit_routes.py` are v1 utilities imported nowhere in `app/` or
-`plugins/` — exactly the legacy the clean-break policy says to delete. CLAUDE.md also notes the
+`plugins/` — exactly the legacy the clean-break policy says to delete. This repo's conventions also note the
 root `app.db` and `database.sqlite` are empty placeholder files.
 
 **Steps:**
@@ -154,7 +154,7 @@ cross-feature"). Don't lose that intent.
 - (b) Keep the directories with a one-line `README.md` stating the boundary and delete the
   placeholder `.ts` exports.
 
-Recommend (a) — the intent is already in CLAUDE.md / `code-organization.md`; empty barrels that no
+Recommend (a) — the intent is already in this repo's conventions / `code-organization.md`; empty barrels that no
 one imports are noise.
 
 **Verify:** `npm -C frontend run build` (nothing imports them).

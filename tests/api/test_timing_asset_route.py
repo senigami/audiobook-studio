@@ -129,7 +129,7 @@ def test_timing_route_corrupt_json_returns_404_not_500(clean_db, client):
 def test_timing_route_stale_audio_generated_at_returns_404(clean_db, client):
     """Simulates the chapter having been re-rendered after this sidecar was
     written: the sidecar's audio_generated_at no longer matches the chapter's
-    current DB value. This is the staleness case (Fable H3) — must be a 404,
+    current DB value. This is the staleness case (finding H3) — must be a 404,
     not silently served as if it still matched the current audio."""
     pid, cid, wav_path = _setup_chapter_with_audio(audio_generated_at=1000.0)
     sidecar_path = wav_path.with_suffix(".timing.json")

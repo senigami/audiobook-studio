@@ -9,7 +9,7 @@ Add an optional `entityLabel` prop to the shared `ActionMenu` component so its t
 ## Exact files
 
 - `frontend/src/components/ui/ActionMenu.tsx` — add the prop, use it in the trigger's `aria-label`.
-- `.agent/rules/frontend-interactions.md` — add a new section documenting the convention.
+- `design-docs/engineering-rules/frontend-interactions.md` — add a new section documenting the convention.
 
 ## Target contract
 
@@ -44,11 +44,11 @@ aria-label={entityLabel ? `More actions for ${entityLabel}` : 'More actions'}
 - [ ] Destructure it in the component signature (`ActionMenu.tsx:24`).
 - [ ] Update the trigger's `aria-label` per the target contract above.
 - [ ] Do NOT touch any of the 11 call sites in this task — passing the new prop at each site is Tasks 002-005's job, scoped by page. This task only makes the prop available.
-- [ ] Add `.agent/rules/frontend-interactions.md`'s new section (see below for the content to add).
+- [ ] Add `design-docs/engineering-rules/frontend-interactions.md`'s new section (see below for the content to add).
 - [ ] Run `npx tsc -b --force` from `frontend/` — confirm clean (proves the new optional prop doesn't break any of the 11 existing call sites).
 - [ ] Run any existing test that renders `ActionMenu` or a component using it (`grep -rl "ActionMenu" frontend/tests/unit/`) — confirm no regression to the default (no-`entityLabel`) case.
 
-## Convention doc content to add to `.agent/rules/frontend-interactions.md`
+## Convention doc content to add to `design-docs/engineering-rules/frontend-interactions.md`
 
 Add a new section (title suggestion: "Stable selectors for repeated UI"):
 
@@ -69,8 +69,8 @@ Interactive elements that render N times on screen (cards, rows, list items) mus
 - [ ] `ActionMenuProps` has the new optional `entityLabel` field; trigger label uses it when present.
 - [ ] `npx tsc -b --force` clean.
 - [ ] No existing test regresses.
-- [ ] `.agent/rules/frontend-interactions.md` has the new section.
-- [ ] Append a `.agent/code-map/queue/` entry.
+- [ ] `design-docs/engineering-rules/frontend-interactions.md` has the new section.
+- [ ] Append a code-map changelog entry.
 
 ## Dependencies
 

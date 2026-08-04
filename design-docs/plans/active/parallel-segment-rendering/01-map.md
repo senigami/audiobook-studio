@@ -57,7 +57,7 @@ useStudioChapter  ── SET of active segments  ──►  ScriptView per-segme
 - **INV-2 — Stitch order.** The chapter WAV concatenates segments in **manuscript order**, regardless of completion order.
 - **INV-3 — Validated completion.** A segment/chapter is "done" only on a **validated artifact** (non-zero, duration-sane), not on subprocess exit code.
 - **INV-4 — Monotonic durable status, one job per chapter.** The parent chapter job is the UI/recovery-visible unit; its durable status never regresses; children are internal.
-- **INV-5 — No engine-ID branching.** Concurrency is **manifest-driven** (per `.agent/rules/modular_architecture.md`); core code must not branch on engine IDs for caps/pools.
+- **INV-5 — No engine-ID branching.** Concurrency is **manifest-driven** (per `design-docs/engineering-rules/modular_architecture.md`); core code must not branch on engine IDs for caps/pools.
 - **INV-6 — Per-segment state isolation.** Concurrent segments never share the single-stream mutable timing/marker state (`_dispatch` closure).
 - **INV-7 — Cancel safety.** Cancel sets a shared stop signal, **joins all in-flight** children before the terminal write / resource release; no orphan WAVs or straggler `SEGMENT_SAVED` writes.
 - **INV-8 — Recovery resumes only unfinished.** Restart re-renders only segments without a validated artifact (reuse via `_group_needs_render`).
@@ -142,6 +142,6 @@ M-PAR-3 (parts G/H above) is owner-confirmed live (segments render in parallel, 
 
 - Master roadmap & checklist: [TASKS.md](../../TASKS.md) (W-PAR).
 - Subsumes W5 from [mixed-synthesis-fused-proposal](../mixed-synthesis-fused-proposal/00-overview.md) (§Scope, Layer 4).
-- Architecture contracts: `design-docs/specs/{system-architecture,queue-jobs,data-model,live-events,progress-presentation}.md`; `.agent/rules/modular_architecture.md`.
+- Architecture contracts: `design-docs/specs/{system-architecture,queue-jobs,data-model,live-events,progress-presentation}.md`; `design-docs/engineering-rules/modular_architecture.md`.
 - Phase-2 visualizer design: [10-phase2-render-monitor.md](10-phase2-render-monitor.md).
 - Phase-3 multi-job rows design: [11-phase3-multi-job-rows.md](11-phase3-multi-job-rows.md).
