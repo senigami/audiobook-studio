@@ -1,6 +1,6 @@
 {
   "roster_version": 1,
-  "updated": "2026-07-29",
+  "updated": "2026-08-04",
   "note": "The routing table for this repo's named seats. Query this rather than restating counts, tiers, or surfaces in prose. Adding, retiring, or renaming a seat is a same-change edit here, in the seat's profile, and in roster.html. Rulings that shaped these entries live in .claude/decisions/.",
   "orchestrator": {
     "role_name": "Ada",
@@ -13,6 +13,14 @@
       ".claude/agents/_shared/crew-doctrine.md",
       ".claude/agents/_shared/operating-discipline.md"
     ]
+  },
+  "naming": {
+    "method": "~/.claude/orchestration-primer/naming-discipline.md — the canonical method; do not restate or paraphrase it here (OD-0021)",
+    "axis": "the repo's subject matter — what this codebase is for",
+    "register": "derived from OD-0004; no verbatim owner instruction is on record, only that he pushed back on names that were job descriptions in disguise. As applied: a name must live in the human world as a name real people carry, and must not merely restate the seat's job.",
+    "persona": "none",
+    "why": "Every seat listed here was named on 2026-07-20 under the earlier self-naming method and predates this axis; they are not drawn from it and are not being renamed. The axis applies to every hire from 2026-08-04 onward.",
+    "assigned_names_ledger": "~/.claude/orchestration-primer/name-registry.md — the single owner-wide ledger of which names are taken. No in-use/retired list is kept in this repo (OD-0021)."
   },
   "conventions": {
     "filename": "<name>-<functional-slug>.md",

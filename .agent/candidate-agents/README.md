@@ -1,7 +1,7 @@
 # Candidate agents — a pre-reviewed hiring pool
 
 These are **draft agent profiles for seats we do not yet have**, held here so that when a
-real need arises we pull a candidate, modify it to the moment, let it choose its own name, run
+real need arises we pull a candidate, modify it to the moment, name it (OD-0021), run
 the one required adversarial review, and commit it into `.claude/agents/`. They are **not
 active** — nothing in this directory is dispatchable by the harness (only `.claude/agents/`
 is). Think of it as résumés on file, not employees.
@@ -18,10 +18,12 @@ Fable → decide → switch back" pattern this follows.
 
 ## Conventions these follow
 
-- **No personal names.** A seat's name is self-chosen *at hire time*, after its profile is
-  rebuilt for the actual need — the name marks accumulated convictions, so it can't precede the
-  work. Frontmatter uses the role name only. See CLAUDE.md's roster block for how the current
-  five were named.
+- **No personal names.** A candidate carries no name. The name is assigned by the orchestrator
+  *at hire time*, after the profile is rebuilt for the actual need — write the profile first, then
+  name it. Frontmatter uses the role name only. Naming is orchestrator-owned and never
+  self-chosen (OD-0021); the method is
+  `~/.claude/orchestration-primer/naming-discipline.md` and the charter is `roster.json`'s
+  `naming` object — do not restate either here.
 - **`model: inherit`** — the repo's quality seats ride the dispatching session's model
   (downshift per-spawn for mechanical slices). Don't pin a dated slug. **One deliberate exception:**
   `reasoning-analyst` pins `model: opus` and is meant to run at max reasoning effort — reasoning
@@ -63,7 +65,9 @@ non-overlapping:
 1. Copy the candidate into `.claude/agents/<seat>.md`, delete from this pool (or leave if the
    pool copy stays a template).
 2. Rewrite for the actual triggering need — the primer is a starting point, not final.
-3. Let the seat choose its own name; record the etymology in the profile and update CLAUDE.md's
-   roster block + the name registry.
+3. Name the seat yourself and report it — do not ask it to name itself, and do not spawn anything
+   to name it (OD-0021). Record the rationale line in the profile, add the seat to `roster.json`
+   and `roster.html` in the same change, and write the name to the owner-wide registry
+   (`~/.claude/orchestration-primer/name-registry.md`), which is the only ledger of taken names.
 4. Run the one required adversarial review before commit (mandate guardrail).
 5. Update `design-docs/how-this-system-works.md`'s team table.
