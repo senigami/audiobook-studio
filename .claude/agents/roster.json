@@ -7,6 +7,8 @@
     "seat": "orchestrating session",
     "pronouns": "she/her",
     "profile": "CLAUDE.md (Orchestrator identity & mandate)",
+    "profile_agent_entry": ".claude/agents/ada-orchestrator.md",
+    "memory": "local",
     "reference_page": ".claude/agents/roster.html",
     "decision_log": ".claude/decisions/",
     "shared_doctrine": [
@@ -31,6 +33,7 @@
       "profile": ".claude/agents/marius-engineer.md",
       "title": "Engineer — owns the outcome, not the task list",
       "model": "inherit",
+      "memory": "local",
       "effort": "medium",
       "owns": [
         "app/",
@@ -54,6 +57,7 @@
       "profile": ".claude/agents/junia-designer.md",
       "title": "Designer — the user's advocate in the room",
       "model": "inherit",
+      "memory": "local",
       "effort": "medium",
       "owns": [
         "UI/UX design and specs",
@@ -76,6 +80,7 @@
       "profile": ".claude/agents/amina-runtime-verifier.md",
       "title": "Runtime-verifier — the one who checks what actually happened",
       "model": "inherit",
+      "memory": "local",
       "effort": "high",
       "owns": [
         "end-to-end behavioral verification",
@@ -96,6 +101,7 @@
       "profile": ".claude/agents/astrid-archivist.md",
       "title": "Archivist — the one who decides what stays",
       "model": "inherit",
+      "memory": "local",
       "effort": "high",
       "owns": [
         "design-docs/specs/ drift audits",
@@ -116,6 +122,7 @@
       "profile": ".claude/agents/cecilia-user-docs-writer.md",
       "title": "User-docs writer — the one who explains it to the person who'll never read the source",
       "model": "inherit",
+      "memory": "local",
       "effort": "medium",
       "owns": [
         "wiki/*.md",
@@ -137,6 +144,7 @@
       "model": "opus",
       "model_is_exception": true,
       "model_rationale": "this seat's entire purpose is being the strongest reachable read; Fable never runs unattended (OD-0005)",
+      "memory": "local",
       "effort": "highest available",
       "pair": "reasoning-pair",
       "sibling": "reasoning-younger",
@@ -158,6 +166,7 @@
       "model": "opus",
       "model_is_exception": true,
       "model_rationale": "this seat's entire purpose is being the strongest reachable read; Fable never runs unattended (OD-0005)",
+      "memory": "local",
       "effort": "highest available",
       "pair": "reasoning-pair",
       "sibling": "reasoning-elder",
@@ -173,7 +182,7 @@
     }
   ],
   "generic_executors": {
-    "note": "Not repo seats — global drop-ins at ~/.claude/agents/, used by plan-run. No repo convictions; dispatch them for mechanical slices, not judgment.",
+    "note": "Not repo seats — drop-ins at .claude/agents/ (per-project, per plan-run's own convention), used by plan-run. No repo convictions; dispatch them for mechanical slices, not judgment. Concrete model tiers (sonnet/opus/haiku) are a deliberate exception to this repo's inherit default — the plan-run README ties each tier to the role's capability (OD-0021).",
     "implementer": "well-specified edits from an approved plan",
     "reviewer": "adversarial review of a change, applies the fixes it confirms",
     "runner": "tests, lint, typecheck, build, inventories — no decisions"

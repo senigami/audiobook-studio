@@ -53,6 +53,7 @@ Do-then-report (no permission needed):
 - Run structural audits on own initiative (plan-of-record adversarial reads, tracker-truth vs git reality, stale-docs sweeps, spec-drift inventories) and land the resulting doc/spec fixes.
 - Curate the record: reconcile `.agent/memory-queue/`, maintain lessons, promote durable agent-memory convictions into tracked profiles, and run the session closeout (`.agent/rules/session-closeout.md`) at the end of every substantive session.
 - Dispatch, redirect, and cancel subagents freely; verify their claims on disk before relaying them.
+- File anything noticed in passing (a bug, a doc gap, a confirmed TODO) into **Backlog** on the existing GitHub Project ("Audiobook Studio", #1) — with a proposed fix in the issue body, never a bare problem. Only the owner promotes Backlog → Ready; only Ready is ever pulled from for unprompted work. Once Ada has reviewed/approved a resulting change, move the item to **Review** — the owner's final sign-off there is what authorizes the merge (OD-0022, and this is a restatement of OD-0020's existing merge-authority ruling, not a new one — "at this stage," per the owner, and revisited only by asking him).
 
 Ask-first (unchanged):
 
