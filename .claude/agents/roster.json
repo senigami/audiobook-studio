@@ -4,6 +4,7 @@
   "note": "The routing table for this repo's named seats. Query this rather than restating counts, tiers, or surfaces in prose. Adding, retiring, or renaming a seat is a same-change edit here, in the seat's profile, and in roster.html. Rulings that shaped these entries live in .claude/decisions/.",
   "orchestrator": {
     "role_name": "Ada",
+    "spawn_key": "abfc-ada",
     "seat": "orchestrating session",
     "pronouns": "she/her",
     "profile": "CLAUDE.md (Orchestrator identity & mandate)",
@@ -17,12 +18,14 @@
     ]
   },
   "conventions": {
-    "filename": "<name>-<functional-slug>.md",
-    "dispatch_key": "the frontmatter `name:` field — job-description-only, never a person's name",
+    "repo_id": "abfc",
+    "repo_id_file": ".claude/repo-id (untracked, per the standing rule that the awakening layer stays local; the durable record is ~/.claude/orchestration-primer/repo-ids.json)",
+    "filename": "<name>-<functional-slug>.md — the filename keeps the ROLE word; the hook globs this folder to discover which seat speaks inline, so do not rename files to match spawn keys (OD-0024)",
+    "spawn_key": "the frontmatter `name:` field — `<repo-id>-<personal-name>`, e.g. abfc-marius. Reverses the earlier job-description-only rule (OD-0024)",
     "default_model": "inherit",
     "default_model_rationale": "quality seats ride the dispatching session's model; downshift per-spawn for mechanical slices (OD-0005)",
     "report_path": ".agent/reports/<date>-<slug>-<task>.md",
-    "memory_path": "~/.claude/agent-memory/<slug>/MEMORY.md",
+    "memory_path": ".claude/agent-memory-local/<spawn_key>/MEMORY.md",
     "reasoning_effort": "no confirmed dispatch-time or frontmatter key in this harness as of 2026-07-29 — do not invent one (OD-0006)",
     "names_are_internal": true
   },
@@ -30,6 +33,7 @@
     {
       "name": "Marius",
       "slug": "engineer",
+      "spawn_key": "abfc-marius",
       "profile": ".claude/agents/marius-engineer.md",
       "title": "Engineer — owns the outcome, not the task list",
       "model": "inherit",
@@ -45,8 +49,8 @@
       ],
       "dispatch_when": "a task needs judgment about HOW, end-to-end from understanding through implementation and verification",
       "do_not_dispatch_for": [
-        "mechanical translation of an approved plan (implementer)",
-        "pure command-running (runner)",
+        "mechanical translation of an approved plan (abfc-implementer)",
+        "pure command-running (abfc-runner)",
         "design or UI judgment (designer)"
       ],
       "escalates_when": "a request violates the specs, testing standards, or module boundaries; or the call is a product default"
@@ -54,6 +58,7 @@
     {
       "name": "Junia",
       "slug": "designer",
+      "spawn_key": "abfc-junia",
       "profile": ".claude/agents/junia-designer.md",
       "title": "Designer — the user's advocate in the room",
       "model": "inherit",
@@ -69,7 +74,7 @@
       "dispatch_when": "any work touching design elements — new UI, layout, component styling, interface copy, interaction patterns, theming; before building a surface or reviewing one after",
       "do_not_dispatch_for": [
         "pure logic or backend work",
-        "implementing a large approved spec verbatim (implementer)",
+        "implementing a large approved spec verbatim (abfc-implementer)",
         "end-user guide and wiki content (user-docs-writer)"
       ],
       "escalates_when": "information-architecture changes, release-facing defaults, or any perceptual verdict — stage the evidence, never assert it"
@@ -77,6 +82,7 @@
     {
       "name": "Amina",
       "slug": "runtime-verifier",
+      "spawn_key": "abfc-amina",
       "profile": ".claude/agents/amina-runtime-verifier.md",
       "title": "Runtime-verifier — the one who checks what actually happened",
       "model": "inherit",
@@ -98,6 +104,7 @@
     {
       "name": "Astrid",
       "slug": "archivist",
+      "spawn_key": "abfc-astrid",
       "profile": ".claude/agents/astrid-archivist.md",
       "title": "Archivist — the one who decides what stays",
       "model": "inherit",
@@ -119,6 +126,7 @@
     {
       "name": "Cecilia",
       "slug": "user-docs-writer",
+      "spawn_key": "abfc-cecilia",
       "profile": ".claude/agents/cecilia-user-docs-writer.md",
       "title": "User-docs writer — the one who explains it to the person who'll never read the source",
       "model": "inherit",
@@ -139,6 +147,7 @@
     {
       "name": "Esther",
       "slug": "reasoning-elder",
+      "spawn_key": "abfc-esther",
       "profile": ".claude/agents/esther-reasoning-elder.md",
       "title": "Reasoning-elder — reasons from what the architecture holds fixed",
       "model": "opus",
@@ -147,20 +156,21 @@
       "memory": "local",
       "effort": "highest available",
       "pair": "reasoning-pair",
-      "sibling": "reasoning-younger",
+      "sibling": "abfc-tamsin",
       "shared_contract": ".claude/agents/_shared/reasoning-pair-contract.md",
       "lens": "structural / top-down — reasons downward from the code-map's flows, invariants, and recorded shape",
       "dispatch_when": "a hard open-ended call (systemic root-cause, architecture weighing, risky-refactor blast radius) — always as one independent panelist via the fusion-reasoning skill, alongside reasoning-younger",
       "do_not_dispatch_for": [
         "solo dispatch if the sibling can be run",
         "implementing the decision (engineer)",
-        "critiquing one diff (reviewer)"
+        "critiquing one diff (abfc-reviewer)"
       ],
       "escalates_when": "the call is genuinely frontier-hard; the pair materially disagrees; or the pair converges confidently on something in the owner's ask-first category"
     },
     {
       "name": "Tamsin",
       "slug": "reasoning-younger",
+      "spawn_key": "abfc-tamsin",
       "profile": ".claude/agents/tamsin-reasoning-younger.md",
       "title": "Reasoning-younger — checks the ground the wall stands on",
       "model": "opus",
@@ -169,23 +179,23 @@
       "memory": "local",
       "effort": "highest available",
       "pair": "reasoning-pair",
-      "sibling": "reasoning-elder",
+      "sibling": "abfc-esther",
       "shared_contract": ".claude/agents/_shared/reasoning-pair-contract.md",
       "lens": "empirical / bottom-up — reasons upward from what the code actually does: the call site, the trace, the observed behavior",
       "dispatch_when": "a hard open-ended call (systemic root-cause, architecture weighing, risky-refactor blast radius) — always as one independent panelist via the fusion-reasoning skill, alongside reasoning-elder",
       "do_not_dispatch_for": [
         "solo dispatch if the sibling can be run",
         "implementing the decision (engineer)",
-        "critiquing one diff (reviewer)"
+        "critiquing one diff (abfc-reviewer)"
       ],
       "escalates_when": "the call is genuinely frontier-hard; the pair materially disagrees; or the pair converges confidently on something in the owner's ask-first category"
     }
   ],
   "generic_executors": {
-    "note": "Not repo seats — drop-ins at .claude/agents/ (per-project, per plan-run's own convention), used by plan-run. No repo convictions; dispatch them for mechanical slices, not judgment. Concrete model tiers (sonnet/opus/haiku) are a deliberate exception to this repo's inherit default — the plan-run README ties each tier to the role's capability (OD-0021).",
-    "implementer": "well-specified edits from an approved plan",
-    "reviewer": "adversarial review of a change, applies the fixes it confirms",
-    "runner": "tests, lint, typecheck, build, inventories — no decisions"
+    "note": "Repo-scoped copies of plan-run's generic executors, carrying repo-specific tiers and tool notes. They are PREFIXED like every other seat, because each declares `memory: local` and so keeps a store keyed on its token: a bare token with a local store is the exact collision this repo's ids exist to prevent, and `abfc-reviewer` already had one. Prefixing costs plan-run nothing — the bare `implementer`/`reviewer`/`runner` it dispatches by name still resolve from the machine-wide `~/.claude/agents/` copies (OD-0024). No repo convictions; dispatch them for mechanical slices, not judgment. Concrete model tiers (sonnet/opus/haiku) are a deliberate exception to this repo's inherit default — the plan-run README ties each tier to the role's capability (OD-0021).",
+    "abfc-implementer": "well-specified edits from an approved plan",
+    "abfc-reviewer": "adversarial review of a change, applies the fixes it confirms",
+    "abfc-runner": "tests, lint, typecheck, build, inventories — no decisions"
   },
   "unowned_surfaces": {
     "note": "No seat owns these; they are the orchestrator's or the owner's.",

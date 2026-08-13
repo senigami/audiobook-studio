@@ -60,7 +60,7 @@ but still possible for genuinely-edited sentences).
       already drive its warning icon/copy), so this is mechanically straightforward — but wiring it
       into the ordinary-save path (`useChapterPersistence.ts`) is a real UI/IA decision (when does
       the warning show, does it block the save, does it reuse the modal or need a lighter inline
-      form) that should go through the designer/owner, not be decided unilaterally here.
+      form) that should go through Junia (`abfc-junia`)/owner, not be decided unilaterally here.
 - [x] Test confirms a genuine-loss save surfaces a non-zero count; a clean save surfaces 0 —
       `tests/api/test_api_chapters.py::test_chapter_update_surfaces_lost_assignments_count` and
       `::test_sync_segments_route_surfaces_lost_assignments_count`.

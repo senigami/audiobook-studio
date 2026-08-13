@@ -356,7 +356,7 @@
     <h2>Ada</h2>
     <p class="title">Persistent orchestrating role · runs the main session</p>
     <p class="desc">Coordinates every specialist below, holds the owner's director mandate, and reports what she found and did — not what she's about to ask permission for. Verifies a helper's claim against the real files before relaying it. Named for Ada Lovelace, who wrote out what a machine would actually do, operation by operation, rather than what was claimed for it.</p>
-    <span class="seat-key mono">orchestrator</span>
+    <span class="seat-key mono">abfc-ada</span>
     <p class="desc">Also dispatchable as a subagent (e.g. from another repo's session) via <code class="mono">.claude/agents/ada-orchestrator.md</code>; the full mandate stays in CLAUDE.md as the source of truth.</p>
   </section>
 
@@ -369,7 +369,7 @@
       <h3>Marius</h3>
       <p class="title">Implementation, testing, verification</p>
       <p class="desc">Takes a task from understanding through shipped code. Pushes back — before building, not after — when a request conflicts with the specs, the tests, or the architecture.</p>
-      <span class="seat-key mono">engineer</span>
+      <span class="seat-key mono">abfc-marius</span>
     </div>
 
     <div class="card">
@@ -377,7 +377,7 @@
       <h3>Junia</h3>
       <p class="title">UI, UX, accessibility</p>
       <p class="desc">The user's advocate in the room. Judges every surface against the design system and accessibility floors, and insists on evidence over the builder's account of what shipped.</p>
-      <span class="seat-key mono">designer</span>
+      <span class="seat-key mono">abfc-junia</span>
     </div>
 
     <div class="card">
@@ -385,7 +385,7 @@
       <h3>Amina</h3>
       <p class="title">Drives the real app, checks the real artifacts</p>
       <p class="desc">A "done" claim isn't done until Amina has seen it work — the real render, the real request, the real file on disk, not just its unit tests.</p>
-      <span class="seat-key mono">runtime-verifier</span>
+      <span class="seat-key mono">abfc-amina</span>
     </div>
 
     <div class="card">
@@ -393,7 +393,7 @@
       <h3>Astrid</h3>
       <p class="title">Spec and paperwork truth</p>
       <p class="desc">Audits specs and plans against what the code actually does, and decides what's safe to retire. Nothing leaves the record while something still cites it.</p>
-      <span class="seat-key mono">archivist</span>
+      <span class="seat-key mono">abfc-astrid</span>
     </div>
 
     <div class="card">
@@ -401,7 +401,7 @@
       <h3>Cecilia</h3>
       <p class="title">Wiki, handbook, user guide</p>
       <p class="desc">Writes for the listener on the far side of the audio — the one who'll never read the source — and checks a feature actually shipped before writing it up as available.</p>
-      <span class="seat-key mono">user-docs-writer</span>
+      <span class="seat-key mono">abfc-cecilia</span>
     </div>
 
     <div class="pair-card">
@@ -411,14 +411,14 @@
           <h3>Esther</h3>
           <p class="title">Elder · structural, top-down</p>
           <p class="desc">Reasons downward from the code-map's invariants and recorded shape, treating established form as evidence. Owns escalation when a call exceeds the pair's own authority.</p>
-          <span class="seat-key mono">reasoning-elder</span>
+          <span class="seat-key mono">abfc-esther</span>
         </div>
         <div class="pair-divider" aria-hidden="true"></div>
         <div class="half">
           <h3>Tamsin</h3>
           <p class="title">Younger · empirical, bottom-up</p>
           <p class="desc">Reasons upward from what the code actually does — the call site, the trace, the observed behavior — rather than what the design claims for itself.</p>
-          <span class="seat-key mono">reasoning-younger</span>
+          <span class="seat-key mono">abfc-tamsin</span>
         </div>
       </div>
       <p class="pair-note">A durable, repo-grounded stand-in for the hardest open-ended calls (root-cause, architecture, blast-radius) — run as two independent panelists via <code class="mono">fusion-reasoning</code>. Where the two disagree, that split is the signal to escalate, not something either resolves alone. Not a replacement for a frontier model on the genuinely hardest call — escalating to one is their first duty there.</p>
@@ -427,7 +427,7 @@
   </div>
 
   <p class="colophon">
-    <span>Names are chosen for the role — orchestrator-named going forward, self-chosen for the seats hired before that convention — internal-only, and belong to the role, not to any one session or model.</span>
+    <span>Spawn keys are <code class="mono">abfc-&lt;name&gt;</code> — the repo id in the untracked <code class="mono">.claude/repo-id</code> plus the seat's own name — so a token is globally unique and a stray memory directory is attributable to its estate. Profile <em>filenames</em> keep the role word, deliberately: the session-start hook globs this folder for it to discover which seat speaks inline (OD-0024). Every seat is prefixed, this repo's <code class="mono">plan-run</code> executor copies included, because each keeps a local memory store keyed on its token. Names are chosen for the role — orchestrator-named going forward, self-chosen for the seats hired before that convention — internal-only, and belong to the role, not to any one session or model.</span>
     <span class="mono">last cast 2026-07-20</span>
   </p>
 
