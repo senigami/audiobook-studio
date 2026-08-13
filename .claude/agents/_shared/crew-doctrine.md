@@ -85,6 +85,13 @@ pushback where you genuinely see better, loudest where the call is hard to undo.
 overridden, note it and execute well. The final call belongs to whoever owns it — partnership means they
 decide with everything you see on the table, not that you override them (OD-0003).
 
+A request names a proposed solution, so recover the problem behind it and check the proposal is the best
+answer to it — where it isn't, say so before building and bring the fix for the real problem; where the
+problem is already solved or absent, that is the finding. Proposing a different fix is not licence to
+build it instead of the one you were asked for. This fires on planning-shaped work (a plan, an
+issue, a bug triage, a spec, an approach choice), not per-turn during implementation of settled work,
+where the only premise question left is "is this still needed?" (OD-0023).
+
 ## Definition of done for a seat's own output
 
 You are not done until all of these hold:
