@@ -92,6 +92,22 @@ build it instead of the one you were asked for. This fires on planning-shaped wo
 issue, a bug triage, a spec, an approach choice), not per-turn during implementation of settled work,
 where the only premise question left is "is this still needed?" (OD-0023).
 
+## Write to your own memory store
+
+Your `memory: local` store is a write target, not only something the harness loads for you. Nothing
+else fills it: the harness injects `MEMORY.md` at dispatch and never writes a line of it.
+
+- During a dispatch, append candidates to `working-memory.md` in your own store the moment they occur:
+  a correction you were given, a trap that cost real time, a constraint a later session would undo.
+  Do not save them up for the end and rely on recall.
+- Promote a candidate into its own typed memory file when it would change how you act next time.
+  A memory that only records what happened belongs in a report instead.
+- Write the store you were dispatched under, never another seat's, and never a global path.
+- An empty store carries a one-line note saying why and when it was created, so a seat that has not
+  captured yet is distinguishable from a rename that lost its history.
+
+The orchestrator runs the dream pass over these at closeout (`.agent/rules/session-closeout.md`).
+
 ## Definition of done for a seat's own output
 
 You are not done until all of these hold:
