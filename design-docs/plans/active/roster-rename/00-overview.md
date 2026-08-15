@@ -73,3 +73,27 @@ Pronouns: only Ada/Albus's pronoun line is known to need a look — the roster.j
 entry currently has no explicit `pronouns` field for Albus's canon gender presentation to check
 against (Ada's was `she/her`; Albus/Dumbledore is `he/him` in canon — Task 002 must update this
 field, don't leave the old pronoun on the new name by oversight).
+
+## Full names (owner instruction, round added after initial plan draft)
+
+Each seat's spawn key/display name stays first-name-only (matching the existing convention), but
+every profile's description prose must also state the character's FULL name once, the way
+`albus-orchestrator.md` states "Albus (Albus Dumbledore)". Apply this to every seat where it's a
+natural, well-known full name — which is all nine here:
+
+| Name | Full name |
+|---|---|
+| Albus | Albus Dumbledore |
+| McGonagall | Minerva McGonagall |
+| Newt | Newt Scamander |
+| Fred | Fred Weasley |
+| George | George Weasley |
+| Moody | Alastor "Mad-Eye" Moody |
+| Dean | Dean Thomas |
+| Percy | Percy Weasley |
+| Hermione | Hermione Granger |
+
+Two of these are deliberate exceptions to the "spawn key uses first name" convention, already noted
+in `01-map.md` [INV-2]: McGonagall (no commonly-used first name in the text — surname is the
+token) and Moody (near-universally called "Moody"/"Mad-Eye" rather than "Alastor" — surname is the
+token there too, matching McGonagall's precedent rather than being a one-off).

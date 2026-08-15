@@ -25,6 +25,16 @@ inside files that aren't its own.
 | `.claude/agents/astrid-archivist.md` | `.claude/agents/percy-registrar.md` | Astrid → Percy; role: Archivist → **Registrar** | `abfc-astrid` → `abfc-percy` |
 | `.claude/agents/marius-engineer.md` | `.claude/agents/hermione-artificer.md` | Marius → Hermione; role: Engineer → **Artificer** | `abfc-marius` → `abfc-hermione` |
 
+## Full names (owner instruction — apply to every file below)
+
+Each seat keeps its first-name-only spawn key/display name, but every description must ALSO state
+the character's full name once, following the pattern: "...Answers to the internal role name Albus
+(Albus Dumbledore)." Use these exact full names: Albus Dumbledore, Minerva McGonagall, Newt
+Scamander, Fred Weasley, George Weasley, Alastor "Mad-Eye" Moody, Dean Thomas, Percy Weasley,
+Hermione Granger. See `00-overview.md` §"Full names" for the two deliberate surname-token
+exceptions (McGonagall, Moody) — their spawn key stays the surname, the full name in the
+description is still their complete canon name as shown above.
+
 ## Steps
 
 For each file:
