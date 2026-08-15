@@ -226,6 +226,7 @@
         "app/db/chapters_cleanup.py#cleanup_chapter_audio_files",
         "app/db/core.py#_db_lock,get_connection",
         "app/db/nlp.py",
+        "app/db/segment_alignment.py#align_segments",
         "app/db/segments.py#sync_chapter_segments",
         "app/domain/chapters/__init__.py",
         "app/engines/behavior.py",
@@ -236,7 +237,8 @@
       "called_by": [],
       "notes": [
         "base_revision_id excludes audio_status to avoid false conflicts",
-        "range assignments surgically split segments at char offsets"
+        "range assignments surgically split segments at char offsets",
+        "2026-08 (RC-1 fix, Task 5): get_resync_preview now calls the same segment_alignment.align_segments used by the real sync, so the preview cannot drift from what a save will actually do. preserved_assignments_count is at fresh-sentence granularity (a preserved multi-row fragment run counts once). is_destructive is now keyed purely to lost_assignments_count > 0 -- the old `total_new < total_old` row-count heuristic was dropped (Task 5 follow-up) because a legitimate preserved multi-row split can shrink the row count with zero actual loss, which produced a contradictory UI (destructive warning directly above \"all assignments preserved\")."
       ],
       "calls_inferred": [
         "app/db/speakers.py#get_speaker_settings",

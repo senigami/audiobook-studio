@@ -234,7 +234,8 @@
         "2026-07-10: Unified REST API client with fetch-based transport and response parsing",
         "2026-07-10: fetchChapter(chapterId, projectId?) now appends ?project_id=... when a projectId is supplied.",
         "2026-07-12: added SystemResourcesResponse type + api.fetchSystemResources() (GET /api/system/resources).",
-        "2026-07-16 (PR brief 08): added api.exportChapterVideo(chapterId, {projectId?, orientation?, duration?}) -> Blob, POSTing to /api/chapters/{id}/export-video. The prior api.exportSample (audio-URL) is now unused by any caller (candidate for follow-up cleanup)."
+        "2026-07-16 (PR brief 08): added api.exportChapterVideo(chapterId, {projectId?, orientation?, duration?}) -> Blob, POSTing to /api/chapters/{id}/export-video. The prior api.exportSample (audio-URL) is now unused by any caller (candidate for follow-up cleanup).",
+        "2026-08 (RC-1 fix, Task 6): updateChapter's return type gained lost_assignments_count: number, matching the backend's now-widened JSON response (app/api/routers/chapters.py#api_update_chapter_details)."
       ],
       "calls_inferred": [
         "@/api/types#RenderGroupsResponse",

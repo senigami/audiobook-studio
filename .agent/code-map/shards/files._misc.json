@@ -366,22 +366,34 @@
         "2026-07-12: NEW FILE — _make_voice_root fixture rewritten to build the REAL on-disk layout (variant subdirectory with profile.json + sample.mp3, optional latent.pth) instead of a voice-root-level samples/preview.mp3 that no real voice has -- the old fixture shape was itself hiding the bug this change fixes. 5 new tests: real variant sample bytes actually end up in the export, same-variant engine asset included under assets/<engine_id>/, README names the generating model, no assets/ entry when the variant has no engine asset, and state.json's default_variant is honored over alphabetical fallback (two variants, non-alphabetically-first one wins)."
       ]
     },
-    "design-docs/specs/voice-bundles.md": {
-      "purpose": "spec_version 1.5.1 -> 1.6.0. Documents the GET route fix and the crop-UI addition; confirms PNG remains the correct icon format.",
+    "design-docs/specs/design-system.md": {
+      "purpose": "1.17.0 changelog row's citation of a specific design-critique findings doc removed (the doc was renamed/archived in the plans reorg); the P5 accent-rename description itself is unchanged. Doc-only; spec_version 1.17.0 unaffected.",
       "exports": [],
       "calls": [],
       "called_by": [],
       "notes": [
-        "2026-07-12: NEW FILE — spec_version 1.5.1 -> 1.6.0. Documents the GET route fix and the crop-UI addition; confirms PNG remains the correct icon format."
+        "2026-08: NEW RECORD — this file was hash-tracked but had never received a files[] record before; added now at the same lightweight (purpose+notes, no exports/calls) convention used by its design-docs/specs/ siblings in this shard, since design-docs/ is generally out of the map's mapped scope (see meta.unmapped) but a few individual spec/reference docs are tracked as exceptions.",
+        "2026-08: doc-only reword, no version bump — see purpose."
+      ]
+    },
+    "design-docs/specs/voice-bundles.md": {
+      "purpose": "Changelog wording corrected after the huggingface_voice_upload plan folder was archived/consolidated: the 1.7.0/1.8.0 rows no longer name the now-gone design-docs/plans/active/huggingface_voice_upload/ path directly, and the sources link to final_release/04 was completed to the real filename (04_voice_metadata_and_tagging.md). Doc-only; spec_version unchanged.",
+      "exports": [],
+      "calls": [],
+      "called_by": [],
+      "notes": [
+        "2026-08: doc-only reword, no version bump — see purpose.",
+        "2026-07-12: spec_version 1.5.1 -> 1.6.0. Documents the GET route fix and the crop-UI addition; confirms PNG remains the correct icon format."
       ]
     },
     "design-docs/specs/README.md": {
-      "purpose": "voice-bundles.md version bumped to 1.6.0 in the spec index.",
+      "purpose": "audio-player.md's row updated to say the scrubbing-waveform tape shipped live (was: tracked by the still-open plan folder); the interface-localization row's example-doc pointer corrected to design-docs/plans/proposals/localization_interface_examples/ after the old _archive path was retired.",
       "exports": [],
       "calls": [],
       "called_by": [],
       "notes": [
-        "2026-07-12: NEW FILE — voice-bundles.md version bumped to 1.6.0 in the spec index."
+        "2026-08: two spec-index rows corrected to match the plans-folder reorg (tape shipped, archived path retired) — see purpose.",
+        "2026-07-12: voice-bundles.md version bumped to 1.6.0 in the spec index."
       ]
     },
     "frontend/tests/unit/pages/Book/studio/useStudioChapter.test.tsx": {

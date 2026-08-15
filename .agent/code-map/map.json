@@ -1,6 +1,6 @@
 {
   "meta": {
-    "synced_commit": "ebf484be36efbd340e008a23cbea87c899a805c6",
+    "synced_commit": "9c868d6f7f051c86eeda6ad87e921510db1b15d2",
     "shards": [
       {
         "prefix": "frontend/src/pages/ChapterEditor/",
@@ -90,7 +90,7 @@
         "prefix": "frontend/src/api/",
         "path": "shards/files.frontend-src-api.json",
         "files": 11,
-        "bytes": 14204
+        "bytes": 14417
       },
       {
         "prefix": "frontend/src/app/",
@@ -126,7 +126,7 @@
         "prefix": "app/domain/",
         "path": "shards/files.app-domain.json",
         "files": 56,
-        "bytes": 42732
+        "bytes": 43441
       },
       {
         "prefix": "app/utils/",
@@ -138,7 +138,7 @@
         "prefix": "app/core/",
         "path": "shards/files.app-core.json",
         "files": 7,
-        "bytes": 6406
+        "bytes": 6577
       },
       {
         "prefix": "app/jobs/",
@@ -150,19 +150,19 @@
         "prefix": "app/api/",
         "path": "shards/files.app-api.json",
         "files": 42,
-        "bytes": 60976
+        "bytes": 61328
       },
       {
         "prefix": "app/db/",
         "path": "shards/files.app-db.json",
-        "files": 30,
-        "bytes": 68043
+        "files": 31,
+        "bytes": 72089
       },
       {
         "prefix": "",
         "path": "shards/files._misc.json",
-        "files": 57,
-        "bytes": 46753
+        "files": 58,
+        "bytes": 48252
       },
       {
         "prefix": "studio_plugin_sdk/",

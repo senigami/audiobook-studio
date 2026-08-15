@@ -153,7 +153,8 @@
       "notes": [
         "2026-07-09: PUT /api/segments/{segment_id} now enforces an explicit field whitelist (SEGMENT_UPDATE_ALLOWED_FIELDS = character_id, speaker_profile_name, audio_status, text_content) before forwarding the request body into update_segment(**updates), which otherwise used untrusted request-supplied dict keys directly as SQL column names. Unknown fields now 400 rather than passing through silently.",
         "2026-07-10: POST /api/segments/bulk-update now enforces the same SEGMENT_UPDATE_ALLOWED_FIELDS whitelist (character_id, speaker_profile_name, audio_status, text_content) used by PUT /api/segments/{segment_id}, before forwarding req.updates into update_segments_bulk(**updates), which builds f\"{k} = ?\" SQL from those keys exactly like the already-fixed single-segment path. Unknown fields now 400 rather than being interpolated as raw SQL column names. No new constant was defined — reused SEGMENT_UPDATE_ALLOWED_FIELDS.",
-        "2026-07-10: GET /api/chapters/{chapter_id} now accepts an optional project_id query param and passes it through to get_chapter for scoping; a mismatched project_id now 404s instead of returning another project's chapter."
+        "2026-07-10: GET /api/chapters/{chapter_id} now accepts an optional project_id query param and passes it through to get_chapter for scoping; a mismatched project_id now 404s instead of returning another project's chapter.",
+        "2026-08 (RC-1 fix, Task 6): api_update_chapter_details and api_sync_segments both now read lost_assignments_count off update_chapter()/sync_chapter_segments()'s dict return (previously discarded) and echo it in the JSON response, so an ordinary text save can surface the same loss count only the explicit resync-preview route showed before."
       ],
       "calls_inferred": []
     },

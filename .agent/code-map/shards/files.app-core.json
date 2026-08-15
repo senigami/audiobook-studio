@@ -48,7 +48,8 @@
       "notes": [
         "boot_studio idempotent via global _booted flag",
         "migrations run at boot not import time",
-        "run_startup_recovery must run after reconciliation+listener registration"
+        "run_startup_recovery must run after reconciliation+listener registration",
+        "2026-08: boot_tts_server's docstring corrected -- plugins_dir default was still described as `./plugins` (pre-rename), now `./tts_engines`; no behavior change."
       ],
       "calls_inferred": []
     },

@@ -108,7 +108,7 @@
         {
           "name": "update_chapter",
           "kind": "fn",
-          "contract": "str, **updates → bool; updates chapter, syncs segments if text changes"
+          "contract": "str, **updates → bool | {\"success\": bool, \"lost_assignments_count\": int}; updates chapter, syncs segments if text changes. Returns the dict shape only when is_text_update (a text_content update triggered a sync); other updates still return a plain bool. Backward compatible: bool(result) on the dict is still truthy, and both pre-existing callers discarded the return value anyway (2026-08, RC-1 fix Task 6)."
         },
         {
           "name": "delete_chapter",
@@ -153,6 +153,7 @@
         "chapter creation ensures nested directory structure immediately",
         "audio flags (has_wav/mp3/m4a) detected via disk inspection outside lock",
         "text updates trigger segment sync; rollback on failure",
+        "2026-08 (RC-1 fix, Task 6): update_chapter's text-update branch now captures sync_chapter_segments()'s lost_assignments_count and returns it alongside success in a dict (see the update_chapter export contract above), instead of the old bare bool -- so an ordinary chapter save can surface the same loss count the explicit resync-preview route already showed.",
         "2026-07-09: get_chapter() now runs the same total_segments_count/done_segments_count subqueries as list_chapters() (previously only the list endpoint computed these), so single-chapter callers get the same shape as the list endpoint. No API contract change — these are additive fields on an existing response, and the chapter editor UI already reads them from `chapter.total_segments_count`/`done_segments_count` (ChapterWorkspaceHeader, ChapterTextPanel's analysisChapter fallback) so this fixes a pre-existing gap where the single-chapter endpoint silently omitted them.",
         "2026-07-10: get_chapter(chapter_id, project_id=None) now takes an optional project_id and returns None (same as not-found) if the chapter belongs to a different project. Extracted the shared segment-count subquery shape into _segment_counts_sql(alias) / _SEGMENT_COUNTS_SQL_TEMPLATE, used by get_chapter_segments_counts, get_chapter, and list_chapters — standardized on the done_segments_count/total_segments_count naming (matches Chapter type in frontend/src/types/index.ts and the existing list_chapters consumers), including inside get_chapter_segments_counts which previously used done_count/total_count column aliases internally (its (done, total) tuple return order is unchanged, so callers in app/jobs/worker_metrics.py and app/studio_plugin_sdk/context.py needed no changes)."
       ],
@@ -766,6 +767,37 @@
       ],
       "calls_inferred": []
     },
+    "app/db/segment_alignment.py": {
+      "purpose": "Content-anchored alignment between a chapter's existing segment rows and a freshly split sentence list -- the single shared matching function for both sync_chapter_segments (app/db/segments.py) and get_resync_preview (app/domain/chapters/operations.py). Pure function: no DB access, no side effects.",
+      "exports": [
+        {
+          "name": "align_segments",
+          "kind": "fn",
+          "contract": "list[dict] (existing rows, need id+text_content), list[str] (fresh sentences) → AlignmentResult; matches in order: (1) position-anchored exact match, (2) unique-content search for non-duplicate-sensitive text, (2b) fragment-run search (contiguous unused rows whose stripped concatenation equals the sentence; a >=2-row run is always eligible even for duplicate-sensitive content, a 1-row run stays gated by uniqueness), (3) anything left is new/changed"
+        },
+        {
+          "name": "AlignmentResult",
+          "kind": "class",
+          "contract": "dataclass: preserved (list[PreservedRun]), new_sentence_indices (list[int]), unmatched_existing_ids (set[str])"
+        },
+        {
+          "name": "PreservedRun",
+          "kind": "class",
+          "contract": "dataclass: fresh_index (int), existing_ids (list[str]) -- one fresh sentence matched to a contiguous run of 1+ existing rows to preserve untouched (id/character_id/speaker_profile_name/audio fields; segment_order is NOT part of this guarantee)"
+        }
+      ],
+      "calls": [],
+      "called_by": [
+        "app/db/segments.py#sync_chapter_segments",
+        "app/domain/chapters/operations.py#get_resync_preview"
+      ],
+      "notes": [
+        "2026-08 (RC-1 fix, new module, Tasks 1/4/5): replaces the position-only `existing[i].text == sent` check both callers used to duplicate and drift against each other -- see design-docs/plans/active/span_resync_preservation_fix/ for the full design and invariants (I1-I7).",
+        "Reordered duplicate whole-sentence content deliberately never cross-matches by search (only by strict position) -- ambiguity safety over recall.",
+        "A genuine multi-row fragment run (>=2 rows) is always eligible even for duplicate-sensitive content: a multi-row split is an explicit user action, categorically different from a naturally-occurring duplicate sentence."
+      ],
+      "calls_inferred": []
+    },
     "app/db/segment_gc.py": {
       "purpose": "Garbage-collection of orphaned segment audio files by comparing disk entries against DB rows",
       "exports": [
@@ -842,7 +874,7 @@
         {
           "name": "sync_chapter_segments",
           "kind": "fn",
-          "contract": "str, str, conn? → bool; splits text, preserves IDs/assignments, invalidates dropped text"
+          "contract": "str, str, conn? → {\"success\": bool, \"lost_assignments_count\": int}; splits text, delegates preservation matching to segment_alignment.align_segments (content-anchored, handles reordering and manual multi-row splits), invalidates dropped text, writes only rows whose order or audio actually changed. Was a bare bool before the 2026-08 RC-1 fix; both existing callers already discarded the old return value."
         },
         {
           "name": "chapter_completion_by_size",
@@ -857,6 +889,7 @@
         "app/db/core.py#_db_lock",
         "app/db/core.py#get_connection",
         "app/db/nlp.py#split_into_sentences",
+        "app/db/segment_alignment.py#align_segments",
         "app/db/state.py",
         "app/domain/chunk_groups.py#build_chunk_groups",
         "app/utils/render_trace.py#trace"
@@ -869,6 +902,7 @@
       "notes": [
         "Rule 3 applied: disk as source of truth (invalid 'done' files reset to unprocessed outside lock)",
         "sync_chapter_segments: can accept optional conn (caller owns transaction); otherwise acquires own lock",
+        "2026-08 (RC-1 fix, Task 4): sync_chapter_segments's preservation matching replaced with segment_alignment.align_segments (content-anchored: position match -> unique-content search -> fragment-run search) instead of the old position-only `existing[i].text == sent` check, which lost manual assignments on any reorder or multi-row split. Preserved rows whose order and audio are both unchanged now get NO db write at all (was delete-all-and-reinsert every sync). Returns lost_assignments_count (see export contract above) instead of a bare bool.",
         "update_segment triggers cascading invalidation (text/character/speaker changes invalidate audio)",
         "get_chapter_segments validates canonical names against current chunk groups",
         "broadcast_segments_updated called outside lock to prevent deadlock",
