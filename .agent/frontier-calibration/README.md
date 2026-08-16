@@ -5,7 +5,7 @@
 ## What this is
 
 A standing program to calibrate this repo's durable reasoning system (the Opus **reasoning-analyst
-twins** — Esther/Tamsin — run via `fusion-reasoning`) against the frontier model (**Fable**),
+twins** — Fred/George — run via `fusion-reasoning`) against the frontier model (**Fable**),
 *while Fable is still available*, and turn every measured shortfall into a **durable mechanism** that
 narrows the gap.
 

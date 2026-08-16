@@ -1,0 +1,29 @@
+{
+  "plan": "design-docs/plans/active/roster-rename/",
+  "updated": "2026-08-15T00:00:00Z",
+  "slices": {
+    "001-rename-agent-profiles": { "state": "accepted", "files": ["all 9 profile files"], "verified": "grep clean on old names/tokens, broken etymology, and mismatched pronouns", "note": "required 2 unplanned follow-up fix passes beyond original task spec, both caught by orchestrator verification not by the original task file" },
+    "002-update-roster-json": { "state": "accepted", "files": ["roster.json"], "verified": "JSON valid, grep clean", "open_item": "generic_executors-vs-seats[] promotion for McGonagall, flagged to owner" },
+    "003-update-roster-html": { "state": "accepted", "files": ["roster.html"], "verified": "grep clean, etymology genuinely rewritten", "open_item": "McGonagall has no card on this page at all, flagged to owner" },
+    "004-update-claude-md": { "state": "accepted", "files": ["CLAUDE.md"], "verified": "grep clean: 0 Ada, 7 Albus on expected lines" },
+    "005-move-memory-directories": { "state": "accepted", "files": ["abfc-ada->abfc-albus (9 files)", "abfc-reviewer->abfc-mcgonagall (2 files)"], "verified": "file counts match pre-move, used plain mv (git/info/exclude excludes this dir locally)" },
+    "006-write-decision-record": { "state": "accepted", "files": ["0028-roster-renamed-to-harry-potter-characters.md", "INDEX.md"], "verified": "decision + consequences text confirmed live", "open_item": "resolved: renumbered OD-0027->OD-0028 (2026-08-15, pre-push) once `gh pr view 184` confirmed that branch's own unrelated OD-0027 was still unmerged — cheap now (14 citations), so done rather than left for merge time" },
+    "007-update-name-registry": { "state": "accepted", "files": ["~/.claude/orchestration-primer/name-registry.md"], "verified": "9 rows added, no collision on new names", "open_item": "8 pre-rename rows still active under stale audiobook-studio qualifier, flagged not fixed" },
+    "008-cross-reference-sweep": { "state": "accepted", "verdict": "PASS round 3", "note": "3 independent gate rounds run: round 1 found 9 gaps (fixed), round 2 found 6 more including a missed operator manual doc + OD-number collision (fixed), round 3 found 6 more that round 2's own fixes had introduced elsewhere (fixed, verified). Round 3 ran ~250-hit full-repo sweeps and confirmed every remaining hit is either the plan's own rename tables, sealed historical OD entries, past-tense memory narration, or correctly-untouched pure historical attribution per OD-0028's own stated policy." },
+    "009-post-restart-verification": { "state": "pending", "note": "owner-attended, out of scope for this run — genuinely cannot be verified pre-restart" }
+  },
+  "green_gate": "not-run",
+  "review_rounds": [
+    { "round": 1, "blockers_found": 9, "blockers_fixed": 9, "phase": "task-008 gate" },
+    { "round": 2, "blockers_found": 6, "blockers_fixed": 6, "phase": "task-008 gate" },
+    { "round": 3, "blockers_found": 6, "blockers_fixed": 6, "phase": "task-008 gate" },
+    { "round": 4, "blockers_found": 2, "blockers_fixed": 1, "phase": "mastermind Phase 6 adversarial review", "note": "R1 (broken persona index links from an earlier commit on this branch) fixed; R2 (.voice/personas/ada/ still speaks as Ada/she) flagged, owner's call, rolled into the already-planned voice-card enhancement task" },
+    { "round": 5, "phase": "mastermind Phase 6b review-pr on PR #186", "verdict": "APPROVE", "note": "no new blockers; confirmed #184/#186 don't actually conflict on roster.json/roster.html/CLAUDE.md despite both appearing to touch them (the overlap is #183's content riding both stacked branches) — merge order requires #183 first" }
+  ],
+  "flagged_not_fixed_this_pr": [
+    ".agent/candidate-agents/ (6 files): still route to retired role words engineer/archivist, and README still describes self-chosen naming (superseded by OD-0021). Nothing dispatchable, nothing breaks today. Recommend a small separate follow-up pass, not folded into this PR.",
+    "external name-registry.md: 8 pre-rename rows still marked active under a stale audiobook-studio qualifier for this same repo. Owner decision, not this task's scope.",
+    "roster.json: McGonagall sits in generic_executors, not seats[], now that she's personally named. Flagged across tasks 002/003, not decided.",
+    "how-this-system-works.md line 27 'five specialists' above a table of 7 entries (5 singles + reasoning pair) — pre-existing miscount, not introduced by this rename."
+  ]
+}

@@ -1,4 +1,4 @@
-Shared contract for this repo's reasoning-analyst pair (`reasoning-elder` + `reasoning-younger`). Both seats obey every rule here; each profile carries only its own lens.
+Shared contract for this repo's reasoning-analyst pair (`abfc-fred` + `abfc-george`). Both seats obey every rule here; each profile carries only its own lens.
 
 Both seats also obey `.claude/agents/_shared/crew-doctrine.md` — every rule there binds this pair too, and nothing here overrides it.
 
@@ -58,11 +58,11 @@ neutral judge. The sibling is dispatched as the complementary panelist.
   get the reliability convergence buys. Dispatching only one sibling is an auditable smell, and it
   gets named rather than implying a reliability that wasn't earned.
 
-**Is this my job?** Writing/fixing code → `engineer` (Marius). Confirming an artifact/behavior is
-actually true on disk → `runtime-verifier` (Amina). Visual/UX judgment → `designer` (Junia). Whether
-a doc/spec/ADR matches the code → `archivist` (Astrid). Whether a shipped feature is written up for
-users → `user-docs-writer` (Cecilia). Critiquing one finished diff for style/correctness → the global
-`reviewer`. The other half of a reasoning pass → your sibling. A genuinely frontier-hard call →
+**Is this my job?** Writing/fixing code → `abfc-hermione` (Hermione). Confirming an artifact/behavior is
+actually true on disk → `abfc-moody` (Moody). Visual/UX judgment → `abfc-dean` (Dean). Whether
+a doc/spec/ADR matches the code → `abfc-percy` (Percy). Whether a shipped feature is written up for
+users → `abfc-newt` (Newt). Critiquing one finished diff for style/correctness → `abfc-mcgonagall`
+(this repo's adversarial-review seat; the bare `reviewer` in `~/.claude/agents/` is the separate machine-wide drop-in). The other half of a reasoning pass → your sibling. A genuinely frontier-hard call →
 escalate to Fable (owner-driven) / the owner; prepare the briefing, don't substitute for the
 judgment.
 

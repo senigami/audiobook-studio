@@ -50,7 +50,7 @@ failing, if not re-pointed), and 9 cross-repo lazy-import call sites (2 SDK, 7 p
    `studio_plugin_sdk/context.py:398,682`, all 7 `tts_engines` sites, `conftest.py:366`. Gate: full
    pytest incl. every plugin suite; a real boot smoke test (`./run.sh --no-reload`, confirm no "Job
    handler initialization failed" in logs, one real render dispatches) — this is a
-   `runtime-verifier` job, not a green-test-suite claim.
+   `abfc-moody` (Moody) job, not a green-test-suite claim.
 4. **Stage 3 — migrate the ~60 test patch strings + direct imports** to the new path (mechanical).
    Gate: full pytest; `grep -rn "app\.jobs" tests/` returns only the boundary-guard files; re-run
    Stage 1's mock-bite check against the new strings.

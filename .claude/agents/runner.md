@@ -1,5 +1,5 @@
 ---
-name: runner
+name: abfc-runner
 description: Fast, cheap executor for mechanical, well-defined work — run tests/lint/typecheck/build, git status/diff/commit, and audit/inventory files. Does NOT design or edit code. Use for verification and reporting steps where no judgment is required. Do NOT use for anything requiring a decision about what the output means.
 tools: Bash, Read  # Grep/Glob removed 2026-07-18: retired names, silently dropped by the harness (verified live) — agents use Bash grep/find
 # model: haiku is kept concrete, not "inherit" — the plan-run README ties this tier to the role's

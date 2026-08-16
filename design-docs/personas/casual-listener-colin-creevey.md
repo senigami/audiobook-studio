@@ -2,7 +2,7 @@
 
 **Identity:** "A hobbyist writer who wants to turn their short story into a listenable audiobook in one sitting — and who will not return if the first session ends without hearing their own words read back to them."
 
-> **Distinct from [28 the Nontechnical Author](28-nontechnical-author.md):** both are non-technical first-run users, but the Casual Listener is a *one-shot* hobbyist who abandons permanently on first failure — they never reach the recovery/diagnosis loop. The Nontechnical Author (the primary persona) is an *ongoing* author who returns across sessions, retries failures, and needs plain-language error recovery. Use the Casual Listener to test the cold-open happy path; use the Nontechnical Author to test persistence and recovery.
+> **Distinct from [28 the Nontechnical Author](nontechnical-author-neville-longbottom.md):** both are non-technical first-run users, but the Casual Listener is a *one-shot* hobbyist who abandons permanently on first failure — they never reach the recovery/diagnosis loop. The Nontechnical Author (the primary persona) is an *ongoing* author who returns across sessions, retries failures, and needs plain-language error recovery. Use the Casual Listener to test the cold-open happy path; use the Nontechnical Author to test persistence and recovery.
 
 ## Goals
 - Hear a rendered sample of their manuscript within ten minutes of opening the app for the first time

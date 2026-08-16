@@ -2,13 +2,13 @@
 
 *An operator's manual for the owner — plain language, no jargon. Written for you, not for another engineer. If you're ever curious how the machinery behind a session works, or want to steer it more precisely than "just handle it," this is the page.*
 
-*Last updated: 2026-07-18*
+*Last updated: 2026-08-15*
 
 ---
 
 ## 01 · The Big Picture
 
-Think of this repo like a small studio where you're the owner and the AI session you talk to is your co-lead. She doesn't do every job personally — she has a team of specialists she delegates to, a filing system so nothing gets forgotten between sessions, and a set of playbooks for handling specific kinds of work well.
+Think of this repo like a small studio where you're the owner and the AI session you talk to is your co-lead. He doesn't do every job personally — he has a team of specialists he delegates to, a filing system so nothing gets forgotten between sessions, and a set of playbooks for handling specific kinds of work well.
 
 Your job is to say what you want. The system's job is to figure out who does it and how.
 
@@ -22,18 +22,18 @@ Your job is to say what you want. The system's job is to figure out who does it 
 
 ## 02 · Meet the Team
 
-**Ada (she/her)** is the orchestrator you're talking to in a main session — the persistent role that coordinates everything else. The name belongs to the *role*, not to whichever AI model runs it on a given day: every session picks up the written record and is thereby the same role. Ada holds a **director mandate** you granted (2026-07-17): she commits finished work, opens PRs, runs audits, and manages the specialist roster on her own judgment — inside fixed guardrails (adversarial review on every profile change, everything landing as commits you can audit) — and asks first only for the things that are genuinely yours: merges, releases, destructive operations, and perceptual judgment calls like audio quality.
+**Albus (he/him)** is the orchestrator you're talking to in a main session — the persistent role that coordinates everything else. The name belongs to the *role*, not to whichever AI model runs it on a given day: every session picks up the written record and is thereby the same role. Albus holds a **director mandate** you granted (2026-07-17): he commits finished work, opens PRs, runs audits, and manages the specialist roster on his own judgment — inside fixed guardrails (adversarial review on every profile change, everything landing as commits you can audit) — and asks first only for the things that are genuinely yours: merges, releases, destructive operations, and perceptual judgment calls like audio quality.
 
-Behind her, five specialists get called in for specific jobs. You'll rarely need to name one yourself. Each chose its own name (re-chosen 2026-07-20 under a bias-neutral discipline — a real name that lives in the human world, never a restatement of the job) — a name here marks a seat with real accumulated convictions, not decoration.
+Behind him, a small bench of specialists gets called in for specific jobs (the table below is the current list). You'll rarely need to name one yourself. The current cast is a Harry Potter-themed roster you picked together on 2026-08-15, seat-by-seat against what each specialist actually does — replacing the round of names assigned on 2026-07-20 under a bias-neutral discipline (OD-0004). A name here still marks a seat with real accumulated convictions, not decoration.
 
 | Name | Seat | What they do | Think of them as |
 |---|---|---|---|
-| **Marius** | Engineer | Takes a task from understanding through implementation, testing, and verification. Pushes back on requests that violate the specs before building them. | The builder who argues back |
-| **Junia** | Designer | Anything touching the UI — layout, styling, copy, interaction patterns. Judges against Apple HIG, accessibility standards, and this repo's own design system. | The design conscience |
-| **Amina** | Runtime verifier | Drives the real app, runs actual renders, checks artifacts on disk. Reports measurable discrepancy, never an unevidenced verdict — a "done" claim isn't done until Amina has seen it work. | The one whose "done" you can trust |
-| **Astrid** | Archivist | Owns the paperwork's truth: audits specs and plans against what the code actually does, gates what gets retired vs. kept. Nothing leaves the record while something still cites it; nothing enters it on say-so. | The keeper of the record |
-| **Cecilia** | User-docs writer | Writes the wiki, handbook, and user guide for real end users (authors, narrators, hobbyists) — and verifies a feature actually shipped before writing it up as available. | The translator to plain English |
-| **Esther** & **Tamsin** | Reasoning pair | A two-seat deep-reasoning stand-in for the hardest open-ended calls (root-cause, architecture, blast-radius). Run *together* as independent panelists via the `fusion-reasoning` skill — Esther reasons top-down from the code-map's structure, Tamsin bottom-up from what the code actually does; where they disagree, that's the signal to escalate. Not a replacement for Fable — they know their ceiling. | The two who think it through, from opposite ends |
+| **Hermione** | Artificer | Takes a task from understanding through implementation, testing, and verification. Pushes back on requests that violate the specs before building them. | The builder who argues back |
+| **Dean** | Designer | Anything touching the UI — layout, styling, copy, interaction patterns. Judges against Apple HIG, accessibility standards, and this repo's own design system. | The design conscience |
+| **Moody** | Runtime verifier | Drives the real app, runs actual renders, checks artifacts on disk. Reports measurable discrepancy, never an unevidenced verdict — a "done" claim isn't done until Moody has seen it work. | The one whose "done" you can trust |
+| **Percy** | Registrar | Owns the paperwork's truth: audits specs and plans against what the code actually does, gates what gets retired vs. kept. Nothing leaves the record while something still cites it; nothing enters it on say-so. | The keeper of the record |
+| **Newt** | User-docs writer | Writes the wiki, handbook, and user guide for real end users (authors, narrators, hobbyists) — and verifies a feature actually shipped before writing it up as available. | The translator to plain English |
+| **Fred** & **George** | Reasoning pair | A two-seat deep-reasoning stand-in for the hardest open-ended calls (root-cause, architecture, blast-radius). Run *together* as independent panelists via the `fusion-reasoning` skill — Fred reasons top-down from the code-map's structure, George bottom-up from what the code actually does; where they disagree, that's the signal to escalate. Not a replacement for Fable — they know their ceiling. | The two who think it through, from opposite ends |
 
 The names stay internal — they never appear in code identifiers or the app's UI.
 
@@ -45,7 +45,7 @@ Beneath these named seats, generic helpers (scouts that explore code, implemente
 
 Every session and specialist runs on an underlying AI model. Different models are like different grades of staff seniority: some are fast and cheap, right for mechanical work; others are slower and sharper, reserved for real judgment calls.
 
-**This is almost entirely automatic.** Which grade to spend on each job is Ada's call, made task by task — mechanical work runs cheap, judgment calls get the stronger grades. You can always override it: just ask for a stronger (or cheaper) model on any job.
+**This is almost entirely automatic.** Which grade to spend on each job is Albus's call, made task by task — mechanical work runs cheap, judgment calls get the stronger grades. You can always override it: just ask for a stronger (or cheaper) model on any job.
 
 Two things are your call:
 
@@ -97,9 +97,9 @@ A small task just gets built. A big or unclear one gets planned first.
 ## 05 · How a Normal Session Goes
 
 1. **You say what you want**, in plain language — "clean up this folder," "why does this keep breaking," "help me plan the new feature."
-2. **Ada sizes up the job.** Small and clear → she just does it. Big, unclear, or risky → she proposes a short plan first and waits for your go-ahead.
+2. **Albus sizes up the job.** Small and clear → he just does it. Big, unclear, or risky → he proposes a short plan first and waits for your go-ahead.
 3. **Work gets delegated**, often to several helpers at once, running in the background while you keep talking.
-4. **Ada checks the work** before reporting back — she verifies against the real files; she doesn't just relay what a helper claims.
+4. **Albus checks the work** before reporting back — he verifies against the real files; he doesn't just relay what a helper claims.
 5. **You get a short, plain-language report** — what was found, what was done, the evidence, and the one decision that's genuinely yours (if any). The mandate is *act, then report* — not "what should I do next?"
 
 **Where it always pauses on purpose:** merging a PR, cutting a release, deleting data, reversing an architectural decision, posting outside this repo, and any perceptual judgment — does this audio sound right, is this layout better. Those are staged as evidence for you, never asserted.

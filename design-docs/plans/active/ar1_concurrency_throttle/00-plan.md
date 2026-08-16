@@ -47,9 +47,9 @@ mid-render OOM (losing in-flight work); too-low wastes throughput. No mechanism 
   in the Studio daemon.
 - **Genuine twin disagreement on the correct transport (escalate — this is exactly the kind of split
   the twin design exists to surface, not to average):**
-  - **Esther**: ride the TTS server's existing `/health` heartbeat (the watchdog already polls
+  - **Fred**: ride the TTS server's existing `/health` heartbeat (the watchdog already polls
     it; the xtts-env subprocess holds the real CUDA context, so sampling there is free and accurate).
-  - **Tamsin**: call NVML/`nvidia-smi` directly from the Studio daemon, reading global board memory
+  - **George**: call NVML/`nvidia-smi` directly from the Studio daemon, reading global board memory
     (host-total, not per-process) — demote/drop in-process `torch` entirely; this also stays correct
     if synthesis is ever remote over HTTP, where `/health`-heartbeat-piggybacking would not.
   - **Both agree**: don't sample via in-process `torch` in Studio. They disagree on subprocess-poll
@@ -73,8 +73,8 @@ mid-render OOM (losing in-flight work); too-low wastes throughput. No mechanism 
 
 ## Tasks
 
-1. **Implement the sampling transport per the owner's pick** (Esther's `/health`-heartbeat vs.
-   Tamsin's NVML/`nvidia-smi`-from-Studio-daemon — both are now fully specified; this is no longer a
+1. **Implement the sampling transport per the owner's pick** (Fred's `/health`-heartbeat vs.
+   George's NVML/`nvidia-smi`-from-Studio-daemon — both are now fully specified; this is no longer a
    research task, just an implementation choice). Do NOT implement in-process `torch.cuda` sampling
    in the Studio daemon — both twins independently ruled it out.
 2. **Implement `MemoryPressureMonitor`** per the design above, wired only from `boot_studio()`.

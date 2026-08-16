@@ -1,5 +1,5 @@
 ---
-name: implementer
+name: abfc-implementer
 description: Executes well-specified code edits from an approved plan or precise instructions. Use when the WHAT and HOW are already decided and the work is mostly mechanical translation into code. Makes the edits, runs quick local checks, and reports what changed. Does not redesign or expand scope. Do NOT use when the approach is still undecided — that's a planning task.
 tools: Bash, Read, Edit, Write  # Grep/Glob removed 2026-07-18: retired names, silently dropped by the harness (verified live) — agents use Bash grep/find
 # model: sonnet is kept concrete, not "inherit" — the plan-run README ties this tier to the role's

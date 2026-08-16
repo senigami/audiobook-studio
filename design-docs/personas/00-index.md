@@ -24,59 +24,59 @@ Each persona is identified purely by role — no invented human name. The file s
 
 | # | Persona | Depth | Why they're load-bearing |
 |---|---|---|---|
-| [01](01-novel-adapter.md) | Novel Adapter | Full | Authorial intent, prose-to-audio drift, pacing annotation |
-| [02](02-dialogue-playwright.md) | Dialogue Playwright | Mid | Attribution parsing, stage directions, mixed formatting |
-| [03](03-series-editor.md) | Series Editor | Mid | Cross-chapter continuity, voice consistency, revision tracking |
-| [04](04-copy-editor.md) | Copy Editor | Mid | Spoken awkwardness, punctuation-driven pauses, homophone traps |
-| [05](05-narrator-performer.md) | Narrator Performer | Mid | Performance notes, pronunciation, pickup list management |
-| [06](06-casting-director.md) | Casting Director | Full | Casting map, voice audition UX, assignment traceability |
-| [07](07-audio-producer.md) | Audio Producer | Mid | Queue health, retake management, production handoff |
-| [08](08-mastering-engineer.md) | Mastering Engineer | Mid | Loudness, clipping, export technical quality |
-| [09](09-publisher-ops.md) | Publisher Ops | Mid | Release gating, publish safety, deliverable audit |
-| [10](10-localization-lead.md) | Localization Lead | Mid | Multi-language, RTL, locale-specific fallback |
-| [11](11-sensitivity-reader.md) | Sensitivity Reader | Mid | Content review, representation, performance risk |
-| [12](12-rights-manager.md) | Rights Manager | Mid | Rights boundary, authorized export scope |
-| [13](13-review-only-proofreader.md) | Review-Only Proofreader | Mid | Narrow, non-destructive annotation without workflow noise |
-| [42](42-voice-clone-trainer.md) | Voice-Clone Trainer | Mid | The train→test→refine→retrain loop; clone versioning, sample quality |
+| [01](novel-adapter-penelope-clearwater.md) | Novel Adapter | Full | Authorial intent, prose-to-audio drift, pacing annotation |
+| [02](dialogue-playwright-xenophilius-lovegood.md) | Dialogue Playwright | Mid | Attribution parsing, stage directions, mixed formatting |
+| [03](series-editor-horace-slughorn.md) | Series Editor | Mid | Cross-chapter continuity, voice consistency, revision tracking |
+| [04](copy-editor-filius-flitwick.md) | Copy Editor | Mid | Spoken awkwardness, punctuation-driven pauses, homophone traps |
+| [05](narrator-performer-gilderoy-lockhart.md) | Narrator Performer | Mid | Performance notes, pronunciation, pickup list management |
+| [06](casting-director-kingsley-shacklebolt.md) | Casting Director | Full | Casting map, voice audition UX, assignment traceability |
+| [07](audio-producer-molly-weasley.md) | Audio Producer | Mid | Queue health, retake management, production handoff |
+| [08](mastering-engineer-severus-snape.md) | Mastering Engineer | Mid | Loudness, clipping, export technical quality |
+| [09](publisher-ops-cornelius-fudge.md) | Publisher Ops | Mid | Release gating, publish safety, deliverable audit |
+| [10](localization-lead-fleur-delacour.md) | Localization Lead | Mid | Multi-language, RTL, locale-specific fallback |
+| [11](sensitivity-reader-remus-lupin.md) | Sensitivity Reader | Mid | Content review, representation, performance risk |
+| [12](rights-manager-barty-crouch-sr.md) | Rights Manager | Mid | Rights boundary, authorized export scope |
+| [13](review-only-proofreader-padma-patil.md) | Review-Only Proofreader | Mid | Narrow, non-destructive annotation without workflow noise |
+| [42](voice-clone-trainer-luna-lovegood.md) | Voice-Clone Trainer | Mid | The train→test→refine→retrain loop; clone versioning, sample quality |
 
 ### Technical & Operator
 
 | # | Persona | Depth | Why they're load-bearing |
 |---|---|---|---|
-| [14](14-api-integrator.md) | API Integrator | Mid | Contract validation, error mapping, WebSocket frame ordering |
-| [15](15-plugin-author.md) | Plugin Author | Mid | Engine contract, manifest compliance, dev/runtime alignment |
-| [16](16-power-user.md) | Power User | Full | Scale stress test, queue reliability, session persistence under load |
-| [17](17-local-sysadmin.md) | Local Sysadmin | Mid | Port management, dependency recovery, restart safety |
-| [18](18-cross-platform-installer.md) | Cross-Platform Installer | Mid | Platform-specific install edge cases, path spaces, GPU drivers |
-| [19](19-automation-user.md) | Automation User | Mid | Idempotent batch automation, programmatic job status |
-| [20](20-engine-maintainer.md) | Engine Maintainer | Mid | TTS contract stability, ETA semantics, marker timing |
-| [21](21-qa-engineer.md) | QA Engineer | Mid | Reproducible failure paths, regression surface, state resets |
-| [22](22-privacy-security-reviewer.md) | Privacy & Security Reviewer | Mid | Local-first trust, plugin sandboxing, path traversal |
-| [23](23-queue-operator.md) | Queue Operator | Mid | Live queue triage, stuck job recovery, ownership visibility |
-| [24](24-observability-debugger.md) | Observability Debugger | Mid | Event trace, frame causality, log noise reduction |
-| [25](25-migration-recovery-operator.md) | Migration & Recovery Operator | Mid | State cutover, artifact stale detection, legacy path handling |
-| [26](26-release-doc-maintainer.md) | Release Doc Maintainer | Mid | Spec/code alignment, changelog completeness |
+| [14](api-integrator-bill-weasley.md) | API Integrator | Mid | Contract validation, error mapping, WebSocket frame ordering |
+| [15](plugin-author-garrick-ollivander.md) | Plugin Author | Mid | Engine contract, manifest compliance, dev/runtime alignment |
+| [16](power-user-oliver-wood.md) | Power User | Full | Scale stress test, queue reliability, session persistence under load |
+| [17](local-sysadmin-argus-filch.md) | Local Sysadmin | Mid | Port management, dependency recovery, restart safety |
+| [18](cross-platform-installer-nymphadora-tonks.md) | Cross-Platform Installer | Mid | Platform-specific install edge cases, path spaces, GPU drivers |
+| [19](automation-user-cedric-diggory.md) | Automation User | Mid | Idempotent batch automation, programmatic job status |
+| [20](engine-maintainer-charlie-weasley.md) | Engine Maintainer | Mid | TTS contract stability, ETA semantics, marker timing |
+| [21](qa-engineer-amelia-bones.md) | QA Engineer | Mid | Reproducible failure paths, regression surface, state resets |
+| [22](privacy-security-reviewer-rufus-scrimgeour.md) | Privacy & Security Reviewer | Mid | Local-first trust, plugin sandboxing, path traversal |
+| [23](queue-operator-lee-jordan.md) | Queue Operator | Mid | Live queue triage, stuck job recovery, ownership visibility |
+| [24](observability-debugger-bathsheda-babbling.md) | Observability Debugger | Mid | Event trace, frame causality, log noise reduction |
+| [25](migration-recovery-operator-griphook.md) | Migration & Recovery Operator | Mid | State cutover, artifact stale detection, legacy path handling |
+| [26](release-doc-maintainer-augusta-longbottom.md) | Release Doc Maintainer | Mid | Spec/code alignment, changelog completeness |
 
 ### Accessibility & Edge Cases
 
 | # | Persona | Depth | Why they're load-bearing |
 |---|---|---|---|
-| [27](27-casual-listener.md) | Casual Listener | Mid | Fast first success, minimal cognitive load, zero plugin knowledge |
-| [28](28-nontechnical-author.md) | Nontechnical Author | Full | **Primary persona** — plain language, default trust, recovery UX |
-| [29](29-screen-reader-producer.md) | Screen Reader Producer | Mid | Keyboard-only, semantic structure, non-visual state feedback |
-| [30](30-accessibility-qa.md) | Accessibility QA | Mid | Focus order, modal behavior, non-color status indicators |
-| [31](31-dyslexic-reader.md) | Dyslexic Reader | Mid | Typography, visual hierarchy, reduced noise |
-| [32](32-motor-impaired-keyboard-user.md) | Motor-Impaired Keyboard User | Mid | No drag, no hover, forgiving keyboard paths |
-| [33](33-deadline-editor.md) | Deadline Editor | Mid | Perceived speed, latency transparency, completion clarity |
-| [34](34-teacher-builder.md) | Teacher Builder | Mid | Batch production, consistent voices, classroom-appropriate export |
-| [35](35-small-team-marketer.md) | Small Team Marketer | Mid | Collaboration clarity, version safety, publish confidence |
-| [36](36-multilingual-author.md) | Multilingual Author | Mid | Mixed-language chapters, locale fallback, pronunciation |
-| [37](37-low-spec-laptop-user.md) | Low-Spec Laptop User | Mid | UI under CPU/RAM/storage constraints |
-| [38](38-offline-privacy-user.md) | Offline Privacy User | Mid | Local-first promise, plugin trust, cloud assumption visibility |
-| [39](39-plugin-tinkerer.md) | Plugin Tinkerer | Mid | Fast try/compare/recover plugin install cycles |
-| [40](40-support-triage-agent.md) | Support Triage Agent | Mid | Diagnostics, debug state export, error attribution |
-| [41](41-large-catalog-curator.md) | Large Catalog Curator | Mid | List scale, search/filter/sort, safe bulk operations |
-| [43](43-color-blind-user.md) | Color-Blind / Low-Vision User | Mid | State signaled by color alone; status orbs, swatches, banner contrast |
+| [27](casual-listener-colin-creevey.md) | Casual Listener | Mid | Fast first success, minimal cognitive load, zero plugin knowledge |
+| [28](nontechnical-author-neville-longbottom.md) | Nontechnical Author | Full | **Primary persona** — plain language, default trust, recovery UX |
+| [29](screen-reader-producer-firenze.md) | Screen Reader Producer | Mid | Keyboard-only, semantic structure, non-visual state feedback |
+| [30](accessibility-qa-rita-skeeter.md) | Accessibility QA | Mid | Focus order, modal behavior, non-color status indicators |
+| [31](dyslexic-reader-rubeus-hagrid.md) | Dyslexic Reader | Mid | Typography, visual hierarchy, reduced noise |
+| [32](motor-impaired-keyboard-user-viktor-krum.md) | Motor-Impaired Keyboard User | Mid | No drag, no hover, forgiving keyboard paths |
+| [33](deadline-editor-ludo-bagman.md) | Deadline Editor | Mid | Perceived speed, latency transparency, completion clarity |
+| [34](teacher-builder-charity-burbage.md) | Teacher Builder | Mid | Batch production, consistent voices, classroom-appropriate export |
+| [35](small-team-marketer-seamus-finnigan.md) | Small Team Marketer | Mid | Collaboration clarity, version safety, publish confidence |
+| [36](multilingual-author-olympe-maxime.md) | Multilingual Author | Mid | Mixed-language chapters, locale fallback, pronunciation |
+| [37](low-spec-laptop-user-ron-weasley.md) | Low-Spec Laptop User | Mid | UI under CPU/RAM/storage constraints |
+| [38](offline-privacy-user-sirius-black.md) | Offline Privacy User | Mid | Local-first promise, plugin trust, cloud assumption visibility |
+| [39](plugin-tinkerer-arthur-weasley.md) | Plugin Tinkerer | Mid | Fast try/compare/recover plugin install cycles |
+| [40](support-triage-agent-poppy-pomfrey.md) | Support Triage Agent | Mid | Diagnostics, debug state export, error attribution |
+| [41](large-catalog-curator-irma-pince.md) | Large Catalog Curator | Mid | List scale, search/filter/sort, safe bulk operations |
+| [43](color-blind-user-dobby.md) | Color-Blind / Low-Vision User | Mid | State signaled by color alone; status orbs, swatches, banner contrast |
 
 ### Design & Craft
 
@@ -84,9 +84,9 @@ Not product-usage personas — these are professional design-reviewer personas, 
 
 | # | Persona | Depth | Why they're load-bearing |
 |---|---|---|---|
-| [44](44-apple-hig-purist.md) | Apple HIG Purist | Full | Platform-native feel, restraint, Apple Human Interface Guidelines conformance |
-| [45](45-design-systems-consistency-reviewer.md) | Design-Systems Consistency Reviewer | Mid | Token/spacing/color drift, component reuse vs. reinvention |
-| [46](46-motion-interaction-designer.md) | Motion & Interaction Designer | Mid | Animation intent, transition feel, micro-interaction polish |
+| [44](apple-hig-purist-griselda-marchbanks.md) | Apple HIG Purist | Full | Platform-native feel, restraint, Apple Human Interface Guidelines conformance |
+| [45](design-systems-consistency-reviewer-septima-vector.md) | Design-Systems Consistency Reviewer | Mid | Token/spacing/color drift, component reuse vs. reinvention |
+| [46](motion-interaction-designer-rolanda-hooch.md) | Motion & Interaction Designer | Mid | Animation intent, transition feel, micro-interaction polish |
 
 ---
 
