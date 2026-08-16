@@ -185,6 +185,9 @@ tts_engines/*/assets/last_test.json
 # cross-session claim files (agent-local, ephemeral -- which session is touching what right now)
 /.agent/active-work/
 
+# code map (map-code skill): generated, local-only, rebuilt per clone -- never shared history
+/.agent/code-map/
+
 # SQLite backups produced by cleanup steps
 *.db.bak
 *.sqlite.bak
