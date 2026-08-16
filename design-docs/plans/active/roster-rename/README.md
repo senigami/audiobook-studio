@@ -60,6 +60,13 @@ note) — **delete this folder outright once done**, and put the one-line summar
 `wiki/Changelog.md` instead. Don't leave it lying around "for the record"; the OD entry and the
 Changelog line are the record.
 
+## Status: 8 of 9 tasks complete, PR #186 open against studio-2.0
+
+Tasks 001-008 done, verified across 3 independent gate rounds plus a mandatory adversarial
+review and PR review (see status.json for the full round-by-round history). Task 009 is the
+only thing left, genuinely can't run until a session restart happens — don't archive this
+folder until that's confirmed.
+
 ## Order to execute in
 
 1. Task 001 — rename & update all 9 agent profile files (mechanical + cross-reference aware)
