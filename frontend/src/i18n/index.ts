@@ -6,7 +6,7 @@
  * design-docs/specs/interface-localization.md and
  * design-docs/plans/master_fix_plan/tasks/012-deferred-and-open-questions.md).
  *
- * Per .agent/rules/modular_architecture.md, importing a module must not start
+ * Per design-docs/engineering-rules/modular_architecture.md, importing a module must not start
  * threads, register listeners, mutate global settings, or reconcile state.
  * Accordingly:
  *   - Importing this file has ZERO side effects — no i18next instance is

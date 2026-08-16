@@ -1,6 +1,6 @@
 {
- "title": "Repository Agent Rules",
- "desc": "The .agent/rules router and what each rule set covers.",
- "lede": "The repo encodes its conventions as agent rules, so both people and AI assistants follow the same constraints.",
+ "title": "Engineering Rules",
+ "desc": "The design-docs/engineering-rules router and what each rule set covers.",
+ "lede": "The repo encodes its conventions as engineering rules, so every contributor follows the same constraints.",
  "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>A rules router maps tasks to rule sets.</li><li>Key constraints like modular architecture.</li><li>Verification before calling work “done.”</li></ul></div>\n        <h2>The router</h2>\n        <p><strong>A rules file routes a task to the relevant rule sets</strong> (backend boundaries, frontend, paths, workflow, and more).</p>\n        <h2>Key constraints</h2>\n        <p><strong>Modular architecture and clear boundaries are enforced</strong>, and changes aren't “done” until verified. See <a href=\"#contributing/testing-verification\">Testing &amp; Verification</a>.</p>"
 }

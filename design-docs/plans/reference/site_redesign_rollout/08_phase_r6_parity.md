@@ -320,7 +320,7 @@ still works.
 ### R6-T12 — Wiki & docs refresh
 
 **Goal** Update the wiki pages the redesign invalidates, list the screenshots needing recapture,
-and add a Changelog entry (per CLAUDE.md: wiki + dated Changelog entry when shipped behavior
+and add a Changelog entry (per this repo's convention: wiki + dated Changelog entry when shipped behavior
 changes).
 
 **Read first** `wiki/` pages: `Home.md`, `Getting-Started.md`, `Library-and-Projects.md`,

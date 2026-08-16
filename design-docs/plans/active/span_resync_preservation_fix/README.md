@@ -1,8 +1,7 @@
 # Span-preservation fix — plan folder
 
 **Supersedes `00-plan.md`** (the first-draft plan from 2026-07-19). That draft was reviewed by three
-independent panelists (Fable + this repo's Esther/Tamsin reasoning twins — see
-`.agent/frontier-calibration/reviews/RC-1-plan-comparison.md`) and found **not build-ready**: its
+independent panelists and found **not build-ready**: its
 core mechanism (re-derive fragments) was wrong, its anchor model under-counted real splits, and it
 conflicted with an existing committed test. `00-plan.md` is kept for the historical record — do not
 build from it. This folder (`01-map.md` onward) is the corrected plan, built via `plan-architect`

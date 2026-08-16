@@ -19,7 +19,7 @@ A chapter is already broken into **render groups** (≤500-char segments, each t
 1. Read [00-overview.md](00-overview.md) (goal, scope, success criteria), then [01-map.md](01-map.md) (the implementation map — parts, connections, invariants **INV-1…INV-10**, risks **R-A…R-E**).
 2. Read [02-roadmap.md](02-roadmap.md) for the workload order + dependency graph.
 3. Open the matching `tasks/NNN-*.md` — each is self-contained (goal, files, steps, acceptance, map links, out-of-scope).
-4. TDD per `.agent/rules/verification.md`: write the failing test first, confirm red for the right reason, implement, re-run. Revert-check bug-fix tests (R1). Backend specs are jointly authoritative — bump the matching spec in the same change.
+4. TDD per `design-docs/engineering-rules/verification.md`: write the failing test first, confirm red for the right reason, implement, re-run. Revert-check bug-fix tests (R1). Backend specs are jointly authoritative — bump the matching spec in the same change.
 
 ## Status protocol
 

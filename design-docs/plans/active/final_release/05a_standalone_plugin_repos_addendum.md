@@ -1,7 +1,7 @@
 # Addendum to doc 05 (standalone plugin repos) — from PL-2 calibration finding
 
-**Status:** DRAFT — awaiting twin + Fable plan review. No code changes made producing this plan.
-**Feeds from:** `.agent/frontier-calibration/references/PL-2.md`. **This is an addendum, not a
+**Status:** DRAFT — awaiting plan review. No code changes made producing this plan.
+**Feeds from:** a planning reference (PL-2). **This is an addendum, not a
 replacement** — `05_standalone_plugin_repos.md` remains the plan of record; this document captures
 what PL-2's fresh research found already-shipped (so it isn't re-planned) and the new/corrected
 slices it identified.

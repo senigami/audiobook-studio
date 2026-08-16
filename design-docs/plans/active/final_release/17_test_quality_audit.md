@@ -25,15 +25,15 @@ Disposition: VACUOUS/MOCKED-OUT → rewrite as REAL if the behavior matters, els
 - [x] **T4. Remaining backend suites** (done 2026-06-10 — tables in audits/: api_part1/2, orchestration_part1/2, engines, db_remainder, backend_misc) — `tests/api`, `tests/domain`, `tests/engines`, `tests/utils`, etc. Lower priority sweep with the same rubric; bias toward deletion of vacuous tests over rewriting low-value ones.
 - [x] **T5. Coverage honesty check (done 2026-07-04, gaps closed 2026-07-04)** — coverage % is currently 77% but that includes vacuous execution. After T1–T3, spot-check 10 random "covered" lines in `app/db/state_jobs.py`, `app/db/queue.py`, `frontend/src/hooks/useQueueSync.ts`: is there a test that would FAIL if that line's behavior inverted? Record the hit rate. *(Hit rate: 8/10 (80%) genuinely mutation-sensitive. 2 gaps found (coverage holes, not vacuous tests): `app/db/queue.py:265-266` chapter-reset-to-`unprocessed` on a `failed` `update_queue_item` call has no test asserting post-call chapter state; `frontend/src/hooks/useQueueSync.ts:143-145` audit-observation gating only has positive-path coverage, the `unhandled`/`skipped` suppression branch is untested. Both closed same day (`002fec82`) — `test_update_queue_item_failed_resets_chapter_to_unprocessed` in `tests/db/test_db_queue.py`, and two new tests in `useQueueSync.test.tsx` for the skipped-overlay and unhandled-frame cases. Each verified mutation-sensitive (neutered the guard, confirmed red, restored).)*
 
-## 3. Standing rules going forward (add to CLAUDE.md / contributor docs)
+## 3. Standing rules going forward (add to testing-standards.md / contributor docs)
 
-- [x] **R1.** (in CLAUDE.md) Every bug fix lands with a test that fails on the pre-fix code. Reviewer (or agent) must actually revert-check: stash the fix, run the test, confirm red, restore. (The Stage 1a tests were written this way; keep it.)
-- [x] **R2.** (in CLAUDE.md) A test may mock only what is *outside* the unit under test (network, clock, filesystem, the TTS engine) — never the module named in the test file.
-- [x] **R3.** (in CLAUDE.md) Frontend live-event tests must build frames via the contract types in `liveEvents.ts` (compile-time enforcement) — no untyped object literals for socket frames.
-- [x] **R4.** (in CLAUDE.md) No `sleep`-based timing assertions; use fake timers (vitest) / explicit synchronization (pytest threading events).
+- [x] **R1.** (in testing-standards.md) Every bug fix lands with a test that fails on the pre-fix code. Reviewer (or agent) must actually revert-check: stash the fix, run the test, confirm red, restore. (The Stage 1a tests were written this way; keep it.)
+- [x] **R2.** (in testing-standards.md) A test may mock only what is *outside* the unit under test (network, clock, filesystem, the TTS engine) — never the module named in the test file.
+- [x] **R3.** (in testing-standards.md) Frontend live-event tests must build frames via the contract types in `liveEvents.ts` (compile-time enforcement) — no untyped object literals for socket frames.
+- [x] **R4.** (in testing-standards.md) No `sleep`-based timing assertions; use fake timers (vitest) / explicit synchronization (pytest threading events).
 
 ## 4. Execution
 
 Run T1 immediately after Stage 1b (the fixes in 1b add more tests to audit in one pass), and gate Stage 1's exit on T1+T2: the queue/segment/progress suites must be classified and cleaned before the Stage 1 "full real render session" gate, because that gate relies on trusting them. T3 lands with Stage 3 (contract work) at the latest; T4/T5 may run in parallel with Stage 2.
 
-*Final acceptance:* classification tables committed under `design-docs/plans/final_release/audits/test_audit_*.md`; zero VACUOUS or MOCKED-OUT tests remaining in T1–T3 scope; rules R1–R4 recorded in CLAUDE.md.
+*Final acceptance:* classification tables committed under `design-docs/plans/final_release/audits/test_audit_*.md`; zero VACUOUS or MOCKED-OUT tests remaining in T1–T3 scope; rules R1–R4 recorded in testing-standards.md.

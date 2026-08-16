@@ -41,7 +41,7 @@ The entire redesign is a **re-skin of one central contract** — `frontend/src/t
 ## The connections (what breaks what)
 
 1. **`PART-tokens` → everything.** Token *names* are the contract. Renaming a name breaks all consumers; changing a *value* silently re-skins all consumers. → **alias `--accent`; never delete a name a consumer still uses.**
-2. **`PART-tokens` ↔ `PART-spec`.** The spec's §2 registry, §2.4 contrast table, §4 type scale **must** match `tokens.css` after each phase. Drift here is a spec violation (CLAUDE.md). Lockstep.
+2. **`PART-tokens` ↔ `PART-spec`.** The spec's §2 registry, §2.4 contrast table, §4 type scale **must** match `tokens.css` after each phase. Drift here is a spec violation. Lockstep.
 3. **`PART-fonts` → `PART-tokens`/`PART-base`.** The `--font-*` tokens and base stacks must not point at Geist until the import **resolves** — keep Inter as the committed fallback in the stack until confirmed, so the app never silently falls to system-ui.
 4. **`PART-comp` flat buttons** depend only on `PART-tokens` values + the `button{}` base — **no consumer ripple** (classes, not inline styles). Safe, high-leverage.
 5. **`PART-status` icon-insets** depend on `lucide-react` (already the icon system) and the new progress/status token values from `PART-tokens` (Phase 1) — so status work comes **after** the token re-skin.

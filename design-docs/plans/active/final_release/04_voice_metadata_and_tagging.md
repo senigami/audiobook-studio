@@ -366,7 +366,7 @@ These items are the open Phase 12 items for voice tags/icons. Implement after Ph
   _Done 2026-06-12. Reviewed all `description` fields in `voice.schema.json`. No stale descriptions found. D8 (default_variant lives in state.json, not voice.json) is already reflected by the schema having `additionalProperties: false` and no `default_variant` property. The use_case HF alias (as-use-*) is an exporter concern, not a schema description concern. No changes needed._
 
 - [x] **F3. Update `Memory/state.json` Phase 12 open items to mark voice tags, icon upload, and searchable tags as complete when each Phase D step is done.**
-  _N/A 2026-06-12. `Memory/` is gitignored and absent in this working tree (see CLAUDE.md: "Don't assume it exists"). Cannot update a file that does not exist in the repo._
+  _N/A 2026-06-12. `Memory/` is gitignored and absent in this working tree ("Don't assume it exists" is a standing convention here). Cannot update a file that does not exist in the repo._
 
 ### Phase G — Taxonomy v2 (RE-OPENED into 2.0 scope — owner, 2026-06-12)
 

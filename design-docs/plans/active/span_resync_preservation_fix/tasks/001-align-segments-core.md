@@ -3,7 +3,7 @@ tests/db/test_segment_alignment.py), 2026-07-19. Not yet wired into Tasks 3-5. O
 refinement made beyond the spec: single-row content search AND fragment-run search are both
 gated on content-uniqueness (a sentence appearing more than once in either the fresh or existing
 list never searches past position) — this is what makes the corrected reordered-duplicates test
-pass without cross-matching. Awaiting code review (Phase 4 twins-vs-Fable comparison).
+pass without cross-matching. Awaiting code review.
 Depends on: none (new pure function + its own tests)
 
 # Task 1 — `align_segments`: schema-free fragment-run recognition
@@ -74,7 +74,7 @@ fresh occurrence.
      all 3 preserved as one run.
    - A 4+-fragment run (simulate accumulated separate edits producing 4 or 5 contiguous fragment
      rows for one sentence, not from a single `_apply_range_assignment` call) → all preserved as
-     one run. This is the unbounded-length case (Esther's N1, round 2) — do not skip it.
+     one run. This is the unbounded-length case (finding N1, round 2) — do not skip it.
    - The exact scenario from `tests/db/test_chapters_sync.py:94` (reordered duplicates) — assert
      `align_segments` alone (not the full sync) correctly does NOT cross-match the "Repeat."
      duplicates AND correctly preserves the uniquely-identified "Middle." sentence across its

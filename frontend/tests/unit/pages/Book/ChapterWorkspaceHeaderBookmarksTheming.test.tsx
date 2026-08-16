@@ -3,7 +3,7 @@
  * local component (`BookmarksPanel` in ChapterWorkspaceHeader.tsx) with zero
  * theme CSS defined anywhere — it rendered as an unstyled white box with no
  * dark-mode background at all (found via the North Star Screen Parity plan's
- * task 011 designer visual verification + an independent Fable adversarial
+ * task 011 designer visual verification + an independent adversarial
  * review). The fix reuses the shared, already-themed `BookmarkList` component
  * (frontend/src/components/BookmarkList.tsx, styled in
  * frontend/src/theme/components/shared.css) instead — the same component

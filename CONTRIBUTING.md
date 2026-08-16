@@ -55,15 +55,16 @@ this section is a map, not a restatement.
 3.  **Register via manifest, never via engine-ID branches**: new engines register purely
     through the manifest + the standard `StudioTTSEngine` contract. Studio core, queue code,
     and routes must not special-case a specific `engine_id` — that is a binding architectural
-    rule (see `.agent/rules/modular_architecture.md`, "Engine-specific logic lives behind the
-    engine registry + voice bridge"). If you find yourself writing `if engine_id == "myengine"`
+    rule (see `design-docs/engineering-rules/modular_architecture.md`, "Engine-specific logic
+    lives behind the engine registry + voice bridge"). If you find yourself writing
+    `if engine_id == "myengine"`
     anywhere outside the plugin folder, that's a sign the behavior belongs in the manifest or
     an SDK hook instead.
 4.  **Versioned contracts are required, not optional**: every manifest declares explicit,
     validated-at-load-time versions — `studio_tts_manifest`, `contract_version`,
     `sdk_version`, `settings_schema_version`, and `event_envelope_version`. A plugin that omits
-    or mismatches these fails to load rather than being silently accepted (see the Owner
-    directives in `CLAUDE.md` and `design-docs/specs/plugin-contract.md`).
+    or mismatches these fails to load rather than being silently accepted (see
+    `design-docs/specs/plugin-contract.md`).
 5.  **Test your plugin in isolation**: each plugin ships its own `tests/` directory, collected
     by the repo's root pytest run (`pytest.ini` scans both `tests/` and `tts_engines/`). Run just
     your plugin's suite while iterating:

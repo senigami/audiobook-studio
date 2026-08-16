@@ -2,7 +2,7 @@
 
 Consolidated from 6 parallel sub-passes covering all 54 test files under `tests/orchestration/`. Cross-checked against the four prior June 2026 audits (`test_audit_orchestration_part1.md`, `part2.md`, `orchestration_test_quality_2026-06-11.md`, `test_audit_progress_segments.md`) — confirmed their deletions stuck: `test_watchdog_progress_logic.py`'s two flagged VACUOUS/WRONG-SCENARIO tests are gone (replaced by real coverage, documented in-file), `test_grouped_regressions.py`'s two `pass`-only stubs are gone, and `test_isolation.py`'s vacuous duplicate is gone.
 
-Scope: 54 files, ~540+ total test cases reviewed. This is, by a wide margin, the highest-quality area of the test suite audited today — self-referential ETA/progress-math risk (the highest-priority thing to check here, per `.agent/rules/backend-progress.md`) was specifically hunted for in every file and found in exactly one place.
+Scope: 54 files, ~540+ total test cases reviewed. This is, by a wide margin, the highest-quality area of the test suite audited today — self-referential ETA/progress-math risk (the highest-priority thing to check here, per `design-docs/engineering-rules/backend-progress.md`) was specifically hunted for in every file and found in exactly one place.
 
 ## DEFINITE delete candidates
 

@@ -18,7 +18,7 @@ What changes, in one screen:
 1. The real app **and** the demo render in the Quiet Studio language in **both** light and studio-dark.
 2. `design-docs/specs/design-system.md` updated in lockstep (spec_version bumped, changelog rows, §2.4 contrast table recomputed against the new `--bg`); `voice-tone.md` updated only if copy changes (it shouldn't).
 3. All verification green: `./venv/bin/python -m pytest -q`, `ruff check .`, `npm -C frontend run lint`, `npm -C frontend run test -- --run`, `npm -C frontend run build`.
-4. New/changed components (Switch, status icon-insets) follow TDD (`.agent/rules/verification.md`, `design-docs/specs/testing-standards.md`): failing test first, confirmed red, then implement.
+4. New/changed components (Switch, status icon-insets) follow TDD (`design-docs/engineering-rules/verification.md`, `design-docs/specs/testing-standards.md`): failing test first, confirmed red, then implement.
 5. `docs/style-guide/current.html` is regenerated as the **new** baseline only **after** the re-skin ships (it stays frozen as the "before" until then).
 6. Every WCAG-AA pairing verified in both themes (the proposal's values are pre-verified; re-verify any tint composited against the new `--bg`).
 
@@ -30,7 +30,7 @@ What changes, in one screen:
 
 ## Hard constraints (binding)
 
-- **Spec lockstep:** behavior/visual changes update `design-system.md` in the **same commit/phase**. Specs are canonical (CLAUDE.md).
+- **Spec lockstep:** behavior/visual changes update `design-system.md` in the **same commit/phase**. Specs are canonical.
 - **No app breakage:** `tokens.css` is consumed by ~94 real-app files + the demo. Change **values**, keep **names** (alias `--accent`); add new role-named tokens alongside. The app must build and render at every phase boundary.
 - **No Tailwind** (owner decision — finish the token system).
 - **Commit isolation:** a concurrent agent is consolidating `design-docs/plans/`. Keep commits scoped to this work; this plan folder is its own isolated path.

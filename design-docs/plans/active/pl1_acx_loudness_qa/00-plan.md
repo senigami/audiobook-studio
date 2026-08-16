@@ -1,8 +1,8 @@
 # Plan — ACX loudness QA + optional normalization
 
-**Status:** DRAFT — awaiting twin + Fable plan review. No code changes made producing this plan.
-**Feeds from:** `.agent/frontier-calibration/references/PL-1.md` (Fable planning reference,
-2026-07-19) — a complete slice-by-slice plan; this document is a lean formalization of it.
+**Status:** DRAFT — awaiting plan review. No code changes made producing this plan.
+**Feeds from:** a planning reference (PL-1, 2026-07-19) — a complete slice-by-slice plan; this
+document is a lean formalization of it.
 
 ## Problem / backlog item
 

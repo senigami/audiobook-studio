@@ -73,7 +73,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Security] - 2026-07-16
 
-### Coordinated code review — security hardening (fable cleanup, Tier 0)
+### Coordinated code review — security hardening (cleanup Tier 0)
 
 - **Remote code execution via voice bundles closed.** Imported voice bundles carry a `latent.pth` file that the XTTS engine loaded with `torch.load(..., weights_only=False)` — which unpickles arbitrary objects and would execute attacker code the first time an imported voice was synthesized. All four latent-load sites now use `weights_only=True` (XTTS latents are plain tensor dicts, so legitimate bundles are unaffected). A regression test crafts a malicious pickle and proves it can no longer execute. A `safetensors` migration is tracked as a follow-up.
 - **Management API no longer exposed to the LAN by default.** The app can bind `0.0.0.0`, but the dangerous *mutating* management endpoints — voice-bundle import (the RCE vector above), HuggingFace import, settings writes, and the entire engine-plugin management surface (`/api/engines/*` — importing/installing a plugin executes plugin code in the TTS server) — are now rejected (403) for non-loopback clients unless you enable **LAN access** in Settings (`lan_binding_enabled`). Reads and the UI stay reachable from other machines, so browsing is unaffected; only the admin/write operations require the opt-in. Bind host and socket behavior are unchanged.
@@ -82,7 +82,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Fixed] - 2026-07-16
 
-### Coordinated code review — correctness & resource fixes (fable cleanup, Tier 1)
+### Coordinated code review — correctness & resource fixes (cleanup Tier 1)
 
 - **Scheduler recovery is now deterministic across restarts.** The recoverable-status set was an unordered `set`, so which interrupted job resumed for a chapter (running vs. queued vs. waiting) depended on Python's per-process hash seed; it's now an ordered tuple that reliably prefers the most-active row.
 - **Parallel-render progress no longer risks a wrong per-segment character count.** `_segment_char_count` now snapshots the children list under its lock instead of iterating the live list, matching the class's existing lock discipline (`tts_parallel_cap > 1`).
@@ -323,7 +323,7 @@ Raising an engine's `max_concurrent_workers` in its manifest (e.g. XTTS to 2) ha
 - **Root cause.** The deprecated `GpuAdmissionGate`/`ExclusiveAdmissionGate` backward-compat wrapper classes called `get_engine_semaphore("gpu"/"exclusive", 1)` in their constructors — hardcoded cap 1. Since they're built as module-level singletons at import time, and the shared semaphore registry cached capacity at first creation while silently ignoring it on every later call, these wrappers always won the race and permanently locked the `"gpu"` engine-class slot at 1 before any real manifest-derived claim could register its intended cap. The same "first caller wins forever" design also meant *any* caller anywhere — including an unrelated test — could accidentally poison a shared engine-class slot for the rest of the process.
 - **Fix.** `GpuAdmissionGate`/`ExclusiveAdmissionGate` now use private, non-shared semaphores. `get_engine_semaphore`/`EngineClassSemaphore` are now self-healing: capacity grows to the largest value any caller legitimately requests instead of freezing at the first caller's value; a lowered request now logs a warning instead of silently doing nothing (capacity still can't shrink at runtime — needs a restart).
 - **Verified live:** two XTTS jobs queued at once actually overlap now. Regression test `test_xtts_cap2_admits_two_concurrent_via_real_path` added (R1 revert-checked — fails on the pre-fix code for the right reason).
-- **XTTS `max_concurrent_workers` bumped 1 → 2** to exercise this fix. Still fully dark — `ENGINE_CLASS_ADMISSION` defaults off, so this has no production effect until W-PAR 007's toggle lands. Fable merge-gate review flagged that the admission registry is keyed by engine *class*, not engine *id* — a future second GPU-class plugin with a lower cap than XTTS's could unintentionally inherit XTTS's cap via the shared class semaphore; tracked as a W-PAR 007 follow-up (not a risk today — XTTS is the only "gpu"-class engine).
+- **XTTS `max_concurrent_workers` bumped 1 → 2** to exercise this fix. Still fully dark — `ENGINE_CLASS_ADMISSION` defaults off, so this has no production effect until W-PAR 007's toggle lands. A merge-gate review flagged that the admission registry is keyed by engine *class*, not engine *id* — a future second GPU-class plugin with a lower cap than XTTS's could unintentionally inherit XTTS's cap via the shared class semaphore; tracked as a W-PAR 007 follow-up (not a risk today — XTTS is the only "gpu"-class engine).
 
 ## [Fix] - 2026-07-02
 
@@ -795,7 +795,7 @@ Screenshots embedded inline in wiki pages were removed where the referenced imag
 ### Architecture
 
 - **Code Modularization**: Reorganized the backend into a `routers/` pattern for better maintainability and faster navigation.
-- **Standardized Rules**: Added `.agent/rules.md` to enforce code quality and file size limits for future development.
+- **Standardized Rules**: Added an engineering rules router to enforce code quality and file size limits for future development.
 
 ### Performance & Stability
 

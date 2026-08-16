@@ -1,5 +1,5 @@
 """TDD tests for W-PAR task 007: bracketed ETA under parallelism, the
-cap-default-1 toggle-as-setting, and the folded-in Fable per-engine-id
+cap-default-1 toggle-as-setting, and the folded-in per-engine-id
 admission finding.
 
 Written BEFORE the implementation to confirm red on current code (R1).
@@ -182,7 +182,7 @@ class TestEffectiveCapResolution:
 
 
 # ===========================================================================
-# Fable finding — per-engine-id admission independent of the shared class gate
+# Review finding — per-engine-id admission independent of the shared class gate
 # ===========================================================================
 
 

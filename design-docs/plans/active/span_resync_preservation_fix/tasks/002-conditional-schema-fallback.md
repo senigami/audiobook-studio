@@ -23,8 +23,8 @@ identity instead of (or alongside) content comparison.
 
 1. Use `add_column_if_missing` (`app/db/core.py:316-321`) — the repo's existing additive-migration
    helper. Do NOT introduce a new migration mechanism or a side table (Invariant I7 — this is an
-   internal table, not a versioned contract; a side table only adds join complexity per Tamsin's
-   review).
+   internal table, not a versioned contract; a side table only adds join complexity per review
+   feedback).
 2. Write the split-time code (`_split_segment_at_offset`) to populate the new column(s).
 3. Extend `align_segments` to prefer stored-identity match when present, falling back to content
    match for legacy rows with no stored identity (backward compatible).

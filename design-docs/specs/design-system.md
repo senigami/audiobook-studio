@@ -29,8 +29,8 @@ sources:
   - frontend/src/app/layout/PlayerBar.tsx
   - frontend/src/app/layout/NavRail.tsx
   - frontend/src/pages/Settings/components/GeneralSettingsPanel.tsx
-  - .agent/rules/frontend-interactions.md
-  - .agent/rules/frontend-ux.md
+  - design-docs/engineering-rules/frontend-interactions.md
+  - design-docs/engineering-rules/frontend-ux.md
   - design-docs/specs/voice-tone.md
   - design-docs/plans/reference/site_experience_north_star.md
   - design-docs/plans/reference/site_redesign_rollout/
@@ -115,7 +115,7 @@ An 8pt **spacing scale** (`--space-1` = 4px, `--space-2` = 8px, … `--space-8` 
 
 ### 2.2 Token usage rule (binding)
 
-Components MUST style themselves through tokens, not hardcoded color/elevation values. This is the existing rule in `.agent/rules/frontend-interactions.md` ("Prefer theme variables over hardcoded colors") promoted to a binding design-system constraint:
+Components MUST style themselves through tokens, not hardcoded color/elevation values. This is the existing rule in `design-docs/engineering-rules/frontend-interactions.md` ("Prefer theme variables over hardcoded colors") promoted to a binding design-system constraint:
 
 - **MUST** reference `var(--token)` for any color, surface, border, shadow, radius, or overlay value.
 - **MUST NOT** introduce raw hex/`rgb()`/`rgba()` literals in component code for themed surfaces. Where a literal is unavoidable (e.g. `color: '#fff'` on a known-colored fill such as the error orb glyph), it MUST be a value that is correct in *both* themes by construction.
@@ -337,7 +337,7 @@ The codebase uses a small set of `max-width` breakpoints across `theme/component
 
 ### 7.2 Graceful degradation (binding)
 
-Layouts MUST degrade gracefully on smaller screens (`.agent/rules/frontend-interactions.md`): sticky controls and two-pane layouts must remain usable, and global navigation must remain reachable via the drawer below 768px.
+Layouts MUST degrade gracefully on smaller screens (`design-docs/engineering-rules/frontend-interactions.md`): sticky controls and two-pane layouts must remain usable, and global navigation must remain reachable via the drawer below 768px.
 
 The **390px ChapterEditor tablet minimum** is a documented design **target** (the editor should remain operable down to ~390px width); it is **not** currently expressed as a hardcoded breakpoint in the theme CSS. Tracking lives in `design-docs/plans/reference/site_redesign_rollout/`.
 
@@ -354,7 +354,7 @@ The accessibility target is **WCAG 2.2 AA**. The following are binding.
 
 ### 8.2 Semantics & ARIA (current/binding)
 
-- Prefer semantic HTML before adding ARIA; when ARIA is needed, keep labels and live regions accurate (`.agent/rules/frontend-interactions.md`).
+- Prefer semantic HTML before adding ARIA; when ARIA is needed, keep labels and live regions accurate (`design-docs/engineering-rules/frontend-interactions.md`).
 - Interactive chrome carries accessible names: the rail, player bar, and drawer expose `aria-label`/roles; `ConfirmModal` sets `role="dialog"` + `aria-modal="true"` + `aria-labelledby`; `ActionMenu` trigger has `aria-label="More actions"`; `GhostButton` derives an `aria-label` from `ariaLabel || title || label`.
 - Icon-only controls MUST have an `aria-label`.
 
@@ -366,7 +366,7 @@ Color contrast is delivered through the token system: text and surface tokens ar
 
 **44px minimum touch target (current):** form controls (`input`, `select`, `textarea`) have `min-height: 44px` enforced in `base.css` (INV-6). The blanket `button` `min-height: 44px` was **removed** because it deformed compact icon/transport buttons (e.g. `.player-btn`, voice-card buttons) — standard buttons rely on their padding (~40px natural height), and a 44px hit-area for compact icon buttons is a tracked follow-up rather than a blanket `min-height`. This satisfies WCAG 2.5.5 Target Size (AA, 24×24px minimum) for form controls. New form controls MUST not undercut 44px. **Resolved instance:** the voice-catalog-card play/pause overlay button (`.voice-catalog-card__avatar-play-btn`, `voice-lab.css`) grew from 24px to 44px once its avatar doubled as a play target, and the avatar itself grew 40px → 56px to give that 44px button clearance (F5.7).
 
-From `.agent/rules/frontend-ux.md`: every meaningful screen change MUST account for these states, and each MUST be user-meaningful and testable by role/label/visible behavior (not a bare spinner):
+From `design-docs/engineering-rules/frontend-ux.md`: every meaningful screen change MUST account for these states, and each MUST be user-meaningful and testable by role/label/visible behavior (not a bare spinner):
 
 1. **loading**
 2. **empty**
@@ -485,5 +485,5 @@ In dialogue surfaces (the Studio chapter editor, the Book/Screenplay/Stage views
 - App shell, nav rail, mobile drawer, top bar, book pipeline routing: [site-shell-and-book-pipeline.md](site-shell-and-book-pipeline.md)
 - Repository layout and frontend file-placement rules: [code-organization.md](code-organization.md)
 - Live-event / reconnecting state source: [live-events.md](live-events.md)
-- Informal interaction & UX guidance formalized here: `.agent/rules/frontend-interactions.md`, `.agent/rules/frontend-ux.md`
+- Informal interaction & UX guidance formalized here: `design-docs/engineering-rules/frontend-interactions.md`, `design-docs/engineering-rules/frontend-ux.md`
 - Redesign rollout (target tracking for type-scale tokens, pill tints, responsive minimums): `design-docs/plans/reference/site_redesign_rollout/`, `design-docs/plans/reference/site_experience_north_star.md`

@@ -1,10 +1,10 @@
 # Plan — rename/relocate the `app/jobs` package (BE-6)
 
-**Status:** DRAFT — awaiting twin + Fable plan review. No code changes made producing this plan.
-**Feeds from:** `.agent/frontier-calibration/references/BR-1.md` (Fable blast-radius reference,
-2026-07-18) — that reference already contains a complete staged move plan; this document formalizes
-it as an executable task breakdown. Read BR-1.md for the full importer classification (A/B/C/D/E)
-and per-hazard code citations; not fully repeated here.
+**Status:** DRAFT — awaiting plan review. No code changes made producing this plan.
+**Feeds from:** a blast-radius reference (BR-1, 2026-07-18) — that reference already contains a
+complete staged move plan; this document formalizes it as an executable task breakdown. See BR-1
+for the full importer classification (A/B/C/D/E) and per-hazard code citations; not fully repeated
+here.
 
 ## Problem
 
@@ -35,7 +35,7 @@ failing, if not re-pointed), and 9 cross-repo lazy-import call sites (2 SDK, 7 p
    else proceeds without this.**
 2. **Stage 1 — move + identity-preserving shim.** Physically move modules; `app/jobs/__init__.py`
    installs the SAME module objects under old names via `sys.modules` aliasing. **CORRECTED
-   PRECEDENT (both twin reviews independently caught this — the original citation was wrong):**
+   PRECEDENT (independent review caught this — the original citation was wrong):**
    do NOT model this on `app/studio_plugin_sdk/__init__.py` — that file is a plain symbol
    re-export and does NOT preserve module-object identity; copied literally it builds exactly the
    naive shim Hazard 3 warns about. The correct mechanism is `_import_utils.py:36-50`'s
@@ -43,7 +43,7 @@ failing, if not re-pointed), and 9 cross-repo lazy-import call sites (2 SDK, 7 p
    No importer changes yet. Gate: full pytest green; explicit identity check across EVERY moved
    submodule, not just `registry` (`sys.modules["app.jobs.registry"] is sys.modules["<new>.registry"]`,
    and the same for `worker_voice`, `worker_metrics`, `handlers.bridge_helpers`, `handlers.audiobook`
-   — Tamsin's finding: a single-submodule check under-covers); at least one mocked test per moved
+   — a single-submodule check under-covers); at least one mocked test per moved
    submodule deliberately broken-then-fixed to prove the shim doesn't silently un-mock it (R1-style),
    not just one bridge test.
 3. **Stage 2 — rewire runtime importers**: `boot.py:97`, `orchestrator_helpers.py:36`,
@@ -65,8 +65,8 @@ failing, if not re-pointed), and 9 cross-repo lazy-import call sites (2 SDK, 7 p
 ## Open items requiring owner/engineer input before execution
 
 - Destination package name (Stage 0) — blocks everything.
-- Whether `.claude/worktrees/agent-a0b0646327352831e` (a stale worktree with an old `plugins/`
-  layout) represents live work that would rebase onto this move — check before Stage 1.
+- Whether a stale worktree with an old `plugins/` layout represents live work that would rebase
+  onto this move — check before Stage 1.
 - Whether the clean-break directive should be read as forbidding even a *transient* intra-branch
   shim — the reference recommends against collapsing the stages, since the shim is deleted in
   Stage 5, not a shipped compat surface.

@@ -92,7 +92,7 @@ the task commit message.
 
 1. **Write the failing tests first** (see Tests section). Confirm red on current code.
 2. Create `SegmentSynthesisTask` in `app/orchestration/tasks/synthesis.py` (or a new
-   `app/orchestration/tasks/segment_synthesis.py` — keep files under 500 lines per CLAUDE.md).
+   `app/orchestration/tasks/segment_synthesis.py` — keep files under 500 lines per this repo's conventions).
    Give it `parent_task_id`, `group`, `engine_class` fields; implement `validate()`, `run()` (stub
    that calls the bridge for this group), `cancel_flag` check.
 3. Refactor `SynthesisTask` (rename to `ChapterSynthesisTask` or keep the name for compatibility;

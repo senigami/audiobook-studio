@@ -91,7 +91,7 @@ Keep this scoped to visual affordance only — do not change any click-handling 
    - Alt+click fires regardless of whether `activeCharacterId` is currently set or null (test both).
    - A plain (non-Alt) click with `activeCharacterId` set still calls `onAssign` as before (regression check).
 7. `npm -C frontend run test -- --run ScriptView`, `npm -C frontend run lint`.
-8. Append a `.agent/code-map/queue/` changelog entry.
+8. Append a code-map changelog entry.
 
 ## Acceptance criteria
 
@@ -100,7 +100,7 @@ Keep this scoped to visual affordance only — do not change any click-handling 
 - [ ] A visible cursor change (or equivalent affordance) appears while Alt/Option is held over the script view.
 - [ ] Plain click behavior (Sentence/Paragraph/Word brush assignment) is unaffected — verified by a regression test.
 - [ ] `npm -C frontend run test -- --run` and `npm -C frontend run lint` clean.
-- [ ] `.agent/code-map/queue/` entry added.
+- [ ] Code-map changelog entry added.
 
 ## Map links
 

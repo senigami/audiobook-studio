@@ -1,5 +1,0 @@
-BASELINE (clean main checkout @ 6043b821, 2026-07-16):
-2429 passed, 3 skipped in 113.12s
-
-Parity rule: every phase gate compares against this. New tests ADD to the count (record additions
-per task); no test may disappear unexplained; skips must stay at 3 unless a task documents why.

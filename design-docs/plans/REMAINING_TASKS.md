@@ -128,7 +128,6 @@ observation is missing.
       of what to remove and re-checking each against `testing-standards.md` R1–R4 before deleting
       (a test that was low-value in July may have become load-bearing since). Rough cost: an hour.
       Worth doing: the vitest suite leaks memory, so a smaller suite is a real win.
-      Evidence and per-branch verdicts: `.agent/reports/2026-07-29-reconcile-codeql-and-redundant.md`.
 - [ ] Fix the hardcoded-style violation at `frontend/src/pages/Voices/.../ArchetypeQuickPick.tsx:242`
       (found in passing during the 2026-07-29 reconciliation; unrelated to the branches assessed).
 

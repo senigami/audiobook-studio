@@ -108,8 +108,8 @@ def test_reordered_duplicates_do_not_cross_match_but_unique_sentence_is_preserve
 
 
 def test_whitespace_falsifier_strip_after_concat():
-    """Invariant I3, genuine falsifier (corrected 2026-07-19 after both Fable and
-    Esther's code reviews found the original version didn't exercise this): with
+    """Invariant I3, genuine falsifier (corrected 2026-07-19 after independent
+    code reviews found the original version didn't exercise this): with
     the DB's actual preserve_gap=True splitter, an interior sentence's yielded text
     INCLUDES the trailing whitespace gap before the next sentence, unstripped
     (textops_splitting.py's preserve_gap branch does not call .strip() at all -- only
@@ -132,7 +132,7 @@ def test_whitespace_falsifier_strip_after_concat():
 
 
 def test_duplicate_content_with_a_genuine_fragment_split_is_not_destroyed():
-    """Regression for a real bug Fable's code review caught (2026-07-19): a chapter
+    """Regression for a real bug code review caught (2026-07-19): a chapter
     with a manually-split sentence whose text ALSO appears verbatim elsewhere must not
     lose the split just because the whole-sentence content happens to be duplicated.
     This is a pure resave -- nothing edited at all -- and the original blanket

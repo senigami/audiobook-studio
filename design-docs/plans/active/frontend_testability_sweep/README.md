@@ -11,7 +11,7 @@ Research (2026-07-10) found:
 - `aria-label` is broad (102 files) but frequently **generic and non-unique across repeated items** — the shared `ActionMenu.tsx` overflow-menu trigger is hardcoded to `aria-label="More actions"` with no entity name/id interpolated, so every card/row's "⋯" button on a page with N items has the identical accessible name. Same pattern in `VoiceCatalogCard.tsx` ("Play preview"), `QueueItem.tsx`/`ReorderableQueueItem.tsx` (static per-item labels).
 - `frontend/src/pages/Book/components/ChapterTable.tsx` already does this right — `data-testid={`chapter-table-row-${chapter.id}`}`, `data-testid={`chapter-table-play-btn-${chapter.id}`}` — this is the pattern to extend, not invent from scratch.
 - The 3 existing Playwright specs (`frontend/tests/e2e/`) use inconsistent selector strategies (one `data-testid`-driven, one `getByRole`/`getByText`-driven, one a whole-page axe scan) — no shared convention.
-- No existing rule anywhere (`CLAUDE.md`, `.agent/rules/`, `design-docs/specs/testing-standards.md`) states a selector-naming policy. This plan establishes one, not just applies an existing one.
+- No existing rule anywhere (the engineering rules, `design-docs/specs/testing-standards.md`) states a selector-naming policy. This plan establishes one, not just applies an existing one.
 
 ## The convention this plan establishes (see `01-map.md` for full detail)
 
@@ -21,7 +21,7 @@ Research (2026-07-10) found:
 
 ## Scope
 
-**In scope:** `ActionMenu.tsx` (shared, fixes N call sites at once), `pages/Voices/` (the page that caused the live incident), `pages/VoiceLab/`, `pages/ProjectLibrary/`, the Queue components (`QueueItem.tsx`, `ReorderableQueueItem.tsx`, `GlobalQueue.tsx`), and documenting the convention in `.agent/rules/frontend-interactions.md`.
+**In scope:** `ActionMenu.tsx` (shared, fixes N call sites at once), `pages/Voices/` (the page that caused the live incident), `pages/VoiceLab/`, `pages/ProjectLibrary/`, the Queue components (`QueueItem.tsx`, `ReorderableQueueItem.tsx`, `GlobalQueue.tsx`), and documenting the convention in `design-docs/engineering-rules/frontend-interactions.md`.
 
 **Out of scope:** `pages/Book/` and `pages/ChapterEditor/` (already reasonably covered — `ChapterTable.tsx` is the exemplar, `DirectorsConsole/` tools already have `data-testid`); rewriting the 3 existing Playwright specs to a unified convention (flagged as a natural follow-on in Task 006, not required for this plan's success criteria); a full line-by-line audit of all 183 `.tsx` files (this plan targets the measured gaps, not every file).
 

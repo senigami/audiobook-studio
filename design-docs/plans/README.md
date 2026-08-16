@@ -90,8 +90,8 @@ Routing only — for current status/remaining work, check [REMAINING_TASKS.md](R
 ---
 
 *Reorg method (2026-06-25):* a per-file/-folder status + inbound-reference audit (grep across
-`design-docs/specs/`, `CLAUDE.md`, `.agent/`, code, and cross-plan links), then `git mv` into
-buckets with all authoritative references repointed in the same change.
+`design-docs/specs/`, engineering rules, code, and cross-plan links), then `git mv` into buckets
+with all authoritative references repointed in the same change.
 
 *Cleanup pass (2026-07-17):* every plan folder/file confirmed complete with **no spec citing its
 path** was deleted outright rather than archived (`_archive/` in full except the one

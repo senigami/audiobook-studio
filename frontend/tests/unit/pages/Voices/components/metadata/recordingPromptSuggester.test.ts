@@ -6,7 +6,7 @@
  * recordingPromptSuggester.test.ts` as the exact file, but `frontend/vitest.config.ts`'s
  * `include` only globs `tests/unit/**\/*.test.{ts,tsx}` (no test file anywhere in this repo
  * is colocated under `src/`) — a test placed under `src/` would silently never run. This
- * file lives here instead, mirroring the source path per CLAUDE.md's stated frontend test
+ * file lives here instead, mirroring the source path per this repo's stated frontend test
  * convention, and covers the same cases the spec calls for.
  *
  * Covers:

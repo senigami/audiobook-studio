@@ -14,7 +14,7 @@ When a segment's `character_id` or `speaker_profile_name` changes, its previousl
 This is bug **B1** in the audit (see [`../00-audit-report.md`](../00-audit-report.md) Track B table, and [`../../book_view_ia_proposal.md`](../../book_view_ia_proposal.md) §10 B1). The whole render/voice workflow the Book View redesign is built on assumes that changing who speaks a line throws away the old rendering. Today the stale WAV keeps playing, so the author hears the wrong voice and can't tell what still needs re-rendering. The invalidation *logic* already exists in the code — it is simply gated on the wrong condition.
 
 ## Context an executor needs
-Specs / rules: [`design-docs/specs/testing-standards.md`](../../../../specs/testing-standards.md) (R1 revert-check — a bug-fix test must fail on the pre-fix code). Audio render format is **WAV** for chapter/segment audio (CLAUDE.md, audio-format conventions).
+Specs / rules: [`design-docs/specs/testing-standards.md`](../../../../specs/testing-standards.md) (R1 revert-check — a bug-fix test must fail on the pre-fix code). Audio render format is **WAV** for chapter/segment audio (this repo's binding audio-format convention).
 
 Current-state evidence — `app/db/segments.py`, `update_segment(...)` (starts ~line 260):
 

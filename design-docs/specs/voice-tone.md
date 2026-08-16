@@ -22,7 +22,7 @@ sources:
   - frontend/src/pages/ProjectDetail/components/ProjectModals.tsx
   - frontend/src/pages/Book/components/AddChapterModal.tsx
   - frontend/index.html
-  - .agent/rules/frontend-ux.md
+  - design-docs/engineering-rules/frontend-ux.md
   - design-docs/specs/design-system.md
 ```
 
@@ -145,7 +145,7 @@ See §10 (Known Deviations) for callsites that are missing this statement.
 
 ## 5. The Five UI States
 
-From `.agent/rules/frontend-ux.md` and `design-system.md` §8.4, every meaningful screen change MUST account for all five states:
+From `design-docs/engineering-rules/frontend-ux.md` and `design-system.md` §8.4, every meaningful screen change MUST account for all five states:
 
 | State | Copy guidance |
 |-------|---------------|
@@ -284,7 +284,7 @@ These are observed gaps between this spec and the current codebase. Each is a **
 ## 11. Cross-References
 
 - Design tokens, type scale, shared component primitives, accessibility baseline: [design-system.md](design-system.md) — in particular §6 (`ConfirmModal`) and §8.4 (five UI states)
-- Five UI states from `.agent/rules/`: `.agent/rules/frontend-ux.md`
+- Five UI states from `design-docs/engineering-rules/frontend-ux.md`
 - Progress-state copy and ETA messaging: [progress-presentation.md](progress-presentation.md)
 - App shell connection-state display (TopBar, reconnecting orb): [site-shell-and-book-pipeline.md](site-shell-and-book-pipeline.md)
 - Iconography for in-progress buttons (Loader2): [design-system.md](design-system.md) §9

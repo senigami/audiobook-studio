@@ -2,9 +2,9 @@ Status: partially complete — 2026-07-19. Backend done and tested (return-shape
 both API routes surface the count, 2 API-level tests, 1081+ broader tests pass). **Frontend NOT
 done — deliberately left open, not silently skipped:** wiring `useChapterPersistence.ts` to show a
 user-facing warning is an information-architecture/UI change; per this repo's mandate, that kind of
-perceptual/IA judgment gets staged for the designer (Dean)/owner, not shipped unilaterally by
+perceptual/IA judgment gets staged for the designer/owner, not shipped unilaterally by
 this task. The TS response type (`frontend/src/api/index.ts`) was updated so `lost_assignments_count`
-is available to a future consumer, but no UI surfaces it yet. Fable's code review caught this
+is available to a future consumer, but no UI surfaces it yet. Code review caught this
 mid-task (the stated purpose — "so the UI can warn the user" — isn't reachable by any real user
 until the frontend half lands); recording it explicitly rather than marking the task done.
 Depends on: Task 4

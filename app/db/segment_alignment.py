@@ -8,8 +8,7 @@ the RC-1 bug this replaces existed because those two callers duplicated the same
 and drifted. Any future change to matching logic must touch only this module.
 
 STATUS (2026-07-19): both callers wired (Task 4, Task 5). Parity between preview and
-real sync verified by execution across multiple scenarios (see
-.agent/frontier-calibration/code-reviews/rc1-task5-*.md) -- the preview can no longer
+real sync verified by execution across multiple scenarios -- the preview can no longer
 report a false "destructive"/loss warning for a save the real sync actually preserves.
 
 Pure function: no DB access, no side effects. See

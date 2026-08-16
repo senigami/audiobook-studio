@@ -1,6 +1,6 @@
 # Audiobook Studio — Site Experience North Star (Proposal)
 
-*Author: Claude (Fable 5), 2026-06-11. Status: PROPOSAL — for discussion, nothing here is committed work.*
+*Author: Claude, 2026-06-11. Status: PROPOSAL — for discussion, nothing here is committed work.*
 *Companion mockups: the design spec sheet at `/demo/#/styleguide` (U15/U16/U8/U1 cards). Appendix A is the factual map of today's site; Appendix B is the inventory of recorded future goals. Both were compiled fresh from the repo on this date.*
 
 ---

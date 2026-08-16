@@ -1,8 +1,8 @@
 # Plan — auto-isolated venv for conflicting/heavy plugin dependencies
 
-**Status:** DRAFT — awaiting twin + Fable plan review. No code changes made producing this plan.
-**Feeds from:** `.agent/frontier-calibration/references/AR-2.md` (Fable design reference,
-2026-07-19) — that reference is a complete design; this plan formalizes it into task slices.
+**Status:** DRAFT — awaiting plan review. No code changes made producing this plan.
+**Feeds from:** a design reference (AR-2, 2026-07-19) — that reference is a complete design; this
+plan formalizes it into task slices.
 
 ## Problem
 

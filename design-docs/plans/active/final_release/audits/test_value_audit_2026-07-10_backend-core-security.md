@@ -1,6 +1,6 @@
 # Test Value Audit — Backend core/domain/security/speaker/utils — 2026-07-10
 
-Consolidated from 8 parallel sub-passes: `tests/core/`, `tests/domain/` (split into 4 sub-batches: huggingface/huggingface_client, segment_variation/voice_bundle_phase_e, voice_migration_v1_schema/voice_taxonomy, domain_contracts/project_backup_bundle), `tests/security/`, `tests/speaker/`+root-level files, `tests/utils/`. Cross-checked against `.agent/rules/backend-paths.md` for security-test rigor.
+Consolidated from 8 parallel sub-passes: `tests/core/`, `tests/domain/` (split into 4 sub-batches: huggingface/huggingface_client, segment_variation/voice_bundle_phase_e, voice_migration_v1_schema/voice_taxonomy, domain_contracts/project_backup_bundle), `tests/security/`, `tests/speaker/`+root-level files, `tests/utils/`. Cross-checked against `design-docs/engineering-rules/backend-paths.md` for security-test rigor.
 
 Scope: ~44 files, ~320 total test cases reviewed.
 

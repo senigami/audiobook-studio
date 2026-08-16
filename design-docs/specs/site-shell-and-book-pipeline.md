@@ -282,7 +282,7 @@ The legacy `ProjectDetail` surface may remain as a compatibility boundary while 
 
 ## 5. Frontend State Ownership
 
-This section formalizes `.agent/rules/frontend-state.md` for the shell and book pipeline. It is binding for every page and stage described above.
+This section formalizes `design-docs/engineering-rules/frontend-state.md` for the shell and book pipeline. It is binding for every page and stage described above.
 
 - **Canonical entity data comes from API hydration.** Projects, chapters, blocks/segments, voices, characters, and settings are loaded through API-backed loading hooks. These hooks are the source of truth for entity data; pages MUST read canonical state from them, not from the store.
 - **The frontend store owns ONLY**: live overlays (queue/progress that arrive over the socket), reconnect state, notifications, and the local editor session / drafts. The store MUST NOT become a second database — do not mirror canonical entities into it or infer canonical completion state from local UI assumptions or stale props.

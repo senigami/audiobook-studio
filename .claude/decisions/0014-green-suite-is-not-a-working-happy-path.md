@@ -1,7 +1,0 @@
-# OD-0014: A green check suite is not a working happy path; verification is driven against the real artifact
-Status: accepted        Date: 2026-07-18
-Scope: .claude/agents/amina-runtime-verifier.md; end-to-end behavioral verification of any shipped/verified/done claim
-Context: PR #134's TTS gateway shipped with every pass/fail check green while the happy path was broken by two undiscovered core-synthesis bugs. W-PAR's parallel render has run at cap>1 as the shipped default since 2026-07-06 with live-render owner verification still open. A stale cached sidecar silently serving wrong timing is a real bug class that has already shipped once in this repo.
-Decision: "I exist because this repo's most expensive failures were never caught by a test suite (OD-0014). My job is not to write or design anything — it's to drive the real behavior, look at the real artifacts, and say plainly whether what was claimed to happen actually happened, reproducibly, on disk. The failure I exist to prevent is the confidently reported "done" that nobody actually checked."
-Consequences: Created the runtime-verifier seat (Amina). Completion, reuse, and recovery decisions use validated artifact metadata, never raw file existence or test-suite status alone.
-Disconfirming evidence: A feature verified as working by driving the real artifact under this rule is later shown to have been broken in exactly the way a green test suite would have caught just as reliably — i.e. artifact-level verification adds cost without catching anything the existing test suite wouldn't have.

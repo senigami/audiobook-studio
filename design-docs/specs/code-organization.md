@@ -37,7 +37,7 @@ components, hooks).
 
 Cross-references: import-time side effect rules are in
 [system-architecture.md §10](system-architecture.md); path-safety rules are in
-`.agent/rules/backend-paths.md`; boot-sequence ordering is in
+`design-docs/engineering-rules/backend-paths.md`; boot-sequence ordering is in
 [system-architecture.md §4](system-architecture.md).
 
 ---

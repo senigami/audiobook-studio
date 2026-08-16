@@ -117,6 +117,5 @@ section — nothing was dropped, only combined into one list.)*
 ---
 
 *Owner directive (2026-07-14, when the backlog file this merges from was created): the "clean
-break" and versioned-contract policies in `CLAUDE.md` describe pre-release engineering discipline
-— they say nothing about what to build after v2.0.0 ships. Post-release scope is this separate,
-open list.*
+break" and versioned-contract policies describe pre-release engineering discipline — they say
+nothing about what to build after v2.0.0 ships. Post-release scope is this separate, open list.*

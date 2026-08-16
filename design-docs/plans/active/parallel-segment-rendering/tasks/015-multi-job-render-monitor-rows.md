@@ -10,7 +10,7 @@ Every concurrently-rendering job in `GlobalQueue.tsx`'s `activeJobs` section get
 
 ## Why this matters
 
-Today `ActivityPage.tsx:54-60` picks a single `activeJob` via `Object.values(jobs).find(...)` and renders one `SegmentPeekStrip`/`SegmentRenderMonitor` at page level driven by that job alone. If 2+ chapters render concurrently, only the first one found (order is whatever `Object.values` returns, not deterministic) gets a strip — the others show only their plain `PredictiveProgressBar`, no segment detail. This is the exact intent the owner stated this session ("if I had 2 chapters rendering at the same time... I would have a strip underneath each progress bar") and which Fable's Phase 2 sign-off confirmed was NOT delivered by tasks 008-011 despite their comments implying it would be handled by "010/011" (it wasn't — see the stale comment fix below).
+Today `ActivityPage.tsx:54-60` picks a single `activeJob` via `Object.values(jobs).find(...)` and renders one `SegmentPeekStrip`/`SegmentRenderMonitor` at page level driven by that job alone. If 2+ chapters render concurrently, only the first one found (order is whatever `Object.values` returns, not deterministic) gets a strip — the others show only their plain `PredictiveProgressBar`, no segment detail. This is the exact intent the owner stated this session ("if I had 2 chapters rendering at the same time... I would have a strip underneath each progress bar") and which the Phase 2 sign-off confirmed was NOT delivered by tasks 008-011 despite their comments implying it would be handled by "010/011" (it wasn't — see the stale comment fix below).
 
 ## Current state (read before starting)
 

@@ -13,7 +13,7 @@ The frontend has two very different kinds of state, and conflating them is a rec
 
 When the live store starts caching canonical entities as if it were a database, the UI drifts from the server: stale rows survive refetches, overlay frames overwrite authoritative data, and local drafts clobber server state. The redesign sharply increases the number of surfaces reading live state (rail badges, the queue drawer, the Activity page, in-book progress, the player bar), so the ownership rule needs to be explicit rather than folklore in a rules file.
 
-This decision formalizes the principle already stated in `.agent/rules/frontend-state.md`.
+This decision formalizes the principle already stated in `design-docs/engineering-rules/frontend-state.md`.
 
 ## Decision
 
@@ -39,4 +39,4 @@ The frontend separates ownership of state by kind, and the boundary is enforced:
 
 ### Neutral
 
-- The rule is documented in three places that must stay consistent: this ADR (why), `design-docs/specs/site-shell-and-book-pipeline.md` §Frontend state ownership (what), and `.agent/rules/frontend-state.md` (the working rule agents load).
+- The rule is documented in three places that must stay consistent: this ADR (why), `design-docs/specs/site-shell-and-book-pipeline.md` §Frontend state ownership (what), and `design-docs/engineering-rules/frontend-state.md` (the working engineering rule).

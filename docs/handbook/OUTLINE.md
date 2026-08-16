@@ -417,7 +417,7 @@ _Extend Studio with engine plugins, drive it over the external API, and run it._
   - Fork & PR workflow
   - Squash-merge & focused PRs
   - Review expectations
-- [Repository Agent Rules](contributing/agent-rules.html) — The .agent/rules router and what each rule set covers.
+- [Engineering Rules](contributing/agent-rules.html) — The design-docs/engineering-rules router and what each rule set covers.
   - rules.md router & task map
   - Key constraints (modular_architecture)
   - verification before “done”

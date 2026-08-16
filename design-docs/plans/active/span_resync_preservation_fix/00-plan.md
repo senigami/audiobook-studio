@@ -1,11 +1,11 @@
 # Sub-sentence span preservation fix — implementation plan
 
-**Status:** DRAFT — awaiting twin + Fable plan review (Frontier Calibration Phase 3). Not yet
-approved for build. No code changes made as part of producing this plan.
+**Status:** DRAFT — awaiting plan review. Not yet approved for build. No code changes made as
+part of producing this plan.
 
-**Feeds from:** `.agent/frontier-calibration/references/RC-1.md` (Fable root-cause reference,
-2026-07-18). See `design-docs/plans/proposals/span_resync_preservation.md` for prior design notes
-on this same gap if present.
+**Feeds from:** a root-cause reference (RC-1, 2026-07-18). See
+`design-docs/plans/proposals/span_resync_preservation.md` for prior design notes on this same gap
+if present.
 
 ## Problem (from RC-1)
 
@@ -72,7 +72,7 @@ Replace positional whole-sentence equality with **content-anchored reconciliatio
   (only its invalidation trigger), or a broader segment-model redesign.
 - **Blast radius note:** this touches the same rebuild function three entry points share
   (`create_chapter`, `update_chapter`, explicit resync) — see BR-2 in the scenario menu for a fuller
-  blast-radius treatment if the twin/Fable review flags it as needed.
+  blast-radius treatment if review flags it as needed.
 
 ## Task slices (each independently landable + testable)
 
@@ -100,7 +100,7 @@ Replace positional whole-sentence equality with **content-anchored reconciliatio
    assert correct invalidation + surfaced count); a test for the index-cascade fix (multiple splits
    + an edit before them → assert only the actually-affected rows change).
 
-## Open questions for the reviewers (twins + Fable)
+## Open questions for reviewers
 
 - Is content-hash-based anchoring sufficient, or does it need fuzzier matching (e.g., a near-match
   threshold) for the case where the parent sentence changed only trivially (e.g., whitespace)?

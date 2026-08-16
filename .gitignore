@@ -179,13 +179,22 @@ tts_engines/*/assets/last_test.json
 /Memory
 /debug
 
-# session memory (agent-local, not project history)
+# Local AI-assistant configuration and working state. Deliberately never tracked: this is
+# personal tooling setup, not part of the project. Engineering rules that describe THIS codebase
+# live in design-docs/engineering-rules/ instead, where they belong.
+/.agent/
+/.claude/
+/CLAUDE.md
+/AGENTS.md
+/.cursorrules
 /.memory/
+/design-docs/how-this-system-works.md
 
 # cross-session claim files (agent-local, ephemeral -- which session is touching what right now)
+# and the code map (generated, rebuilt per clone) are both already covered by the broader
+# /.agent/ rule above; kept explicit since they document why those specific subpaths matter,
+# in case that broader rule is ever narrowed.
 /.agent/active-work/
-
-# code map (map-code skill): generated, local-only, rebuilt per clone -- never shared history
 /.agent/code-map/
 
 # SQLite backups produced by cleanup steps
@@ -208,3 +217,6 @@ audiobook_studio.db
 
 # voice-kit persona bundles (writing/speaking fingerprints -- never publish)
 .voice/
+
+# plan doc whose only deliverable is the local, untracked guidance file
+/design-docs/plans/active/sd2_claude_md_task_inventory/

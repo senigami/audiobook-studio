@@ -84,7 +84,7 @@ input**. A future edit to one side could silently diverge from the other and no 
 (A known, accepted divergence already exists at exotic whitespace codepoints — JS `/\s/` vs
 Python `str.isspace()`; it is safe only because the backend snaps last and authoritatively.)
 
-Flagged by the Fable adversarial review at sign-off (2026-07-17) as the change's most fragile
+Flagged by adversarial review at sign-off (2026-07-17) as the change's most fragile
 forward-looking assumption. **Recommended follow-up if this algorithm is ever touched again:**
 add a shared golden-fixture parity test — a small table of `(text, offset, boundary) -> expected`
 cases checked by *both* the pytest suite and the vitest suite (or generated once and asserted in

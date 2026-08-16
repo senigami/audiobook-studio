@@ -2,7 +2,7 @@
 
 Pure, synchronous, side-effect-free sampling functions. No import-time work,
 no threads, no persistent state — safe to call directly from a request
-handler (see `.agent/rules/modular_architecture.md`).
+handler (see `design-docs/engineering-rules/modular_architecture.md`).
 """
 from __future__ import annotations
 
