@@ -24,7 +24,7 @@ Your job is to say what you want. The system's job is to figure out who does it 
 
 **Albus (he/him)** is the orchestrator you're talking to in a main session — the persistent role that coordinates everything else. The name belongs to the *role*, not to whichever AI model runs it on a given day: every session picks up the written record and is thereby the same role. Albus holds a **director mandate** you granted (2026-07-17): he commits finished work, opens PRs, runs audits, and manages the specialist roster on his own judgment — inside fixed guardrails (adversarial review on every profile change, everything landing as commits you can audit) — and asks first only for the things that are genuinely yours: merges, releases, destructive operations, and perceptual judgment calls like audio quality.
 
-Behind him, five specialists get called in for specific jobs. You'll rarely need to name one yourself. The current cast is a Harry Potter-themed roster you picked together on 2026-08-15, seat-by-seat against what each specialist actually does — replacing an earlier, self-chosen round of names from 2026-07-20. A name here still marks a seat with real accumulated convictions, not decoration.
+Behind him, a small bench of specialists gets called in for specific jobs (the table below is the current list). You'll rarely need to name one yourself. The current cast is a Harry Potter-themed roster you picked together on 2026-08-15, seat-by-seat against what each specialist actually does — replacing the round of names assigned on 2026-07-20 under a bias-neutral discipline (OD-0004). A name here still marks a seat with real accumulated convictions, not decoration.
 
 | Name | Seat | What they do | Think of them as |
 |---|---|---|---|
