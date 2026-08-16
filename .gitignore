@@ -188,6 +188,7 @@ tts_engines/*/assets/last_test.json
 /AGENTS.md
 /.cursorrules
 /.memory/
+/design-docs/how-this-system-works.md
 
 # cross-session claim files (agent-local, ephemeral -- which session is touching what right now)
 # and the code map (generated, rebuilt per clone) are both already covered by the broader
