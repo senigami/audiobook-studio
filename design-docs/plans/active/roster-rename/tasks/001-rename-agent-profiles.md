@@ -1,6 +1,6 @@
 # Task 001 — Rename & update all 9 agent profile files
 
-Status: pending
+Status: complete — 2026-08-15 (required two follow-up fix passes beyond the original spec: broken identity/etymology paragraphs written for the old names, and mismatched pronouns in fred/george/percy's descriptions — neither was anticipated in the original task file, both found during orchestrator verification and fixed before acceptance)
 Risk: multi-file — each file's own rename is easy; the cross-references to OTHER seats inside each
 file are the actual risk. Read every file fully before editing, don't pattern-match on the
 first-person name alone.

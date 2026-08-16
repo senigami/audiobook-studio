@@ -2,7 +2,7 @@ Status: partially complete — 2026-07-19. Backend done and tested (return-shape
 both API routes surface the count, 2 API-level tests, 1081+ broader tests pass). **Frontend NOT
 done — deliberately left open, not silently skipped:** wiring `useChapterPersistence.ts` to show a
 user-facing warning is an information-architecture/UI change; per this repo's mandate, that kind of
-perceptual/IA judgment gets staged for the designer (Junia)/owner, not shipped unilaterally by
+perceptual/IA judgment gets staged for the designer (Dean)/owner, not shipped unilaterally by
 this task. The TS response type (`frontend/src/api/index.ts`) was updated so `lost_assignments_count`
 is available to a future consumer, but no UI surfaces it yet. Fable's code review caught this
 mid-task (the stated purpose — "so the UI can warn the user" — isn't reachable by any real user
@@ -60,7 +60,7 @@ but still possible for genuinely-edited sentences).
       already drive its warning icon/copy), so this is mechanically straightforward — but wiring it
       into the ordinary-save path (`useChapterPersistence.ts`) is a real UI/IA decision (when does
       the warning show, does it block the save, does it reuse the modal or need a lighter inline
-      form) that should go through Junia (`abfc-junia`)/owner, not be decided unilaterally here.
+      form) that should go through Dean (`abfc-dean`)/owner, not be decided unilaterally here.
 - [x] Test confirms a genuine-loss save surfaces a non-zero count; a clean save surfaces 0 —
       `tests/api/test_api_chapters.py::test_chapter_update_surfaces_lost_assignments_count` and
       `::test_sync_segments_route_surfaces_lost_assignments_count`.

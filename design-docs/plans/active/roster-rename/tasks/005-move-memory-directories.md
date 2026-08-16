@@ -1,6 +1,6 @@
 # Task 005 — Move the two populated memory-store directories
 
-Status: pending
+Status: complete — 2026-08-15 (done inline by the orchestrator after a session restart surfaced the orphaned-memory risk directly; used plain `mv` since `.git/info/exclude` locally excludes this directory, not `git mv`)
 Risk: none flagged (single mechanical operation) but HIGH cost if done wrong — see `[INV-3]`.
 Depends on: Task 001 (final spawn_keys decided)
 

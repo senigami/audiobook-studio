@@ -1,6 +1,6 @@
 # Task 008 — Cross-reference reconciliation sweep (run LAST)
 
-Status: pending
+Status: complete — 2026-08-16 (3 rounds: 9 + 6 + 6 findings, all fixed and re-verified; round 3's own ~250-hit full-repo sweep is the final clean state)
 Risk: multi-file — this task's entire purpose IS the cross-file consistency check. Do not run
 before Tasks 001-007 are all complete.
 Depends on: Tasks 001-007

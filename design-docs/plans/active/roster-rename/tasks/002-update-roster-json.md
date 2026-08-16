@@ -1,6 +1,6 @@
 # Task 002 — Update `.claude/agents/roster.json`
 
-Status: pending
+Status: complete — 2026-08-15
 Risk: multi-file — this file restates every seat's name AND several cross-reference mentions
 inside `do_not_dispatch_for` arrays.
 Depends on: Task 001 (needs the final profile filenames/spawn_keys)

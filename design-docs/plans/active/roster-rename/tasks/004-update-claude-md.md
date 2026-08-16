@@ -1,6 +1,6 @@
 # Task 004 — Update `CLAUDE.md`'s orchestrator mandate section
 
-Status: pending
+Status: complete — 2026-08-15
 Risk: multi-file (must match Tasks 001-002's final name) but low complexity — CLAUDE.md itself has
 no cross-seat references beyond naming Ada; confirmed via grep during planning that "archivist"
 and "engineer" do not appear anywhere in CLAUDE.md as seat-label prose (only as generic English
@@ -48,10 +48,10 @@ grep -n "Albus" CLAUDE.md | wc -l
 
 ## Acceptance criteria
 
-- [ ] Grep for `\bAda\b` in CLAUDE.md returns nothing.
-- [ ] All 7 identified lines now read "Albus"/"he/him" and are grammatically coherent (read each
+- [x] Grep for `\bAda\b` in CLAUDE.md returns nothing.
+- [x] All 7 identified lines now read "Albus"/"he/him" and are grammatically coherent (read each
       full sentence after editing, don't just swap the token).
-- [ ] Confirmed via grep that CLAUDE.md contains no seat-label prose mentions of
+- [x] Confirmed via grep that CLAUDE.md contains no seat-label prose mentions of
       "archivist"/"engineer" needing a corresponding update (per the note above) — if the grep
       surfaces any such mention that was missed during planning, fix it and note the discrepancy.
 

@@ -1,6 +1,6 @@
 # Task 007 — Update the external name registry
 
-Status: pending
+Status: complete — 2026-08-15 (9 new rows added under audiobook-factory; found the 8 pre-rename rows still marked active under a stale "audiobook-studio" qualifier — this repo's remote name — left untouched and flagged for the owner, not this task's scope to retire them)
 Risk: none (external file, additive)
 Depends on: Task 006 (needs the OD number for the "assignment date" field)
 

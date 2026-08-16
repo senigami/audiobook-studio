@@ -1,6 +1,6 @@
 # Task 006 — Write the new OD decision record
 
-Status: pending
+Status: complete — 2026-08-15 (created 0027-roster-renamed-to-harry-potter-characters.md; flagged a real cross-branch numbering collision with PR #184's own unrelated OD-0027; renumbered same-day, pre-push, to 0028-roster-renamed-to-harry-potter-characters.md once `gh pr view 184` confirmed that branch's OD-0027 hadn't merged — cheap to fix now, not worth deferring to merge time)
 Risk: none (additive only — this task creates one new file, edits zero existing ones)
 Depends on: Tasks 001-005 (the rename should be real before it's documented as decided)
 

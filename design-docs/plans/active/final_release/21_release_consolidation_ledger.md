@@ -175,7 +175,7 @@ wording (do-now) — it's the inverse of a gap: a doc describing more than exist
   - **Fill the 5 user-doc gaps** (Part 1b): parallel rendering (`Queue-and-Jobs`), waveform scrubber
     (`Concepts`), video sample export (`File-Formats`/user-guide), read-along reader
     (`Library-and-Projects` or `Concepts`), HF import/publish workflow (`Voices`). These are
-    user-facing product prose — owner's voice; hand-list vs. Ada-drafts is an owner call.
+    user-facing product prose — owner's voice; hand-list vs. Albus-drafts is an owner call.
 - **Owner design decisions blocking work:** W-PERF AI pipeline schedule-or-hold; HF/AI-casting scope
   (at release or fast-follow); backend namespace `mixed.py`→`composite.py` + registry decisions.
 

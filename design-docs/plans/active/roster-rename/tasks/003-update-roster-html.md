@@ -1,6 +1,6 @@
 # Task 003 — Update `.claude/agents/roster.html`
 
-Status: pending
+Status: complete — 2026-08-15
 Risk: multi-file (name consistency with 001/002) + genuine writing task (etymology prose), not
 pure mechanical substitution.
 Depends on: Task 001 (final profile paths), Task 002 (final roster.json values to mirror)
