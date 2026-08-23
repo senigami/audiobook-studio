@@ -85,6 +85,16 @@ else
     echo "── pytest: no changed backend test files, skipped"
 fi
 
+# The frontend toolchain resolves its config from the CURRENT DIRECTORY, so these must cd
+# rather than use --prefix/-C. Verified 2026-08-23: `npx --prefix frontend eslint` runs with the
+# repo root as cwd, finds no flat config, and exits 2 on config resolution. That reads as a lint
+# failure and would block every push touching frontend, for entirely the wrong reason. Each
+# helper is a subshell so the cd cannot leak into the rest of the hook.
+fe_eslint()          { ( cd frontend && npx eslint --no-error-on-unmatched-pattern "$@" ); }
+fe_vitest_all()      { ( cd frontend && npm run test -- --run ); }
+fe_vitest()          { ( cd frontend && npm run test -- --run "$@" ); }
+fe_vitest_related()  { ( cd frontend && npx vitest related --run "$@" ); }
+
 if [ "${#FRONTEND_FILES[@]}" -gt 0 ]; then
     FRONTEND_LINT_FILES=()
     FRONTEND_TEST_FILES=()
@@ -105,17 +115,17 @@ if [ "${#FRONTEND_FILES[@]}" -gt 0 ]; then
     done
 
     if [ "${#FRONTEND_LINT_FILES[@]}" -gt 0 ]; then
-        run "eslint (changed frontend files)" npx --prefix frontend eslint --no-error-on-unmatched-pattern "${FRONTEND_LINT_FILES[@]/#/frontend/}"
+        run "eslint (changed frontend files)" fe_eslint "${FRONTEND_LINT_FILES[@]}"
     else
         echo "── eslint: no changed frontend JS/TS files, skipped"
     fi
 
     if [ "$FRONTEND_BROAD_IMPACT" -eq 1 ]; then
-        run "vitest (full suite: broad-impact config change)" npm -C frontend run test -- --run
+        run "vitest (full suite: broad-impact config change)" fe_vitest_all
     elif [ "${#FRONTEND_TEST_FILES[@]}" -gt 0 ]; then
-        run "vitest (changed test files)" npm -C frontend run test -- --run "${FRONTEND_TEST_FILES[@]}"
+        run "vitest (changed test files)" fe_vitest "${FRONTEND_TEST_FILES[@]}"
     elif [ "${#FRONTEND_RELATED_FILES[@]}" -gt 0 ]; then
-        run "vitest related (changed sources)" npx --prefix frontend vitest related --run "${FRONTEND_RELATED_FILES[@]}"
+        run "vitest related (changed sources)" fe_vitest_related "${FRONTEND_RELATED_FILES[@]}"
     else
         echo "── vitest: no testable frontend files changed, skipped"
     fi
