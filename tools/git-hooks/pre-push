@@ -19,9 +19,34 @@ run() {
     fi
 }
 
-# Resolve what to diff against. The real base here is studio-2.0, not main: falling back
-# to origin/main on a first push produces a diff across the whole v1/v2 divergence and
-# the gates then lint thousands of unrelated files (looks hung; cost a real round once).
+# Gate what is actually being PUSHED. Git feeds this hook one line per ref on stdin:
+#   <local ref> <local sha> <remote ref> <remote sha>
+# Reading it matters: diffing the CURRENT BRANCH's upstream instead means
+# `git push origin some-other-branch` finds no local diff, reports "nothing to gate",
+# and every gate is skipped while the push goes through.
+ZERO="0000000000000000000000000000000000000000"
+PUSH_RANGES=()
+SAW_STDIN_REF=0
+while read -r _localref localsha _remoteref remotesha; do
+    [ -z "${localsha:-}" ] && continue
+    SAW_STDIN_REF=1
+    [ "$localsha" = "$ZERO" ] && continue          # branch deletion, nothing to gate
+    if [ "${remotesha:-$ZERO}" = "$ZERO" ]; then
+        # new branch on the remote: compare against this repo's real base, not main
+        if git show-ref --verify --quiet refs/remotes/origin/studio-2.0; then
+            PUSH_RANGES+=("origin/studio-2.0...$localsha")
+        else
+            PUSH_RANGES+=("$localsha~1...$localsha")
+        fi
+    else
+        PUSH_RANGES+=("$remotesha...$localsha")
+    fi
+done
+
+# Fall back only when invoked by hand with no stdin (testing the hook directly).
+# The real base here is studio-2.0, not main: falling back to origin/main on a first push
+# diffs the whole v1/v2 divergence and the gates then lint thousands of unrelated files
+# (looks hung; cost a real round once).
 UPSTREAM_REF="$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)"
 if [ -z "$UPSTREAM_REF" ]; then
     CURRENT_BRANCH="$(git branch --show-current)"
@@ -36,17 +61,32 @@ if [ -z "$UPSTREAM_REF" ]; then
     fi
 fi
 
-CHANGED_FILES=()
-while IFS= read -r FILE; do
-    [ -n "$FILE" ] && CHANGED_FILES+=("$FILE")
-done < <(git diff --name-only "${UPSTREAM_REF}...HEAD")
-
-if [ "${#CHANGED_FILES[@]}" -eq 0 ]; then
-    echo "No changed files relative to ${UPSTREAM_REF}; nothing to gate."
+if [ "${#PUSH_RANGES[@]}" -eq 0 ] && [ "$SAW_STDIN_REF" -eq 1 ]; then
+    # git gave us refs and every one was a deletion. Nothing is being added, so there is
+    # nothing to gate. Do NOT fall through to the working-tree diff: that would gate
+    # something other than what is being pushed, and report it as if it were the push.
+    echo "Only branch deletion(s) pushed; nothing to gate."
     exit 0
 fi
 
-echo "Pre-push gates (${#CHANGED_FILES[@]} changed files vs ${UPSTREAM_REF})"
+if [ "${#PUSH_RANGES[@]}" -eq 0 ]; then
+    PUSH_RANGES=("${UPSTREAM_REF}...HEAD")
+    SCOPE="working tree vs ${UPSTREAM_REF} (no refs on stdin: invoked by hand, not by git)"
+else
+    SCOPE="${#PUSH_RANGES[@]} pushed ref(s)"
+fi
+
+CHANGED_FILES=()
+while IFS= read -r FILE; do
+    [ -n "$FILE" ] && CHANGED_FILES+=("$FILE")
+done < <(for R in "${PUSH_RANGES[@]}"; do git diff --name-only "$R"; done | sort -u)
+
+if [ "${#CHANGED_FILES[@]}" -eq 0 ]; then
+    echo "No changed files across ${SCOPE}; nothing to gate."
+    exit 0
+fi
+
+echo "Pre-push gates (${#CHANGED_FILES[@]} changed files, ${SCOPE})"
 
 BACKEND_PY_FILES=()
 BACKEND_TEST_FILES=()
@@ -62,9 +102,18 @@ done
 # (.claude/, .agent/, CLAUDE.md) is deliberately untracked, so such a link resolves for
 # whoever wrote it and is dead for everyone who clones.
 gate_tracked_links() {
-    local hits
-    hits="$(git grep -nE '\]\([^)]*\.(claude|agent)/' -- '*.md' || true)"
-    if [ -n "$hits" ]; then
+    # git grep: 0 = matches found, 1 = no matches, >1 = the search itself failed.
+    # Do NOT collapse these with `|| true`. An erroring grep prints nothing, and nothing
+    # is exactly what a clean sweep prints, so the failure would report as a pass.
+    local hits rc
+    hits="$(git grep -nE '\]\([^)]*\.(claude|agent)/' -- '*.md' 2>&1)"
+    rc=$?   # not `status`: that name is read-only in zsh, and this file gets sourced by people
+    if [ "$rc" -gt 1 ]; then
+        echo "$hits"
+        echo "   ^ the search itself failed (exit $rc); this is NOT a clean result"
+        return 1
+    fi
+    if [ "$rc" -eq 0 ]; then
         echo "$hits"
         echo "   ^ tracked markdown links into an untracked path"
         return 1
