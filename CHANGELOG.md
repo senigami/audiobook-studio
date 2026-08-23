@@ -23,6 +23,7 @@ Nothing cut yet on the Studio 2.0 line. The newest tag in this repo is `v1.8.5`,
 v1 line; `studio-2.0` has not had a release cut against it. Establishing the first v2 number is an
 owner decision, not a default, and the component versions currently disagree about what it would be.
 
-- Orchestration layer restored after a branch switch deleted it from disk (OD-0029).
+- Orchestration layer restored after a branch switch deleted it from disk. The reasoning is in
+  this repo's decision log, which is local to a working copy and not part of a clone.
 - Upgraded to skill-arsenal Release 1.1.0 conventions: record-driven closeout, tracked git hooks,
   permission-allowlist cleanup, review personas declared as a class.

@@ -8,8 +8,10 @@
 set -uo pipefail
 
 FAILED=0
+GATES_RAN=0
 run() {
     local label="$1"; shift
+    GATES_RAN=$((GATES_RAN + 1))
     echo "── ${label}"
     if "$@"; then
         echo "   ok"
@@ -134,8 +136,12 @@ gate_tracked_links() {
     # git grep: 0 = matches found, 1 = no matches, >1 = the search itself failed.
     # Do NOT collapse these with `|| true`. An erroring grep prints nothing, and nothing
     # is exactly what a clean sweep prints, so the failure would report as a pass.
+    # The pattern is an argument purely so the regression suite can drive this exact
+    # function with a search that cannot compile, and prove it fails rather than passes.
+    # Callers pass nothing.
+    local pattern="${1:-\]\([^)]*\.(claude|agent)/}"
     local hits rc
-    hits="$(git grep -nE '\]\([^)]*\.(claude|agent)/' -- '*.md' 2>&1)"
+    hits="$(git grep -nE "$pattern" -- '*.md' 2>&1)"
     rc=$?   # not `status`: that name is read-only in zsh, and this file gets sourced by people
     if [ "$rc" -gt 1 ]; then
         echo "$hits"
@@ -217,6 +223,17 @@ if [ "$FAILED" -gt 0 ]; then
     exit 1
 fi
 
+# The default on "no data" must be FAIL, not pass. Every defect this hook has shipped was
+# some command producing nothing and the nothing being read as clean. The two legitimate
+# ways to reach a pass without gating (deletion-only, no changed files) exit earlier and
+# say why. Reaching here having run zero gates means an edit broke the dispatch, so refuse.
+if [ "$GATES_RAN" -eq 0 ]; then
+    echo ""
+    echo "push blocked: reached the end having run NO gate at all."
+    echo "That is a bug in this hook, not a clean tree. See tools/git-hooks/test-pre-push.sh."
+    exit 1
+fi
+
 echo ""
-echo "all gates passed"
+echo "all ${GATES_RAN} gate(s) passed"
 exit 0

@@ -31,10 +31,12 @@ fi
 
 # 3. Re-stage files that were modified by auto-fixes
 # We only want to add back files that were already staged
-for FILE in $STAGED_FILES; do
+# NUL-delimited: word-splitting on $STAGED_FILES silently skips any path with a space,
+# and this repo has them (docs/demo/textures/"fold arms.kra").
+while IFS= read -r -d "" FILE; do
     if [ -f "$FILE" ]; then
-        git add "$FILE"
+        git add -- "$FILE"
     fi
-done
+done < <(git diff --cached --name-only --diff-filter=d -z)
 
 echo "Auto-fixes applied and staged."
