@@ -41,6 +41,9 @@ echo "pre-push regression suite"
 check "unknown remote sha blocks instead of reporting a clean pass" \
       1 "NO gate ran" "refs/heads/x $LOCAL refs/heads/x $UNKNOWN
 "
+check "a malformed remote sha blocks too (second shape of diff failure)" \
+      1 "NO gate ran" "refs/heads/x $LOCAL refs/heads/x not-a-valid-sha
+"
 check "a push of refs from stdin is gated (not the current branch's upstream)" \
       0 "pushed ref(s)" "refs/heads/x $LOCAL refs/heads/x $PREV
 "
@@ -89,6 +92,18 @@ else
     gate_tracked_links '[' >/dev/null 2>&1
     if [ $? -ne 0 ]; then echo "  pass  a search that cannot run is a failure, not a clean sweep"; PASS=$((PASS+1))
     else echo "  FAIL  a broken search reported a clean pass"; FAIL=$((FAIL+1)); fi
+
+    # Asserting the gate returns 0 on a clean tree proves nothing on its own: swap the
+    # default pattern for one that can never match and that assertion stays green while
+    # the gate is dead. So seed a real violation and require the DEFAULT pattern to catch it.
+    PROBE="__gate-probe-$$.md"
+    printf 'See [the log](.claude/decisions/INDEX.md).\n' > "$PROBE"
+    git add -- "$PROBE" 2>/dev/null
+    gate_tracked_links >/dev/null 2>&1
+    probe_rc=$?
+    git rm --cached --quiet -- "$PROBE" 2>/dev/null; rm -f "$PROBE"
+    if [ "$probe_rc" -ne 0 ]; then echo "  pass  the DEFAULT pattern catches a real tracked link into .claude/"; PASS=$((PASS+1))
+    else echo "  FAIL  a seeded violation went undetected: the default pattern is dead"; FAIL=$((FAIL+1)); fi
 fi
 
 echo ""
