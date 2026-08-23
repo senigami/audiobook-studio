@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+# Pre-push gates. Enable per clone with:  git config core.hooksPath tools/git-hooks
+#
+# Each gate runs as its own command and its exit status is captured separately, so one
+# failing gate never hides the ones after it. Do NOT restructure this into a `&&` chain
+# or re-add `set -e`: a chain stops at the first failure while still printing a status,
+# which makes a gate that never ran look identical to one that passed.
+set -uo pipefail
+
+FAILED=0
+run() {
+    local label="$1"; shift
+    echo "── ${label}"
+    if "$@"; then
+        echo "   ok"
+    else
+        echo "   FAILED (exit $?)"
+        FAILED=$((FAILED + 1))
+    fi
+}
+
+# Resolve what to diff against. The real base here is studio-2.0, not main: falling back
+# to origin/main on a first push produces a diff across the whole v1/v2 divergence and
+# the gates then lint thousands of unrelated files (looks hung; cost a real round once).
+UPSTREAM_REF="$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)"
+if [ -z "$UPSTREAM_REF" ]; then
+    CURRENT_BRANCH="$(git branch --show-current)"
+    if git show-ref --verify --quiet "refs/remotes/origin/${CURRENT_BRANCH}"; then
+        UPSTREAM_REF="origin/${CURRENT_BRANCH}"
+    elif git show-ref --verify --quiet "refs/remotes/origin/studio-2.0"; then
+        UPSTREAM_REF="origin/studio-2.0"
+    elif git show-ref --verify --quiet "refs/remotes/origin/main"; then
+        UPSTREAM_REF="origin/main"
+    else
+        UPSTREAM_REF="HEAD~1"
+    fi
+fi
+
+CHANGED_FILES=()
+while IFS= read -r FILE; do
+    [ -n "$FILE" ] && CHANGED_FILES+=("$FILE")
+done < <(git diff --name-only "${UPSTREAM_REF}...HEAD")
+
+if [ "${#CHANGED_FILES[@]}" -eq 0 ]; then
+    echo "No changed files relative to ${UPSTREAM_REF}; nothing to gate."
+    exit 0
+fi
+
+echo "Pre-push gates (${#CHANGED_FILES[@]} changed files vs ${UPSTREAM_REF})"
+
+BACKEND_PY_FILES=()
+BACKEND_TEST_FILES=()
+FRONTEND_FILES=()
+for FILE in "${CHANGED_FILES[@]}"; do
+    [ -e "$FILE" ] || continue
+    if [[ "$FILE" =~ ^app/.*\.py$ || "$FILE" =~ ^tests/.*\.py$ ]]; then BACKEND_PY_FILES+=("$FILE"); fi
+    if [[ "$FILE" =~ ^tests/.*\.py$ ]]; then BACKEND_TEST_FILES+=("$FILE"); fi
+    if [[ "$FILE" =~ ^frontend/ ]]; then FRONTEND_FILES+=("$FILE"); fi
+done
+
+# Gate: no tracked file may link into a path git does not track. The orchestration layer
+# (.claude/, .agent/, CLAUDE.md) is deliberately untracked, so such a link resolves for
+# whoever wrote it and is dead for everyone who clones.
+gate_tracked_links() {
+    local hits
+    hits="$(git grep -nE '\]\([^)]*\.(claude|agent)/' -- '*.md' || true)"
+    if [ -n "$hits" ]; then
+        echo "$hits"
+        echo "   ^ tracked markdown links into an untracked path"
+        return 1
+    fi
+    return 0
+}
+run "tracked links resolve" gate_tracked_links
+
+if [ "${#BACKEND_PY_FILES[@]}" -gt 0 ]; then
+    run "ruff (changed backend files)" ./venv/bin/python -m ruff check "${BACKEND_PY_FILES[@]}"
+else
+    echo "── ruff: no changed backend Python files, skipped"
+fi
+
+if [ "${#BACKEND_TEST_FILES[@]}" -gt 0 ]; then
+    run "pytest (changed test files)" ./venv/bin/python -m pytest -q "${BACKEND_TEST_FILES[@]}"
+else
+    echo "── pytest: no changed backend test files, skipped"
+fi
+
+if [ "${#FRONTEND_FILES[@]}" -gt 0 ]; then
+    FRONTEND_LINT_FILES=()
+    FRONTEND_TEST_FILES=()
+    FRONTEND_RELATED_FILES=()
+    FRONTEND_BROAD_IMPACT=0
+    for FILE in "${FRONTEND_FILES[@]}"; do
+        REL="${FILE#frontend/}"
+        if [[ "$REL" == "package.json" || "$REL" == "package-lock.json" || "$REL" =~ ^vite\.config || "$REL" =~ ^vitest\.config || "$REL" =~ ^eslint\.config || "$REL" =~ ^tsconfig ]]; then
+            FRONTEND_BROAD_IMPACT=1
+        fi
+        [ -e "$FILE" ] || continue
+        if [[ "$REL" =~ \.(js|jsx|ts|tsx)$ ]]; then FRONTEND_LINT_FILES+=("$REL"); fi
+        if [[ "$REL" =~ \.(test|spec)\.(js|jsx|ts|tsx)$ ]]; then
+            FRONTEND_TEST_FILES+=("$REL")
+        elif [[ "$REL" =~ \.(js|jsx|ts|tsx)$ ]]; then
+            FRONTEND_RELATED_FILES+=("$REL")
+        fi
+    done
+
+    if [ "${#FRONTEND_LINT_FILES[@]}" -gt 0 ]; then
+        run "eslint (changed frontend files)" npx --prefix frontend eslint --no-error-on-unmatched-pattern "${FRONTEND_LINT_FILES[@]/#/frontend/}"
+    else
+        echo "── eslint: no changed frontend JS/TS files, skipped"
+    fi
+
+    if [ "$FRONTEND_BROAD_IMPACT" -eq 1 ]; then
+        run "vitest (full suite: broad-impact config change)" npm -C frontend run test -- --run
+    elif [ "${#FRONTEND_TEST_FILES[@]}" -gt 0 ]; then
+        run "vitest (changed test files)" npm -C frontend run test -- --run "${FRONTEND_TEST_FILES[@]}"
+    elif [ "${#FRONTEND_RELATED_FILES[@]}" -gt 0 ]; then
+        run "vitest related (changed sources)" npx --prefix frontend vitest related --run "${FRONTEND_RELATED_FILES[@]}"
+    else
+        echo "── vitest: no testable frontend files changed, skipped"
+    fi
+else
+    echo "── frontend: no changed frontend files, skipped"
+fi
+
+if [ "$FAILED" -gt 0 ]; then
+    echo ""
+    echo "push blocked: ${FAILED} gate(s) failed"
+    exit 1
+fi
+
+echo ""
+echo "all gates passed"
+exit 0

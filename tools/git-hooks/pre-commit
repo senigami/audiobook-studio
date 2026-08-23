@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# Get list of staged files
+STAGED_FILES=$(git diff --cached --name-only)
+
+if [ -z "$STAGED_FILES" ]; then
+    exit 0
+fi
+
+echo "Running pre-commit auto-fixes..."
+
+# 1. Backend Fixes (Ruff)
+if command -v ruff &> /dev/null; then
+    echo "Applying Ruff fixes..."
+    ruff check . --fix
+elif [ -f "venv/bin/ruff" ]; then
+    echo "Applying Ruff fixes (via venv)..."
+    source venv/bin/activate && ruff check . --fix
+fi
+
+# 2. Frontend Fixes (ESLint)
+if [ -d "frontend" ]; then
+    echo "Applying ESLint fixes..."
+    cd frontend
+    # Use npx to ensure we use the local version
+    npx eslint . --fix &> /dev/null
+    cd ..
+fi
+
+# 3. Re-stage files that were modified by auto-fixes
+# We only want to add back files that were already staged
+for FILE in $STAGED_FILES; do
+    if [ -f "$FILE" ]; then
+        git add "$FILE"
+    fi
+done
+
+echo "Auto-fixes applied and staged."
