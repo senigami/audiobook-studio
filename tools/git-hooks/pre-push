@@ -36,6 +36,9 @@ while read -r _localref localsha _remoteref remotesha; do
         if git show-ref --verify --quiet refs/remotes/origin/studio-2.0; then
             PUSH_RANGES+=("origin/studio-2.0...$localsha")
         else
+            # No origin/studio-2.0 to compare a new branch against. Gate the tip only, and
+            # SAY so: silently gating one commit of a branch reads identically to gating it all.
+            echo "note: no origin/studio-2.0 found, so only the tip commit of this new branch is gated"
             PUSH_RANGES+=("$localsha~1...$localsha")
         fi
     else
@@ -76,10 +79,36 @@ else
     SCOPE="${#PUSH_RANGES[@]} pushed ref(s)"
 fi
 
+# Compute the diff BEFORE the read loop, and check each one's exit status. Inside a
+# process substitution the status is swallowed: a `git diff` that dies (a remote sha not
+# in the local object store, which a force-push over a branch another clone advanced will
+# do) prints nothing to stdout, leaves CHANGED_FILES empty, and the hook then reports
+# "nothing to gate" and exits 0 having run no gates. An unknown diff is not an empty diff.
+DIFF_OUT=""
+DIFF_FAILED=0
+for R in "${PUSH_RANGES[@]}"; do
+    # stdout only: merging stderr in would turn a warning on a SUCCESSFUL diff into a filename
+    out="$(git diff --name-only "$R" 2>/dev/null)"
+    if [ $? -ne 0 ]; then
+        echo "── could not compute the diff for ${R}:"
+        git diff --name-only "$R" 2>&1 >/dev/null | sed 's/^/     /'
+        DIFF_FAILED=1
+    else
+        DIFF_OUT="${DIFF_OUT}${out}"$'\n'
+    fi
+done
+
+if [ "$DIFF_FAILED" -eq 1 ]; then
+    echo ""
+    echo "push blocked: could not work out what is being pushed, so NO gate ran."
+    echo "This is not a pass. Try 'git fetch origin' and push again."
+    exit 1
+fi
+
 CHANGED_FILES=()
 while IFS= read -r FILE; do
     [ -n "$FILE" ] && CHANGED_FILES+=("$FILE")
-done < <(for R in "${PUSH_RANGES[@]}"; do git diff --name-only "$R"; done | sort -u)
+done < <(printf '%s' "$DIFF_OUT" | sort -u)
 
 if [ "${#CHANGED_FILES[@]}" -eq 0 ]; then
     echo "No changed files across ${SCOPE}; nothing to gate."
