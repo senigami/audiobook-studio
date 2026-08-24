@@ -3,7 +3,9 @@
 
 Checks every bundled plugin (``tts_engines/tts_*/``) for:
   1. Required version fields (contract_version, sdk_version, settings_schema_version,
-     event_envelope_version) — all must be present and equal "1.0".
+     event_envelope_version). All must be present. ``sdk_version`` is checked
+     against the installed ``studio_plugin_sdk.SDK_VERSION`` (same major, at or
+     below its minor); the rest must equal "1.0".
   2. Core manifest schema basics (studio_tts_manifest, engine_id, display_name,
      entry_class, capabilities).
   3. AST module-level import gate — no module-level ``app.*`` imports in
@@ -32,6 +34,12 @@ import re
 import sys
 from pathlib import Path
 
+# Run from anywhere: the repo root holds studio_plugin_sdk, whose SDK_VERSION is
+# the reference for the sdk_version check below. Importing it has no side effects.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 # ---------------------------------------------------------------------------
 # Constants (kept in sync with app/tts_server/plugin_loader.py)
 # ---------------------------------------------------------------------------
@@ -40,7 +48,6 @@ SUPPORTED_MANIFEST_VERSION = "1.0"
 
 _VERSION_FIELDS: dict[str, str] = {
     "contract_version": "1.0",
-    "sdk_version": "1.0",
     "settings_schema_version": "1.0",
     "event_envelope_version": "1.0",
 }
@@ -63,6 +70,28 @@ _ADAPTER_FILENAMES = frozenset({"app_adapter.py", "adapter.py"})
 # Validation helpers
 # ---------------------------------------------------------------------------
 
+def _check_sdk_version(manifest: dict) -> list[str]:
+    """Same-major, at-or-below-minor check against the installed SDK package."""
+    from studio_plugin_sdk import SDK_VERSION
+
+    value = manifest.get("sdk_version")
+    if value is None:
+        return [f"missing required version field 'sdk_version' (must be \"{SDK_VERSION}\" or an earlier minor)"]
+
+    declared = str(value).strip()
+    try:
+        d_major, _, d_minor = declared.partition(".")
+        i_major, _, i_minor = SDK_VERSION.partition(".")
+        declared_parts = (int(d_major), int(d_minor))
+        installed_parts = (int(i_major), int(i_minor))
+    except ValueError:
+        return [f"sdk_version={declared!r} is not a MAJOR.MINOR version (installed SDK is {SDK_VERSION})"]
+
+    if declared_parts[0] != installed_parts[0] or declared_parts[1] > installed_parts[1]:
+        return [f"sdk_version={declared!r} is incompatible with the installed studio_plugin_sdk {SDK_VERSION}"]
+    return []
+
+
 def _check_manifest_schema(manifest: dict, folder_name: str) -> list[str]:
     """Return a list of schema violations for the manifest dict."""
     errors: list[str] = []
@@ -79,7 +108,11 @@ def _check_manifest_schema(manifest: dict, folder_name: str) -> list[str]:
             f"studio_tts_manifest={mv!r} — only {SUPPORTED_MANIFEST_VERSION!r} is supported"
         )
 
-    # Four version fields — all required with value "1.0".
+    # sdk_version is checked against the installed package, never a literal
+    # (issue #200), matching app/tts_server/plugin_manifest.py.
+    errors.extend(_check_sdk_version(manifest))
+
+    # The remaining version fields are required with value "1.0".
     for vfield, expected in _VERSION_FIELDS.items():
         value = manifest.get(vfield)
         if value is None:

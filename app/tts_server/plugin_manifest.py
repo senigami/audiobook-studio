@@ -30,10 +30,15 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 _SUPPORTED_VERSION_FIELDS: dict[str, set[str]] = {
     "contract_version": {"1.0"},
-    "sdk_version": {"1.0"},
     "settings_schema_version": {"1.0"},
     "event_envelope_version": {"1.0"},
 }
+
+# ``sdk_version`` is deliberately NOT in the dict above. It is checked against
+# the installed ``studio_plugin_sdk.SDK_VERSION`` instead (issue #200): a
+# hardcoded allow-list here is a second source of truth that goes stale the
+# moment the package bumps, and a manifest declaring the old value would keep
+# loading clean. Keep exactly one rule for this field.
 
 # Regex for callable fields: "module:ClassName" or "package.module:function_name"
 _CALLABLE_RE = re.compile(r"^[a-z_][a-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$")
@@ -77,6 +82,57 @@ def _load_manifest(*, plugin_dir: Path, folder_name: str) -> dict[str, Any]:
         raise PluginLoadError(
             f"manifest.json is not valid JSON: {exc}"
         ) from exc
+
+
+def _parse_sdk_version(value: str) -> tuple[int, int]:
+    """Parse a ``MAJOR.MINOR`` SDK version string into a comparable tuple."""
+    major, _, minor = value.partition(".")
+    return int(major), int(minor)
+
+
+def _validate_sdk_version(*, manifest: dict[str, Any], folder_name: str) -> None:
+    """Check the manifest's declared ``sdk_version`` against the installed SDK.
+
+    Compatibility is same-major, at-or-below-minor: a plugin written against an
+    earlier minor of the same major still loads, a plugin requiring a newer
+    minor than this install provides does not. The reference value comes from
+    the package itself so the two cannot drift.
+
+    Raises:
+        PluginLoadError: If the field is missing, malformed, or incompatible.
+    """
+    from studio_plugin_sdk import SDK_VERSION  # noqa: PLC0415
+
+    value = manifest.get("sdk_version")
+    if value is None:
+        raise PluginLoadError(
+            f"Plugin '{folder_name}' manifest is missing required field 'sdk_version'. "
+            f"Add \"sdk_version\": \"{SDK_VERSION}\" to manifest.json."
+        )
+
+    declared = str(value).strip()
+    try:
+        declared_parts = _parse_sdk_version(declared)
+        installed_parts = _parse_sdk_version(SDK_VERSION)
+    except ValueError as exc:
+        raise PluginLoadError(
+            f"Plugin '{folder_name}' declares sdk_version={declared!r}, which is not a "
+            f"MAJOR.MINOR version. The installed studio_plugin_sdk is {SDK_VERSION}."
+        ) from exc
+
+    if declared_parts[0] != installed_parts[0]:
+        raise PluginLoadError(
+            f"Plugin '{folder_name}' declares sdk_version={declared!r} but the installed "
+            f"studio_plugin_sdk is {SDK_VERSION}. Major versions must match. "
+            "Update the plugin or install a compatible version of Studio."
+        )
+
+    if declared_parts[1] > installed_parts[1]:
+        raise PluginLoadError(
+            f"Plugin '{folder_name}' declares sdk_version={declared!r} but the installed "
+            f"studio_plugin_sdk is {SDK_VERSION}. The plugin needs SDK features this "
+            "install does not have. Update Studio, or lower the manifest's sdk_version."
+        )
 
 
 def _validate_manifest(*, manifest: dict[str, Any], folder_name: str) -> None:
@@ -156,6 +212,8 @@ def _validate_manifest(*, manifest: dict[str, Any], folder_name: str) -> None:
     # value raises PluginLoadError so the problem is visible in the engine card
     # rather than silently degraded.  Strict mode (enforced since S8).
     # ---------------------------------------------------------------------------
+    _validate_sdk_version(manifest=manifest, folder_name=folder_name)
+
     for vfield, supported in _SUPPORTED_VERSION_FIELDS.items():
         value = manifest.get(vfield)
         if value is None:

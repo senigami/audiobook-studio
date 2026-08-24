@@ -11,7 +11,11 @@ part of the real SDK package.
 
 from __future__ import annotations
 
-__version__ = "1.0"
+# Re-exported, never re-declared: a second literal here would drift from the
+# real package on the next bump (issue #200).
+from studio_plugin_sdk import SDK_VERSION
+
+__version__ = SDK_VERSION
 
 # Server-side contract — runs in the TTS Server subprocess
 from studio_plugin_sdk import (

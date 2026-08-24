@@ -1,8 +1,8 @@
 # Plugin Contract
 
 ```
-spec_version: 1.8.0
-updated: 2026-07-17
+spec_version: 1.9.0
+updated: 2026-08-24
 status: active
 sources:
   - app/engines/voice/sdk.py
@@ -10,8 +10,10 @@ sources:
   - app/tts_server/plugin_manifest.py
   - app/tts_server/server.py
   - app/engines/registry.py
-  - app/studio_plugin_sdk/__init__.py
-  - app/studio_plugin_sdk/context.py
+  - studio_plugin_sdk/__init__.py
+  - studio_plugin_sdk/context.py
+  - studio_plugin_sdk/text.py
+  - scripts/validate_plugin_manifests.py
   - tts_engines/tts_xtts/manifest.json
   - tts_engines/tts_xtts/plugin/core/implementation.py
   - tts_engines/tts_xtts/plugin/server/engine.py
@@ -25,6 +27,7 @@ sources:
 
 | Version | Date       | Change                 |
 |---------|------------|------------------------|
+| 1.9.0   | 2026-08-24 | **SDK 1.1 (issue #200): two new capabilities, one corrected return type, one new load-time check, and a reversal of v1.3.0's import tolerance.** (1) `ctx.get_lexicon(project_id) -> list[dict]` added to the §3.3 Text Preparation group: a scoped read of the project's pronunciation-substitution entries, shaped like the existing `ctx.get_chapter_segments` (plain dicts, never a DB handle). (2) `apply_lexicon(text, entries) -> str` MOVED into the SDK as `studio_plugin_sdk/text.py`, a stdlib-only pure utility matching the `audio.py` / `proc.py` shape; it depended only on `re`, so it is a mechanism rather than a host-policy wrapper. `app/utils/text/lexicon.py` is now a re-export shim and Studio's own caller (`app/orchestration/tasks/synthesis.py`) imports from the SDK, so there is one implementation reached by two paths. (3) **Corrected return type (breaking for any caller relying on the old shape, of which there were none in production):** `ctx.split_long_sentences(text, char_limit)` now returns `str`, not `list[str]`. The wrapped `safe_split_long_sentences` has always returned a string; the SDK wrapped it as `[result]`, so a plugin swapping its local alias for the ctx method would have fed a list into a synthesis script. (4) **New load-time check:** the manifest's declared `sdk_version` is now validated against the installed `studio_plugin_sdk.SDK_VERSION` (same major, at or below its minor), replacing the hardcoded `{"1.0"}` entry in `_SUPPORTED_VERSION_FIELDS`. Nothing previously compared the two, so the field was decorative and would have gone stale on the first bump; the rule is now derived from the package and cannot drift. Mismatch raises `PluginLoadError` naming both the declared and the installed version. `scripts/validate_plugin_manifests.py` applies the same derived rule. The other three version fields keep their `{"1.0"}` allow-lists. Shipped manifests stay at `"sdk_version": "1.0"` and remain valid. `app/studio_plugin_sdk/__init__.py` re-exports `SDK_VERSION` instead of declaring its own literal. (5) **Reversal of v1.3.0 note (6).** That entry tolerated function-body `app.*` imports in bake/segments/standard_handler because tests monkeypatch those targets, resolving "with S9 dispatcher integration". Owner decision 2026-08-24: the tolerance is withdrawn, ahead of that trigger, because `tts_xtts` cannot be extracted into its own public repo (issue #189) while it reaches into `app.*`, and the first published plugin is the example third-party authors copy. The rule for in-tree plugins is now the same as for standalone ones: zero `app.*` imports at any scope. A new xfail(strict) gate in `tts_engines/tts_xtts/tests/test_s4_import_cleanliness.py` walks the full AST and currently reports **31** such imports across `adapter.py`, `bake.py`, `segments.py`, `app_adapter.py`, and `standard_handler.py`; issue #200 Stage B removes them and the gate turns green. `tts_mixed` keeps its `built_in: true` exemption. |
 | 1.8.0   | 2026-07-17 | **BUG 1 fix: optional top-level `dependency_check: "external"` manifest field** (see §Optional `dependency_check` field). Additive — absent preserves prior "bundled" behavior (`requirements.txt` checked against the server venv). `tts_xtts/manifest.json` now declares it, since its inference deps (torch, coqui-tts, transformers, ...) are installed only into the separate `~/xtts-env` by `run.sh`, never the server venv — the prior unconditional check permanently reported xtts `needs_setup` on any install where the server venv doesn't happen to carry those deps. `tts_xtts`'s `check_env()` (`plugin/server/engine.py`) no longer does an in-process `import TTS` (checks the wrong interpreter); it now calls the plugin's new `xtts_env_ready()` (`plugin/core/implementation.py`), a filesystem-only check of the external env (no import, no subprocess — cheap enough for the 5s heartbeat and every `/synthesize` call). `POST /engines/{id}/install` (`app/tts_server/server.py`) now refuses (400) for `dependency_check: "external"` engines rather than pip-installing their deps into the server venv. Readiness is keyed off the `coqui_tts-*.dist-info` completion marker (not the bare `TTS` package dir, which pip populates before an install finishes — avoids ready/not-ready flapping mid-install) and scans every candidate `site-packages` dir under the env root (not just the first by sort order, which could pick a stale `lib/pythonX.Y` left behind by a Python upgrade). Known limitation documented in-spec: the opt-out is all-or-nothing across the whole `requirements.txt`, including any genuinely server-side base packages a plugin author mixes into the same file. |
 | 1.7.0   | 2026-07-16 | **Optional `distribution` manifest block (plan 05 §1.2, repo-ready plugin folders).** Manifests MAY declare a top-level `distribution` object (`host`, `base_url`, `repo`, `git_url`, `topic`, `pin_ref`, `official`) pointing at the plugin's standalone GitHub repo. Shape-validated when present by `_validate_manifest` (dict; string fields typed; `pin_ref` string-or-null; `official` boolean); no field required, block optional — additive, no manifest version bump. In-tree `tts_xtts`/`tts_voxtral` manifests now carry final-shape blocks matching `app/engines/official_registry.py` repo URLs (placeholder `audiobook-studio/*` repos). Standalone-repo plugins never set `built_in`. Also: `tts_voxtral` manifest `license` corrected `"Commercial API"` → `"MIT"` (plugin code license; API usage stays under Mistral's terms). |
 | 1.6.0   | 2026-07-16 | **W-PERF safe-foundation: optional export-layer capability fields.** New optional `behavior` sub-fields `export_format` (enum: `ssml_w3c`/`ssml_azure`/`elevenlabs_text`/`ssml_polly`/`plain_text`), `supports_per_span_voice`, `supports_emotion_style`, `supports_prosody`, `supports_break` (booleans, default `false`). Additive/backward-compatible — no manifest version bump, same class of change as prior `behavior.features` additions (`segment_orchestration`, `cps_eta`). Consumed only by the export layer (task 011, not yet built) via new `app.engines.behavior.export_capabilities_for()` helper — distinct from the render-pipeline's `has_behavior(engine_id, "ssml_directives")` feature-string gate (sibling `chapter_editor_catalog_completion` plan's task 006, not yet landed). No real plugin manifest declares these fields; validated as optional (type/enum-checked when present, absent is fine) in `plugin_loader.py`. |
@@ -295,6 +298,28 @@ a per-engine limit.
 **MUST NOT:**
 - `text_split_target` MUST NOT exceed `text_chunk_limit` when both are present.
 - `studio_tts_manifest` MUST NOT be any value other than `"1.0"`.
+
+### `sdk_version` compatibility (spec 1.9.0, issue #200)
+
+`sdk_version` is the one version field NOT checked against a literal allow-list.
+It is compared at load time against the installed
+`studio_plugin_sdk.SDK_VERSION`, currently `"1.1"`:
+
+- The **major** MUST match exactly.
+- The **minor** MUST be at or below the installed SDK's minor. A plugin written
+  against an earlier minor of the same major still loads; one requiring a newer
+  minor than this install provides does not.
+- A missing or malformed value is rejected.
+- Any rejection raises `PluginLoadError` naming both the declared value and the
+  installed `SDK_VERSION`, so the engine card says which side is out of date.
+
+The reference value is read from the package rather than restated in the loader.
+A hardcoded list is a second source of truth that goes stale on the first bump,
+leaving the field decorative: before 1.9.0 nothing compared the two at all.
+`scripts/validate_plugin_manifests.py` applies the same derived rule so CI and
+the runtime loader cannot disagree. The other three version fields
+(`contract_version`, `settings_schema_version`, `event_envelope_version`) keep
+their exact-match `"1.0"` allow-lists.
 
 ### Optional `distribution` block (plan 05 §1.2)
 

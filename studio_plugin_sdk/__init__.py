@@ -36,7 +36,7 @@ from .context import JobResult, JobSpec, StudioPluginContext
 from .errors import BridgeError, StudioException, ValidationError
 from .plugin_utils import get_plugin_ctx, load_settings_schema, make_segment_output_handler
 
-SDK_VERSION = "1.0"
+SDK_VERSION = "1.1"
 __version__ = SDK_VERSION
 
 __all__ = [
