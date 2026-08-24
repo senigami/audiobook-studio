@@ -46,6 +46,11 @@ MAX_GLOBAL_CONCURRENT_SYNTHESIS: int = int(
 )
 
 
+# Key under which ``reserve_task_resources`` records the admission mode it
+# actually used, so ``release_task_resources`` can mirror it (issue #199).
+CLASS_ADMISSION_KEY = "_class_admission_at_reserve"
+
+
 def _engine_class_admission_enabled() -> bool:
     """Whether per-engine-class semaphore admission is active.
 
@@ -655,6 +660,12 @@ def reserve_task_resources(
     # observable parallelism leaks in before the toggle.  W5 stays closed
     # because mixed (engine_class="cloud") now passes through the gate too.
     _class_admission = _engine_class_admission_enabled()
+    # Issue #199: record the mode this reservation actually used, so
+    # ``release_task_resources`` mirrors what was acquired instead of
+    # re-reading a toggle that may have moved while the task was in flight.
+    # Without this, a flip mid-task leaked the class/engine-id/global slots
+    # silently (``release()`` is idempotent, so nothing errored).
+    resource_claims[CLASS_ADMISSION_KEY] = _class_admission
     if engine_class and not _class_admission:
         admitted, waiting_reason = _exclusive_gate.try_acquire(task_id)
         return _reservation_result(
@@ -776,13 +787,24 @@ def release_task_resources(*, task_id: str, resource_claims: dict[str, object]) 
     exclusive = bool(resource_claims.get("exclusive", False))
     cap = int(resource_claims.get("cap", 1))
     engine_id = str(resource_claims.get("engine_id", ""))
+    # Issue #199: branch on the mode captured at reserve time, never on a
+    # fresh read of the toggle. ``None`` means this dict never went through
+    # reserve (e.g. the recovery path rebuilds a claims dict); there we
+    # release BOTH paths: every ``release()`` is a no-op for a slot this
+    # task does not hold, so the superset cannot over-release, and it cannot
+    # leak either.
+    captured = resource_claims.get(CLASS_ADMISSION_KEY)
+    class_admission = True if captured is None else bool(captured)
 
-    # Ships-dark path: when per-engine-class admission is disabled, a synthesis
-    # claim only ever acquired the shared exclusive gate (see reserve), so that
-    # is all we release.  Mirrors reserve_task_resources exactly (INV-1).
-    if engine_class and not _engine_class_admission_enabled():
+    # Ships-dark path: when per-engine-class admission was disabled at reserve,
+    # a synthesis claim only ever acquired the shared exclusive gate (see
+    # reserve), so that is all we release.  Mirrors reserve_task_resources
+    # exactly (INV-1).
+    if engine_class and not class_admission:
         _exclusive_gate.release(task_id)
         return
+    if engine_class and captured is None:
+        _exclusive_gate.release(task_id)
 
     if engine_class:
         # New semaphore path.
