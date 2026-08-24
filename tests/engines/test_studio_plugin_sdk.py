@@ -679,12 +679,13 @@ class TestContextServiceGroups:
             assert result == "clean"
 
     def test_split_long_sentences(self):
+        """Returns the wrapped function's str unchanged (issue #200: was list-wrapped)."""
         ctx = self._ctx()
         with patch("app.utils.text.textops_splitting.safe_split_long_sentences",
                    return_value="part1 part2") as m:
             result = ctx.split_long_sentences("long text", 50)
             m.assert_called_once_with("long text", target=50)
-            assert isinstance(result, list)
+            assert result == "part1 part2"
 
     def test_get_text_chunk_limit(self):
         ctx = self._ctx()

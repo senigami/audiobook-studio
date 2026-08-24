@@ -644,13 +644,17 @@ class StudioPluginContext:
             return sanitize_text(text, categories)
         return sanitize_text(text)
 
-    def split_long_sentences(self, text: str, char_limit: int) -> list[str]:
-        """Split overlong sentences under char_limit."""
+    def split_long_sentences(self, text: str, char_limit: int) -> str:
+        """Split overlong sentences under char_limit, returning re-joined text.
+
+        Returns a string, matching the wrapped
+        ``app.utils.text.textops_splitting.safe_split_long_sentences``. Until
+        SDK 1.1 this wrapped the result in a one-element list, which would have
+        put a list into a synthesis script at any call site that fed the result
+        straight onward (issue #200). Do not re-add the list wrapper.
+        """
         from app.utils.text.textops_splitting import safe_split_long_sentences  # noqa: PLC0415
-        result = safe_split_long_sentences(text, target=char_limit)
-        if isinstance(result, list):
-            return result
-        return [result]
+        return safe_split_long_sentences(text, target=char_limit)
 
     def get_text_chunk_limit(self, engine_id: str) -> int:
         """Engine character chunk limit from manifest."""
