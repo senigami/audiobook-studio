@@ -562,9 +562,9 @@ def test_sample_build_reaches_completion_without_context(clean_db, tmp_path):
 
     with patch("tts_engines.tts_xtts.plugin.studio.handler.handle_xtts_job") as mock_handle_job, \
          patch("app.db.speakers.get_profile_dir", return_value=tmp_path), \
-         patch("app.db.speakers.get_profile_wavs", return_value=["dummy.wav"]), \
+         patch("app.db.speakers.get_profile_wavs", return_value="dummy.wav"), \
          patch("app.db.speakers.get_speaker_settings", return_value={"speed": 1.0, "test_text": "hello"}), \
-         patch("app.db.state.update_job") as mock_update_job:
+         patch("app.db.state_jobs.update_job") as mock_update_job:
 
         xtts_dispatch_adapter(
             jid="sample-build-no-ctx-test",
@@ -598,9 +598,9 @@ def test_sample_test_reaches_completion_without_context(clean_db, tmp_path):
 
     with patch("tts_engines.tts_xtts.plugin.studio.handler.handle_xtts_job") as mock_handle_job, \
          patch("app.db.speakers.get_profile_dir", return_value=tmp_path), \
-         patch("app.db.speakers.get_profile_wavs", return_value=["dummy.wav"]), \
+         patch("app.db.speakers.get_profile_wavs", return_value="dummy.wav"), \
          patch("app.db.speakers.get_speaker_settings", return_value={"speed": 1.0, "test_text": "hello"}), \
-         patch("app.db.state.update_job") as mock_update_job:
+         patch("app.db.state_jobs.update_job") as mock_update_job:
 
         xtts_dispatch_adapter(
             jid="sample-test-no-ctx-test",
@@ -632,7 +632,7 @@ def test_chapter_bound_xtts_jobs_reject_missing_context(clean_db, tmp_path):
         chapter_id=None,
     )
 
-    with patch("app.db.state.update_job") as mock_update_job:
+    with patch("app.db.state_jobs.update_job") as mock_update_job:
         xtts_dispatch_adapter(
             jid="chapter-job-no-ctx",
             j=job_shim,

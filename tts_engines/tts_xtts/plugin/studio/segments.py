@@ -35,32 +35,32 @@ def _get_ctx():
 # ---------------------------------------------------------------------------
 
 def generate_via_bridge(*args, **kwargs):
-    """Module-level alias for ctx.generate_via_bridge — patchable by tests."""
+    """Module-level alias for ctx.generate_via_bridge, patchable by tests."""
     return _get_ctx().generate_via_bridge(*args, **kwargs)
 
 
 def get_chapter_segments(chapter_id: str):
-    """Module-level alias for ctx.get_chapter_segments — patchable by tests."""
+    """Module-level alias for ctx.get_chapter_segments, patchable by tests."""
     return _get_ctx().get_chapter_segments(chapter_id)
 
 
 def update_segment(segment_id: str, **kwargs):
-    """Module-level alias for ctx.update_segment — patchable by tests."""
+    """Module-level alias for ctx.update_segment, patchable by tests."""
     return _get_ctx().update_segment(segment_id, **kwargs)
 
 
 def safe_split_long_sentences(text: str, *, target: int) -> str:
-    """Module-level alias for ctx.split_long_sentences — patchable by tests."""
+    """Module-level alias for ctx.split_long_sentences, patchable by tests."""
     return _get_ctx().split_long_sentences(text, target)
 
 
 def get_project_lexicon(project_id: str) -> list:
-    """Module-level alias for ctx.get_lexicon — patchable by tests."""
+    """Module-level alias for ctx.get_lexicon, patchable by tests."""
     return _get_ctx().get_lexicon(project_id)
 
 
 def apply_project_lexicon(text: str, entries: list) -> str:
-    """Module-level alias for the SDK's pure lexicon utility — patchable by tests."""
+    """Module-level alias for the SDK's pure lexicon utility, patchable by tests."""
     return _sdk_apply_lexicon(text, entries)
 
 
