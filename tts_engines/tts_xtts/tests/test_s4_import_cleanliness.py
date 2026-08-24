@@ -171,3 +171,39 @@ def test_get_ctx_builds(module_name: str) -> None:
     assert isinstance(ctx, StudioPluginContext), (
         f"_get_ctx() returned {type(ctx)}, expected StudioPluginContext"
     )
+
+
+# ---------------------------------------------------------------------------
+# Tests: issue #200 strict gate (function bodies included)
+# ---------------------------------------------------------------------------
+
+# The five plugin/studio modules that must reach zero app.* imports at ANY
+# scope before tts_xtts can be extracted into its own repo (issue #189).
+_EXTRACTION_TARGET_FILES = [
+    "adapter.py",
+    "bake.py",
+    "segments.py",
+    "app_adapter.py",
+    "standard_handler.py",
+]
+
+
+@pytest.mark.xfail(strict=True, reason="issue #200 Stage B removes these; gate lands first so the fix cannot regress")
+def test_studio_zero_app_imports_at_any_scope() -> None:
+    """plugin/studio extraction targets: zero app.* imports anywhere, function bodies included.
+
+    The sibling ``test_studio_no_module_level_app_imports`` deliberately skips
+    function and class bodies, which is why every one of these passes today.
+    Extraction needs the stricter rule, so this gate lands before the fix and
+    goes green only once Stage B has routed every call through the SDK.
+    """
+    hits: list[str] = []
+    for name in _EXTRACTION_TARGET_FILES:
+        path = _STUDIO_DIR / name
+        assert path.is_file(), f"Expected file not found: {path}"
+        hits.extend(f"{name} {hit}" for hit in _all_app_imports(path))
+
+    assert hits == [], (
+        f"{len(hits)} app.* import(s) remain in plugin/studio (issue #200 scope):\n"
+        + "\n".join(hits)
+    )
