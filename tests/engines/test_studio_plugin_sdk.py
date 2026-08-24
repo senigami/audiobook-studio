@@ -662,13 +662,68 @@ class TestContextServiceGroups:
         ctx = self._ctx()
         with patch("app.engines.audio_ops.wav_to_mp3") as m:
             ctx.wav_to_mp3("/in.wav", "/out.mp3")
-            m.assert_called_once_with("/in.wav", "/out.mp3")
+            m.assert_called_once_with("/in.wav", "/out.mp3", on_output=None, cancel_check=None)
+
+    def test_wav_to_mp3_forwards_cancellation_and_returns_rc(self):
+        """Issue #200: the render path needs the return code and the cancel hook.
+
+        app.engines.audio_ops.wav_to_mp3 accepts on_output/cancel_check and
+        returns the ffmpeg exit code. Until SDK 1.1 the ctx wrapper dropped both
+        callbacks and returned None, so a plugin swapping a direct app import for
+        this method lost cancellation support and could not tell a failed
+        transcode from a successful one.
+        """
+        ctx = self._ctx()
+        seen = []
+
+        def _on_output(line):
+            seen.append(line)
+
+        def _cancel_check():
+            return True
+
+        with patch("app.engines.audio_ops.wav_to_mp3", return_value=7) as m:
+            rc = ctx.wav_to_mp3(
+                "/in.wav",
+                "/out.mp3",
+                on_output=_on_output,
+                cancel_check=_cancel_check,
+            )
+
+        assert rc == 7
+        m.assert_called_once_with(
+            "/in.wav",
+            "/out.mp3",
+            on_output=_on_output,
+            cancel_check=_cancel_check,
+        )
 
     def test_get_audio_duration(self):
         ctx = self._ctx()
         with patch("app.engines.audio_ops.get_audio_duration", return_value=5.0) as m:
             result = ctx.get_audio_duration("/audio.wav")
             assert result == 5.0
+
+    def test_get_chapter_dir_looks_up_project_when_not_supplied(self):
+        ctx = self._ctx()
+        with patch("app.db.chapters.get_chapter", return_value={"project_id": "proj-1"}) as g, \
+             patch("app.core.config.get_chapter_dir", return_value=Path("/base/proj-1/ch-1")) as m:
+            result = ctx.get_chapter_dir("ch-1")
+        g.assert_called_once_with("ch-1")
+        m.assert_called_once_with("proj-1", "ch-1")
+        assert result == "/base/proj-1/ch-1"
+
+    def test_get_chapter_dir_with_explicit_project_skips_lookup(self):
+        """Issue #200: callers that already hold the project id must not pay a
+        DB round trip, and must not risk resolving a different project than the
+        one they were handed."""
+        ctx = self._ctx()
+        with patch("app.db.chapters.get_chapter") as g, \
+             patch("app.core.config.get_chapter_dir", return_value=Path("/base/proj-9/ch-1")) as m:
+            result = ctx.get_chapter_dir("ch-1", project_id="proj-9")
+        g.assert_not_called()
+        m.assert_called_once_with("proj-9", "ch-1")
+        assert result == "/base/proj-9/ch-1"
 
     # 3.3.13 Text preparation
     def test_sanitize_text(self):

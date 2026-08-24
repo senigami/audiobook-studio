@@ -5,6 +5,7 @@ import shutil
 from pathlib import Path
 
 from studio_plugin_sdk.errors import BridgeError
+from studio_plugin_sdk.text import apply_lexicon as _sdk_apply_lexicon
 from .helpers import _segment_group_weight
 
 logger = logging.getLogger(__name__)
@@ -23,42 +24,34 @@ def _get_ctx():
 
 
 # ---------------------------------------------------------------------------
-# Module-level patchable alias for generate_via_bridge.
-# Tests patch ``plugins.tts_xtts.plugin.studio.standard_handler.generate_via_bridge``.
+# Module-level aliases for host services. Each one now routes through the SDK
+# context rather than importing app.* (issue #200). The NAMES are kept exactly
+# as they were, because tests patch these module attributes directly.
 # ---------------------------------------------------------------------------
 
 def generate_via_bridge(*args, **kwargs):
-    """Module-level alias for bridge_helpers.generate_via_bridge — patchable."""
-    from app.jobs.handlers.bridge_helpers import generate_via_bridge as _fn  # noqa: PLC0415
-    return _fn(*args, **kwargs)
+    """Module-level alias for ctx.generate_via_bridge — patchable by tests."""
+    return _get_ctx().generate_via_bridge(*args, **kwargs)
 
-
-# ---------------------------------------------------------------------------
-# Module-level patchable aliases for DB helpers.
-# ---------------------------------------------------------------------------
 
 def update_segment(segment_id: str, **kwargs):
-    """Module-level alias for app.db.update_segment — patchable by tests."""
-    from app.db import update_segment as _fn  # noqa: PLC0415
-    return _fn(segment_id, **kwargs)
+    """Module-level alias for ctx.update_segment — patchable by tests."""
+    return _get_ctx().update_segment(segment_id, **kwargs)
 
 
 def safe_split_long_sentences(text: str, *, target: int) -> str:
-    """Module-level alias for textops.safe_split_long_sentences — patchable by tests."""
-    from app.utils.text.textops import safe_split_long_sentences as _fn  # noqa: PLC0415
-    return _fn(text, target=target)
+    """Module-level alias for ctx.split_long_sentences — patchable by tests."""
+    return _get_ctx().split_long_sentences(text, target)
 
 
 def get_project_lexicon(project_id: str) -> list:
-    """Module-level alias for db.lexicon.get_lexicon — patchable by tests."""
-    from app.db.lexicon import get_lexicon as _fn  # noqa: PLC0415
-    return _fn(project_id)
+    """Module-level alias for ctx.get_lexicon — patchable by tests."""
+    return _get_ctx().get_lexicon(project_id)
 
 
 def apply_project_lexicon(text: str, entries: list) -> str:
-    """Module-level alias for utils.text.lexicon.apply_lexicon — patchable by tests."""
-    from app.utils.text.lexicon import apply_lexicon as _fn  # noqa: PLC0415
-    return _fn(text, entries)
+    """Module-level alias for the SDK's pure lexicon utility — patchable by tests."""
+    return _sdk_apply_lexicon(text, entries)
 
 
 # ---------------------------------------------------------------------------

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from studio_plugin_sdk.errors import BridgeError
 from studio_plugin_sdk.plugin_utils import make_segment_output_handler
+from studio_plugin_sdk.text import apply_lexicon as _sdk_apply_lexicon
 from .helpers import (
     _profile_inputs_for_segment,
     _segment_group_weight,
@@ -28,60 +29,48 @@ def _get_ctx():
 
 
 # ---------------------------------------------------------------------------
-# Module-level patchable name for generate_via_bridge.
-# Tests patch ``plugins.tts_xtts.plugin.studio.bake.generate_via_bridge``.
-# The function itself lives in app.jobs.handlers.bridge_helpers but we keep a
-# module-level alias here so existing test patches work without modification.
+# Module-level aliases for host services. Each one now routes through the SDK
+# context rather than importing app.* (issue #200): the plugin depends on the
+# versioned contract, not on Studio internals. The NAMES are kept exactly as
+# they were, because tests patch these module attributes directly.
 # ---------------------------------------------------------------------------
 
 def generate_via_bridge(*args, **kwargs):
-    """Module-level alias for bridge_helpers.generate_via_bridge — patchable."""
-    from app.jobs.handlers.bridge_helpers import generate_via_bridge as _fn  # noqa: PLC0415
-    return _fn(*args, **kwargs)
+    """Module-level alias for ctx.generate_via_bridge — patchable by tests."""
+    return _get_ctx().generate_via_bridge(*args, **kwargs)
 
-
-# ---------------------------------------------------------------------------
-# Module-level patchable aliases for DB helpers (replaces late function-body
-# imports so tests can patch at the plugin module boundary instead of app.*).
-# ---------------------------------------------------------------------------
 
 def get_chapter_segments(chapter_id: str):
-    """Module-level alias for app.db.get_chapter_segments — patchable by tests."""
-    from app.db import get_chapter_segments as _fn  # noqa: PLC0415
-    return _fn(chapter_id)
+    """Module-level alias for ctx.get_chapter_segments — patchable by tests."""
+    return _get_ctx().get_chapter_segments(chapter_id)
 
 
 def update_segment(segment_id: str, **kwargs):
-    """Module-level alias for app.db.update_segment — patchable by tests."""
-    from app.db import update_segment as _fn  # noqa: PLC0415
-    return _fn(segment_id, **kwargs)
+    """Module-level alias for ctx.update_segment — patchable by tests."""
+    return _get_ctx().update_segment(segment_id, **kwargs)
 
 
 def update_queue_item(job_id: str, status: str, **kwargs):
-    """Module-level alias — patchable by tests.
+    """Module-level alias for ctx.update_queue_item — patchable by tests.
 
     Preserves the positional (job_id, status) call signature used in handler code.
     """
-    from app.db import update_queue_item as _fn  # noqa: PLC0415
-    return _fn(job_id, status, **kwargs)
+    return _get_ctx().update_queue_item(job_id, status=status, **kwargs)
 
 
 def safe_split_long_sentences(text: str, *, target: int) -> str:
-    """Module-level alias for textops.safe_split_long_sentences — patchable by tests."""
-    from app.utils.text.textops import safe_split_long_sentences as _fn  # noqa: PLC0415
-    return _fn(text, target=target)
+    """Module-level alias for ctx.split_long_sentences — patchable by tests."""
+    return _get_ctx().split_long_sentences(text, target)
 
 
 def get_project_lexicon(project_id: str) -> list:
-    """Module-level alias for db.lexicon.get_lexicon — patchable by tests."""
-    from app.db.lexicon import get_lexicon as _fn  # noqa: PLC0415
-    return _fn(project_id)
+    """Module-level alias for ctx.get_lexicon — patchable by tests."""
+    return _get_ctx().get_lexicon(project_id)
 
 
 def apply_project_lexicon(text: str, entries: list) -> str:
-    """Module-level alias for utils.text.lexicon.apply_lexicon — patchable by tests."""
-    from app.utils.text.lexicon import apply_lexicon as _fn  # noqa: PLC0415
-    return _fn(text, entries)
+    """Module-level alias for the SDK's pure lexicon utility — patchable by tests."""
+    return _sdk_apply_lexicon(text, entries)
 
 
 # ---------------------------------------------------------------------------
