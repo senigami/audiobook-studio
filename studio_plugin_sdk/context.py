@@ -623,6 +623,16 @@ class StudioPluginContext:
     # §3.3.13 Text Preparation
     # ------------------------------------------------------------------
 
+    def get_lexicon(self, project_id: str) -> list[dict[str, Any]]:
+        """Return this project's pronunciation-substitution entries, oldest first.
+
+        Each entry is a plain ``{"word": ..., "replacement": ...}`` dict, ready
+        to hand to :func:`studio_plugin_sdk.text.apply_lexicon`. Scope is the
+        project (book) only. Added in SDK 1.1 (issue #200).
+        """
+        from app.db.lexicon import get_lexicon  # noqa: PLC0415
+        return get_lexicon(project_id)
+
     def sanitize_text(self, text: str, categories: Any = None) -> str:
         """Apply safe-mode text sanitization.
 

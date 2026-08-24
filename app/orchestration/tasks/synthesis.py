@@ -397,7 +397,7 @@ class SynthesisTask(StudioTask):
         if self.project_id:
             try:
                 from app.db.lexicon import get_lexicon  # noqa: PLC0415
-                from app.utils.text.lexicon import apply_lexicon  # noqa: PLC0415
+                from studio_plugin_sdk.text import apply_lexicon  # noqa: PLC0415
                 entries = get_lexicon(self.project_id)
                 if entries:
                     script_text = apply_lexicon(script_text, entries)
