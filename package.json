@@ -2,6 +2,9 @@
     "name": "audiobook-studio",
     "version": "2.0.13",
     "description": "Audiobook Studio Application",
+    "engines": {
+        "node": "^20.19.0 || >=22.12.0"
+    },
     "scripts": {
         "test": "vitest",
         "update-xtts": "./scripts/update_xtts.sh",
