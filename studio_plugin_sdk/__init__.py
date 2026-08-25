@@ -34,6 +34,7 @@ from .types import (
 # Studio-side contract — runs in the Studio (FastAPI) host process
 from .context import JobResult, JobSpec, StudioPluginContext
 from .errors import BridgeError, StudioException, ValidationError
+from .engine_models import EngineHealthModel, EngineManifestModel, ResourceProfile
 from .engine_errors import (
     EngineBridgeError,
     EngineExecutionError,
@@ -72,6 +73,10 @@ __all__ = [
     "StudioException",
     "BridgeError",
     "ValidationError",
+    # Engine discovery models (accepted and returned by app-side plugin adapters)
+    "ResourceProfile",
+    "EngineManifestModel",
+    "EngineHealthModel",
     # Engine bridge errors (raised and caught by app-side plugin adapters)
     "EngineBridgeError",
     "EngineExecutionError",

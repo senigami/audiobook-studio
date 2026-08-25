@@ -46,12 +46,53 @@ class TestEngineIdentity:
         assert app_base.StudioTTSEngine is sdk_engine.StudioTTSEngine
 
     def test_base_voice_engine_stays_in_app(self):
+        """Issue #200 Stage C kept this invariant rather than reversing it.
+
+        A plugin adapter no longer needs the base class: it satisfies
+        ``studio_plugin_sdk.VoiceEngineAdapter`` (a Protocol, so nothing is
+        inherited) and calls the four request helpers as module-level SDK
+        functions. Publishing ``BaseVoiceEngine`` would ship nine
+        ``NotImplementedError`` stubs and four concrete method bodies into the
+        contract, and put a second engine base class next to
+        ``StudioTTSEngine`` for plugin authors to confuse it with.
+        """
         import app.engines.voice.base as app_base
         import studio_plugin_sdk
 
         assert hasattr(app_base, "BaseVoiceEngine")
         assert not hasattr(studio_plugin_sdk, "BaseVoiceEngine"), (
             "BaseVoiceEngine is app-side only; it must not be exported by the real SDK package"
+        )
+
+
+class TestEngineModelIdentity:
+    """app.engines.models.* is studio_plugin_sdk.engine_models.* (issue #200 Stage C).
+
+    The three plugin-facing engine data types moved into the SDK; app.engines.models
+    re-exports them and keeps EngineRegistrationModel, which is host glue rather
+    than plugin contract.
+    """
+
+    def test_moved_models_identical(self):
+        import app.engines.models as app_models
+        import studio_plugin_sdk
+        import studio_plugin_sdk.engine_models as sdk_models
+
+        for name in ("ResourceProfile", "EngineManifestModel", "EngineHealthModel"):
+            assert getattr(app_models, name) is getattr(sdk_models, name), (
+                f"app.engines.models.{name} is not studio_plugin_sdk.engine_models.{name}"
+            )
+            assert getattr(studio_plugin_sdk, name) is getattr(sdk_models, name), (
+                f"studio_plugin_sdk.{name} is not studio_plugin_sdk.engine_models.{name}"
+            )
+
+    def test_registration_model_stays_in_app(self):
+        import app.engines.models as app_models
+        import studio_plugin_sdk
+
+        assert hasattr(app_models, "EngineRegistrationModel")
+        assert not hasattr(studio_plugin_sdk, "EngineRegistrationModel"), (
+            "EngineRegistrationModel is host glue; it must not be exported by the real SDK package"
         )
 
 
