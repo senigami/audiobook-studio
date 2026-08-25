@@ -2,6 +2,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# `_run_synthesis_loop` imports torch at call time, so these tests need the XTTS
+# environment (~/xtts-env). CI installs only root requirements.txt, which excludes
+# torch by design, so skip rather than fail there.
+pytest.importorskip("torch", reason="torch is not installed (lives in the separate ~/xtts-env)")
+
 # Mock dependencies before importing
 with patch('argparse.ArgumentParser.parse_args'):
     import tts_engines.tts_xtts.plugin.core.xtts_inference as xtts_inference
