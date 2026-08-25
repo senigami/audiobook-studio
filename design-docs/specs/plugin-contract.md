@@ -1,7 +1,7 @@
 # Plugin Contract
 
 ```
-spec_version: 1.10.0
+spec_version: 1.11.0
 updated: 2026-08-24
 status: active
 sources:
@@ -27,6 +27,7 @@ sources:
 
 | Version | Date       | Change                 |
 |---------|------------|------------------------|
+| 1.11.0  | 2026-08-24 | **Issue #200 Stage C: `tts_xtts` reaches zero `app.*` imports in shipped plugin code, and the gate has no exemptions left. SDK 1.2.** The v1.10.0 entry's `_STAGE_C_EXEMPT` (`app_adapter.py`'s guarded `from app.studio_plugin_sdk import BaseVoiceEngine, ...`) is deleted along with its companion test, because the reason for it is gone. Four changes, all additive to the SDK: (1) **The engine bridge error tree moved into `studio_plugin_sdk/engine_errors.py`.** All six classes (`EngineBridgeError`, `EngineRequestError`, `EngineUnavailableError`, `EngineNotReadyError`, `EngineExecutionError`, `EngineOutputRejectedError`) were stdlib-only with no imports at all, so they moved verbatim; `app/engines/errors.py` is now a re-export shim with identical object identity. The whole tree moves as ONE unit and `EngineBridgeError` keeps rooting at `RuntimeError`, deliberately NOT at the SDK's own `StudioException`: seven live `except EngineBridgeError` sites in the host plus the `tts_mixed` and `tts_voxtral` handlers depend on that single root, and re-parenting any class silently stops those clauses matching without raising anything. Verified by mutation, not by reasoning: with `EngineExecutionError` re-parented under `StudioException`, the entire engine and plugin suite (768 tests) still passed. `tests/engines/test_engine_error_hierarchy.py` now pins every direct parent by name against hand-written literals and asserts every class is caught by both `except EngineBridgeError` and `except RuntimeError`. (2) **`ResourceProfile`, `EngineManifestModel` and `EngineHealthModel` moved into `studio_plugin_sdk/engine_models.py`**, frozen dataclasses over stdlib only; `app/engines/models.py` re-exports them and keeps `EngineRegistrationModel`, which pairs a manifest with a resolved engine object and flattens both for `/api/engines`. That is host orchestration glue, not plugin contract, and it stays app-side. (3) **New `studio_plugin_sdk.VoiceEngineAdapter`, a `runtime_checkable` Protocol** over the nine app-adapter methods, plus the four PL-3 request helpers (`normalize_output_format`, `resolve_output_path`, `resolve_on_output`, `resolve_cancel_check`) published as module-level SDK functions. (4) **`BaseVoiceEngine` did NOT move and is still not exported by the SDK** (`test_sdk_module_identity.py::test_base_voice_engine_stays_in_app` stands, now with the reasoning recorded on it). Publishing it would ship nine `NotImplementedError` stubs and four concrete method bodies into the contract and put a second engine base class next to `StudioTTSEngine`. It keeps working for anything still using it, and now BINDS the SDK's four helper functions with `staticmethod` rather than holding a second copy, so `self.normalize_output_format(...)` and `studio_plugin_sdk.normalize_output_format(...)` cannot drift. `XttsVoiceEngine` subclasses nothing and declares all nine methods itself, including the three (`validate_environment`, `current_settings`, `build_voice_asset`) it used to inherit, with the behavior the base gave them. **SDK 1.1 to 1.2:** additive surface plus relocations behind re-exports, nothing removed or reshaped, so shipped manifests stay at `"sdk_version": "1.0"` and remain valid under the derived rule from 1.9.0. **Not done here, flagged:** `tts_voxtral` still has the identical guarded import and is untouched; `tts_engines/tts_xtts/tests/conftest.py` still has four `app.*` imports, which the gate does not cover, and `studio_plugin_sdk/context.py` still has ~30 function-body `app.*` imports, so the SDK an extracted plugin depends on is itself host-coupled at call time. |
 | 1.10.0  | 2026-08-24 | **Issue #200 Stage B: `tts_xtts/plugin/studio/` reaches zero `app.*` imports, and the gate that proves it is live.** The 31 function-body `app.*` imports the v1.9.0 entry counted are gone from `adapter.py`, `bake.py`, `segments.py`, `standard_handler.py`, and `app_adapter.py`. Every one of them sat inside a module-level alias function; the alias NAMES are unchanged (tests patch them as module attributes), only what they resolve to changed, from `app.*` to the SDK context. `test_studio_zero_app_imports_at_any_scope` is no longer `xfail` and now fails on any new `app.*` import at any scope. One exemption remains, named in `_STAGE_C_EXEMPT` and keyed on (file, module) so it cannot cover anything else: `app_adapter.py`'s guarded `from app.studio_plugin_sdk import BaseVoiceEngine, ...`. Removing that needs a plugin-facing registration contract in the SDK rather than a re-export of the app-side base class, which is Stage C. A companion test fails if the exemption ever outlives the import it names. Two SDK gaps the migration exposed, fixed in the SDK rather than absorbed at the call site: (1) **`ctx.wav_to_mp3` now takes `on_output` and `cancel_check` and returns `int`** (was: dropped both, returned `None`). The wrapped `app.engines.audio_ops.wav_to_mp3` has always accepted both and returned the ffmpeg exit code, so a plugin swapping a direct import for the ctx method silently lost cancellation in a render path and could no longer tell a failed transcode from a good one. (2) **`ctx.get_chapter_dir` gains an optional `project_id`.** It previously took only `chapter_id` and re-derived the project from the DB; a caller already holding a project id now passes it, skipping the read and keeping its own id authoritative. Both are additive, so shipped manifests stay at `sdk_version: "1.0"` and SDK stays at 1.1. **Shape traps for anyone migrating another plugin the same way, all three found here:** `ctx.get_speaker_wavs` returns a **split `list[str]`**, while the render path downstream still parses the legacy comma-joined **string** (`str(sw).split(",", 1)[0]`) - `adapter._get_speaker_wavs` and `app_adapter.select_voice` re-join before returning; `ctx.get_chapter_dir` / `ctx.get_voices_dir` / `ctx.get_voice_profile_dir` return **`str`**, not `Path`; and `ctx.update_queue_item` forwards every field explicitly by keyword, so a test asserting the old positional `(job_id, status)` call shape must be updated even though the values are identical. |
 | 1.9.0   | 2026-08-24 | **SDK 1.1 (issue #200): two new capabilities, one corrected return type, one new load-time check, and a reversal of v1.3.0's import tolerance.** (1) `ctx.get_lexicon(project_id) -> list[dict]` added to the §3.3 Text Preparation group: a scoped read of the project's pronunciation-substitution entries, shaped like the existing `ctx.get_chapter_segments` (plain dicts, never a DB handle). (2) `apply_lexicon(text, entries) -> str` MOVED into the SDK as `studio_plugin_sdk/text.py`, a stdlib-only pure utility matching the `audio.py` / `proc.py` shape; it depended only on `re`, so it is a mechanism rather than a host-policy wrapper. `app/utils/text/lexicon.py` is now a re-export shim and Studio's own caller (`app/orchestration/tasks/synthesis.py`) imports from the SDK, so there is one implementation reached by two paths. (3) **Corrected return type (breaking for any caller relying on the old shape, of which there were none in production):** `ctx.split_long_sentences(text, char_limit)` now returns `str`, not `list[str]`. The wrapped `safe_split_long_sentences` has always returned a string; the SDK wrapped it as `[result]`, so a plugin swapping its local alias for the ctx method would have fed a list into a synthesis script. (4) **New load-time check:** the manifest's declared `sdk_version` is now validated against the installed `studio_plugin_sdk.SDK_VERSION` (same major, at or below its minor), replacing the hardcoded `{"1.0"}` entry in `_SUPPORTED_VERSION_FIELDS`. Nothing previously compared the two, so the field was decorative and would have gone stale on the first bump; the rule is now derived from the package and cannot drift. Mismatch raises `PluginLoadError` naming both the declared and the installed version. `scripts/validate_plugin_manifests.py` applies the same derived rule. The other three version fields keep their `{"1.0"}` allow-lists. Shipped manifests stay at `"sdk_version": "1.0"` and remain valid. `app/studio_plugin_sdk/__init__.py` re-exports `SDK_VERSION` instead of declaring its own literal. (5) **Reversal of v1.3.0 note (6).** That entry tolerated function-body `app.*` imports in bake/segments/standard_handler because tests monkeypatch those targets, resolving "with S9 dispatcher integration". Owner decision 2026-08-24: the tolerance is withdrawn, ahead of that trigger, because `tts_xtts` cannot be extracted into its own public repo (issue #189) while it reaches into `app.*`, and the first published plugin is the example third-party authors copy. The rule for in-tree plugins is now the same as for standalone ones: zero `app.*` imports at any scope. A new xfail(strict) gate in `tts_engines/tts_xtts/tests/test_s4_import_cleanliness.py` walks the full AST and currently reports **31** such imports across `adapter.py`, `bake.py`, `segments.py`, `app_adapter.py`, and `standard_handler.py`; issue #200 Stage B removes them and the gate turns green. `tts_mixed` keeps its `built_in: true` exemption. |
 | 1.8.0   | 2026-07-17 | **BUG 1 fix: optional top-level `dependency_check: "external"` manifest field** (see §Optional `dependency_check` field). Additive — absent preserves prior "bundled" behavior (`requirements.txt` checked against the server venv). `tts_xtts/manifest.json` now declares it, since its inference deps (torch, coqui-tts, transformers, ...) are installed only into the separate `~/xtts-env` by `run.sh`, never the server venv — the prior unconditional check permanently reported xtts `needs_setup` on any install where the server venv doesn't happen to carry those deps. `tts_xtts`'s `check_env()` (`plugin/server/engine.py`) no longer does an in-process `import TTS` (checks the wrong interpreter); it now calls the plugin's new `xtts_env_ready()` (`plugin/core/implementation.py`), a filesystem-only check of the external env (no import, no subprocess — cheap enough for the 5s heartbeat and every `/synthesize` call). `POST /engines/{id}/install` (`app/tts_server/server.py`) now refuses (400) for `dependency_check: "external"` engines rather than pip-installing their deps into the server venv. Readiness is keyed off the `coqui_tts-*.dist-info` completion marker (not the bare `TTS` package dir, which pip populates before an install finishes — avoids ready/not-ready flapping mid-install) and scans every candidate `site-packages` dir under the env root (not just the first by sort order, which could pick a stale `lib/pythonX.Y` left behind by a Python upgrade). Known limitation documented in-spec: the opt-out is all-or-nothing across the whole `requirements.txt`, including any genuinely server-side base packages a plugin author mixes into the same file. |
@@ -225,19 +226,54 @@ promptly and MUST NOT leave partial output at `req.output_path`.
 Distinct from `StudioTTSEngine` (the server-side, per-job contract above), a
 plugin's `plugin/studio/app_adapter.py` implements the **reverse-direction**
 adapter: a class the Studio process's own engine registry / `VoiceBridge`
-instantiates and calls into. As of spec 1.5.0, `studio_plugin_sdk` re-exports the types this file needs
-(additive to the existing `sdk_version: "1.0"` contract — no manifest change
-required), so it never has to import `app.*` directly:
+instantiates and calls into. As of spec 1.11.0 the contract is **structural**:
+the adapter satisfies a Protocol and subclasses nothing host-side, so it never
+imports `app.*` at any scope.
 
 ```python
 from studio_plugin_sdk import (
-    BaseVoiceEngine,        # base class the app_adapter subclasses
+    VoiceEngineAdapter,     # the Protocol the adapter satisfies (no inheritance)
     EngineHealthModel,      # return type of describe_health()
-    EngineManifestModel,    # constructor arg — parsed manifest.json
+    EngineManifestModel,    # constructor arg: parsed manifest.json
     EngineExecutionError,   # raised on synthesis/preview failure
     EngineRequestError,     # raised on invalid request shape
 )
+from studio_plugin_sdk.engine_adapter import (
+    normalize_output_format,  # request helpers, module-level functions
+    resolve_output_path,
+    resolve_on_output,
+    resolve_cancel_check,
+)
+
+
+class MyVoiceEngine:  # no base class
+    ...
 ```
+
+`VoiceEngineAdapter` requires all nine of `hooks`, `describe_health`,
+`validate_environment`, `validate_request`, `synthesize`, `preview`,
+`settings_schema`, `current_settings`, `build_voice_asset`. Being
+`runtime_checkable`, `isinstance` against it checks method **presence** only,
+never signatures, which is the same guarantee the TTS Server's plugin loader
+gives for `StudioTTSEngine`. Nothing is inherited, so an adapter must declare
+all nine even where the host has a fallback (no hooks, empty schema, empty
+settings).
+
+`BaseVoiceEngine` is the host's own base class and is **not** part of this
+contract: it is not exported by `studio_plugin_sdk` and a plugin must not
+import or subclass it. It shipped nine `NotImplementedError` stubs and four
+concrete method bodies, which is app implementation detail that plugin authors
+would inherit without being able to see it. It remains for host-side use and
+binds the four SDK helper functions above rather than holding its own copies.
+
+The four request helpers were previously inherited methods and are now plain
+functions. They take everything they need as arguments (`request`,
+`engine_name`), so the only call-site change is dropping the `self.` prefix.
+
+The four error and data types listed above moved INTO the SDK in 1.11.0 (they
+were re-exported from `app.*` between 1.5.0 and 1.10.0). `app/engines/errors.py`
+and `app/engines/models.py` re-export them with identical object identity, so
+`except EngineBridgeError` and every existing host importer keep working.
 
 `app_adapter.py` files also commonly need a `StudioPluginContext` instance
 (`get_plugin_ctx(engine_id)`) for two context methods that predate this
@@ -317,7 +353,7 @@ a per-engine limit.
 
 `sdk_version` is the one version field NOT checked against a literal allow-list.
 It is compared at load time against the installed
-`studio_plugin_sdk.SDK_VERSION`, currently `"1.1"`:
+`studio_plugin_sdk.SDK_VERSION`, currently `"1.2"`:
 
 - The **major** MUST match exactly.
 - The **minor** MUST be at or below the installed SDK's minor. A plugin written

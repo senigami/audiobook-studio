@@ -52,7 +52,7 @@ from .engine_errors import (
 )
 from .plugin_utils import get_plugin_ctx, load_settings_schema, make_segment_output_handler
 
-SDK_VERSION = "1.1"
+SDK_VERSION = "1.2"
 __version__ = SDK_VERSION
 
 __all__ = [
