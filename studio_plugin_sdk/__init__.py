@@ -35,6 +35,13 @@ from .types import (
 from .context import JobResult, JobSpec, StudioPluginContext
 from .errors import BridgeError, StudioException, ValidationError
 from .engine_models import EngineHealthModel, EngineManifestModel, ResourceProfile
+from .engine_adapter import (
+    VoiceEngineAdapter,
+    normalize_output_format,
+    resolve_cancel_check,
+    resolve_on_output,
+    resolve_output_path,
+)
 from .engine_errors import (
     EngineBridgeError,
     EngineExecutionError,
@@ -73,6 +80,12 @@ __all__ = [
     "StudioException",
     "BridgeError",
     "ValidationError",
+    # App-adapter contract (the class the Studio host calls into)
+    "VoiceEngineAdapter",
+    "normalize_output_format",
+    "resolve_output_path",
+    "resolve_on_output",
+    "resolve_cancel_check",
     # Engine discovery models (accepted and returned by app-side plugin adapters)
     "ResourceProfile",
     "EngineManifestModel",

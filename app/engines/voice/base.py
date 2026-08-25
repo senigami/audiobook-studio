@@ -14,12 +14,15 @@ New engines should implement ``studio_plugin_sdk.StudioTTSEngine``.
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from pathlib import Path
 from typing import Any
 
 from studio_plugin_sdk.engine import StudioTTSEngine
-from app.engines.errors import EngineRequestError
+from studio_plugin_sdk.engine_adapter import (
+    normalize_output_format,
+    resolve_cancel_check,
+    resolve_on_output,
+    resolve_output_path,
+)
 from app.engines.models import EngineHealthModel
 from app.engines.voice.sdk import (  # noqa: F401 — re-exported for back-compat
     TTSRequest,
@@ -118,68 +121,15 @@ class BaseVoiceEngine:
     # Shared request-adapter helpers (PL-3)
     # ------------------------------------------------------------------
     #
-    # These were duplicated verbatim (module differences only in the
-    # error-message engine name) across XttsVoiceEngine and
-    # VoxtralVoiceEngine in each plugin's studio/app_adapter.py. Lifted here
-    # so future engine adapters get them for free; engine-specific behavior
-    # is parameterized (engine_name), never branched on engine ID.
+    # These are the SDK's own functions, bound here rather than reimplemented,
+    # so `self.normalize_output_format(...)` and
+    # `studio_plugin_sdk.normalize_output_format(...)` cannot drift apart
+    # (issue #200 Stage C). They were classmethod/staticmethod and never used
+    # `cls`, so the `self.`-prefixed call shape in existing adapters is
+    # unchanged. `tests/engines/test_sdk_engine_adapter.py` asserts the
+    # identity.
 
-    @classmethod
-    def normalize_output_format(
-        cls,
-        request: dict[str, object],
-        *,
-        engine_name: str,
-        allow_mp3: bool = False,
-    ) -> str:
-        """Validate and normalize the requested output audio format.
-
-        Args:
-            request: Engine-ready request payload.
-            engine_name: Human-readable engine name for error messages
-                (e.g. "XTTS", "Voxtral").
-            allow_mp3: Whether mp3 output is permitted for this call (typically
-                True for synthesis, False for lightweight preview).
-        """
-        output_format = str(request.get("output_format") or "wav").strip().lower() or "wav"
-        allowed_formats = {"wav", "mp3"} if allow_mp3 else {"wav"}
-        if output_format not in allowed_formats:
-            if allow_mp3:
-                raise EngineRequestError(
-                    f"{engine_name} bridge synthesis currently supports output_format='wav' or 'mp3' only."
-                )
-            raise EngineRequestError(
-                f"{engine_name} bridge preview currently supports output_format='wav' only."
-            )
-        return output_format
-
-    @staticmethod
-    def resolve_output_path(request: dict[str, object], *, engine_name: str) -> Path:
-        """Resolve and prepare the output path for a synthesis request."""
-        output_path = str(request.get("output_path") or "").strip()
-        if not output_path:
-            raise EngineRequestError(f"{engine_name} synthesis requests must include output_path.")
-        resolved = Path(output_path)
-        resolved.parent.mkdir(parents=True, exist_ok=True)
-        return resolved
-
-    @staticmethod
-    def resolve_on_output(request: dict[str, object], *, engine_name: str) -> Callable[[str], None]:
-        """Resolve the request's on_output callback, defaulting to a no-op."""
-        on_output = request.get("on_output")
-        if on_output is None:
-            return lambda _line: None
-        if not callable(on_output):
-            raise EngineRequestError(f"{engine_name} on_output callback must be callable.")
-        return on_output
-
-    @staticmethod
-    def resolve_cancel_check(request: dict[str, object], *, engine_name: str) -> Callable[[], bool]:
-        """Resolve the request's cancel_check callback, defaulting to never-cancel."""
-        cancel_check = request.get("cancel_check")
-        if cancel_check is None:
-            return lambda: False
-        if not callable(cancel_check):
-            raise EngineRequestError(f"{engine_name} cancel_check callback must be callable.")
-        return cancel_check
-
+    normalize_output_format = staticmethod(normalize_output_format)
+    resolve_output_path = staticmethod(resolve_output_path)
+    resolve_on_output = staticmethod(resolve_on_output)
+    resolve_cancel_check = staticmethod(resolve_cancel_check)
