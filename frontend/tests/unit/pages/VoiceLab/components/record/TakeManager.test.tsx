@@ -116,7 +116,9 @@ describe('TakeManager', () => {
         // Enter keeps the current captured take via the container-level
         // handler, deferring to the (enabled) Keep button.
         fireEvent.keyDown(container, { code: 'Enter' });
-        expect(screen.getByText(/1 take kept/i)).toBeInTheDocument();
+        // findBy, not getBy: the keep is applied through a React state update,
+        // so a synchronous query races the flush and fails on a slow runner.
+        expect(await screen.findByText(/1 take kept/i)).toBeInTheDocument();
 
         // R retakes the next captured take without touching take 1.
         await user.click(screen.getByRole('button', { name: 'Start recording' }));
