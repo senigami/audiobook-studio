@@ -239,7 +239,7 @@ function LibraryRow({ entry, onSelect }: { entry: RankedArchetype; onSelect: (a:
                 </button>
             )}
             {copyError && (
-                <span role="alert" style={{ fontSize: '0.65rem', color: 'var(--danger, #d33)', flexShrink: 0, alignSelf: 'center' }}>
+                <span role="alert" style={{ fontSize: '0.65rem', color: 'var(--error-text)', flexShrink: 0, alignSelf: 'center' }}>
                     {copyError}
                 </span>
             )}

@@ -66,16 +66,10 @@ jobs:
       - name: Run quick backend tests
         run: |
           pytest -q \
-            tests/test_api.py \
-            tests/test_api_generation.py \
-            tests/test_api_projects.py \
-            tests/test_api_projects_extended.py \
-            tests/test_api_queue.py \
-            tests/test_api_utils_extended.py \
-            tests/test_db_chapters.py \
-            tests/test_engines.py \
-            tests/test_incremental_assembly.py \
-            tests/test_xtts_handler.py
+            tests/api \
+            tests/db \
+            tests/engines \
+            tests/orchestration
 
     # 2. The "Full" check - REQUIRED for PRs
   # IMPORTANT: Name must match your Branch Protection exactly
