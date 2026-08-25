@@ -152,8 +152,12 @@ describe('Jump to next unrendered chapter', () => {
     // Start on ch-done (fully rendered), next unrendered in forward order is ch-partial
     renderWorkspaceRoute('/book/book-1/chapter/ch-done');
 
+    // The button renders (disabled) before chapters have loaded from the
+    // mocked async fetchChapters — waiting for mere presence races the
+    // fetch, since a click on a still-disabled button is a silent no-op.
+    // Wait for the settled (enabled) state instead (R4).
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Jump to next unrendered chapter' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Jump to next unrendered chapter' })).not.toBeDisabled();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Jump to next unrendered chapter' }));
@@ -169,8 +173,11 @@ describe('Jump to next unrendered chapter', () => {
     // ch-done is rendered. So it wraps to ch-partial (index 1).
     renderWorkspaceRoute('/book/book-1/chapter/ch-unrendered');
 
+    // See "navigates to the next unrendered chapter..." above: wait for
+    // enabled, not just present — the button renders disabled until
+    // fetchChapters resolves (R4).
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Jump to next unrendered chapter' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Jump to next unrendered chapter' })).not.toBeDisabled();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Jump to next unrendered chapter' }));
@@ -203,8 +210,10 @@ describe('Jump to next unrendered chapter', () => {
     vi.mocked(api.fetchChapters).mockResolvedValue(chapters);
     renderWorkspaceRoute('/book/book-1/chapter/c2');
 
+    // See "navigates to the next unrendered chapter..." above: wait for
+    // enabled, not just present (R4).
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Jump to next unrendered chapter' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Jump to next unrendered chapter' })).not.toBeDisabled();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Jump to next unrendered chapter' }));
@@ -223,8 +232,10 @@ describe('Jump to next unrendered chapter', () => {
     vi.mocked(api.fetchChapters).mockResolvedValue(chapters);
     renderWorkspaceRoute('/book/book-1/chapter/ch-seg-done');
 
+    // See "navigates to the next unrendered chapter..." above: wait for
+    // enabled, not just present (R4).
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Jump to next unrendered chapter' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Jump to next unrendered chapter' })).not.toBeDisabled();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Jump to next unrendered chapter' }));
@@ -251,8 +262,15 @@ describe('Bookmarks', () => {
     vi.mocked(api.fetchChapters).mockResolvedValue(CHAPTERS_MIXED);
     renderWorkspaceRoute('/book/book-1/chapter/ch-done');
 
+    // "Bookmark this chapter" is present (and clickable) before chapters
+    // have loaded from the mocked async fetchChapters. Unlike the nav
+    // buttons it has no disabled state to gate on, so it silently records
+    // the wrong label — activeChapter is still unresolved at that point,
+    // and handleAddBookmark falls back to the raw chapterId. Wait for the
+    // header to show the real title (proof chapters have loaded) before
+    // clicking, rather than a longer timeout (R4).
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Bookmark this chapter' })).toBeInTheDocument();
+      expect(screen.getByText('Done Chapter')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Bookmark this chapter' }));
@@ -286,8 +304,12 @@ describe('Bookmarks', () => {
     vi.mocked(api.fetchChapters).mockResolvedValue(CHAPTERS_MIXED);
     renderWorkspaceRoute('/book/book-1/chapter/ch-done');
 
+    // See "clicking Bookmark this chapter persists..." above: wait for
+    // chapters to have actually loaded (real title, not the raw id) before
+    // the first click — both the bookmark label and the enabled state of
+    // Next chapter below depend on it (R4).
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Bookmark this chapter' })).toBeInTheDocument();
+      expect(screen.getByText('Done Chapter')).toBeInTheDocument();
     });
 
     // Bookmark ch-done
@@ -317,8 +339,10 @@ describe('Bookmarks', () => {
     vi.mocked(api.fetchChapters).mockResolvedValue(CHAPTERS_MIXED);
     renderWorkspaceRoute('/book/book-1/chapter/ch-done');
 
+    // See "clicking Bookmark this chapter persists..." above: wait for the
+    // real title (chapters loaded) before clicking (R4).
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Bookmark this chapter' })).toBeInTheDocument();
+      expect(screen.getByText('Done Chapter')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Bookmark this chapter' }));
