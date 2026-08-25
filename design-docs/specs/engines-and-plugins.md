@@ -1,8 +1,8 @@
 # Engines and Plugin Lifecycle
 
 ```
-spec_version: 1.2.0
-updated: 2026-07-16
+spec_version: 1.3.0
+updated: 2026-08-24
 status: active
 sources:
   - app/tts_server/server.py
@@ -236,8 +236,10 @@ permanent architectural constraint, not a temporary gap.
 ## Plugin SDK and import boundary
 
 `studio_plugin_sdk/` (repo root) is the real top-level SDK package
-(`SDK_VERSION = "1.0"`, ships `py.typed`): `types`, `engine` (StudioTTSEngine),
-`context`, `plugin_utils`, `errors`, `proc`, `audio`, `_import_utils`.
+(`SDK_VERSION = "1.2"`, ships `py.typed`): `types`, `engine` (StudioTTSEngine),
+`engine_adapter` (VoiceEngineAdapter Protocol + the four request helpers),
+`engine_models`, `engine_errors`, `context`, `plugin_utils`, `errors`, `text`,
+`proc`, `audio`, `_import_utils`.
 `app/engines/voice/sdk.py`, `app/engines/voice/base.py` (StudioTTSEngine only), and
 `app/studio_plugin_sdk/*` are re-export shims over it — exactly one module object
 exists per class (pinned by `tests/engines/test_sdk_module_identity.py`). Plugins
@@ -248,9 +250,11 @@ per-plugin `test_s4/s5_import_cleanliness.py` gates and the SDK cleanliness gate
 
 - ZERO `app.*` imports (any position) in `plugin/server/`, `plugin/core/`,
   `interface.py`, `cli.py`.
-- ZERO module-level `app.*` imports in `plugin/studio/`; function-body `app.*`
-  imports are permitted there (host-integration code, documented in each plugin
-  README).
+- ZERO `app.*` imports at ANY position in `tts_xtts`'s `plugin/studio/`
+  extraction targets (`adapter.py`, `bake.py`, `segments.py`, `app_adapter.py`,
+  `standard_handler.py`), with no exemptions, since issue #200 Stage C. The
+  older module-level-only rule (function-body `app.*` imports permitted) still
+  applies to `tts_voxtral`'s `plugin/studio/`, which has not been migrated.
 - ZERO `app.*` imports anywhere in `studio_plugin_sdk/` except function-body imports
   inside `context.py` (the host-implemented context; they execute only in the Studio
   host process).

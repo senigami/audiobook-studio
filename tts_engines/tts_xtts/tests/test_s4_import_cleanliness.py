@@ -4,10 +4,11 @@ Confirmed boundary:
 - ZERO ``app.*`` imports at ANY position in ``plugin/server/``, ``plugin/core/``,
   ``interface.py``, ``cli.py``.
 - ZERO ``app.*`` imports at ANY position in ``plugin/studio/``'s five
-  extraction targets, since issue #200 Stage B. The single exemption is
-  ``app_adapter.py``'s guarded ``from app.studio_plugin_sdk import ...``,
-  which Stage C removes; ``_STAGE_C_EXEMPT`` names it and a companion test
-  fails if that exemption ever outlives the import.
+  extraction targets, with no exemptions, since issue #200 Stage C. Stage B
+  left one, for ``app_adapter.py``'s guarded ``from app.studio_plugin_sdk
+  import BaseVoiceEngine, ...``; Stage C moved those types into the SDK and
+  replaced the base class with the ``VoiceEngineAdapter`` Protocol, so the
+  reason for the exemption is gone and the exemption with it.
 - The older module-level-only rule still applies to the remaining
   ``plugin/studio/`` modules, where the sanctioned shapes are function-body
   imports, the ``try: ... except ImportError`` guard, and ``TYPE_CHECKING``
@@ -213,49 +214,24 @@ _EXTRACTION_TARGET_FILES = [
 ]
 
 
-# The single import Stage B deliberately leaves behind: app_adapter.py's guarded
-# ``from app.studio_plugin_sdk import BaseVoiceEngine, ...``. Removing it needs a
-# plugin-facing registration contract in the SDK rather than a re-export of the
-# app-side base class, which is issue #200 Stage C and its own design decision.
-# Scoped to the one module and the one symbol so any OTHER app.* import
-# appearing in that file still fails the gate.
-_STAGE_C_EXEMPT = {("app_adapter.py", "app.studio_plugin_sdk")}
-
-
 def test_studio_zero_app_imports_at_any_scope() -> None:
     """plugin/studio extraction targets: zero app.* imports anywhere, function bodies included.
 
     The sibling ``test_studio_no_module_level_app_imports`` deliberately skips
     function and class bodies, which is why every one of those passed while 31
     app.* imports were live. Extraction needs the stricter rule; Stage B routed
-    every one of them through the SDK context, leaving only the Stage C
-    exemption above.
+    every one of them through the SDK context and Stage C removed the last one,
+    app_adapter.py's guarded app-adapter-contract import. There are no
+    exemptions: the count is zero.
     """
     hits: list[str] = []
     for name in _EXTRACTION_TARGET_FILES:
         path = _STUDIO_DIR / name
         assert path.is_file(), f"Expected file not found: {path}"
         for module, hit in _all_app_imports_with_module(path):
-            if (name, module) in _STAGE_C_EXEMPT:
-                continue
             hits.append(f"{name} {hit}")
 
     assert hits == [], (
         f"{len(hits)} app.* import(s) remain in plugin/studio (issue #200 scope):\n"
         + "\n".join(hits)
     )
-
-
-def test_stage_c_exemption_still_describes_a_real_import() -> None:
-    """The exemption must not outlive the import it was written for.
-
-    A stale entry in ``_STAGE_C_EXEMPT`` would silently widen the gate: once
-    Stage C lands, this fails and the exemption gets deleted with it.
-    """
-    found = {
-        (name, module)
-        for name in _EXTRACTION_TARGET_FILES
-        for module, _ in _all_app_imports_with_module(_STUDIO_DIR / name)
-    }
-    stale = _STAGE_C_EXEMPT - found
-    assert stale == set(), f"_STAGE_C_EXEMPT names import(s) that no longer exist: {sorted(stale)}"
