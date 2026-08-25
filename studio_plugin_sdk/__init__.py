@@ -34,6 +34,14 @@ from .types import (
 # Studio-side contract — runs in the Studio (FastAPI) host process
 from .context import JobResult, JobSpec, StudioPluginContext
 from .errors import BridgeError, StudioException, ValidationError
+from .engine_errors import (
+    EngineBridgeError,
+    EngineExecutionError,
+    EngineNotReadyError,
+    EngineOutputRejectedError,
+    EngineRequestError,
+    EngineUnavailableError,
+)
 from .plugin_utils import get_plugin_ctx, load_settings_schema, make_segment_output_handler
 
 SDK_VERSION = "1.1"
@@ -64,4 +72,11 @@ __all__ = [
     "StudioException",
     "BridgeError",
     "ValidationError",
+    # Engine bridge errors (raised and caught by app-side plugin adapters)
+    "EngineBridgeError",
+    "EngineExecutionError",
+    "EngineNotReadyError",
+    "EngineOutputRejectedError",
+    "EngineRequestError",
+    "EngineUnavailableError",
 ]

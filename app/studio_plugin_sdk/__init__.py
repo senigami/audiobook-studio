@@ -40,7 +40,14 @@ from studio_plugin_sdk import (
 # adapter surface. Stays app-side: not exported by the real SDK package.
 from app.engines.voice.base import BaseVoiceEngine
 from app.engines.models import EngineHealthModel, EngineManifestModel
-from app.engines.errors import EngineExecutionError, EngineRequestError
+from app.engines.errors import (
+    EngineBridgeError,
+    EngineExecutionError,
+    EngineNotReadyError,
+    EngineOutputRejectedError,
+    EngineRequestError,
+    EngineUnavailableError,
+)
 
 __all__ = [
     "__version__",
@@ -62,6 +69,10 @@ __all__ = [
     "BaseVoiceEngine",
     "EngineHealthModel",
     "EngineManifestModel",
+    "EngineBridgeError",
     "EngineExecutionError",
+    "EngineNotReadyError",
+    "EngineOutputRejectedError",
     "EngineRequestError",
+    "EngineUnavailableError",
 ]
