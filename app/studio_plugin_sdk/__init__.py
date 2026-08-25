@@ -38,9 +38,17 @@ from studio_plugin_sdk import (
 # registry / VoiceBridge. Distinct from StudioTTSEngine (the server-side,
 # per-job contract) — this is the reverse-direction "app calls into plugin"
 # adapter surface. Stays app-side: not exported by the real SDK package.
+from studio_plugin_sdk import VoiceEngineAdapter
 from app.engines.voice.base import BaseVoiceEngine
 from app.engines.models import EngineHealthModel, EngineManifestModel
-from app.engines.errors import EngineExecutionError, EngineRequestError
+from app.engines.errors import (
+    EngineBridgeError,
+    EngineExecutionError,
+    EngineNotReadyError,
+    EngineOutputRejectedError,
+    EngineRequestError,
+    EngineUnavailableError,
+)
 
 __all__ = [
     "__version__",
@@ -59,9 +67,14 @@ __all__ = [
     "get_plugin_ctx",
     "load_settings_schema",
     # App-adapter contract
+    "VoiceEngineAdapter",
     "BaseVoiceEngine",
     "EngineHealthModel",
     "EngineManifestModel",
+    "EngineBridgeError",
     "EngineExecutionError",
+    "EngineNotReadyError",
+    "EngineOutputRejectedError",
     "EngineRequestError",
+    "EngineUnavailableError",
 ]

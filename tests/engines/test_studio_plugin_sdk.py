@@ -29,7 +29,7 @@ class TestSDKImportSurface:
 
     def test_import_via_app_namespace(self):
         import app.studio_plugin_sdk as sdk
-        assert sdk.__version__ == "1.1"
+        assert sdk.__version__ == "1.2"
 
     def test_top_level_package_resolves_outside_app(self):
         """studio_plugin_sdk is a REAL top-level package, not an alias of
@@ -73,7 +73,7 @@ class TestSDKImportSurface:
 
     def test_version_string(self):
         import studio_plugin_sdk as sdk
-        assert sdk.__version__ == "1.1"
+        assert sdk.__version__ == "1.2"
 
 
 # ---------------------------------------------------------------------------

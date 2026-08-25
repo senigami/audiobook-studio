@@ -14,40 +14,30 @@ from pathlib import Path
 from typing import Any
 
 from studio_plugin_sdk import (
+    EngineExecutionError,
+    EngineHealthModel,
+    EngineManifestModel,
+    EngineRequestError,
     SynthesisPlan,
     TTSRequest,
     TTSResult,
     VoiceProcessingHooks,
 )
+from studio_plugin_sdk.engine_adapter import (
+    normalize_output_format,
+    resolve_cancel_check,
+    resolve_on_output,
+    resolve_output_path,
+)
 from studio_plugin_sdk.plugin_utils import load_settings_schema
 
-# STAGE C (issue #200): the guarded import below is the last app.* import in
-# this plugin and is deliberately left in place. Removing it needs a
-# plugin-facing registration contract in the SDK rather than a re-export of
-# the app-side base class, which is its own design decision.
+# The app-adapter contract (issue #200 Stage C): XttsVoiceEngine satisfies
+# studio_plugin_sdk.VoiceEngineAdapter structurally and subclasses nothing
+# host-side, so this module has zero app.* imports at any scope and the plugin
+# can be extracted into its own repo (issue #189).
 #
-# App-adapter contract (BaseVoiceEngine + engine data/error models) is
-# app-side only — deliberately NOT part of the real SDK package (see
-# app/studio_plugin_sdk/__init__.py). app_adapter.py is the documented
-# host-integration module: it only ever loads inside a Studio host, so the
-# guarded app.* import below is the sanctioned exception to the
-# module-body-app-free rule (S4 gate audits module-body import statements).
-try:
-    from app.studio_plugin_sdk import (
-        BaseVoiceEngine,
-        EngineExecutionError,
-        EngineHealthModel,
-        EngineManifestModel,
-        EngineRequestError,
-    )
-except ImportError as exc:  # pragma: no cover — host-only integration module
-    raise ImportError(
-        "tts_xtts app_adapter requires the Studio host (app package)"
-    ) from exc
-
-
-# Upstream: app.engines.registry. Downstream: BaseVoiceEngine. Must
-# not import app.orchestration / app.api.routers / app.jobs directly.
+# Upstream: the Studio host's engine registry. Must not import
+# app.orchestration / app.api.routers / app.jobs, or anything else app-side.
 
 
 def _get_ctx():
@@ -129,7 +119,7 @@ def xtts_generate_script(
     )
 
 
-class XttsVoiceEngine(BaseVoiceEngine):
+class XttsVoiceEngine:
     """Standard XTTS adapter placeholder."""
 
     def __init__(self, *, manifest: EngineManifestModel):
@@ -182,6 +172,35 @@ class XttsVoiceEngine(BaseVoiceEngine):
         schema = load_settings_schema(schema_path, engine_name="XTTS")
         return dict(schema) if isinstance(schema, dict) else {}
 
+    def current_settings(self) -> dict[str, object]:
+        """Return the adapter's persisted settings snapshot.
+
+        Empty by design: XTTS settings are owned by the TTS Server's settings
+        store and reach the host through the /engines detail payload, never
+        through this adapter. Previously inherited from BaseVoiceEngine with
+        the same empty return; declared here now that the adapter satisfies
+        VoiceEngineAdapter structurally instead of by inheritance.
+        """
+        return {}
+
+    def validate_environment(self) -> None:
+        """Not implemented on the app side.
+
+        Readiness for XTTS is a filesystem check of the external ~/xtts-env,
+        reported through describe_health(). Kept on the contract, and raising,
+        exactly as the inherited BaseVoiceEngine version did.
+        """
+        raise NotImplementedError("XTTS readiness is reported by describe_health(), not validate_environment().")
+
+    def build_voice_asset(self, request: dict[str, object]) -> dict[str, object]:
+        """Not implemented on the app side.
+
+        XTTS voice assets are built through the TTS Server's own job path.
+        Kept on the contract, and raising, exactly as the inherited
+        BaseVoiceEngine version did.
+        """
+        raise NotImplementedError("XTTS does not build voice assets through the app adapter.")
+
     def validate_request(self, request: dict[str, object]) -> None:
         """Describe XTTS request validation."""
         if not isinstance(request, dict):
@@ -194,7 +213,7 @@ class XttsVoiceEngine(BaseVoiceEngine):
         if not str(request.get("script_text") or "").strip() and not request.get("script"):
             raise EngineRequestError("XTTS requests must include script_text.")
         is_synthesis_request = bool(str(request.get("output_path") or "").strip())
-        output_format = self.normalize_output_format(request, engine_name="XTTS", allow_mp3=is_synthesis_request)
+        output_format = normalize_output_format(request, engine_name="XTTS", allow_mp3=is_synthesis_request)
         reference_audio_path = str(request.get("reference_audio_path") or "").strip()
         if reference_audio_path:
             reference_path = Path(reference_audio_path)
@@ -215,14 +234,14 @@ class XttsVoiceEngine(BaseVoiceEngine):
 
         script_text = str(request["script_text"]).strip()
         voice_profile_id = str(request["voice_profile_id"]).strip()
-        output_format = self.normalize_output_format(request, engine_name="XTTS", allow_mp3=True)
-        output_path = self.resolve_output_path(request, engine_name="XTTS")
+        output_format = normalize_output_format(request, engine_name="XTTS", allow_mp3=True)
+        output_path = resolve_output_path(request, engine_name="XTTS")
         safe_mode = bool(request.get("safe_mode", True))
         speed = float(request.get("speed", 1.0) or 1.0)
         reference_audio_path = str(request.get("reference_audio_path") or "").strip() or None
         voice_asset_id = str(request.get("voice_asset_id") or "").strip() or None
-        on_output = self.resolve_on_output(request, engine_name="XTTS")
-        cancel_check = self.resolve_cancel_check(request, engine_name="XTTS")
+        on_output = resolve_on_output(request, engine_name="XTTS")
+        cancel_check = resolve_cancel_check(request, engine_name="XTTS")
 
         speaker_wav: str | None = None
         voice_profile_dir: Path | None = None
@@ -338,7 +357,7 @@ class XttsVoiceEngine(BaseVoiceEngine):
 
         script_text = str(request["script_text"]).strip()
         voice_profile_id = str(request["voice_profile_id"]).strip()
-        output_format = self.normalize_output_format(request, engine_name="XTTS")
+        output_format = normalize_output_format(request, engine_name="XTTS")
         safe_mode = bool(request.get("safe_mode", True))
         speed = float(request.get("speed", 1.0) or 1.0)
         reference_audio_path = str(request.get("reference_audio_path") or "").strip() or None
