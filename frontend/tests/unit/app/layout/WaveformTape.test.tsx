@@ -21,6 +21,7 @@ import {
   computeTapeBarCount,
 } from '@/app/layout/WaveformTape';
 import * as playerBus from '@/store/playerBus';
+import { installControlledRaf, type ControlledRaf } from '../../../helpers/rafControl';
 
 // ---------------------------------------------------------------------------
 // AudioContext mock — boundary mock (external Web Audio decode API)
@@ -72,6 +73,19 @@ function makeAudioEl(): HTMLAudioElement {
   return el;
 }
 
+// WaveformTape runs an unconditional 60Hz requestAnimationFrame polling loop
+// for the entire time it's mounted (see WaveformTape.tsx's `position` effect).
+// jsdom's real rAF is backed by a real ~16ms setTimeout, so that loop keeps a
+// real timer armed through every `await waitFor(...)` in every test below —
+// under CI/Docker load, stray extra frames can fire mid-test and race
+// assertions (confirmed root cause of issue #214's WaveformTape flakiness:
+// the same test failed on a different assertion on different CI runs).
+// `installControlledRaf` replaces rAF/cAF with a manual, non-self-firing
+// queue so `position` only ever advances when a test explicitly calls
+// `raf.flush()` — deterministic and test-controlled, per R4
+// (testing-standards.md).
+let raf: ControlledRaf;
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockMatchMedia(false);
@@ -79,12 +93,14 @@ beforeEach(() => {
     arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),
   });
   vi.spyOn(playerBus, 'seek').mockImplementation(() => {});
+  raf = installControlledRaf();
 });
 
 afterEach(() => {
   window.matchMedia = originalMatchMedia;
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  raf.uninstall();
 });
 
 // ---------------------------------------------------------------------------
@@ -303,6 +319,13 @@ describe('WaveformTape', () => {
       <WaveformTape audioEl={audioEl} audioUrl="https://example.com/a.mp3" duration={120} windowSec={30} />,
     );
     await waitFor(() => expect(screen.getByRole('slider')).toBeInTheDocument());
+    // usePeaks' fetch+decode is a real (mocked) async Promise chain, not a
+    // real timer, but it's just as capable of racing a snapshot comparison:
+    // if it settles BETWEEN the barsAt2 and barsAt5 captures instead of
+    // before both, peakArray (and therefore barCount) changes out from under
+    // the comparison. Wait for decode to land before taking the first
+    // snapshot so both captures see the same settled peaks.
+    await waitFor(() => expect(decodeAudioDataMock).toHaveBeenCalled());
 
     const barsAt2 = Array.from(container.querySelectorAll('rect')).map((r) => r.getAttribute('height'));
 
@@ -343,16 +366,21 @@ describe('WaveformTape', () => {
       />,
     );
     await waitFor(() => expect(screen.getByRole('slider')).toBeInTheDocument());
+    // Same peaks-decode race guarded against above — wait for it to settle
+    // before the first snapshot so the rAF-tick comparison below isn't also
+    // racing usePeaks' async decode.
+    await waitFor(() => expect(decodeAudioDataMock).toHaveBeenCalled());
 
     const barsAt20 = Array.from(container.querySelectorAll('rect')).map((r) => r.getAttribute('height'));
 
     // Advance by 50ms (well under one gridSec bucket of ~166ms) — a typical
     // rAF-tick-sized move during playback. Moving mode polls
-    // audioEl.currentTime via a rAF loop (not `timeupdate`).
+    // audioEl.currentTime via a rAF loop (not `timeupdate`). Two deterministic
+    // frame flushes (not real rAF ticks — see the ControlledRaf comment on
+    // `raf` above) stand in for the two rAF ticks the original comment names.
     audioEl.currentTime = 20.05;
-    await act(async () => {
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-      await new Promise((resolve) => requestAnimationFrame(resolve));
+    act(() => {
+      raf.flush(2);
     });
 
     const barsAfterSubGridTick = Array.from(container.querySelectorAll('rect')).map((r) =>
@@ -380,10 +408,10 @@ describe('WaveformTape', () => {
     audioEl.currentTime = 31; // crosses into the next 30s page ([30, 60))
     // Paged mode now polls currentTime via the same rAF loop as moving mode
     // (the playhead-jump fix — see WaveformTape.tsx), not the coarser
-    // `timeupdate` event, so advance one real animation frame instead of
+    // `timeupdate` event, so flush one deterministic frame instead of
     // dispatching it.
-    await act(async () => {
-      await new Promise((resolve) => requestAnimationFrame(resolve));
+    act(() => {
+      raf.flush();
     });
 
     slider = screen.getByRole('slider');
