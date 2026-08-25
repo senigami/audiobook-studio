@@ -3,10 +3,15 @@
 Confirmed boundary:
 - ZERO ``app.*`` imports at ANY position in ``plugin/server/``, ``plugin/core/``,
   ``interface.py``, ``cli.py``.
-- ZERO module-level ``app.*`` imports in ``plugin/studio/``. Two sanctioned
-  shapes remain: function-body imports (host-integration code) and the
-  ``try: from app... except ImportError`` guard in ``app_adapter.py``
-  (plus ``if TYPE_CHECKING`` blocks, which never execute at runtime).
+- ZERO ``app.*`` imports at ANY position in ``plugin/studio/``'s five
+  extraction targets, since issue #200 Stage B. The single exemption is
+  ``app_adapter.py``'s guarded ``from app.studio_plugin_sdk import ...``,
+  which Stage C removes; ``_STAGE_C_EXEMPT`` names it and a companion test
+  fails if that exemption ever outlives the import.
+- The older module-level-only rule still applies to the remaining
+  ``plugin/studio/`` modules, where the sanctioned shapes are function-body
+  imports, the ``try: ... except ImportError`` guard, and ``TYPE_CHECKING``
+  blocks (which never execute at runtime).
 - Smoke: each studio module imports cleanly (no ImportError at load time).
 - Ctx factory: _get_ctx() builds a StudioPluginContext without error.
 """
@@ -34,7 +39,7 @@ _STRICT_FILES = sorted(
     ]
 )
 
-_CTX_FACTORY_MODULES = ["handler", "bake", "segments", "standard_handler", "voice_adapter", "app_adapter"]
+_CTX_FACTORY_MODULES = ["handler", "bake", "segments", "standard_handler", "voice_adapter", "app_adapter", "adapter"]
 
 
 # ---------------------------------------------------------------------------
@@ -61,6 +66,26 @@ def _all_app_imports(path: Path) -> list[str]:
     for node in ast.walk(tree):
         hits.extend(_is_app_import(node))
     return hits
+
+
+def _all_app_imports_with_module(path: Path) -> list[tuple[str, str]]:
+    """As ``_all_app_imports``, but pairs each hit with the app module it names.
+
+    The module name is what the Stage C exemption keys off, so an exemption
+    cannot accidentally cover a different app.* import in the same file.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    pairs: list[tuple[str, str]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            if module == "app" or module.startswith("app."):
+                pairs.append((module, f"L{node.lineno}: from {module} import ..."))
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "app" or alias.name.startswith("app."):
+                    pairs.append((alias.name, f"L{node.lineno}: import {alias.name}"))
+    return pairs
 
 
 def _module_level_app_imports(path: Path) -> list[str]:
@@ -171,3 +196,66 @@ def test_get_ctx_builds(module_name: str) -> None:
     assert isinstance(ctx, StudioPluginContext), (
         f"_get_ctx() returned {type(ctx)}, expected StudioPluginContext"
     )
+
+
+# ---------------------------------------------------------------------------
+# Tests: issue #200 strict gate (function bodies included)
+# ---------------------------------------------------------------------------
+
+# The five plugin/studio modules that must reach zero app.* imports at ANY
+# scope before tts_xtts can be extracted into its own repo (issue #189).
+_EXTRACTION_TARGET_FILES = [
+    "adapter.py",
+    "bake.py",
+    "segments.py",
+    "app_adapter.py",
+    "standard_handler.py",
+]
+
+
+# The single import Stage B deliberately leaves behind: app_adapter.py's guarded
+# ``from app.studio_plugin_sdk import BaseVoiceEngine, ...``. Removing it needs a
+# plugin-facing registration contract in the SDK rather than a re-export of the
+# app-side base class, which is issue #200 Stage C and its own design decision.
+# Scoped to the one module and the one symbol so any OTHER app.* import
+# appearing in that file still fails the gate.
+_STAGE_C_EXEMPT = {("app_adapter.py", "app.studio_plugin_sdk")}
+
+
+def test_studio_zero_app_imports_at_any_scope() -> None:
+    """plugin/studio extraction targets: zero app.* imports anywhere, function bodies included.
+
+    The sibling ``test_studio_no_module_level_app_imports`` deliberately skips
+    function and class bodies, which is why every one of those passed while 31
+    app.* imports were live. Extraction needs the stricter rule; Stage B routed
+    every one of them through the SDK context, leaving only the Stage C
+    exemption above.
+    """
+    hits: list[str] = []
+    for name in _EXTRACTION_TARGET_FILES:
+        path = _STUDIO_DIR / name
+        assert path.is_file(), f"Expected file not found: {path}"
+        for module, hit in _all_app_imports_with_module(path):
+            if (name, module) in _STAGE_C_EXEMPT:
+                continue
+            hits.append(f"{name} {hit}")
+
+    assert hits == [], (
+        f"{len(hits)} app.* import(s) remain in plugin/studio (issue #200 scope):\n"
+        + "\n".join(hits)
+    )
+
+
+def test_stage_c_exemption_still_describes_a_real_import() -> None:
+    """The exemption must not outlive the import it was written for.
+
+    A stale entry in ``_STAGE_C_EXEMPT`` would silently widen the gate: once
+    Stage C lands, this fails and the exemption gets deleted with it.
+    """
+    found = {
+        (name, module)
+        for name in _EXTRACTION_TARGET_FILES
+        for module, _ in _all_app_imports_with_module(_STUDIO_DIR / name)
+    }
+    stale = _STAGE_C_EXEMPT - found
+    assert stale == set(), f"_STAGE_C_EXEMPT names import(s) that no longer exist: {sorted(stale)}"

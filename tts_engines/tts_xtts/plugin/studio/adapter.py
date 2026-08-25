@@ -1,52 +1,58 @@
 from __future__ import annotations
 import time
 from pathlib import Path
-from typing import Any, Callable, TYPE_CHECKING
+from typing import Any, Callable
 
-if TYPE_CHECKING:
-    from app.db.models import Job
+
+def _get_ctx():
+    """Return the shared StudioPluginContext for the xtts engine."""
+    from studio_plugin_sdk import get_plugin_ctx  # noqa: PLC0415
+    return get_plugin_ctx("xtts")
 
 
 # ---------------------------------------------------------------------------
-# Module-level patchable aliases for DB and config helpers.
+# Module-level aliases for host services, routed through the SDK context
+# rather than app.* (issue #200). The NAMES are kept exactly as they were,
+# because tests patch these module attributes directly.
+#
+# Several of these re-wrap the context's return value: the context hands back
+# str where this file's call sites do path arithmetic, and a split list where
+# the downstream bridge still expects the legacy comma-joined string. Adapting
+# here keeps the shape change out of the render path, which is a separate
+# question from the import boundary this change is about.
 # ---------------------------------------------------------------------------
 
 def _get_speaker_wavs(profile_name):
-    from app.db.speakers import get_profile_wavs  # noqa: PLC0415
-    return get_profile_wavs(profile_name)
+    wavs = _get_ctx().get_speaker_wavs(profile_name)
+    return ",".join(wavs) if wavs else None
 
 
 def _get_speaker_settings(profile_name):
-    from app.db.speakers import get_speaker_settings as _fn  # noqa: PLC0415
-    return _fn(profile_name)
+    return _get_ctx().get_voice_settings(profile_name)
 
 
 def _get_chapter_dir(project_id, chapter_id):
-    from app.core.config import get_chapter_dir  # noqa: PLC0415
-    return get_chapter_dir(project_id, chapter_id)
+    return Path(_get_ctx().get_chapter_dir(chapter_id, project_id=project_id))
 
 
 def _get_voice_profile_dir(profile_name):
-    from app.db.speakers import get_profile_dir  # noqa: PLC0415
-    return get_profile_dir(profile_name)
+    result = _get_ctx().get_voice_profile_dir(profile_name)
+    return Path(result) if result is not None else None
 
 
 def _get_voices_dir():
-    from app.core.config import VOICES_DIR  # noqa: PLC0415
-    return VOICES_DIR
+    return Path(_get_ctx().get_voices_dir())
 
 
 def _finalize_sample_artifact(wav_path):
-    from app.engines.audio_ops import finalize_sample_artifact  # noqa: PLC0415
-    return finalize_sample_artifact(wav_path)
+    return _get_ctx().finalize_sample_artifact(wav_path)
 
 
 def _do_update_job(jid, **kwargs):
-    from app.db.state import update_job  # noqa: PLC0415
-    return update_job(jid, **kwargs)
+    return _get_ctx().update_job_fields(jid, **kwargs)
 
 
-def xtts_dispatch_adapter(jid: str, j: Job, start: float, on_output: Callable[[str], None], cancel_check: Callable[[], bool], **kwargs):
+def xtts_dispatch_adapter(jid: str, j: Any, start: float, on_output: Callable[[str], None], cancel_check: Callable[[], bool], **kwargs):
     """Adapter to wrap handle_xtts_job with the standard signature."""
     from .handler import handle_xtts_job
 

@@ -135,8 +135,12 @@ class TestPackageNamespaceIdentity:
     def test_sdk_version_declared(self):
         import studio_plugin_sdk as sdk
 
-        assert sdk.SDK_VERSION == "1.0"
-        assert sdk.__version__ == "1.0"
+        assert sdk.SDK_VERSION == "1.1"
+        assert sdk.__version__ == "1.1"
+
+        # The app-side shim must re-export, not re-declare (issue #200).
+        import app.studio_plugin_sdk as app_sdk
+        assert app_sdk.__version__ == sdk.SDK_VERSION
 
     def test_no_import_time_side_effects_marker(self):
         # Importing the real package must not register sys.modules aliases,

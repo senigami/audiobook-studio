@@ -21,6 +21,11 @@ from studio_plugin_sdk import (
 )
 from studio_plugin_sdk.plugin_utils import load_settings_schema
 
+# STAGE C (issue #200): the guarded import below is the last app.* import in
+# this plugin and is deliberately left in place. Removing it needs a
+# plugin-facing registration contract in the SDK rather than a re-export of
+# the app-side base class, which is its own design decision.
+#
 # App-adapter contract (BaseVoiceEngine + engine data/error models) is
 # app-side only — deliberately NOT part of the real SDK package (see
 # app/studio_plugin_sdk/__init__.py). app_adapter.py is the documented
@@ -291,9 +296,7 @@ class XttsVoiceEngine(BaseVoiceEngine):
             raise EngineExecutionError("XTTS synthesis did not produce an audio file.")
 
         if output_format == "mp3":
-            from app.engines.audio_ops import wav_to_mp3
-
-            conversion_rc = wav_to_mp3(
+            conversion_rc = _get_ctx().wav_to_mp3(
                 render_wav_path,
                 output_path,
                 on_output=on_output,
@@ -411,8 +414,7 @@ class XttsProcessingHooks(VoiceProcessingHooks):
         XTTS performs best with shorter sentences; we leverage the established
         SENT_CHAR_LIMIT for chunking.
         """
-        from app.engines.behavior import get_text_chunk_limit
-        limit = get_text_chunk_limit("xtts")
+        limit = _get_ctx().get_text_chunk_limit("xtts")
         return SynthesisPlan(
             chunk_size=limit,
             metadata={"engine": "xtts"}
@@ -426,9 +428,8 @@ class XttsProcessingHooks(VoiceProcessingHooks):
             # Attempt to resolve speed from profile if available
             profile_id = request.get("voice_profile_id")
             if profile_id:
-                from app.db.speakers import get_speaker_settings
                 try:
-                    spk = get_speaker_settings(str(profile_id))
+                    spk = _get_ctx().get_voice_settings(str(profile_id))
                     request["speed"] = spk.get("speed", 1.0)
                 except Exception:
                     request["speed"] = 1.0
@@ -437,11 +438,13 @@ class XttsProcessingHooks(VoiceProcessingHooks):
 
     def select_voice(self, profile_id: str, settings: dict[str, Any]) -> str | None:
         """Resolve an XTTS speaker profile into a reference WAV path."""
-        from app.db.speakers import get_profile_wavs as get_speaker_wavs
         try:
-            return get_speaker_wavs(profile_id)
+            wavs = _get_ctx().get_speaker_wavs(profile_id)
         except Exception:
             return None
+        # ctx hands back the split list; this hook's contract is a single
+        # string, and the consumer still parses it as comma-separated.
+        return ",".join(wavs) if wavs else None
 
     def check_readiness(self, profile_id: str, settings: dict[str, Any], profile_dir: str | None) -> tuple[bool, str]:
         """XTTS is ready if it has raw samples or a latent."""

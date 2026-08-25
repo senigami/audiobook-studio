@@ -544,13 +544,20 @@ class StudioPluginContext:
         path.mkdir(parents=True, exist_ok=True)
         return str(path)
 
-    def get_chapter_dir(self, chapter_id: str) -> str:
-        """Absolute path to the chapter's working/output directory."""
+    def get_chapter_dir(self, chapter_id: str, project_id: str | None = None) -> str:
+        """Absolute path to the chapter's working/output directory.
+
+        The underlying resolver needs (project_id, chapter_id). Pass
+        ``project_id`` when the caller already holds it: that skips a DB read
+        and, more importantly, keeps the caller's own project id authoritative
+        rather than re-deriving a possibly different one (added in SDK 1.1,
+        issue #200).
+        """
         from app.core.config import get_chapter_dir  # noqa: PLC0415
-        # get_chapter_dir requires (project_id, chapter_id); fetch project_id from DB.
-        from app.db.chapters import get_chapter  # noqa: PLC0415
-        chapter = get_chapter(chapter_id)
-        project_id = chapter.get("project_id", "") if chapter else ""
+        if project_id is None:
+            from app.db.chapters import get_chapter  # noqa: PLC0415
+            chapter = get_chapter(chapter_id)
+            project_id = chapter.get("project_id", "") if chapter else ""
         return str(get_chapter_dir(project_id, chapter_id))
 
     def get_voices_dir(self) -> str:
@@ -599,10 +606,24 @@ class StudioPluginContext:
             _cancel_check,
         )
 
-    def wav_to_mp3(self, in_wav: str, out_mp3: str) -> None:
-        """Transcode WAV to MP3."""
+    def wav_to_mp3(
+        self,
+        in_wav: str,
+        out_mp3: str,
+        *,
+        on_output: Callable[[str], None] | None = None,
+        cancel_check: Callable[[], bool] | None = None,
+    ) -> int:
+        """Transcode WAV to MP3. Returns the ffmpeg exit code (0 on success).
+
+        ``on_output`` and ``cancel_check`` are forwarded to the transcoder, so a
+        long render stays cancellable. Until SDK 1.1 this wrapper dropped both
+        and returned ``None``, which silently removed cancellation support and
+        left callers unable to distinguish a failed transcode from a good one
+        (issue #200). Do not drop them again.
+        """
         from app.engines.audio_ops import wav_to_mp3  # noqa: PLC0415
-        wav_to_mp3(in_wav, out_mp3)
+        return wav_to_mp3(in_wav, out_mp3, on_output=on_output, cancel_check=cancel_check)
 
     def get_audio_duration(self, path: str) -> float:
         """Return audio duration in seconds."""
@@ -623,6 +644,16 @@ class StudioPluginContext:
     # §3.3.13 Text Preparation
     # ------------------------------------------------------------------
 
+    def get_lexicon(self, project_id: str) -> list[dict[str, Any]]:
+        """Return this project's pronunciation-substitution entries, oldest first.
+
+        Each entry is a plain ``{"word": ..., "replacement": ...}`` dict, ready
+        to hand to :func:`studio_plugin_sdk.text.apply_lexicon`. Scope is the
+        project (book) only. Added in SDK 1.1 (issue #200).
+        """
+        from app.db.lexicon import get_lexicon  # noqa: PLC0415
+        return get_lexicon(project_id)
+
     def sanitize_text(self, text: str, categories: Any = None) -> str:
         """Apply safe-mode text sanitization.
 
@@ -634,13 +665,17 @@ class StudioPluginContext:
             return sanitize_text(text, categories)
         return sanitize_text(text)
 
-    def split_long_sentences(self, text: str, char_limit: int) -> list[str]:
-        """Split overlong sentences under char_limit."""
+    def split_long_sentences(self, text: str, char_limit: int) -> str:
+        """Split overlong sentences under char_limit, returning re-joined text.
+
+        Returns a string, matching the wrapped
+        ``app.utils.text.textops_splitting.safe_split_long_sentences``. Until
+        SDK 1.1 this wrapped the result in a one-element list, which would have
+        put a list into a synthesis script at any call site that fed the result
+        straight onward (issue #200). Do not re-add the list wrapper.
+        """
         from app.utils.text.textops_splitting import safe_split_long_sentences  # noqa: PLC0415
-        result = safe_split_long_sentences(text, target=char_limit)
-        if isinstance(result, list):
-            return result
-        return [result]
+        return safe_split_long_sentences(text, target=char_limit)
 
     def get_text_chunk_limit(self, engine_id: str) -> int:
         """Engine character chunk limit from manifest."""

@@ -546,9 +546,11 @@ ctx.get_plugin_data_dir(engine_id: str | None = None) -> str
 """Absolute path to plugin_data/<engine_id>/ (defaults to the handler's engine).
 This is the only writable location for plugin runtime artifacts (see §4.5)."""
 
-ctx.get_chapter_dir(chapter_id: str) -> str
+ctx.get_chapter_dir(chapter_id: str, project_id: str | None = None) -> str
 """Absolute path to the chapter's working/output directory.
-Replaces app.core.config.get_chapter_dir."""
+Replaces app.core.config.get_chapter_dir, which takes (project_id, chapter_id).
+Pass project_id when the caller already holds it: that skips a DB read and keeps
+the caller's own project id authoritative instead of re-deriving one (SDK 1.1)."""
 
 ctx.get_voices_dir() -> str
 """Absolute path to the voices root. Replaces app.core.config.VOICES_DIR."""
@@ -578,8 +580,18 @@ Args:
 Returns 0 on success, non-zero on ffmpeg error.
 Replaces app.engines.audio_ops.stitch_segments."""
 
-ctx.wav_to_mp3(in_wav: str, out_mp3: str) -> None
-"""Transcode WAV to MP3. Replaces app.engines.audio_ops.wav_to_mp3."""
+ctx.wav_to_mp3(
+    in_wav: str,
+    out_mp3: str,
+    *,
+    on_output: Callable[[str], None] | None = None,
+    cancel_check: Callable[[], bool] | None = None,
+) -> int
+"""Transcode WAV to MP3. Replaces app.engines.audio_ops.wav_to_mp3.
+
+Returns the ffmpeg exit code (0 on success). Both callbacks are forwarded, so a
+long transcode stays cancellable. Until SDK 1.1 this dropped them and returned
+None (issue #200)."""
 
 ctx.get_audio_duration(path: str) -> float
 """Return audio duration in seconds. Replaces app.engines.audio_ops.get_audio_duration."""
@@ -596,9 +608,11 @@ Replaces app.engines.audio_ops.finalize_sample_artifact (added in S5)."""
 ctx.sanitize_text(text: str) -> str
 """Apply safe-mode text sanitization. Replaces app.utils.text.textops.sanitize_text."""
 
-ctx.split_long_sentences(text: str, char_limit: int) -> list[str]
-"""Split overlong sentences under char_limit. Replaces
-app.utils.text.textops.safe_split_long_sentences."""
+ctx.split_long_sentences(text: str, char_limit: int) -> str
+"""Split overlong sentences under char_limit, returning re-joined text.
+Replaces app.utils.text.textops.safe_split_long_sentences, whose return type
+this now matches. Until SDK 1.1 it wrapped the result in a one-element list
+(issue #200)."""
 
 ctx.get_text_chunk_limit(engine_id: str) -> int
 """Engine character chunk limit. Replaces app.engines.behavior.get_text_chunk_limit."""

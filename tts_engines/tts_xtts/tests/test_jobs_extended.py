@@ -37,10 +37,10 @@ def test_handle_xtts_job_bake(mock_job, tmp_path):
 
     # Local imports in handle_xtts_job: patch the source (app.db)
     # Module imports in xtts.py: patch the target module (plugins.tts_xtts.plugin.studio.handler)
-    with patch("app.db.get_chapter_segments", return_value=segs), \
-         patch("app.db.update_segment") as mock_update_seg, \
+    with patch("app.db.segments.get_chapter_segments", return_value=segs), \
+         patch("app.db.segments.update_segment") as mock_update_seg, \
          patch("app.db.get_connection"), \
-         patch("app.db.update_queue_item") as mock_update_queue, \
+         patch("app.db.queue.update_queue_item") as mock_update_queue, \
          patch("tts_engines.tts_xtts.plugin.studio.bake.generate_via_bridge", return_value=0) as mock_generate, \
          patch("tts_engines.tts_xtts.plugin.studio.handler.stitch_segments", return_value=0) as mock_stitch, \
          patch("tts_engines.tts_xtts.plugin.studio.handler.get_audio_duration", return_value=10.0) as mock_duration, \
@@ -62,7 +62,15 @@ def test_handle_xtts_job_bake(mock_job, tmp_path):
 
         assert mock_generate.called
         assert mock_stitch.called
-        mock_update_queue.assert_called_with("test_job", "done", audio_length_seconds=10.0, output_file="output.wav")
+        mock_update_queue.assert_called_with(
+            "test_job",
+            status="done",
+            audio_length_seconds=10.0,
+            force_chapter_id=None,
+            output_file="output.wav",
+            error=None,
+            chapter_scoped=True,
+        )
 
 def test_handle_xtts_job_segments(mock_job, tmp_path):
     mock_job.segment_ids = ["s1"]
@@ -81,8 +89,8 @@ def test_handle_xtts_job_segments(mock_job, tmp_path):
         captured["script"] = kwargs["script"]
         return 0
 
-    with patch("app.db.get_chapter_segments", return_value=all_segs), \
-         patch("app.db.update_segment") as mock_update_seg, \
+    with patch("app.db.segments.get_chapter_segments", return_value=all_segs), \
+         patch("app.db.segments.update_segment") as mock_update_seg, \
          patch("app.db.get_connection"), \
          patch("tts_engines.tts_xtts.plugin.studio.segments.generate_via_bridge", side_effect=inspect_script), \
          patch("tts_engines.tts_xtts.plugin.studio.handler.update_job") as mock_update_job:
@@ -120,8 +128,8 @@ def test_handle_xtts_job_segments_uses_default_voice_profile_dir_for_narrator(mo
         captured["script"] = kwargs["script"]
         return 0
 
-    with patch("app.db.get_chapter_segments", return_value=all_segs), \
-         patch("app.db.update_segment"), \
+    with patch("app.db.segments.get_chapter_segments", return_value=all_segs), \
+         patch("app.db.segments.update_segment"), \
          patch("app.db.get_connection"), \
          patch("tts_engines.tts_xtts.plugin.studio.segments.generate_via_bridge", side_effect=inspect_script), \
          patch("tts_engines.tts_xtts.plugin.studio.handler.update_job"), \
@@ -161,7 +169,7 @@ def test_handle_xtts_job_standard_mixed_latent_only_profiles_builds_script(mock_
             {"id": "c1", "text_content": "Character line.", "character_id": "char1", "speaker_profile_name": "Old Man - Angry", "character_speaker_profile_name": "Old Man - Angry", "audio_status": "unprocessed", "audio_file_path": None},
         ]), \
          patch("app.db.update_segments_status_bulk"), \
-         patch("app.db.update_segment"), \
+         patch("app.db.segments.update_segment"), \
          patch("tts_engines.tts_xtts.plugin.studio.standard_handler.generate_via_bridge", side_effect=inspect_script), \
          patch("tts_engines.tts_xtts.plugin.studio.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
          patch("tts_engines.tts_xtts.plugin.studio.handler.update_job"), \
@@ -212,7 +220,7 @@ def test_handle_xtts_job_standard_ignores_orphan_progress_before_start_segment(m
         ]), \
          patch("app.db.get_connection"), \
          patch("app.db.update_segments_status_bulk"), \
-         patch("app.db.update_segment"), \
+         patch("app.db.segments.update_segment"), \
          patch("tts_engines.tts_xtts.plugin.studio.standard_handler.generate_via_bridge", side_effect=generate_with_orphan_progress), \
          patch("tts_engines.tts_xtts.plugin.studio.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
          patch("tts_engines.tts_xtts.plugin.studio.handler.update_job") as mock_update_job, \
@@ -278,7 +286,7 @@ def test_handle_xtts_job_standard_with_mp3(mock_job, tmp_path):
         ]), \
          patch("app.db.get_connection") as mock_conn, \
          patch("app.db.update_segments_status_bulk"), \
-         patch("app.db.update_segment"), \
+         patch("app.db.segments.update_segment"), \
          patch("tts_engines.tts_xtts.plugin.studio.standard_handler.generate_via_bridge", side_effect=inspect_script), \
          patch("tts_engines.tts_xtts.plugin.studio.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
          patch("tts_engines.tts_xtts.plugin.studio.handler.wav_to_mp3") as mock_wav_to_mp3, \
@@ -319,7 +327,7 @@ def test_handle_xtts_job_creates_missing_project_audio_dir(mock_job, tmp_path):
         ]), \
          patch("app.db.get_connection") as mock_conn, \
          patch("app.db.update_segments_status_bulk"), \
-         patch("app.db.update_segment"), \
+         patch("app.db.segments.update_segment"), \
          patch("tts_engines.tts_xtts.plugin.studio.standard_handler.generate_via_bridge", side_effect=inspect_script), \
          patch("tts_engines.tts_xtts.plugin.studio.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
          patch("tts_engines.tts_xtts.plugin.studio.handler.update_job"), \
@@ -373,7 +381,7 @@ def test_no_finalizing_status_is_set(mock_job, tmp_path):
         ]), \
          patch("app.db.get_connection"), \
          patch("app.db.update_segments_status_bulk"), \
-         patch("app.db.update_segment"), \
+         patch("app.db.segments.update_segment"), \
          patch("tts_engines.tts_xtts.plugin.studio.standard_handler.generate_via_bridge", side_effect=inspect_script), \
          patch("tts_engines.tts_xtts.plugin.studio.handler.stitch_segments", side_effect=lambda *_args, **_kwargs: (out_wav.write_text("wav"), 0)[1]), \
          patch("tts_engines.tts_xtts.plugin.studio.handler.update_job") as mock_update_job:
