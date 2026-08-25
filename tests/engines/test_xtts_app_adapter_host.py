@@ -128,3 +128,31 @@ def test_describe_health_message_never_mentions_install_deps(monkeypatch):
 
     assert health.message is not None
     assert "Install Deps" not in health.message
+
+
+def test_xtts_adapter_satisfies_the_sdk_protocol_without_inheriting():
+    """Issue #200 Stage C: the adapter subclasses nothing host-side.
+
+    The nine-method contract is satisfied structurally, so tts_xtts can be
+    extracted into its own repo without the app package on the path.
+    """
+    from studio_plugin_sdk import VoiceEngineAdapter
+
+    assert XttsVoiceEngine.__bases__ == (object,)
+    assert isinstance(_make_engine(), VoiceEngineAdapter)
+
+
+def test_xtts_adapter_declares_every_contract_method_itself():
+    """Nothing is inherited, so every one of the nine must be defined here."""
+    expected = {
+        "hooks",
+        "describe_health",
+        "validate_environment",
+        "validate_request",
+        "synthesize",
+        "preview",
+        "settings_schema",
+        "current_settings",
+        "build_voice_asset",
+    }
+    assert expected <= set(vars(XttsVoiceEngine))
