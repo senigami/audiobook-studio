@@ -4,6 +4,16 @@
 **Feeds from:** an adversarial review (AD-2, 2026-07-18) — 5 findings (F1-F5) plus F6 (sound
 axes, not touched here).
 
+**2026-08-26 note (still valid, not stale — read before executing):** `reserve_task_resources`
+gained a new exemption the same day this plan sits untouched, from issue #228/#229: claims with
+`engine_class == CHAPTER_ADMISSION_ENGINE_CLASS` now skip the global cap backstop entirely (a
+chapter-level admission claim consumes no real resource itself, only its children do). Task 1's
+"unconditionally attempt release on all gates" fix below is still the right shape and doesn't
+conflict with that exemption — `release_task_resources` already mirrors it correctly (a no-op for
+a gate never acquired) — but whoever executes this plan should read the current
+`reserve_task_resources`/`release_task_resources` bodies fresh rather than assume they match this
+plan's original line numbers, since both functions moved.
+
 ## Findings addressed, by task
 
 ### Task 1 — F3: mid-flight gate toggle leaks semaphore slots (highest severity, real deadlock mechanism)
