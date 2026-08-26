@@ -1,9 +1,9 @@
 # Security
 
 ```
-spec_version: 1.4.0
+spec_version: 1.4.1
 status: active
-updated: 2026-08-25
+updated: 2026-08-26
 sources:
   - app/utils/pathing.py
   - app/core/security.py
@@ -19,6 +19,7 @@ sources:
   - app/utils/text/textops_helpers.py
   - app/api/routers/voices_metadata.py
   - app/api/routers/voices_huggingface.py
+  - app/api/routers/engines_plugins.py
 ```
 
 > **TL;DR:** Every path from user input is untrusted and MUST pass through a recognized barrier helper; API key checks use timing-safe comparison; exception text never reaches HTTP responses.
@@ -27,6 +28,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.4.1   | 2026-08-26 | **S17 follow-up (#219a):** the 200 MB upload ceiling was applied only to the TTS server's own `/plugins/import` and `/plugins/preview`. The Studio-side proxy routes (`app/api/routers/engines_plugins.py`), which are the LAN-reachable surface, still did an unbounded `await file.read()` into the Studio process before forwarding to the bridge. Capped there too, answering 413. Phase 0 also now records the two limits it does not provide (Starlette spools the whole body to disk before the handler runs; a single member just under the 2 GB sum is still read whole into memory). |
 | 1.4.0   | 2026-08-25 | **S16 (assembly output-path escape, #218):** an untrusted project display name flowed unsanitized into the assembly output filename (`app/api/routers/projects_assembly.py`) and from there into ffmpeg's read directory (`app/orchestration/tasks/assembly.py`, `input_folder = output_path.parent`) — a `../`-laden or absolute project name could steer both outside the project's storage root. Fixed with a new path-safe-stem helper (`safe_path_stem`, `app/utils/text/textops_helpers.py`) feeding the existing `secure_join_flat` barrier for the on-disk filename only — the display title itself keeps flowing unsanitized into job/queue metadata — plus a defense-at-the-point-of-action containment check in `AssemblyTask.run()` via `StorageManager.is_safe()` immediately before ffmpeg is invoked, regardless of who built `output_path`. **S17 (plugin zip-bomb ceilings, #219a):** `/plugins/import` and `/plugins/preview` (`app/tts_server/server.py`, `app/tts_server/plugin_staging.py`) had no size ceiling anywhere on the upload path — an unbounded `file.read()` followed by `extractall()` with no cap on declared uncompressed size or member count. Added three named ceilings (200 MB upload / 2 GB uncompressed / 10,000 members), enforced before extraction, rejecting with 413 (see Plugin Zip Import Security below). **S18 (error-body path leak, #219b):** `str(OSError)` embeds the full filesystem path it failed on; the icon-save handler in `app/api/routers/voices_metadata.py` forwarded it directly into the HTTP response, violating the existing Status Payload Rule below. Fixed there, plus two latent sites of the same shape (`voices_metadata.py`'s metadata-patch handler and `voices_huggingface.py`'s import handler, both wrapping the same `update_voice_metadata` `RuntimeError`) that are not currently leaking a path but were one message change away from it. |
 | 1.3.0   | 2026-07-16 | **S13 (deserialization RCE):** the XTTS engine loaded latent `.pth` files with `torch.load(..., weights_only=False)` at four sites (`tts_engines/tts_xtts/plugin/core/xtts_inference.py`), unpickling arbitrary objects from attacker-supplied voice-bundle `latent.pth` → RCE on first synthesis. All four now use `weights_only=True`. **S14 (LAN gating of management writes):** `lan_protection_middleware` extended beyond `/api/v1/tts` to gate the dangerous mutating management endpoints (voice-bundle import, HuggingFace import, settings writes) for non-loopback clients unless `lan_binding_enabled`; reads/UI stay reachable. Reverses the prior "internal routes never LAN-gated" invariant. **S15 (voice_ref hardening):** `_validate_voice_ref` (`app/api/tts_api.py`) now uses the realpath-resolving `safe_join` barrier (was lexical `normpath`, which missed symlink escape) and rejects caller-supplied `.pth` refs (defense-in-depth for S13). |
 | 1.2.4   | 2026-07-09 | S12: `/api/v1/tts/docs` and `/api/v1/tts/openapi` were reachable without `verify_api_key`/`rate_limit` (FastAPI's auto-generated docs/openapi routes bypass constructor-level `dependencies=[...]`). Fixed by disabling the auto-generated routes and serving them as ordinary router routes on the sub-app, which do inherit the dependencies. Scope note added above. |
@@ -175,11 +177,15 @@ Named module-level constants in `app/tts_server/plugin_staging.py`:
 
 | Check | Ceiling | Constant | Action on failure |
 |-------|---------|----------|--------------------|
-| Upload body size | 200 MB | `MAX_PLUGIN_UPLOAD_BYTES` | 413, enforced by reading capped at `MAX_PLUGIN_UPLOAD_BYTES + 1` bytes so an oversized upload is never fully buffered |
+| Upload body size | 200 MB | `MAX_PLUGIN_UPLOAD_BYTES` | 413, enforced by reading capped at `MAX_PLUGIN_UPLOAD_BYTES + 1` bytes, so the handler never holds more than the ceiling in memory |
 | Total declared uncompressed size | 2 GB | `MAX_PLUGIN_UNCOMPRESSED_BYTES` | 413, checked (`_reject_oversized_zip`) before `extractall()` |
 | Member count | 10,000 | `MAX_PLUGIN_ZIP_MEMBERS` | 413, checked before `extractall()` |
 
 The uncompressed-size check sums `ZipInfo.file_size` (the central-directory declared size) across `zf.infolist()`. This is a real bound, not just a heuristic: Python's `zipfile` module enforces `file_size` as the stop condition when reading/extracting a member, so a member cannot decompress to more than its declared size through this module. Both `import_plugin_zip` and `preview_plugin_zip` (the /plugins/import and /plugins/preview code paths) call `_reject_oversized_zip()` immediately after opening the archive, before `manifest.json` or any other member is read.
+
+The same 200 MB ceiling MUST also be applied at the Studio-side proxy routes `POST /api/engines/plugins/import` and `/preview` (`app/api/routers/engines_plugins.py`), which are the LAN-reachable surface and read the body into the Studio process before the bridge forwards it. The constant is duplicated there rather than imported, because `app/api` must not import the TTS server's in-process runtime; `test_studio_and_server_upload_ceilings_agree` pins the two values together.
+
+Two limits this phase does NOT provide, recorded so nobody reads more into it than it gives. Starlette's multipart parser spools the whole request body to a `SpooledTemporaryFile` (1 MB in memory, then to the system temp dir) *before* the handler runs, so the upload ceiling bounds handler memory, not the bytes an attacker can push onto disk. And the 2 GB uncompressed ceiling is a sum across members, so a single member declaring just under it is still read whole into memory by `zf.read("manifest.json")`.
 
 ### Phase 1 — member name validation (before extraction)
 

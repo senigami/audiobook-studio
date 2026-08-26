@@ -55,7 +55,7 @@ class TestUploadByteCeiling:
 
         zip_data = _make_valid_zip()
         assert len(zip_data) > 50, "test zip must exceed the patched ceiling to be a real check"
-        monkeypatch.setattr(plugin_staging_mod, "MAX_PLUGIN_UPLOAD_BYTES", 50)
+        monkeypatch.setattr(plugin_staging_mod, "MAX_PLUGIN_UPLOAD_BYTES", 50, raising=False)
 
         resp = client.post(
             "/plugins/import",
@@ -69,7 +69,7 @@ class TestUploadByteCeiling:
         import app.tts_server.plugin_staging as plugin_staging_mod
 
         zip_data = _make_valid_zip()
-        monkeypatch.setattr(plugin_staging_mod, "MAX_PLUGIN_UPLOAD_BYTES", 50)
+        monkeypatch.setattr(plugin_staging_mod, "MAX_PLUGIN_UPLOAD_BYTES", 50, raising=False)
 
         resp = client.post(
             "/plugins/preview",
@@ -84,7 +84,7 @@ class TestUncompressedSizeCeiling:
         client, plugins_dir = tts_client
         import app.tts_server.plugin_staging as plugin_staging_mod
 
-        monkeypatch.setattr(plugin_staging_mod, "MAX_PLUGIN_UNCOMPRESSED_BYTES", 50)
+        monkeypatch.setattr(plugin_staging_mod, "MAX_PLUGIN_UNCOMPRESSED_BYTES", 50, raising=False)
         # Highly compressible payload -- the compressed upload stays tiny, but
         # the DECLARED (central-directory) uncompressed size is what must be
         # checked, and it exceeds the ceiling.
@@ -101,7 +101,7 @@ class TestUncompressedSizeCeiling:
         client, plugins_dir = tts_client
         import app.tts_server.plugin_staging as plugin_staging_mod
 
-        monkeypatch.setattr(plugin_staging_mod, "MAX_PLUGIN_UNCOMPRESSED_BYTES", 50)
+        monkeypatch.setattr(plugin_staging_mod, "MAX_PLUGIN_UNCOMPRESSED_BYTES", 50, raising=False)
         zip_data = _make_valid_zip(extra_files={"payload.bin": b"A" * 200})
 
         resp = client.post(
@@ -117,7 +117,7 @@ class TestMemberCountCeiling:
         client, plugins_dir = tts_client
         import app.tts_server.plugin_staging as plugin_staging_mod
 
-        monkeypatch.setattr(plugin_staging_mod, "MAX_PLUGIN_ZIP_MEMBERS", 3)
+        monkeypatch.setattr(plugin_staging_mod, "MAX_PLUGIN_ZIP_MEMBERS", 3, raising=False)
         # manifest.json + 4 tiny extras = 5 members > the patched ceiling of 3.
         extra = {f"file_{i}.txt": b"x" for i in range(4)}
         zip_data = _make_valid_zip(extra_files=extra)
@@ -128,6 +128,71 @@ class TestMemberCountCeiling:
         )
         assert resp.status_code == 413, resp.text
         assert not list(plugins_dir.iterdir())
+
+
+class TestStudioProxyUploadCeiling:
+    """The TTS server's ceilings only bind requests that reach the TTS server.
+
+    ``/api/engines/import`` and ``/api/engines/preview`` are the routes a
+    browser or a LAN client actually talks to, and they read the body into the
+    *Studio* process before the bridge forwards anything. Capping only the
+    server side left the reachable surface unbounded (issue #219a).
+    """
+
+    @pytest.fixture()
+    def studio_client(self, monkeypatch):
+        from unittest.mock import MagicMock
+
+        import app.api.routers.engines_plugins as ep
+        from app.api.web import app as studio_app
+
+        bridge = MagicMock()
+        bridge.import_plugin.return_value = {"ok": True}
+        bridge.preview_plugin.return_value = {"ok": True}
+        monkeypatch.setattr(ep, "create_voice_bridge", lambda: bridge)
+        return TestClient(studio_app), bridge, ep
+
+    def test_studio_import_rejects_upload_over_byte_ceiling(self, studio_client, monkeypatch):
+        client, bridge, ep = studio_client
+        monkeypatch.setattr(ep, "MAX_PLUGIN_UPLOAD_BYTES", 50, raising=False)
+
+        resp = client.post(
+            "/api/engines/import",
+            files={"file": ("plugin.zip", b"x" * 500, "application/zip")},
+        )
+        assert resp.status_code == 413, resp.text
+        assert not bridge.import_plugin.called, "oversized body was forwarded to the TTS server anyway"
+
+    def test_studio_preview_rejects_upload_over_byte_ceiling(self, studio_client, monkeypatch):
+        client, bridge, ep = studio_client
+        monkeypatch.setattr(ep, "MAX_PLUGIN_UPLOAD_BYTES", 50, raising=False)
+
+        resp = client.post(
+            "/api/engines/preview",
+            files={"file": ("plugin.zip", b"x" * 500, "application/zip")},
+        )
+        assert resp.status_code == 413, resp.text
+        assert not bridge.preview_plugin.called
+
+    def test_studio_import_under_ceiling_still_reaches_the_bridge(self, studio_client):
+        client, bridge, _ = studio_client
+
+        resp = client.post(
+            "/api/engines/import",
+            files={"file": ("plugin.zip", _make_valid_zip(), "application/zip")},
+        )
+        assert resp.status_code == 200, resp.text
+        assert bridge.import_plugin.called
+
+    def test_studio_and_server_upload_ceilings_agree(self):
+        """The two constants are deliberately duplicated across a process
+        boundary (app.api must not import the TTS server runtime). Pin them
+        together so raising one and forgetting the other is a test failure
+        rather than a silently half-applied ceiling."""
+        import app.api.routers.engines_plugins as ep
+        import app.tts_server.plugin_staging as plugin_staging_mod
+
+        assert ep.MAX_PLUGIN_UPLOAD_BYTES == plugin_staging_mod.MAX_PLUGIN_UPLOAD_BYTES
 
 
 class TestValidUploadsStillWork:
