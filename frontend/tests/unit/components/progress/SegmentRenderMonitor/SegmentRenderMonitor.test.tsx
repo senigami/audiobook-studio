@@ -74,6 +74,100 @@ describe('SegmentRenderMonitor — M1 aggregate math', () => {
   });
 });
 
+describe('SegmentRenderMonitor — M1 failed-credit bug fix', () => {
+  it('gives a failed segment zero credit, never partial credit for progress made before failing', () => {
+    // filled = 100*1 (done) + 0 (failed, was 50% through 200 chars before it failed);
+    // total = 300 -> 1/3, not (100 + 100)/300 = 2/3.
+    const segments: SegmentRenderMonitorSegment[] = [
+      { id: 'a', charCount: 100, phase: 'done', progress: 1 },
+      { id: 'b', charCount: 200, phase: 'failed', progress: 0.5 },
+    ];
+    expect(charWeightedProgress(segments)).toBeCloseTo(100 / 300, 5);
+  });
+});
+
+describe('SegmentRenderMonitor — real render-batch counts (renderGroupCount/completedRenderGroups)', () => {
+  it('uses renderGroupCount/completedRenderGroups for the N of M label, not segments.length', () => {
+    mockMatchMedia(false);
+    // 402-row-equivalent segment set (scaled down for the test), 58 real batches, 7 done.
+    const segments = makeSegments(100, Array.from({ length: 100 }, (_, i) => (i < 20 ? { phase: 'done' as const } : { phase: 'preparing' as const, progress: 0 })));
+    render(
+      <SegmentRenderMonitor
+        segments={segments}
+        cap={3}
+        renderGroupCount={58}
+        completedRenderGroups={7}
+      />,
+    );
+    // Summary bar (> 60 segments) reads the real batch numbers, not 20/100,
+    // and uses "batches" (not "segments") since the numbers are batch-derived.
+    expect(screen.getByText(/7 of 58 batches done/i)).toBeInTheDocument();
+    expect(screen.queryByText(/20 of 100 segments done/i)).toBeNull();
+    expect(screen.queryByText(/segments done/i)).toBeNull();
+  });
+
+  it('falls back to segments.length/doneCount when renderGroupCount is absent', () => {
+    mockMatchMedia(false);
+    const segments = makeSegments(75, Array.from({ length: 75 }, (_, i) => (i < 40 ? { phase: 'done' as const } : { phase: 'preparing' as const, progress: 0 })));
+    render(<SegmentRenderMonitor segments={segments} cap={3} />);
+    expect(screen.getByText(/40 of 75 segments done/i)).toBeInTheDocument();
+  });
+
+  it('the aggregate % ignores renderGroupCount/completedRenderGroups entirely — it stays char-weighted over segments (B9/M1), independent of frozen batch siblings', () => {
+    mockMatchMedia(false);
+    // Sibling-freeze scenario: one "leader" segment mid-render, the rest of its
+    // batch's siblings frozen at preparing/0 — render-group counters say 1/2
+    // batches done, but the char-weighted % must still be computed from the
+    // real segment set, not derived from (or matching) the batch ratio.
+    const segments: SegmentRenderMonitorSegment[] = [
+      { id: 'leader', charCount: 100, phase: 'rendering', progress: 0.5 },
+      ...Array.from({ length: 10 }, (_, i) => ({ id: `sib-${i}`, charCount: 100, phase: 'preparing' as const, progress: 0 })),
+    ];
+    render(
+      <SegmentRenderMonitor
+        segments={segments}
+        cap={3}
+        renderGroupCount={2}
+        completedRenderGroups={1}
+      />,
+    );
+    // filled = 100*0.5 = 50; total = 1100 -> ~4.5% -> rounds to 5%.
+    expect(screen.getByText('5%')).toBeInTheDocument();
+  });
+
+  it('falls back to the real segment-derived count when completedRenderGroups is missing, rather than showing 0', () => {
+    mockMatchMedia(false);
+    const segments = makeSegments(75, Array.from({ length: 75 }, (_, i) => (i < 40 ? { phase: 'done' as const } : { phase: 'preparing' as const, progress: 0 })));
+    render(
+      <SegmentRenderMonitor
+        segments={segments}
+        cap={3}
+        renderGroupCount={58}
+        completedRenderGroups={undefined}
+      />,
+    );
+    // hasRenderGroupData must require BOTH fields — a partial payload falls
+    // all the way back to the real segment-derived doneCount, never "0 of 58".
+    expect(screen.getByText(/40 of 75 segments done/i)).toBeInTheDocument();
+    expect(screen.queryByText(/0 of 58/i)).toBeNull();
+  });
+
+  it('labels batch-derived counts "batches", not "segments"', () => {
+    mockMatchMedia(false);
+    const segments = makeSegments(100, Array.from({ length: 100 }, (_, i) => (i < 20 ? { phase: 'done' as const } : { phase: 'preparing' as const, progress: 0 })));
+    render(
+      <SegmentRenderMonitor
+        segments={segments}
+        cap={3}
+        renderGroupCount={58}
+        completedRenderGroups={7}
+      />,
+    );
+    expect(screen.queryByText(/segments/i)).toBeNull();
+    expect(screen.getAllByText(/batches/i).length).toBeGreaterThan(0);
+  });
+});
+
 describe('SegmentRenderMonitor — degrade-by-count', () => {
   it('renders nothing when segments.length < 10', () => {
     mockMatchMedia(false);

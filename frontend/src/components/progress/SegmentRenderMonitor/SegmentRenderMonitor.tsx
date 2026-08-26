@@ -48,6 +48,18 @@ export interface SegmentRenderMonitorProps {
    * Omitted entirely (no button rendered) when the caller has no retry path.
    */
   onRetry?: (segmentId: string) => void;
+  /**
+   * Real render-batch total (`job.render_group_count`) — several consecutive
+   * same-character sentences are merged into one synthesis call, so this is
+   * almost always smaller than `segments.length`. When present (with
+   * `completedRenderGroups`), the "N of M" count/caption/aria-label use these
+   * real batch numbers instead of the flat per-row `segments` count — the
+   * unit of actual rendering work, not database rows. The char-weighted `%`
+   * bar is unaffected by these props (see `charWeightedProgress`, B9/M1).
+   */
+  renderGroupCount?: number | null;
+  /** Real completed-batch count (`job.completed_render_groups`) — paired with `renderGroupCount`. */
+  completedRenderGroups?: number | null;
 }
 
 // Exported (task 011): the peek strip's eligibility gate on `ActivityPage`
@@ -65,7 +77,9 @@ export function charWeightedProgress(segments: SegmentRenderMonitorSegment[]): n
   if (!total) return 0;
   const filled = segments.reduce((sum, s) => {
     if (s.phase === 'done') return sum + s.charCount;
-    if (s.phase === 'rendering' || s.phase === 'failed') return sum + s.charCount * s.progress;
+    // A failed segment contributes zero — failed work is not progress, even
+    // partial credit for however far it got before failing.
+    if (s.phase === 'rendering') return sum + s.charCount * s.progress;
     return sum;
   }, 0);
   return filled / total;
@@ -259,7 +273,13 @@ const SegmentDetailPopover: React.FC<{
   </div>
 );
 
-export const SegmentRenderMonitor: React.FC<SegmentRenderMonitorProps> = ({ segments, cap, onRetry }) => {
+export const SegmentRenderMonitor: React.FC<SegmentRenderMonitorProps> = ({
+  segments,
+  cap,
+  onRetry,
+  renderGroupCount,
+  completedRenderGroups,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Task 010 — "elapsed time" for the detail popover/table. `ActiveSegmentMapEntry`
@@ -332,6 +352,25 @@ export const SegmentRenderMonitor: React.FC<SegmentRenderMonitorProps> = ({ segm
   const pct = Math.round(charWeightedProgress(segments) * 100);
   const isSummary = total > SUMMARY_THRESHOLD;
 
+  // The "N of M" the user reads (caption/aria-label/summary text) is the real
+  // render-batch count when the caller has it — several database rows
+  // (segments) are merged into one synthesis call, so `segments.length` is
+  // the row count, not the count of things actually being rendered. Falls
+  // back to the raw segment count when batch data isn't available (older job
+  // data, or a code path with none). This is purely a label/count concern —
+  // degrade-by-count, the aria-live milestone cadence, `complete`/`allSettled`,
+  // and the char-weighted `%` bar all stay derived from the real `segments`
+  // array (B9/M1), unaffected by this substitution.
+  const hasRenderGroupData =
+    typeof renderGroupCount === 'number' && renderGroupCount > 0 && typeof completedRenderGroups === 'number';
+  const displayTotal = hasRenderGroupData ? renderGroupCount : total;
+  const displayDoneCount = hasRenderGroupData ? completedRenderGroups : doneCount;
+  // Glossary (design-docs/specs/glossary.md): "segment" is the render block,
+  // the per-row DB unit is a "span" — but displayTotal/displayDoneCount can
+  // be either a render-batch count or a raw segment count depending on which
+  // branch above produced them, so the word used in the label must track it.
+  const displayUnit = hasRenderGroupData ? 'batches' : 'segments';
+
   // ---------------------------------------------------------------------
   // §7A "Accessibility (dual-layer)" — a milestone-only aria-live region.
   // The block field above is a decoration layer (aria-hidden); this is the
@@ -388,12 +427,12 @@ export const SegmentRenderMonitor: React.FC<SegmentRenderMonitorProps> = ({ segm
   }
 
   const caption = complete
-    ? `Render complete · ${total} segments`
-    : `${activeCount} rendering in parallel (cap ${cap}) · ${doneCount}/${total} segments`;
+    ? `Render complete · ${displayTotal} ${displayUnit}`
+    : `${activeCount} rendering in parallel (cap ${cap}) · ${displayDoneCount}/${displayTotal} ${displayUnit}`;
 
   const ariaLabel = complete
-    ? `Render complete, ${total} segments`
-    : `Rendering ${doneCount} of ${total} segments, ${activeCount} in parallel`;
+    ? `Render complete, ${displayTotal} ${displayUnit}`
+    : `Rendering ${displayDoneCount} of ${displayTotal} ${displayUnit}, ${activeCount} in parallel`;
 
   const popoverSegment = popover ? segments.find((s) => s.id === popover.segmentId) ?? null : null;
   const popoverIndex = popover ? segments.findIndex((s) => s.id === popover.segmentId) : -1;
@@ -427,7 +466,7 @@ export const SegmentRenderMonitor: React.FC<SegmentRenderMonitorProps> = ({ segm
           style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}
         >
           <span>
-            {doneCount} of {total} segments done{!complete ? ` · ${activeCount} in parallel` : ''}
+            {displayDoneCount} of {displayTotal} {displayUnit} done{!complete ? ` · ${activeCount} in parallel` : ''}
             {failedCount > 0 ? ` · ${failedCount} failed` : ''}
           </span>
           {failedCount > 0 && (
