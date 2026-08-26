@@ -14,6 +14,28 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/engines", tags=["engines"])
 
+# Same ceiling as ``app.tts_server.plugin_staging.MAX_PLUGIN_UPLOAD_BYTES``, kept
+# as a separate constant because ``app.api`` must not import the TTS server's
+# in-process runtime (it lives in a different process, behind the HTTP bridge).
+# ``test_studio_and_server_upload_ceilings_agree`` pins the two together.
+# These are the LAN-reachable routes, so capping only the server side would leave
+# the surface an attacker actually reaches reading a whole body into this
+# process's memory before the bridge ever forwards it (issue #219a).
+MAX_PLUGIN_UPLOAD_BYTES = 200 * 1024 * 1024  # 200 MB
+
+
+async def _read_capped_upload(file: UploadFile) -> bytes | None:
+    """Read an upload capped at ``MAX_PLUGIN_UPLOAD_BYTES``.
+
+    Returns ``None`` when the cap is exceeded, so the caller can answer 413.
+    Reads one byte past the cap rather than reading everything and measuring
+    afterward.
+    """
+    content = await file.read(MAX_PLUGIN_UPLOAD_BYTES + 1)
+    if len(content) > MAX_PLUGIN_UPLOAD_BYTES:
+        return None
+    return content
+
 
 @router.post("/refresh")
 def refresh_plugins():
@@ -70,7 +92,12 @@ async def import_engine_plugin(file: UploadFile = File(...)):
 
     bridge = create_voice_bridge()
     try:
-        content = await file.read()
+        content = await _read_capped_upload(file)
+        if content is None:
+            return JSONResponse(
+                {"status": "error", "message": "Plugin upload exceeds the maximum allowed size."},
+                status_code=413,
+            )
         return bridge.import_plugin(content, safe_name)
     except TtsServerError:
         logger.exception("TTS Server error during plugin import")
@@ -100,7 +127,12 @@ async def preview_engine_plugin(file: UploadFile = File(...)):
 
     bridge = create_voice_bridge()
     try:
-        content = await file.read()
+        content = await _read_capped_upload(file)
+        if content is None:
+            return JSONResponse(
+                {"status": "error", "message": "Plugin upload exceeds the maximum allowed size."},
+                status_code=413,
+            )
         return bridge.preview_plugin(content, safe_name)
     except EngineUnavailableError:
         logger.warning("TTS Server unavailable during plugin preview", exc_info=True)

@@ -187,7 +187,12 @@ def patch_voice_metadata(voice_id: str, body: MetadataPatchModel):
         errors = exc.args[0]
         raise HTTPException(status_code=422, detail=errors)
     except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        # Never surface str(exc) to the caller (issue #219b): today it's just
+        # voice_id, but it wraps an OSError from a manifest write and a future
+        # change to that message is one filesystem path away from leaking the
+        # storage layout. Log the real detail server-side instead.
+        logger.exception("Failed to persist voice metadata for %s", voice_id)
+        raise HTTPException(status_code=500, detail="Failed to save voice metadata.") from exc
     return updated
 
 
@@ -258,7 +263,10 @@ async def upload_voice_icon(voice_id: str, file: UploadFile = File(...)):
             fh.write(data)
         os.replace(tmp_path, icon_path)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to save icon: {exc}")
+        # str(exc) on an OSError embeds the full filesystem path (issue #219b) --
+        # log it server-side, return a fixed caller-safe string.
+        logger.exception("Failed to save icon for voice %s", voice_id)
+        raise HTTPException(status_code=500, detail="Failed to save icon.") from exc
 
     # Update voice.json
     raw = load_voice_manifest(voice_dir)

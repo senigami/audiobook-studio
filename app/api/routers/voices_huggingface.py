@@ -271,7 +271,12 @@ def import_hub_voice(body: ImportRequestModel):
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=exc.args[0])
     except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        # Never surface str(exc) to the caller (issue #219b): today it's just
+        # voice_id, but it wraps an OSError from a manifest write and a future
+        # change to that message is one filesystem path away from leaking the
+        # storage layout. Log the real detail server-side instead.
+        logger.exception("Failed to persist voice metadata for %s", voice_id)
+        raise HTTPException(status_code=500, detail="Failed to save voice metadata.") from exc
 
     sync_speakers_from_profiles(voices_dir)
 

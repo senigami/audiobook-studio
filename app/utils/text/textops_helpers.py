@@ -1,3 +1,4 @@
+import os
 import re
 from pathlib import Path
 from typing import List, Tuple
@@ -40,6 +41,25 @@ def safe_filename(s: str, max_len: int = 80) -> str:
     """Removes illegal filename characters but preserves spaces for readability."""
     s = re.sub(r"[^\w\s\-:]", "", s).strip()
     return s[:max_len]
+
+
+def safe_path_stem(s: str, max_len: int = 80, fallback: str = "audiobook") -> str:
+    """A safe_filename() result that is also safe as an on-disk filename stem.
+
+    safe_filename() allows ':' -- fine for a display title, but ':' is a path
+    separator on Windows (drive letters), so a name like "C:evil" would still
+    be a live traversal vector on that platform even though "/" and "\\" are
+    already excluded. Strip it (and any os.sep/os.altsep survivors) here, and
+    fall back to a constant when sanitization leaves nothing usable, so a name
+    made entirely of stripped characters (e.g. "../../etc") never collapses to
+    an empty or dot-only filename.
+    """
+    stem = safe_filename(s, max_len=max_len)
+    for sep in (":", os.sep, os.altsep):
+        if sep:
+            stem = stem.replace(sep, "")
+    stem = stem.strip()
+    return stem or fallback
 
 
 def format_duration(seconds: int) -> str:

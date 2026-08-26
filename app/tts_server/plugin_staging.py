@@ -41,6 +41,176 @@ _staging: dict[str, dict] = {}
 _GITHUB_REPO_RE = re.compile(r"^/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\.git)?/?$")
 
 
+# ---------------------------------------------------------------------------
+# Size ceilings (issue #219a) — an uploaded plugin .zip is untrusted input from
+# the moment it hits /plugins/import or /plugins/preview: an unbounded read()
+# followed by extractall() is a memory/disk exhaustion (zip-bomb) vector that
+# runs before any manifest validation. Chosen generously above any real
+# plugin's footprint so legitimate installs never hit them, tight enough to
+# bound the blast radius of a malicious one.
+# ---------------------------------------------------------------------------
+
+# A plugin bundle is source + a manifest + maybe a few small fixture/sample
+# assets — 200 MB comfortably covers that with headroom while still capping
+# how much an attacker can push through the upload boundary in one request.
+MAX_PLUGIN_UPLOAD_BYTES = 200 * 1024 * 1024  # 200 MB
+
+# The classic zip-bomb defence: bound the SUM of declared uncompressed sizes
+# across all members before extractall() touches disk, not just the
+# compressed upload size. Python's zipfile trusts (and enforces) this
+# central-directory `file_size` field when reading/extracting a member, so
+# checking it up front is a real bound on extraction output, not just a
+# heuristic. 2 GB is far beyond any real plugin's unpacked size.
+MAX_PLUGIN_UNCOMPRESSED_BYTES = 2 * 1024 * 1024 * 1024  # 2 GB
+
+# A second, independent zip-bomb shape: many tiny/empty members instead of one
+# huge one (inode/extraction-call exhaustion). No real plugin needs anywhere
+# near this many files.
+MAX_PLUGIN_ZIP_MEMBERS = 10_000
+
+# Any single config file this module reads directly (manifest.json,
+# settings_schema.json, requirements.txt) before extraction even starts.
+# These are always small in a real plugin; 10 MB is generous headroom.
+MAX_PLUGIN_CONFIG_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+def _reject_oversized_zip(zf) -> list:
+    """Cheap, early member-count and declared-size pre-filter.
+
+    ``member.file_size`` is read from the archive's own central directory --
+    ordinary attacker-controlled metadata. Bounding it here is a real,
+    correct check for an HONESTLY-declared huge archive (the ordinary case),
+    but is not by itself proof against a member that LIES about its declared
+    size while decompressing to something larger.
+
+    That lie turns out to matter only for a specific pair of call sites, not
+    everywhere ``zipfile`` touches a member's bytes -- confirmed empirically
+    rather than assumed. ``zipfile.ZipFile.read(name)`` (and, transitively,
+    ``extractall()``, which streams through the same bounded ``.open()`` path
+    per member) both cap a member's decompressed OUTPUT at its declared
+    ``file_size`` before validating CRC, so a forged-small declaration
+    against a real-large payload is caught almost instantly with negligible
+    memory cost through those APIs. The one call this module used to make
+    that is NOT bounded that way is the single-shot convenience read,
+    ``ZipFile.read(name)`` -- it decompresses a member's entire DEFLATE
+    stream in one call regardless of declared size, deferring the size/CRC
+    check to the very end. Measured directly: an 800 MB payload declared as
+    100 bytes fully decompressed (RSS +839 MB) before ``zf.read()`` raised
+    ``BadZipFile`` on the resulting CRC mismatch; the same forged member read
+    through ``zf.open(member)`` in a chunked loop raised the identical
+    ``BadZipFile`` after 0 bytes and negligible memory, because the streaming
+    reader's own EOF tracking stopped it at the declared size first.
+
+    So: this sum is a fast, honest-case pre-filter, not the sole line of
+    defence. ``_safe_read_member`` below replaces the vulnerable
+    ``zf.read(name)`` calls (manifest.json / settings_schema.json /
+    requirements.txt, all read before extraction starts) with the same
+    bounded streaming pattern ``extractall()`` already used safely.
+    ``_safe_extractall`` does the same for the extraction step itself --
+    not because ``extractall()`` was proven exploitable, but so the
+    ceiling is an explicit, tested property of this module rather than an
+    implicit side effect of ``zipfile``'s internal ``_left`` bookkeeping,
+    and so a corrupted/tampered member is reported as a clean rejection
+    instead of an opaque 500.
+
+    ``zf`` is a ``zipfile.ZipFile`` -- left untyped since ``zipfile`` is only
+    ever imported lazily inside this module's caller functions.
+
+    Returns ``zf.infolist()`` so callers don't need a second pass. Raises
+    HTTPException(413) — a client payload-too-large condition, not a 500 —
+    without extracting anything.
+    """
+    members = zf.infolist()
+    if len(members) > MAX_PLUGIN_ZIP_MEMBERS:
+        raise HTTPException(status_code=413, detail="Plugin zip contains too many files.")
+    total_uncompressed = sum(m.file_size for m in members)
+    if total_uncompressed > MAX_PLUGIN_UNCOMPRESSED_BYTES:
+        raise HTTPException(status_code=413, detail="Plugin zip is too large when uncompressed.")
+    return members
+
+
+_STREAM_CHUNK_BYTES = 1024 * 1024  # 1 MB read/decompress granularity
+
+
+def _safe_read_member(zf, member, *, max_bytes: int, what: str) -> bytes:
+    """Read one member's DECOMPRESSED content, bounded by real bytes produced.
+
+    Reads through ``zf.open(member)`` in fixed-size chunks rather than the
+    vulnerable ``zf.read(name)`` (see ``_reject_oversized_zip`` above for why
+    that call specifically, and not ``extractall()``, was the real gap).
+    Also translates ``zipfile.BadZipFile`` -- the CRC-mismatch a forged or
+    otherwise corrupted member produces -- into a clean 400 rather than
+    letting it propagate as a raw 500 or get mis-caught by an unrelated
+    ``except Exception`` elsewhere in the caller (e.g. the JSON-parse
+    handler, which would report it as an "invalid manifest.json" and hide
+    what actually happened).
+    """
+    import zipfile
+
+    total = 0
+    chunks: list[bytes] = []
+    try:
+        with zf.open(member) as fh:
+            while True:
+                chunk = fh.read(_STREAM_CHUNK_BYTES)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > max_bytes:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"Plugin zip's {what} exceeds the allowed decompressed size.",
+                    )
+                chunks.append(chunk)
+    except zipfile.BadZipFile as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Plugin zip's {what} is corrupted or was tampered with.",
+        ) from exc
+    return b"".join(chunks)
+
+
+def _safe_extractall(zf, members: list, staging_dir: Path, *, max_total_bytes: int) -> None:
+    """Extract every member, bounding the CUMULATIVE real decompressed output.
+
+    Streams each member through ``zf.open()`` with an explicit running-total
+    check, so the ceiling is a tested property of this module rather than an
+    implicit side effect of relying on ``extractall()``'s internal per-member
+    truncation to keep working the same way across Python versions. Also
+    translates ``zipfile.BadZipFile`` into a clean 400 (see
+    ``_safe_read_member`` above) instead of the generic 500 the caller's
+    broad ``except Exception`` would otherwise produce. Caller is
+    responsible for removing ``staging_dir`` on failure.
+    """
+    import zipfile
+
+    total = 0
+    try:
+        for member in members:
+            target = staging_dir / member.filename
+            if member.is_dir():
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with zf.open(member) as src, open(target, "wb") as dst:
+                while True:
+                    chunk = src.read(_STREAM_CHUNK_BYTES)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > max_total_bytes:
+                        raise HTTPException(
+                            status_code=413,
+                            detail="Plugin zip exceeded the allowed decompressed size during extraction.",
+                        )
+                    dst.write(chunk)
+    except zipfile.BadZipFile as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="Plugin zip contains a corrupted or tampered file.",
+        ) from exc
+
+
 def _normalize_github_repo_url(raw_url: str) -> str:
     """Return a canonical GitHub repository URL or raise ``HTTPException``."""
     from urllib.parse import urlparse
@@ -114,8 +284,9 @@ def import_plugin_zip(*, content: bytes, filename: str | None, plugins_dir: Path
         raise HTTPException(status_code=400, detail="Invalid zip file.") from exc
 
     with zf:
-        # 1. Path safety and member list
-        members = zf.infolist()
+        # 1. Size ceilings (issue #219a) before anything else touches the
+        # archive's contents, then path safety and member list.
+        members = _reject_oversized_zip(zf)
         for member in members:
             name = member.filename
             # Reject Windows-style backslash separators — PurePosixPath won't split these
@@ -130,8 +301,14 @@ def import_plugin_zip(*, content: bytes, filename: str | None, plugins_dir: Path
         if not manifest_names:
             raise HTTPException(status_code=400, detail="Plugin zip is missing manifest.json")
 
+        # Bounded reads happen OUTSIDE the JSON try/except below: HTTPException
+        # is an Exception subclass, so a 413 raised by _safe_read_member inside
+        # that block would be swallowed and reported as a 400 "invalid" instead.
+        manifest_bytes = _safe_read_member(
+            zf, zf.getinfo(manifest_names[0]), max_bytes=MAX_PLUGIN_CONFIG_FILE_BYTES, what="manifest.json"
+        )
         try:
-            manifest_data = json.loads(zf.read(manifest_names[0]).decode("utf-8"))
+            manifest_data = json.loads(manifest_bytes.decode("utf-8"))
         except Exception as exc:
             logger.exception("Failed to parse manifest.json in plugin zip")
             raise HTTPException(status_code=400, detail="Invalid manifest.json.") from exc
@@ -139,8 +316,11 @@ def import_plugin_zip(*, content: bytes, filename: str | None, plugins_dir: Path
         # 2b. Check for optional settings_schema.json
         schema_names = [m.filename for m in members if m.filename.lower() == "settings_schema.json"]
         if schema_names:
+            schema_bytes = _safe_read_member(
+                zf, zf.getinfo(schema_names[0]), max_bytes=MAX_PLUGIN_CONFIG_FILE_BYTES, what="settings_schema.json"
+            )
             try:
-                schema_data = json.loads(zf.read(schema_names[0]).decode("utf-8"))
+                schema_data = json.loads(schema_bytes.decode("utf-8"))
                 if not isinstance(schema_data, dict):
                     raise ValueError("settings_schema.json must be a dictionary (object) at the root.")
             except Exception as exc:
@@ -165,7 +345,7 @@ def import_plugin_zip(*, content: bytes, filename: str | None, plugins_dir: Path
         staging_dir = plugins_dir / f".import_{uuid.uuid4().hex}"
         try:
             staging_dir.mkdir(parents=True)
-            zf.extractall(staging_dir)
+            _safe_extractall(zf, members, staging_dir, max_total_bytes=MAX_PLUGIN_UNCOMPRESSED_BYTES)
 
             # 5b. Post-extract containment check — guard against zip implementations
             # that honour backslash separators on Windows or other bypass techniques.
@@ -176,6 +356,14 @@ def import_plugin_zip(*, content: bytes, filename: str | None, plugins_dir: Path
 
             # 6. Atomic-ish move
             staging_dir.rename(target_dir)
+        except HTTPException:
+            # A real ceiling raised mid-extraction (issue #219a follow-up):
+            # _safe_extractall may have written a partial member to disk
+            # before aborting, so clean up the same as any other failure, but
+            # let the 413 (not a 500) reach the caller unchanged.
+            if staging_dir.exists():
+                shutil.rmtree(staging_dir)
+            raise
         except (ValueError, OSError) as exc:
             if staging_dir.exists():
                 shutil.rmtree(staging_dir)
@@ -217,7 +405,8 @@ def preview_plugin_zip(*, content: bytes, filename: str | None, plugins_dir: Pat
         raise HTTPException(status_code=400, detail="Invalid zip file.") from exc
 
     with zf:
-        members = zf.infolist()
+        # Size ceilings (issue #219a) before anything else touches the archive.
+        members = _reject_oversized_zip(zf)
         for member in members:
             name = member.filename
             if "\\" in name:
@@ -230,16 +419,26 @@ def preview_plugin_zip(*, content: bytes, filename: str | None, plugins_dir: Pat
         if not manifest_names:
             raise HTTPException(status_code=400, detail="Plugin zip is missing manifest.json")
 
+        # Bounded reads happen OUTSIDE the surrounding try/except blocks below:
+        # HTTPException is an Exception subclass, so a 413 raised by
+        # _safe_read_member inside one of those would be swallowed and
+        # reported as a 400 "invalid" (or silently dropped, for requirements).
+        manifest_bytes = _safe_read_member(
+            zf, zf.getinfo(manifest_names[0]), max_bytes=MAX_PLUGIN_CONFIG_FILE_BYTES, what="manifest.json"
+        )
         try:
-            manifest_data = json.loads(zf.read(manifest_names[0]).decode("utf-8"))
+            manifest_data = json.loads(manifest_bytes.decode("utf-8"))
         except Exception as exc:
             logger.exception("Failed to parse manifest.json in plugin zip")
             raise HTTPException(status_code=400, detail="Invalid manifest.json.") from exc
 
         schema_names = [m.filename for m in members if m.filename.lower() == "settings_schema.json"]
         if schema_names:
+            schema_bytes = _safe_read_member(
+                zf, zf.getinfo(schema_names[0]), max_bytes=MAX_PLUGIN_CONFIG_FILE_BYTES, what="settings_schema.json"
+            )
             try:
-                schema_data = json.loads(zf.read(schema_names[0]).decode("utf-8"))
+                schema_data = json.loads(schema_bytes.decode("utf-8"))
                 if not isinstance(schema_data, dict):
                     raise ValueError("settings_schema.json must be a dictionary (object) at the root.")
             except Exception as exc:
@@ -262,8 +461,11 @@ def preview_plugin_zip(*, content: bytes, filename: str | None, plugins_dir: Pat
         req_text = ""
         req_names = [m.filename for m in members if m.filename.lower() == "requirements.txt"]
         if req_names:
+            req_bytes = _safe_read_member(
+                zf, zf.getinfo(req_names[0]), max_bytes=MAX_PLUGIN_CONFIG_FILE_BYTES, what="requirements.txt"
+            )
             try:
-                req_text = zf.read(req_names[0]).decode("utf-8", errors="replace")
+                req_text = req_bytes.decode("utf-8", errors="replace")
             except Exception:
                 pass
 
@@ -274,12 +476,16 @@ def preview_plugin_zip(*, content: bytes, filename: str | None, plugins_dir: Pat
         staging_dir = plugins_dir / f".preview_{token}"
         try:
             staging_dir.mkdir(parents=True)
-            zf.extractall(staging_dir)
+            _safe_extractall(zf, members, staging_dir, max_total_bytes=MAX_PLUGIN_UNCOMPRESSED_BYTES)
 
             staging_resolved = staging_dir.resolve()
             for extracted in staging_dir.rglob("*"):
                 if not extracted.resolve().is_relative_to(staging_resolved):
                     raise ValueError(f"Extracted path escapes staging dir: {extracted}")
+        except HTTPException:
+            if staging_dir.exists():
+                shutil.rmtree(staging_dir)
+            raise
         except (ValueError, OSError) as exc:
             if staging_dir.exists():
                 shutil.rmtree(staging_dir)

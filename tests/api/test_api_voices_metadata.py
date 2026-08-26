@@ -758,3 +758,24 @@ class TestVoiceIcon:
 
         resp = client.get("/api/voices/does-not-exist/icon")
         assert resp.status_code == 404
+
+    def test_write_failure_does_not_leak_storage_path(self, voices_root, client, monkeypatch):
+        """Issue #219b: str(OSError) embeds the full filesystem path it failed
+        on. The response body must never forward that -- only a fixed generic
+        message, with the real detail going to the server log instead (a
+        side effect this test doesn't assert on)."""
+        voices_root.mkdir(exist_ok=True)
+        _make_voice(voices_root, "Gravel Road", _gravel_road_manifest())
+
+        def _boom(*args, **kwargs):
+            raise OSError(2, "No such file or directory", str(voices_root / "Gravel Road" / "icon.png.tmp"))
+
+        monkeypatch.setattr("os.replace", _boom)
+
+        resp = client.post(
+            "/api/voices/gravel-road/icon",
+            files={"file": ("icon.png", _make_png_bytes(256, 256), "image/png")},
+        )
+        assert resp.status_code == 500
+        assert str(voices_root) not in resp.text
+        assert resp.json()["detail"] == "Failed to save icon."

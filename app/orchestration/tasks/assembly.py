@@ -129,6 +129,22 @@ class AssemblyTask(StudioTask):
 
     def run(self) -> TaskResult:
         """Execute assembly via app.engines."""
+        from app.storage.manager import get_storage_manager  # noqa: PLC0415
+
+        # Defence at the point of action (issue #218): refuse to hand ffmpeg an
+        # output_path outside the app's storage roots regardless of who built
+        # it or how it got here -- input_folder (ffmpeg's read directory) is
+        # derived from output_path.parent below, so this is the single check
+        # that closes both the write and the read side of the escape.
+        storage = get_storage_manager()
+        if not storage.is_safe(self.output_path):
+            logger.error(
+                "AssemblyTask %s refused: output_path resolves outside storage roots: %s",
+                self.task_id,
+                self.output_path,
+            )
+            return TaskResult(status="failed", message="Assembly output path is invalid.")
+
         def on_output(line: str) -> None:
             if line.strip():
                 logger.debug("[assembly] %s", line.strip())
