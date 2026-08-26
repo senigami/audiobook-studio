@@ -666,6 +666,8 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                         <SegmentRenderMonitor
                             segments={inventorySegments}
                             cap={engineCaps?.[engineType] ?? SEGMENT_MONITOR_CAP}
+                            renderGroupCount={job.render_group_count ?? liveJob?.render_group_count}
+                            completedRenderGroups={job.completed_render_groups ?? liveJob?.completed_render_groups}
                             onRetry={handleSegmentRetry}
                         />
                     </div>

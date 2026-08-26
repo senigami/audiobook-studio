@@ -35,6 +35,7 @@ Last updated: 2026-08-26
 | [code-organization.md](code-organization.md) | Repo layout, module boundary rules, file-size norms, import constraints | 1.4.0 |
 | [security.md](security.md) | Path containment pattern, API key auth, input validation, CodeQL requirements | 1.4.2 |
 | [install-distribution.md](install-distribution.md) | `run.sh` behaviour, env var reference, Pinokio wrapper, first-run defaults, GitHub install/trust flow (URL validation, preview/confirm staging, registry-membership trust model) | 1.3.0 |
+| [glossary.md](glossary.md) | Canonical term definitions — word/sentence/span/paragraph/segment. Owner ruling: "segment" = the render block (current code calls this "render group"/"batch"); "span" = a selection assigned to a speaker (sentence-level today, word-level planned). Rename execution not yet scoped. | 1.1.0 |
 
 ---
 
