@@ -368,8 +368,14 @@ export const EngineCard: React.FC<{
 
         {/* Delegation-only orchestrators (declared via behavior.features) dispatch
             each segment to a real sub-engine rather than rendering themselves, so
-            a per-engine concurrency cap has no meaning for them. */}
-        {!(Array.isArray(displayEngine.behavior?.features) && displayEngine.behavior.features.includes('segment_orchestration')) && (
+            a per-engine concurrency cap has no meaning for them. Gated on the
+            dedicated `delegation_only` flag, not `segment_orchestration` — that
+            flag means "this engine's chapters use Studio's chunk-group fan-out
+            with resumable recovery" (see app/engines/behavior.py), which XTTS
+            also declares despite being a real synthesizer with genuine
+            per-engine concurrency worth capping. The two were previously
+            conflated, which hid this control for XTTS entirely. */}
+        {!(Array.isArray(displayEngine.behavior?.features) && displayEngine.behavior.features.includes('delegation_only')) && (
         <div
           style={{
             display: 'flex',
@@ -389,7 +395,7 @@ export const EngineCard: React.FC<{
               Concurrent Renders
             </label>
             <p style={{ margin: '0.2rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.8rem', lineHeight: 1.4 }}>
-              Override how many segments this engine may render at once (up to {engineCapCeiling} — engine limit). Takes effect on next app restart.
+              Override how many segments this engine may render at once (up to {engineCapCeiling} — engine limit). Takes effect immediately, no restart needed.
             </p>
           </div>
           <NumberStepper

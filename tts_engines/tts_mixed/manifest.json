@@ -21,7 +21,8 @@
     },
     "features": [
       "mixed_rendering",
-      "segment_orchestration"
+      "segment_orchestration",
+      "delegation_only"
     ]
   },
   "job_handler": "handler:handle_mixed_job"
