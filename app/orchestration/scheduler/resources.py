@@ -50,6 +50,15 @@ MAX_GLOBAL_CONCURRENT_SYNTHESIS: int = int(
 # actually used, so ``release_task_resources`` can mirror it (issue #199).
 CLASS_ADMISSION_KEY = "_class_admission_at_reserve"
 
+# Chapter-level admission pool (issue #228) — separate engine-class from any
+# segment-level pool so a chapter can never deadlock against its own
+# children (see ``ResourceClaim.chapter_admission``). ``manifest_max`` is a
+# structural ceiling well above any realistic ``tts_parallel_cap`` value; the
+# live/effective limit is resolved fresh on every admission attempt from the
+# real setting via ``resolve_effective_cap``.
+CHAPTER_ADMISSION_ENGINE_CLASS = "chapter_admission"
+CHAPTER_ADMISSION_MANIFEST_MAX = 64
+
 
 def _engine_class_admission_enabled() -> bool:
     """Whether per-engine-class semaphore admission is active.
@@ -144,6 +153,43 @@ class ResourceClaim:
     def gpu_heavy(cls, vram_mb: int = 4000) -> "ResourceClaim":
         """Return a claim for GPU-heavy synthesis tasks."""
         return cls(gpu=True, vram_mb=vram_mb, cpu_heavy=True, engine_class="gpu", cap=1)
+
+    @classmethod
+    def chapter_admission(cls) -> "ResourceClaim":
+        """Return a claim for chapter-level admission gating (issue #228).
+
+        ``ChapterSynthesisTask`` previously carried no ``resource_claim`` at
+        all, so ``_claim_to_dict(None)`` produced an empty ``engine_class``
+        and every gate in ``reserve_task_resources`` — including the global
+        backstop — was skipped: chapters were admitted unconditionally,
+        regardless of ``tts_parallel_cap``.
+
+        This claim gives chapters their OWN engine-class/engine-id pool
+        (``CHAPTER_ADMISSION_ENGINE_CLASS``), deliberately separate from any
+        per-engine segment pool. Sharing a pool with segments would deadlock
+        at cap=1: the parent chapter would hold the only slot while its own
+        child segments wait forever for a slot the parent itself is holding.
+        ``manifest_max`` is set well above any real cap so it never actually
+        clamps — the live limit still tracks the operator's ``tts_parallel_cap``
+        setting via the existing ``resolve_effective_cap`` machinery.
+
+        This engine class is also exempt from the global cap backstop in
+        ``reserve_task_resources`` (a second issue found by adversarial
+        review after this claim shipped): a chapter holds its slot for its
+        entire lifetime, so counting it against the same
+        ``MAX_GLOBAL_CONCURRENT_SYNTHESIS`` pool its own children draw from
+        deadlocks once enough chapters are admitted to fill that pool with
+        parents alone. The chapter itself claims no GPU/model resource — only
+        its children do, and they still go through the global backstop
+        normally — so this class needs only its own dedicated semaphore, not
+        the global one too.
+        """
+        return cls(
+            engine_class=CHAPTER_ADMISSION_ENGINE_CLASS,
+            cap=CHAPTER_ADMISSION_MANIFEST_MAX,
+            engine_id=CHAPTER_ADMISSION_ENGINE_CLASS,
+            manifest_max=CHAPTER_ADMISSION_MANIFEST_MAX,
+        )
 
     @classmethod
     def from_engine_manifest(cls, manifest: object) -> "ResourceClaim":
@@ -683,8 +729,21 @@ def reserve_task_resources(
     # --- Global cap backstop (checked before per-engine semaphore) ---
     # Only applies when a meaningful engine_class is claimed (not CPU-only
     # tasks that don't touch synthesis resources).
+    #
+    # Exemption (issue #228 follow-up): the chapter-admission class is
+    # deliberately excluded. A ``ChapterSynthesisTask`` holds its slot for its
+    # entire lifetime (until every child segment finishes), so counting it
+    # against the SAME global pool its own children also draw from is a
+    # parent-holds-the-only-slot deadlock, not just double counting — with
+    # enough chapters admitted, the global pool fills with parents alone and
+    # every child is denied forever. The chapter-admission engine class is
+    # already capped by its own dedicated semaphore (see
+    # ``ResourceClaim.chapter_admission``), which is sufficient: the chapter
+    # itself consumes no GPU/model resources, only its children do, and those
+    # children still go through the global backstop normally under their own
+    # real engine_class.
     _used_global_cap = False
-    if engine_class:
+    if engine_class and engine_class != CHAPTER_ADMISSION_ENGINE_CLASS:
         global_admitted, global_reason = _global_cap_gate.try_acquire(task_id)
         if not global_admitted:
             return {
@@ -812,6 +871,10 @@ def release_task_resources(*, task_id: str, resource_claims: dict[str, object]) 
         sem.release(task_id)
         if engine_id:
             get_engine_id_semaphore(engine_id, cap).release(task_id)
+        # Mirrors the reserve-side exemption above: a chapter-admission claim
+        # never acquires the global cap gate, so this release is a documented
+        # no-op for it (``EngineClassSemaphore.release`` is safe for a
+        # task_id that never held a slot) — never a double-free.
         _global_cap_gate.release(task_id)
     else:
         # Legacy path.
