@@ -5,6 +5,7 @@ from .textops_helpers import (
     normalize_newlines,
     preprocess_text,
     safe_filename,
+    safe_path_stem,
     format_duration
 )
 from .textops_splitting import (

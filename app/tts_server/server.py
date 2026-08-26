@@ -873,10 +873,23 @@ def refresh_plugins() -> dict[str, Any]:
     }
 
 
+async def _read_capped_plugin_upload(file: UploadFile) -> bytes:
+    """Read an uploaded plugin .zip capped at ``plugin_staging.MAX_PLUGIN_UPLOAD_BYTES``.
+
+    Reading one byte past the cap (rather than reading everything and
+    measuring ``len()`` afterward) means an oversized upload never gets fully
+    buffered before it's rejected (issue #219a).
+    """
+    content = await file.read(plugin_staging.MAX_PLUGIN_UPLOAD_BYTES + 1)
+    if len(content) > plugin_staging.MAX_PLUGIN_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Plugin upload exceeds the maximum allowed size.")
+    return content
+
+
 @app.post("/plugins/import")
 async def import_plugin(file: UploadFile = File(...)) -> dict[str, Any]:
     """Import a plugin from a .zip file."""
-    content = await file.read()
+    content = await _read_capped_plugin_upload(file)
     return plugin_staging.import_plugin_zip(content=content, filename=file.filename, plugins_dir=_plugins_dir)
 
 
@@ -890,7 +903,7 @@ async def preview_plugin(file: UploadFile = File(...)) -> dict[str, Any]:
     POST ``/plugins/confirm/{token}`` to complete the install or
     DELETE ``/plugins/staging/{token}`` to discard.
     """
-    content = await file.read()
+    content = await _read_capped_plugin_upload(file)
     return plugin_staging.preview_plugin_zip(content=content, filename=file.filename, plugins_dir=_plugins_dir)
 
 

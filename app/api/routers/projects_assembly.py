@@ -15,7 +15,8 @@ from ...db import (
 )
 from ...db.queue import upsert_queue_row
 from ...core.config import get_project_dir, get_project_m4b_dir
-from ...utils.pathing import safe_join, safe_join_flat, find_secure_file
+from ...utils.pathing import safe_join, safe_join_flat, find_secure_file, secure_join_flat
+from ...utils.text.textops_helpers import safe_path_stem
 from ...api.utils import SAFE_FILE_RE, preferred_audiobook_download_filename, probe_audiobook_metadata
 from ...db.state import put_job, update_job, get_jobs
 from ...db.models import Job
@@ -206,8 +207,13 @@ def assemble_project(
 
     book_title = project['name']
     timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
+    # book_title flows verbatim into display/metadata fields below (custom_title,
+    # AssemblyTask.book_title) -- it is untrusted input (issue #218) and must never
+    # be used directly to build a filesystem path. title_stem is the path-safe
+    # form used for the on-disk filename only.
+    title_stem = safe_path_stem(book_title)
     # Include project_id for better uniqueness and filtering
-    unique_filename = f"{book_title}_{project_id[:8]}_{timestamp}"
+    unique_filename = f"{title_stem}_{project_id[:8]}_{timestamp}"
 
     jid = uuid.uuid4().hex[:12]
     cover_path = project.get('cover_image_path', None)
@@ -250,7 +256,7 @@ def assemble_project(
     update_job(jid, force_broadcast=True, status="queued", project_id=project_id, custom_title=book_title)
 
     orchestrator = create_orchestrator()
-    out_file = m4b_dir / f"{unique_filename}.m4b"
+    out_file = secure_join_flat(m4b_dir, f"{unique_filename}.m4b")
     task = AssemblyTask(
         task_id=jid,
         output_path=out_file,

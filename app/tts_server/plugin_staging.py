@@ -41,6 +41,53 @@ _staging: dict[str, dict] = {}
 _GITHUB_REPO_RE = re.compile(r"^/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:\.git)?/?$")
 
 
+# ---------------------------------------------------------------------------
+# Size ceilings (issue #219a) — an uploaded plugin .zip is untrusted input from
+# the moment it hits /plugins/import or /plugins/preview: an unbounded read()
+# followed by extractall() is a memory/disk exhaustion (zip-bomb) vector that
+# runs before any manifest validation. Chosen generously above any real
+# plugin's footprint so legitimate installs never hit them, tight enough to
+# bound the blast radius of a malicious one.
+# ---------------------------------------------------------------------------
+
+# A plugin bundle is source + a manifest + maybe a few small fixture/sample
+# assets — 200 MB comfortably covers that with headroom while still capping
+# how much an attacker can push through the upload boundary in one request.
+MAX_PLUGIN_UPLOAD_BYTES = 200 * 1024 * 1024  # 200 MB
+
+# The classic zip-bomb defence: bound the SUM of declared uncompressed sizes
+# across all members before extractall() touches disk, not just the
+# compressed upload size. Python's zipfile trusts (and enforces) this
+# central-directory `file_size` field when reading/extracting a member, so
+# checking it up front is a real bound on extraction output, not just a
+# heuristic. 2 GB is far beyond any real plugin's unpacked size.
+MAX_PLUGIN_UNCOMPRESSED_BYTES = 2 * 1024 * 1024 * 1024  # 2 GB
+
+# A second, independent zip-bomb shape: many tiny/empty members instead of one
+# huge one (inode/extraction-call exhaustion). No real plugin needs anywhere
+# near this many files.
+MAX_PLUGIN_ZIP_MEMBERS = 10_000
+
+
+def _reject_oversized_zip(zf) -> list:
+    """Validate member count and total declared uncompressed size before extraction.
+
+    ``zf`` is a ``zipfile.ZipFile`` -- left untyped since ``zipfile`` is only
+    ever imported lazily inside this module's caller functions.
+
+    Returns ``zf.infolist()`` so callers don't need a second pass. Raises
+    HTTPException(413) — a client payload-too-large condition, not a 500 —
+    without extracting anything.
+    """
+    members = zf.infolist()
+    if len(members) > MAX_PLUGIN_ZIP_MEMBERS:
+        raise HTTPException(status_code=413, detail="Plugin zip contains too many files.")
+    total_uncompressed = sum(m.file_size for m in members)
+    if total_uncompressed > MAX_PLUGIN_UNCOMPRESSED_BYTES:
+        raise HTTPException(status_code=413, detail="Plugin zip is too large when uncompressed.")
+    return members
+
+
 def _normalize_github_repo_url(raw_url: str) -> str:
     """Return a canonical GitHub repository URL or raise ``HTTPException``."""
     from urllib.parse import urlparse
@@ -114,8 +161,9 @@ def import_plugin_zip(*, content: bytes, filename: str | None, plugins_dir: Path
         raise HTTPException(status_code=400, detail="Invalid zip file.") from exc
 
     with zf:
-        # 1. Path safety and member list
-        members = zf.infolist()
+        # 1. Size ceilings (issue #219a) before anything else touches the
+        # archive's contents, then path safety and member list.
+        members = _reject_oversized_zip(zf)
         for member in members:
             name = member.filename
             # Reject Windows-style backslash separators — PurePosixPath won't split these
@@ -217,7 +265,8 @@ def preview_plugin_zip(*, content: bytes, filename: str | None, plugins_dir: Pat
         raise HTTPException(status_code=400, detail="Invalid zip file.") from exc
 
     with zf:
-        members = zf.infolist()
+        # Size ceilings (issue #219a) before anything else touches the archive.
+        members = _reject_oversized_zip(zf)
         for member in members:
             name = member.filename
             if "\\" in name:

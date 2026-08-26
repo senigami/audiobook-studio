@@ -1,9 +1,9 @@
 # Security
 
 ```
-spec_version: 1.3.0
+spec_version: 1.4.0
 status: active
-updated: 2026-07-16
+updated: 2026-08-25
 sources:
   - app/utils/pathing.py
   - app/core/security.py
@@ -11,8 +11,14 @@ sources:
   - app/api/web.py
   - app/api/tts_api.py
   - app/tts_server/server.py
+  - app/tts_server/plugin_staging.py
   - tts_engines/tts_xtts/plugin/core/xtts_inference.py
   - app/domain/voices/bundles.py
+  - app/api/routers/projects_assembly.py
+  - app/orchestration/tasks/assembly.py
+  - app/utils/text/textops_helpers.py
+  - app/api/routers/voices_metadata.py
+  - app/api/routers/voices_huggingface.py
 ```
 
 > **TL;DR:** Every path from user input is untrusted and MUST pass through a recognized barrier helper; API key checks use timing-safe comparison; exception text never reaches HTTP responses.
@@ -21,6 +27,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.4.0   | 2026-08-25 | **S16 (assembly output-path escape, #218):** an untrusted project display name flowed unsanitized into the assembly output filename (`app/api/routers/projects_assembly.py`) and from there into ffmpeg's read directory (`app/orchestration/tasks/assembly.py`, `input_folder = output_path.parent`) — a `../`-laden or absolute project name could steer both outside the project's storage root. Fixed with a new path-safe-stem helper (`safe_path_stem`, `app/utils/text/textops_helpers.py`) feeding the existing `secure_join_flat` barrier for the on-disk filename only — the display title itself keeps flowing unsanitized into job/queue metadata — plus a defense-at-the-point-of-action containment check in `AssemblyTask.run()` via `StorageManager.is_safe()` immediately before ffmpeg is invoked, regardless of who built `output_path`. **S17 (plugin zip-bomb ceilings, #219a):** `/plugins/import` and `/plugins/preview` (`app/tts_server/server.py`, `app/tts_server/plugin_staging.py`) had no size ceiling anywhere on the upload path — an unbounded `file.read()` followed by `extractall()` with no cap on declared uncompressed size or member count. Added three named ceilings (200 MB upload / 2 GB uncompressed / 10,000 members), enforced before extraction, rejecting with 413 (see Plugin Zip Import Security below). **S18 (error-body path leak, #219b):** `str(OSError)` embeds the full filesystem path it failed on; the icon-save handler in `app/api/routers/voices_metadata.py` forwarded it directly into the HTTP response, violating the existing Status Payload Rule below. Fixed there, plus two latent sites of the same shape (`voices_metadata.py`'s metadata-patch handler and `voices_huggingface.py`'s import handler, both wrapping the same `update_voice_metadata` `RuntimeError`) that are not currently leaking a path but were one message change away from it. |
 | 1.3.0   | 2026-07-16 | **S13 (deserialization RCE):** the XTTS engine loaded latent `.pth` files with `torch.load(..., weights_only=False)` at four sites (`tts_engines/tts_xtts/plugin/core/xtts_inference.py`), unpickling arbitrary objects from attacker-supplied voice-bundle `latent.pth` → RCE on first synthesis. All four now use `weights_only=True`. **S14 (LAN gating of management writes):** `lan_protection_middleware` extended beyond `/api/v1/tts` to gate the dangerous mutating management endpoints (voice-bundle import, HuggingFace import, settings writes) for non-loopback clients unless `lan_binding_enabled`; reads/UI stay reachable. Reverses the prior "internal routes never LAN-gated" invariant. **S15 (voice_ref hardening):** `_validate_voice_ref` (`app/api/tts_api.py`) now uses the realpath-resolving `safe_join` barrier (was lexical `normpath`, which missed symlink escape) and rejects caller-supplied `.pth` refs (defense-in-depth for S13). |
 | 1.2.4   | 2026-07-09 | S12: `/api/v1/tts/docs` and `/api/v1/tts/openapi` were reachable without `verify_api_key`/`rate_limit` (FastAPI's auto-generated docs/openapi routes bypass constructor-level `dependencies=[...]`). Fixed by disabling the auto-generated routes and serving them as ordinary router routes on the sub-app, which do inherit the dependencies. Scope note added above. |
 | 1.2.3   | 2026-06-21 | S6: Added WebSocket Origin check to `/ws` to prevent cross-site WebSocket hijacking (CSWSH). Absent Origin → allowed (non-browser clients); present Origin → allowed only if host is localhost/127.0.0.1/[::1] or matches the server's own Host header; otherwise close(1008). LAN exposure note documented. |
@@ -73,8 +80,10 @@ Both forms are recognized by CodeQL's `py/path-injection` model as sanitizers wh
 
 - MUST use a helper from `app/utils/pathing.py` before constructing any filesystem path from untrusted input.
 - MUST NOT call `open()`, `os.path.join()`, or `Path()` directly on untrusted input without first passing through a barrier helper.
-- MUST NOT use `Path.resolve().is_relative_to()` as the **primary** containment barrier for direct file I/O on untrusted strings (CodeQL will flag it as unsanitized). It is PERMITTED as a **secondary / defense-in-depth** check after a primary barrier has already been applied — for example, as a post-extraction walk guard after a zip or clone staging operation. Accepted call sites: `app/tts_server/server.py:928`, `app/tts_server/server.py:1087`, `app/api/tts_api.py:161`, `app/api/tts_api.py:251`.
+- MUST NOT use `Path.resolve().is_relative_to()` as the **primary** containment barrier for direct file I/O on untrusted strings (CodeQL will flag it as unsanitized). It is PERMITTED as a **secondary / defense-in-depth** check after a primary barrier has already been applied — for example, as a post-extraction walk guard after a zip or clone staging operation. Accepted call sites: `app/tts_server/server.py:928`, `app/tts_server/server.py:1087`, `app/api/tts_api.py:161`, `app/api/tts_api.py:251`, `app/orchestration/tasks/assembly.py` (`AssemblyTask.run()`, via `StorageManager.is_safe()`).
 - The recognized pattern MUST appear between the untrusted value and any I/O operation on that value.
+- An untrusted **display** value that must also appear in an on-disk filename (e.g. a project/book title feeding an assembly output name) MUST be reduced to a path-safe stem — see `safe_path_stem` (`app/utils/text/textops_helpers.py`), which composes the existing `safe_filename` with stripping of `:` and `os.sep`/`os.altsep` — before that stem is handed to a barrier helper. The untrusted value itself MUST NOT be mangled where it only ever flows into metadata/display fields (job titles, queue rows) — sanitize the filename derivation, never the display copy.
+- A task or handler that executes I/O against a path it did not itself build (e.g. an `output_path` constructed by an upstream router) SHOULD re-verify containment immediately before that I/O, rather than relying solely on the barrier the caller already applied — defense at the point of action. `AssemblyTask.run()` does this via `StorageManager.is_safe()` before invoking ffmpeg.
 
 ---
 
@@ -158,7 +167,19 @@ Redaction is driven by an explicit allowlist of field names, `_SECRET_FIELDS` (c
 
 ## Plugin Zip Import Security
 
-Plugin zip archives submitted to the TTS server go through a two-phase validation in `app/tts_server/server.py`.
+Plugin zip archives submitted to the TTS server go through validation in `app/tts_server/server.py` and `app/tts_server/plugin_staging.py`.
+
+### Phase 0 — size ceilings (before anything else touches the archive)
+
+Named module-level constants in `app/tts_server/plugin_staging.py`:
+
+| Check | Ceiling | Constant | Action on failure |
+|-------|---------|----------|--------------------|
+| Upload body size | 200 MB | `MAX_PLUGIN_UPLOAD_BYTES` | 413, enforced by reading capped at `MAX_PLUGIN_UPLOAD_BYTES + 1` bytes so an oversized upload is never fully buffered |
+| Total declared uncompressed size | 2 GB | `MAX_PLUGIN_UNCOMPRESSED_BYTES` | 413, checked (`_reject_oversized_zip`) before `extractall()` |
+| Member count | 10,000 | `MAX_PLUGIN_ZIP_MEMBERS` | 413, checked before `extractall()` |
+
+The uncompressed-size check sums `ZipInfo.file_size` (the central-directory declared size) across `zf.infolist()`. This is a real bound, not just a heuristic: Python's `zipfile` module enforces `file_size` as the stop condition when reading/extracting a member, so a member cannot decompress to more than its declared size through this module. Both `import_plugin_zip` and `preview_plugin_zip` (the /plugins/import and /plugins/preview code paths) call `_reject_oversized_zip()` immediately after opening the archive, before `manifest.json` or any other member is read.
 
 ### Phase 1 — member name validation (before extraction)
 
@@ -184,6 +205,7 @@ After extraction to a staging directory, every extracted file MUST have its reso
 - MUST NOT include filesystem paths in any HTTP error response from plugin import.
 - MUST NOT include `type(exc).__name__` or `str(exc)` in any HTTP error response from plugin import.
 - Post-extract walk MUST happen even if phase 1 passed (defense in depth).
+- MUST reject an oversized upload or zip bomb with 413 (not 500, and not a silent hang) before extraction runs.
 
 ## Plugin GitHub Repository Preview Security
 
