@@ -224,8 +224,14 @@ describe('ChapterWorkspace', () => {
   it('clicking Next navigates to the next chapter route', async () => {
     renderWorkspaceRoute('/book/book-1/chapter/c1');
 
+    // The Next/Previous buttons render immediately (before chapters have
+    // loaded from the mocked async fetchChapters), disabled until the
+    // adjacent-chapter id is known. Waiting only for presence races the
+    // fetch: clicking a still-disabled button is a silent no-op, and
+    // jsdom does not dispatch click on disabled controls. Wait for the
+    // settled (enabled) state instead of a longer timeout (R4).
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Next chapter' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Next chapter' })).not.toBeDisabled();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Next chapter' }));
@@ -238,8 +244,9 @@ describe('ChapterWorkspace', () => {
   it('clicking Previous navigates to the previous chapter route', async () => {
     renderWorkspaceRoute('/book/book-1/chapter/c3');
 
+    // See "clicking Next navigates..." above: wait for enabled, not just present.
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Previous chapter' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Previous chapter' })).not.toBeDisabled();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Previous chapter' }));

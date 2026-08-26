@@ -14,6 +14,12 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch, call
 import pytest
 
+# These tests build real torch/numpy values and drive code that imports torch at call
+# time, so they need the XTTS environment (~/xtts-env). CI installs only root
+# requirements.txt, which excludes both by design, so skip rather than fail there.
+pytest.importorskip("torch", reason="torch is not installed (lives in the separate ~/xtts-env)")
+pytest.importorskip("numpy", reason="numpy is not installed (lives in the separate ~/xtts-env)")
+
 
 def _make_job(pth_path: str, out_path: str) -> dict:
     return {
