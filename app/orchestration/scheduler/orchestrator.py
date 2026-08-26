@@ -137,21 +137,17 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             logger.info("Task %s: all artifacts valid, skipped dispatch.", task_id)
             return task_id
 
+        # Note: the "preparing" transition is published only once admission
+        # succeeds below (issue #228) — a task parked in the admission wait
+        # loop stays "queued" the whole time it's waiting for a slot, rather
+        # than showing "preparing" for however long it takes to get one.
         if decision == "rerender":
-            self._publish(
-                context=context,
-                status="preparing",
-                message="Stale artifacts detected — scheduling rerender.",
-                reason_code="artifact_stale",
-            )
+            preparing_message = "Stale artifacts detected — scheduling rerender."
+            preparing_reason_code = "artifact_stale"
         else:
             # "queue" — new work
-            self._publish(
-                context=context,
-                status="preparing",
-                message="Preparing synthesis resources.",
-                reason_code="new_work",
-            )
+            preparing_message = "Preparing synthesis resources."
+            preparing_reason_code = "new_work"
 
         # Step 4 — reserve resources
         claim_dict = _claim_to_dict(getattr(task, "resource_claim", None))
@@ -223,6 +219,14 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
                 task_id,
             )
             return task_id
+
+        # Step 5 — publish preparing, now that a slot is actually held.
+        self._publish(
+            context=context,
+            status="preparing",
+            message=preparing_message,
+            reason_code=preparing_reason_code,
+        )
 
         # Step 6 — dispatch
         max_attempts = 3

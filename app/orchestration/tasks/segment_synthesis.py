@@ -524,6 +524,14 @@ class ChapterSynthesisTask(StudioTask):
         self.max_concurrent_workers = max(1, int(max_concurrent_workers))
         self.safe_mode = safe_mode
         self._bridge_call = bridge_call
+        # Chapter-level admission gate (issue #228) — without this the
+        # orchestrator's ``_claim_to_dict(getattr(task, "resource_claim", None))``
+        # sees no claim at all, and an empty ``engine_class`` skips every gate
+        # in ``reserve_task_resources`` including the global backstop, so
+        # chapters were being admitted completely unconditionally. Uses its
+        # OWN engine-class pool, separate from the segment-level one, so a
+        # chapter can never deadlock against its own children at cap=1.
+        self.resource_claim = ResourceClaim.chapter_admission()
         self.submitted_at = time.monotonic()
         self.stop_event = threading.Event()
         self._progress_service: Any = None
