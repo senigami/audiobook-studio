@@ -181,6 +181,60 @@ describe('useSegmentInventory', () => {
     expect(api.fetchScriptView).toHaveBeenCalledTimes(1);
   });
 
+  it('aggregates spans into render batches when render_batches is present (owner ruling: batch is the finest visible granularity)', async () => {
+    const batchedScriptView: ScriptViewResponse = {
+      ...mockScriptView,
+      spans: [
+        { id: 'seg-1', order_index: 0, text: 'a', sanitized_text: 'a', character_id: null, speaker_profile_name: null, status: 'rendered', audio_file_path: null, audio_generated_at: null, char_count: 19, sanitized_char_count: 19 },
+        { id: 'seg-2', order_index: 1, text: 'b', sanitized_text: 'b', character_id: null, speaker_profile_name: null, status: 'rendered', audio_file_path: null, audio_generated_at: null, char_count: 41, sanitized_char_count: 41 },
+        { id: 'seg-3', order_index: 2, text: 'c', sanitized_text: 'c', character_id: null, speaker_profile_name: null, status: 'draft', audio_file_path: null, audio_generated_at: null, char_count: 30, sanitized_char_count: 30 },
+      ],
+      render_batches: [
+        { id: 'batch-1', span_ids: ['seg-1', 'seg-2'], status: 'rendered', estimated_work_weight: 60 },
+        { id: 'batch-2', span_ids: ['seg-3'], status: 'draft', estimated_work_weight: 30 },
+      ],
+    };
+    (api.fetchScriptView as any).mockResolvedValue(batchedScriptView);
+
+    const job = makeJob({
+      active_segments_map: {
+        // The live map is keyed by the batch's LEADER span id (seg-3, the
+        // first/only member of batch-2) — exactly how the real orchestrator
+        // reports an active render group (its leader id).
+        'seg-3': { phase: 'rendering', progress: 0.4, eta_seconds: 12, char_count: 30 },
+      },
+    });
+
+    const { result } = renderHook(() => useSegmentInventory(job));
+
+    await waitFor(() => {
+      expect(result.current.segments.length).toBe(2);
+    });
+
+    const byBatch = Object.fromEntries(result.current.segments.map((s) => [s.id, s]));
+
+    // batch-1: both members already rendered -> the batch itself is done,
+    // char-summed across its members (never one row per sentence).
+    expect(byBatch['batch-1']).toMatchObject({ phase: 'done', progress: 1, charCount: 60, engineId: 'xtts' });
+    // batch-2: its one member is live/rendering -> the batch reflects that.
+    expect(byBatch['batch-2']).toMatchObject({ phase: 'rendering', progress: 0.4, charCount: 30 });
+
+    // batchSpanIds resolves a batch id back to its real member span ids —
+    // what a batch-level retry needs to pass to the multi-id generate API.
+    expect(result.current.batchSpanIds).toEqual({
+      'batch-1': ['seg-1', 'seg-2'],
+      'batch-2': ['seg-3'],
+    });
+  });
+
+  it('falls back to per-span rows when render_batches is empty (older/degraded data)', async () => {
+    (api.fetchScriptView as any).mockResolvedValue(mockScriptView); // render_batches: []
+    const { result } = renderHook(() => useSegmentInventory(makeJob()));
+    await waitFor(() => {
+      expect(result.current.segments.length).toBe(3);
+    });
+  });
+
   it('clears segments on fetch error', async () => {
     (api.fetchScriptView as any).mockRejectedValue(new Error('network error'));
 

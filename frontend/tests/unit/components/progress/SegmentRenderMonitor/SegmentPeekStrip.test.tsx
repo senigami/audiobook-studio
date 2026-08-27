@@ -36,7 +36,7 @@ describe('SegmentPeekStrip', () => {
     const onExpand = vi.fn();
     const segments = makeSegments(12, [{ phase: 'rendering', progress: 0.3 }, { phase: 'rendering', progress: 0.6 }]);
     render(<SegmentPeekStrip segments={segments} activeCount={2} onExpand={onExpand} onDismiss={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: /expand segment render detail/i }));
+    fireEvent.click(screen.getByRole('button', { name: /expand batch render detail/i }));
     expect(onExpand).toHaveBeenCalledTimes(1);
   });
 
@@ -45,7 +45,7 @@ describe('SegmentPeekStrip', () => {
     const onDismiss = vi.fn();
     const segments = makeSegments(12, [{ phase: 'rendering', progress: 0.3 }, { phase: 'rendering', progress: 0.6 }]);
     render(<SegmentPeekStrip segments={segments} activeCount={2} onExpand={onExpand} onDismiss={onDismiss} />);
-    fireEvent.click(screen.getByRole('button', { name: /dismiss segment render peek strip/i }));
+    fireEvent.click(screen.getByRole('button', { name: /dismiss batch render peek strip/i }));
     expect(onDismiss).toHaveBeenCalledTimes(1);
     expect(onExpand).not.toHaveBeenCalled();
   });
@@ -65,7 +65,7 @@ describe('SegmentPeekStrip', () => {
       <SegmentPeekStrip segments={segments} activeCount={5} onExpand={vi.fn()} onDismiss={vi.fn()} />,
     );
     const root = container.querySelector('.segment-peek-strip') as HTMLElement;
-    const expandButton = screen.getByRole('button', { name: /expand segment render detail/i });
+    const expandButton = screen.getByRole('button', { name: /expand batch render detail/i });
     const rowSpan = expandButton.querySelector('span') as HTMLElement;
 
     for (const el of [root, expandButton, rowSpan]) {

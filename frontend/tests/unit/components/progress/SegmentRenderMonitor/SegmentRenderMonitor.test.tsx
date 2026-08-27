@@ -110,7 +110,7 @@ describe('SegmentRenderMonitor — real render-batch counts (renderGroupCount/co
     mockMatchMedia(false);
     const segments = makeSegments(75, Array.from({ length: 75 }, (_, i) => (i < 40 ? { phase: 'done' as const } : { phase: 'preparing' as const, progress: 0 })));
     render(<SegmentRenderMonitor segments={segments} cap={3} />);
-    expect(screen.getByText(/40 of 75 segments done/i)).toBeInTheDocument();
+    expect(screen.getByText(/40 of 75 batches done/i)).toBeInTheDocument();
   });
 
   it('the aggregate % ignores renderGroupCount/completedRenderGroups entirely — it stays char-weighted over segments (B9/M1), independent of frozen batch siblings', () => {
@@ -148,7 +148,7 @@ describe('SegmentRenderMonitor — real render-batch counts (renderGroupCount/co
     );
     // hasRenderGroupData must require BOTH fields — a partial payload falls
     // all the way back to the real segment-derived doneCount, never "0 of 58".
-    expect(screen.getByText(/40 of 75 segments done/i)).toBeInTheDocument();
+    expect(screen.getByText(/40 of 75 batches done/i)).toBeInTheDocument();
     expect(screen.queryByText(/0 of 58/i)).toBeNull();
   });
 
@@ -192,14 +192,14 @@ describe('SegmentRenderMonitor — degrade-by-count', () => {
     render(<SegmentRenderMonitor segments={segments} cap={3} />);
 
     // Summary bar text.
-    expect(screen.getByText(/40 of 75 segments done/i)).toBeInTheDocument();
+    expect(screen.getByText(/40 of 75 batches done/i)).toBeInTheDocument();
 
     // No full block strip (no per-segment decorative blocks) — only the summary role=img.
     const imgs = screen.getAllByRole('img', { hidden: true });
     expect(imgs.length).toBe(1);
 
     // Accessible table still has all 75 rows, reachable via the toggle button.
-    fireEvent.click(screen.getByRole('button', { name: /Segment detail \(75\)/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Batch detail \(75\)/i }));
     const table = screen.getByRole('table', { hidden: true });
     const rows = within(table).getAllByRole('row', { hidden: true });
     // header row + 75 data rows
@@ -213,7 +213,7 @@ describe('SegmentRenderMonitor — degrade-by-count', () => {
 
     // Closed by default — a real <button>, not the native <summary>, so it
     // has a reliable click target regardless of surrounding page context.
-    const toggle = screen.getByRole('button', { name: /Segment detail \(75\)/i });
+    const toggle = screen.getByRole('button', { name: /Batch detail \(75\)/i });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('table', { hidden: true })).not.toBeInTheDocument();
 
@@ -228,7 +228,7 @@ describe('SegmentRenderMonitor — degrade-by-count', () => {
     const segments = makeSegments(75, Array.from({ length: 75 }, (_, i) => (i < 40 ? { phase: 'done' as const } : { phase: 'preparing' as const, progress: 0 })));
     const { rerender } = render(<SegmentRenderMonitor segments={segments} cap={3} />);
 
-    const toggle = screen.getByRole('button', { name: /Segment detail \(75\)/i });
+    const toggle = screen.getByRole('button', { name: /Batch detail \(75\)/i });
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
 
@@ -238,7 +238,7 @@ describe('SegmentRenderMonitor — degrade-by-count', () => {
     const nextSegments = makeSegments(75, Array.from({ length: 75 }, (_, i) => (i < 41 ? { phase: 'done' as const } : { phase: 'preparing' as const, progress: 0 })));
     rerender(<SegmentRenderMonitor segments={nextSegments} cap={3} />);
 
-    const toggleAfter = screen.getByRole('button', { name: /Segment detail \(75\)/i });
+    const toggleAfter = screen.getByRole('button', { name: /Batch detail \(75\)/i });
     expect(toggleAfter).toHaveAttribute('aria-expanded', 'true');
   });
 });
@@ -323,8 +323,8 @@ describe('SegmentRenderMonitor — §7A milestone aria-live region', () => {
     expect(seenAnnouncements.size).toBeLessThan(10);
     const joined = Array.from(seenAnnouncements).join(' | ');
     // 25%-of-60 cadence lands on 15 (25%), 30 (50%), 45 (75%) segments done.
-    expect(joined).toMatch(/15 of 60 segments complete/i);
-    expect(joined).toMatch(/30 of 60 segments complete/i);
+    expect(joined).toMatch(/15 of 60 batches complete/i);
+    expect(joined).toMatch(/30 of 60 batches complete/i);
   });
 
   it('announces completion, including a failed-count variant, without per-segment noise', () => {
@@ -339,7 +339,7 @@ describe('SegmentRenderMonitor — §7A milestone aria-live region', () => {
     const region = getLiveRegion(container);
     rerender(<SegmentRenderMonitor segments={segments} cap={3} />);
     expect(region.textContent).toMatch(/rendering complete/i);
-    expect(region.textContent).toMatch(/1 segment failed/i);
+    expect(region.textContent).toMatch(/1 batch failed/i);
   });
 
   it('does not re-announce the same threshold on unrelated re-renders', () => {

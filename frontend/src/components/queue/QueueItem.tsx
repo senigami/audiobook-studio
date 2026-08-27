@@ -73,7 +73,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     // get their own instance with no shared state between rows.
     const chapterId = liveJob?.chapter_id ?? (job as any)?.chapter_id;
     const isSegmentMonitorActive = ACTIVE_STATUSES.has(status) && !!chapterId;
-    const { segments: inventorySegments } = useSegmentInventory(
+    const { segments: inventorySegments, batchSpanIds } = useSegmentInventory(
         devMode && isSegmentMonitorActive ? (liveJob ?? null) : null
     );
 
@@ -107,23 +107,29 @@ export const QueueItem: React.FC<QueueItemProps> = ({
         setPeekStripDismissed(job.id, true);
     }, [job.id]);
 
-    // Task 010 — segment-level retry, moved per-row by task 015.
+    // Task 010 — batch-level retry, moved per-row by task 015. The render
+    // monitor now shows one row per render BATCH, not per sentence (owner
+    // ruling, glossary.md 1.1.0) — retrying a row must retry every span
+    // that batch actually synthesizes together, not just its leader.
     // `POST /api/segments/generate` (already used by ScriptView/BoothTool/
-    // ReviseTool for single-segment re-render) is the only per-segment
-    // (re)generation entry point this repo has; there is no server-side
-    // "retry" verb, so re-queuing generation for the same segment id IS the
-    // retry. Task 011 (U6 guided failure recovery): a failed retry request
-    // now also surfaces an explanatory toast (instead of a silent
-    // console.error) so the failure isn't just a dead-end red state —
-    // onRefresh() re-pulls job state so the queue reflects the requeue.
-    const handleSegmentRetry = React.useCallback((segmentId: string) => {
-        api.generateSegments([segmentId])
+    // ReviseTool for single-segment re-render) already accepts multiple
+    // segment ids in one call — that IS the batch-retry capability, no new
+    // server-side verb was needed. `batchSpanIds` (from useSegmentInventory)
+    // resolves the row's batch id back to its real member span ids; falls
+    // back to the id itself if the batch mapping is unavailable (older/
+    // degraded payload — matches the hook's own per-span fallback). Task
+    // 011 (U6 guided failure recovery): a failed retry request surfaces an
+    // explanatory toast (instead of a silent console.error) — onRefresh()
+    // re-pulls job state so the queue reflects the requeue.
+    const handleSegmentRetry = React.useCallback((batchId: string) => {
+        const spanIds = batchSpanIds[batchId] ?? [batchId];
+        api.generateSegments(spanIds)
             .then(() => onRefresh?.())
             .catch((e) => {
-                console.error('Segment retry failed', e);
-                emitToast("Couldn't retry that segment. Check the segment's status and try again.");
+                console.error('Batch retry failed', e);
+                emitToast("Couldn't retry that batch. Check its status and try again.");
             });
-    }, [onRefresh]);
+    }, [onRefresh, batchSpanIds]);
     const rawStarted = job.started_at ?? liveJob?.started_at;
     const preferLiveEta = (isTrulyActive && typeof liveJob?.eta_seconds === 'number' && liveJob.eta_seconds > 0);
     const etaSource = selectEtaSource(job, liveJob, isTrulyActive);

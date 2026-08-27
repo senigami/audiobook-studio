@@ -14,8 +14,9 @@ import { SegmentBlockRow } from './SegmentBlockRow';
 import type { SegmentRenderMonitorSegment } from './SegmentBlockRow';
 
 export interface SegmentPeekStripProps {
+  /** One entry per render batch — never per sentence/span (glossary.md 1.1.0). */
   segments: SegmentRenderMonitorSegment[];
-  /** Count of segments currently rendering in parallel — the auto-appear trigger's basis. */
+  /** Count of batches currently rendering in parallel — the auto-appear trigger's basis. */
   activeCount: number;
   onExpand: () => void;
   onDismiss: () => void;
@@ -28,8 +29,8 @@ export const SegmentPeekStrip: React.FC<SegmentPeekStripProps> = ({ segments, ac
   const doneCount = segments.filter((s) => s.phase === 'done').length;
   const failedCount = segments.filter((s) => s.phase === 'failed').length;
   const ariaLabel = failedCount > 0
-    ? `${activeCount} segments rendering in parallel, ${doneCount} of ${total} done, ${failedCount} failed — condensed view`
-    : `${activeCount} segments rendering in parallel, ${doneCount} of ${total} done — condensed view`;
+    ? `${activeCount} batches rendering in parallel, ${doneCount} of ${total} done, ${failedCount} failed — condensed view`
+    : `${activeCount} batches rendering in parallel, ${doneCount} of ${total} done — condensed view`;
 
   return (
     <div
@@ -39,7 +40,7 @@ export const SegmentPeekStrip: React.FC<SegmentPeekStripProps> = ({ segments, ac
       <button
         type="button"
         onClick={onExpand}
-        aria-label={`Expand segment render detail — ${ariaLabel}`}
+        aria-label={`Expand batch render detail — ${ariaLabel}`}
         style={{
           flex: 1,
           minWidth: 0,
@@ -68,7 +69,7 @@ export const SegmentPeekStrip: React.FC<SegmentPeekStripProps> = ({ segments, ac
       <button
         type="button"
         onClick={onDismiss}
-        aria-label="Dismiss segment render peek strip"
+        aria-label="Dismiss batch render peek strip"
         style={{
           color: 'var(--text-muted)',
           background: 'none',

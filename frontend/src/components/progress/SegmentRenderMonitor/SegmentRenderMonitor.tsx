@@ -135,7 +135,7 @@ const SegmentAccessibleTable: React.FC<{
   const table = (
     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--type-micro)' }}>
       <caption style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
-        Per-segment render status
+        Per-batch render status
       </caption>
       <thead>
         <tr>
@@ -224,7 +224,7 @@ const SegmentAccessibleTable: React.FC<{
         }}
       >
         <Chevron size={14} strokeWidth={2} aria-hidden="true" />
-        Segment detail ({segments.length})
+        Batch detail ({segments.length})
       </button>
       {open && table}
     </div>
@@ -253,16 +253,16 @@ const SegmentDetailPopover: React.FC<{
 }> = ({ segment, index, elapsedSeconds, top, left, onRetry, onClose }) => (
   <div
     role="dialog"
-    aria-label={`Segment ${index + 1} detail`}
+    aria-label={`Batch ${index + 1} detail`}
     className="segment-render-monitor__popover"
     style={{ position: 'absolute', top, left, transform: 'translateX(-50%)', zIndex: 1000 }}
   >
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-      <strong style={{ fontSize: 'var(--type-micro)' }}>Segment {index + 1}</strong>
+      <strong style={{ fontSize: 'var(--type-micro)' }}>Batch {index + 1}</strong>
       <button
         type="button"
         onClick={onClose}
-        aria-label="Close segment detail"
+        aria-label="Close batch detail"
         style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 'var(--type-micro)' }}
       >
         ✕
@@ -392,11 +392,12 @@ export const SegmentRenderMonitor: React.FC<SegmentRenderMonitorProps> = ({
     typeof renderGroupCount === 'number' && renderGroupCount > 0 && typeof completedRenderGroups === 'number';
   const displayTotal = hasRenderGroupData ? renderGroupCount : total;
   const displayDoneCount = hasRenderGroupData ? completedRenderGroups : doneCount;
-  // Glossary (design-docs/specs/glossary.md): "segment" is the render block,
-  // the per-row DB unit is a "span" — but displayTotal/displayDoneCount can
-  // be either a render-batch count or a raw segment count depending on which
-  // branch above produced them, so the word used in the label must track it.
-  const displayUnit = hasRenderGroupData ? 'batches' : 'segments';
+  // Glossary (design-docs/specs/glossary.md 1.1.0, owner ruling): "batch" is
+  // the only granularity ever shown here — the caller (useSegmentInventory)
+  // now hands this component one row per render batch, never per sentence,
+  // so the unit word is always "batches" regardless of which count source
+  // (renderGroupCount prop vs. segments.length) produced the number.
+  const displayUnit = 'batches';
 
   // ---------------------------------------------------------------------
   // §7A "Accessibility (dual-layer)" — a milestone-only aria-live region.
@@ -430,7 +431,7 @@ export const SegmentRenderMonitor: React.FC<SegmentRenderMonitorProps> = ({
         completedRef.current = true;
         setAnnouncement(
           failedCount > 0
-            ? `Rendering complete, ${failedCount} segment${failedCount === 1 ? '' : 's'} failed`
+            ? `Rendering complete, ${failedCount} batch${failedCount === 1 ? '' : 'es'} failed`
             : 'Rendering complete',
         );
       }
@@ -444,7 +445,7 @@ export const SegmentRenderMonitor: React.FC<SegmentRenderMonitorProps> = ({
     const threshold = Math.floor(countPct / thresholdStep) * thresholdStep;
     if (threshold > 0 && threshold !== lastThresholdRef.current) {
       lastThresholdRef.current = threshold;
-      setAnnouncement(`${doneCount} of ${total} segments complete`);
+      setAnnouncement(`${doneCount} of ${total} batches complete`);
     }
   }, [total, doneCount, allSettled, failedCount]);
 
@@ -499,7 +500,7 @@ export const SegmentRenderMonitor: React.FC<SegmentRenderMonitorProps> = ({
           {failedCount > 0 && (
             <span
               aria-hidden="true"
-              title={`${failedCount} segment${failedCount === 1 ? '' : 's'} failed`}
+              title={`${failedCount} batch${failedCount === 1 ? '' : 'es'} failed`}
               style={{
                 position: 'relative',
                 display: 'inline-block',

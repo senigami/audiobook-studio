@@ -118,7 +118,7 @@ describe('QueueItem — task 015 per-row segment monitor', () => {
 
     // chapter-A has 2 concurrently-rendering segments -> peek strip (Level 2).
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /expand segment render detail.*2 segments rendering/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /expand batch render detail.*2 batches rendering/i })).toBeInTheDocument();
     });
     // chapter-B has only 1 concurrently-rendering segment -> below the peek
     // threshold, so its full field renders directly instead.
@@ -129,7 +129,7 @@ describe('QueueItem — task 015 per-row segment monitor', () => {
     // Both rows are present simultaneously — this is the core of task 015:
     // job A's strip and job B's full monitor coexist, neither replacing the
     // other (the pre-015 page-level code would only ever render one).
-    expect(screen.getByRole('button', { name: /expand segment render detail.*2 segments rendering/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /expand batch render detail.*2 batches rendering/i })).toBeInTheDocument();
     expect(screen.getByText(/1 rendering in parallel/i)).toBeInTheDocument();
   });
 
@@ -265,7 +265,7 @@ describe('QueueItem — task 015 per-row segment monitor', () => {
     await waitFor(() => {
       expect(api.fetchScriptView).not.toHaveBeenCalled();
     });
-    expect(screen.queryByRole('button', { name: /expand segment render detail/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /expand batch render detail/i })).toBeNull();
     expect(screen.queryByText(/rendering in parallel/i)).toBeNull();
   });
 });

@@ -103,7 +103,7 @@ export const SegmentBlockRow: React.FC<SegmentBlockRowProps> = ({ segments, heig
           <div
             key={s.id}
             aria-hidden="true"
-            title={`Segment · ${s.charCount} chars · ${titleState}`}
+            title={`Batch · ${s.charCount} chars · ${titleState}`}
             className={activeClass ?? prepClass}
             style={{ ...blockStyle(s), cursor: onBlockClick ? 'pointer' : undefined }}
             // Task 010 — mouse/tap entry point for the detail popover (full field

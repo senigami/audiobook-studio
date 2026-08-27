@@ -105,13 +105,13 @@ describe('QueueItem — task 011/015 peek strip (per-row)', () => {
     await waitFor(() => {
       expect(screen.getByText(/1 rendering in parallel/i)).toBeInTheDocument();
     });
-    expect(screen.queryByRole('button', { name: /expand segment render detail/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /expand batch render detail/i })).toBeNull();
   });
 
   it('auto-appears as a peek strip (not the full field) when ≥2 segments are concurrently rendering', async () => {
     renderItem(['rendering', 'rendering']);
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /expand segment render detail/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /expand batch render detail/i })).toBeInTheDocument();
     });
     expect(screen.queryByText(/2 rendering in parallel \(cap/i)).toBeNull();
   });
@@ -119,37 +119,37 @@ describe('QueueItem — task 011/015 peek strip (per-row)', () => {
   it('expands inline to the full field on click, with no navigation', async () => {
     renderItem(['rendering', 'rendering']);
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /expand segment render detail/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /expand batch render detail/i })).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByRole('button', { name: /expand segment render detail/i }));
-    expect(screen.queryByRole('button', { name: /expand segment render detail/i })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /expand batch render detail/i }));
+    expect(screen.queryByRole('button', { name: /expand batch render detail/i })).toBeNull();
     expect(screen.getByText(/2 rendering in parallel \(cap/i)).toBeInTheDocument();
   });
 
   it('persists dismissal across a remount (localStorage) and does not re-show the strip', async () => {
     const { unmount } = renderItem(['rendering', 'rendering']);
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /dismiss segment render peek strip/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /dismiss batch render peek strip/i })).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByRole('button', { name: /dismiss segment render peek strip/i }));
-    expect(screen.queryByRole('button', { name: /expand segment render detail/i })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /dismiss batch render peek strip/i }));
+    expect(screen.queryByRole('button', { name: /expand batch render detail/i })).toBeNull();
     unmount();
 
     const { container } = renderItem(['rendering', 'rendering']);
     await waitFor(() => {
       expect(api.fetchScriptView).toHaveBeenCalled();
     });
-    expect(screen.queryByRole('button', { name: /expand segment render detail/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /expand batch render detail/i })).toBeNull();
     expect(container.querySelector('.segment-peek-strip')).toBeNull();
   });
 
   it('re-surfaces the peek strip when a new failure appears, even after a prior dismiss', async () => {
     const { rerender } = renderItem(['rendering', 'rendering']);
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /dismiss segment render peek strip/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /dismiss batch render peek strip/i })).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByRole('button', { name: /dismiss segment render peek strip/i }));
-    expect(screen.queryByRole('button', { name: /expand segment render detail/i })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /dismiss batch render peek strip/i }));
+    expect(screen.queryByRole('button', { name: /expand batch render detail/i })).toBeNull();
 
     // A segment now fails — the strip must re-surface despite the dismiss.
     vi.mocked(api.fetchScriptView).mockResolvedValue({
@@ -174,7 +174,7 @@ describe('QueueItem — task 011/015 peek strip (per-row)', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /expand segment render detail/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /expand batch render detail/i })).toBeInTheDocument();
     });
   });
 });
