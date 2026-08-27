@@ -34,7 +34,7 @@ export const SegmentPeekStrip: React.FC<SegmentPeekStripProps> = ({ segments, ac
   return (
     <div
       className="segment-peek-strip"
-      style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+      style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}
     >
       <button
         type="button"
@@ -42,6 +42,7 @@ export const SegmentPeekStrip: React.FC<SegmentPeekStripProps> = ({ segments, ac
         aria-label={`Expand segment render detail — ${ariaLabel}`}
         style={{
           flex: 1,
+          minWidth: 0,
           display: 'flex',
           alignItems: 'center',
           gap: 4,
@@ -51,7 +52,12 @@ export const SegmentPeekStrip: React.FC<SegmentPeekStripProps> = ({ segments, ac
           cursor: 'pointer',
         }}
       >
-        <span style={{ flex: 1, borderRadius: 3, overflow: 'hidden', display: 'block' }}>
+        {/* min-width: 0 breaks the flex-item default of sizing to content
+            (min-width: auto) — without it, a high segment count's summed
+            block minWidths (SegmentBlockRow's per-block floor) inflate this
+            span's own intrinsic size and the block row bleeds past the card
+            instead of being clipped by the overflow:hidden below it. */}
+        <span style={{ flex: 1, minWidth: 0, borderRadius: 3, overflow: 'hidden', display: 'block' }}>
           <SegmentBlockRow segments={segments} height={PEEK_STRIP_HEIGHT} ariaLabel={ariaLabel} />
         </span>
         {/* Explicit disclosure affordance (owner feedback: the bare block row
