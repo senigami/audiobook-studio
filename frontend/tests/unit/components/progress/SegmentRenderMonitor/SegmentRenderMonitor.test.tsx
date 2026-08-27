@@ -204,6 +204,40 @@ describe('SegmentRenderMonitor — degrade-by-count', () => {
     // header row + 75 data rows
     expect(rows.length).toBe(76);
   });
+
+  it('opens the accessible table when the "Segment detail (N)" summary is clicked', () => {
+    mockMatchMedia(false);
+    const segments = makeSegments(75, Array.from({ length: 75 }, (_, i) => (i < 40 ? { phase: 'done' as const } : { phase: 'preparing' as const, progress: 0 })));
+    render(<SegmentRenderMonitor segments={segments} cap={3} />);
+
+    // Closed by default.
+    const summary = screen.getByText(/Segment detail \(75\)/i);
+    expect(summary.closest('details')).not.toHaveAttribute('open');
+
+    fireEvent.click(summary);
+
+    // A real click on <summary> must toggle the native <details> open.
+    expect(summary.closest('details')).toHaveAttribute('open');
+  });
+
+  it('keeps the table open across a live progress update (re-render with new segment props)', () => {
+    mockMatchMedia(false);
+    const segments = makeSegments(75, Array.from({ length: 75 }, (_, i) => (i < 40 ? { phase: 'done' as const } : { phase: 'preparing' as const, progress: 0 })));
+    const { rerender } = render(<SegmentRenderMonitor segments={segments} cap={3} />);
+
+    const summary = screen.getByText(/Segment detail \(75\)/i);
+    fireEvent.click(summary);
+    expect(summary.closest('details')).toHaveAttribute('open');
+
+    // Simulate the next WebSocket progress tick: a new segments array
+    // (same length/ids, one more done) — the kind of prop update a live
+    // render job produces every second.
+    const nextSegments = makeSegments(75, Array.from({ length: 75 }, (_, i) => (i < 41 ? { phase: 'done' as const } : { phase: 'preparing' as const, progress: 0 })));
+    rerender(<SegmentRenderMonitor segments={nextSegments} cap={3} />);
+
+    const summaryAfter = screen.getByText(/Segment detail \(75\)/i);
+    expect(summaryAfter.closest('details')).toHaveAttribute('open');
+  });
 });
 
 describe('SegmentRenderMonitor — M3 reduced motion', () => {
