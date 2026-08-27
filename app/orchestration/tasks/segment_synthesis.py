@@ -308,6 +308,12 @@ class _SyntheticSegmentTask(StudioTask):
             "script": self.script,
             "scope": "job",
             "on_segment_tick": self.on_segment_tick,
+            # _dispatch_segment's _record_render_stats_inner derives `chars`
+            # from payload["script_text"] to decide whether to record a
+            # calibration sample; without it every W-PAR batch child recorded
+            # nothing (chars <= 0 -> early return), starving engine
+            # calibration for the entire parallel chapter fan-out path.
+            "script_text": self.script_entry.get("text", ""),
         }
         return TaskContext(
             task_id=self.task_id,

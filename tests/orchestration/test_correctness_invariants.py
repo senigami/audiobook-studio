@@ -1152,3 +1152,37 @@ class TestIncrementalParentProgress:
             "parent never published a running progress frame while a sibling "
             "was still in flight (end-burst publishing regression)"
         )
+
+    def test_synthetic_child_task_payload_carries_script_text_for_calibration(self):
+        """A parallel chapter fan-out (W-PAR) renders each batch through a
+        `_SyntheticSegmentTask`, dispatched via `_dispatch_segment`. That
+        method's local `_record_render_stats_inner` reads
+        `context.payload.get("script_text")` to compute `chars`, and returns
+        early (recording nothing) when `chars <= 0` — see
+        `orchestrator_helpers.py`. `describe()`'s payload never carried
+        `script_text` (only `to_bridge_request()` did, a separate dict sent
+        to the TTS server), so every batch rendered through this path never
+        recorded a calibration sample: XTTS/Mixed/Voxtral speed calibration
+        went stale the moment W-PAR fan-out became the live render path.
+
+        R1: pre-fix, `describe().payload` has no "script_text" key at all,
+        so `payload.get("script_text")` is None and this assertion fails.
+        """
+        from app.orchestration.tasks.segment_synthesis import _SyntheticSegmentTask
+
+        synthetic = _SyntheticSegmentTask(
+            task_id="synthetic-1",
+            engine_id="xtts",
+            chapter_id="chapter-1",
+            project_id="proj-1",
+            script_entry={"id": "seg-1", "ids": ["seg-1"], "text": "Hello there, this is a batch.", "save_path": "/tmp/seg-1.wav", "weight": 2},
+            chapter_dir=Path("/tmp"),
+        )
+
+        context = synthetic.describe()
+
+        assert context.payload.get("script_text") == "Hello there, this is a batch.", (
+            "synthetic per-batch child's payload must carry script_text so "
+            "record_render_stats_if_completed can compute a positive char "
+            "count and actually record a calibration sample"
+        )
