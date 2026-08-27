@@ -946,6 +946,15 @@ class ChapterSynthesisTask(StudioTask):
                 eta_seconds=eta_seconds,
                 message=f"Rendered {completed}/{total} segment group(s).",
                 reason_code="segment_group_completed" if status == "running" else "synthesis_ok",
+                # `total`/`completed` here ARE the real chunk-group (render-batch)
+                # counts (`total = len(children)` in run(), one child per
+                # `build_chunk_groups` group) — the same numbers `progress` is
+                # derived from. Without these, the frontend's real-batch-count
+                # display (#231) falls back to the raw per-sentence segment
+                # count for every chapter dispatched through this parallel
+                # fan-out path (escaped defect, 2026-08-26).
+                render_group_count=total,
+                completed_render_groups=completed,
             )
         except Exception:
             logger.warning(
