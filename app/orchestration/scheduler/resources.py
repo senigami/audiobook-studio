@@ -32,8 +32,17 @@ from __future__ import annotations
 import logging
 import os
 import threading
+import time
 from dataclasses import dataclass
 from typing import Optional
+
+# EngineClassSemaphore FIFO waiter fairness (issue: chapters admitted out of
+# submission order — see EngineClassSemaphore docstring): a waiter not seen
+# in this long is presumed dead (crashed/cancelled without a clean release)
+# and pruned from the queue-position ledger rather than blocking admission
+# forever. Generous relative to the ~1s admission poll interval used by
+# StudioOrchestrator.submit()'s wait loop.
+_STALE_WAITER_SECONDS = 10.0
 
 logger = logging.getLogger(__name__)
 _pause_flag = threading.Event()
@@ -245,6 +254,19 @@ class EngineClassSemaphore:
         self._class_name = class_name
         self._lock = threading.Lock()
         self._active_ids: set[str] = set()
+        # FIFO waiter fairness: each task_id's first `try_acquire` call
+        # (while denied) registers its place in line. A free slot is only
+        # ever granted to the earliest still-waiting task_id — see
+        # `try_acquire` below. `_next_seq` is monotonically increasing so a
+        # newly-arriving waiter always sorts behind every existing one.
+        self._waiters: dict[str, tuple[int, float]] = {}  # task_id -> (seq, last_seen)
+        self._next_seq = 0
+
+    def _prune_stale_waiters_locked(self, now: float) -> None:
+        stale = [tid for tid, (_, last_seen) in self._waiters.items() if now - last_seen > _STALE_WAITER_SECONDS]
+        for tid in stale:
+            logger.debug("Engine-class waiter %s pruned as stale (no poll in %.1fs).", tid, _STALE_WAITER_SECONDS)
+            del self._waiters[tid]
 
     def try_acquire(self, task_id: str, limit: Optional[int] = None) -> tuple[bool, Optional[str]]:
         """Non-blocking attempt to acquire one slot for ``task_id``.
@@ -274,9 +296,34 @@ class EngineClassSemaphore:
             ``(False, reason_str)`` when all slots are taken.
         """
         with self._lock:
+            now = time.monotonic()
+            self._prune_stale_waiters_locked(now)
+
             effective = self._cap if limit is None else max(1, min(self._cap, limit))
             if len(self._active_ids) < effective:
+                # FIFO fairness: when OTHER tasks are already waiting, a slot
+                # only goes to the earliest-registered waiter — never to
+                # whichever task's poll happens to land first. A task with
+                # no registered wait (its very first call, or already the
+                # sole/earliest waiter) is admitted immediately, matching
+                # today's behavior when there is no contention.
+                other_waiters = {tid: seq for tid, (seq, _) in self._waiters.items() if tid != task_id}
+                if other_waiters:
+                    my_seq = self._waiters.get(task_id, (self._next_seq, now))[0]
+                    earliest_seq = min(other_waiters.values())
+                    if my_seq > earliest_seq:
+                        if task_id not in self._waiters:
+                            self._waiters[task_id] = (self._next_seq, now)
+                            self._next_seq += 1
+                        else:
+                            self._waiters[task_id] = (my_seq, now)
+                        logger.debug(
+                            "Engine-class slot free but %s must wait for earlier-queued task(s) first.",
+                            task_id,
+                        )
+                        return False, "Waiting for an earlier-queued task to be admitted first."
                 self._active_ids.add(task_id)
+                self._waiters.pop(task_id, None)
                 logger.debug(
                     "Engine-class slot acquired by %s (%d/%d active, cap=%d).",
                     task_id,
@@ -285,6 +332,14 @@ class EngineClassSemaphore:
                     self._cap,
                 )
                 return True, None
+
+            if task_id not in self._waiters:
+                self._waiters[task_id] = (self._next_seq, now)
+                self._next_seq += 1
+            else:
+                seq, _ = self._waiters[task_id]
+                self._waiters[task_id] = (seq, now)
+
             sample = next(iter(self._active_ids), "unknown")
             reason = (
                 f"All {effective} slot(s) for this engine class are occupied "
@@ -307,6 +362,7 @@ class EngineClassSemaphore:
         and double-release scenarios).
         """
         with self._lock:
+            self._waiters.pop(task_id, None)
             if task_id in self._active_ids:
                 self._active_ids.discard(task_id)
                 logger.debug(
@@ -337,6 +393,7 @@ class EngineClassSemaphore:
         """Force-release all slots (used in testing and crash recovery)."""
         with self._lock:
             self._active_ids.clear()
+            self._waiters.clear()
 
     def ensure_min_cap(self, cap: int) -> None:
         """Grow this semaphore's capacity to at least ``cap`` (never shrinks).

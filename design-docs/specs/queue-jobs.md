@@ -1,7 +1,7 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.13.1
+spec_version: 1.13.2
 status: active
 updated: 2026-08-26
 created: 2026-06-10
@@ -21,6 +21,7 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
 
 ## Changelog
 
+| 1.13.2  | 2026-08-26 | **Two live bugs (owner-reported, live screenshot): a chapter's progress card showing the raw per-sentence segment count instead of the real render-batch count, and chapters admitted out of submission order (a later-queued "Part 19" chapter started rendering before an earlier-queued "Part 9" chapter, right after "Part 8" finished).** Root cause 1: `ChapterSynthesisTask._publish_progress` (the W-PAR parallel chapter-fanout path — `is_chapter_fanout=True`, which bypasses `orchestrator_helpers.py`'s generic `_dispatch_segment` entirely) never passed `render_group_count`/`completed_render_groups` to `ProgressService.publish`, even though it already computed both (`total`/`completed`, the same numbers `progress` derives from) — so the frontend's real-batch-count display (`progress-presentation.md`, shipped in this same file's 1.13.1-era `SegmentRenderMonitor` fix, #231) fell back to the raw `segments.length` for every chapter dispatched through this path. Fixed: `_publish_progress` now passes `render_group_count=total, completed_render_groups=completed`. Root cause 2: `EngineClassSemaphore.try_acquire` (§7.2) had no concept of arrival order — every waiting task polled it independently roughly once per second, and whichever poll happened to land right after a slot freed won, regardless of which task had been queued (and polling) longest. With several chapters sharing one `CHAPTER_ADMISSION_ENGINE_CLASS` pool (§ResourceClaim.chapter_admission), this let a later-queued chapter jump ahead of earlier-queued ones still waiting. Fixed: §7.2 now enforces FIFO waiter fairness at the semaphore level (see §7.2 for the mechanism and its explicit non-goal: it does not implement §6's priority-bucket ordering — see the new drift note under §6). Also discovered and recorded, not fixed here: `choose_next_task`/`_task_sort_key` (§6) are dead code — never called from the live admission path — so §6's priority-bucket behavior is currently aspirational for real dispatch. Regression tests: `tests/orchestration/test_chapter_render_group_counts_published.py`, `tests/orchestration/test_engine_semaphore_fifo_fairness.py` (both R1 revert-checked — red on pre-fix code, green after). |
 | Version | Date       | Summary                         |
 |---------|------------|---------------------------------|
 | 1.13.1  | 2026-08-26 | **Follow-up to 1.13.0 — the new `"chapter_admission"` engine class deadlocked against the global cap backstop.** Adversarial review found that `reserve_task_resources`'s global cap backstop (`MAX_GLOBAL_CONCURRENT_SYNTHESIS`, ONE shared module-level semaphore) fires for ANY truthy `engine_class`, including `"chapter_admission"` — so a chapter's claim and every one of its own children's claims competed for the same limited global pool. A chapter holds its global-cap slot for its ENTIRE lifetime (until every child finishes), so with `tts_parallel_cap` raised to meet/exceed `MAX_GLOBAL_CONCURRENT_SYNTHESIS` and that many chapters queued, every chapter's own children were denied a global slot forever — a genuine deadlock, worse than the throughput bug 1.13.0 fixed. (Reachable via the existing `POST /system/settings` `tts_engine_caps` override too, since it accepts any dict key with no allowlist against real `engine_id`s — flagged as a separate, now-inert hardening gap, not fixed here.) Fixed: `reserve_task_resources` now skips the global cap backstop specifically for `engine_class == CHAPTER_ADMISSION_ENGINE_CLASS` (`resources.py`) — the per-engine-class and per-engine-id `chapter_admission` semaphores still apply normally, so chapters are still capped by `tts_parallel_cap`; only the double-counting against the shared global pool its own children also need is removed. `release_task_resources`'s unconditional `_global_cap_gate.release(task_id)` call is unchanged and stays correct (idempotent no-op for a task_id that never acquired the slot). |
@@ -633,6 +634,18 @@ API tasks are identified by `context.source in {"api", "external"}`.
 `choose_next_task(queued_tasks=...)` returns the single highest-priority
 eligible task context or `None` if the list is empty.
 
+**Drift note (1.13.2), not yet resolved:** `choose_next_task` is not called
+anywhere in the live admission path. `TaskOrchestrator.submit()` never
+builds a `queued_tasks` list and hands it to a chooser — each submitted task
+polls `reserve_task_resources` independently in its own thread/loop
+(§7.1-§7.4). This section's priority-bucket behavior (`studio_first` /
+`api_first` running one source ahead of another) is therefore aspirational
+for real admission today; only the FIFO-by-arrival fairness added at the
+semaphore level (§7.2) is actually enforced, and it does not distinguish API
+from Studio tasks. Fixing this (wiring `choose_next_task` into `submit()`,
+or threading priority into `EngineClassSemaphore`) is real, scoped work, not
+done as part of the 1.13.2 fix below.
+
 ---
 
 ## 7. Resource Gates and Pause
@@ -664,6 +677,17 @@ runs at a time — serial behavior identical to the prior binary gates (INV-1
 `GpuAdmissionGate` and `ExclusiveAdmissionGate` are deprecated thin wrappers
 around `get_engine_semaphore("gpu", 1)` / `get_engine_semaphore("exclusive", 1)`
 preserved for backward compatibility.
+
+**FIFO waiter fairness (1.13.2).** Each `EngineClassSemaphore` tracks the
+arrival order of tasks currently denied a slot (a monotonic sequence number
+recorded on a task's first denied `try_acquire` call, self-pruned after 10s
+of no polling — dead/cancelled waiters don't block admission forever). When
+a slot frees and more than one task is waiting, it is granted only to the
+earliest-registered waiter, never to whichever waiting task's ~1s poll
+happens to land first. **§6's `choose_next_task`/priority-bucket ordering is
+NOT consulted here** (see §6 note below) — this fairness is FIFO-by-arrival
+only, with no `studio_first`/`api_first` bucket awareness at the semaphore
+level.
 
 ### 7.3 Global cap backstop
 

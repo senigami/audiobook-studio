@@ -59,6 +59,10 @@ class TestTryAcquireLimitParameter:
         assert sem.try_acquire("e", limit=2)[0] is False
         # ...but the 4 already-admitted tasks remain untouched.
         assert sem.active_count == 4
+        # "e" gives up waiting (this test isn't exercising it further) — FIFO
+        # waiter fairness (regression fix, 2026-08-26) would otherwise hold
+        # "f" behind "e" below, since "e" registered as a waiter first.
+        sem.release("e")
 
         # Releasing frees slots normally regardless of the live limit.
         sem.release("a")
