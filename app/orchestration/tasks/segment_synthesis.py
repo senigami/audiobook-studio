@@ -974,7 +974,19 @@ class ChapterSynthesisTask(StudioTask):
         # reads, not to broadcast a second time.
         try:
             from app.db.state import update_job  # noqa: PLC0415
-            update_kwargs: dict[str, Any] = {"status": status, "progress": progress}
+            update_kwargs: dict[str, Any] = {
+                "status": status,
+                "progress": progress,
+                # Same real chunk-group counts passed to service.publish() above
+                # (see the render_group_count/completed_render_groups comment
+                # there) — total/completed are always available here, unlike
+                # the optional eta, so these are unconditional. Without this,
+                # the durable job row stays null/stale until a live WS tick
+                # happens to land on an already-open tab (escaped defect,
+                # 2026-08-26, second half of the same #231 fix).
+                "render_group_count": total,
+                "completed_render_groups": completed,
+            }
             if eta_seconds is not None:
                 # Only write a REAL decayed value. An explicit eta_seconds=None
                 # is not a no-op at the state layer: update_job treats it as
