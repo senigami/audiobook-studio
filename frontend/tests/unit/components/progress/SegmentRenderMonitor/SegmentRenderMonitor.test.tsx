@@ -198,26 +198,29 @@ describe('SegmentRenderMonitor — degrade-by-count', () => {
     const imgs = screen.getAllByRole('img', { hidden: true });
     expect(imgs.length).toBe(1);
 
-    // Accessible table still has all 75 rows, reachable via <details> disclosure.
+    // Accessible table still has all 75 rows, reachable via the toggle button.
+    fireEvent.click(screen.getByRole('button', { name: /Segment detail \(75\)/i }));
     const table = screen.getByRole('table', { hidden: true });
     const rows = within(table).getAllByRole('row', { hidden: true });
     // header row + 75 data rows
     expect(rows.length).toBe(76);
   });
 
-  it('opens the accessible table when the "Segment detail (N)" summary is clicked', () => {
+  it('opens the accessible table when the "Segment detail (N)" toggle button is clicked', () => {
     mockMatchMedia(false);
     const segments = makeSegments(75, Array.from({ length: 75 }, (_, i) => (i < 40 ? { phase: 'done' as const } : { phase: 'preparing' as const, progress: 0 })));
     render(<SegmentRenderMonitor segments={segments} cap={3} />);
 
-    // Closed by default.
-    const summary = screen.getByText(/Segment detail \(75\)/i);
-    expect(summary.closest('details')).not.toHaveAttribute('open');
+    // Closed by default — a real <button>, not the native <summary>, so it
+    // has a reliable click target regardless of surrounding page context.
+    const toggle = screen.getByRole('button', { name: /Segment detail \(75\)/i });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('table', { hidden: true })).not.toBeInTheDocument();
 
-    fireEvent.click(summary);
+    fireEvent.click(toggle);
 
-    // A real click on <summary> must toggle the native <details> open.
-    expect(summary.closest('details')).toHaveAttribute('open');
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('table', { hidden: true })).toBeInTheDocument();
   });
 
   it('keeps the table open across a live progress update (re-render with new segment props)', () => {
@@ -225,9 +228,9 @@ describe('SegmentRenderMonitor — degrade-by-count', () => {
     const segments = makeSegments(75, Array.from({ length: 75 }, (_, i) => (i < 40 ? { phase: 'done' as const } : { phase: 'preparing' as const, progress: 0 })));
     const { rerender } = render(<SegmentRenderMonitor segments={segments} cap={3} />);
 
-    const summary = screen.getByText(/Segment detail \(75\)/i);
-    fireEvent.click(summary);
-    expect(summary.closest('details')).toHaveAttribute('open');
+    const toggle = screen.getByRole('button', { name: /Segment detail \(75\)/i });
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
 
     // Simulate the next WebSocket progress tick: a new segments array
     // (same length/ids, one more done) — the kind of prop update a live
@@ -235,8 +238,8 @@ describe('SegmentRenderMonitor — degrade-by-count', () => {
     const nextSegments = makeSegments(75, Array.from({ length: 75 }, (_, i) => (i < 41 ? { phase: 'done' as const } : { phase: 'preparing' as const, progress: 0 })));
     rerender(<SegmentRenderMonitor segments={nextSegments} cap={3} />);
 
-    const summaryAfter = screen.getByText(/Segment detail \(75\)/i);
-    expect(summaryAfter.closest('details')).toHaveAttribute('open');
+    const toggleAfter = screen.getByRole('button', { name: /Segment detail \(75\)/i });
+    expect(toggleAfter).toHaveAttribute('aria-expanded', 'true');
   });
 });
 

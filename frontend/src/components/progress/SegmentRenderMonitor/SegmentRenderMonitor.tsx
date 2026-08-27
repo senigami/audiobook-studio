@@ -28,6 +28,7 @@
  * visual strip has degraded to a summary bar.
  */
 import React, { useEffect, useRef, useState } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { SegmentBlockRow, PHASE_LABEL } from './SegmentBlockRow';
 import type { SegmentRenderPhase, SegmentRenderMonitorSegment } from './SegmentBlockRow';
 
@@ -123,6 +124,14 @@ const SegmentAccessibleTable: React.FC<{
   onOpenDetail: (segmentId: string, triggerEl: HTMLElement) => void;
   onRetry?: (segmentId: string) => void;
 }> = ({ segments, collapsedByDefault, onOpenDetail, onRetry }) => {
+  // Explicit React state rather than the native uncontrolled <details>/<summary>
+  // toggle — the native disclosure was reported unclickable in the real running
+  // app (owner-verified 2026-08-26) even though it toggles correctly when
+  // exercised in isolation; a controlled `<button>` with a visible chevron is a
+  // bigger, more reliable target regardless of whatever intercepted the native
+  // toggle's click in context.
+  const [open, setOpen] = useState(false);
+
   const table = (
     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--type-micro)' }}>
       <caption style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
@@ -188,19 +197,37 @@ const SegmentAccessibleTable: React.FC<{
   );
 
   // Always screen-reader-discoverable and keyboard-navigable: when the visual
-  // strip has degraded to a summary bar, keep the table reachable via a native
-  // <details> disclosure rather than hiding it outright.
+  // strip has degraded to a summary bar, keep the table reachable via an
+  // explicit toggle button rather than hiding it outright.
   if (!collapsedByDefault) {
     return table;
   }
 
+  const Chevron = open ? ChevronDown : ChevronRight;
+
   return (
-    <details>
-      <summary style={{ cursor: 'pointer', fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          cursor: 'pointer',
+          fontSize: 'var(--type-micro)',
+          color: 'var(--text-muted)',
+          background: 'none',
+          border: 'none',
+          padding: 0,
+        }}
+      >
+        <Chevron size={14} strokeWidth={2} aria-hidden="true" />
         Segment detail ({segments.length})
-      </summary>
-      {table}
-    </details>
+      </button>
+      {open && table}
+    </div>
   );
 };
 
