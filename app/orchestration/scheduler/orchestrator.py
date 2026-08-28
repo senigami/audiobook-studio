@@ -524,10 +524,46 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
                 task = self._reconstruct_task(context)
                 if task:
                     import threading
-                    # We run submission in a background thread so recovery doesn't block boot.
+
+                    # Run submission in a background thread so recovery doesn't
+                    # block boot. An exception raised inside a real thread's
+                    # target never propagates to this call stack — Python's
+                    # default thread excepthook only prints it to stderr — so
+                    # the job would otherwise be silently dropped, stuck
+                    # forever in whatever terminal status
+                    # `reconcile_queue_status` already wrote it to, with no
+                    # trace in the app's own logs or progress stream (issue
+                    # #238). Wrap the target so any failure (validation or
+                    # otherwise) is logged and published as a proper "failed"
+                    # transition instead.
+                    def _run_recovery_submission(
+                        _task=task, _task_id=task_id, _context=context
+                    ) -> None:
+                        try:
+                            self.submit(_task)
+                        except Exception as exc:
+                            logger.exception(
+                                "Recovery: task %s — submission failed after reconstruction.",
+                                _task_id,
+                            )
+                            try:
+                                self.progress_service.publish(
+                                    job_id=_task_id,
+                                    status="failed",
+                                    parent_job_id=_context.project_id,
+                                    chapter_id=_context.chapter_id,
+                                    message=f"Recovery failed: {exc}",
+                                    reason_code="recovery_submission_failed",
+                                    force=True,
+                                )
+                            except Exception:
+                                logger.exception(
+                                    "Recovery: task %s — failed to publish recovery failure event.",
+                                    _task_id,
+                                )
+
                     threading.Thread(
-                        target=self.submit,
-                        args=(task,),
+                        target=_run_recovery_submission,
                         daemon=True,
                         name=f"recovery-{task_id}"
                     ).start()
