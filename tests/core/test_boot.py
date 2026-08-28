@@ -28,6 +28,33 @@ def test_boot_studio_handles_watchdog_failure():
         mock_start.assert_called_once()
 
 
+def test_boot_studio_aborts_on_schema_migration_failure():
+    """A failed versioned schema migration must abort boot, not be swallowed.
+
+    Replaces the old blanket ``except Exception: logger.exception(...)``
+    around migration (#233) — boot must refuse to bring up the app on a
+    half-migrated schema rather than boot anyway.
+    """
+    from app.db.migrations.runner import Migration, MigrationError
+
+    def bad_up(conn):
+        raise RuntimeError("simulated schema migration failure")
+
+    bad_migration = Migration(version=999999, name="simulated_failure", up=bad_up)
+
+    with patch("app.db.migrations.registry.MIGRATIONS", [bad_migration]), \
+         patch("app.engines.watchdog.start_watchdog") as mock_start:
+        with pytest.raises(MigrationError):
+            boot_studio()
+
+    # The TTS server must never start once schema migration has failed.
+    mock_start.assert_not_called()
+    # _booted must not be left permanently set — a fixed migration should be
+    # able to retry on the next boot_studio() call.
+    import app.core.boot
+    assert app.core.boot._booted is False
+
+
 def test_boot_tts_server_uses_repo_root_plugins_dir():
     """Verify the default TTS boot path resolves plugins from the repo root."""
     from app.core.boot import boot_tts_server

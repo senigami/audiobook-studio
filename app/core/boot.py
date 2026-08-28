@@ -83,9 +83,27 @@ def boot_studio() -> None:
 
     if _booted:
         return
+
+    # 1a. Run the versioned schema-migration runner. Unlike the legacy
+    # data migrations below, a failure here is NOT swallowed: booting on a
+    # half-migrated schema is worse than refusing to boot at all (#233).
+    # _booted is deliberately left False on failure so a fixed migration
+    # can be retried by calling boot_studio() again.
+    from app.db.migrations.registry import MIGRATIONS  # noqa: PLC0415
+    from app.db.migrations.runner import run_migrations  # noqa: PLC0415
+    from app.db.core import get_connection, get_db_path  # noqa: PLC0415
+
+    conn = get_connection()
+    try:
+        run_migrations(conn, MIGRATIONS, db_path=get_db_path())
+    finally:
+        conn.close()
+
     _booted = True
 
-    # 1. Run database migrations
+    # 1b. Run legacy one-shot data migrations (v1 -> v2 state.json import
+    # etc.) These remain self-guarding/idempotent and best-effort; they are
+    # not part of the versioned schema-migration runner above.
     try:
         from app.db.migration import migrate_state_json_to_db  # noqa: PLC0415
         migrate_state_json_to_db()
