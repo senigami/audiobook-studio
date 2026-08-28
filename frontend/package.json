@@ -35,7 +35,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-i18next": "^17.0.8",
-    "react-router-dom": "^7.17.0",
+    "react-router-dom": "^7.18.2",
     "wavesurfer.js": "^7.12.8"
   },
   "devDependencies": {
