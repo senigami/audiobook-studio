@@ -291,9 +291,15 @@ class SynthesisTask(StudioTask):
             SynthesisTask: Reconstructed task.
         """
         payload = ctx.payload or {}
+        # Recovered payloads are raw `processing_queue` rows (see
+        # `list_jobs_by_status`), which use the column name `engine` — there
+        # is no `engine_id` key anywhere in a raw DB row. Fall back to it so
+        # every recovered synthesis task doesn't fail validate() with
+        # "engine_id is required" (issue #238).
+        engine_id = payload.get("engine_id") or payload.get("engine") or ""
         return cls(
             task_id=ctx.task_id,
-            engine_id=str(payload.get("engine_id", "")),
+            engine_id=str(engine_id),
             script_text=str(payload.get("script_text", "")),
             output_path=str(payload.get("output_path", "")),
             project_id=ctx.project_id,

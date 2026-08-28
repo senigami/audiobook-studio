@@ -198,3 +198,128 @@ class TestStartupRecovery:
         assert job_id not in submitted_ids, (
             "Recovery must be suppressed when STUDIO_RECOVER_ON_STARTUP=0"
         )
+
+
+# ---------------------------------------------------------------------------
+# Issue #238 — recovered synthesis payload uses the DB's `engine` column, not
+# a nonexistent `engine_id` key, and a crash mid-resubmission doesn't vanish
+# silently.
+# ---------------------------------------------------------------------------
+
+class TestRecoveredSynthesisEngineField:
+    """A recovered ``processing_queue`` row's payload has a key named
+    ``engine`` (see ``list_jobs_by_status`` docstring) — there is no
+    ``engine_id`` key anywhere in the raw DB row. ``SynthesisTask.from_task_context``
+    must fall back to ``engine`` or every recovered synthesis task fails
+    ``validate()`` with ``ValueError: engine_id is required``.
+    """
+
+    def test_from_task_context_falls_back_to_engine_column(self):
+        from app.orchestration.tasks.synthesis import SynthesisTask
+        from app.orchestration.tasks.base import TaskContext
+
+        ctx = TaskContext(
+            task_id="job-engine-fallback-1",
+            task_type="synthesis",
+            payload={
+                "id": "job-engine-fallback-1",
+                "engine": "xtts",
+                "script_text": "hello world",
+                "output_path": "/tmp/out.wav",
+            },
+        )
+
+        task = SynthesisTask.from_task_context(ctx)
+
+        assert task.engine_id == "xtts"
+        task.validate()  # must not raise
+
+    def test_recovered_job_from_real_db_row_reconstructs_with_engine_id(self):
+        """End-to-end: a real recoverable DB row (as produced by
+        ``upsert_queue_row``/``list_jobs_by_status``) reconstructs into a
+        ``SynthesisTask`` whose ``engine_id`` is populated and whose
+        ``validate()`` does not raise.
+        """
+        pid = create_project("P-recovery-engine-field")
+        cid = create_chapter(pid, "C-recovery-engine-field")
+        job_id = "job-recover-engine-field-1"
+        upsert_queue_row(job_id, project_id=pid, chapter_id=cid, status="running", engine="xtts")
+
+        contexts = load_recoverable_task_contexts()
+        ctx = next(c for c in contexts if c.task_id == job_id)
+
+        from app.orchestration.tasks.synthesis import SynthesisTask
+        task = SynthesisTask.from_task_context(ctx)
+
+        assert task.engine_id == "xtts"
+        # A recovered context has no `script_text` (processing_queue never
+        # stores it) and `TaskContext.chapter_id` isn't threaded through by
+        # `load_recoverable_task_contexts` — a separate, pre-existing gap
+        # outside this issue's scope — so validate() still raises here, but
+        # it must be the script_text complaint, never "engine_id is
+        # required": that's the specific defect issue #238 reports.
+        with pytest.raises(ValueError, match="script_text"):
+            task.validate()
+
+
+class TestRecoverySubmissionCrashIsSurfaced:
+    """A validation (or any other) exception raised inside the background
+    thread that resubmits a recovered task must not vanish silently — it
+    must be logged and published as a failure, not leave the job stuck
+    forever in whatever terminal status ``reconcile_queue_status`` already
+    wrote, with no trace in the app's own logs/progress stream.
+    """
+
+    def test_submit_exception_in_recovery_thread_is_caught_and_reported(self, monkeypatch):
+        from app.orchestration.scheduler.orchestrator import create_orchestrator
+
+        pid = create_project("P-recovery-crash")
+        cid = create_chapter(pid, "C-recovery-crash")
+        job_id = "job-recover-crash-1"
+        # Deliberately no `engine` column, and no reconstructable payload —
+        # forces from_task_context -> validate() to raise inside submit().
+        upsert_queue_row(job_id, project_id=pid, chapter_id=cid, status="running", engine=None)
+
+        contexts = load_recoverable_task_contexts()
+        assert any(c.task_id == job_id for c in contexts)
+
+        orchestrator = create_orchestrator()
+
+        published_statuses: list[str] = []
+        original_publish = orchestrator.progress_service.publish
+
+        def spy_publish(*, job_id=None, status=None, **kwargs):
+            published_statuses.append(status)
+            return original_publish(job_id=job_id, status=status, **kwargs)
+
+        monkeypatch.setattr(orchestrator.progress_service, "publish", spy_publish)
+
+        class SynchronousThread:
+            """Runs the target inline on .start() — no real threading, no
+            sleep-based waiting needed to observe its effect (R4)."""
+
+            def __init__(self, target=None, args=(), kwargs=None, daemon=None, name=None):
+                self._target = target
+                self._args = args
+                self._kwargs = kwargs or {}
+
+            def start(self):
+                self._target(*self._args, **self._kwargs)
+
+            def join(self, *a, **kw):
+                pass
+
+        with (
+            patch(
+                "app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit",
+                side_effect=ValueError("engine_id is required"),
+            ),
+            patch("threading.Thread", SynchronousThread),
+        ):
+            recovered = orchestrator.recover(contexts=contexts)
+
+        assert job_id in recovered
+        assert "failed" in published_statuses, (
+            "A submit() exception inside the recovery thread must be caught "
+            "and published as a failed status, not vanish silently."
+        )
