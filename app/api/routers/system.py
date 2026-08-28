@@ -60,6 +60,24 @@ def _redact_settings(settings: dict) -> dict:
     return out
 
 
+def _unknown_engine_cap_keys(engine_caps: dict) -> set:
+    """Return keys in *engine_caps* that aren't a real, currently-loaded engine_id.
+
+    ``tts_engine_caps`` is keyed by engine_id only (see
+    ``app.orchestration.scheduler.cap_settings``) — there is no other legitimate
+    key shape, synthetic or otherwise (issue #235). Validated against the live
+    plugin registry rather than a hardcoded list so a newly installed engine
+    plugin is accepted without a code change.
+    """
+    from ...engines.bridge import create_voice_bridge
+
+    bridge = create_voice_bridge()
+    known_ids = {
+        entry.get("engine_id") for entry in bridge.describe_registry() if entry.get("engine_id")
+    }
+    return {str(key) for key in engine_caps.keys() if str(key) not in known_ids}
+
+
 def get_voices_dir() -> Path:
     return VOICES_DIR
 
@@ -246,6 +264,15 @@ async def save_settings(
                     except (TypeError, ValueError):
                         logger.warning("Ignoring invalid tts_parallel_cap value: %r", body["tts_parallel_cap"])
                 if "tts_engine_caps" in body and isinstance(body["tts_engine_caps"], dict):
+                    unknown_keys = _unknown_engine_cap_keys(body["tts_engine_caps"])
+                    if unknown_keys:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=(
+                                "tts_engine_caps contains unrecognized engine id(s): "
+                                f"{', '.join(sorted(unknown_keys))}"
+                            ),
+                        )
                     updates["tts_engine_caps"] = body["tts_engine_caps"]
                 # Accept secret-field updates but silently ignore round-tripped
                 # redacted sentinel values so the real key is never overwritten.
@@ -254,6 +281,8 @@ async def save_settings(
                         new_val = str(body[field])
                         if new_val != _REDACTED:
                             updates[field] = new_val
+        except HTTPException:
+            raise
         except Exception:
             logger.warning("Failed to parse JSON settings payload", exc_info=True)
 
