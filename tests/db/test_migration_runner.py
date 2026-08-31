@@ -4,6 +4,7 @@ Exercises app.db.migrations.runner in isolation against a throwaway sqlite
 file — never against the shared test DB used by other suites.
 """
 import sqlite3
+import threading
 from pathlib import Path
 
 import pytest
@@ -157,11 +158,113 @@ class TestRunMigrations:
 class TestBackupDatabase:
     def test_backs_up_existing_file(self, tmp_path):
         db_path = tmp_path / "real.db"
-        db_path.write_bytes(b"sqlite-bytes")
+        source = sqlite3.connect(db_path)
+        source.execute("CREATE TABLE t (id INTEGER PRIMARY KEY)")
+        source.commit()
+        source.close()
         backup_path = backup_database(db_path)
         assert backup_path is not None
         assert backup_path.exists()
-        assert backup_path.read_bytes() == b"sqlite-bytes"
+        backup_conn = sqlite3.connect(backup_path)
+        try:
+            assert table_exists(backup_conn, "t")
+        finally:
+            backup_conn.close()
+
+    def test_backup_includes_writes_still_only_in_the_wal_sidecar(self, tmp_path):
+        """Regression test for #246.
+
+        With ``PRAGMA journal_mode=WAL`` (set on every connection in
+        ``app/db/core.py``), a committed write can live in the ``<db>-wal``
+        sidecar file until a checkpoint moves it into the main db file. A
+        raw ``shutil.copy2`` of just the main file silently produces a
+        backup that predates that write — the restore looks fine (the file
+        opens) but has quietly rewound past committed data.
+        """
+        db_path = tmp_path / "real.db"
+        writer = sqlite3.connect(db_path)
+        writer.execute("PRAGMA journal_mode=WAL")
+        writer.execute("CREATE TABLE t (id INTEGER PRIMARY KEY)")
+        writer.commit()
+        writer.execute("INSERT INTO t (id) VALUES (1)")
+        writer.commit()
+        # Do NOT close `writer` before backing up: closing the last
+        # connection lets SQLite auto-checkpoint the WAL into the main
+        # file, which would mask the bug this test exists to catch.
+        try:
+            assert (tmp_path / "real.db-wal").exists()
+
+            backup_path = backup_database(db_path)
+
+            backup_conn = sqlite3.connect(backup_path)
+            try:
+                rows = backup_conn.execute("SELECT id FROM t").fetchall()
+            finally:
+                backup_conn.close()
+            assert rows == [(1,)], (
+                "backup_database must consolidate the WAL before copying — "
+                f"the committed row is missing from the backup, got {rows!r}"
+            )
+        finally:
+            writer.close()
+
+    def test_failed_backup_leaves_no_partial_file_behind(self, tmp_path):
+        """A failed backup must not leave scratch files next to the database.
+
+        An orphaned ``.partial`` isn't only clutter: ``sqlite3`` opens a junk
+        file happily and then fails the copy, so a leftover sitting at a path
+        a later backup wants makes that later backup fail too.
+        """
+        db_path = tmp_path / "corrupt.db"
+        db_path.write_bytes(b"not a sqlite database" * 20)
+
+        with pytest.raises(sqlite3.DatabaseError):
+            backup_database(db_path)
+
+        assert list(tmp_path.glob("*.partial")) == []
+        assert list(tmp_path.glob("*.backup-*")) == []
+
+    def test_concurrent_backups_both_succeed_with_a_complete_result(self, tmp_path):
+        """Two overlapping migration runs must not fight over one scratch file.
+
+        The timestamped backup name has one-second resolution, so two
+        overlapping backups target the same final path. Each needs its own
+        `.partial` — sharing one makes a caller fail on a locked database.
+        """
+        db_path = tmp_path / "concurrent.db"
+        source = sqlite3.connect(db_path)
+        source.execute("CREATE TABLE t (i INTEGER)")
+        source.executemany("INSERT INTO t VALUES (?)", [(i,) for i in range(5000)])
+        source.commit()
+        source.close()
+
+        barrier = threading.Barrier(2)
+        results: list = []
+
+        def run_backup():
+            barrier.wait()
+            try:
+                results.append(backup_database(db_path))
+            except Exception as exc:  # noqa: BLE001 - recorded and asserted on below
+                results.append(exc)
+
+        threads = [threading.Thread(target=run_backup) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        failures = [r for r in results if isinstance(r, BaseException)]
+        assert not failures, f"concurrent backups must not fail: {failures!r}"
+        assert list(tmp_path.glob("*.partial")) == []
+        # The rename is atomic, so whichever writer lands last, the final
+        # path must hold a complete backup rather than a half-copied one.
+        for backup_path in set(results):
+            backup_conn = sqlite3.connect(backup_path)
+            try:
+                assert backup_conn.execute("SELECT count(*) FROM t").fetchone() == (5000,)
+            finally:
+                backup_conn.close()
 
     def test_returns_none_when_no_file_exists_yet(self, tmp_path):
         db_path = tmp_path / "does_not_exist.db"

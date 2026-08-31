@@ -24,12 +24,12 @@ safely:
 from __future__ import annotations
 
 import logging
-import shutil
 import sqlite3
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional, Sequence
+from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +81,28 @@ def pending_migrations(conn: sqlite3.Connection, migrations: Sequence[Migration]
 
 
 def backup_database(db_path: Path) -> Optional[Path]:
-    """Copy the SQLite file to a timestamped backup.
+    """Consolidate and copy the SQLite database to a timestamped backup.
+
+    Every connection in this codebase runs ``PRAGMA journal_mode=WAL``
+    (``app/db/core.py``), so a recently committed write can still be sitting
+    in the ``<db>-wal`` sidecar file rather than the main db file. A raw
+    file copy never touches that sidecar, so it can silently produce a
+    backup that predates committed work (#246) — the file opens fine, it's
+    just stale, with no visible sign anything is wrong. ``sqlite3``'s
+    online backup API reads through the WAL and writes a single
+    self-contained, checkpointed file, so it's immune to this.
+
+    The backup is written to a ``.partial`` path first and only renamed to
+    the final name once the copy has fully succeeded, so a crash or error
+    mid-backup can never leave a truncated file that looks like a valid,
+    complete backup. That scratch path is unique per call: the timestamped
+    final name has only one-second resolution, and ``boot_studio()``'s
+    ``_booted`` guard is an unsynchronized flag, so two overlapping
+    migration runs can both reach here — sharing one scratch file makes
+    all but one of them fail on a locked database. It is also removed on
+    failure: ``sqlite3`` opens a junk file happily and only then fails the
+    copy, so a leftover ``.partial`` sitting where a later backup wants to
+    write makes that later backup fail too.
 
     Returns ``None`` (no-op) when ``db_path`` doesn't exist yet — a brand
     new install has no schema to protect.
@@ -89,7 +110,21 @@ def backup_database(db_path: Path) -> Optional[Path]:
     if not db_path.exists():
         return None
     backup_path = db_path.with_name(f"{db_path.name}.backup-{int(time.time())}")
-    shutil.copy2(db_path, backup_path)
+    partial_path = backup_path.with_name(f"{backup_path.name}.{uuid4().hex}.partial")
+    try:
+        source = sqlite3.connect(db_path)
+        try:
+            dest = sqlite3.connect(partial_path)
+            try:
+                source.backup(dest)
+            finally:
+                dest.close()
+        finally:
+            source.close()
+        partial_path.replace(backup_path)
+    except BaseException:
+        partial_path.unlink(missing_ok=True)
+        raise
     logger.info("Migration: backed up %s to %s", db_path, backup_path)
     return backup_path
 

@@ -22,7 +22,7 @@ Last updated: 2026-08-26
 | [text-processing.md](text-processing.md) | Six-stage text pipeline (clean→split→pack→group→assign→render), invariants on packing and grouping | 1.1.1 |
 | [testing-standards.md](testing-standards.md) | Binding rules R1–R4, mock-boundary discipline, test classification rubric | 1.0.1 |
 | [system-architecture.md](system-architecture.md) | Two-process model (Studio + TTS Server), boot sequence, component ownership boundaries; boot must not host destructive reconciliation (I13) | 1.7.2 |
-| [data-model.md](data-model.md) | SQLite schema, state.json structure, voice directory layout V2; segment-audio artifacts (group→filename fan-out) + orphan GC; source-of-truth = validated metadata, not file existence; versioned transactional schema-migration runner (§ Migration) | 1.13.0 |
+| [data-model.md](data-model.md) | SQLite schema, state.json structure, voice directory layout V2; segment-audio artifacts (group→filename fan-out) + orphan GC; source-of-truth = validated metadata, not file existence; versioned transactional schema-migration runner (§ Migration) | 1.13.1 |
 | [api-conventions.md](api-conventions.md) | REST URL patterns, standard error shape, API key auth, WebSocket protocol, external TTS API; live reads must bypass browser cache (`no-store`); per-book GC on project open | 1.2.0 |
 | [plugin-contract.md](plugin-contract.md) | `StudioTTSEngine` ABC, manifest schema, SDK types, capability flags | 1.11.0 |
 | [performance-script-format.md](performance-script-format.md) | Canonical `performance_data` JSON shape, rendering-mode resolution (`resolve_rendering()`), INV-2; AI pipeline/export layer explicitly deferred | 1.0.0 |
