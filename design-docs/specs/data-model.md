@@ -466,10 +466,14 @@ Two independent migration mechanisms run at boot, in order:
 2. **Legacy one-shot data migrations** (`app/db/migration.py`, pre-#233, unversioned) —
    `migrate_state_json_to_db()`, `migrate_legacy_project_covers()`, `migrate_voice_profiles()`.
    Each is self-guarding on a data condition (idempotent, not tracked in `schema_migrations`) and
-   remains best-effort: `boot_studio()` still wraps these in `except Exception: logger.exception(...)`,
+   remains best-effort: each call site wraps these in `except Exception: logger.exception(...)`,
    unchanged by #233. `app/db/__init__.py` exposes `migrate_state_json_to_db()` for explicit
-   invocation. The DB MUST NOT run migrations on import — `boot_studio()` in `app/core/boot.py`
-   is responsible for triggering both migration mechanisms at startup, in the order above.
+   invocation. The DB MUST NOT run migrations on import. Trigger sites are split as of #247:
+   `startup_event()` (`app/api/web.py`) runs the schema runner, then `migrate_voice_profiles()`
+   and `migrate_legacy_project_covers()`; `boot_studio()` runs the schema runner (a no-op by then
+   on the app path) and `migrate_state_json_to_db()`. Entry points that never reach
+   `startup_event()` (tests, CLI) get both mechanisms from `boot_studio()` alone. On every path the
+   schema runner precedes any legacy data migration, per the order above.
 
 ---
 
