@@ -367,6 +367,16 @@ def startup_event():
     # Initialize DB
     init_db()
 
+    # 0a. Apply pending versioned schema migrations BEFORE anything else
+    # touches DB state (recovery, reconciliation, chapter/segment routes).
+    # Deliberately not wrapped in a swallowing try/except: a migration
+    # reshaping segment state (like #232's) must never race against
+    # recovery resubmitting jobs or a request reading pre-migration shape
+    # (#247). A failed migration aborts startup rather than serving on a
+    # half-migrated schema (#233).
+    from ..core.boot import run_schema_migrations
+    run_schema_migrations()
+
     # Reconcile speaker metadata and default profile assignments during transition to v2 storage.
     try:
         from ..db.migration import migrate_voice_profiles

@@ -73,6 +73,35 @@ def run_startup_recovery(recovery_contexts: list) -> None:
         )
 
 
+def run_schema_migrations() -> None:
+    """Apply pending versioned schema migrations synchronously.
+
+    Factored out of ``boot_studio()`` (#247) so the app entry point can run
+    this to completion *before* anything else touches DB state — startup
+    recovery, reconciliation, and chapter/segment routes must never run
+    concurrently with an in-flight migration. A migration that reshapes
+    segment state (like #232's) racing against a recovered job still
+    holding pre-migration segment_ids, or a request served mid-migration,
+    is exactly the bug this guards against.
+
+    Idempotent: applied migrations are recorded in ``schema_migrations``
+    and never re-run, so calling this again (e.g. from ``boot_studio()``'s
+    own background-thread boot sequence) is a cheap no-op.
+
+    A failure here is NOT swallowed: booting on a half-migrated schema is
+    worse than refusing to boot at all (#233).
+    """
+    from app.db.migrations.registry import MIGRATIONS  # noqa: PLC0415
+    from app.db.migrations.runner import run_migrations  # noqa: PLC0415
+    from app.db.core import get_connection, get_db_path  # noqa: PLC0415
+
+    conn = get_connection()
+    try:
+        run_migrations(conn, MIGRATIONS, db_path=get_db_path())
+    finally:
+        conn.close()
+
+
 def boot_studio() -> None:
     """Run the full Studio 2.0 boot sequence.
 
@@ -84,20 +113,12 @@ def boot_studio() -> None:
     if _booted:
         return
 
-    # 1a. Run the versioned schema-migration runner. Unlike the legacy
-    # data migrations below, a failure here is NOT swallowed: booting on a
-    # half-migrated schema is worse than refusing to boot at all (#233).
-    # _booted is deliberately left False on failure so a fixed migration
-    # can be retried by calling boot_studio() again.
-    from app.db.migrations.registry import MIGRATIONS  # noqa: PLC0415
-    from app.db.migrations.runner import run_migrations  # noqa: PLC0415
-    from app.db.core import get_connection, get_db_path  # noqa: PLC0415
-
-    conn = get_connection()
-    try:
-        run_migrations(conn, MIGRATIONS, db_path=get_db_path())
-    finally:
-        conn.close()
+    # 1a. Run the versioned schema-migration runner. _booted is
+    # deliberately left False on failure so a fixed migration can be
+    # retried by calling boot_studio() again. When the app entry point
+    # (web.py) already called run_schema_migrations() synchronously
+    # before this, this call is a no-op re-check (see #247).
+    run_schema_migrations()
 
     _booted = True
 

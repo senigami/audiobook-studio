@@ -1,7 +1,7 @@
 # Data Model
 
 ```
-spec_version: 1.13.1
+spec_version: 1.13.2
 status: active
 updated: 2026-08-31
 sources:
@@ -28,6 +28,7 @@ sources:
 
 | Version | Date       | Change             |
 |---------|------------|--------------------|
+| 1.13.2  | 2026-08-31 | **Schema migrations now run synchronously before startup recovery (#247, prerequisite for #232).** `run_schema_migrations()` (extracted from `boot_studio()`) is now called directly from `startup_event()` (`app/api/web.py`) immediately after `init_db()`, before the recovery-context snapshot, DB reconciliation, and `run_startup_recovery()`. Previously `boot_studio()` — which runs migrations — was dispatched to a background daemon thread *after* recovery had already resubmitted interrupted jobs and the web server had started serving chapter/segment routes, so a schema migration reshaping segment state could run concurrently with real traffic and with jobs referencing pre-migration segment_ids. `boot_studio()` still calls `run_schema_migrations()` itself (now a cheap idempotent no-op when `web.py` already ran it) so other entry points (tests, CLI) that call `boot_studio()` directly are unaffected. |
 | 1.13.1  | 2026-08-31 | **`backup_database()` now WAL-safe (#246).** Replaced the raw `shutil.copy2` with `sqlite3.Connection.backup()`, which reads through the live WAL and writes a single consolidated file — the old copy could silently omit a committed write still sitting only in the `<db>-wal` sidecar, producing a backup that opens fine but has quietly rewound past real work. Backups are now written to a `.partial` path and renamed to their final name only on success, so a crash mid-backup can't leave a truncated file mistaken for a complete one. That scratch path is unique per call and removed on failure — the final name has one-second resolution and `boot_studio()`'s `_booted` guard is an unsynchronized flag, so two overlapping migration runs would otherwise collide on one scratch file and all but one would fail on a locked database; and an orphaned `.partial` poisons any later backup landing on the same path. This is the entire rollback plan for #232's destructive migration, so it had to actually be correct before that migration ships. |
 | 1.13.0  | 2026-08-28 | **Versioned, transactional schema-migration runner (#233).** New `app/db/migrations/` package: `Migration`/`run_migrations`/`schema_migrations` tracking table, one real transaction per migration with explicit rollback-and-raise on failure, pre-migration DB backup, and a `dry_run` mode. `boot_studio()` now runs this **before** the legacy one-shot data migrations and does NOT swallow its failure — a failed schema migration aborts boot rather than starting on a half-migrated schema, replacing the previous blanket `except Exception` around migration. `registry.py::MIGRATIONS` is empty for now; #232 (chapter_segments redesign) is expected to add the first real entry. The legacy `app/db/migration.py` data migrations are unchanged and still best-effort/swallowed. |
 | 1.12.0  | 2026-07-17 | **Chapter timing sidecar (synced-reader plan) + backup `bundle_version`.** New § documenting the self-describing, versioned `<chapter_wav_stem>.timing.json` sibling artifact (`chapter_segment_timing` schema, `version: 1`) written by `app/domain/chapters/timing_generator.py::build_chapter_timing` whenever a chapter WAV finishes stitching, and validated at load time by `app/domain/chapters/timing.py::validate_timing_sidecar`. Served read-only (never lazily recomputed, unlike the peaks sidecar) via `GET /api/projects/{project_id}/chapters/{chapter_id}/timing`. Also documents the new `bundle_version` field (default `1`) added to `ProjectBackupBundleModel` (`app/domain/projects/models.py`) — the model previously had no version field at all — plus the paired `timing_path` backup-bundle chapter-map entry and the new `POST /projects/{project_id}/backups/{filename}/restore` endpoint that can recover a chapter's audio + timing sidecar from a backup even when per-segment WAVs were never archived. |
@@ -441,11 +442,23 @@ Two independent migration mechanisms run at boot, in order:
    - `dry_run=True` runs every pending migration's `up` and unconditionally rolls back —
      validates a pending set with zero persisted effect, and still raises `MigrationError` on
      failure.
-   - `boot_studio()` (`app/core/boot.py`) calls this **before** setting its idempotency flag and
-     **does not catch `MigrationError`** — a failed schema migration aborts boot entirely rather
-     than starting the app on a half-migrated schema. This intentionally reverses the previous
-     `except Exception: logger.exception(...)` swallow around migration (#233); `_booted` is left
-     `False` on failure so a corrected migration can be retried by calling `boot_studio()` again.
+   - `run_schema_migrations()` (extracted from `boot_studio()` in #247) wraps the transaction
+     above and is called **synchronously from `startup_event()`** (`app/api/web.py`) immediately
+     after `init_db()` — before the recovery-context snapshot, stuck-job clearing, DB
+     reconciliation, and `run_startup_recovery()`. This ordering is load-bearing: recovery
+     resubmitting an interrupted job, or a request reaching a chapter/segment route, while a
+     migration reshaping that same state is still in flight is exactly the race #247 closes
+     (a prerequisite for #232's destructive `chapter_segments` redesign). Not wrapped in a
+     swallowing `try/except` — a failure here aborts app startup entirely.
+   - `boot_studio()` (`app/core/boot.py`) also calls `run_schema_migrations()`, before setting its
+     idempotency flag, so entry points that call `boot_studio()` directly without going through
+     `web.py`'s `startup_event()` (tests, CLI) still get migrations applied. Because migrations are
+     recorded in `schema_migrations` and never re-run, this second call is a no-op once `web.py`
+     already applied them. `boot_studio()` likewise **does not catch `MigrationError`** — a failed
+     schema migration aborts boot entirely rather than starting the app on a half-migrated schema.
+     This intentionally reverses the previous `except Exception: logger.exception(...)` swallow
+     around migration (#233); `_booted` is left `False` on failure so a corrected migration can be
+     retried by calling `boot_studio()` again.
    - Rollback tooling (invoking a migration's own `down`) is not yet implemented by the runner —
      `down` is accepted on `Migration` for forward-compatibility but unused; recovery from a failed
      migration today is via the pre-migration backup file.
@@ -453,10 +466,14 @@ Two independent migration mechanisms run at boot, in order:
 2. **Legacy one-shot data migrations** (`app/db/migration.py`, pre-#233, unversioned) —
    `migrate_state_json_to_db()`, `migrate_legacy_project_covers()`, `migrate_voice_profiles()`.
    Each is self-guarding on a data condition (idempotent, not tracked in `schema_migrations`) and
-   remains best-effort: `boot_studio()` still wraps these in `except Exception: logger.exception(...)`,
+   remains best-effort: each call site wraps these in `except Exception: logger.exception(...)`,
    unchanged by #233. `app/db/__init__.py` exposes `migrate_state_json_to_db()` for explicit
-   invocation. The DB MUST NOT run migrations on import — `boot_studio()` in `app/core/boot.py`
-   is responsible for triggering both migration mechanisms at startup, in the order above.
+   invocation. The DB MUST NOT run migrations on import. Trigger sites are split as of #247:
+   `startup_event()` (`app/api/web.py`) runs the schema runner, then `migrate_voice_profiles()`
+   and `migrate_legacy_project_covers()`; `boot_studio()` runs the schema runner (a no-op by then
+   on the app path) and `migrate_state_json_to_db()`. Entry points that never reach
+   `startup_event()` (tests, CLI) get both mechanisms from `boot_studio()` alone. On every path the
+   schema runner precedes any legacy data migration, per the order above.
 
 ---
 
