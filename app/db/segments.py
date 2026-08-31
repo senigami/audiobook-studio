@@ -1,4 +1,5 @@
 from __future__ import annotations
+import hashlib
 import os
 import logging
 import re
@@ -9,6 +10,17 @@ from ..utils.render_trace import trace
 
 logger = logging.getLogger(__name__)
 SEGMENT_AUDIO_RE = re.compile(r"^(?P<segment_id>.+)\.(?:wav|mp3|m4a)$", re.IGNORECASE)
+
+
+def segment_text_hash(text_content: str) -> str:
+    """Canonical content fingerprint for a `chapter_segments` row's text.
+
+    Owned here (migration 001, #232) so every writer of `text_content` —
+    the migration's own backfill, resync, and row-creation-time grouping —
+    computes the same value via this one function (INV-9). Never
+    reimplement this formula at a call site.
+    """
+    return hashlib.sha256(text_content.strip().encode("utf-8")).hexdigest()
 
 
 def _chapter_has_active_generation(chapter_id: str) -> bool:
