@@ -1,9 +1,9 @@
 # Data Model
 
 ```
-spec_version: 1.13.0
+spec_version: 1.13.1
 status: active
-updated: 2026-08-28
+updated: 2026-08-31
 sources:
   - app/db/state.py
   - app/db/state_jobs.py
@@ -28,6 +28,7 @@ sources:
 
 | Version | Date       | Change             |
 |---------|------------|--------------------|
+| 1.13.1  | 2026-08-31 | **`backup_database()` now WAL-safe (#246).** Replaced the raw `shutil.copy2` with `sqlite3.Connection.backup()`, which reads through the live WAL and writes a single consolidated file — the old copy could silently omit a committed write still sitting only in the `<db>-wal` sidecar, producing a backup that opens fine but has quietly rewound past real work. Backups are now written to a `.partial` path and renamed to their final name only on success, so a crash mid-backup can't leave a truncated file mistaken for a complete one. This is the entire rollback plan for #232's destructive migration, so it had to actually be correct before that migration ships. |
 | 1.13.0  | 2026-08-28 | **Versioned, transactional schema-migration runner (#233).** New `app/db/migrations/` package: `Migration`/`run_migrations`/`schema_migrations` tracking table, one real transaction per migration with explicit rollback-and-raise on failure, pre-migration DB backup, and a `dry_run` mode. `boot_studio()` now runs this **before** the legacy one-shot data migrations and does NOT swallow its failure — a failed schema migration aborts boot rather than starting on a half-migrated schema, replacing the previous blanket `except Exception` around migration. `registry.py::MIGRATIONS` is empty for now; #232 (chapter_segments redesign) is expected to add the first real entry. The legacy `app/db/migration.py` data migrations are unchanged and still best-effort/swallowed. |
 | 1.12.0  | 2026-07-17 | **Chapter timing sidecar (synced-reader plan) + backup `bundle_version`.** New § documenting the self-describing, versioned `<chapter_wav_stem>.timing.json` sibling artifact (`chapter_segment_timing` schema, `version: 1`) written by `app/domain/chapters/timing_generator.py::build_chapter_timing` whenever a chapter WAV finishes stitching, and validated at load time by `app/domain/chapters/timing.py::validate_timing_sidecar`. Served read-only (never lazily recomputed, unlike the peaks sidecar) via `GET /api/projects/{project_id}/chapters/{chapter_id}/timing`. Also documents the new `bundle_version` field (default `1`) added to `ProjectBackupBundleModel` (`app/domain/projects/models.py`) — the model previously had no version field at all — plus the paired `timing_path` backup-bundle chapter-map entry and the new `POST /projects/{project_id}/backups/{filename}/restore` endpoint that can recover a chapter's audio + timing sidecar from a backup even when per-segment WAVs were never archived. |
 | 1.11.0  | 2026-07-16 | **W-PERF safe-foundation: additive performance-metadata columns.** `chapter_segments` gets `performance_data`/`speaker_confidence`/`speaker_basis`/`speaker_evidence`/`needs_review`/`review_reasons`/`locked`/`ai_suggested`; `characters` gets the parallel set plus `display_name`/`role`/`character_type`/`aliases`/`source_presence`/`source_profile`/`voice_guidance`. All additive, nullable/defaulted, forward-only migration — existing rows read back with documented defaults, nothing reads these columns yet (no behavior change). No `span_start`/`span_end`/`sentence_index` columns added — `segment_order` remains the ownership unit (see corrected `03-db-schema-changes.md`). AI extraction pipeline and export layer explicitly deferred per 2026-07-10 owner decision. |
@@ -425,10 +426,15 @@ Two independent migration mechanisms run at boot, in order:
      migration** (`BEGIN IMMEDIATE` → the migration's `up` → commit-and-record, or
      rollback-and-raise `MigrationError` on any exception). A failure stops the run immediately —
      later migrations in the set are never attempted.
-   - Before the first write of a run with pending migrations, the DB file is copied to a
-     timestamped `<db>.backup-<unix-ts>` sibling (`backup_database()`). No backup is taken when
-     there is nothing pending, in `dry_run` mode, or when the DB file doesn't exist yet (fresh
-     install).
+   - Before the first write of a run with pending migrations, the DB is backed up to a timestamped
+     `<db>.backup-<unix-ts>` sibling (`backup_database()`) via `sqlite3.Connection.backup()`
+     (an online, WAL-consolidating copy) rather than a raw file copy — every connection in this
+     codebase runs `PRAGMA journal_mode=WAL` (`app/db/core.py`), so a recently committed write can
+     still be sitting only in the `<db>-wal` sidecar and a raw copy would silently produce a
+     backup that predates it (#246). The backup is written to a `.partial` path first and renamed
+     to its final name only on success, so a crash mid-backup can't leave a truncated file that
+     looks complete. No backup is taken when there is nothing pending, in `dry_run` mode, or when
+     the DB file doesn't exist yet (fresh install).
    - `dry_run=True` runs every pending migration's `up` and unconditionally rolls back —
      validates a pending set with zero persisted effect, and still raises `MigrationError` on
      failure.

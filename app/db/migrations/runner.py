@@ -24,7 +24,6 @@ safely:
 from __future__ import annotations
 
 import logging
-import shutil
 import sqlite3
 import time
 from dataclasses import dataclass
@@ -81,7 +80,21 @@ def pending_migrations(conn: sqlite3.Connection, migrations: Sequence[Migration]
 
 
 def backup_database(db_path: Path) -> Optional[Path]:
-    """Copy the SQLite file to a timestamped backup.
+    """Consolidate and copy the SQLite database to a timestamped backup.
+
+    Every connection in this codebase runs ``PRAGMA journal_mode=WAL``
+    (``app/db/core.py``), so a recently committed write can still be sitting
+    in the ``<db>-wal`` sidecar file rather than the main db file. A raw
+    file copy never touches that sidecar, so it can silently produce a
+    backup that predates committed work (#246) — the file opens fine, it's
+    just stale, with no visible sign anything is wrong. ``sqlite3``'s
+    online backup API reads through the WAL and writes a single
+    self-contained, checkpointed file, so it's immune to this.
+
+    The backup is written to a ``.partial`` path first and only renamed to
+    the final name once the copy has fully succeeded, so a crash or error
+    mid-backup can never leave a truncated file that looks like a valid,
+    complete backup.
 
     Returns ``None`` (no-op) when ``db_path`` doesn't exist yet — a brand
     new install has no schema to protect.
@@ -89,7 +102,17 @@ def backup_database(db_path: Path) -> Optional[Path]:
     if not db_path.exists():
         return None
     backup_path = db_path.with_name(f"{db_path.name}.backup-{int(time.time())}")
-    shutil.copy2(db_path, backup_path)
+    partial_path = backup_path.with_suffix(backup_path.suffix + ".partial")
+    source = sqlite3.connect(db_path)
+    try:
+        dest = sqlite3.connect(partial_path)
+        try:
+            source.backup(dest)
+        finally:
+            dest.close()
+    finally:
+        source.close()
+    partial_path.replace(backup_path)
     logger.info("Migration: backed up %s to %s", db_path, backup_path)
     return backup_path
 

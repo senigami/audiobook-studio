@@ -157,11 +157,55 @@ class TestRunMigrations:
 class TestBackupDatabase:
     def test_backs_up_existing_file(self, tmp_path):
         db_path = tmp_path / "real.db"
-        db_path.write_bytes(b"sqlite-bytes")
+        source = sqlite3.connect(db_path)
+        source.execute("CREATE TABLE t (id INTEGER PRIMARY KEY)")
+        source.commit()
+        source.close()
         backup_path = backup_database(db_path)
         assert backup_path is not None
         assert backup_path.exists()
-        assert backup_path.read_bytes() == b"sqlite-bytes"
+        backup_conn = sqlite3.connect(backup_path)
+        try:
+            assert table_exists(backup_conn, "t")
+        finally:
+            backup_conn.close()
+
+    def test_backup_includes_writes_still_only_in_the_wal_sidecar(self, tmp_path):
+        """Regression test for #246.
+
+        With ``PRAGMA journal_mode=WAL`` (set on every connection in
+        ``app/db/core.py``), a committed write can live in the ``<db>-wal``
+        sidecar file until a checkpoint moves it into the main db file. A
+        raw ``shutil.copy2`` of just the main file silently produces a
+        backup that predates that write — the restore looks fine (the file
+        opens) but has quietly rewound past committed data.
+        """
+        db_path = tmp_path / "real.db"
+        writer = sqlite3.connect(db_path)
+        writer.execute("PRAGMA journal_mode=WAL")
+        writer.execute("CREATE TABLE t (id INTEGER PRIMARY KEY)")
+        writer.commit()
+        writer.execute("INSERT INTO t (id) VALUES (1)")
+        writer.commit()
+        # Do NOT close `writer` before backing up: closing the last
+        # connection lets SQLite auto-checkpoint the WAL into the main
+        # file, which would mask the bug this test exists to catch.
+        try:
+            assert (tmp_path / "real.db-wal").exists()
+
+            backup_path = backup_database(db_path)
+
+            backup_conn = sqlite3.connect(backup_path)
+            try:
+                rows = backup_conn.execute("SELECT id FROM t").fetchall()
+            finally:
+                backup_conn.close()
+            assert rows == [(1,)], (
+                "backup_database must consolidate the WAL before copying — "
+                f"the committed row is missing from the backup, got {rows!r}"
+            )
+        finally:
+            writer.close()
 
     def test_returns_none_when_no_file_exists_yet(self, tmp_path):
         db_path = tmp_path / "does_not_exist.db"
