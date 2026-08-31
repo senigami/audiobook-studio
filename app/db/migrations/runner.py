@@ -29,6 +29,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional, Sequence
+from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +95,14 @@ def backup_database(db_path: Path) -> Optional[Path]:
     The backup is written to a ``.partial`` path first and only renamed to
     the final name once the copy has fully succeeded, so a crash or error
     mid-backup can never leave a truncated file that looks like a valid,
-    complete backup.
+    complete backup. That scratch path is unique per call: the timestamped
+    final name has only one-second resolution, and ``boot_studio()``'s
+    ``_booted`` guard is an unsynchronized flag, so two overlapping
+    migration runs can both reach here — sharing one scratch file makes
+    all but one of them fail on a locked database. It is also removed on
+    failure: ``sqlite3`` opens a junk file happily and only then fails the
+    copy, so a leftover ``.partial`` sitting where a later backup wants to
+    write makes that later backup fail too.
 
     Returns ``None`` (no-op) when ``db_path`` doesn't exist yet — a brand
     new install has no schema to protect.
@@ -102,17 +110,21 @@ def backup_database(db_path: Path) -> Optional[Path]:
     if not db_path.exists():
         return None
     backup_path = db_path.with_name(f"{db_path.name}.backup-{int(time.time())}")
-    partial_path = backup_path.with_suffix(backup_path.suffix + ".partial")
-    source = sqlite3.connect(db_path)
+    partial_path = backup_path.with_name(f"{backup_path.name}.{uuid4().hex}.partial")
     try:
-        dest = sqlite3.connect(partial_path)
+        source = sqlite3.connect(db_path)
         try:
-            source.backup(dest)
+            dest = sqlite3.connect(partial_path)
+            try:
+                source.backup(dest)
+            finally:
+                dest.close()
         finally:
-            dest.close()
-    finally:
-        source.close()
-    partial_path.replace(backup_path)
+            source.close()
+        partial_path.replace(backup_path)
+    except BaseException:
+        partial_path.unlink(missing_ok=True)
+        raise
     logger.info("Migration: backed up %s to %s", db_path, backup_path)
     return backup_path
 
