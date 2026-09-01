@@ -318,14 +318,56 @@ def align_render_blocks(
         for aid in run.existing_ids:
             anchor_fresh_index[aid] = run.fresh_index
 
-    # Cross-row merge groups (RISK-1 Shape B), source 1: a PreservedRun the core
-    # matcher already produced whose anchors happen to span more than one original
-    # row (e.g. an exact multi-row fragment-run match).
+    # Multi-row FRAGMENT-RUN preservation (RC-1, pre-#232 -- see
+    # design-docs/plans/active/span_resync_preservation_fix/, Invariant I1a):
+    # a PreservedRun the core matcher already produced via literal
+    # byte-identical concatenation (its own Pass 2b) whose anchors span MORE
+    # THAN ONE existing row. Found colliding with RISK-1's cross-row-merge
+    # handling when this was wired into a live path: a genuine edit-driven
+    # Shape-B merge always deletes at least one real byte (the boundary
+    # punctuation), which fragment-run's exact-equality match can never
+    # survive -- so any match reached here is NEVER a fresh edit-merge, only
+    # ever N pre-existing rows that have ALWAYS jointly spelled one manuscript
+    # sentence via a manual sub-sentence split. Treating it as a merge
+    # requiring a single winner (as an earlier revision of this function did)
+    # silently destroyed the other rows' distinct casts and audio -- exactly
+    # the RC-1 regression this repo already fixed once. Each contributing row
+    # keeps its own id, cast, audio, and text_content untouched; only its
+    # slice of the shared span (apportioned by its own text's length, since
+    # the rows' own texts concatenate exactly to the fresh sentence by
+    # definition of this match) changes.
+    outcomes: list[RowOutcome] = []
+    consumed_fresh_indices: set[int] = set()
+    fragment_run_rows: set[int] = set()
+    for fresh_idx, members in list(run_members_by_fresh_index.items()):
+        member_rows = sorted({anchor_by_id[m]["row_idx"] for m in members})
+        if len(member_rows) <= 1:
+            continue
+        from .segments import segment_text_hash
+
+        pos = fresh_offsets[fresh_idx][0]
+        for r_idx in member_rows:
+            row = existing_rows[r_idx]
+            text = row.get("text_content") or ""
+            end = pos + len(text)
+            outcomes.append(
+                RowOutcome(
+                    kind="unchanged",
+                    row_id=row["id"],
+                    start_offset=pos,
+                    end_offset=end,
+                    text_content=text,
+                    text_hash=row.get("text_hash") or segment_text_hash(text),
+                )
+            )
+            fragment_run_rows.add(r_idx)
+            pos = end
+        consumed_fresh_indices.add(fresh_idx)
+
+    # Cross-row merge groups (RISK-1 Shape B), source 1: none -- see the
+    # fragment-run block just above for why a core-matched multi-row
+    # PreservedRun can never be a genuine Shape-B merge.
     cross_row_groups: dict[int, set[int]] = defaultdict(set)
-    for fresh_idx, members in run_members_by_fresh_index.items():
-        member_rows = {anchor_by_id[m]["row_idx"] for m in members}
-        if len(member_rows) > 1:
-            cross_row_groups[fresh_idx] = member_rows
 
     # Cross-row merge groups, source 2 -- the actual RISK-1 boundary case: the
     # LAST anchor of a row and the FIRST anchor of the next row are both left
@@ -423,11 +465,11 @@ def align_render_blocks(
                 share[a["row_idx"]] += len(a["text"])
         group_winner[fresh_idx] = max(sorted(row_idxs), key=lambda r: share[r])
 
-    outcomes: list[RowOutcome] = []
-    consumed_fresh_indices: set[int] = set()
     fully_unmatched_rows: list[int] = []
 
     for row_idx, row in enumerate(existing_rows):
+        if row_idx in fragment_run_rows:
+            continue  # already emitted above (multi-row fragment-run preservation)
         row_anchors = anchors_by_row[row_idx]
         dispositions = []
         for a in row_anchors:
@@ -538,6 +580,21 @@ def align_render_blocks(
         if run is not None:
             contenders_by_run[run].append(row_idx)
 
+    # I2 composition gap (found wiring this into a live path, #232 Task 005c):
+    # a SINGLE-sentence run with exactly one contender row looks unambiguous
+    # from this step's own point of view, but if that sentence's text is a
+    # genuine duplicate elsewhere in the chapter, Pass 1 may already have
+    # authoritatively resolved one occurrence positionally, leaving only one
+    # "unmatched" survivor here that would otherwise get silently re-homed to
+    # an unrelated occurrence -- exactly the reordered-duplicate cross-match
+    # I2 exists to forbid (see align_segments' Pass 2a gate, which this step
+    # must mirror for the length-1 case). A genuine multi-row moved BLOCK, or
+    # a real tie among 2+ unmatched candidates (the scenario this step's own
+    # dedicated tests cover), stays ungated -- both are deliberate, positively
+    # distinguishable actions, not a lone survivor of an unrelated duplicate.
+    existing_row_text_counts = Counter(_norm(r.get("text_content")) for r in existing_rows)
+    fresh_sentence_counts = Counter(_norm(s) for s in fresh_sentences)
+
     claimed_runs: set[tuple[int, int]] = set()
     for row_idx in fully_unmatched_rows:
         row = existing_rows[row_idx]
@@ -546,6 +603,23 @@ def align_render_blocks(
             outcomes.append(RowOutcome(kind="deleted", row_id=row["id"]))
             continue
         contenders = contenders_by_run[run]
+        lo, hi = run
+        if lo == hi and len(contenders) == 1:
+            target = _norm(row.get("text_content"))
+            if existing_row_text_counts[target] > 1 or fresh_sentence_counts[target] > 1:
+                outcomes.append(
+                    RowOutcome(
+                        kind="deleted",
+                        row_id=row["id"],
+                        ambiguous_tie_note=(
+                            "duplicate-sensitive single-sentence move declined: another "
+                            "occurrence of this exact text was already resolved by "
+                            "position (I2) -- fell back to delete+new rather than "
+                            "cross-matching a reordered duplicate"
+                        ),
+                    )
+                )
+                continue
         if len(contenders) == 1:
             winner = row_idx
         else:
