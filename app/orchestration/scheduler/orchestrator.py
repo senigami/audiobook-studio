@@ -501,9 +501,25 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
                 continue
 
             # Unresolved work remains — re-queue with recovery priority.
+            # #232 Task 008: pass the real persisted percent so the frontend
+            # never sees a bare "queued" with implied 0% on a resume.
+            requeue_progress = None
+            if context.chapter_id:
+                try:
+                    from app.db import get_connection  # noqa: PLC0415
+                    from app.domain.chapters.summary import get_chapter_summary  # noqa: PLC0415
+                    with get_connection() as _conn:
+                        requeue_progress = get_chapter_summary(_conn, context.chapter_id).percent_complete / 100.0
+                except Exception:
+                    logger.warning(
+                        "Recovery: task %s — failed to compute persisted progress for re-queue (fail-open).",
+                        task_id, exc_info=True,
+                    )
+                    requeue_progress = None
             self.progress_service.publish(
                 job_id=task_id,
                 status="queued",
+                progress=requeue_progress,
                 parent_job_id=context.project_id,
                 chapter_id=context.chapter_id,
                 message="Unresolved batches re-queued after recovery. Resuming...",

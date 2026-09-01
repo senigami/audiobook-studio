@@ -92,41 +92,6 @@ def update_segments_status_bulk(segment_ids: List[str], chapter_id: str, status:
         except Exception:
             logger.warning("Failed to clean up chapter audio after bulk segment reset", exc_info=True)
 
-def chapter_completion_by_size(chapter_id: str) -> tuple[int, int]:
-    """Return ``(done_chars, total_chars)`` for a chapter's segments, size-
-    weighted by ``LENGTH(text_content)`` rather than segment count.
-
-    Used as the order-independent source of truth for chapter completion
-    (W-PAR enable-gate, size-weighted/order-independent completion): unlike a
-    count-based ``completed/total`` ratio, this reflects the fraction of
-    manuscript TEXT actually rendered, so an out-of-order completion of a
-    large segment before smaller ones is not under-reported. ``audio_status
-    = 'done'`` is the sole completion value for ``chapter_segments`` (see
-    ``app/db/segments.py`` / ``update_segment``).
-
-    Returns ``(0, 0)`` for a chapter with no segments.
-    """
-    with _db_lock:
-        with get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT
-                    COALESCE(SUM(LENGTH(text_content)), 0) AS total_chars,
-                    COALESCE(SUM(CASE WHEN audio_status = 'done' THEN LENGTH(text_content) ELSE 0 END), 0) AS done_chars
-                FROM chapter_segments
-                WHERE chapter_id = ?
-                """,
-                (chapter_id,),
-            )
-            row = cursor.fetchone()
-    if not row:
-        return (0, 0)
-    total_chars = int(row["total_chars"] or 0)
-    done_chars = int(row["done_chars"] or 0)
-    return (done_chars, total_chars)
-
-
 def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
     request_started_at = time.perf_counter()
     with _db_lock:
