@@ -72,9 +72,22 @@ def _unknown_engine_cap_keys(engine_caps: dict) -> set:
     from ...engines.bridge import create_voice_bridge
 
     bridge = create_voice_bridge()
-    known_ids = {
-        entry.get("engine_id") for entry in bridge.describe_registry() if entry.get("engine_id")
-    }
+    try:
+        entries = bridge.describe_registry()
+    except Exception as exc:
+        # The caller's whole payload is inside a broad ``except Exception`` that
+        # answers 200 — swallowing this here would silently discard every field
+        # in the request, secret fields included. Fail loudly instead.
+        raise HTTPException(
+            status_code=503,
+            detail="Cannot validate tts_engine_caps: engine registry is unavailable.",
+        ) from exc
+    known_ids = {entry.get("engine_id") for entry in entries if entry.get("engine_id")}
+    if not known_ids:
+        raise HTTPException(
+            status_code=503,
+            detail="Cannot validate tts_engine_caps: no engines are currently loaded.",
+        )
     return {str(key) for key in engine_caps.keys() if str(key) not in known_ids}
 
 
