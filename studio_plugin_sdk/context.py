@@ -302,20 +302,29 @@ class StudioPluginContext:
         *,
         default_profile: str | None = None,
     ) -> list[dict[str, Any]]:
-        """Group consecutive segments by speaker into render groups.
+        """Wrap each segment as its own one-row render group.
 
-        Wraps ``app.domain.chunk_groups.build_chunk_groups``.
-        ``char_limit`` is accepted for API symmetry but the underlying
-        grouper does not yet split on character count (S10 work); it is
-        preserved here so callers that pass it do not break.
-        ``default_profile`` is forwarded as the fallback speaker profile.
+        #232 Task 005b: a ``chapter_segments`` row IS the render unit by
+        construction now (grouping happens once, at row-creation time, in
+        ``sync_chapter_segments``) -- this no longer delegates to
+        ``app.domain.chunk_groups.build_chunk_groups`` (which would
+        re-merge already-distinct rows and reassign them a shared
+        filename, reintroducing the crash this task closes). It still
+        performs the same per-row engine resolution the domain function
+        did, via ``rows_as_groups``, so engine selection for a
+        multi-character/multi-engine chapter is unchanged.
+
+        ``char_limit`` is accepted for API symmetry (the plugin contract's
+        method signature) but unused. ``default_profile`` is forwarded as
+        the fallback speaker profile for engine resolution.
 
         Note: the return type is ``list[dict]`` (each dict has a
         ``segments`` key), NOT ``list[list[dict]]``; callers must iterate
-        ``group["segments"]``.
+        ``group["segments"]``. Each group now always contains exactly one
+        row's segments.
         """
-        from app.domain.chunk_groups import build_chunk_groups  # noqa: PLC0415
-        return build_chunk_groups(segments, default_profile=default_profile)
+        from app.domain.chunk_groups import rows_as_groups  # noqa: PLC0415
+        return rows_as_groups(segments, default_profile)
 
     def load_chunk_segments(
         self,

@@ -170,7 +170,12 @@ def test_handle_mixed_job_returns_bridge_failure_message(clean_db, tmp_path):
     assert mock_update.call_args.kwargs["error"] == "Bridge concrete failure"
 
 
-def test_handle_mixed_job_groups_adjacent_segments_into_one_chunk(clean_db, tmp_path):
+def test_handle_mixed_job_renders_each_row_as_its_own_chunk(clean_db, tmp_path):
+    """#232 Task 005b: ctx.build_chunk_groups no longer merges adjacent
+    same-profile rows into one render group at render time (that packing
+    decision now happens once, at row-creation time, inside
+    sync_chapter_segments) -- each chapter_segments row gets its own bridge
+    call and its own audio file, named after its own id."""
     from app.db.projects import create_project
     from app.db.chapters import create_chapter
     from app.db.segments import sync_chapter_segments, get_chapter_segments, update_segment
@@ -213,11 +218,12 @@ def test_handle_mixed_job_groups_adjacent_segments_into_one_chunk(clean_db, tmp_
         refreshed = get_chapter_segments(cid)
 
     assert result == "done"
-    assert mock_bridge.call_count == 1
-    expected_path = f"{refreshed[0]['id']}.wav"
-    assert refreshed[0]["audio_file_path"] == expected_path
-    assert refreshed[1]["audio_file_path"] == expected_path
-    assert (tmp_path / "segments" / expected_path).exists()
+    assert mock_bridge.call_count == 2
+    assert refreshed[0]["audio_file_path"] == f"{refreshed[0]['id']}.wav"
+    assert refreshed[1]["audio_file_path"] == f"{refreshed[1]['id']}.wav"
+    assert refreshed[0]["audio_file_path"] != refreshed[1]["audio_file_path"]
+    assert (tmp_path / "segments" / refreshed[0]["audio_file_path"]).exists()
+    assert (tmp_path / "segments" / refreshed[1]["audio_file_path"]).exists()
 
 
 def test_handle_mixed_job_emits_segment_saved_markers_and_owns_no_chapter_progress(clean_db, tmp_path):
@@ -410,11 +416,13 @@ def test_handle_mixed_job_forwards_engine_progress_lines(clean_db, tmp_path):
 
     # Engine [PROGRESS] lines must be forwarded verbatim — they are what feeds the
     # orchestrator's marker pipeline (the single owner of chapter-level progress).
-    # 2 render groups (segments grouped by profile) x 2 progress lines each.
+    # #232 Task 005b: each chapter_segments row is its own render group now
+    # (ctx.build_chunk_groups no longer merges same-profile rows at render
+    # time) -- 3 rows x 2 progress lines each, not 2 merged groups x 2.
     progress_lines = [line for line in output_lines if "[PROGRESS]" in line]
-    assert progress_lines == ["[PROGRESS] 25%\n", "[PROGRESS] 75%\n"] * 2
+    assert progress_lines == ["[PROGRESS] 25%\n", "[PROGRESS] 75%\n"] * 3
     start_lines = [line for line in output_lines if "[START_SEGMENT]" in line]
-    assert len(start_lines) == 2
+    assert len(start_lines) == 3
 
     for call in mock_update.call_args_list:
         status = call.kwargs.get("status")

@@ -98,8 +98,13 @@ def test_render_groups_partitions_all_segments(clean_db, client):
         assert len(group["segment_ids"]) > 0
 
 
-def test_render_groups_packs_into_fewer_groups_than_segments(clean_db, client):
-    """When limit is large, short segments pack into fewer groups than there are segments."""
+def test_render_groups_never_packs_rows_regardless_of_chunk_limit(clean_db, client):
+    """#232 Task 005b (RISK-3): a chapter_segments row IS the render unit by
+    construction now -- render_groups no longer recomputes packing live, so
+    even a huge chunk limit must NOT merge separate rows into fewer groups.
+    (Pre-005b this endpoint called build_chunk_groups at read time and DID
+    pack short segments together; that packing decision now happens once, at
+    row-creation time inside sync_chapter_segments, never here.)"""
     pid, cid = _make_project_and_chapter(
         client,
         text="Hi. Bye."
@@ -111,13 +116,12 @@ def test_render_groups_packs_into_fewer_groups_than_segments(clean_db, client):
     segs_resp = client.get(f"/api/chapters/{cid}/segments")
     all_seg_ids = [s["id"] for s in segs_resp.json()["segments"] if s.get("text_content", "").strip()]
 
-    # Large limit: all segments should pack into one group.
     with patch("app.domain.chunk_groups.get_text_chunk_limit", return_value=100_000):
         resp = client.get(f"/api/projects/{pid}/chapters/{cid}/render_groups")
 
     assert resp.status_code == 200
     data = resp.json()
-    assert data["count"] < len(all_seg_ids) or len(all_seg_ids) <= 1
+    assert data["count"] == len(all_seg_ids)
     # All segments still accounted for.
     returned_ids = [sid for g in data["groups"] for sid in g["segment_ids"]]
     assert set(returned_ids) == set(all_seg_ids)
