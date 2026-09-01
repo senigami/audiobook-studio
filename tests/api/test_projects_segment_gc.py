@@ -9,12 +9,36 @@ within the request — no sleeps needed.
 """
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from app.db.projects import create_project
 from app.db.chapters import create_chapter
 from app.db.core import get_connection
+from app.db.migrations.registry import MIGRATIONS
+from app.db.migrations.runner import run_migrations
 from app.core import config
+
+
+@pytest.fixture(autouse=True)
+def _ensure_schema():
+    """conftest's ``clean_storage`` (function-scoped, autouse) re-runs
+    ``init_db()`` before every test, which recreates the schema from scratch
+    without the versioned migration registry — so segment_audio_tombstones
+    and chapter_locks would not exist. Re-apply the migration after it, each
+    test (idempotent, guarded by schema_migrations)."""
+    with get_connection() as conn:
+        run_migrations(conn, MIGRATIONS)
+
+
+def _insert_tombstone(chapter_id: str, filename: str, *, age_seconds: float = 0.0) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO segment_audio_tombstones (filename, chapter_id, created_at) VALUES (?, ?, ?)",
+            (filename, chapter_id, time.time() - age_seconds),
+        )
+        conn.commit()
 
 
 @pytest.fixture
@@ -47,12 +71,16 @@ def _resolve_seg_dir(project_id: str, chapter_id: str):
 
 
 def test_get_project_triggers_gc_deletes_orphan(client):
-    """GET /api/projects/{project_id} should delete orphaned segment files
-    via a background task while keeping referenced files intact.
+    """GET /api/projects/{project_id} should delete a TOMBSTONED-and-aged
+    orphaned segment file via a background task while keeping referenced
+    files intact (#232 Task 004: GC is tombstone-gated, INV-3 — an
+    untombstoned orphan is a separate case, covered below).
 
     R1 revert-check: fails before the BackgroundTasks hook is wired in
     api_get_project.
     """
+    from app.db.segment_gc import GC_TOMBSTONE_GRACE_PERIOD_SECONDS
+
     pid = create_project("GC Route Test Project")
     cid = create_chapter(pid, "GC Route Test Chapter")
 
@@ -62,6 +90,7 @@ def test_get_project_triggers_gc_deletes_orphan(client):
     seg_dir = _resolve_seg_dir(pid, cid)
     (seg_dir / "referenced.wav").write_bytes(b"RIFF")
     (seg_dir / "orphan.wav").write_bytes(b"RIFF")
+    _insert_tombstone(cid, "orphan.wav", age_seconds=GC_TOMBSTONE_GRACE_PERIOD_SECONDS + 60)
 
     response = client.get(f"/api/projects/{pid}")
 
@@ -70,7 +99,24 @@ def test_get_project_triggers_gc_deletes_orphan(client):
 
     # BackgroundTasks runs synchronously in TestClient
     assert (seg_dir / "referenced.wav").exists(), "Referenced file must survive"
-    assert not (seg_dir / "orphan.wav").exists(), "Orphaned file must be deleted"
+    assert not (seg_dir / "orphan.wav").exists(), "Tombstoned+aged orphan must be deleted"
+
+
+def test_get_project_does_not_delete_untombstoned_orphan(client):
+    """An unreferenced file with no tombstone must survive a GET-triggered
+    sweep (INV-3) — GC only reports it, an operator/scheduled sweep decides
+    what to do with it."""
+    pid = create_project("GC Route Untombstoned Test Project")
+    cid = create_chapter(pid, "GC Route Untombstoned Test Chapter")
+
+    seg_dir = _resolve_seg_dir(pid, cid)
+    (seg_dir / "orphan.wav").write_bytes(b"RIFF")
+    # No tombstone.
+
+    response = client.get(f"/api/projects/{pid}")
+
+    assert response.status_code == 200
+    assert (seg_dir / "orphan.wav").exists(), "Untombstoned orphan must NOT be deleted"
 
 
 def test_get_project_404_does_not_trigger_gc(client):

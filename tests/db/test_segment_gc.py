@@ -4,13 +4,23 @@ TDD: these tests are written BEFORE the implementation. They define the
 contract for reconcile_orphan_segment_files() and
 reconcile_orphan_segment_files_for_project().
 
+#232 Task 004 (tombstone-gated GC, INV-3): GC no longer deletes an
+unreferenced file on inference alone. A file becomes a deletion candidate
+only once tombstoned; it is actually deleted only once that tombstone is
+older than the grace period AND no live row references it at delete time.
+This is a deliberate behavior change from the pre-Task-004 code (which
+deleted every unreferenced file unconditionally) — the tests below assert
+the NEW contract, not the old one.
+
 R2 compliant: mocks only _chapter_has_active_generation (boundary) and
 watchdog (boundary). Never mocks the GC function itself or db internals.
-R4 compliant: no sleeps or setTimeout waits.
+R4 compliant: no sleeps or setTimeout waits — grace-period aging is
+simulated via a backdated `created_at`, never a real sleep.
 """
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -19,7 +29,22 @@ import pytest
 from app.db.core import get_connection
 from app.db.projects import create_project
 from app.db.chapters import create_chapter
+from app.db.migrations.registry import MIGRATIONS
+from app.db.migrations.runner import run_migrations
 from app.core import config
+
+
+@pytest.fixture(autouse=True)
+def _ensure_schema():
+    """conftest's ``clean_storage`` (function-scoped, autouse) re-runs
+    ``init_db()`` before every test, which recreates the schema from scratch
+    without the versioned migration registry — so segment_audio_tombstones
+    and chapter_locks would not exist. Re-apply the migration after it, each
+    test (idempotent, guarded by schema_migrations). Pytest runs a conftest
+    autouse fixture before a same-scope autouse fixture defined in the test
+    module, so this runs after clean_storage."""
+    with get_connection() as conn:
+        run_migrations(conn, MIGRATIONS)
 
 
 def _insert_segment(chapter_id: str, seg_id: str, audio_file_path: str | None) -> None:
@@ -36,6 +61,21 @@ def _insert_segment(chapter_id: str, seg_id: str, audio_file_path: str | None) -
         conn.commit()
 
 
+def _insert_tombstone(chapter_id: str, filename: str, *, age_seconds: float = 0.0) -> None:
+    """Write a segment_audio_tombstones row, optionally backdated to
+    simulate a tombstone that is already past the grace period, without
+    a real sleep (R4)."""
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO segment_audio_tombstones (filename, chapter_id, created_at)
+            VALUES (?, ?, ?)
+            """,
+            (filename, chapter_id, time.time() - age_seconds),
+        )
+        conn.commit()
+
+
 def _resolve_seg_dir(project_id: str, chapter_id: str) -> Path:
     chapter_dir = config.get_chapter_dir(project_id, chapter_id)
     seg_dir = config.secure_join_flat(chapter_dir, "segments")
@@ -45,11 +85,13 @@ def _resolve_seg_dir(project_id: str, chapter_id: str) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# Test 1 (R1 revert-check target): deletes unreferenced files
+# Test 1 (R1 revert-check target): untombstoned orphans are NEVER deleted
 # ---------------------------------------------------------------------------
 
-def test_deletes_orphaned_files():
-    """Only files referenced by a DB row survive; true orphans are deleted."""
+def test_untombstoned_orphan_not_deleted():
+    """INV-3: an unreferenced file with no tombstone is reported, never
+    deleted. R1 revert-check target — fails against the pre-Task-004 code,
+    which deleted every unreferenced file unconditionally."""
     from app.db.segment_gc import reconcile_orphan_segment_files
 
     pid = create_project("GC Test Project")
@@ -62,14 +104,106 @@ def test_deletes_orphaned_files():
     (seg_dir / "groupA.wav").write_bytes(b"RIFF")
     (seg_dir / "groupB.wav").write_bytes(b"RIFF")
     (seg_dir / "groupC.wav").write_bytes(b"RIFF")
+    # groupB.wav and groupC.wav have NO tombstone.
 
     summary = reconcile_orphan_segment_files()
 
     assert (seg_dir / "groupA.wav").exists(), "Referenced file must not be deleted"
-    assert not (seg_dir / "groupB.wav").exists(), "Orphan groupB.wav must be deleted"
-    assert not (seg_dir / "groupC.wav").exists(), "Orphan groupC.wav must be deleted"
-    assert summary["orphans_deleted"] == 2
+    assert (seg_dir / "groupB.wav").exists(), "Untombstoned orphan must NOT be deleted"
+    assert (seg_dir / "groupC.wav").exists(), "Untombstoned orphan must NOT be deleted"
+    assert summary["orphans_deleted"] == 0
+    assert summary["orphans_found"] == 2
+    assert summary["orphans_untombstoned"] == 2
     assert summary["chapters_scanned"] >= 1
+
+
+# ---------------------------------------------------------------------------
+# Test: tombstoned + past grace period -> deleted
+# ---------------------------------------------------------------------------
+
+def test_tombstoned_orphan_past_grace_period_deleted():
+    from app.db.segment_gc import (
+        GC_TOMBSTONE_GRACE_PERIOD_SECONDS,
+        reconcile_orphan_segment_files,
+    )
+
+    pid = create_project("GC Tombstone Aged Project")
+    cid = create_chapter(pid, "GC Tombstone Aged Chapter")
+
+    seg_dir = _resolve_seg_dir(pid, cid)
+    (seg_dir / "aged.wav").write_bytes(b"RIFF")
+    _insert_tombstone(cid, "aged.wav", age_seconds=GC_TOMBSTONE_GRACE_PERIOD_SECONDS + 60)
+
+    summary = reconcile_orphan_segment_files()
+
+    assert not (seg_dir / "aged.wav").exists(), "Tombstoned file past grace period must be deleted"
+    assert summary["orphans_deleted"] == 1
+    assert summary["orphans_untombstoned"] == 0
+
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM segment_audio_tombstones WHERE chapter_id = ? AND filename = ?",
+            (cid, "aged.wav"),
+        ).fetchone()
+    assert row is None, "Consumed tombstone row must be cleared after deletion"
+
+
+# ---------------------------------------------------------------------------
+# Test: tombstoned but still within grace period -> NOT deleted
+# ---------------------------------------------------------------------------
+
+def test_tombstoned_orphan_within_grace_period_not_deleted():
+    from app.db.segment_gc import reconcile_orphan_segment_files
+
+    pid = create_project("GC Tombstone Fresh Project")
+    cid = create_chapter(pid, "GC Tombstone Fresh Chapter")
+
+    seg_dir = _resolve_seg_dir(pid, cid)
+    (seg_dir / "fresh.wav").write_bytes(b"RIFF")
+    _insert_tombstone(cid, "fresh.wav", age_seconds=5)  # well within grace period
+
+    summary = reconcile_orphan_segment_files()
+
+    assert (seg_dir / "fresh.wav").exists(), "Tombstoned file within grace period must survive"
+    assert summary["orphans_deleted"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Test: a stale tombstone (file live again) is cleared, never the file
+# ---------------------------------------------------------------------------
+
+def test_stale_tombstone_for_live_file_is_cleared_not_the_file():
+    """A row can be tombstoned, then legitimately re-rendered under the SAME
+    id/filename before the grace period elapses. GC must re-check live
+    references at delete time and clear the now-stale tombstone rather than
+    deleting the (live, referenced) file."""
+    from app.db.segment_gc import (
+        GC_TOMBSTONE_GRACE_PERIOD_SECONDS,
+        reconcile_orphan_segment_files,
+    )
+
+    pid = create_project("GC Stale Tombstone Project")
+    cid = create_chapter(pid, "GC Stale Tombstone Chapter")
+
+    seg_dir = _resolve_seg_dir(pid, cid)
+    (seg_dir / "reused.wav").write_bytes(b"RIFF")
+
+    # Tombstoned in the past (old enough to be past the grace period)...
+    _insert_tombstone(cid, "reused.wav", age_seconds=GC_TOMBSTONE_GRACE_PERIOD_SECONDS + 60)
+    # ...but a live row now references the SAME filename again (re-render).
+    _insert_segment(cid, "seg-reused", "reused.wav")
+
+    summary = reconcile_orphan_segment_files()
+
+    assert (seg_dir / "reused.wav").exists(), "Live re-rendered file must NEVER be deleted"
+    assert summary["orphans_deleted"] == 0
+
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM segment_audio_tombstones WHERE chapter_id = ? AND filename = ?",
+            (cid, "reused.wav"),
+        ).fetchone()
+    assert row is None, "Stale tombstone must be cleared once the filename is live again"
 
 
 # ---------------------------------------------------------------------------
@@ -101,14 +235,18 @@ def test_keeps_all_referenced_files():
 
 def test_skips_active_generation_chapter():
     """A chapter with an active render is skipped entirely — no deletions."""
-    from app.db.segment_gc import reconcile_orphan_segment_files
+    from app.db.segment_gc import (
+        GC_TOMBSTONE_GRACE_PERIOD_SECONDS,
+        reconcile_orphan_segment_files,
+    )
 
     pid = create_project("GC Active Test")
     cid = create_chapter(pid, "GC Active Chapter")
 
     seg_dir = _resolve_seg_dir(pid, cid)
     (seg_dir / "orphan.wav").write_bytes(b"RIFF")
-    # No DB row references orphan.wav, but the chapter is "active"
+    # Tombstoned + aged, so it WOULD be deleted if not for the active guard.
+    _insert_tombstone(cid, "orphan.wav", age_seconds=GC_TOMBSTONE_GRACE_PERIOD_SECONDS + 60)
 
     with patch("app.db.segment_gc._chapter_has_active_generation", return_value=True):
         summary = reconcile_orphan_segment_files()
@@ -145,12 +283,16 @@ def test_never_touches_chapter_root_outputs():
 
 
 # ---------------------------------------------------------------------------
-# Test 5: dry_run deletes nothing but counts orphans
+# Test 5: dry_run deletes nothing but counts orphans (tombstoned or not)
 # ---------------------------------------------------------------------------
 
 def test_dry_run_deletes_nothing():
-    """dry_run=True counts orphans but does not delete them."""
-    from app.db.segment_gc import reconcile_orphan_segment_files
+    """dry_run=True counts orphans but does not delete them, and does not
+    mutate tombstone state either."""
+    from app.db.segment_gc import (
+        GC_TOMBSTONE_GRACE_PERIOD_SECONDS,
+        reconcile_orphan_segment_files,
+    )
 
     pid = create_project("GC DryRun Test")
     cid = create_chapter(pid, "GC DryRun Chapter")
@@ -158,7 +300,9 @@ def test_dry_run_deletes_nothing():
     seg_dir = _resolve_seg_dir(pid, cid)
     (seg_dir / "orphan1.wav").write_bytes(b"RIFF")
     (seg_dir / "orphan2.wav").write_bytes(b"RIFF")
-    # No DB rows → both are orphans
+    # orphan2 is tombstoned and aged — would be deleted for real, but must
+    # not be under dry_run.
+    _insert_tombstone(cid, "orphan2.wav", age_seconds=GC_TOMBSTONE_GRACE_PERIOD_SECONDS + 60)
 
     summary = reconcile_orphan_segment_files(dry_run=True)
 
@@ -166,6 +310,13 @@ def test_dry_run_deletes_nothing():
     assert (seg_dir / "orphan2.wav").exists(), "dry_run must not delete files"
     assert summary["orphans_found"] >= 2
     assert summary["orphans_deleted"] == 0
+
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM segment_audio_tombstones WHERE chapter_id = ? AND filename = ?",
+            (cid, "orphan2.wav"),
+        ).fetchone()
+    assert row is not None, "dry_run must not consume the tombstone either"
 
 
 # ---------------------------------------------------------------------------
@@ -177,21 +328,24 @@ def test_per_project_scoping():
 
     R1 revert-check target: must fail before reconcile_orphan_segment_files_for_project exists.
     """
-    from app.db.segment_gc import reconcile_orphan_segment_files_for_project
+    from app.db.segment_gc import (
+        GC_TOMBSTONE_GRACE_PERIOD_SECONDS,
+        reconcile_orphan_segment_files_for_project,
+    )
 
-    # Project A: has an unreferenced segment file
+    # Project A: has an unreferenced, tombstoned+aged segment file
     pid_a = create_project("GC Scope A")
     cid_a = create_chapter(pid_a, "Chapter A")
     seg_dir_a = _resolve_seg_dir(pid_a, cid_a)
     (seg_dir_a / "orphan_a.wav").write_bytes(b"RIFF")
-    # No DB row → orphan_a.wav is an orphan in project A
+    _insert_tombstone(cid_a, "orphan_a.wav", age_seconds=GC_TOMBSTONE_GRACE_PERIOD_SECONDS + 60)
 
-    # Project B: has an unreferenced segment file
+    # Project B: has an unreferenced, tombstoned+aged segment file too
     pid_b = create_project("GC Scope B")
     cid_b = create_chapter(pid_b, "Chapter B")
     seg_dir_b = _resolve_seg_dir(pid_b, cid_b)
     (seg_dir_b / "orphan_b.wav").write_bytes(b"RIFF")
-    # No DB row → orphan_b.wav is an orphan in project B
+    _insert_tombstone(cid_b, "orphan_b.wav", age_seconds=GC_TOMBSTONE_GRACE_PERIOD_SECONDS + 60)
 
     # Run ONLY for project A
     summary = reconcile_orphan_segment_files_for_project(pid_a)
@@ -205,13 +359,16 @@ def test_per_project_scoping():
 
 def test_per_project_skips_active_generation():
     """(b) Per-project sweep skips chapters with active generation."""
-    from app.db.segment_gc import reconcile_orphan_segment_files_for_project
+    from app.db.segment_gc import (
+        GC_TOMBSTONE_GRACE_PERIOD_SECONDS,
+        reconcile_orphan_segment_files_for_project,
+    )
 
     pid = create_project("GC PerProject Active Test")
     cid = create_chapter(pid, "Active Chapter")
     seg_dir = _resolve_seg_dir(pid, cid)
     (seg_dir / "orphan.wav").write_bytes(b"RIFF")
-    # No DB row → orphan.wav would be an orphan
+    _insert_tombstone(cid, "orphan.wav", age_seconds=GC_TOMBSTONE_GRACE_PERIOD_SECONDS + 60)
 
     with patch("app.db.segment_gc._chapter_has_active_generation", return_value=True):
         summary = reconcile_orphan_segment_files_for_project(pid)
@@ -230,7 +387,7 @@ def test_per_project_dry_run():
     seg_dir = _resolve_seg_dir(pid, cid)
     (seg_dir / "dryrun1.wav").write_bytes(b"RIFF")
     (seg_dir / "dryrun2.wav").write_bytes(b"RIFF")
-    # No DB rows → both are orphans
+    # No DB rows, no tombstones → both are orphans
 
     summary = reconcile_orphan_segment_files_for_project(pid, dry_run=True)
 

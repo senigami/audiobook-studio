@@ -6,6 +6,7 @@ import re
 import time
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
+from .segment_tombstones import has_tombstone
 from ..utils.render_trace import trace
 
 logger = logging.getLogger(__name__)
@@ -227,6 +228,19 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
                     exists = True
 
             if not exists:
+                # #232 Task 004: a file missing on disk could be mid-grace-
+                # period in a tombstone-then-sweep cycle (GC has tombstoned
+                # it but not yet deleted it, or has already deleted it and
+                # is about to clear the row itself). Don't race that: if a
+                # tombstone exists for this filename, its terminal state is
+                # GC's business, not this read path's — skip rather than
+                # NULL it out from here. A canonical-name mismatch on a file
+                # that's still PRESENT is a different case (build_chunk_groups
+                # recomputation, out of this task's scope) and keeps
+                # invalidating as before.
+                file_exists = path in existing_segment_files if (path and seg_dir) else False
+                if path and not file_exists and has_tombstone(chapter_id, os.path.basename(path)):
+                    continue
                 s['audio_status'] = 'unprocessed'
                 s['audio_file_path'] = None
                 invalid_done_ids.append(s['id'])
