@@ -22,6 +22,14 @@ def clean_db():
     import importlib
     importlib.reload(app.db.core)
     init_db()
+    # #232 Task 009: this fixture points DB_PATH at its own file and never ran
+    # the versioned schema migrations (unlike the session-wide autouse
+    # clean_storage fixture in conftest.py) -- start_offset/end_offset/text_hash
+    # didn't exist here, silently exercising sync_chapter_segments' pre-#232
+    # fallback path instead of the real render-block schema every other test
+    # (and production) runs against.
+    from app.core.boot import run_schema_migrations
+    run_schema_migrations()
 
     from app.db.state import update_settings
     update_settings({"default_speaker_profile": "DefaultVoice"})
@@ -118,6 +126,14 @@ def test_chapter_segments_sync_and_update(clean_db, client):
     segs = response.json()["segments"]
     assert len(segs) > 0
     sid = segs[0]["id"]
+
+    # #232 Task 009: segment_order is a derived-on-write convenience column
+    # now (ordering authority is start_offset, per 01-map.md) with zero
+    # frontend readers -- the API stops serving it even though the DB column
+    # itself stays (segment_order remains a real, populated column; this is
+    # a payload-shape change, not a schema change).
+    assert "segment_order" not in segs[0]
+    assert "start_offset" in segs[0]
 
     # Update segment
     response = client.put(f"/api/segments/{sid}", json={"text_content": "Updated segment text"})

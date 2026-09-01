@@ -106,7 +106,9 @@ export interface Character {
 export interface ChapterSegment {
   id: string;
   chapter_id: string;
-  segment_order: number;
+  // #232 Task 009: segment_order dropped -- ordering authority is
+  // start_offset, this field had zero runtime readers, and the API no
+  // longer serves it (app/api/routers/chapters.py's api_get_segments).
   text_content: string;
   sanitized_text?: string;
   character_id: string | null;

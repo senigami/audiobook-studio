@@ -201,7 +201,17 @@ def api_get_chapter_render_groups(project_id: str, chapter_id: str):
 
 @router.get("/chapters/{chapter_id}/segments")
 def api_get_segments(chapter_id: str):
-    return JSONResponse({"segments": get_chapter_segments(chapter_id)})
+    # #232 Task 009: segment_order is a derived-on-write convenience column
+    # (ordering authority is start_offset -- see 01-map.md's round-5
+    # correction); it has zero frontend readers, so stop serving it over the
+    # API here even though the DB column itself is untouched (internal
+    # callers of get_chapter_segments() still receive it -- e.g.
+    # tests/db/test_sync_chapter_segments_offsets.py sorts by it directly).
+    segments = [
+        {k: v for k, v in seg.items() if k != "segment_order"}
+        for seg in get_chapter_segments(chapter_id)
+    ]
+    return JSONResponse({"segments": segments})
 
 
 # Untrusted request bodies for PUT /segments/{id} are forwarded into
