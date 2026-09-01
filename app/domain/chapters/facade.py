@@ -30,6 +30,7 @@ from .operations import (
     save_script_assignments,
     get_resync_preview,
     compact_script_view,
+    MergeChunkLimitExceeded,
     _build_script_batch,
     _apply_range_assignment,
     _split_segment_at_offset,

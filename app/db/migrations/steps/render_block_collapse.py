@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from app.db.segments import segment_text_hash
+from app.db.segment_contiguity import assert_chapter_contiguity, ContiguityViolation
 
 
 class CollapseMigrationError(RuntimeError):
@@ -302,40 +303,19 @@ def _process_chapter(
 def _assert_contiguity(conn: sqlite3.Connection) -> None:
     """Target shape step 5 (INV-1): per chapter, surviving rows' offset
     ranges must chain with no gaps and no overlaps across the chapter's
-    full canonical-text length."""
-    for chapter_id in _fetch_chapter_ids(conn):
-        rows = conn.execute(
-            """
-            SELECT id, start_offset, end_offset FROM chapter_segments
-            WHERE chapter_id = ? ORDER BY start_offset ASC
-            """,
-            (chapter_id,),
-        ).fetchall()
-        if not rows:
-            continue
-        chapter_row = conn.execute(
-            "SELECT text_content FROM chapters WHERE id = ?", (chapter_id,)
-        ).fetchone()
-        canonical_text = (chapter_row["text_content"] if chapter_row else None) or ""
+    full canonical-text length.
 
-        if rows[0]["start_offset"] != 0:
-            raise CollapseMigrationError(
-                f"chapter {chapter_id}: INV-1 violated -- first segment start_offset "
-                f"{rows[0]['start_offset']} != 0"
-            )
-        prev_end = 0
-        for row in rows:
-            if row["start_offset"] != prev_end:
-                raise CollapseMigrationError(
-                    f"chapter {chapter_id}: INV-1 violated -- gap/overlap between "
-                    f"offset {prev_end} and segment {row['id']}'s start_offset {row['start_offset']}"
-                )
-            prev_end = row["end_offset"]
-        if prev_end != len(canonical_text):
-            raise CollapseMigrationError(
-                f"chapter {chapter_id}: INV-1 violated -- last segment end_offset "
-                f"{prev_end} != chapter text length {len(canonical_text)}"
-            )
+    #232 Task 006 extracted the actual check into
+    ``app.db.segment_contiguity.assert_chapter_contiguity`` (a shared helper
+    the manual split/merge editor actions also use) -- this wrapper just
+    loops every chapter and preserves this migration's own
+    ``CollapseMigrationError`` type for its existing tests.
+    """
+    for chapter_id in _fetch_chapter_ids(conn):
+        try:
+            assert_chapter_contiguity(conn, chapter_id)
+        except ContiguityViolation as exc:
+            raise CollapseMigrationError(str(exc)) from exc
 
 
 def _run_post_collapse_duplicate_check(conn: sqlite3.Connection) -> None:
