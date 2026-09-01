@@ -462,6 +462,98 @@ def update_segments_bulk(segment_ids: List[str], **updates) -> bool:
 
             return cursor.rowcount > 0
 
+def write_back_segment_audio_guarded(
+    fingerprints: Dict[str, Dict[str, Any]],
+    audio_file_path: str,
+    chapter_id: str,
+) -> Dict[str, List[str]]:
+    """Guarded write-back for a completed render's segments (#232 Task 003, INV-2).
+
+    Applies ``audio_status='done'``/``audio_file_path``/``audio_generated_at``
+    per segment id ONLY if the row's live ``(text_hash, character_id,
+    speaker_profile_name)`` still matches the fingerprint captured at job
+    submission time. A mismatch means the segment's shape changed underneath
+    an in-flight render (a resync or reassignment) -- that id's result is
+    discarded rather than applied to a row that now means something
+    different. Handled per-row, not all-or-nothing: a multi-segment group
+    sharing one audio file can have some members apply and others discard.
+
+    If EVERY id in the batch is discarded, the shared audio file is
+    tombstoned (INV-3 -- never deleted directly here; GC removes it after
+    the grace period). If any id applies, any pre-existing tombstone for
+    that filename is cleared in the same transaction (a filename that was
+    tombstoned by a prior invalidation and is now legitimately live again).
+
+    Returns ``{"applied": [...ids], "stale": [...ids]}``.
+    """
+    if not fingerprints:
+        return {"applied": [], "stale": []}
+
+    now = time.time()
+    filename = os.path.basename(audio_file_path)
+    applied: List[str] = []
+    stale: List[str] = []
+
+    with _db_lock:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            for seg_id, fp in fingerprints.items():
+                cursor.execute(
+                    """
+                    UPDATE chapter_segments
+                       SET audio_status = 'done',
+                           audio_file_path = ?,
+                           audio_generated_at = ?
+                     WHERE id = ?
+                       AND text_hash = ?
+                       AND character_id IS ?
+                       AND speaker_profile_name IS ?
+                    """,
+                    (
+                        filename,
+                        now,
+                        seg_id,
+                        fp.get("text_hash"),
+                        fp.get("character_id"),
+                        fp.get("speaker_profile_name"),
+                    ),
+                )
+                if cursor.rowcount == 1:
+                    applied.append(seg_id)
+                else:
+                    stale.append(seg_id)
+
+            if applied:
+                cursor.execute(
+                    "DELETE FROM segment_audio_tombstones WHERE filename = ? AND chapter_id = ?",
+                    (filename, chapter_id),
+                )
+                cursor.execute(
+                    "UPDATE chapters SET audio_generated_at = ? WHERE id = ?",
+                    (now, chapter_id),
+                )
+            elif stale:
+                # The whole batch was stale: nothing applied, so this file is
+                # not referenced by any live row. Tombstone it rather than
+                # deleting directly (GC, Task 004, does the actual delete
+                # after the grace period).
+                cursor.execute(
+                    "INSERT OR IGNORE INTO segment_audio_tombstones (filename, chapter_id, created_at) VALUES (?, ?, ?)",
+                    (filename, chapter_id, now),
+                )
+
+            conn.commit()
+
+    trace(
+        "segments.write_back_guarded",
+        chapter_id=chapter_id,
+        filename=filename,
+        applied=applied,
+        stale=stale,
+    )
+    return {"applied": applied, "stale": stale}
+
+
 def cleanup_orphaned_segments(chapter_id: str):
     """
     Finds and deletes any files in the chapter's segments directory
@@ -521,6 +613,15 @@ def sync_chapter_segments(chapter_id: str, text_content: str, conn=None):
 
     def _sync_with_conn(conn):
         cursor = conn.cursor()
+        # #232 migration 001 is additive and may not have run against every
+        # schema this function is exercised on (a handful of test fixtures
+        # still build a bare pre-migration chapter_segments table). Detect
+        # the column rather than assuming it, so this stays correct on both
+        # shapes -- see INV-9 below for why it's still written whenever it
+        # IS present.
+        has_text_hash_column = "text_hash" in {
+            row[1] for row in cursor.execute("PRAGMA table_info(chapter_segments)")
+        }
         # 1. Get existing segments
         cursor.execute("SELECT * FROM chapter_segments WHERE chapter_id = ? ORDER BY segment_order ASC", (chapter_id,))
         existing = [dict(row) for row in cursor.fetchall()]
@@ -606,19 +707,40 @@ def sync_chapter_segments(chapter_id: str, text_content: str, conn=None):
 
         for r in final_rows:
             if not r["preserved"]:
-                cursor.execute(
-                    """
-                    INSERT INTO chapter_segments
-                        (id, chapter_id, segment_order, text_content, character_id,
-                         speaker_profile_name, audio_status, audio_file_path, audio_generated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        r["id"], chapter_id, r["segment_order"], r["text_content"],
-                        r["character_id"], r["speaker_profile_name"], r["audio_status"],
-                        r["audio_file_path"], r["audio_generated_at"],
-                    ),
-                )
+                if has_text_hash_column:
+                    # INV-9 (#232): a fresh row's text_hash must be written in
+                    # the same statement as its text_content, via the one
+                    # canonical helper -- otherwise Task 003's write-back
+                    # guard would see a NULL live hash for every newly-synced
+                    # segment and discard every legitimate render as "stale".
+                    cursor.execute(
+                        """
+                        INSERT INTO chapter_segments
+                            (id, chapter_id, segment_order, text_content, text_hash, character_id,
+                             speaker_profile_name, audio_status, audio_file_path, audio_generated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            r["id"], chapter_id, r["segment_order"], r["text_content"],
+                            segment_text_hash(r["text_content"]),
+                            r["character_id"], r["speaker_profile_name"], r["audio_status"],
+                            r["audio_file_path"], r["audio_generated_at"],
+                        ),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        INSERT INTO chapter_segments
+                            (id, chapter_id, segment_order, text_content, character_id,
+                             speaker_profile_name, audio_status, audio_file_path, audio_generated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            r["id"], chapter_id, r["segment_order"], r["text_content"],
+                            r["character_id"], r["speaker_profile_name"], r["audio_status"],
+                            r["audio_file_path"], r["audio_generated_at"],
+                        ),
+                    )
                 continue
 
             orig = existing_by_id[r["id"]]
