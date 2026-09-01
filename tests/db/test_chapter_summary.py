@@ -3,7 +3,8 @@ Task 007) -- the single source of truth for chapter progress/status math.
 
 Owner's non-negotiable requirement: progress is character-weighted, never
 sentence/segment-count-weighted. The regression this file guards against is
-concrete and already lived once (`app.db.segments.chapter_completion_by_size`
+concrete and already lived once (the now-deleted
+`app.db.segments.chapter_completion_by_size`
 sums raw ``LENGTH(text_content)``, which double-counts characters trimmed by
 `.strip()` relative to the render pipeline's own weight unit in
 `app.domain.chunk_groups.build_script_entry_for_group` -- ``len(" ".join(
@@ -79,7 +80,7 @@ def test_char_count_uses_stripped_text_matching_render_pipeline_weight(db_conn):
     """Pins the unit: total_chars must sum len(text_content.strip()), the
     same unit `app.domain.chunk_groups` uses for its own render weight --
     not raw len(text_content), which is what the older
-    `chapter_completion_by_size` helper (now superseded) used.
+    `chapter_completion_by_size` helper (now deleted) used.
     """
     run_schema_migrations()
     pid = create_project("P-summary-c", "/tmp")

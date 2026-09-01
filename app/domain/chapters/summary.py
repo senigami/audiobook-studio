@@ -15,8 +15,9 @@ Character-count unit is pinned to the STRIPPED text length
 (``app.domain.chunk_groups.build_script_entry_for_group``'s
 ``len(" ".join(group["text_parts"]).strip())``) rather than raw
 ``text_content`` length -- the two silently disagreed prior to this function
-(see the now-superseded ``app.db.segments.chapter_completion_by_size``, which
-used raw ``LENGTH(text_content)``).
+(the now-removed ``app.db.segments.chapter_completion_by_size`` used raw
+``LENGTH(text_content)`` and disagreed -- #232 Task 008 deleted it once it
+had no remaining production callers).
 
 Trusts ``audio_status`` exactly as persisted -- it does NOT re-validate
 against the filesystem (W5). ``app.db.segments.get_chapter_segments`` NULLs

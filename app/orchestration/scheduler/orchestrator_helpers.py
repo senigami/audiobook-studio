@@ -270,9 +270,42 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
             total_chars = sum(int((group or {}).get("text_length") or 0) for group in groups)
             if total_chars <= 0:
                 return
+            # #232 Task 008: total_chars above is the FULL chapter scope (every
+            # group `_build_groups()` returns, including ones already `done`
+            # and merely reused). Reduce to chars_remaining — this job's own
+            # groups' segment ids, filtered to NOT-done via
+            # get_chapter_summary() — so a resume's pre-load ETA estimates
+            # only the actual remaining work, not the whole chapter again.
+            # Subtractive, not reconstructive: start from the script's own
+            # (already-trusted) total_chars and subtract only what
+            # get_chapter_summary() can positively confirm is `done` among
+            # THIS job's ids. A chapter_id with no persisted rows yet (or a
+            # partial/racing write) then falls back to the full total_chars
+            # rather than silently zeroing the ETA out.
+            chars_remaining = total_chars
+            if context.chapter_id:
+                job_segment_ids: set[str] = set()
+                for group in groups:
+                    for seg in (group or {}).get("segments") or []:
+                        sid = seg.get("id")
+                        if sid:
+                            job_segment_ids.add(sid)
+                if job_segment_ids:
+                    from app.db import get_connection  # noqa: PLC0415
+                    from app.domain.chapters.summary import get_chapter_summary  # noqa: PLC0415
+                    with get_connection() as _conn:
+                        _summary = get_chapter_summary(_conn, context.chapter_id)
+                    done_chars = sum(
+                        seg.char_count
+                        for seg in _summary.segments
+                        if seg.id in job_segment_ids and seg.audio_status == "done"
+                    )
+                    chars_remaining = max(0, total_chars - done_chars)
+            if chars_remaining <= 0:
+                return
             from app.orchestration.scheduler.eta import calculate_chapter_startup_eta  # noqa: PLC0415
             expected_duration = calculate_chapter_startup_eta(
-                total_chars, calibrated_cps, len(groups), calibrated_overhead,
+                chars_remaining, calibrated_cps, len(groups), calibrated_overhead,
             )
             if expected_duration <= 0:
                 return
@@ -788,9 +821,41 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
             id_to_weight=id_to_weight,
         )
 
+        # Seed starting progress from persisted state (#232 Task 008): a
+        # resumed/re-submitted dispatch's own local trackers otherwise start
+        # at zero even when a real chunk of the chapter's characters is
+        # already `done`, which is the 0%-on-resume bug. Filtered to THIS
+        # script's own segment ids only (`known_task_segment_ids`) — never
+        # the chapter-wide aggregate — so a partial-scope job (e.g. a
+        # recovery re-queue of only the unresolved batches) can't credit
+        # itself for OTHER chapter segments outside its own scope.
+        # Fail-open (matches `_resolve_engine_calibration` /
+        # `_expected_cold_load_seconds` above): any DB error leaves the
+        # seeded values at 0, i.e. today's pre-fix behavior, rather than
+        # crashing the dispatch.
+        _seeded_weight = 0.0
+        _seeded_group_count = 0
+        if known_task_segment_ids and context.chapter_id:
+            try:
+                from app.db import get_connection  # noqa: PLC0415
+                from app.domain.chapters.summary import get_chapter_summary  # noqa: PLC0415
+                with get_connection() as _conn:
+                    _summary = get_chapter_summary(_conn, context.chapter_id)
+                for _seg in _summary.segments:
+                    if _seg.id in known_task_segment_ids and _seg.audio_status == "done":
+                        _seeded_weight += _seg.char_count
+                        _seeded_group_count += 1
+            except Exception:
+                logger.debug(
+                    "Task %s: failed to seed starting progress from get_chapter_summary (fail-open).",
+                    context.task_id, exc_info=True,
+                )
+                _seeded_weight = 0.0
+                _seeded_group_count = 0
+
         # Volatile state for the log_listener closure
-        completed_weight = [0.0]
-        completed_group_count = [0]
+        completed_weight = [_seeded_weight]
+        completed_group_count = [_seeded_group_count]
         active_seg_id = [None]
         active_seg_progress = [0.0]
         active_render_group_index = [0]
