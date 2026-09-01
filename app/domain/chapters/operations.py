@@ -5,10 +5,47 @@ from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 
 from app.db.core import _db_lock, get_connection
-from app.db.segments import sync_chapter_segments
+from app.db.segments import sync_chapter_segments, segment_text_hash
+from app.db.chapter_locks import chapter_lock
+from app.db.segment_tombstones import write_tombstone
+from app.db.segment_contiguity import assert_chapter_contiguity
+from app.engines.behavior import get_text_chunk_limit
+from app.engines.voice_engines import resolve_profile_engine
 from app.utils.render_trace import trace
 from app.utils.text.textops import compute_chapter_metrics
 from . import helpers
+
+
+class MergeChunkLimitExceeded(Exception):
+    """#232 Task 006 (frontier-tier N6): raised when a manual merge in
+    ``compact_script_view`` would produce a row whose combined text exceeds
+    the target engine's ``text_chunk_limit`` -- refused rather than silently
+    producing an oversized render unit. Contingent on Task 005b's
+    row-creation-time grouping, which is what makes a ``chapter_segments``
+    row the actual render unit this limit protects."""
+
+    def __init__(self, left_id: str, right_id: str, combined_length: int, limit: int):
+        super().__init__(
+            f"Merging segments {left_id!r} and {right_id!r} would produce a "
+            f"{combined_length}-character segment, exceeding the engine's "
+            f"{limit}-character chunk limit."
+        )
+        self.left_id = left_id
+        self.right_id = right_id
+        self.combined_length = combined_length
+        self.limit = limit
+
+
+def _has_render_block_columns(conn) -> bool:
+    """Whether the schema-level start_offset/end_offset/text_hash columns
+    exist at all (#232 migration 001). Mirrors the same PRAGMA-based
+    detection ``sync_chapter_segments`` uses, so both call sites agree on
+    what "the new schema" means."""
+    return "text_hash" in {row[1] for row in conn.execute("PRAGMA table_info(chapter_segments)")}
+
+
+def _has_render_epoch_column(conn) -> bool:
+    return "render_epoch" in {row[1] for row in conn.execute("PRAGMA table_info(chapters)")}
 
 def get_script_view_payload(chapter_id: str) -> dict[str, Any]:
     """Build the Phase 7 Script View read model payload for a chapter."""
@@ -336,8 +373,63 @@ def get_resync_preview(chapter_id: str, new_text: str) -> dict[str, Any]:
     }
 
 
+def _plan_script_view_merges(segments: Sequence[Mapping[str, Any]]) -> list[dict]:
+    """Pure, DB-free planning pass mirroring ``compact_script_view``'s merge
+    decision exactly (#232 Task 006), so every planned merge's combined
+    length can be checked against the target engine's chunk limit BEFORE any
+    write happens. This split matters: ``chapter_lock``'s release step opens
+    its own ``BEGIN IMMEDIATE`` when the protected ``with`` block exits, which
+    raises ``sqlite3.OperationalError`` if a write from this operation is
+    still uncommitted at that point (see Task 004's contract) -- so a merge
+    that must be refused has to be discovered here, before any SQL runs, not
+    mid-execution."""
+    segs = [dict(s) for s in segments]
+    merges: list[dict] = []
+    i = 0
+    while i < len(segs) - 1:
+        s1, s2 = segs[i], segs[i + 1]
+
+        char1 = helpers._clean_optional_text(s1.get("character_id"))
+        char2 = helpers._clean_optional_text(s2.get("character_id"))
+        prof1 = helpers._resolved_speaker_profile_name(s1)
+        prof2 = helpers._resolved_speaker_profile_name(s2)
+
+        is_compatible = char1 == char2 and prof1 == prof2
+        if is_compatible and helpers._segment_contains_paragraph_break(s1):
+            is_compatible = False
+
+        if is_compatible:
+            combined_text = (s1.get("text_content") or "") + (s2.get("text_content") or "")
+            merges.append({
+                "left_id": s1["id"],
+                "right_id": s2["id"],
+                "combined_text": combined_text,
+                "profile_name": prof1,
+                "right_order": s2["segment_order"],
+                "left_audio_file_path": s1.get("audio_file_path"),
+                "right_audio_file_path": s2.get("audio_file_path"),
+            })
+            s1["text_content"] = combined_text
+            for j in range(i + 2, len(segs)):
+                segs[j]["segment_order"] -= 1
+            segs.pop(i + 1)
+        else:
+            i += 1
+    return merges
+
+
 def compact_script_view(chapter_id: str, base_revision_id: str | None = None) -> dict[str, Any]:
-    """Merges adjacent compatible segments and returns refreshed payload."""
+    """Merges adjacent compatible segments and returns refreshed payload.
+
+    #232 Task 006: also maintains start_offset/end_offset/text_hash for the
+    merged row (derived from the two halves' own offsets), tombstones both
+    invalidated audio files (the task file names only the right segment's,
+    but the merge's own UPDATE also nulls the LEFT segment's audio_file_path
+    -- confirmed against the code, not assumed), refuses a merge that would
+    exceed the target engine's chunk limit, bumps chapters.render_epoch once
+    for the whole compaction, and asserts INV-1 -- all inside the
+    chapter_lock observability primitive (Task 004).
+    """
     with _db_lock:
         with get_connection() as conn:
             cursor = conn.cursor()
@@ -353,50 +445,85 @@ def compact_script_view(chapter_id: str, base_revision_id: str | None = None) ->
             if not current_segments:
                 return get_script_view_payload(chapter_id)
 
-            segments = [dict(s) for s in current_segments]
-            i = 0
-            merged_any = False
-            while i < len(segments) - 1:
-                s1 = segments[i]
-                s2 = segments[i + 1]
+            merges = _plan_script_view_merges(current_segments)
+            if not merges:
+                return get_script_view_payload(chapter_id)
 
-                char1 = helpers._clean_optional_text(s1.get("character_id"))
-                char2 = helpers._clean_optional_text(s2.get("character_id"))
-                prof1 = helpers._resolved_speaker_profile_name(s1)
-                prof2 = helpers._resolved_speaker_profile_name(s2)
+            for m in merges:
+                engine = resolve_profile_engine(m["profile_name"], "unknown")
+                limit = get_text_chunk_limit(engine)
+                if len(m["combined_text"]) > limit:
+                    raise MergeChunkLimitExceeded(m["left_id"], m["right_id"], len(m["combined_text"]), limit)
 
-                is_compatible = (char1 == char2 and prof1 == prof2)
-                if is_compatible and helpers._segment_contains_paragraph_break(s1):
-                    is_compatible = False
+            # Only maintain offsets/hash/contiguity when every row in the
+            # chapter already has real offsets -- i.e. this chapter has been
+            # through sync_chapter_segments (Task 005c), the normal
+            # create/edit path. A bare pre-migration schema or a row that
+            # never went through sync (some older test fixtures) falls back
+            # to the pre-Task-006 behavior for this call, exactly as before.
+            has_offsets = _has_render_block_columns(conn) and all(
+                s.get("start_offset") is not None and s.get("end_offset") is not None
+                for s in current_segments
+            )
 
-                if is_compatible:
-                    new_text = (s1.get("text_content") or "") + (s2.get("text_content") or "")
-                    cursor.execute(
-                        """
-                        UPDATE chapter_segments 
-                        SET text_content = ?, 
-                            audio_status = 'unprocessed', 
-                            audio_file_path = NULL, 
-                            audio_generated_at = NULL 
-                        WHERE id = ?
-                        """,
-                        (new_text, s1["id"])
-                    )
-                    cursor.execute("DELETE FROM chapter_segments WHERE id = ?", (s2["id"],))
+            with chapter_lock(conn, chapter_id, held_by="compact_script_view"):
+                for m in merges:
+                    left_id, right_id = m["left_id"], m["right_id"]
+                    if has_offsets:
+                        left_row = cursor.execute(
+                            "SELECT start_offset FROM chapter_segments WHERE id = ?", (left_id,)
+                        ).fetchone()
+                        right_row = cursor.execute(
+                            "SELECT end_offset FROM chapter_segments WHERE id = ?", (right_id,)
+                        ).fetchone()
+                        merged_end_offset = right_row["end_offset"]
+                    # Delete the right row BEFORE updating the left row's
+                    # end_offset to the right row's old end_offset -- the
+                    # UNIQUE(chapter_id, end_offset) index (Task 005) checks
+                    # immediately (no deferred UNIQUE in SQLite), so writing
+                    # the left row's new end_offset while the right row still
+                    # holds that same value spuriously collides even though
+                    # the right row is about to vanish (same class of bug
+                    # Task 005c's offset-collision guard fixed for resync).
+                    cursor.execute("DELETE FROM chapter_segments WHERE id = ?", (right_id,))
+                    if has_offsets:
+                        cursor.execute(
+                            """
+                            UPDATE chapter_segments
+                            SET text_content = ?, text_hash = ?, start_offset = ?, end_offset = ?,
+                                audio_status = 'unprocessed', audio_file_path = NULL, audio_generated_at = NULL
+                            WHERE id = ?
+                            """,
+                            (
+                                m["combined_text"], segment_text_hash(m["combined_text"]),
+                                left_row["start_offset"], merged_end_offset, left_id,
+                            ),
+                        )
+                    else:
+                        cursor.execute(
+                            """
+                            UPDATE chapter_segments
+                            SET text_content = ?, audio_status = 'unprocessed',
+                                audio_file_path = NULL, audio_generated_at = NULL
+                            WHERE id = ?
+                            """,
+                            (m["combined_text"], left_id),
+                        )
                     cursor.execute(
                         "UPDATE chapter_segments SET segment_order = segment_order - 1 WHERE chapter_id = ? AND segment_order > ?",
-                        (chapter_id, s2["segment_order"])
+                        (chapter_id, m["right_order"]),
                     )
-                    s1["text_content"] = new_text
-                    for j in range(i + 2, len(segments)):
-                        segments[j]["segment_order"] -= 1
+                    for old_file in (m["left_audio_file_path"], m["right_audio_file_path"]):
+                        if old_file:
+                            write_tombstone(conn, chapter_id, old_file)
 
-                    segments.pop(i + 1)
-                    merged_any = True
-                else:
-                    i += 1
-
-            if merged_any:
+                if has_offsets:
+                    assert_chapter_contiguity(conn, chapter_id)
+                    if _has_render_epoch_column(conn):
+                        cursor.execute(
+                            "UPDATE chapters SET render_epoch = render_epoch + 1 WHERE id = ?",
+                            (chapter_id,),
+                        )
                 conn.commit()
 
     return get_script_view_payload(chapter_id)
@@ -519,9 +646,29 @@ def _snap_offset_to_word_boundary(text: str, offset: int, boundary: Literal["sta
 
 
 def _split_segment_at_offset(conn, chapter_id: str, segment_id: str, offset: int) -> tuple[str, str]:
-    """Splits a segment into two parts at a character offset. Returns (left_id, right_id)."""
+    """Splits a segment into two parts at a character offset. Returns (left_id, right_id).
+
+    #232 Task 006: also derives start_offset/end_offset for both halves from
+    the PARENT row's own offsets (never recomputed from scratch against the
+    whole chapter text), maintains text_hash (INV-9), writes a tombstone for
+    the parent's invalidated audio (the split always invalidates -- this
+    only adds the bookkeeping to that existing behavior), bumps
+    chapters.render_epoch, and asserts INV-1 -- all inside the chapter_lock
+    observability primitive (Task 004). Offset/hash/epoch/assertion
+    maintenance is skipped when the parent row has no start_offset/
+    end_offset populated (a bare pre-migration schema, or a row that never
+    went through sync_chapter_segments) -- falls back to the pre-Task-006
+    behavior for that row, exactly as before.
+    """
     cursor = conn.cursor()
-    cursor.execute("SELECT id, text_content, segment_order, character_id, speaker_profile_name FROM chapter_segments WHERE id = ? AND chapter_id = ?", (segment_id, chapter_id))
+    cursor.execute(
+        """
+        SELECT id, text_content, segment_order, character_id, speaker_profile_name,
+               audio_file_path, start_offset, end_offset
+        FROM chapter_segments WHERE id = ? AND chapter_id = ?
+        """,
+        (segment_id, chapter_id),
+    )
     seg = cursor.fetchone()
     if not seg: return segment_id, segment_id
 
@@ -534,26 +681,77 @@ def _split_segment_at_offset(conn, chapter_id: str, segment_id: str, offset: int
 
     right_id = f"split_{uuid.uuid4().hex[:12]}"
     order = seg["segment_order"]
+    old_audio_file = seg["audio_file_path"]
 
-    cursor.execute(
-        "UPDATE chapter_segments SET text_content = ?, audio_status = 'unprocessed', audio_file_path = NULL, audio_generated_at = NULL WHERE id = ?",
-        (left_text, segment_id)
+    has_offsets = (
+        _has_render_block_columns(conn)
+        and seg["start_offset"] is not None
+        and seg["end_offset"] is not None
     )
-    cursor.execute(
-        "UPDATE chapter_segments SET segment_order = segment_order + 1 WHERE chapter_id = ? AND segment_order > ?",
-        (chapter_id, order)
-    )
-    cursor.execute(
-        """
-        INSERT INTO chapter_segments (
-            id, chapter_id, segment_order, text_content, character_id, 
-            speaker_profile_name, audio_status, audio_file_path, audio_generated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            right_id, chapter_id, order + 1, right_text, seg["character_id"],
-            seg["speaker_profile_name"], "unprocessed", None, None
+    if has_offsets:
+        split_at = seg["start_offset"] + offset
+        left_start, left_end = seg["start_offset"], split_at
+        right_start, right_end = split_at, seg["end_offset"]
+        left_hash = segment_text_hash(left_text)
+        right_hash = segment_text_hash(right_text)
+
+    with chapter_lock(conn, chapter_id, held_by="split_segment"):
+        if has_offsets:
+            cursor.execute(
+                """
+                UPDATE chapter_segments
+                SET text_content = ?, text_hash = ?, start_offset = ?, end_offset = ?,
+                    audio_status = 'unprocessed', audio_file_path = NULL, audio_generated_at = NULL
+                WHERE id = ?
+                """,
+                (left_text, left_hash, left_start, left_end, segment_id),
+            )
+        else:
+            cursor.execute(
+                "UPDATE chapter_segments SET text_content = ?, audio_status = 'unprocessed', audio_file_path = NULL, audio_generated_at = NULL WHERE id = ?",
+                (left_text, segment_id)
+            )
+        cursor.execute(
+            "UPDATE chapter_segments SET segment_order = segment_order + 1 WHERE chapter_id = ? AND segment_order > ?",
+            (chapter_id, order)
         )
-    )
+        if has_offsets:
+            cursor.execute(
+                """
+                INSERT INTO chapter_segments (
+                    id, chapter_id, segment_order, text_content, text_hash, start_offset, end_offset,
+                    character_id, speaker_profile_name, audio_status, audio_file_path, audio_generated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    right_id, chapter_id, order + 1, right_text, right_hash, right_start, right_end,
+                    seg["character_id"], seg["speaker_profile_name"], "unprocessed", None, None,
+                ),
+            )
+        else:
+            cursor.execute(
+                """
+                INSERT INTO chapter_segments (
+                    id, chapter_id, segment_order, text_content, character_id,
+                    speaker_profile_name, audio_status, audio_file_path, audio_generated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    right_id, chapter_id, order + 1, right_text, seg["character_id"],
+                    seg["speaker_profile_name"], "unprocessed", None, None
+                )
+            )
+
+        if old_audio_file:
+            write_tombstone(conn, chapter_id, old_audio_file)
+
+        if has_offsets:
+            assert_chapter_contiguity(conn, chapter_id)
+            if _has_render_epoch_column(conn):
+                cursor.execute(
+                    "UPDATE chapters SET render_epoch = render_epoch + 1 WHERE id = ?",
+                    (chapter_id,),
+                )
+        conn.commit()
 
     return segment_id, right_id
