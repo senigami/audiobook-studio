@@ -283,6 +283,16 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
             # partial/racing write) then falls back to the full total_chars
             # rather than silently zeroing the ETA out.
             chars_remaining = total_chars
+            # F2 fix (#232 review finding): len(groups) below was still the
+            # FULL chapter's group count even after chars_remaining was
+            # reduced, so calculate_chapter_startup_eta's
+            # `(group_count - 1) * inter_group_overhead` term charged
+            # inter-group overhead for every already-done group that will
+            # never actually render — phantom overhead that dominates the
+            # estimate on a near-complete resume. groups_remaining mirrors
+            # chars_remaining's own reduction: a group counts as remaining
+            # unless ALL of its segment ids are confirmed 'done'.
+            groups_remaining = len(groups)
             if context.chapter_id:
                 job_segment_ids: set[str] = set()
                 for group in groups:
@@ -295,17 +305,28 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                     from app.domain.chapters.summary import get_chapter_summary  # noqa: PLC0415
                     with get_connection() as _conn:
                         _summary = get_chapter_summary(_conn, context.chapter_id)
-                    done_chars = sum(
-                        seg.char_count
-                        for seg in _summary.segments
+                    done_ids = {
+                        seg.id for seg in _summary.segments
                         if seg.id in job_segment_ids and seg.audio_status == "done"
+                    }
+                    done_chars = sum(
+                        seg.char_count for seg in _summary.segments if seg.id in done_ids
                     )
                     chars_remaining = max(0, total_chars - done_chars)
+                    groups_remaining = sum(
+                        1
+                        for group in groups
+                        if not all(
+                            seg.get("id") in done_ids
+                            for seg in ((group or {}).get("segments") or [])
+                            if seg.get("id")
+                        )
+                    )
             if chars_remaining <= 0:
                 return
             from app.orchestration.scheduler.eta import calculate_chapter_startup_eta  # noqa: PLC0415
             expected_duration = calculate_chapter_startup_eta(
-                chars_remaining, calibrated_cps, len(groups), calibrated_overhead,
+                chars_remaining, calibrated_cps, groups_remaining, calibrated_overhead,
             )
             if expected_duration <= 0:
                 return
@@ -787,6 +808,11 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
         # the write-back against a shape change (resync/reassignment) that
         # happened while this render was in flight (INV-2).
         id_to_fingerprint: dict[str, dict] = {}
+        # Member-id -> group-leader-id map, built alongside id_to_weight so the
+        # seed block below (F1 fix) can translate a "done" segment's own id
+        # into the leader id that [SEGMENT_SAVED] will report, and skip the
+        # normal completed_weight[0] += credit for that leader exactly once.
+        id_to_leader: dict[str, str] = {}
         if script:
             for entry in script:
                 eid = entry.get("id")
@@ -796,6 +822,9 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                 eids = entry.get("ids") or ([eid] if eid else [])
                 known_task_segment_ids.update(eids)
                 id_to_fingerprint.update(entry.get("fingerprints") or {})
+                if eids:
+                    for _mid in eids:
+                        id_to_leader[_mid] = eids[0]
 
                 # Use length of text as weight if not provided
                 w = entry.get("weight") or max(1, len(entry.get("text", "")))
@@ -835,6 +864,17 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
         # crashing the dispatch.
         _seeded_weight = 0.0
         _seeded_group_count = 0
+        # Leader ids credited by the seed above (F1 fix, #232 review finding):
+        # a "done" segment named in this dispatch's own script is reused
+        # as-is and never actually re-rendered, but a script entry whose DB
+        # row is still 'done' at fan-out time (see generation_shared.py's
+        # _fan_out_chapter / _group_needs_render) can still emit a real
+        # [SEGMENT_SAVED] marker for it. Without this guard that marker's
+        # normal completed_weight[0] += w below double-credits the same
+        # group's weight the seed already counted. Consumed once per leader:
+        # removed on first skip so a genuinely distinct later save for the
+        # same leader id (should one ever occur) is not silently swallowed.
+        seeded_leader_ids: set[str] = set()
         if known_task_segment_ids and context.chapter_id:
             try:
                 from app.db import get_connection  # noqa: PLC0415
@@ -845,6 +885,7 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                     if _seg.id in known_task_segment_ids and _seg.audio_status == "done":
                         _seeded_weight += _seg.char_count
                         _seeded_group_count += 1
+                        seeded_leader_ids.add(id_to_leader.get(_seg.id, _seg.id))
             except Exception:
                 logger.debug(
                     "Task %s: failed to seed starting progress from get_chapter_summary (fail-open).",
@@ -852,6 +893,7 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                 )
                 _seeded_weight = 0.0
                 _seeded_group_count = 0
+                seeded_leader_ids = set()
 
         # Volatile state for the log_listener closure
         completed_weight = [_seeded_weight]
@@ -1615,9 +1657,18 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                     if sids:
                         # Use the first ID (leader) for weight tracking
                         leader_id = sids[0]
-                        w = id_to_weight.get(leader_id, 0)
-                        completed_weight[0] += w
-                        completed_group_count[0] += 1
+                        # F1 fix: this leader's weight was already folded into
+                        # the seeded completed_weight/completed_group_count
+                        # above (its DB row was already 'done' at dispatch
+                        # start) — crediting it again here would double-count
+                        # the same group. Skip once; discard from the set so
+                        # it can never be skipped a second time.
+                        if leader_id in seeded_leader_ids:
+                            seeded_leader_ids.discard(leader_id)
+                        else:
+                            w = id_to_weight.get(leader_id, 0)
+                            completed_weight[0] += w
+                            completed_group_count[0] += 1
                         active_seg_id[0] = None
                         active_seg_progress[0] = 0.0
                         active_render_group_index[0] = group_index_by_leader.get(leader_id, active_render_group_index[0])
