@@ -227,6 +227,24 @@ def _process_chapter(
     if not rows:
         return ChapterCollapseReport(chapter_id, 0, 0, 0, 0, False, False, 0)
 
+    # chapters.text_content is *usually* normalized to LF-only on write
+    # (app/db/chapters.py's create/update paths), but real data shows both
+    # a chapter's canonical text AND its chapter_segments rows can still
+    # carry the original CRLF line endings -- pre-existing rows written
+    # before that normalization applied, independently, per table. Task
+    # 005's synthetic fixtures always used LF-only text for both, so this
+    # drift was never modeled. Normalize BOTH sides identically before
+    # matching (never just one side, which trades one mismatch for
+    # another): whichever of the two disagrees with the LF-only
+    # convention the rest of the app assumes gets brought into line here.
+    def _to_lf(text: str) -> str:
+        return text.replace("\r\n", "\n").replace("\r", "\n")
+
+    for row in rows:
+        text = row.get("text_content")
+        if text and "\r" in text:
+            row["text_content"] = _to_lf(text)
+
     remediated_rows, dropped = _remediate_non_contiguous_duplicate_audio(rows)
     default_profile = _fetch_default_profile(conn, chapter_id)
     groups = _partition_into_groups(remediated_rows, default_profile)
@@ -235,6 +253,13 @@ def _process_chapter(
         "SELECT text_content FROM chapters WHERE id = ?", (chapter_id,)
     ).fetchone()
     canonical_text = (chapter_row["text_content"] if chapter_row else None) or ""
+    if "\r" in canonical_text:
+        canonical_text = _to_lf(canonical_text)
+        if not dry_run:
+            conn.execute(
+                "UPDATE chapters SET text_content = ? WHERE id = ?",
+                (canonical_text, chapter_id),
+            )
 
     group_texts = ["".join((m.get("text_content") or "") for m in g) for g in groups]
     offsets, mismatch = _compute_offsets_for_groups(canonical_text, group_texts)
