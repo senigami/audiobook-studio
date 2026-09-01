@@ -40,6 +40,8 @@ def clean_db(tmp_path):
     import app.db.core
     importlib.reload(app.db.core)
     app.db.core.init_db()
+    from app.core.boot import run_schema_migrations
+    run_schema_migrations()
 
     from app.db.state import update_settings
     update_settings({"default_speaker_profile": "Voice1", "default_engine": "xtts", "mistral_api_key": "test_key", "enabled_plugins": {"voxtral": True}})
@@ -305,6 +307,8 @@ def test_build_script_for_chapter_propagates_group_engine(clean_db, monkeypatch)
 
     script = generation._build_script_for_chapter("chapter-1", "project-1", "Default Voice", safe_mode=False)
 
+    from app.db.segments import segment_text_hash
+
     assert script == [{
         "text": "Hello",
         "speaker_wav": "ref.wav",
@@ -313,6 +317,13 @@ def test_build_script_for_chapter_propagates_group_engine(clean_db, monkeypatch)
         "save_path": str(Path("/tmp/project/chapter/segments/s1.wav").absolute()),
         "weight": 5,
         "engine": "xtts",
+        "fingerprints": {
+            "s1": {
+                "text_hash": segment_text_hash(""),
+                "character_id": None,
+                "speaker_profile_name": None,
+            },
+        },
         "voice_profile_dir": str(Path("/tmp/voice")),
     }]
 

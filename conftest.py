@@ -265,6 +265,14 @@ def clean_storage():
     # Initialize/Reset the database
     init_db()
 
+    # Apply the versioned schema migrations (#232) the same way boot_studio()
+    # does in production -- init_db() alone does not add their columns/tables
+    # (text_hash, chapter_locks, segment_audio_tombstones), so any test that
+    # exercises a real render/write-back path without this would run against
+    # a schema production never actually boots with.
+    from app.core.boot import run_schema_migrations
+    run_schema_migrations()
+
     # The studio DB is shared for the whole session; init_db() does not clear the
     # render_performance_samples table, so it would otherwise accumulate across tests
     # and make render-history assertions order-dependent. Reset it each test.

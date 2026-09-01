@@ -747,6 +747,13 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
         # still accepted. Empty for marker-driven tasks with no script — the
         # guard is then a no-op (nothing to validate against).
         known_task_segment_ids: set[str] = set()
+        # Write-back fingerprint guard (#232 Task 003): per-segment-id
+        # (text_hash, character_id, speaker_profile_name) captured at
+        # submission time, via build_script_entry_for_group's
+        # "fingerprints" -- consumed at [SEGMENT_SAVED] time below to guard
+        # the write-back against a shape change (resync/reassignment) that
+        # happened while this render was in flight (INV-2).
+        id_to_fingerprint: dict[str, dict] = {}
         if script:
             for entry in script:
                 eid = entry.get("id")
@@ -755,6 +762,7 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                 # If 'ids' is provided in the script entry, it's a group.
                 eids = entry.get("ids") or ([eid] if eid else [])
                 known_task_segment_ids.update(eids)
+                id_to_fingerprint.update(entry.get("fingerprints") or {})
 
                 # Use length of text as weight if not provided
                 w = entry.get("weight") or max(1, len(entry.get("text", "")))
@@ -1575,15 +1583,50 @@ class OrchestratorHelpersMixin(OrchestratorEtaMixin, OrchestratorPublishMixin):
                             except Exception:
                                 pass
 
-                        # Update segment database state for all members of the group
+                        # Update segment database state for all members of the group,
+                        # through the write-back fingerprint guard (#232 Task 003,
+                        # INV-2) when a fingerprint was captured for these ids at
+                        # submission time. A segment with no captured fingerprint
+                        # (e.g. a marker-driven task with no script) has nothing to
+                        # validate against, so it falls back to the unguarded bulk
+                        # update -- unchanged legacy behavior for that path.
                         try:
-                            from app.db import update_segments_bulk
-                            update_segments_bulk(
-                                sids,
-                                audio_status="done",
-                                audio_file_path=Path(saved_path).name,
-                                audio_generated_at=time.time(),
-                            )
+                            group_fingerprints = {
+                                sid: id_to_fingerprint[sid] for sid in sids if sid in id_to_fingerprint
+                            }
+                            if group_fingerprints:
+                                from app.db.segments import write_back_segment_audio_guarded
+                                writeback_result = write_back_segment_audio_guarded(
+                                    group_fingerprints, saved_path, context.chapter_id,
+                                )
+                                if writeback_result["stale"]:
+                                    logger.warning(
+                                        "Discarded stale render write-back for segments %s "
+                                        "(chapter %s, file %s): fingerprint no longer matches "
+                                        "the live row -- a resync or reassignment happened "
+                                        "while this render was in flight.",
+                                        writeback_result["stale"], context.chapter_id, Path(saved_path).name,
+                                    )
+                                    trace(
+                                        "orchestrator.stale_writeback_discarded",
+                                        job_id=context.task_id,
+                                        chapter_id=context.chapter_id,
+                                        segment_ids=writeback_result["stale"],
+                                        filename=Path(saved_path).name,
+                                    )
+                                ungated_sids = [sid for sid in sids if sid not in id_to_fingerprint]
+                            else:
+                                ungated_sids = sids
+
+                            if ungated_sids:
+                                from app.db import update_segments_bulk
+                                update_segments_bulk(
+                                    ungated_sids,
+                                    audio_status="done",
+                                    audio_file_path=Path(saved_path).name,
+                                    audio_generated_at=time.time(),
+                                )
+
                             from app.api.ws import broadcast_segments_updated
                             if context.chapter_id:
                                 broadcast_segments_updated(context.chapter_id)

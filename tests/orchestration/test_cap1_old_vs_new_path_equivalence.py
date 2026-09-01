@@ -169,6 +169,20 @@ def test_cap1_single_group_marker_sequence_matches_old_vs_new_path(tmp_path):
             patch("app.engines.behavior.extract_engine_settings", return_value={}),
             patch("app.db.update_segment", lambda *a, **kw: None),
             patch("app.db.update_segments_bulk", lambda *a, **kw: None),
+            # #232 Task 003: the write-back fingerprint guard is a NEW real-DB
+            # call site alongside update_segments_bulk above (both funnel into
+            # from the same [SEGMENT_SAVED] handler once a group carries
+            # captured fingerprints) -- mock it the same no-op way, or this
+            # test's real seeded segment would actually get written to
+            # (audio_status='done'), letting the OLD path record a real
+            # render-performance sample the NEW path's dispatch would then
+            # see calibration history for, breaking the old-vs-new marker
+            # equivalence this test exists to check (R2: mock the DB boundary
+            # consistently, not just the pre-existing call site).
+            patch(
+                "app.db.segments.write_back_segment_audio_guarded",
+                lambda fingerprints, *a, **kw: {"applied": list(fingerprints), "stale": []},
+            ),
             patch("app.api.ws.broadcast_segments_updated", lambda *a, **kw: None),
             patch("app.api.ws.broadcast_tts_log_line", lambda *a, **kw: None),
             patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None),

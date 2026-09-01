@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Iterable, Optional
 
 from ..db.core import get_connection
+from ..db.segments import segment_text_hash
 from ..engines.voice_engines import resolve_profile_engine
 from ..engines.behavior import (
     get_text_chunk_limit,
@@ -172,6 +173,22 @@ def build_script_entry_for_group(
     # The orchestrator uses absolute paths for bridge transport
     seg_out = group_wav_path(chapter_dir, group)
 
+    # Write-back fingerprint guard (#232 Task 003, INV-2): capture, per
+    # member segment, the exact (text_hash, character_id,
+    # speaker_profile_name) the guard will re-check at write-back time.
+    # speaker_profile_name is the RAW column (not the resolved
+    # engine/profile above) -- comparing raw-to-raw at both ends is what
+    # makes the guard correct for a fallback-voiced segment whose column is
+    # NULL (see 003's task file for why comparing raw-vs-resolved is wrong).
+    fingerprints = {
+        s["id"]: {
+            "text_hash": segment_text_hash(s.get("text_content") or ""),
+            "character_id": s.get("character_id"),
+            "speaker_profile_name": s.get("speaker_profile_name"),
+        }
+        for s in group["segments"]
+    }
+
     script_entry: dict[str, Any] = {
         "text": processed,
         "speaker_wav": sw,
@@ -180,6 +197,7 @@ def build_script_entry_for_group(
         "save_path": str(seg_out.absolute()),
         "weight": max(1, len(processed)),  # Store weight for orchestrator progress tracking
         "engine": engine_id,
+        "fingerprints": fingerprints,
     }
     if vdir:
         script_entry["voice_profile_dir"] = vdir
