@@ -208,7 +208,7 @@ def test_build_script_uses_chunk_group_engine_for_safe_text(monkeypatch, tmp_pat
     )
     monkeypatch.setattr(
         generation,
-        "build_chunk_groups",
+        "rows_as_groups",
         lambda segments, default_profile: [
             {
                 "segments": [{"id": "s1"}],
@@ -291,7 +291,7 @@ def test_build_script_for_chapter_propagates_group_engine(clean_db, monkeypatch)
     )
     monkeypatch.setattr(
         generation,
-        "build_chunk_groups",
+        "rows_as_groups",
         lambda _segments, _default_profile: [{
             "segments": [{"id": "s1"}],
             "profile_name": "Voice",
@@ -394,7 +394,12 @@ def test_generate_segments_sets_segment_specific_queue_title(clean_db, client):
         response = client.post("/api/segments/generate", data={"segment_ids": f"{segs[0]['id']},{segs[1]['id']}"})
         assert response.status_code == 200
         job = mock_put_job.call_args.args[0]
-        assert job.custom_title == "Overview: segment #1"
+        # #232 Task 005b: a chapter_segments row IS its own render group now,
+        # so both requested rows are distinct groups (#1 and #2), not one
+        # merged group -- pre-005b these two same-profile rows would have
+        # been merged into a single render group by a live build_chunk_groups
+        # recompute at label-building time.
+        assert job.custom_title == "Overview: segments #1-2"
 
 
 def test_generate_segments_hydrates_segment_ids_without_live_job(clean_db, client):
@@ -420,7 +425,9 @@ def test_generate_segments_hydrates_segment_ids_without_live_job(clean_db, clien
     queue_response = client.get("/api/processing_queue")
     assert queue_response.status_code == 200
     row = next(item for item in queue_response.json() if item["id"] == job_id)
-    assert row["custom_title"] == "Overview: segment #1"
+    # #232 Task 005b: see test_generate_segments_sets_segment_specific_queue_title
+    # -- each row is its own group now, so both requested rows label as a range.
+    assert row["custom_title"] == "Overview: segments #1-2"
     assert row["segment_ids"] == segment_ids
 
 

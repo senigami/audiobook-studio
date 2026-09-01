@@ -215,16 +215,6 @@ def apply_project_lexicon(text, entries):
     return _fn(text, entries)
 
 
-def build_chunk_groups(segments, speaker_profile):
-    from app.domain.chunk_groups import build_chunk_groups as _fn  # noqa: PLC0415
-    return _fn(segments, speaker_profile)
-
-
-def load_chunk_segments(chapter_id):
-    from app.domain.chunk_groups import load_chunk_segments as _fn  # noqa: PLC0415
-    return _fn(chapter_id)
-
-
 def get_chapter_segments_counts(chapter_id):
     from app.db.chapters import get_chapter_segments_counts as _fn  # noqa: PLC0415
     return _fn(chapter_id)
@@ -497,8 +487,9 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
     pdir.mkdir(parents=True, exist_ok=True)
     out_wav = pdir / f"{Path(j.chapter_file).stem}.wav"
 
-    all_segments = load_chunk_segments(j.chapter_id)
-    all_groups = build_chunk_groups(all_segments, j.speaker_profile)
+    ctx = _get_ctx()
+    all_segments = ctx.get_chapter_segments(j.chapter_id)
+    all_groups = ctx.build_chunk_groups(all_segments, default_profile=j.speaker_profile)
     if j.segment_ids:
         target_ids = set(j.segment_ids)
         target_groups = [group for group in all_groups if any(segment["id"] in target_ids for segment in group["segments"])]
@@ -577,7 +568,7 @@ def handle_mixed_job(jid, j, start, on_output, cancel_check, text=None):
     # barrier: it can only be reached after every group in the render loop
     # has returned, and it reads the manuscript order fresh from SQLite.
     segment_paths = []
-    fresh_groups = build_chunk_groups(get_chapter_segments(j.chapter_id), j.speaker_profile)
+    fresh_groups = _get_ctx().build_chunk_groups(get_chapter_segments(j.chapter_id), default_profile=j.speaker_profile)
     for group in fresh_groups:
         group_path = _group_ready_audio_path(group, pdir)
         if group_path and (not segment_paths or segment_paths[-1] != group_path):

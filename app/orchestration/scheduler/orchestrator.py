@@ -381,7 +381,7 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             from app.core.config import get_chapter_dir  # noqa: PLC0415
             from app.db.chapters import get_chapter  # noqa: PLC0415
             from app.db.segments import get_chapter_segments  # noqa: PLC0415
-            from app.domain.chunk_groups import build_chunk_groups, group_wav_path  # noqa: PLC0415
+            from app.domain.chunk_groups import rows_as_groups, group_wav_path  # noqa: PLC0415
             from app.domain.chapters.timing_generator import (  # noqa: PLC0415
                 build_chapter_timing,
                 write_timing_sidecar,
@@ -389,7 +389,7 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
 
             segments = get_chapter_segments(chapter_id)
             voice_profile_id = payload.get("voice_profile_id")
-            groups = build_chunk_groups(segments, voice_profile_id)
+            groups = rows_as_groups(segments, voice_profile_id)
 
             chapter_dir = get_chapter_dir(project_id, chapter_id)
             ordered_groups = [

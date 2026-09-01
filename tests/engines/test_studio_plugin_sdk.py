@@ -530,13 +530,20 @@ class TestContextServiceGroups:
             assert result == [{"id": "s1"}]
 
     def test_build_chunk_groups(self):
+        # #232 Task 005b: ctx.build_chunk_groups no longer delegates to
+        # app.domain.chunk_groups.build_chunk_groups (which would re-merge
+        # already-distinct chapter_segments rows into a shared filename) --
+        # it wraps each row as its own one-row group via rows_as_groups,
+        # still resolving a real per-row `engine`.
         ctx = self._ctx()
         segs = [{"id": "s1", "text_content": "hello", "speaker_profile_name": None,
                  "character_speaker_profile_name": None}]
-        with patch("app.domain.chunk_groups.build_chunk_groups", return_value=[segs]) as m:
+        with patch("app.domain.chunk_groups.build_chunk_groups") as m:
             result = ctx.build_chunk_groups(segs, 500)
-            m.assert_called_once()
-            assert result == [segs]
+            m.assert_not_called()
+        assert len(result) == 1
+        assert result[0]["segments"] == segs
+        assert "engine" in result[0]
 
     # 3.3.6 Bridge synthesis
     def test_generate_via_bridge(self):

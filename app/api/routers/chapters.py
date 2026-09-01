@@ -18,7 +18,7 @@ from ...db.state import get_jobs, get_settings
 from ...db.state import update_job
 from ...core.constants import DEFAULT_VOICE_SENTINEL
 from ..ws import broadcast_chapter_updated, broadcast_queue_update
-from ...domain.chunk_groups import build_chunk_groups, load_chunk_segments
+from ...domain.chunk_groups import rows_as_groups, load_chunk_segments
 
 # Sub-modules
 from .chapters_models import BulkStatusUpdate, BulkSegmentsUpdate
@@ -185,7 +185,7 @@ def api_get_chapter_render_groups(project_id: str, chapter_id: str):
     default_profile = chapter_default or settings_default or None
 
     segments = load_chunk_segments(chapter_id)
-    groups = build_chunk_groups(segments, default_profile)
+    groups = rows_as_groups(segments, default_profile)
 
     result = []
     for idx, group in enumerate(groups):

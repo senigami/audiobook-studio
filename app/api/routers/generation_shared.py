@@ -20,7 +20,7 @@ from ...orchestration.tasks.segment_synthesis import (
 from ...engines.voice_engines import resolve_profile_engine
 from ...engines.bridge import create_voice_bridge
 from ...engines.behavior import uses_segment_orchestration
-from ...domain.chunk_groups import build_chunk_groups, build_script_entry_for_group
+from ...domain.chunk_groups import rows_as_groups, build_script_entry_for_group
 from ...core.config import get_chapter_dir
 from ...utils.render_trace import trace
 
@@ -163,7 +163,7 @@ def _build_script_for_chapter(chapter_id: str, project_id: str, default_profile:
     from ...db.segments import get_chapter_segments
 
     segments = get_chapter_segments(chapter_id)
-    groups = build_chunk_groups(segments, default_profile)
+    groups = rows_as_groups(segments, default_profile)
     chapter_dir = get_chapter_dir(project_id, chapter_id)
 
     script = [
@@ -266,7 +266,7 @@ def _build_chapter_synthesis_task(
     # the largest declared cap so no single engine is throttled below its
     # own manifest limit by the parent's pool itself.
     try:
-        groups = build_chunk_groups(segments, active_profile)
+        groups = rows_as_groups(segments, active_profile)
         engine_ids = {group.get("engine") or engine_id for group in groups} or {engine_id}
         max_concurrent_workers = max(
             (_manifest_resource_claim(eid).cap for eid in engine_ids), default=1,

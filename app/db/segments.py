@@ -170,7 +170,6 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
 
     # Rule 3: Disk as Source of Truth - Outside Lock
     from ..core import config
-    from ..domain.chunk_groups import build_chunk_groups
 
     chapter_dir = config.get_chapter_dir(project_id, chapter_id) if project_id else None
     seg_dir = config.secure_join_flat(chapter_dir, "segments") if chapter_dir else None
@@ -182,34 +181,11 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
         except OSError:
             existing_segment_files = set()
 
-    # Fetch default profile for group validation
-    default_profile = None
-    if project_id and chapter_id:
-        with _db_lock:
-            with get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT c.speaker_profile_name AS chapter_profile,
-                           p.speaker_profile_name AS project_profile
-                    FROM chapters c
-                    JOIN projects p ON p.id = c.project_id
-                    WHERE c.id = ?
-                """, (chapter_id,))
-                row = cursor.fetchone()
-                if row:
-                    default_profile = row["chapter_profile"] or row["project_profile"]
-
-    # Calculate current groups to determine canonical names
-    # This ensures that if groups change, old shared files are invalidated for the split segments.
-    current_groups = build_chunk_groups(rows, default_profile, engine_cache={})
-    segment_to_canonical = {}
-    for group in current_groups:
-        if not group['segments']:
-            continue
-        canonical_name = f"{group['segments'][0]['id']}.wav"
-        for seg in group['segments']:
-            segment_to_canonical[seg['id']] = canonical_name
-
+    # #232 Task 005b (item 6): a row's own audio_file_path is canonical by
+    # construction now (a chapter_segments row IS the render unit -- there
+    # is no separate "what would build_chunk_groups decide today" to compare
+    # against any longer). The self-heal below only ever invalidates a row
+    # for a genuinely MISSING file, never for a live-regroup mismatch.
     invalid_done_ids: list[str] = []
     for s in rows:
         if not s.get('speaker_profile_name') and s.get('character_speaker_profile_name'):
@@ -217,29 +193,17 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
 
         if s['audio_status'] == 'done':
             path = s['audio_file_path']
-            exists = False
+            file_exists = path in existing_segment_files if (path and seg_dir) else False
 
-            # Rule: Segment audio must live in V2 segments/ directory
-            if path and seg_dir:
-                # Canonical check: must match the current group's canonical name
-                canonical_for_seg = segment_to_canonical.get(s['id'])
-                file_exists = path in existing_segment_files
-                if path == canonical_for_seg and file_exists:
-                    exists = True
-
-            if not exists:
+            if not file_exists:
                 # #232 Task 004: a file missing on disk could be mid-grace-
                 # period in a tombstone-then-sweep cycle (GC has tombstoned
                 # it but not yet deleted it, or has already deleted it and
                 # is about to clear the row itself). Don't race that: if a
                 # tombstone exists for this filename, its terminal state is
                 # GC's business, not this read path's — skip rather than
-                # NULL it out from here. A canonical-name mismatch on a file
-                # that's still PRESENT is a different case (build_chunk_groups
-                # recomputation, out of this task's scope) and keeps
-                # invalidating as before.
-                file_exists = path in existing_segment_files if (path and seg_dir) else False
-                if path and not file_exists and has_tombstone(chapter_id, os.path.basename(path)):
+                # NULL it out from here.
+                if path and has_tombstone(chapter_id, os.path.basename(path)):
                     continue
                 s['audio_status'] = 'unprocessed'
                 s['audio_file_path'] = None
@@ -666,11 +630,84 @@ def sync_chapter_segments(chapter_id: str, text_content: str, conn=None):
         # a preserved row are untouched here, and are only overwritten below if that
         # exact row shares an audio file with a removed row (the shared-audio-invalidation
         # pass, unchanged from before).
+        # #232 Task 005b: a chapter_segments row is the render unit by
+        # construction now, so a run of contiguous unmatched fresh sentences
+        # arising from an EDIT to an already-synced chapter must be grouped
+        # (same rule build_chunk_groups already applies at render time,
+        # chunk-limit bounded) into as few new rows as that rule allows --
+        # never inserted one row per sentence (this is what closes the
+        # frontier-tier IntegrityError crash on ux_seg_audio_file). Grouping
+        # only ever happens HERE, at row-creation time; every render-time/
+        # read-time consumer reads the resulting rows directly.
+        #
+        # Scoped to `bool(existing)` -- i.e. only when this chapter already
+        # has at least one prior row, meaning genuinely new content is being
+        # ADDED to already-cast manuscript, not a chapter's first-ever
+        # import. A virgin import (existing == []) keeps one-row-per-sentence
+        # granularity: every sentence there starts uncast (character_id/
+        # speaker_profile_name both None), so grouping at that point would
+        # merge an entire freshly-imported chapter into one or a few oversized
+        # rows before the user has ever had a chance to cast it per sentence
+        # -- collapsing exactly the granularity the editor's per-sentence
+        # casting workflow depends on, for content that was never actually
+        # "grouped" by anything (build_chunk_groups's own pre-005b behavior
+        # only ever merged rows that already shared a real, assigned cast).
+        should_group_new_rows = bool(existing)
+        pending_new: list[str] = []
+
+        def _flush_pending_new(order: int) -> int:
+            if not pending_new:
+                return order
+            if not should_group_new_rows:
+                for i, t in enumerate(pending_new):
+                    final_rows.append({
+                        "id": f"{time.time_ns()}_{order}_{i}",
+                        "segment_order": order,
+                        "orig_segment_order": None,
+                        "text_content": t,
+                        "character_id": None,
+                        "speaker_profile_name": None,
+                        "audio_status": "unprocessed",
+                        "audio_file_path": None,
+                        "audio_generated_at": None,
+                        "preserved": False,
+                    })
+                    order += 1
+                pending_new.clear()
+                return order
+            from ..domain.chunk_groups import build_chunk_groups  # noqa: PLC0415 -- avoid import cycle at module load
+            fake_segments = [
+                {"text_content": t, "character_id": None, "speaker_profile_name": None}
+                for t in pending_new
+            ]
+            new_groups = build_chunk_groups(fake_segments, default_profile=None)
+            idx = 0
+            for gi, group in enumerate(new_groups):
+                n = len(group["segments"])
+                combined_text = "".join(pending_new[idx: idx + n])
+                idx += n
+                final_rows.append({
+                    "id": f"{time.time_ns()}_{order}_{gi}",
+                    "segment_order": order,
+                    "orig_segment_order": None,
+                    "text_content": combined_text,
+                    "character_id": None,
+                    "speaker_profile_name": None,
+                    "audio_status": "unprocessed",
+                    "audio_file_path": None,
+                    "audio_generated_at": None,
+                    "preserved": False,
+                })
+                order += 1
+            pending_new.clear()
+            return order
+
         final_rows = []
         order = 0
         for i, sent in enumerate(sentences):
             run_ids = preserved_by_fresh_index.get(i)
             if run_ids:
+                order = _flush_pending_new(order)
                 for rid in run_ids:
                     row = existing_by_id[rid]
                     final_rows.append({
@@ -687,19 +724,8 @@ def sync_chapter_segments(chapter_id: str, text_content: str, conn=None):
                     })
                     order += 1
             else:
-                final_rows.append({
-                    "id": str(time.time_ns()) + f"_{i}",
-                    "segment_order": order,
-                    "orig_segment_order": None,
-                    "text_content": sent,
-                    "character_id": None,
-                    "speaker_profile_name": None,
-                    "audio_status": "unprocessed",
-                    "audio_file_path": None,
-                    "audio_generated_at": None,
-                    "preserved": False,
-                })
-                order += 1
+                pending_new.append(sent)
+        order = _flush_pending_new(order)
 
         # 4. Shared-audio invalidation: a preserved row whose audio file is shared with a
         # removed row must still be force-invalidated (protects the existing
