@@ -301,9 +301,134 @@ def test_chapter_dispatch_eta_uses_chars_remaining_not_chapter_total():
     )
 
 
+def test_chapter_dispatch_eta_excludes_done_groups_from_overhead():
+    """RED on pre-fix code (mcgonagall F2): ``chars_remaining`` is reduced
+    to this job's not-done chars, but ``len(groups)`` passed to
+    ``calculate_chapter_startup_eta`` is still the FULL chapter's group
+    count, so ``(group_count - 1) * inter_group_overhead`` charges
+    phantom inter-group-reload overhead for every already-``done`` group
+    that will never actually render.
+
+    The pre-existing test above can't catch this: it patches
+    ``_resolve_engine_calibration`` to return overhead ``0.0``, which
+    zeroes out the exact term this bug inflates. This test uses a
+    realistic non-zero overhead (100s) so the phantom-overhead term is
+    actually observable.
+
+    GREEN after the fix: overhead is charged only for
+    ``groups_remaining`` — groups with at least one not-done segment —
+    never for groups that are entirely ``done``.
+    """
+    run_schema_migrations()
+    with get_connection() as conn:
+        pid = create_project("P-008-f", "/tmp")
+        cid = create_chapter(pid, "C-008-f")
+        _insert_segment(conn, "done-seg-f1", cid, 0, 0, 500, "x" * 500, "done")
+        _insert_segment(conn, "done-seg-f2", cid, 1, 500, 1000, "x" * 500, "done")
+        _insert_segment(conn, "todo-seg-f", cid, 2, 1000, 1010, "y" * 10, "unprocessed")
+
+    class _ChapterTask(StudioTask):
+        def __init__(self) -> None:
+            self.engine_id = "xtts"
+
+        def get_expected_duration(self, text, engine_id):
+            return 30.0
+
+        def describe(self):
+            return TaskContext(
+                task_id="job-eta-f",
+                task_type="synthesis",
+                chapter_id=cid,
+                payload={"engine_id": "xtts"},
+            )
+
+        def _build_groups(self):
+            # Three groups (the chapter's TOTAL scope); only the last is
+            # actually still unresolved — mirrors a resume of a mostly-done
+            # chapter.
+            return [
+                {"segments": [{"id": "done-seg-f1"}], "text_length": 500},
+                {"segments": [{"id": "done-seg-f2"}], "text_length": 500},
+                {"segments": [{"id": "todo-seg-f"}], "text_length": 10},
+            ]
+
+        def run(self) -> TaskResult:
+            return TaskResult(status="completed")
+
+    orc = MockOrchestrator()
+    task = _ChapterTask()
+    ctx = task.describe()
+
+    # cps=1.0 char/sec, inter_group_overhead=100s (realistic, non-zero —
+    # the term the pre-existing test's overhead=0.0 patch hides).
+    # Fix: 1 remaining group -> 0 overhead boundaries -> ~10s.
+    # Bug: 3 total groups -> 2 overhead boundaries -> ~10 + 200 = 210s.
+    with patch.object(orc, "_resolve_engine_calibration", return_value=(1.0, 100.0, "model-x")), \
+         patch.object(orc, "_expected_cold_load_seconds", return_value=0.0):
+        orc._publish_chapter_dispatch_eta(task=task, context=ctx)
+
+    assert orc.published, "expected a preparing/pre_load_eta frame"
+    frame = orc.published[0]
+    assert frame["reason_code"] == "pre_load_eta"
+    assert frame["eta_seconds"] < 50, (
+        f"phantom overhead for already-done groups: expected ~10s, got {frame['eta_seconds']}s"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Bug 1b — orchestrator.recover()'s re-queue publish call
 # ---------------------------------------------------------------------------
+
+
+def test_dispatch_does_not_double_credit_already_done_seeded_segment():
+    """RED on pre-fix code (mcgonagall F1): the seed block above adds a
+    'done' segment's char_count into completed_weight[0]/
+    completed_group_count[0], but nothing then suppresses the NORMAL
+    completed_weight[0] += w on that same group's own [SEGMENT_SAVED]
+    marker. A rendered script entry whose DB row is still 'done' at
+    dispatch time (the exact shape ``_SyntheticSegmentTask`` builds, and
+    what a re-fanned-out group whose artifact fails ``_group_needs_render``
+    produces even under ``is_bake``) gets counted TWICE: once by the seed,
+    once by the marker.
+
+    GREEN after the fix: the seeded leader id is skipped exactly once on
+    its own [SEGMENT_SAVED], so completed_render_weight/groups never
+    exceed this job's own total_weight/render_group_count.
+    """
+    run_schema_migrations()
+    with get_connection() as conn:
+        pid = create_project("P-008-e", "/tmp")
+        cid = create_chapter(pid, "C-008-e")
+        # Single-group dispatch whose one segment is already 'done' --
+        # mirrors _SyntheticSegmentTask (segment_synthesis.py:201-212) being
+        # fanned out even though its row never left 'done'.
+        _insert_segment(conn, "done-seg-e", cid, 0, 0, 500, "x" * 500, "done")
+
+    # _run_dispatch's SEGMENT_SAVED marker always names "/tmp/todo.wav"
+    # (see the harness above) regardless of todo_id, so the script's own
+    # save_path must match that fixed path for the marker to resolve.
+    script = [
+        {"id": "done-seg-e", "ids": ["done-seg-e"], "text": "x" * 500, "save_path": "/tmp/todo.wav", "weight": 500},
+    ]
+    task = _make_task(task_id="job-synthetic-e", script=script, chapter_id=cid)
+
+    # Drive START_SEGMENT + PROGRESS + [SEGMENT_SAVED] for the SAME
+    # already-done leader (todo_id == the seeded segment's own id) — the
+    # reviewer's exact repro shape.
+    published, result = _run_dispatch(task, script, todo_id="done-seg-e")
+
+    saved_frames = [p for p in published if p.get("reason_code") == "SEGMENT_SAVED"]
+    assert saved_frames, "expected a SEGMENT_SAVED frame"
+    frame = saved_frames[-1]
+
+    # total_weight for this job is 500 (one group). Double credit would
+    # report 1000/2; the fix must cap at the job's own true total.
+    assert frame["completed_render_weight"] == 500, (
+        f"double-credited: expected 500, got {frame['completed_render_weight']}"
+    )
+    assert frame["completed_render_groups"] == 1, (
+        f"double-credited: expected 1 group, got {frame['completed_render_groups']}"
+    )
 
 
 def test_recover_requeue_publishes_real_persisted_progress():
