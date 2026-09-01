@@ -252,6 +252,92 @@ class TestOffsetMismatchPolicy:
             conn.close()
 
 
+class TestCrlfSegmentTextVsLfCanonical:
+    """Real-world data drift found against a production database copy
+    (#232 defect, post-Task-005): chapters.text_content is normalized to
+    LF-only on write (app/db/chapters.py), but some pre-existing
+    chapter_segments rows still carry the original CRLF line endings
+    (written before that normalization applied, or via a path that
+    bypassed it). Task 005's synthetic fixtures always used LF-only text
+    for both tables, so this drift was never modeled and the sequential
+    substring search in ``_compute_offsets_for_groups`` could never find
+    a CRLF segment inside an LF canonical text -- a false-positive
+    ``offset derivation mismatch`` on data that isn't actually corrupt."""
+
+    def test_crlf_segment_text_matches_lf_canonical_after_normalization(self, db_path):
+        conn = _raw_connect(db_path)
+        try:
+            canonical = "First sentence.\n\nSecond sentence.\n\nThird sentence."
+            chapter_id = _make_project_and_chapter(conn, canonical)
+            _insert_segment(conn, chapter_id, 0, "First sentence.\r\n\r\n")
+            _insert_segment(conn, chapter_id, 1, "Second sentence.\r\n\r\n")
+            _insert_segment(conn, chapter_id, 2, "Third sentence.")
+            conn.commit()
+            _run_migration_1(conn, db_path)
+
+            migrate_002_render_block_collapse(conn)
+            conn.commit()
+
+            rows = conn.execute(
+                "SELECT * FROM chapter_segments WHERE chapter_id = ? ORDER BY segment_order",
+                (chapter_id,),
+            ).fetchall()
+            assert len(rows) == 1
+            assert rows[0]["text_content"] == canonical
+            assert rows[0]["start_offset"] == 0
+            assert rows[0]["end_offset"] == len(canonical)
+            assert "\r" not in rows[0]["text_content"]
+        finally:
+            conn.close()
+
+
+class TestCrlfCanonicalTextVsLfSegments:
+    """The other real-world shape found alongside the CRLF-segment case
+    above: some chapters have CRLF line endings in chapters.text_content
+    itself (predating -- or bypassing -- app/db/chapters.py's own
+    normalize-on-write), while their chapter_segments rows are LF-only.
+    Normalizing only the segment side (as the first fix attempt did)
+    trades this failure for the opposite one: segment offsets would sum
+    to the LF-normalized length while chapters.text_content still reports
+    the longer, un-normalized length, and assert_chapter_contiguity's
+    INV-1 check (last end_offset must equal len(canonical_text)) fails.
+    The fix must normalize -- and persist -- both sides together."""
+
+    def test_crlf_canonical_matches_lf_segments_and_chapter_row_is_normalized(self, db_path):
+        conn = _raw_connect(db_path)
+        try:
+            canonical_crlf = "First sentence.\r\n\r\nSecond sentence.\r\n\r\nThird sentence."
+            chapter_id = _make_project_and_chapter(conn, canonical_crlf)
+            _insert_segment(conn, chapter_id, 0, "First sentence.\n\n")
+            _insert_segment(conn, chapter_id, 1, "Second sentence.\n\n")
+            _insert_segment(conn, chapter_id, 2, "Third sentence.")
+            conn.commit()
+            _run_migration_1(conn, db_path)
+
+            migrate_002_render_block_collapse(conn)
+            conn.commit()
+
+            expected_lf = "First sentence.\n\nSecond sentence.\n\nThird sentence."
+            chapter_row = conn.execute(
+                "SELECT text_content FROM chapters WHERE id = ?", (chapter_id,)
+            ).fetchone()
+            assert chapter_row["text_content"] == expected_lf, (
+                "chapters.text_content must be normalized alongside the segments "
+                "it's being made consistent with, not left CRLF"
+            )
+
+            rows = conn.execute(
+                "SELECT * FROM chapter_segments WHERE chapter_id = ? ORDER BY segment_order",
+                (chapter_id,),
+            ).fetchall()
+            assert len(rows) == 1
+            assert rows[0]["text_content"] == expected_lf
+            assert rows[0]["start_offset"] == 0
+            assert rows[0]["end_offset"] == len(expected_lf)
+        finally:
+            conn.close()
+
+
 class TestDryRunIsolationSafety:
     """Hard requirement from the task file: dry-run must run against a
     filesystem copy, never the live path. Verified mechanically here by
