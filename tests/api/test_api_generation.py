@@ -527,15 +527,21 @@ def test_get_chapter_segments_treats_other_segment_audio_paths_as_unprocessed(cl
 
     with get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute(
-            """
-            UPDATE chapter_segments
-            SET audio_status = 'done',
-                audio_file_path = ?
-            WHERE chapter_id = ?
-            """,
-            (expected_name, cid),
-        )
+        # #232 Task 005's ux_seg_audio_file unique index (chapter_id,
+        # audio_file_path) now forbids two rows in one chapter sharing a
+        # filename, so each segment gets its own distinct (still-nonexistent
+        # on disk) path -- the point under test (neither is found in the
+        # real segments dir) is unaffected by the paths being distinct.
+        for i, seg in enumerate(segs):
+            cursor.execute(
+                """
+                UPDATE chapter_segments
+                SET audio_status = 'done',
+                    audio_file_path = ?
+                WHERE id = ?
+                """,
+                (expected_name if i == 1 else f"other-{seg['id']}.wav", seg["id"]),
+            )
         conn.commit()
 
     # We no longer patch get_project_audio_dir because it's deleted.
