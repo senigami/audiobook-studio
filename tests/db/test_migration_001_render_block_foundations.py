@@ -85,7 +85,13 @@ def test_migration_adds_columns_and_tables(db_path):
     conn = _raw_connect(db_path)
     try:
         _seed_chapter_with_segments(conn)
-        applied = run_migrations(conn, MIGRATIONS, db_path=db_path)
+        # Scoped to migration 1 only -- this test is about ITS additive
+        # columns/tables specifically. Migration 2 (#232 Task 005) is a
+        # destructive collapse with its own dedicated suite
+        # (test_migration_002_render_block_collapse.py); running it here
+        # against this file's synthetic, non-chapter-shaped seed data would
+        # test an unrelated invariant instead of this migration's own.
+        applied = run_migrations(conn, MIGRATIONS[:1], db_path=db_path)
         assert [m.version for m in applied] == [1]
 
         seg_cols = _columns(conn, "chapter_segments")
@@ -116,7 +122,7 @@ def test_migration_backfills_text_hash_for_every_existing_row(db_path):
     conn = _raw_connect(db_path)
     try:
         chapter_id, segment_ids = _seed_chapter_with_segments(conn, n=5)
-        run_migrations(conn, MIGRATIONS, db_path=db_path)
+        run_migrations(conn, MIGRATIONS[:1], db_path=db_path)
 
         null_count = conn.execute(
             "SELECT COUNT(*) AS c FROM chapter_segments WHERE text_hash IS NULL"
@@ -145,12 +151,12 @@ def test_migration_is_idempotent_on_already_migrated_db(db_path):
     conn = _raw_connect(db_path)
     try:
         _seed_chapter_with_segments(conn)
-        first = run_migrations(conn, MIGRATIONS, db_path=db_path)
+        first = run_migrations(conn, MIGRATIONS[:1], db_path=db_path)
         assert len(first) == 1
 
         # Re-running must be a safe no-op: no ALTER TABLE re-attempted (which
         # would raise "duplicate column name" in sqlite), no rows re-applied.
-        second = run_migrations(conn, MIGRATIONS, db_path=db_path)
+        second = run_migrations(conn, MIGRATIONS[:1], db_path=db_path)
         assert second == []
     finally:
         conn.close()

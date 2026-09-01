@@ -217,15 +217,23 @@ def test_keeps_all_referenced_files():
     pid = create_project("GC Keep Test")
     cid = create_chapter(pid, "GC Keep Chapter")
 
+    # #232 Task 005's ux_seg_audio_file unique index (chapter_id,
+    # audio_file_path) now enforces one-row-one-file at the DB level, so two
+    # segments can no longer legitimately share a file the way a pre-collapse
+    # render-batch row set once did — each gets its own referenced file
+    # instead; the point under test (nothing referenced gets deleted) is
+    # unaffected.
     _insert_segment(cid, "seg-x", "group1.wav")
-    _insert_segment(cid, "seg-y", "group1.wav")  # two segments, same group file
+    _insert_segment(cid, "seg-y", "group2.wav")
 
     seg_dir = _resolve_seg_dir(pid, cid)
     (seg_dir / "group1.wav").write_bytes(b"RIFF")
+    (seg_dir / "group2.wav").write_bytes(b"RIFF")
 
     summary = reconcile_orphan_segment_files()
 
     assert (seg_dir / "group1.wav").exists()
+    assert (seg_dir / "group2.wav").exists()
     assert summary["orphans_deleted"] == 0
 
 
