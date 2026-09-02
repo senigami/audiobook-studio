@@ -86,9 +86,13 @@ def load_recoverable_task_contexts() -> list[TaskContext]:
                     continue
                 _seen_chapters.add(chapter_id)
 
+            # The orchestrator gates on these as fields, never via payload:
+            # dropping them here makes a recovered chapter render unresumable.
             ctx = TaskContext(
                 task_id=str(job_id),
                 task_type=str(task_type),
+                project_id=job.get("project_id"),
+                chapter_id=chapter_id,
                 payload={
                     **job,
                     "_recovered": True,

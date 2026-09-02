@@ -122,22 +122,44 @@ def test_settings_get_returns_default_parallel_cap(clean_db, client):
     assert settings["tts_engine_caps"] == {}
 
 
+def test_settings_post_rejects_unknown_engine_cap_key(clean_db, client):
+    """POST /api/settings must reject tts_engine_caps keys that aren't real, loaded engine_ids
+
+    (issue #235 — no allowlist meant any string key, including internal synthetic ones
+    like "chapter_admission", could be set and persisted).
+    """
+    response = client.post("/api/settings", json={
+        "tts_engine_caps": {"chapter_admission": 999},
+    })
+    assert response.status_code == 400
+    assert "chapter_admission" in response.json()["detail"]
+
+    # Rejected key must not have been persisted.
+    follow_up = client.get("/api/home")
+    assert follow_up.json()["settings"]["tts_engine_caps"] == {}
+
+
 def test_settings_post_updates_parallel_cap(clean_db, client):
-    """POST /api/settings persists tts_parallel_cap and tts_engine_caps (W-PAR task 007)."""
+    """POST /api/settings persists tts_parallel_cap and tts_engine_caps (W-PAR task 007).
+
+    Keyed by the real, manifest-declared engine_id ("voxtral") — not the plugin
+    directory name ("tts_voxtral") — now that issue #235's allowlist validates
+    tts_engine_caps keys against the live plugin registry.
+    """
     response = client.post("/api/settings", json={
         "tts_parallel_cap": 3,
-        "tts_engine_caps": {"tts_voxtral": 4},
+        "tts_engine_caps": {"voxtral": 4},
     })
     assert response.status_code == 200
     data = response.json()["settings"]
     assert data["tts_parallel_cap"] == 3
-    assert data["tts_engine_caps"] == {"tts_voxtral": 4}
+    assert data["tts_engine_caps"] == {"voxtral": 4}
 
     # Persisted — a fresh GET reflects the same values.
     follow_up = client.get("/api/home")
     settings = follow_up.json()["settings"]
     assert settings["tts_parallel_cap"] == 3
-    assert settings["tts_engine_caps"] == {"tts_voxtral": 4}
+    assert settings["tts_engine_caps"] == {"voxtral": 4}
 
 
 def test_default_speaker_setting(clean_db, client, tmp_path, monkeypatch):

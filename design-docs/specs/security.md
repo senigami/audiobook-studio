@@ -1,9 +1,9 @@
 # Security
 
 ```
-spec_version: 1.4.2
+spec_version: 1.4.3
 status: active
-updated: 2026-08-26
+updated: 2026-08-28
 sources:
   - app/utils/pathing.py
   - app/core/security.py
@@ -28,6 +28,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.4.3   | 2026-08-28 | **S19 (settings key allowlist, #235):** `POST /api/settings`'s `tts_engine_caps` accepted any string key with no validation against real engine ids (found inert during #228/#229's adversarial review, tracked separately). Now rejected with 400 unless every key matches a currently-loaded `engine_id` from `bridge.describe_registry()` — see Settings Key Allowlist below. |
 | 1.4.2   | 2026-08-26 | **S17 correction (#219a):** 1.4.0/1.4.1 claimed "Python's `zipfile` module enforces `file_size` as the stop condition when reading/extracting a member" as a blanket property of the module. Measured directly rather than assumed, and it is not: that truncation-at-declared-size behavior belongs to the streaming reader (`zf.open(member)`, which `extractall()` also uses internally), NOT to `ZipFile.read(name)`, the single-shot convenience method this module called for `manifest.json`/`settings_schema.json`/`requirements.txt`. `read(name)` decompresses a member's entire DEFLATE stream in one call regardless of declared size and only compares against it (via CRC) at the very end. Confirmed empirically: a member declaring 100 bytes while its real content was 800 MB cost +839 MB RSS through `zf.read()` before raising; the identical forgery read through `zf.open()` in a bounded loop cost none, because the streaming reader's own EOF tracking stopped it at the declared size first — meaning `extractall()` was never actually exploitable this way, only the three pre-extraction convenience reads were. Fixed by routing all four reads (those three, plus extraction itself, for defense-in-depth and consistent error handling) through `_safe_read_member`/`_safe_extractall`, which stream via `zf.open()` and count real bytes rather than relying on `zipfile`'s internal bookkeeping. Because a forged declared size and an honest CRC can never coexist (truncating an honest CRC's real content always mismatches), the actual failure mode this closes is not "size ceiling bypassed" but "corrupted/tampered member propagated as an unhandled `zipfile.BadZipFile`" — pre-fix, that surfaced as a bare 500 (extraction) or a misleading 400 "Invalid manifest.json" (mis-caught by the JSON-parse handler). Now a clean, correctly-labeled 400. The stale "single member just under the [uncompressed] ceiling is still read whole into memory by `zf.read(\"manifest.json\")`" note from 1.4.1 no longer applies and is removed below. |
 | 1.4.1   | 2026-08-26 | **S17 follow-up (#219a):** the 200 MB upload ceiling was applied only to the TTS server's own `/plugins/import` and `/plugins/preview`. The Studio-side proxy routes (`app/api/routers/engines_plugins.py`), which are the LAN-reachable surface, still did an unbounded `await file.read()` into the Studio process before forwarding to the bridge. Capped there too, answering 413. Phase 0 also now records the two limits it does not provide (Starlette spools the whole body to disk before the handler runs; a single member just under the 2 GB sum is still read whole into memory). |
 | 1.4.0   | 2026-08-25 | **S16 (assembly output-path escape, #218):** an untrusted project display name flowed unsanitized into the assembly output filename (`app/api/routers/projects_assembly.py`) and from there into ffmpeg's read directory (`app/orchestration/tasks/assembly.py`, `input_folder = output_path.parent`) — a `../`-laden or absolute project name could steer both outside the project's storage root. Fixed with a new path-safe-stem helper (`safe_path_stem`, `app/utils/text/textops_helpers.py`) feeding the existing `secure_join_flat` barrier for the on-disk filename only — the display title itself keeps flowing unsanitized into job/queue metadata — plus a defense-at-the-point-of-action containment check in `AssemblyTask.run()` via `StorageManager.is_safe()` immediately before ffmpeg is invoked, regardless of who built `output_path`. **S17 (plugin zip-bomb ceilings, #219a):** `/plugins/import` and `/plugins/preview` (`app/tts_server/server.py`, `app/tts_server/plugin_staging.py`) had no size ceiling anywhere on the upload path — an unbounded `file.read()` followed by `extractall()` with no cap on declared uncompressed size or member count. Added three named ceilings (200 MB upload / 2 GB uncompressed / 10,000 members), enforced before extraction, rejecting with 413 (see Plugin Zip Import Security below). **S18 (error-body path leak, #219b):** `str(OSError)` embeds the full filesystem path it failed on; the icon-save handler in `app/api/routers/voices_metadata.py` forwarded it directly into the HTTP response, violating the existing Status Payload Rule below. Fixed there, plus two latent sites of the same shape (`voices_metadata.py`'s metadata-patch handler and `voices_huggingface.py`'s import handler, both wrapping the same `update_voice_metadata` `RuntimeError`) that are not currently leaking a path but were one message change away from it. |
@@ -165,6 +166,31 @@ Redaction is driven by an explicit allowlist of field names, `_SECRET_FIELDS` (c
 
 - MUST NOT write the redacted placeholder `"***"` back to the settings store (round-trip guard).
 - Any settings write endpoint MUST discard incoming values that equal `"***"`.
+
+---
+
+## Settings Key Allowlist (S19)
+
+`POST /api/settings`'s `tts_engine_caps` field (`app/api/routers/system.py`) is a `dict[str, int]`
+keyed by `engine_id`, resolved later by `app.orchestration.scheduler.cap_settings`. Before #235,
+any string key was accepted and persisted with no check against real, loaded engines.
+
+`_unknown_engine_cap_keys()` validates every key in an incoming `tts_engine_caps` dict against the
+live plugin registry (`bridge.describe_registry()`, the same source `GET /api/home` uses to list
+engines) rather than a hardcoded list, so a newly installed plugin's `engine_id` is accepted
+without a code change.
+
+### Invariants
+
+- A `tts_engine_caps` key that doesn't match a currently-loaded `engine_id` MUST be rejected with
+  HTTP 400 — the whole request fails closed; no partial/silent-drop acceptance of the unknown key.
+- Internal synthetic cap keys (e.g. `CHAPTER_ADMISSION_ENGINE_CLASS` / `"chapter_admission"` in
+  `app/orchestration/scheduler/resources.py`) are deliberately **not** on the allowlist — they are
+  implementation plumbing that happens to share `tts_engine_caps`' storage shape, not a
+  user-facing settings surface. If that pool ever needs operator tuning, it needs its own named
+  setting, not an allowlist carve-out here.
+- The allowlist MUST be sourced from the live registry, never a hardcoded engine-id list, to avoid
+  the check itself going stale against installed/removed plugins.
 
 ---
 
