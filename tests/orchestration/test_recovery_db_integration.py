@@ -18,6 +18,8 @@ import pytest
 from app.db.queue import upsert_queue_row
 from app.db.projects import create_project
 from app.db.chapters import create_chapter
+
+from tests.orchestration.conftest import join_recovery_threads
 from app.orchestration.scheduler.recovery import (
     load_recoverable_task_contexts,
     _RECOVERABLE_STATUSES,
@@ -164,6 +166,13 @@ class TestStartupRecovery:
         ):
             from app.core.boot import run_startup_recovery
             run_startup_recovery(contexts)
+            # recover() re-submits on a background "recovery-<task_id>" daemon
+            # thread (see orchestrator.py) and does not join it. Assert inside
+            # the patch window, after joining that thread, so the assertion
+            # observes the real submission rather than racing it (this test
+            # only ever passed before because a recovered context with no
+            # chapter_id took a fast/no-op progress-publish path; see #232).
+            join_recovery_threads()
 
         # submit() should have been invoked for our job (possibly among others)
         assert job_id in submitted_ids, (
@@ -252,13 +261,22 @@ class TestRecoveredSynthesisEngineField:
         task = SynthesisTask.from_task_context(ctx)
 
         assert task.engine_id == "xtts"
-        # A recovered context has no `script_text` (processing_queue never
-        # stores it) and `TaskContext.chapter_id` isn't threaded through by
-        # `load_recoverable_task_contexts` — a separate, pre-existing gap
-        # outside this issue's scope — so validate() still raises here, but
-        # it must be the script_text complaint, never "engine_id is
-        # required": that's the specific defect issue #238 reports.
-        with pytest.raises(ValueError, match="script_text"):
+        # project_id/chapter_id are now threaded through by
+        # load_recoverable_task_contexts (issue #261), so validate() skips
+        # its script_text requirement for a chapter-driven job (as designed)
+        # and reaches the next real gap: a recovered `processing_queue` row
+        # has no `output_path` either. This is not "engine_id is required" —
+        # confirming the #238 defect this test guards against stays fixed.
+        #
+        # Note this test bypasses the real recovery routing on purpose: in
+        # production, `_reconstruct_task` never reaches a bare SynthesisTask
+        # for a chapter_id + segment-orchestration engine like xtts — it
+        # rebuilds a ChapterSynthesisTask instead (see
+        # `_reconstruct_chapter_task_from_context`), which has no
+        # `output_path` requirement. This direct
+        # `SynthesisTask.from_task_context()` call only exercises the
+        # fallback path a non-chapter/non-segment engine would take.
+        with pytest.raises(ValueError, match="output_path"):
             task.validate()
 
 
