@@ -24,6 +24,10 @@ export interface SegmentRenderMonitorSegment {
   /** 0..1, meaningful while phase === 'rendering' (or partially credited on 'failed'). */
   progress: number;
   engineId?: string;
+  /** True only while a member is genuinely rendering. `phase === 'rendering'`
+   * also covers a partially-rendered-but-idle batch (#237), so anything
+   * counting concurrent renders or animating in-flight work reads this. */
+  inFlight?: boolean;
   /** `ActiveSegmentMapEntry.reason_code` (task 008/010) — surfaced verbatim in the
    * per-segment detail popover/table row; only meaningful for failed segments. */
   reasonCode?: string;
@@ -97,7 +101,8 @@ export const SegmentBlockRow: React.FC<SegmentBlockRowProps> = ({ segments, heig
     >
       {segments.map((s) => {
         const titleState = s.phase === 'rendering' ? `rendering ${Math.round(s.progress * 100)}%` : PHASE_LABEL[s.phase].toLowerCase();
-        const activeClass = s.phase === 'rendering' && !reduced ? 'segment-render-monitor__block--active' : undefined;
+        const inFlight = s.inFlight ?? s.phase === 'rendering';
+        const activeClass = inFlight && !reduced ? 'segment-render-monitor__block--active' : undefined;
         const prepClass = s.phase === 'preparing' && !reduced ? 'segment-render-monitor__block--preparing' : undefined;
         return (
           <div

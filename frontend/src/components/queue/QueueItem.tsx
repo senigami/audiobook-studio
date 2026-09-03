@@ -85,7 +85,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     }, [job.id]);
 
     const renderingCount = React.useMemo(
-        () => inventorySegments.filter((s) => s.phase === 'rendering').length,
+        () => inventorySegments.filter((s) => s.inFlight ?? s.phase === 'rendering').length,
         [inventorySegments],
     );
     const failedSegmentCount = React.useMemo(
