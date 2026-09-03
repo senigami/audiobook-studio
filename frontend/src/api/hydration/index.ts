@@ -1,6 +1,7 @@
 import type { ProcessingQueueItem, Status as LegacyStatus } from '@/types';
 import type { LiveOverlayState, OverlayDelta } from '@/store/live-jobs';
 import { isMainQueueSegmentItem, isSegmentScopedJob } from '@/utils/jobSelection';
+import { ACTIVE_STATUSES } from '@/utils/jobStatus';
 
 export type HydrationSource = 'bootstrap' | 'terminal' | 'reconnect' | 'refresh';
 
@@ -58,7 +59,7 @@ export interface HydrationCoordinator {
   mergeQueueWithOverlays: (snapshot: HydrationSnapshot, overlays: LiveOverlayState, nowOverride?: number) => ProcessingQueueItem[];
 }
 
-const ACTIVE_STATUSES: ProcessingQueueItem['status'][] = ['queued', 'preparing', 'running', 'finalizing'];
+
 const TERMINAL_STATUSES: ProcessingQueueItem['status'][] = ['done', 'failed', 'cancelled'];
 
 function buildOverlayQueueItem(jobId: string, delta: OverlayDelta): ProcessingQueueItem | null {
@@ -132,7 +133,7 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
         const isRecentTerminalOverlay = TERMINAL_STATUSES.includes(item.status)
           && terminalTimestamp > 0
           && (nowSeconds - terminalTimestamp) <= TERMINAL_OVERLAY_HOLD_SECONDS;
-        if (!ACTIVE_STATUSES.includes(item.status) && !hasSnapshotSibling && !isRecentTerminalOverlay) return null;
+        if (!ACTIVE_STATUSES.has(item.status) && !hasSnapshotSibling && !isRecentTerminalOverlay) return null;
         if (isMainQueueSegmentItem(item)) return null;
         return item;
       })
