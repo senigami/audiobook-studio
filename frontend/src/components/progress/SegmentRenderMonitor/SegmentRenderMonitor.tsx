@@ -372,8 +372,11 @@ export const SegmentRenderMonitor: React.FC<SegmentRenderMonitorProps> = ({
   const total = segments.length;
   const doneCount = segments.filter((s) => s.phase === 'done').length;
   // Only segments actually in-flight right now count as "rendering in
-  // parallel" — 'preparing' means not-yet-started (queued), not concurrent.
-  const activeCount = segments.filter((s) => s.phase === 'rendering').length;
+  // parallel". Reads `inFlight` rather than the phase: since #237 a
+  // partially-rendered-but-idle batch also reports 'rendering', and counting
+  // it here would overstate how many renders are actually running. Falls back
+  // to the phase for the per-span path, which sets no `inFlight`.
+  const activeCount = segments.filter((s) => s.inFlight ?? s.phase === 'rendering').length;
   const failedCount = segments.filter((s) => s.phase === 'failed').length;
   const complete = total > 0 && doneCount === total;
   const pct = Math.round(charWeightedProgress(segments) * 100);

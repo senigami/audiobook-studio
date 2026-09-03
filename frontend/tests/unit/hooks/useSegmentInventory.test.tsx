@@ -81,6 +81,33 @@ describe('useSegmentInventory', () => {
     expect(bySeg['seg-3']).toMatchObject({ phase: 'rendering', progress: 0.4, charCount: 30 });
   });
 
+  it('does not report a partially-rendered batch as Preparing (#237)', async () => {
+    // A batch whose members are part done and part not-yet-started, with nothing
+    // in the live map: the resume-after-restart shape. Expected values are read
+    // off the batch members, not recomputed from the hook's own aggregation.
+    const view: ScriptViewResponse = {
+      ...mockScriptView,
+      spans: [
+        { id: 'a', order_index: 0, text: 'Done already.', sanitized_text: 'Done already.', character_id: null, speaker_profile_name: null, status: 'rendered', audio_file_path: null, audio_generated_at: null, char_count: 50, sanitized_char_count: 50 },
+        { id: 'b', order_index: 1, text: 'Not started.', sanitized_text: 'Not started.', character_id: null, speaker_profile_name: null, status: 'draft', audio_file_path: null, audio_generated_at: null, char_count: 50, sanitized_char_count: 50 },
+      ],
+      render_batches: [{ id: 'batch-1', span_ids: ['a', 'b'] } as any],
+    };
+    (api.fetchScriptView as any).mockResolvedValue(view);
+
+    const { result } = renderHook(() => useSegmentInventory(makeJob({ active_segments_map: {} })));
+    await waitFor(() => expect(result.current.segments.length).toBe(1));
+
+    const batch = result.current.segments[0];
+    // One of two equal-length members is rendered, so half the characters are done.
+    expect(batch.progress).toBeCloseTo(0.5);
+    // The label must not claim the batch has not started when half of it has.
+    expect(batch.phase).not.toBe('preparing');
+    // ...and it must not claim to be occupying a render slot, because nothing
+    // in this batch is actually in flight (drives the parallel-render count).
+    expect(batch.inFlight).toBe(false);
+  });
+
   it('shows a failed span with the real failed phase from active_segments_map', async () => {
     (api.fetchScriptView as any).mockResolvedValue(mockScriptView);
 

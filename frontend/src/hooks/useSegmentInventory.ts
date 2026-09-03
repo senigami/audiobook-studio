@@ -130,7 +130,22 @@ export function useSegmentInventory(job: Job | null | undefined): {
       const anyFailed = members.some((m) => m.phase === 'failed');
       const anyRendering = members.some((m) => m.phase === 'rendering');
       const allDone = members.length > 0 && members.every((m) => m.phase === 'done');
-      const phase: SegmentRenderPhase = anyFailed ? 'failed' : anyRendering ? 'rendering' : allDone ? 'done' : 'preparing';
+      // A batch with completed members but nothing in flight is the
+      // resume-after-restart shape. It is not 'preparing': that word means
+      // not-yet-started, and claiming it while half the characters are already
+      // on disk puts a part-filled bar under a "Preparing" label (#237).
+      // `inFlight` stays false so the parallel-render count and the pulse
+      // animation keep meaning "actually occupying a render slot right now".
+      const anyDone = members.some((m) => m.phase === 'done');
+      const phase: SegmentRenderPhase = anyFailed
+        ? 'failed'
+        : anyRendering
+          ? 'rendering'
+          : allDone
+            ? 'done'
+            : anyDone
+              ? 'rendering'
+              : 'preparing';
 
       const filled = members.reduce((sum, m) => {
         if (m.phase === 'done') return sum + m.charCount;
@@ -142,7 +157,7 @@ export function useSegmentInventory(job: Job | null | undefined): {
       const engineId = members.find((m) => m.engineId)?.engineId;
       const reasonCode = phase === 'failed' ? members.find((m) => m.phase === 'failed')?.reasonCode : undefined;
 
-      return { id: batch.id, charCount, phase, progress, engineId, reasonCode };
+      return { id: batch.id, charCount, phase, progress, engineId, reasonCode, inFlight: anyRendering };
     });
 
     return { segments: batches, batchSpanIds: ids };
