@@ -1,0 +1,36 @@
+{
+  "plan": "design-docs/plans/active/audio_player_completion_004",
+  "updated": "2026-07-10T00:00:00Z",
+  "slices": {
+    "001-playerbar-tape-wiring": { "state": "accepted", "files": ["frontend/src/app/layout/PlayerBar.tsx"], "commit": "2416bed6" },
+    "002-tape-css-and-tests": { "state": "accepted", "files": ["frontend/src/theme/components/player.css", "frontend/tests/unit/app/layout/PlayerBar.test.tsx"], "commit": "a98df474, 0de95392" },
+    "003-characterize-segment-playback": { "state": "accepted", "files": ["frontend/tests/unit/hooks/useChapterPlayback.test.tsx", "frontend/tests/unit/pages/ChapterEditor/components/DirectorsConsole/CastTool/CastToolSegmentPlaybackIntegration.test.tsx"], "commit": "51da0a1a (content swept into an unrelated concurrent commit; content independently verified correct)" },
+    "004-block-queue-navigation-fix": { "state": "accepted", "files": ["frontend/src/hooks/useChapterPlayback.ts", "frontend/tests/unit/hooks/useChapterPlayback.test.tsx", "frontend/tests/unit/pages/ChapterEditor/components/DirectorsConsole/CastTool/CastToolSegmentPlaybackIntegration.test.tsx"], "commit": "0de95392 (content swept into task 002's commit; content independently verified correct, R1 revert-check confirmed)" },
+    "005-block-position-label-and-spec": { "state": "accepted", "files": ["frontend/src/hooks/useChapterPlayback.ts", "design-docs/specs/audio-player.md", "wiki/Changelog.md"], "commit": "19ccd0b9, ac5d350f" },
+    "006-peaks-compute-function": { "state": "accepted", "files": ["app/engines/audio_ops.py", "app/utils/subprocess_utils.py", "tests/engines/test_peaks_sidecar.py"], "commit": "f567681d, 51da0a1a (sha-fix)" },
+    "007-peaks-serving-route": { "state": "accepted", "files": ["app/api/routers/chapters_assets.py", "tests/api/test_peaks_asset_route.py"], "commit": "bd3e20cf, 4bcb74c5" },
+    "008-frontend-peaks-source-swap": { "state": "accepted", "files": ["frontend/src/app/layout/WaveformTape.tsx", "frontend/src/app/layout/PlayerBar.tsx", "frontend/src/api/contracts/peaksSidecar.ts", "frontend/src/api/fetchPeaksSidecar.ts"], "commit": "96d8313f" },
+    "009-spec-sync": { "state": "accepted", "files": ["design-docs/specs/audio-player.md", "design-docs/specs/data-model.md", "wiki/Changelog.md"], "commit": "8cb5d627" }
+  },
+  "green_gate": "passed (backend: 2255 passed/3 skipped; frontend: 219/220 files, 1836/1837 tests — the 1 remaining failure is tests/unit/demo/styleguide.test.tsx, a pre-existing cross-file test-isolation flake unrelated to this plan, filed separately as task_eb2ea632)",
+  "review_rounds": [
+    {
+      "round": 1,
+      "personas": ["Concurrency Saboteur", "Security Auditor", "Correctness/New-Hire Auditor"],
+      "blockers_found": 3,
+      "blockers_fixed": 3,
+      "findings": [
+        "WARNING (fixed, commit 2068c3d2): peaks route could 500 instead of 404 on a concurrent WAV delete/replace during compute-on-miss (stat + cache-write both unguarded).",
+        "WARNING (fixed, commit f41088a7): compute_peaks_sidecar had no cap on decoded INPUT sample count (only the output bucket count was capped) — a long WAV could exhaust memory/CPU inside a synchronous request handler.",
+        "CRITICAL (fixed, commit dfcf18aa): WaveformTapeMinimap read the raw `peaks` prop instead of usePeaks' resolved effective source — rendered flat placeholder bars for every under-cap clip (the common case) instead of the real decoded waveform.",
+        "NOTE (not fixed, flagged for owner): two different 'block' definitions exist in the codebase (the fixed PlayerBar/CastTool path vs. the dead-code-adjacent ChapterEditorPage's PlaybackControls) that could disagree for a multi-segment chunkGroup with no covering AudioGroup. Reviewer could not construct a live failing path given ChapterEditorPage's unreachability; flagged as a design-divergence worth owner confirmation, not fixed (would require touching INV-4-protected exports).",
+        "NOTE (not fixed, low-severity, traced not reproduced): a possible one-frame stale-peaks flash in WaveformTape's usePeaks during a supplied-to-null transition; not reachable via PlayerBar's current usage pattern.",
+        "NOTE (not fixed, accepted): _peaks_locks dict grows unbounded over the server's lifetime — negligible for a local-first single-user app; both reviewers who looked at it independently reached the same conclusion."
+      ]
+    }
+  ],
+  "incident_notes": [
+    "Batch 1 (001, 003, 006) initially dispatched with isolation:'worktree' — all three worktrees were provisioned from a stale pre-Studio-2.0 commit (8db2ceb0) instead of the current branch tip. Harness-level bug, not a prompt issue. All three agents correctly detected this, made zero edits, and stopped cleanly. Redispatched directly on the primary checkout (no worktree isolation) for the remainder of this plan-run.",
+    "The primary checkout is ALSO being used concurrently by a separate, unrelated session (working on an unrelated 'North Star screen-parity' plan). Combined with 3 parallel implementer agents on one shared git index, this caused repeated commit-attribution cross-contamination (files landing under commit messages that don't describe them) via the repo's pre-commit hook's broad restaging. In every instance, content was independently verified correct at HEAD (git show <sha> -- <path>) — no data loss occurred, only commit-message/authorship hygiene is messy. Known, previously-documented risk class for this repo (see memory: parallel-lanes-git-index-race)."
+  ]
+}

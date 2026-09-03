@@ -1,0 +1,458 @@
+"""Low-level HTTP client for TTS Server communication.
+
+This module provides synchronous and async-compatible methods for calling the
+TTS Server's HTTP endpoints.  All Studio code that needs to talk to the TTS
+Server should go through this client, not construct raw HTTP requests.
+
+The client uses ``httpx`` (already in requirements.txt) for transport.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any, Optional
+
+import httpx
+
+logger = logging.getLogger(__name__)
+
+# Default connect and read timeouts used for regular requests.
+_CONNECT_TIMEOUT = 5.0  # seconds
+_READ_TIMEOUT = 300.0  # seconds — synthesis can be slow
+_INSTALL_TIMEOUT = 900.0  # seconds — pip installs can be slow
+
+# Tighter timeout for heartbeat checks.
+_HEARTBEAT_TIMEOUT = 3.0
+_LIST_TIMEOUT = 10.0  # seconds for registry/plugin list
+
+
+class TtsServerError(RuntimeError):
+    """Base error for TTS Server HTTP client failures."""
+
+
+class TtsServerConnectionError(TtsServerError):
+    """The TTS Server is unreachable or refused the connection."""
+
+
+class TtsServerResponseError(TtsServerError):
+    """The TTS Server returned an unexpected HTTP status code."""
+
+    def __init__(self, message: str, *, status_code: int | None = None, detail: str | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.detail = detail
+
+
+class TtsServerOutputRejectedError(TtsServerError):
+    """The TTS Server's check_output hook rejected the synthesized artifact.
+
+    The artifact has already been deleted server-side before this error is
+    raised.  ``reason`` carries the engine's rejection message verbatim.
+    """
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(f"output_rejected: {reason}")
+        self.reason = reason
+
+
+class TtsClient:
+    """Synchronous HTTP client for the TTS Server.
+
+    Args:
+        base_url: E.g. ``"http://127.0.0.1:7862"`` — no trailing slash.
+    """
+
+    def __init__(self, base_url: str) -> None:
+        self.base_url = base_url.rstrip("/")
+
+    # ------------------------------------------------------------------
+    # Health
+    # ------------------------------------------------------------------
+
+    def health(self) -> dict[str, Any]:
+        """GET /health — overall server health.
+
+        Returns:
+            dict[str, Any]: Health payload from the TTS Server.
+
+        Raises:
+            TtsServerConnectionError: If the server is unreachable.
+            TtsServerResponseError: If the server returns a non-2xx/207 status.
+        """
+        return self._get("/health", timeout=_HEARTBEAT_TIMEOUT)
+
+    def ping(self) -> bool:
+        """Return True if the TTS Server responds to /ready within timeout.
+
+        Does not raise — intended for watchdog heartbeat checks.
+        """
+        try:
+            resp = httpx.get(
+                f"{self.base_url}/ready",
+                timeout=_HEARTBEAT_TIMEOUT,
+            )
+            return resp.status_code == 200
+        except Exception:
+            return False
+
+    # ------------------------------------------------------------------
+    # Engine registry
+    # ------------------------------------------------------------------
+
+    def get_engines(self) -> list[dict[str, Any]]:
+        """GET /engines — list all loaded engine plugins.
+
+        Returns:
+            list[dict[str, Any]]: Engine detail payloads.
+        """
+        result = self._get("/engines", timeout=_LIST_TIMEOUT)
+        if isinstance(result, list):
+            return result
+        return []
+
+    def get_engine(self, engine_id: str) -> dict[str, Any]:
+        """GET /engines/{engine_id} — single engine detail."""
+        return self._get(f"/engines/{_safe_id(engine_id)}")
+
+    # ------------------------------------------------------------------
+    # Settings
+    # ------------------------------------------------------------------
+
+    def get_settings(self, engine_id: str) -> dict[str, Any]:
+        """GET /engines/{engine_id}/settings."""
+        return self._get(f"/engines/{_safe_id(engine_id)}/settings")
+
+    def update_settings(
+        self, engine_id: str, settings: dict[str, Any]
+    ) -> dict[str, Any]:
+        """PUT /engines/{engine_id}/settings."""
+        return self._put(
+            f"/engines/{_safe_id(engine_id)}/settings",
+            payload={"settings": settings},
+        )
+
+    def clear_setting(self, engine_id: str, setting_key: str) -> dict[str, Any]:
+        """DELETE /engines/{engine_id}/settings/{setting_key}."""
+        return self._delete(
+            f"/engines/{_safe_id(engine_id)}/settings/{_safe_id(setting_key)}",
+        )
+
+    # ------------------------------------------------------------------
+    # Synthesis
+    # ------------------------------------------------------------------
+
+    def synthesize(
+        self,
+        *,
+        engine_id: str,
+        text: str,
+        output_path: str,
+        voice_ref: str | None = None,
+        settings: dict[str, Any] | None = None,
+        language: str = "en",
+        script: list[dict[str, Any]] | None = None,
+        task_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """POST /synthesize — run TTS synthesis.
+
+        Args:
+            engine_id: Target engine identifier.
+            text: Text to synthesize.
+            output_path: Absolute path where the engine should write the audio.
+            voice_ref: Optional path to a reference audio file.
+            settings: Optional per-request settings overrides.
+            language: BCP-47 language code.
+            script: Optional list of segments for script-based synthesis.
+            task_id: Optional unique identifier for this task (for log correlation).
+
+        Returns:
+            dict[str, Any]: Synthesis result payload.
+        """
+        return self._post(
+            "/synthesize",
+            payload={
+                "engine_id": engine_id,
+                "text": text,
+                "output_path": output_path,
+                "voice_ref": voice_ref,
+                "settings": settings or {},
+                "language": language,
+                "script": script,
+                "task_id": task_id,
+            },
+            timeout=_READ_TIMEOUT,
+        )
+
+    def cancel(self, task_id: str) -> bool:
+        """POST /tasks/{task_id}/cancel — request task termination."""
+        try:
+            self._post(f"/tasks/{_safe_id(task_id)}/cancel", payload={})
+            return True
+        except Exception as exc:
+            logger.warning("TtsClient.cancel(%s) failed: %s", task_id, exc)
+            return False
+
+    def plan_synthesis(
+        self,
+        *,
+        engine_id: str,
+        text: str,
+        output_path: str,
+        voice_ref: str | None = None,
+        settings: dict[str, Any] | None = None,
+        language: str = "en",
+        script: list[dict[str, Any]] | None = None,
+        task_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """POST /engines/{engine_id}/plan — query preferred synthesis plan.
+
+        Returns:
+            dict[str, Any]: SynthesisPlan payload from the engine.
+        """
+        return self._post(
+            f"/engines/{_safe_id(engine_id)}/plan",
+            payload={
+                "engine_id": engine_id,
+                "text": text,
+                "output_path": output_path,
+                "voice_ref": voice_ref,
+                "settings": settings or {},
+                "language": language,
+                "script": script,
+                "task_id": task_id,
+            },
+        )
+
+    def preview(
+        self,
+        *,
+        engine_id: str,
+        text: str,
+        output_path: str,
+        voice_ref: str | None = None,
+        settings: dict[str, Any] | None = None,
+        language: str = "en",
+        task_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """POST /preview — run lightweight preview synthesis."""
+        return self._post(
+            "/preview",
+            payload={
+                "engine_id": engine_id,
+                "text": text,
+                "output_path": output_path,
+                "voice_ref": voice_ref,
+                "settings": settings or {},
+                "language": language,
+                "task_id": task_id,
+            },
+            timeout=_READ_TIMEOUT,
+        )
+
+    # ------------------------------------------------------------------
+    # Plugin management
+    # ------------------------------------------------------------------
+
+    def refresh_plugins(self) -> dict[str, Any]:
+        """POST /plugins/refresh — re-scan the plugins directory."""
+        return self._post("/plugins/refresh", payload={})
+
+    def verify_engine(self, engine_id: str) -> dict[str, Any]:
+        """POST /engines/{engine_id}/verify — re-run verification synthesis."""
+        return self._post(
+            f"/engines/{_safe_id(engine_id)}/verify",
+            payload={},
+        )
+
+    def run_test(self, engine_id: str) -> dict[str, Any]:
+        """POST /engines/{engine_id}/verify — alias for full verification test."""
+        return self.verify_engine(engine_id)
+
+    def install_dependencies(self, engine_id: str) -> dict[str, Any]:
+        """POST /engines/{engine_id}/install — trigger dependency installation."""
+        return self._post(
+            f"/engines/{_safe_id(engine_id)}/install",
+            payload={},
+            timeout=_INSTALL_TIMEOUT,
+        )
+
+    def delete_engine(self, engine_id: str) -> dict[str, Any]:
+        """DELETE /engines/{engine_id} — uninstall a plugin."""
+        return self._delete(f"/engines/{_safe_id(engine_id)}")
+
+    def import_plugin(self, file_content: bytes, filename: str) -> dict[str, Any]:
+        """POST /plugins/import — upload and install a plugin zip."""
+        files = {"file": (filename, file_content, "application/zip")}
+        return self._post_files("/plugins/import", files=files)
+
+    def preview_plugin(self, file_content: bytes, filename: str) -> dict[str, Any]:
+        """POST /plugins/preview — stage a plugin zip and return manifest metadata.
+
+        Does NOT install; caller must confirm or cancel via the staging token.
+        """
+        files = {"file": (filename, file_content, "application/zip")}
+        return self._post_files("/plugins/preview", files=files)
+
+    def preview_github_plugin(self, git_url: str) -> dict[str, Any]:
+        """POST /plugins/preview_github — stage a GitHub repo and return manifest metadata.
+
+        Does NOT install; caller must confirm or cancel via the staging token.
+        """
+        return self._post("/plugins/preview_github", payload={"git_url": git_url})
+
+    def confirm_plugin_import(self, token: str) -> dict[str, Any]:
+        """POST /plugins/confirm/{token} — complete a staged plugin import."""
+        import re
+        safe_token = token if re.fullmatch(r"[0-9a-f]{32}", token) else ""
+        if not safe_token:
+            raise ValueError(f"Invalid staging token: {token!r}")
+        return self._post(f"/plugins/confirm/{safe_token}", payload={})
+
+    def cancel_plugin_staging(self, token: str) -> dict[str, Any]:
+        """DELETE /plugins/staging/{token} — discard staged plugin."""
+        import re
+        safe_token = token if re.fullmatch(r"[0-9a-f]{32}", token) else ""
+        if not safe_token:
+            raise ValueError(f"Invalid staging token: {token!r}")
+        return self._delete(f"/plugins/staging/{safe_token}")
+
+    def get_engine_requirements(self, engine_id: str) -> dict[str, Any]:
+        """GET /engines/{engine_id}/requirements — return requirements.txt lines."""
+        return self._get(f"/engines/{_safe_id(engine_id)}/requirements")
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _get(self, path: str, *, timeout: float = _CONNECT_TIMEOUT) -> Any:
+        url = f"{self.base_url}{path}"
+        try:
+            resp = httpx.get(url, timeout=timeout)
+        except httpx.ConnectError as exc:
+            raise TtsServerConnectionError(
+                f"Could not connect to TTS Server at {url}: {exc}"
+            ) from exc
+        except httpx.TimeoutException as exc:
+            raise TtsServerConnectionError(
+                f"TTS Server request timed out: {url}: {exc}"
+            ) from exc
+        _raise_for_status(resp, url)
+        return resp.json()
+
+    def _post(
+        self, path: str, *, payload: dict[str, Any], timeout: float = _READ_TIMEOUT
+    ) -> Any:
+        url = f"{self.base_url}{path}"
+        try:
+            resp = httpx.post(url, json=payload, timeout=timeout)
+        except httpx.ConnectError as exc:
+            raise TtsServerConnectionError(
+                f"Could not connect to TTS Server at {url}: {exc}"
+            ) from exc
+        except httpx.TimeoutException as exc:
+            raise TtsServerConnectionError(
+                f"TTS Server request timed out: {url}: {exc}"
+            ) from exc
+        _raise_for_status(resp, url)
+        return resp.json()
+
+    def _post_files(
+        self,
+        path: str,
+        *,
+        files: dict[str, Any],
+        timeout: float = _CONNECT_TIMEOUT,
+    ) -> Any:
+        url = f"{self.base_url}{path}"
+        try:
+            resp = httpx.post(url, files=files, timeout=timeout)
+        except httpx.ConnectError as exc:
+            raise TtsServerConnectionError(
+                f"Could not connect to TTS Server at {url}: {exc}"
+            ) from exc
+        except httpx.TimeoutException as exc:
+            raise TtsServerConnectionError(
+                f"TTS Server request timed out: {url}: {exc}"
+            ) from exc
+        _raise_for_status(resp, url)
+        return resp.json()
+
+    def _put(
+        self, path: str, *, payload: dict[str, Any], timeout: float = _CONNECT_TIMEOUT
+    ) -> Any:
+        url = f"{self.base_url}{path}"
+        try:
+            resp = httpx.put(url, json=payload, timeout=timeout)
+        except httpx.ConnectError as exc:
+            raise TtsServerConnectionError(
+                f"Could not connect to TTS Server at {url}: {exc}"
+            ) from exc
+        except httpx.TimeoutException as exc:
+            raise TtsServerConnectionError(
+                f"TTS Server request timed out: {url}: {exc}"
+            ) from exc
+        _raise_for_status(resp, url)
+        return resp.json()
+
+    def _delete(self, path: str, *, timeout: float = _CONNECT_TIMEOUT) -> Any:
+        url = f"{self.base_url}{path}"
+        try:
+            resp = httpx.delete(url, timeout=timeout)
+        except httpx.ConnectError as exc:
+            raise TtsServerConnectionError(
+                f"Could not connect to TTS Server at {url}: {exc}"
+            ) from exc
+        except httpx.TimeoutException as exc:
+            raise TtsServerConnectionError(
+                f"TTS Server request timed out: {url}: {exc}"
+            ) from exc
+        _raise_for_status(resp, url)
+        return resp.json()
+
+
+def _raise_for_status(resp: httpx.Response, url: str) -> None:
+    """Raise TtsServerResponseError for non-success status codes.
+
+    Raises ``TtsServerOutputRejectedError`` (a subclass of ``TtsServerError``)
+    when the response body carries ``{"error": "output_rejected"}``.
+    """
+    if resp.status_code not in (200, 201, 207):
+        # Check for structured output_rejected payload before generic error.
+        try:
+            payload = resp.json()
+        except ValueError:
+            payload = None
+
+        if isinstance(payload, dict) and payload.get("error") == "output_rejected":
+            reason = str(payload.get("reason", "engine rejected its own output"))
+            raise TtsServerOutputRejectedError(reason)
+
+        detail = _response_error_detail(resp)
+        raise TtsServerResponseError(
+            f"TTS Server returned {resp.status_code} for {url}: {detail}",
+            status_code=resp.status_code,
+            detail=detail,
+        )
+
+
+def _response_error_detail(resp: httpx.Response) -> str:
+    """Extract useful error details from a TTS Server response."""
+    try:
+        payload = resp.json()
+    except ValueError:
+        payload = None
+
+    if isinstance(payload, dict):
+        detail = payload.get("detail") or payload.get("message")
+        if detail:
+            return str(detail)[-4000:]
+
+    return resp.text[-4000:]
+
+
+def _safe_id(engine_id: str) -> str:
+    """Sanitize an engine_id before embedding in a URL path."""
+    safe = "".join(c for c in engine_id if c.isalnum() or c in "-_")
+    if not safe:
+        raise ValueError(f"engine_id {engine_id!r} is not safe for URL embedding")
+    return safe

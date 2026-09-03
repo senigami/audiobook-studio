@@ -1,10 +1,19 @@
 import { useState, useRef } from 'react';
-import { api } from '../api';
-import type { Chapter } from '../types';
+import { api } from '@/api';
+import { emitToast, TOAST_VISIBLE_MS } from '@/utils/toast';
+import type { Chapter } from '@/types';
 
-export function useProjectActions(projectId: string, onDataRefresh: () => Promise<void>, navigate: (path: string) => void) {
+export function useProjectActions(
+  projectId: string,
+  onDataRefresh: () => Promise<void>,
+  navigate: (path: string) => void,
+  onOpenQueue?: () => void
+) {
   const [submitting, setSubmitting] = useState(false);
   const reorderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Pending, undoable chapter deletes keyed by chapter id — the actual delete
+  // request is deferred until the toast's undo window elapses.
+  const pendingChapterDeletesRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const handleCreateChapter = async (title: string, text: string, file: File | null, sortOrder: number) => {
     setSubmitting(true);
@@ -19,19 +28,22 @@ export function useProjectActions(projectId: string, onDataRefresh: () => Promis
       return true;
     } catch (e) {
       console.error("Failed to create chapter", e);
+      emitToast("Couldn't create chapter. Please try again.");
       return false;
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleUpdateProject = async (data: { name: string; series: string; author: string; cover?: File | null }) => {
+  const handleUpdateProject = async (data: { name: string; series: string; series_position?: number | null; author: string; description?: string; cover?: File | null }) => {
     setSubmitting(true);
     try {
       await api.updateProject(projectId, {
         name: data.name,
         series: data.series,
+        series_position: data.series_position ?? null,
         author: data.author,
+        description: data.description,
         cover: data.cover || undefined
       });
       await onDataRefresh();
@@ -45,14 +57,34 @@ export function useProjectActions(projectId: string, onDataRefresh: () => Promis
   };
 
   const handleDeleteChapter = async (chapterId: string) => {
-    try {
-      await api.deleteChapter(chapterId);
-      await onDataRefresh();
-      return true;
-    } catch (e) {
-      console.error("Delete failed", e);
-      return false;
-    }
+    // Deleting a chapter is a real, unrecoverable backend delete — defer the
+    // actual request until the toast's undo window elapses so "Undo" can
+    // cancel it before it ever happens.
+    const existingPending = pendingChapterDeletesRef.current[chapterId];
+    if (existingPending) clearTimeout(existingPending);
+
+    pendingChapterDeletesRef.current[chapterId] = setTimeout(async () => {
+      delete pendingChapterDeletesRef.current[chapterId];
+      try {
+        await api.deleteChapter(chapterId);
+        await onDataRefresh();
+      } catch (e) {
+        console.error("Delete failed", e);
+      }
+    }, TOAST_VISIBLE_MS);
+
+    emitToast('Chapter deleted.', {
+      label: 'Undo',
+      onClick: () => {
+        const pending = pendingChapterDeletesRef.current[chapterId];
+        if (pending) {
+          clearTimeout(pending);
+          delete pendingChapterDeletesRef.current[chapterId];
+        }
+      }
+    });
+
+    return true;
   };
 
   const handleReorderChapters = async (reorderedChapters: Chapter[]) => {
@@ -70,9 +102,15 @@ export function useProjectActions(projectId: string, onDataRefresh: () => Promis
     }, 500);
   };
 
-  const handleQueueChapter = async (chapterId: string, selectedVoice?: string) => {
+  const handleQueueChapter = async (chapterId: string, selectedVoice?: string, rebuild: boolean = false) => {
     try {
-        await api.addProcessingQueue(projectId, chapterId, 0, selectedVoice || undefined);
+        // Rebuild: clear existing audio (delete files + reset segments to unprocessed)
+        // and force full re-synthesis, mirroring the Studio "Rebuild" action. A plain
+        // queue (rebuild=false) preserves existing segment audio and only renders gaps.
+        if (rebuild) {
+            await api.resetChapter(chapterId);
+        }
+        await api.addProcessingQueue(projectId, chapterId, 0, selectedVoice || undefined, rebuild);
         await onDataRefresh();
         return true;
     } catch (e) {
@@ -119,7 +157,11 @@ export function useProjectActions(projectId: string, onDataRefresh: () => Promis
             await api.addProcessingQueue(projectId, chap.id, 0, selectedVoice || undefined);
         }
         await onDataRefresh();
-        navigate('/queue');
+        if (onOpenQueue) {
+            onOpenQueue();
+        } else {
+            navigate('/queue');
+        }
         return { success: true };
     } catch (e) {
         console.error("Failed to enqueue all", e);
@@ -154,6 +196,51 @@ export function useProjectActions(projectId: string, onDataRefresh: () => Promis
     }
   };
 
+  const handleSaveBackup = async (comment?: string, includeAudio: boolean = true) => {
+    setSubmitting(true);
+    try {
+      await api.saveProjectBackup(projectId, comment, includeAudio);
+      await onDataRefresh();
+      return true;
+    } catch (e) {
+      console.error("Backup failed", e);
+      return false;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteBackup = async (filename: string) => {
+    try {
+      await api.deleteProjectBackup(projectId, filename);
+      await onDataRefresh();
+      return true;
+    } catch (e) {
+      console.error("Backup delete failed", e);
+      return false;
+    }
+  };
+
+  const handleUpdateBackupMetadata = async (filename: string, comment: string) => {
+    try {
+      await api.updateProjectBackupMetadata(projectId, filename, comment);
+      return true;
+    } catch (e) {
+      console.error("Failed to update backup comment", e);
+      return false;
+    }
+  };
+
+  const handleUpdateAudiobookMetadata = async (filename: string, description: string) => {
+    try {
+      await api.updateAudiobookMetadata(projectId, filename, description);
+      return true;
+    } catch (e) {
+      console.error("Failed to update audiobook description", e);
+      return false;
+    }
+  };
+
   return {
     submitting,
     handleCreateChapter,
@@ -164,6 +251,10 @@ export function useProjectActions(projectId: string, onDataRefresh: () => Promis
     handleResetChapterAudio,
     handleQueueAllUnprocessed,
     handleAssembleProject,
-    handleDeleteAudiobook
+    handleDeleteAudiobook,
+    handleSaveBackup,
+    handleDeleteBackup,
+    handleUpdateBackupMetadata,
+    handleUpdateAudiobookMetadata
   };
 }

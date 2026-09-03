@@ -1,0 +1,6 @@
+{
+ "title": "Behavior Metadata",
+ "desc": "Driving core behavior from manifest metadata instead of engine-ID branches.",
+ "lede": "Instead of special-casing engines in Studio's code, engines declare their behavior as metadata. Studio reads it and adapts.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Chunk limit and split target come from the manifest.</li><li>Progress is parsed from a declared pattern.</li><li>Settings render from a JSON Schema with UI hints.</li><li>Per-voice settings are declared, not hard-coded.</li></ul></div>\n        <h2>Text chunking</h2>\n        <p><strong>Each engine declares its text chunk limit.</strong> Studio splits long segments accordingly, so chunking adapts per engine without code changes.</p>\n        <h2>Progress parsing</h2>\n        <p><strong>Progress comes from a declared pattern.</strong> Studio turns engine output into normalized progress events using metadata, not engine-specific parsing scattered through the app.</p>\n        <h2>Schema-driven settings</h2>\n        <p><strong>Settings forms are generated from <code>settings_schema.json</code></strong>, with optional UI hints. Engines can also declare per-voice settings. See <a href=\"#plugin-sdk/manifest\">manifest.json Reference</a>.</p>"
+}

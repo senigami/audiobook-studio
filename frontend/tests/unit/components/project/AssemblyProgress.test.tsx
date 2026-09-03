@@ -1,0 +1,101 @@
+import { render, screen } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
+import { AssemblyProgress } from '@/pages/ProjectDetail/components/AssemblyProgress';
+import type { Project, Job } from '@/types';
+
+describe('AssemblyProgress', () => {
+  const mockProject: Project = {
+    id: 'proj1',
+    name: 'Test Project',
+    series: 'Test Series',
+    series_position: null,
+    author: 'Test Author',
+    speaker_profile_name: null,
+    cover_image_path: null,
+    created_at: 123456789,
+    updated_at: 123456789,
+  };
+
+  it('renders nothing when no assembly job is provided', () => {
+    const { container } = render(
+      <AssemblyProgress project={mockProject} />
+    );
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('renders progress when activeAssemblyJob is provided', () => {
+    const mockActiveJob: Job = {
+      id: 'job1',
+      engine: 'audiobook',
+      chapter_file: 'c1.txt',
+      status: 'running',
+      progress: 0.5,
+      eta_seconds: 120,
+      safe_mode: false,
+      make_mp3: false,
+      warning_count: 0,
+      created_at: 123456789,
+    };
+
+    render(
+      <AssemblyProgress 
+        project={mockProject} 
+        activeAssemblyJob={mockActiveJob} 
+      />
+    );
+
+    expect(screen.getByText('Assembling Test Project...')).toBeInTheDocument();
+    expect(screen.getByText('50%')).toBeInTheDocument();
+    // Loosened to a regex (rather than the exact inline "2m 0s" string) so this doesn't
+    // pin the minute/second formatting, only that the 120s ETA renders as ~2 minutes.
+    expect(screen.getByText(/ETA:\s*2m\s*0?s/i)).toBeInTheDocument();
+  });
+
+  it('renders success message when finishedAssemblyJob is provided', () => {
+    const mockFinishedJob: Job = {
+      id: 'job2',
+      engine: 'audiobook',
+      chapter_file: 'c1.txt',
+      status: 'done',
+      progress: 1.0,
+      output_mp3: 'final_audiobook.mp3',
+      safe_mode: false,
+      make_mp3: false,
+      warning_count: 0,
+      created_at: 123456789,
+    };
+
+    render(
+      <AssemblyProgress 
+        project={mockProject} 
+        finishedAssemblyJob={mockFinishedJob} 
+      />
+    );
+
+    expect(screen.getByText(/Audiobook assembled successfully!/)).toBeInTheDocument();
+    expect(screen.getByText(/final_audiobook.mp3/)).toBeInTheDocument();
+  });
+
+  it('renders "Calculating..." when eta_seconds is missing', () => {
+    const mockActiveJob: Job = {
+      id: 'job1',
+      engine: 'audiobook',
+      chapter_file: 'c1.txt',
+      status: 'running',
+      progress: 0.5,
+      safe_mode: false,
+      make_mp3: false,
+      warning_count: 0,
+      created_at: 123456789,
+    };
+
+    render(
+      <AssemblyProgress 
+        project={mockProject} 
+        activeAssemblyJob={mockActiveJob} 
+      />
+    );
+
+    expect(screen.getByText('ETA: Calculating...')).toBeInTheDocument();
+  });
+});

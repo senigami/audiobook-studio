@@ -1,0 +1,43 @@
+import pytest
+import os
+import time
+from app.db.core import init_db
+from app.db.models import Job
+
+@pytest.fixture
+def client():
+    from fastapi.testclient import TestClient
+    from app.api.web import app as fastapi_app
+    return TestClient(fastapi_app)
+
+@pytest.fixture
+def clean_db():
+    db_path = "/tmp/test_api_jobs.db"
+    if os.path.exists(db_path):
+        os.unlink(db_path)
+    os.environ["DB_PATH"] = db_path
+    import app.db.core
+    import importlib
+    importlib.reload(app.db.core)
+    init_db()
+    yield
+    if os.path.exists(db_path):
+        os.unlink(db_path)
+
+def test_jobs_api(clean_db, tmp_path, client, monkeypatch):
+    from app.db.state import put_job
+
+    chapter_file = "test.txt"
+    (tmp_path / chapter_file).write_text("dummy content")
+
+    # Create a dummy job in memory
+    jid = "test-job-1"
+    job = Job(id=jid, engine="xtts", chapter_file=chapter_file, status="queued", created_at=time.time())
+    put_job(job)
+
+    # List jobs via WebSocket
+    with client.websocket_connect("/ws") as websocket:
+        websocket.send_json({"type": "jobs_snapshot_request"})
+        data = websocket.receive_json()
+        assert data["type"] == "jobs_snapshot"
+        assert any(j["id"] == jid for j in data["jobs"])

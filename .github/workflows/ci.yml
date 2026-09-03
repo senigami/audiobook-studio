@@ -2,15 +2,46 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, studio-2.0]
   pull_request:
-    branches: [main]
+    branches: [main, studio-2.0]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  # 0. Plugin manifest validation — fast, no heavy deps, runs on every event.
+  validate-plugin-manifests:
+    name: Validate plugin manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validate bundled plugin manifests
+        run: python scripts/validate_plugin_manifests.py
+
+  # 0b. Hardcoded-style regression guard (styling-separation plan, task 018) —
+  # fast, no deps beyond Python stdlib, runs on every event.
+  check-hardcoded-styles:
+    name: Check hardcoded styles
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check for hardcoded colors / raw px spacing regressions
+        run: python scripts/check_hardcoded_styles.py
+
   # 1. The "Quick" check - only for local/pushes, NOT PRs
   backend-quick:
     name: Backend (Quick)
@@ -35,16 +66,10 @@ jobs:
       - name: Run quick backend tests
         run: |
           pytest -q \
-            tests/test_api.py \
-            tests/test_api_generation.py \
-            tests/test_api_projects.py \
-            tests/test_api_projects_extended.py \
-            tests/test_api_queue.py \
-            tests/test_api_utils_extended.py \
-            tests/test_db_chapters.py \
-            tests/test_engines.py \
-            tests/test_incremental_assembly.py \
-            tests/test_xtts_handler.py
+            tests/api \
+            tests/db \
+            tests/engines \
+            tests/orchestration
 
     # 2. The "Full" check - REQUIRED for PRs
   # IMPORTANT: Name must match your Branch Protection exactly
@@ -121,3 +146,47 @@ jobs:
 
       - name: Build
         run: cd frontend && npm run build
+
+  # 5. Axe accessibility scan — serious/critical violations + color-contrast, both themes.
+  # Owner decision 2026-06-11 (doc 07 §4.2): axe now, visual snapshots later.
+  # Test is marked fixme so violations are documented without blocking green CI.
+  a11y-axe:
+    name: Accessibility (axe)
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: frontend-full
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: cd frontend && npm ci
+
+      - name: Build frontend
+        run: cd frontend && npm run build
+
+      - name: Install Playwright Chromium
+        run: cd frontend && npx playwright install chromium --with-deps
+
+      - name: Run axe spec (headless)
+        # vite preview serves the build at :4173, matching playwright.config.ts baseURL.
+        # PLAYWRIGHT_NO_WEB_SERVER=1 because we start vite preview manually so we can
+        # pass --port explicitly and keep it separate from the dev-server command.
+        run: |
+          cd frontend
+          npx vite preview --port 4173 &
+          PREVIEW_PID=$!
+          # Wait for the server to accept connections (up to 30 s)
+          for i in $(seq 1 30); do
+            curl -s http://localhost:4173 > /dev/null && break
+            sleep 1
+          done
+          PLAYWRIGHT_NO_WEB_SERVER=1 npx playwright test tests/e2e/a11y/axe.spec.ts tests/e2e/a11y/mobile_mode_gate.spec.ts \
+            --project=chromium --reporter=list || true
+          kill $PREVIEW_PID || true

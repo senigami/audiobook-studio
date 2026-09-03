@@ -1,0 +1,1706 @@
+/* ---------------------------------------------------------------------------
+ * Voice Catalog Card — R5-T3
+ * --------------------------------------------------------------------------- */
+
+.voice-catalog-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 12px 10px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  text-align: center;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.voice-catalog-card:hover {
+  border-color: var(--border-muted);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Pinned to the card's actual top-left corner (user-reported follow-up,
+   2026-07-16: an earlier revision moved this inline next to the avatar,
+   which read as "indented," not "far upper left"). Same absolute-position
+   convention as the kebab's opposite corner. */
+.voice-catalog-card__default-star {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--as-amber);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Overflow-menu (kebab) wrapper — top-right corner, exclusive of the default star. */
+.voice-catalog-card__menu {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
+}
+
+.voices-bulk-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.voices-bulk-toolbar__count {
+  font-size: var(--type-caption);
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-right: 0.4rem;
+}
+
+.voice-catalog-card__select-checkbox {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  cursor: pointer;
+}
+
+.voice-catalog-card__select-checkbox input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--action-primary);
+}
+
+.voice-catalog-card__avatar {
+  position: relative;
+  /* F5.7: was 40px. Once the avatar doubled as a play/drop target (task 002)
+     its 24px overlay button was under the WCAG 2.5.5 44px touch-target
+     floor even at full size; enlarging the avatar to 56px gives the
+     44px play button (below) real headroom to clear that floor without
+     the overlay's tap area exceeding the visible circle. */
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent-tint-bg);
+  border: 1px solid var(--accent-tint-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--action-primary);
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
+
+/* Play/Pause preview overlay — hover/focus-reveal on the avatar (task 002). Visibility is
+   opacity-gated, never display:none/visibility:hidden (INV-FOCUS, design-system.md §8.1):
+   the button stays in the DOM and tabbable at all times, so Tab reaches it and touch taps
+   land on it even when no hover event has ever fired. */
+.voice-catalog-card__avatar-play-btn {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  /* F5.7: grow the tappable button area to the WCAG 2.5.5 44px floor (was
+     24px) — the icon itself (see JSX, Play/Pause size=14) stays small; only
+     the button's own hit area grows. Fits inside the 56px avatar above. */
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.voice-catalog-card__avatar:hover .voice-catalog-card__avatar-play-btn,
+.voice-catalog-card__avatar-play-btn:focus-visible {
+  opacity: 1;
+}
+
+.voice-catalog-card__avatar-play-btn:disabled {
+  cursor: not-allowed;
+}
+
+.voice-catalog-card__name {
+  font-size: var(--type-caption);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+/* User-reported: the name-only click target wasn't obvious as the way to open
+   a voice. The body wrapper (see VoiceCatalogCard.tsx) navigates on click
+   anywhere in its dead space; this cursor + hover-underline signals that the
+   whole area is actionable, not just the bolded name text. */
+.voice-catalog-card__body {
+  cursor: pointer;
+}
+
+.voice-catalog-card__body:hover .voice-catalog-card__name {
+  text-decoration: underline;
+}
+
+.voice-catalog-card__description {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  max-width: 100%;
+}
+
+.voice-catalog-card__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.voice-catalog-card__cta-btn {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 0.65rem;
+  border-radius: var(--radius-round);
+}
+
+/* Voices catalog grid wrapper — R5-T3 */
+/* Owner-requested minimum width (2026-07-16): wide enough that the pill row
+   (3 pills + the "+N" overflow, 4 total) never wraps. 220px was too narrow
+   once pills moved to their own full-width row below the avatar. */
+.voices-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-3);
+}
+
+/* ---------------------------------------------------------------------------
+ * Voice Lab Page — R5-T5
+ * --------------------------------------------------------------------------- */
+
+.voice-lab-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 1rem 1.25rem;
+  max-width: 860px;
+  width: 100%;
+}
+
+.voice-lab-page__back {
+  display: inline-flex;
+  align-items: center;
+  /* HIG back-navigation convention: leading-edge aligned, not centered.
+     The global `button` reset (theme/base.css) sets justify-content:center
+     and this button is a flex child of the column-flex .voice-lab-page,
+     which stretches it to the container's full width by default
+     (align-items: stretch) -- centering the icon+label inside that
+     stretched width. Pin both axes to the leading edge. */
+  justify-content: flex-start;
+  align-self: flex-start;
+  gap: 5px;
+  font-size: 0.72rem;
+  color: var(--action-primary);
+  padding: 4px 0;
+  margin-bottom: 10px;
+  border-radius: var(--radius-sm);
+}
+
+.voice-lab-page__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: var(--space-4);
+}
+
+.voice-lab-page__avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent-tint-bg);
+  border: 2px solid var(--action-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--action-primary);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.voice-lab-page__header-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
+}
+
+.voice-lab-page__name {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.voice-lab-page__edit-meta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.7rem;
+  color: var(--action-primary);
+  padding: 2px 8px;
+  border-radius: var(--radius-round);
+  border: 1px solid var(--accent-tint-border);
+  background: var(--accent-tint-bg);
+  height: 24px;
+  white-space: nowrap;
+}
+
+.voice-lab-page__description {
+  font-size: var(--type-caption);
+  color: var(--text-secondary);
+  margin: 4px 0 0;
+  line-height: 1.5;
+  max-width: 560px;
+}
+
+.voice-lab-page__sections {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Voice-level fields disclosure (task 007) -- Overview pulled out of the tab
+   shell into its own collapsible section, expanded by default, above the
+   remaining Samples/Variants/Test tabs. */
+.voice-lab-page__overview-disclosure {
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-light);
+  overflow: hidden;
+}
+
+.voice-lab-page__overview-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  font-weight: 700;
+  list-style: none;
+  padding: 0.9rem 1rem;
+}
+
+.voice-lab-page__overview-body {
+  padding: 0 1rem 1.1rem;
+  border-top: 1px solid var(--border);
+}
+
+.voice-lab-section-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.voice-lab-page__footer-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.voice-lab-page__footer-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Phase stepper — R5-T5 */
+.voice-lab-phase-stepper {
+  display: flex;
+  align-items: center;
+}
+
+.voice-lab-phase-stepper__connector {
+  flex: 1;
+  height: 1px;
+  margin: 0 2px;
+  transition: background 0.2s;
+}
+
+.voice-lab-phase-stepper__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.voice-lab-phase-stepper__dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-alt);
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  transition: all 0.2s;
+}
+
+.voice-lab-phase-stepper__dot--past {
+  background: var(--accent-tint-bg);
+  border-color: var(--action-primary);
+  color: var(--action-primary);
+}
+
+.voice-lab-phase-stepper__dot--active {
+  background: var(--action-primary);
+  border-color: var(--action-primary);
+  color: var(--text-on-accent);
+}
+
+.voice-lab-phase-stepper__label {
+  font-size: 0.58rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+
+.voice-lab-phase-stepper__label--past {
+  color: var(--text-secondary);
+}
+
+.voice-lab-phase-stepper__label--active {
+  color: var(--action-primary);
+  font-weight: 700;
+}
+
+/* Voice Lab section common block */
+.voice-lab-section {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.voice-lab-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.voice-lab-section__body {
+  padding: 12px 14px;
+}
+
+/* Matches the established compact-ghost-button sizing convention used
+ * elsewhere in this file (e.g. .script-editor-btn-compact) rather than
+ * one-off inline height/padding/font-size values (DC-009). */
+.voice-lab-section__add-variant-btn {
+  height: 28px;
+  padding: 0 var(--space-2);
+  font-size: 0.7rem; /* no matching --type-* token — token gap */
+  border-radius: var(--radius-round);
+  border: 1px dashed var(--action-primary);
+  color: var(--action-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* ---------------------------------------------------------------------------
+ * ScriptEditor — ST-3 conversion (task 012, see design-docs/plans/active/
+ * simplification/styling_separation_execution/tasks/012-st3-scripteditor.md)
+ * --------------------------------------------------------------------------- */
+
+.voice-field-label {
+  font-size: var(--type-caption);
+  font-weight: 800; /* no matching --type-weight-* token (700/700/600/400/500/600) — token gap */
+  color: var(--text-muted);
+  letter-spacing: 0.05em; /* no matching --tracking-* token (tight -0.01em / wide 0.08em) — token gap */
+}
+
+/* ---------------------------------------------------------------------------
+ * Voice Detail page shell — voice-card-consolidation task 001
+ * VoiceDetailHeader + VoiceDetailTabs. Header keeps the identity block
+ * (.voice-lab-page__avatar/__header-body/__name/__edit-meta-btn/__description
+ * above already cover that part); this block adds the actions row +
+ * persistent status strip, and the generic tabs primitive.
+ * --------------------------------------------------------------------------- */
+
+.voice-detail-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.voice-detail-header__identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+/* Avatar + upload/replace + copy-prompt controls, folded onto the header's
+ * avatar directly (task 003, voice-variants round 2) instead of a separate
+ * IconUpload section in the Overview tab. */
+.voice-detail-header__avatar-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+/* User-reported (2026-07-16): the icon read as "not quite far left" because
+   this row (Upload/Replace + the copy-prompt button, side by side) was wider
+   than the avatar circle above it, and the avatar-block column centers on
+   its widest child. Stacking the copy-prompt button below instead of beside
+   keeps this row's width bounded by the Upload/Replace button alone. */
+.voice-detail-header__icon-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.voice-detail-header__icon-btn {
+  height: 28px;
+  padding: 0 var(--space-2);
+  font-size: 0.7rem;
+}
+
+/* Pinned top-right of the identity row (user-reported, 2026-07-16: this used
+   to stack below the whole avatar/name/pills/description block). margin-left:
+   auto pushes it to the row's far edge; align-self keeps it at the row's top
+   even though the identity row is align-items: flex-start by default. */
+.voice-detail-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-left: auto;
+  align-self: flex-start;
+  flex-shrink: 0;
+}
+
+.voice-detail-header__actions .btn-glass,
+.voice-detail-header__actions .btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 36px;
+  padding: 0 16px;
+  font-size: 0.85rem;
+  border-radius: var(--radius-button);
+}
+
+.voice-detail-header__delete-btn {
+  color: var(--error);
+  border: 1px solid var(--error);
+}
+
+/* Generic ARIA tabs primitive — VoiceDetailTabs.tsx */
+.voice-detail-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.voice-detail-tabs__list {
+  display: flex;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.voice-detail-tabs__tab {
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+}
+
+.voice-detail-tabs__tab--active {
+  color: var(--action-primary);
+  border-bottom-color: var(--action-primary);
+}
+
+.voice-detail-tabs__panel {
+  min-height: 80px;
+}
+
+.voice-detail-tabs__placeholder {
+  color: var(--text-muted);
+  font-size: var(--type-caption);
+}
+
+.script-editor-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px; /* no matching --space-* token (closest: space-1 4px / space-2 8px) — token gap */
+}
+
+.script-editor-select {
+  width: 100%;
+  padding: 10px 14px; /* no matching --space-* token for either value — token gap */
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.95rem; /* no matching --type-* token — token gap */
+}
+
+.script-editor-helper-text {
+  font-size: 0.78rem; /* no matching --type-* token — token gap */
+  color: var(--text-muted);
+  line-height: var(--leading-normal);
+}
+
+.script-editor-btn-compact {
+  font-size: 0.7rem; /* no matching --type-* token — token gap */
+  height: 28px; /* no matching --space-* token — token gap */
+  padding: 0 var(--space-2);
+}
+
+.script-editor-icon-sm {
+  width: var(--space-3);
+  height: var(--space-3);
+  flex-shrink: 0;
+}
+
+.script-editor-help-box {
+  padding: var(--space-3);
+  border-radius: 12px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  margin-bottom: var(--space-5);
+}
+
+.script-editor-textarea {
+  width: 100%;
+  min-height: 200px;
+  padding: var(--space-4);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.95rem; /* no matching --type-* token — token gap */
+  line-height: 1.6; /* no matching --leading-* token (normal 1.5 / reading 1.7) — token gap */
+  resize: vertical;
+  margin-bottom: var(--space-5);
+}
+
+/* ---------------------------------------------------------------------------
+ * Metadata editor modal + fields — ST-3 conversion (task 014, see
+ * design-docs/plans/active/simplification/styling_separation_execution/)
+ * Shared field-pattern classes below are reused across MetadataEditorModal.tsx
+ * and its metadata/{IconUpload,ManySelect,OneSelect,TagsInput,chip}.tsx children.
+ * --------------------------------------------------------------------------- */
+
+.metadata-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.metadata-field-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.metadata-field-input {
+  padding: 10px var(--space-3);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--surface-dim);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.metadata-editor-modal__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-6) var(--space-4);
+  overflow-y: auto;
+}
+
+.metadata-editor-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-backdrop);
+  backdrop-filter: blur(8px);
+}
+
+.metadata-editor-modal__dialog {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  background: var(--surface);
+  border-radius: 20px;
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 0;
+}
+
+.metadata-editor-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.metadata-editor-modal__title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.metadata-editor-modal__subtitle {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.metadata-editor-modal__close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 10px;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-button);
+}
+
+.metadata-editor-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: var(--space-5);
+  overflow-y: auto;
+  max-height: calc(100vh - 200px);
+}
+
+.metadata-editor-modal__icon-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px var(--space-3);
+  border-radius: var(--radius-card);
+  background: var(--error-tint-bg);
+  color: var(--error);
+  font-size: 0.8rem;
+}
+
+.metadata-editor-modal__divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: var(--space-1) 0;
+}
+
+.metadata-editor-modal__error-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-card);
+  background: var(--error-tint-bg);
+  color: var(--error);
+  font-size: 0.8rem;
+}
+
+.metadata-editor-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border);
+}
+
+.metadata-editor-modal__required-warning {
+  font-size: var(--type-caption);
+  color: var(--warning-text);
+  align-self: center;
+  margin-right: auto;
+}
+
+.metadata-editor-modal__action-btn {
+  height: 44px;
+  border-radius: 12px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Sample Manager — ST-3 conversion (task 017)
+ * --------------------------------------------------------------------------- */
+
+.sample-manager__drag-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(var(--accent-rgb), 0.08);
+  backdrop-filter: blur(2px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  z-index: 10;
+  pointer-events: none;
+  border: 2px dashed var(--action-primary);
+  border-radius: 12px;
+}
+
+.sample-manager__drag-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--action-primary);
+}
+
+.sample-manager__header {
+  width: 100%;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: none;
+  border: none;
+  transition: background 0.2s;
+  user-select: none;
+  gap: var(--space-3);
+}
+
+.sample-manager__toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+  flex: 1;
+  height: 100%;
+  padding: var(--space-1) 0;
+  text-align: left;
+}
+
+.sample-manager__title {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.sample-manager__icon-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sample-manager__file-input {
+  display: none;
+}
+
+.sample-manager__add-btn {
+  padding: var(--space-1);
+  height: 28px;
+  width: 28px;
+  border-radius: var(--radius-button);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  color: var(--action-primary);
+}
+
+.sample-manager__collapse-btn {
+  padding: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-button);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+
+.sample-manager__body {
+  padding: 0 var(--space-4) var(--space-4);
+  position: relative;
+  min-height: var(--space-7);
+}
+
+.sample-manager__row-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.sample-manager__new-badge {
+  color: var(--action-primary);
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: var(--accent-glow);
+  padding: 2px var(--space-1);
+  border-radius: 4px;
+}
+
+.sample-manager__name {
+  color: var(--text-primary);
+  opacity: 0.9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sample-manager__empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * Voice modals (New/Rename/Add Variant/Move Variant) — styling_separation_execution
+ * task 006, shared patterns extracted from VoiceModals.tsx
+ * --------------------------------------------------------------------------- */
+
+.voice-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay-backdrop);
+  backdrop-filter: blur(4px);
+}
+
+.voice-modal-panel {
+  background: var(--surface);
+  border-radius: 24px;
+  padding: var(--space-5);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
+}
+
+.voice-modal-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin-bottom: var(--space-2);
+}
+
+.voice-modal-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: var(--space-5);
+}
+
+.voice-modal-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: var(--space-5);
+}
+
+.voice-modal-field-label {
+  font-size: var(--type-caption);
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.voice-modal-button-row {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.voice-modal-btn {
+  flex: 1;
+  height: 44px;
+  border-radius: 12px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Voices tab header (My Voices / Discover) — styling_separation_execution
+ * task 016, converted from VoicesTabHeader.tsx inline styles
+ * --------------------------------------------------------------------------- */
+
+.voices-tab-header {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-light);
+  z-index: 10;
+}
+
+.voices-tab-header__toolbar-row {
+  padding: 0.75rem 2rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.voices-tab-header__search-row {
+  padding: 0.5rem 2rem 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.voices-tab-header__tab-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.voices-tab-pill {
+  font-size: var(--type-caption);
+  font-weight: 600;
+  padding: var(--space-1) 14px;
+  border-radius: var(--radius-round);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.voices-tab-header__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.voices-tab-header__hidden-file-input {
+  display: none;
+}
+
+.voices-toolbar-divider {
+  width: 1px;
+  height: var(--space-5);
+  background: var(--border);
+  margin: 0 var(--space-1);
+}
+
+.voices-tab-header__search-wrap {
+  position: relative;
+}
+
+.voice-chip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.voices-engine-filter-btn {
+  height: 30px;
+  border-radius: var(--radius-round);
+  padding: 0 var(--space-3);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.voice-facet-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-weight: 700;
+  user-select: none;
+}
+
+.voice-facet-chip {
+  height: 28px;
+  border-radius: var(--radius-round);
+  padding: 0 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.voice-facet-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+}
+
+
+/* ==========================================================================
+   VariantEditor (ST-3 task 010 — see design-docs/plans/active/simplification/
+   styling_separation_execution/tasks/010-st3-varianteditor.md)
+   ========================================================================== */
+
+.variant-editor__shell {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.variant-editor__header {
+  padding: var(--space-3) 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: none;
+  transition: border-bottom 0.2s;
+  background: var(--surface-dim);
+}
+
+.variant-editor__controls-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+}
+
+.variant-editor__variant-label {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.variant-editor__play-btn-wrap {
+  flex-shrink: 0;
+}
+
+.variant-editor__play-btn {
+  width: var(--space-7);
+  height: var(--space-7);
+  padding: 0;
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.variant-editor__play-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.variant-editor__play-pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  opacity: 0.3;
+}
+
+.variant-editor__divider {
+  width: 1px;
+  height: var(--space-5);
+  background: var(--border);
+  opacity: 0.5;
+  margin: 0 var(--space-1);
+}
+
+.variant-editor__speed-btn {
+  padding: var(--space-1) 10px;
+  height: var(--space-6);
+  border-radius: 100px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  font-weight: 700;
+  gap: 6px;
+  color: var(--text-primary);
+  min-width: 70px;
+  justify-content: center;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.variant-editor__speed-icon {
+  width: var(--space-3);
+  height: var(--space-3);
+  flex-shrink: 0;
+}
+
+.variant-editor__engine-badge {
+  padding: var(--space-1) 10px;
+  height: var(--space-6);
+  border-radius: 100px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  letter-spacing: 0.02em;
+}
+
+.variant-editor__script-btn {
+  padding: var(--space-2) var(--space-3);
+  height: 36px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.variant-editor__toolbar-btn {
+  padding: var(--space-2) var(--space-3);
+  height: 36px;
+  border-radius: var(--radius-card);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: center;
+}
+
+.variant-editor__toolbar-btn--rebuild {
+  min-width: 110px;
+}
+
+.variant-editor__toolbar-btn--generate {
+  min-width: 128px;
+}
+
+.variant-editor__cloud-copy {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.variant-editor__progress-track {
+  height: var(--space-1);
+  background: var(--border-light);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.variant-editor__controls-body {
+  padding: 0 1.25rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.variant-editor__rebuild-banner {
+  padding: var(--space-2) var(--space-3);
+  background: var(--warning-tint-bg);
+  border: 1px solid var(--warning-tint-border);
+  border-radius: var(--radius-button);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: var(--space-1);
+}
+
+.variant-editor__rebuild-icon {
+  color: var(--warning-text);
+}
+
+.variant-editor__rebuild-copy {
+  display: flex;
+  flex-direction: column;
+}
+
+.variant-editor__rebuild-title {
+  font-size: var(--type-caption);
+  font-weight: 800;
+  color: var(--warning-text);
+  line-height: 1.2;
+}
+
+.variant-editor__rebuild-desc {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
+.variant-editor__footer {
+  padding: 1.25rem;
+  border-top: 1px solid var(--border-light);
+  background: var(--surface-dim);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 0 0 16px 16px;
+}
+
+.variant-editor__footer-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.variant-editor__footer-title {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.variant-editor__footer-desc {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.variant-editor__footer-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* Script/engine-config panel + Record-mode capture (task 009: absorbed from
+ * the retired TestTab/ScriptEditor + VariantsTab/VoiceSettingsPanel
+ * composition and SamplesTab's record-mode toggle, all scoped per-variant). */
+.variant-editor__script-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.variant-editor__record-mode {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.variant-editor__footer-btn {
+  gap: 6px;
+  font-size: 0.8rem;
+  padding: 0 var(--space-3);
+  height: var(--space-6);
+  border-radius: var(--radius-button);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* ---------------------------------------------------------------------------
+ * IconUpload (metadata editor) — ST-3 conversion (task 014, 2/6)
+ * --------------------------------------------------------------------------- */
+
+.metadata-field-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.metadata-icon-upload__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.metadata-icon-upload__preview {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.metadata-icon-upload__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.metadata-icon-upload__btn {
+  height: 36px;
+  padding: 0 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.metadata-icon-upload__prompt-btn {
+  height: 36px;
+  width: 36px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.metadata-icon-upload__copy-error {
+  font-size: 0.72rem;
+  color: var(--error);
+}
+
+/* ---------------------------------------------------------------------------
+ * ManySelect/OneSelect chip row (metadata editor) — ST-3 conversion (task 014, 3/6)
+ * --------------------------------------------------------------------------- */
+
+.metadata-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ---------------------------------------------------------------------------
+ * TagsInput (metadata editor) — ST-3 conversion (task 014, 5/6)
+ * --------------------------------------------------------------------------- */
+
+.metadata-tags-input__container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: var(--space-2);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--surface-dim);
+  min-height: 44px;
+  align-items: center;
+}
+
+.metadata-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: var(--type-caption);
+  font-weight: 700;
+  background: var(--accent-tint-bg);
+  color: var(--action-primary);
+  border: 1px solid var(--action-primary);
+}
+
+.metadata-tag-pill__remove {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  font-size: 0.85rem;
+}
+
+.metadata-tags-input__draft {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  min-width: 120px;
+}
+
+/* ---------------------------------------------------------------------------
+ * TagAutocompleteInput — plus-trigger + search popover (owner-requested,
+ * 2026-07-16): replaces the always-open pill+textbox row with a compact
+ * label/pills/+ affordance; the search box only exists while the popover
+ * is open.
+ * --------------------------------------------------------------------------- */
+
+.tag-multiselect__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tag-multiselect__control {
+  position: relative;
+  display: inline-flex;
+}
+
+.tag-multiselect__add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-round);
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.tag-multiselect__add-btn:hover {
+  border-color: var(--action-primary);
+  color: var(--action-primary);
+  background: var(--accent-tint-bg);
+}
+
+.tag-multiselect__add-btn[aria-expanded='true'] {
+  border-style: solid;
+  border-color: var(--action-primary);
+  color: var(--action-primary);
+  background: var(--accent-tint-bg);
+}
+
+.tag-multiselect__popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 6px;
+  width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.tag-multiselect__search {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--surface-alt);
+  color: var(--text-primary);
+  font-size: var(--type-caption);
+  outline: none;
+}
+
+.tag-multiselect__options {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: var(--space-1);
+  display: flex;
+  flex-direction: column;
+}
+
+.tag-multiselect__option {
+  width: 100%;
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-button);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--type-caption);
+  cursor: pointer;
+}
+
+.tag-multiselect__option:hover,
+.tag-multiselect__option[data-highlighted] {
+  background: var(--surface-light);
+}
+
+.tag-multiselect__option--create {
+  color: var(--action-primary);
+  font-weight: 600;
+}
+
+.tag-multiselect__empty {
+  padding: var(--space-3);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--type-caption);
+}
+
+/* ---------------------------------------------------------------------------
+ * chip() helper (metadata editor) — ST-3 conversion (task 014, 6/6)
+ * Dynamic border-color/background/color (active state) stay inline on the
+ * consumer per the conversion procedure's "conditional token switch" rule.
+ * --------------------------------------------------------------------------- */
+
+.metadata-chip {
+  padding: var(--space-1) var(--space-3);
+  border-radius: 999px;
+  font-size: var(--type-caption);
+  font-weight: 700;
+  border: 1px solid;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-height: var(--space-6);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* ---------------------------------------------------------------------------
+ * Mobile HIG pass (375px / iPhone-width) — Voices + VoiceLab
+ * Targeted a11y/layout fixes only; no visual/theme changes above 768px.
+ * --------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  /* Facet chip rows (CLASS/GENDER/AGE + engine filter): wrapping mixed the
+     group label into the middle of the previous group's wrapped line,
+     stranding "GENDER"/"AGE" away from their own chips (Gestalt proximity).
+     Horizontal scroll per row is the standard mobile chip pattern and also
+     recovers most of the vertical space the always-open filter panel was
+     costing before any voice card was visible. */
+  .voice-chip-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+    /* No existing fade-edge scroll utility in this theme (checked
+       theme/ and pages/Voices/) -- clipping a chip mid-glyph with no
+       visual cue that more content scrolls off-edge reads as a dead
+       end. A mask-image fade signals the scrollable overflow without
+       an extra wrapper element. */
+    -webkit-mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 12px), transparent);
+    mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 12px), transparent);
+  }
+
+  .voice-chip-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .voice-chip-row > * {
+    flex-shrink: 0;
+  }
+
+  /* Back link: 23px-tall hit area on a primary navigation control falls
+     below the WCAG 2.5.8 24px floor and well under the HIG 44pt guidance
+     for a control this important. Grow the tappable area without changing
+     the visual label. */
+  .voice-lab-page__back {
+    min-height: 44px;
+    padding: 10px 4px;
+    margin-bottom: 2px;
+  }
+
+  /* Edit metadata pill: 24px sits right at the WCAG floor for a standalone
+     button (not inline text) — give it real headroom. */
+  .voice-lab-page__edit-meta-btn {
+    height: 32px;
+    padding: 4px 10px;
+  }
+
+  /* Voice catalog card actions: the primary "Build voice"/"Edit voice" CTA was 26px
+     tall, below Apple's 44pt touch-target guidance for primary actions. */
+  .voice-catalog-card__cta-btn {
+    height: 36px;
+    font-size: 0.75rem;
+  }
+
+  /* Play overlay: reachable via tap regardless of hover per INV-FOCUS, so touch
+     users need a real target. The base rule (F5.7) already grows this to the
+     44px WCAG 2.5.5 floor — this override previously shrank it back to 30px,
+     which would have regressed the floor on touch viewports, so it now just
+     confirms the same 44px target rather than shrinking it. */
+  .voice-catalog-card__avatar-play-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Variant editor controls row: play button + speed pill + engine badge +
+     Script + Rebuild/Generate all sat in one non-wrapping flex row wider
+     than a 375px viewport, clipping the Script and Rebuild/Generate
+     buttons off-screen with no scroll affordance — those controls were
+     completely unreachable on a phone. Wrap instead of clipping. */
+  .variant-editor__controls-row {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * ArchetypePicker/RecordingCueCard (task 007, voice-card-consolidation P7) --
+ * the mode-toggle + record-mode container rules that used to live here
+ * (SamplesTab-scoped) were retired with SamplesTab.tsx (task 009); the
+ * equivalent record-mode container is now `.variant-editor__record-mode`
+ * above.
+ * --------------------------------------------------------------------------- */
+
+.archetype-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.archetype-picker__skip-btn {
+  align-self: flex-start;
+  height: 36px;
+  padding: 0 14px;
+  font-size: 0.8rem;
+}
+
+.recording-cue-card {
+  padding: var(--space-4);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--surface-dim);
+}
+
+.recording-cue-card__prompt {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 var(--space-2);
+}
+
+.recording-cue-card__direction {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Clipping is a warning, not a hard block (owner-requested, 2026-07-16) --
+   Keep stays enabled, but the verdict line still needs to read as "pay
+   attention" rather than a plain pass/fail line. */
+.record-controls__verdict--warning {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--warning-text);
+}
+
+.record-controls__verdict-icon {
+  flex-shrink: 0;
+}

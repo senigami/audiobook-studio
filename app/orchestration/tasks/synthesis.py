@@ -1,0 +1,447 @@
+"""Standard synthesis task for Studio 2.0.
+
+Represents a single unit of Studio-originated synthesis work — one render
+batch, one chapter segment, or one block of script text.
+
+This is the primary task type the orchestrator dispatches for Studio UI
+synthesis requests.  It is distinct from ``ApiSynthesisTask`` which represents
+externally-submitted API requests.
+
+Orchestration contract
+----------------------
+The orchestrator must NOT be called from inside ``run()``.  The task body is
+responsible only for synthesis execution.  Progress publication, reconciliation,
+and resource management are all the orchestrator's responsibility.
+"""
+
+from __future__ import annotations
+
+import time
+import logging
+from typing import Any, Callable, Dict, List, Optional
+
+from app.orchestration.scheduler.resources import ResourceClaim
+from app.orchestration.tasks.base import StudioTask, TaskContext, TaskResult
+
+logger = logging.getLogger(__name__)
+
+
+def _manifest_resource_claim(engine_id: str) -> ResourceClaim:
+    """Derive a ``ResourceClaim`` from the engine manifest for ``engine_id``.
+
+    Reads ``behavior.max_concurrent_workers`` and the ``resource`` block from
+    the engine's ``manifest.json`` to construct a semaphore-backed claim.
+    No engine-ID string comparisons are used; the claim is entirely driven by
+    the manifest resource declarations (INV-5).
+
+    Engine-class mapping (from manifest ``resource`` block):
+    - ``resource.gpu = true``       → engine_class = ``"gpu"``
+    - ``resource.cpu_heavy = true`` → engine_class = ``"cpu_heavy"``
+    - otherwise                     → engine_class = ``"cloud"``
+
+    Falls back to a cap=1 ``"cloud"`` semaphore if the manifest cannot be
+    read (fail-safe, INV-10).
+
+    Args:
+        engine_id: Target engine identifier (e.g. ``"xtts"``, ``"voxtral"``,
+            ``"mixed"``).
+
+    Returns:
+        ResourceClaim: Manifest-derived claim for the semaphore scheduler.
+    """
+    try:
+        from app.tts_server.plugin_loader import get_plugin_dir, get_manifest_max_concurrent_workers  # noqa: PLC0415
+        import json  # noqa: PLC0415
+
+        plugin_dir = get_plugin_dir(engine_id)
+        manifest_path = plugin_dir / "manifest.json"
+        if manifest_path.is_file():
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        else:
+            manifest = {}
+
+        resource = manifest.get("resource", {})
+        if not isinstance(resource, dict):
+            resource = {}
+
+        is_gpu = bool(resource.get("gpu", False))
+        is_cpu_heavy = bool(resource.get("cpu_heavy", False))
+        vram_mb = int(resource.get("vram_mb", 0))
+        manifest_max = get_manifest_max_concurrent_workers(manifest)
+        # W-PAR task 014: `cap` is the structural ceiling (the manifest's
+        # declared max_concurrent_workers) — NOT the effective/live
+        # concurrency limit. The live limit (min(setting/env cap, manifest
+        # max)) is resolved fresh on every admission attempt inside
+        # `reserve_task_resources` via `resolve_effective_cap`, using the
+        # `manifest_max` field carried alongside `cap` below. This split lets
+        # a settings change reach already-queued/in-flight work without a
+        # process restart, while the semaphore's structural ceiling (grown
+        # only via `ensure_min_cap`) never has to shrink.
+
+        if is_gpu:
+            engine_class = "gpu"
+        elif is_cpu_heavy:
+            engine_class = "cpu_heavy"
+        else:
+            engine_class = "cloud"
+
+        return ResourceClaim(
+            gpu=is_gpu,
+            vram_mb=vram_mb,
+            cpu_heavy=is_cpu_heavy,
+            exclusive=False,
+            engine_class=engine_class,
+            cap=manifest_max,
+            engine_id=engine_id,
+            manifest_max=manifest_max,
+        )
+    except Exception:
+        logger.warning(
+            "Could not load manifest for engine %r — falling back to cap=1 cloud semaphore.",
+            engine_id,
+            exc_info=True,
+        )
+        return ResourceClaim(
+            gpu=False,
+            vram_mb=0,
+            cpu_heavy=False,
+            exclusive=False,
+            engine_class="cloud",
+            cap=1,
+            engine_id=engine_id,
+            manifest_max=1,
+        )
+
+
+class SynthesisTask(StudioTask):
+    """Queueable synthesis task for one Studio render unit.
+
+    A "render unit" is typically one render batch (a group of script blocks
+    assigned to one speaker/engine pass).  The orchestrator reconciles the
+    full chapter scope and creates one ``SynthesisTask`` per batch that needs
+    rendering.
+
+    Attributes:
+        task_id: Stable unique identifier (typically the DB job UUID).
+        engine_id: Target TTS engine identifier.
+        script_text: The text to synthesize for this batch.
+        output_path: Absolute path where the audio file should be written.
+        project_id: Owning project identifier.
+        chapter_id: Owning chapter identifier.
+        voice_ref: Optional reference audio path (used by voice-cloning engines).
+        language: BCP-47 language code.
+        resource_claim: Hardware requirements declared to the scheduler.
+        submitted_at: Monotonic timestamp set at submission.
+        source: Always ``"ui"`` — Studio-originated tasks take this badge.
+        requested_revision: Revision context passed to Phase 4 reconciliation.
+        render_batch_id: Optional grouping identifier for progress reporting.
+    """
+
+    source: str = "ui"
+
+    def __init__(
+        self,
+        *,
+        task_id: str,
+        engine_id: str,
+        script_text: str,
+        output_path: str,
+        project_id: str | None = None,
+        chapter_id: str | None = None,
+        voice_profile_id: str | None = None,
+        voice_ref: str | None = None,
+        language: str = "en",
+        resource_claim: ResourceClaim | None = None,
+        requested_revision: dict[str, Any] | None = None,
+        render_batch_id: str | None = None,
+        is_bake: bool = False,
+        segment_ids: list[str] | None = None,
+        custom_title: str | None = None,
+        make_mp3: bool = False,
+        safe_mode: bool = True,
+        synthesis_settings: dict[str, Any] | None = None,
+        script: list[dict[str, Any]] | None = None,
+        force_rerender: bool = False,
+    ) -> None:
+        self.task_id = task_id
+        self.engine_id = engine_id
+        self.script_text = script_text
+        self.output_path = output_path
+        self.project_id = project_id
+        self.chapter_id = chapter_id
+        self.voice_profile_id = voice_profile_id
+        self.voice_ref = voice_ref
+        self.language = language
+        self.resource_claim = resource_claim or _manifest_resource_claim(engine_id)
+        self.requested_revision = requested_revision or {}
+        self.render_batch_id = render_batch_id
+        self.is_bake = is_bake
+        self.segment_ids = segment_ids
+        self.custom_title = custom_title
+        self.make_mp3 = make_mp3
+        self.safe_mode = safe_mode
+        self.synthesis_settings = synthesis_settings or {}
+        self.script = script
+        self.force_rerender = force_rerender
+        self.submitted_at = time.monotonic()
+        self._cancelled = False
+
+    # ------------------------------------------------------------------
+    # StudioTask contract
+    # ------------------------------------------------------------------
+
+    def validate(self) -> None:
+        """Validate task payload before scheduler admission.
+
+        Raises:
+            ValueError: When required fields are missing or invalid.
+        """
+        if not self.task_id:
+            raise ValueError("task_id is required")
+        if not self.engine_id:
+            raise ValueError("engine_id is required")
+        if not self.chapter_id and not self.script_text.strip():
+            raise ValueError("script_text must not be empty for non-chapter tasks")
+        if not self.output_path:
+            raise ValueError("output_path is required")
+
+    @property
+    def is_marker_driven(self) -> bool:
+        """Synthesis tasks use log markers to track render start."""
+        return True
+
+    @property
+    def prefers_local_execution(self) -> bool:
+        """Synthesis tasks for the 'mixed' engine execute locally via handle_mixed_job."""
+        return self.engine_id == "mixed"
+
+    def describe(self) -> TaskContext:
+        """Return the identifying metadata needed for scheduling.
+
+        Returns:
+            TaskContext: Scheduler-compatible context with revision payload.
+        """
+        # Resolve char_count once at context-build time so _publish never needs
+        # a per-frame DB query.  Resolution order (first non-zero wins):
+        #   a) len(script_text) when the task carries its own text
+        #   b) chapter.char_count from the DB when routed via segment_ids
+        #   c) unset/None — both computed and observed ETA remain unavailable
+        _char_count: int | None = None
+        if self.script_text:
+            _text_len = len(self.script_text)
+            if _text_len > 0:
+                _char_count = _text_len
+        if _char_count is None and self.chapter_id:
+            try:
+                from app.db.chapters import get_chapter  # noqa: PLC0415
+                _chap = get_chapter(self.chapter_id)
+                if _chap is not None:
+                    _raw = _chap.get("char_count")
+                    if isinstance(_raw, int) and _raw > 0:
+                        _char_count = _raw
+            except Exception:
+                pass
+
+        payload: dict[str, Any] = {
+            "engine_id": self.engine_id,
+            "script_text": self.script_text,
+            "output_path": self.output_path,
+            "voice_profile_id": self.voice_profile_id,
+            "reference_audio_path": self.voice_ref,
+            "language": self.language,
+            "source": self.source,
+            "render_batch_id": self.render_batch_id,
+            "is_bake": self.is_bake,
+            "segment_ids": self.segment_ids,
+            "custom_title": self.custom_title,
+            "make_mp3": self.make_mp3,
+            "safe_mode": self.safe_mode,
+            "synthesis_settings": self.synthesis_settings,
+            "script": self.script,
+            "force_rerender": self.force_rerender,
+            # Phase 4 reconciliation context — the orchestrator reads
+            # these fields when calling reconcile_work_item().
+            "requested_revision": self.requested_revision,
+            "task_revision_id": self.requested_revision.get(
+                "source_revision_id", self.task_id
+            ),
+            "scope": "chapter" if self.chapter_id and not self.segment_ids else "job",
+        }
+        if _char_count is not None:
+            payload["char_count"] = _char_count
+
+        return TaskContext(
+            task_id=self.task_id,
+            task_type="synthesis",
+            project_id=self.project_id,
+            chapter_id=self.chapter_id,
+            source=self.source,
+            submitted_at=self.submitted_at,
+            payload=payload,
+        )
+
+    @classmethod
+    def from_task_context(cls, ctx: TaskContext) -> "SynthesisTask":
+        """Reconstruct a SynthesisTask from a recovered TaskContext.
+
+        Args:
+            ctx: Recovered task context from the scheduler recovery path.
+
+        Returns:
+            SynthesisTask: Reconstructed task.
+        """
+        payload = ctx.payload or {}
+        # Recovered payloads are raw `processing_queue` rows (see
+        # `list_jobs_by_status`), which use the column name `engine` — there
+        # is no `engine_id` key anywhere in a raw DB row. Fall back to it so
+        # every recovered synthesis task doesn't fail validate() with
+        # "engine_id is required" (issue #238).
+        engine_id = payload.get("engine_id") or payload.get("engine") or ""
+        return cls(
+            task_id=ctx.task_id,
+            engine_id=str(engine_id),
+            script_text=str(payload.get("script_text", "")),
+            output_path=str(payload.get("output_path", "")),
+            project_id=ctx.project_id,
+            chapter_id=ctx.chapter_id,
+            voice_profile_id=payload.get("voice_profile_id"),
+            voice_ref=payload.get("reference_audio_path"),
+            language=str(payload.get("language", "en")),
+            requested_revision=payload.get("requested_revision"),
+            render_batch_id=payload.get("render_batch_id"),
+            is_bake=payload.get("is_bake", False),
+            segment_ids=payload.get("segment_ids"),
+            custom_title=payload.get("custom_title"),
+            make_mp3=payload.get("make_mp3", False),
+            safe_mode=payload.get("safe_mode", True),
+            synthesis_settings=payload.get("synthesis_settings"),
+            script=payload.get("script"),
+            force_rerender=bool(payload.get("force_rerender", False)),
+        )
+
+    def run(self) -> TaskResult:
+        """Execute synthesis locally (only for 'mixed' engine)."""
+        if self.engine_id != "mixed":
+            return TaskResult(
+                status="failed",
+                message=f"Task type synthesis does not support local execution for engine {self.engine_id}."
+            )
+
+        from app.db.models import Job  # noqa: PLC0415
+        from tts_engines.tts_mixed.handler import handle_mixed_job, set_ctx as _set_mixed_ctx  # noqa: PLC0415
+        from app.studio_plugin_sdk import StudioPluginContext  # noqa: PLC0415
+
+        # Construct and inject the engine-scoped ctx before dispatch so the
+        # handler uses the dispatcher's context (enables mock injection in tests).
+        _set_mixed_ctx(StudioPluginContext(engine_id="mixed"))
+
+        # Reconstruct a Job-like object for the local handler
+        j = Job(
+            id=self.task_id,
+            engine=self.engine_id,
+            status="running",
+            created_at=self.submitted_at,
+            project_id=self.project_id,
+            chapter_id=self.chapter_id,
+            chapter_file=self.output_path,
+            speaker_profile=self.voice_profile_id,
+            safe_mode=self.safe_mode,
+            make_mp3=self.make_mp3,
+            is_bake=self.is_bake,
+            segment_ids=self.segment_ids,
+            custom_title=self.custom_title,
+        )
+
+        try:
+            status, message = handle_mixed_job(
+                jid=self.task_id,
+                j=j,
+                start=time.time(),
+                on_output=self._relay_output,
+                cancel_check=lambda: self._cancelled,
+            )
+            return TaskResult(
+                status="completed" if status == "done" else status,
+                message=message,
+            )
+        except Exception as exc:
+            logger.exception("Mixed synthesis failed for task %s", self.task_id)
+            return TaskResult(status="failed", message=str(exc))
+
+    def on_cancel(self) -> None:
+        """Release task-level resources on cancellation."""
+        self._cancelled = True
+        if self.engine_id != "mixed":
+            from app.engines.bridge import create_voice_bridge
+            bridge = create_voice_bridge()
+            bridge.cancel(self.task_id)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def to_bridge_request(self) -> dict[str, Any] | None:
+        """Build a VoiceBridge-compatible synthesis request.
+
+        This is the full-featured builder used by the primary chapter/book
+        render path: it applies project lexicon substitution to the script
+        text and includes ``render_batch_id``, ``custom_title``, ``make_mp3``,
+        and a ``**self.synthesis_settings`` spread. See also the other two
+        ``to_bridge_request`` builders, which cover different task shapes:
+        ``app/orchestration/tasks/segment_synthesis.py`` (single-group
+        fan-out child, hardcoded ``language``/``is_bake``) and
+        ``app/orchestration/tasks/api_synthesis.py`` (external
+        ``/api/v1/tts`` gateway request, with ``caller_id`` attribution and
+        a ``**self.request_settings`` spread).
+        """
+        if self.engine_id == "mixed":
+            return None
+
+        # Apply project lexicon before the text reaches the engine.
+        # Load once per task; zero-impact when the project has no entries.
+        script_text = self.script_text
+        if self.project_id:
+            try:
+                from app.db.lexicon import get_lexicon  # noqa: PLC0415
+                from studio_plugin_sdk.text import apply_lexicon  # noqa: PLC0415
+                entries = get_lexicon(self.project_id)
+                if entries:
+                    script_text = apply_lexicon(script_text, entries)
+            except Exception:
+                logger.warning(
+                    "Failed to apply lexicon for project %s; using original text.",
+                    self.project_id,
+                    exc_info=True,
+                )
+
+        return {
+            "engine_id": self.engine_id,
+            "script_text": script_text,
+            "output_path": self.output_path,
+            "project_id": self.project_id,
+            "chapter_id": self.chapter_id,
+            "voice_profile_id": self.voice_profile_id,
+            "reference_audio_path": self.voice_ref,
+            "language": self.language,
+            "source": self.source,
+            "render_batch_id": self.render_batch_id,
+            "is_bake": self.is_bake,
+            "segment_ids": self.segment_ids,
+            "custom_title": self.custom_title,
+            "make_mp3": self.make_mp3,
+            "safe_mode": self.safe_mode,
+            "task_id": self.task_id,
+            "script": self.script,
+            **self.synthesis_settings,
+        }
+
+    def _relay_output(self, line: str) -> None:
+        """Relay output to the orchestrator's log listener."""
+        # The orchestrator's log_listener is registered with the watchdog.
+        # But for local tasks, we need to manually trigger it if we want
+        # markers like [START_SYNTHESIS] to be processed.
+        from app.engines.watchdog import get_watchdog
+        wd = get_watchdog()
+        if wd:
+            wd._broadcast_log(line, task_id=self.task_id)
+

@@ -15,8 +15,11 @@ Pinokio handles setup and launch for you, and can optionally install demo conten
 
 ### Want to preview before installing?
 
-**[Open the Live Demo / Showcase](https://senigami.github.io/audiobook-studio/)**  
-Hear samples, review features, and see how the workflow works before installing anything.
+**[Try the Interactive Demo](https://senigami.github.io/audiobook-studio/demo/)**  
+The real production UI (queue, progress bars, status transitions) running live in your browser against a scripted render session. No backend, no install required. See [[Live-Demos]] for stage deep-links and technical notes.
+
+**[Open the Showcase Page](https://senigami.github.io/audiobook-studio/)**  
+Hear audio samples, review features, and see how the workflow works before installing anything.
 
 ### Want the full repo and scripts?
 
@@ -29,23 +32,28 @@ If you are new to GitHub or terminal setup, start with **Pinokio**.
 
 ## Release Information
 
-For brand-new users, the current `1.8.x` release line is the best place to begin. That release family is the first one intended to feel smooth across local XTTS production and optional Voxtral support:
+The current Studio 2.0 release line is the best place to begin. It carries forward the stable local XTTS workflow, adds the plugin-based engine system, and ships the Studio 2.0 UI redesign:
 
-- first-run setup
-- launcher scripts
-- voice portability
+- left-rail grouped navigation (CREATE / MONITOR / PLATFORM / MANAGE)
+- five-stage book pipeline (Manuscript, Casting, Studio, Review, Publish)
+- global bottom player bar
+- Activity page for queue monitoring
+- Voice Lab page (`/voices/:id`) for per-voice editing
+- Engines and Integrations as dedicated pages
+- plugin-based engine management
 - engine-per-voice assignment
-- chapter generation
-- rebuild and queue UX
+- voice portability and bundles
 - audiobook download flow
 
 ## Quick Links
 
 - **[Pinokio Install](https://beta.pinokio.co/apps/github-com-senigami-audiobook-studio-pinokio)** - Easiest install path
-- **[Live Demo / Showcase](https://senigami.github.io/audiobook-studio/)** - Hear examples and preview the app
+- **[Interactive Demo](https://senigami.github.io/audiobook-studio/demo/)** - Live UI components running against a scripted session (no install)
+- **[Live Demo / Showcase](https://senigami.github.io/audiobook-studio/)** - Hear audio samples and review features
+- **[Live Demos](https://github.com/senigami/audiobook-studio/wiki/Live-Demos)** - Stage deep-links and demo technical notes
 - **[Getting Started](https://github.com/senigami/audiobook-studio/wiki/Getting-Started)** - Recommended setup and first run
 - **[Concepts](https://github.com/senigami/audiobook-studio/wiki/Concepts)** - Core architecture and terminology
-- **[Library and Projects](https://github.com/senigami/audiobook-studio/wiki/Library-and-Projects)** - Managing books and assemblies
+- **[Library and Projects](https://github.com/senigami/audiobook-studio/wiki/Library-and-Projects)** - Managing books and the book pipeline
 - **[Voices and Voice Profiles](https://github.com/senigami/audiobook-studio/wiki/Voices-and-Voice-Profiles)** - AI Voice Lab guide
 - **[Queue and Jobs](https://github.com/senigami/audiobook-studio/wiki/Queue-and-Jobs)** - Monitoring generation and repair work
 - **[Comparison and Cost](https://github.com/senigami/audiobook-studio/wiki/Comparison-and-Cost)** - Hosted vs local tradeoffs
@@ -56,11 +64,13 @@ For brand-new users, the current `1.8.x` release line is the best place to begin
 
 1. Run `./run.sh` on macOS/Linux or `run.ps1` on Windows.
 2. Open `http://127.0.0.1:8123`.
-3. Create a project from the Library.
-4. Add a chapter and paste or import text.
-5. Build or import a voice profile.
-6. Assign narration and character voices.
-7. Generate chapter audio and assemble the audiobook.
+3. Create a project from the Library (CREATE > Library in the left rail).
+4. Open the book and add a chapter in the Manuscript stage.
+5. Build or import a voice profile (CREATE > Voices).
+6. Assign narration and character voices in the Casting stage.
+7. Generate chapter audio in the Studio stage.
+8. Listen and annotate in the Review stage.
+9. Assemble the audiobook in the Publish stage.
 
 ## Suggested First Demo
 
@@ -72,10 +82,11 @@ If you want a simple onboarding project, create a short 2-3 chapter sample and a
 
 That gives you the clearest first impression of:
 
-- chapter editing
-- segment repair
-- multi-voice assignment
-- final audiobook export
+- chapter editing in the Manuscript stage
+- casting voices in the Casting stage
+- segment repair in the Studio stage
+- follow-along playback in the Review stage
+- final audiobook export from the Publish stage
 
 ## Local Preview
 

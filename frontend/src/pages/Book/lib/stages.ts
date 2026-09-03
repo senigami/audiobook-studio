@@ -1,0 +1,79 @@
+export const BOOK_STAGES = ['book', 'contents', 'cast', 'lexicon', 'publish', 'backups'] as const;
+
+export type BookStage = (typeof BOOK_STAGES)[number];
+
+export const BOOK_STAGE_LABELS: Record<BookStage, string> = {
+  book: 'Book',
+  contents: 'Contents',
+  cast: 'Cast',
+  lexicon: 'Lexicon',
+  publish: 'Publish',
+  backups: 'Backups',
+};
+
+export function isBookStage(value: string | undefined): value is BookStage {
+  return BOOK_STAGES.includes(value as BookStage);
+}
+
+export function getBookStageStorageKey(bookId: string): string {
+  return `studio.book.${bookId}.lastStage`;
+}
+
+export function getLastStage(bookId: string): BookStage {
+  if (typeof window === 'undefined') {
+    return 'book';
+  }
+
+  try {
+    const stored = window.localStorage.getItem(getBookStageStorageKey(bookId));
+    const storedStage = stored ?? undefined;
+    if (isBookStage(storedStage)) {
+      return storedStage;
+    }
+
+    return 'book';
+  } catch {
+    return 'book';
+  }
+}
+
+export function setLastStage(bookId: string, stage: BookStage): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(getBookStageStorageKey(bookId), stage);
+  } catch {
+    // Ignore storage errors; the route itself remains authoritative.
+  }
+}
+
+/** Storage key for the last-opened chapter within a book (used to restore the workspace). */
+export function getLastChapterStorageKey(bookId: string): string {
+  return `studio.book.${bookId}.lastChapter`;
+}
+
+export function getLastChapter(bookId: string): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    return window.localStorage.getItem(getLastChapterStorageKey(bookId)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function setLastChapter(bookId: string, chapterId: string): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(getLastChapterStorageKey(bookId), chapterId);
+  } catch {
+    // Ignore storage errors.
+  }
+}

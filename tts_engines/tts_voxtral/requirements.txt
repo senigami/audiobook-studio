@@ -1,0 +1,4 @@
+# Voxtral Standalone Requirements
+# Base packages for Mistral AI synthesis
+httpx>=0.25.0
+pydantic>=2.0.0

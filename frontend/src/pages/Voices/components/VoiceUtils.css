@@ -1,0 +1,10 @@
+/* Drawer — mobile/touch sheet behavior.
+   Width/resize-disable logic lives in VoiceUtils.tsx (JS, since it depends on
+   pointer type + measured viewport); this covers the remaining CSS-only
+   affordance so a full-width sheet doesn't look like a drawer with a stray
+   left border. */
+@media (max-width: 768px) {
+  .drawer-panel {
+    border-left: none !important;
+  }
+}

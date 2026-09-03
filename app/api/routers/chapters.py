@@ -1,70 +1,49 @@
 import anyio
 import logging
 from pathlib import Path
-from typing import Optional, List, Literal
-from pydantic import BaseModel, Field
-from fastapi import APIRouter, Form, File, UploadFile, Request, Depends, Body
-from fastapi.responses import JSONResponse, FileResponse
-from ...db import (
-    list_chapters, reconcile_project_audio, create_chapter, update_chapter, 
-    get_chapter, delete_chapter, reorder_chapters, get_chapter_segments, 
-    update_segment, update_segments_status_bulk, update_segments_bulk, 
-    sync_chapter_segments, reset_chapter_audio, get_connection
-)
-from ... import config
-from ...config import SENT_CHAR_LIMIT, BASELINE_XTTS_CPS, find_existing_project_subdir
-from ...textops import (
-    compute_chapter_metrics, sanitize_for_xtts,
-    safe_split_long_sentences, pack_text_to_limit
-)
-from ...jobs import cancel as cancel_job, get_jobs
-from ...state import update_job, delete_jobs, get_settings
-from ...constants import DEFAULT_VOICE_SENTINEL
-from ..ws import broadcast_chapter_updated, broadcast_queue_update
-from ...pathing import safe_basename, safe_join_flat
+from typing import Optional
 
-# Compatibility for tests that monkeypatch these
-CHAPTER_DIR = config.CHAPTER_DIR
-XTTS_OUT_DIR = config.XTTS_OUT_DIR
+from fastapi import APIRouter, Form, File, UploadFile, Request, HTTPException
+from fastapi.responses import JSONResponse
+
+from ...db import (
+    list_chapters, reconcile_project_audio, create_chapter, update_chapter,
+    get_chapter, delete_chapter, reset_chapter_audio, get_connection,
+    get_chapter_segments, update_segment, update_segments_status_bulk, update_segments_bulk,
+    sync_chapter_segments
+)
+from ...core import config
+from ...utils.text.textops import compute_chapter_metrics
+from ...db.state import get_jobs, get_settings
+from ...db.state import update_job
+from ...core.constants import DEFAULT_VOICE_SENTINEL
+from ..ws import broadcast_chapter_updated, broadcast_queue_update
+from ...domain.chunk_groups import rows_as_groups, load_chunk_segments
+
+# Sub-modules
+from .chapters_models import BulkStatusUpdate, BulkSegmentsUpdate
+from .chapters_production import router as production_router
+from .chapters_assets import (
+    router as assets_router,
+)
+
+
 
 logger = logging.getLogger(__name__)
 
 
-def get_chapter_dir() -> Path:
-    return CHAPTER_DIR
-
-
-def get_xtts_out_dir() -> Path:
-    return XTTS_OUT_DIR
-
-
-def _named_file(base_dir: Path, filename: str, allowed_suffixes: Optional[tuple[str, ...]] = None) -> Optional[Path]:
-    if not base_dir.exists():
-        return None
-    for entry in base_dir.iterdir():
-        if not entry.is_file() or entry.name != filename:
-            continue
-        if allowed_suffixes and entry.suffix.lower() not in allowed_suffixes:
-            continue
-        return entry.resolve()
-    return None
-
-
-def _named_audio_file_map(base_dir: Optional[Path]) -> dict[str, Path]:
-    if not base_dir or not base_dir.exists():
-        return {}
-    return {
-        entry.name: entry.resolve()
-        for entry in base_dir.iterdir()
-        if entry.is_file() and entry.suffix.lower() in (".wav", ".mp3", ".m4a")
-    }
-
 router = APIRouter(prefix="/api", tags=["chapters"])
+
+# Include sub-routers
+router.include_router(production_router)
+router.include_router(assets_router)
+
 
 @router.get("/projects/{project_id}/chapters")
 def api_list_project_chapters(project_id: str):
     reconcile_project_audio(project_id)
     return JSONResponse(list_chapters(project_id))
+
 
 @router.post("/projects/{project_id}/chapters")
 async def api_create_chapter(
@@ -87,12 +66,14 @@ async def api_create_chapter(
     chapter_data = await anyio.to_thread.run_sync(process)
     return JSONResponse({"status": "ok", "chapter": chapter_data})
 
+
 @router.get("/chapters/{chapter_id}")
-def api_get_chapter_details(chapter_id: str):
-    c = get_chapter(chapter_id)
+def api_get_chapter_details(chapter_id: str, project_id: Optional[str] = None):
+    c = get_chapter(chapter_id, project_id=project_id)
     if not c:
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
     return JSONResponse(c)
+
 
 @router.put("/chapters/{chapter_id}")
 async def api_update_chapter_details(
@@ -116,11 +97,22 @@ async def api_update_chapter_details(
             normalized_profile_name = None
         updates["speaker_profile_name"] = normalized_profile_name
 
+    lost_assignments_count = 0
     if updates:
-        update_chapter(chapter_id, **updates)
+        result = update_chapter(chapter_id, **updates)
+        if isinstance(result, dict):
+            lost_assignments_count = result.get("lost_assignments_count", 0)
         broadcast_chapter_updated(chapter_id)
 
-    return JSONResponse({"status": "ok", "chapter": get_chapter(chapter_id)})
+    # Task 6 (RC-1 fix): surface how many manual assignments an ordinary text save
+    # actually lost, so the UI can warn -- previously only the explicit resync route's
+    # preview showed this.
+    return JSONResponse({
+        "status": "ok",
+        "chapter": get_chapter(chapter_id),
+        "lost_assignments_count": lost_assignments_count,
+    })
+
 
 @router.delete("/chapters/{chapter_id}")
 def api_delete_chapter_route(chapter_id: str):
@@ -129,19 +121,23 @@ def api_delete_chapter_route(chapter_id: str):
         return JSONResponse({"status": "ok"})
     return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
 
+
 @router.delete("/chapters/{chapter_id}/record")
 def api_delete_chapter_record(chapter_id: str):
     reset_chapter_audio(chapter_id)
     return JSONResponse({"status": "ok"})
 
+
 @router.post("/chapters/{chapter_id}/reset")
 def api_reset_chapter_audio_route(chapter_id: str):
     # 1. Cancel any active jobs for this chapter
     existing = get_jobs()
+    from ...orchestration.scheduler.orchestrator import create_orchestrator
+    orchestrator = create_orchestrator()
     for jid, j in existing.items():
         if getattr(j, 'chapter_id', None) == chapter_id or j.chapter_file == chapter_id:
-            cancel_job(jid)
-            update_job(jid, status="cancelled", log="Cancelled by chapter reset.")
+            if not orchestrator.cancel(jid):
+                update_job(jid, status="cancelled", log="Cancelled by chapter reset.")
 
     # 2. Reset in DB (and delete queue item)
     reset_chapter_audio(chapter_id)
@@ -151,15 +147,18 @@ def api_reset_chapter_audio_route(chapter_id: str):
 
     return JSONResponse({"status": "ok"})
 
+
 @router.post("/chapters/{chapter_id}/cancel")
 def cancel_chapter_generation_route(chapter_id: str):
     """Cancels all active jobs (granular or full chapter) associated with this chapter id."""
     existing = get_jobs()
     cancelled_count = 0
+    from ...orchestration.scheduler.orchestrator import create_orchestrator
+    orchestrator = create_orchestrator()
     for jid, j in existing.items():
         if getattr(j, 'chapter_id', None) == chapter_id or j.chapter_file == chapter_id:
-            cancel_job(jid)
-            update_job(jid, status="cancelled", log="Cancelled by user via chapter editor.")
+            if not orchestrator.cancel(jid):
+                update_job(jid, status="cancelled", log="Cancelled by user via chapter editor.")
             cancelled_count += 1
 
     try:
@@ -175,9 +174,55 @@ def cancel_chapter_generation_route(chapter_id: str):
     return JSONResponse({"status": "ok", "cancelled_count": cancelled_count})
 
 
+@router.get("/projects/{project_id}/chapters/{chapter_id}/render_groups")
+def api_get_chapter_render_groups(project_id: str, chapter_id: str):
+    chapter = get_chapter(chapter_id)
+    if not chapter or chapter.get("project_id") != project_id:
+        return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
+
+    chapter_default = chapter.get("speaker_profile_name")
+    settings_default = get_settings().get("default_speaker_profile")
+    default_profile = chapter_default or settings_default or None
+
+    segments = load_chunk_segments(chapter_id)
+    groups = rows_as_groups(segments, default_profile)
+
+    result = []
+    for idx, group in enumerate(groups):
+        result.append({
+            "index": idx,
+            "segment_ids": [seg["id"] for seg in group["segments"]],
+            "engine": group["engine"],
+            "char_count": group["text_length"],
+        })
+
+    return JSONResponse({"count": len(result), "groups": result})
+
+
 @router.get("/chapters/{chapter_id}/segments")
 def api_get_segments(chapter_id: str):
-    return JSONResponse({"segments": get_chapter_segments(chapter_id)})
+    # #232 Task 009: segment_order is a derived-on-write convenience column
+    # (ordering authority is start_offset -- see 01-map.md's round-5
+    # correction); it has zero frontend readers, so stop serving it over the
+    # API here even though the DB column itself is untouched (internal
+    # callers of get_chapter_segments() still receive it -- e.g.
+    # tests/db/test_sync_chapter_segments_offsets.py sorts by it directly).
+    segments = [
+        {k: v for k, v in seg.items() if k != "segment_order"}
+        for seg in get_chapter_segments(chapter_id)
+    ]
+    return JSONResponse({"segments": segments})
+
+
+# Untrusted request bodies for PUT /segments/{id} are forwarded into
+# `update_segment(segment_id, **updates)`, which builds `UPDATE chapter_segments
+# SET {col} = ? ...` using request-supplied dict KEYS directly as column names
+# (values are parameterized/safe, but column names are not). This is the complete
+# set of fields real callers send today (mirrors `updateSegment`'s payload type in
+# frontend/src/api/index.ts) — reject anything outside it rather than silently
+# passing an arbitrary key through as a column name.
+SEGMENT_UPDATE_ALLOWED_FIELDS = {"character_id", "speaker_profile_name", "audio_status", "text_content"}
+
 
 @router.put("/segments/{segment_id}")
 async def api_update_segment_route(segment_id: str, request: Request):
@@ -190,6 +235,10 @@ async def api_update_segment_route(segment_id: str, request: Request):
         form = await request.form()
         updates = {k: v for k, v in form.items()}
 
+    unknown_fields = set(updates) - SEGMENT_UPDATE_ALLOWED_FIELDS
+    if unknown_fields:
+        raise HTTPException(status_code=400, detail=f"Unsupported field(s): {', '.join(sorted(unknown_fields))}")
+
     # Normalize: empty strings for IDs/Profiles should be None
     for k in ["speaker_profile_name", "character_id"]:
         if k in updates and updates[k] == "":
@@ -200,223 +249,35 @@ async def api_update_segment_route(segment_id: str, request: Request):
     )
     return JSONResponse({"status": "ok" if success else "error"})
 
-class BulkStatusUpdate(BaseModel):
-    segment_ids: List[str]
-    status: Literal["unprocessed", "processing", "done", "failed", "cancelled", "error"]
 
 @router.post("/chapters/{chapter_id}/segments/bulk-status")
 def api_bulk_update_segment_status(chapter_id: str, req: BulkStatusUpdate):
     update_segments_status_bulk(req.segment_ids, chapter_id, req.status)
     return JSONResponse({"status": "ok"})
 
-class BulkSegmentsUpdate(BaseModel):
-    segment_ids: List[str]
-    updates: dict
 
 @router.post("/segments/bulk-update")
 async def api_bulk_update_segments(req: BulkSegmentsUpdate):
+    # Same unvalidated-dict-as-SQL-columns hazard as PUT /segments/{segment_id}
+    # above (`update_segments_bulk` builds `f"{k} = ?"` from these keys) — reuse
+    # the same whitelist rather than duplicating it.
+    unknown_fields = set(req.updates) - SEGMENT_UPDATE_ALLOWED_FIELDS
+    if unknown_fields:
+        raise HTTPException(status_code=400, detail=f"Unsupported field(s): {', '.join(sorted(unknown_fields))}")
+
     await anyio.to_thread.run_sync(
         lambda: update_segments_bulk(req.segment_ids, **req.updates)
     )
     return JSONResponse({"status": "ok"})
 
+
 @router.post("/chapters/{chapter_id}/sync-segments")
 async def api_sync_segments(chapter_id: str, request: Request):
     data = await request.json()
     text = data.get("text")
+    lost_assignments_count = 0
     if text is not None:
-        await anyio.to_thread.run_sync(sync_chapter_segments, chapter_id, text)
-    return JSONResponse({"status": "ok"})
-
-
-@router.post("/chapter/reset")
-def reset_chapter_legacy(
-    chapter_file: str = Form(...),
-    xtts_out_dir: Path = Depends(get_xtts_out_dir)
-):
-    try:
-        existing = get_jobs()
-        # Construct and resolve path
-        safe_base = safe_basename(chapter_file)
-        # Cancel any active jobs for this chapter file
-        for jid, j in existing.items():
-            if j.chapter_file == safe_base:
-                cancel_job(jid)
-                update_job(jid, status="cancelled", log="Cancelled by chapter reset.")
-
-        # However, for reset we check both Chapter existence and Output existence
-        # Check output stem
-        stem = Path(safe_base).stem
-
-        # Security: ensure we aren't leaking out
-        for ext in [".wav", ".mp3", ".m4a"]:
-            try:
-                safe_join_flat(xtts_out_dir, f"{stem}{ext}")
-            except ValueError:
-                logger.warning(f"Blocking reset traversal attempt: {chapter_file}")
-                return JSONResponse({"status": "error", "message": "Invalid chapter file"}, status_code=403)
-
-        count = 0
-        audio_files = _named_audio_file_map(xtts_out_dir)
-        for ext in [".wav", ".mp3", ".m4a"]:
-            f = audio_files.get(f"{stem}{ext}")
-            if f:
-                f.unlink()
-                count += 1
-        return JSONResponse({
-            "status": "ok",
-            "message": f"Reset {safe_base}, deleted {count} files"
-        })
-    except Exception:
-        logger.error("Error resetting chapter %s", chapter_file, exc_info=True)
-        return JSONResponse({"status": "error", "message": "Reset failed"}, status_code=500)
-
-@router.delete("/chapter/{filename}")
-def api_delete_legacy_chapter(
-    filename: str,
-    chapter_dir: Path = Depends(get_chapter_dir),
-    xtts_out_dir: Path = Depends(get_xtts_out_dir)
-):
-    try:
-        safe_filename = safe_basename(filename)
-        path = _named_file(chapter_dir, safe_filename, (".txt",))
-        if safe_filename != filename and not path:
-            logger.warning(f"Blocking delete traversal attempt: {filename}")
-            return JSONResponse({"status": "error", "message": "Invalid filename"}, status_code=403)
-
-        stem = Path(safe_filename).stem
-        audio_files = _named_audio_file_map(xtts_out_dir)
-        for ext in [".wav", ".mp3"]:
-            f = audio_files.get(f"{stem}{ext}")
-            if f:
-                f.unlink()
-
-        existing = get_jobs()
-        to_del = []
-        for jid, j in existing.items():
-            if j.chapter_file == safe_filename:
-                cancel_job(jid)
-                to_del.append(jid)
-
-        if to_del:
-            delete_jobs(to_del)
-
-        if path:
-            path.unlink()
-            return JSONResponse({
-                "status": "ok",
-                "message": f"Deleted chapter {safe_filename}"
-            })
-
-    except Exception as e:
-        logger.error(f"Error deleting chapter {filename}: {e}")
-        return JSONResponse({"status": "error", "message": "Delete failed"}, status_code=500)
-
-    return JSONResponse(
-        {"status": "error", "message": "Chapter not found"},
-        status_code=404
-    )
-
-@router.get("/preview/{chapter_file}")
-def api_preview(
-    chapter_file: str,
-    processed: bool = False,
-    chapter_dir: Path = Depends(get_chapter_dir)
-):
-    from ..utils import read_preview
-    import re
-
-    try:
-        safe_filename = safe_basename(chapter_file)
-        p = _named_file(chapter_dir, safe_filename, (".txt",))
-        if safe_filename != chapter_file and not p:
-            logger.warning(f"Blocking preview traversal attempt: {chapter_file}")
-            return JSONResponse({"error": "invalid path"}, status_code=403)
-        if not p:
-            return JSONResponse({"error": "not found"}, status_code=404)
-    except Exception as e:
-        logger.error(f"Error resolving preview path {chapter_file}: {e}")
-        return JSONResponse({"error": "invalid path"}, status_code=403)
-
-    text = read_preview(p, max_chars=1000000)
-    analysis = None
-
-    if processed:
-        settings = get_settings()
-        is_safe = settings.get("safe_mode", True)
-        if is_safe:
-            text = sanitize_for_xtts(text)
-            text = safe_split_long_sentences(text)
-        else:
-            text = re.sub(r"[^\x00-\x7F]+", "", text)
-            text = text.strip()
-        text = pack_text_to_limit(text, pad=True)
-
-    return JSONResponse({"text": text, "analysis": analysis})
-@router.post("/chapter/{chapter_id}/export-sample")
-async def api_export_chapter_sample(
-    chapter_id: str,
-    project_id: Optional[str] = None,
-    xtts_out_dir: Path = Depends(get_xtts_out_dir)
-):
-    chapter = get_chapter(chapter_id)
-    pdir = (
-        find_existing_project_subdir(project_id, "audio") if project_id else xtts_out_dir
-    )
-
-    wav_path = None
-    audio_files = _named_audio_file_map(pdir)
-    if chapter and chapter.get("audio_file_path"):
-        wav_path = audio_files.get(chapter["audio_file_path"])
-
-    if not wav_path:
-        for candidate_name in (
-            f"{chapter_id}.wav",
-            f"{chapter_id}.mp3",
-            f"{chapter_id}_0.wav",
-            f"{chapter_id}_0.mp3",
-        ):
-            wav_path = audio_files.get(candidate_name)
-            if wav_path:
-                break
-
-    if not wav_path:
-        return JSONResponse({"status": "error", "message": "Audio not found"}, status_code=404)
-
-    rel_path = f"/api/chapters/{chapter_id}/stream"
-    if project_id:
-        rel_path += f"?project_id={project_id}"
-
-    return JSONResponse({"status": "ok", "url": rel_path})
-
-@router.get("/chapters/{chapter_id}/stream")
-def api_stream_chapter(
-    chapter_id: str,
-    project_id: Optional[str] = None,
-    xtts_out_dir: Path = Depends(get_xtts_out_dir)
-):
-    chapter = get_chapter(chapter_id)
-    pdir = (
-        find_existing_project_subdir(project_id, "audio") if project_id else xtts_out_dir
-    )
-
-    wav_path = None
-    audio_files = _named_audio_file_map(pdir)
-    if chapter and chapter.get("audio_file_path"):
-        wav_path = audio_files.get(chapter["audio_file_path"])
-
-    if not wav_path:
-        for candidate_name in (
-            f"{chapter_id}.wav",
-            f"{chapter_id}.mp3",
-            f"{chapter_id}_0.wav",
-            f"{chapter_id}_0.mp3",
-        ):
-            wav_path = audio_files.get(candidate_name)
-            if wav_path:
-                break
-
-    if not wav_path:
-         return JSONResponse({"status": "error", "message": "Audio not found"}, status_code=404)
-
-    return FileResponse(wav_path)
+        result = await anyio.to_thread.run_sync(sync_chapter_segments, chapter_id, text)
+        if isinstance(result, dict):
+            lost_assignments_count = result.get("lost_assignments_count", 0)
+    return JSONResponse({"status": "ok", "lost_assignments_count": lost_assignments_count})

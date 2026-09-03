@@ -6,20 +6,19 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, Form, HTTPException, Depends
 from fastapi.responses import JSONResponse, FileResponse
-from ... import config
+from ...core import config
 from ...db import get_chapter, get_chapter_segments, get_characters
-from ...textops import (
+from ...utils.text.textops import (
     find_long_sentences, clean_text_for_tts, safe_split_long_sentences,
-    pack_text_to_limit, sanitize_for_xtts, get_text_stats, format_duration
+    pack_text_to_limit, sanitize_text, get_text_stats, format_duration
 )
-from ...config import SENT_CHAR_LIMIT, BASELINE_XTTS_CPS
-from ...pathing import safe_basename, safe_join_flat
+from ...engines.behavior import DEFAULT_BASELINE_ENGINE_CPS
+from ...engines.behavior import get_text_chunk_limit, get_text_split_target
+from ...engines.voice_engines import get_default_profile_engine, list_tts_engines
+from ...db import state
+from ...utils.pathing import safe_basename, safe_join_flat
 
 logger = logging.getLogger(__name__)
-
-# Compatibility for tests that monkeypatch these
-CHAPTER_DIR = config.CHAPTER_DIR
-REPORT_DIR = config.REPORT_DIR
 
 
 class AnalysisError(Exception):
@@ -78,12 +77,13 @@ class TextAnalysisResponse(BaseModel):
     split_sentences: List[str]
 
 
-def get_chapter_dir() -> Path:
-    return CHAPTER_DIR
 
 
 def get_report_dir() -> Path:
-    return REPORT_DIR
+    return config.REPORT_DIR
+
+
+
 
 
 router = APIRouter(prefix="/api", tags=["analysis"])
@@ -97,8 +97,18 @@ def api_analyze_chapter(chapter_id: str):
 
         def process_chapter():
             segs = get_chapter_segments(chapter_id)
-            chars = get_characters(chap["project_id"])
+            chars = get_characters(chap["project_id"], chapter_id=chapter_id)
             char_map = {c["id"]: c for c in chars}
+
+            settings = state.get_settings()
+            enabled = settings.get("enabled_plugins") or {}
+            engine_id = chap.get("engine_id") or get_default_profile_engine(settings) or next(
+                (e for e in list_tts_engines() if enabled.get(e, True)), None
+            )
+            if not engine_id:
+                raise AnalysisError("No TTS engine configured", 400)
+            chunk_limit = get_text_chunk_limit(engine_id)
+            split_target = get_text_split_target(engine_id)
 
             # 1. Group segments by consecutive character using itertools.groupby
             groups = []
@@ -131,13 +141,13 @@ def api_analyze_chapter(chapter_id: str):
                         len(current_batch_text) + len(curr_seg["text_content"])
                     )
 
-                    if combined_len <= SENT_CHAR_LIMIT:
+                    if combined_len <= chunk_limit:
                         current_batch.append(curr_seg)
                     else:
                         combined = " ".join([s["text_content"] for s in current_batch])
-                        final_text = sanitize_for_xtts(combined)
+                        final_text = sanitize_text(combined)
                         final_text = safe_split_long_sentences(
-                            final_text, target=SENT_CHAR_LIMIT
+                            final_text, target=split_target
                         )
                         voice_chunks.append({
                             "character_name": char_name,
@@ -150,9 +160,9 @@ def api_analyze_chapter(chapter_id: str):
 
                 if current_batch:
                     combined = " ".join([s["text_content"] for s in current_batch])
-                    final_text = sanitize_for_xtts(combined)
+                    final_text = sanitize_text(combined)
                     final_text = safe_split_long_sentences(
-                        final_text, target=SENT_CHAR_LIMIT
+                        final_text, target=split_target
                     )
                     voice_chunks.append({
                         "character_name": char_name,
@@ -179,7 +189,8 @@ def api_analyze_chapter(chapter_id: str):
                 "raw_hits": raw_hits,
                 "auto_fixed": auto_fixed,
                 "uncleanable": uncleanable,
-                "cleaned_hits": cleaned_hits
+                "cleaned_hits": cleaned_hits,
+                "chunk_limit": chunk_limit,
             }
 
         res = process_chapter()
@@ -187,7 +198,7 @@ def api_analyze_chapter(chapter_id: str):
         return ChapterAnalysisResponse(
             status="ok",
             voice_chunks=res["voice_chunks"],
-            threshold=SENT_CHAR_LIMIT,
+            threshold=res["chunk_limit"],
             char_count=res["stats"]["char_count"],
             word_count=res["stats"]["word_count"],
             sent_count=res["stats"]["sent_count"],
@@ -213,11 +224,21 @@ def api_analyze_text(req: AnalyzeTextRequest):
         text_content = req.text_content
         stats = get_text_stats(text_content)
 
-        raw_hits = find_long_sentences(text_content)
+        settings = state.get_settings()
+        enabled = settings.get("enabled_plugins") or {}
+        engine_id = get_default_profile_engine(settings) or next(
+            (e for e in list_tts_engines() if enabled.get(e, True)), None
+        )
+        if not engine_id:
+            raise AnalysisError("No TTS engine configured", 400)
+        chunk_limit = get_text_chunk_limit(engine_id)
+        split_target = get_text_split_target(engine_id)
+
+        raw_hits = find_long_sentences(text_content, threshold=chunk_limit)
         cleaned_text = clean_text_for_tts(text_content)
-        split_text = safe_split_long_sentences(cleaned_text)
-        packed_text = pack_text_to_limit(split_text, pad=True)
-        cleaned_hits = find_long_sentences(split_text)
+        split_text = safe_split_long_sentences(cleaned_text, target=split_target)
+        packed_text = pack_text_to_limit(split_text, limit=chunk_limit, pad=True)
+        cleaned_hits = find_long_sentences(split_text, threshold=chunk_limit)
 
         uncleanable = len(cleaned_hits)
         auto_fixed = len(raw_hits) - uncleanable
@@ -229,7 +250,8 @@ def api_analyze_text(req: AnalyzeTextRequest):
             "uncleanable": uncleanable,
             "cleaned_hits": cleaned_hits,
             "packed_text": packed_text,
-            "split_text": split_text
+            "split_text": split_text,
+            "chunk_limit": chunk_limit,
         }
 
     res = process_text()
@@ -247,80 +269,12 @@ def api_analyze_text(req: AnalyzeTextRequest):
             UncleanableSentence(length=clen, text=s)
             for idx, clen, start, end, s in res["cleaned_hits"]
         ],
-        threshold=SENT_CHAR_LIMIT,
+        threshold=res["chunk_limit"],
         safe_text=res["packed_text"],
         split_sentences=res["split_text"].split("\n")
     )
 
 
-def _run_analysis(
-    chapter_file: str,
-    chapter_dir: Path,
-    report_dir: Path
-):
-    # Path Traversal Safety
-    try:
-        safe_path = safe_join_flat(chapter_dir, chapter_file)
-        if not safe_path.exists():
-            raise AnalysisError(f"Chapter file '{chapter_file}' not found.", 404)
-
-        p = safe_path
-    except Exception as e:
-        if isinstance(e, AnalysisError):
-            raise
-        logger.error(f"Error resolving path {chapter_file}: {e}")
-        raise AnalysisError("Invalid chapter path", 403)
-
-    text = p.read_text(encoding="utf-8", errors="replace")
-    stats = get_text_stats(text)
-    raw_hits = find_long_sentences(text)
-    cleaned_text = clean_text_for_tts(text)
-    split_text = safe_split_long_sentences(cleaned_text)
-    cleaned_hits = find_long_sentences(split_text)
-    uncleanable = len(cleaned_hits)
-    auto_fixed = len(raw_hits) - uncleanable
-
-    report_dir.mkdir(parents=True, exist_ok=True)
-    # Sanitize stem for safety
-    safe_stem = p.stem.replace("..", "")
-    report_path = report_dir / f"long_sentences_{safe_stem}.txt"
-    lines = [
-        f"Character Count   : {stats['char_count']:,}",
-        f"Word Count        : {stats['word_count']:,}",
-        f"Sentence Count    : {stats['sent_count']:,} (approx)",
-        f"Predicted Time    : {stats['formatted_duration']} "
-        f"(@ {BASELINE_XTTS_CPS} cps)",
-    ]
-    if len(raw_hits) > 0:
-        lines.extend([
-            "--------------------------------------------------",
-            f"Limit Threshold   : {SENT_CHAR_LIMIT} characters",
-            f"Raw Long Sentences: {len(raw_hits)}",
-            f"Auto-Fixable      : {auto_fixed} (handled by Safe Mode)",
-            f"Action Required   : {uncleanable} (STILL too long after split!)",
-            "--------------------------------------------------",
-            ""
-        ])
-    else:
-        lines.append("")
-
-    if uncleanable > 0:
-        lines.append(
-            "!!! ACTION REQUIRED: The following sentences could not be "
-            "auto-split !!!\n"
-        )
-        for idx, clen, start, end, s in cleaned_hits:
-            lines.append(
-                f"--- Uncleanable Sentence ({clen} chars) ---\n{s}\n"
-            )
-    elif len(raw_hits) > 0:
-        lines.append(
-            "✓ All long sentences will be successfully handled by Safe Mode."
-        )
-
-    report_text = "\n".join(lines)
-    report_path.write_text(report_text, encoding="utf-8")
-    return report_path, report_text
 
 
 @router.get("/report/{name}")

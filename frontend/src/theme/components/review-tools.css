@@ -1,0 +1,513 @@
+/* ==========================================================================
+   Booth tool (DirectorsConsole) — main listening/karaoke layout
+   (INV-7: token-only colors). `.book-stage-review` and `.review-chapter-rail*`
+   were the old ReviewStage's outer 2-column shell + left chapter-picker rail;
+   both are dead now that BoothTool (its replacement) has no rendered rail —
+   ChapterWorkspaceHeader is the single chapter switcher. Removed in
+   design-docs/plans/active/directors_console_activation/tasks/007-cleanup-and-green-gate.md.
+   ========================================================================== */
+
+/* ── DirectorsConsole rail: mode/tool tabs ────────────────────────────────
+   The rail used to reuse `.btn-primary`/`.btn-ghost` for selected/unselected
+   tabs — the same solid-fill treatment `.btn-primary` uses for real
+   primary-action buttons elsewhere, which read as ambiguous ("is this
+   selected, or is it a button to press?"), and `.btn-ghost`'s hover state
+   (accent-glow tint) looked close enough to a selected tab to be mistaken
+   for a second simultaneously-active item (design-critique HIG finding).
+   This gives "selected" its own distinct, non-button-shaped treatment. */
+.directors-console__rail-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.6rem 0.6rem 0.6rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 700;
+  min-width: 64px;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-standard),
+              background var(--dur-fast) var(--ease-standard),
+              border-color var(--dur-fast) var(--ease-standard);
+}
+
+.directors-console__rail-tab:hover:not(.directors-console__rail-tab--active) {
+  background: var(--surface-alt);
+  color: var(--text-primary);
+}
+
+.directors-console__rail-tab--active {
+  background: var(--accent-tint-bg, var(--accent-glow));
+  border-left-color: var(--action-primary);
+  color: var(--action-primary);
+}
+
+/* Divider between the mode-switching items (Cast/Booth/Revise/Write) and
+   the tool/utility items (Casting Call/Script Supervisor/Plugin) — the rail
+   used to read as one undifferentiated stack (design-critique HIG finding). */
+.directors-console__rail-divider {
+  height: 1px;
+  margin: 0.35rem 0.4rem;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+/* ── DirectorsConsole mobile mode switcher: persistent bottom tab bar ────
+   Mobile-only alternative to the desktop rail above, switching between
+   ChapterEditor's mobile-eligible modes (Booth, Book view). A persistent
+   bar, not a modal overlay — no focus trap, unlike MobileNavDrawer.
+   `env(safe-area-inset-bottom)` keeps it clear of the iOS home indicator. */
+.mobile-mode-switcher {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-around;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem calc(0.25rem + env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  position: sticky;
+  bottom: 0;
+  flex-shrink: 0;
+}
+
+.mobile-mode-switcher__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  flex: 1 1 0;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.4rem;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-standard),
+              background var(--dur-fast) var(--ease-standard);
+}
+
+.mobile-mode-switcher__item:hover:not(.mobile-mode-switcher__item--active) {
+  background: var(--surface-alt);
+  color: var(--text-primary);
+}
+
+.mobile-mode-switcher__item--active {
+  background: var(--accent-tint-bg, var(--accent-glow));
+  color: var(--action-primary);
+}
+
+.mobile-mode-switcher__label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Main area: topbar + body ─────────────────────────────────────────────── */
+.review-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.review-main__topbar {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.review-main__annotations-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  cursor: pointer;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: var(--space-1);
+}
+
+.review-main__annotations-toggle:hover {
+  background: var(--surface-alt);
+  color: var(--text-primary);
+}
+
+.review-main__body {
+  display: flex;
+  flex: 1;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Central text view ────────────────────────────────────────────────────── */
+/* Manuscript reading surface: purpose-built reading tokens (design-system.md
+   §4), not the general UI font/size — this is the karaoke/follow-along
+   reading column, not chrome. */
+.review-text-view {
+  flex: 1;
+  background: var(--surface-reading);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  padding: var(--space-4);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-family: var(--font-reading);
+}
+
+.review-text-view__empty {
+  font-size: var(--type-caption);
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--space-5);
+}
+
+.review-text-view__segment {
+  font-size: var(--type-reading);
+  line-height: var(--leading-reading);
+  color: var(--text-secondary);
+  padding: 6px 8px;
+  border-radius: var(--radius-button);
+  background: transparent;
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  font-weight: 400;
+  transition: all 0.15s ease-in-out;
+}
+
+.review-text-view__segment:hover {
+  background: var(--surface-alt);
+  color: var(--text-primary);
+}
+
+/* Non-color signal (border-left gutter) in addition to the tint/weight
+   change — color alone was ~1.7:1 contrast, not enough on its own. */
+.review-text-view__segment--active {
+  color: var(--text-primary);
+  background: var(--accent-tint-bg);
+  border-color: var(--accent-tint-border);
+  border-left: 3px solid var(--action-primary);
+  font-weight: 600;
+}
+
+/* One-shot auto-play acknowledgment pulse — fires once on mode entry so
+   autoplay starting doesn't happen with zero acknowledgment. */
+.review-text-view__segment--pulse {
+  animation: booth-autoplay-pulse 900ms ease-out;
+}
+
+@keyframes booth-autoplay-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--accent-tint-border);
+  }
+  100% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-text-view__segment--pulse {
+    animation: none;
+  }
+}
+
+/* ── Booth tool: mobile layout (≤640px) ───────────────────────────────────
+   BoothTool has no responsive handling by default — the side-by-side
+   text-view + annotations-drawer body and the fixed-width panels
+   (`.follow-along-panel` min-width, `.review-annotations-drawer` width,
+   both set inline by their components) overflow horizontally on narrow
+   viewports. Stack everything vertically and widen touch targets instead. */
+@media (max-width: 640px) {
+  .review-main__topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .review-main__annotations-toggle {
+    justify-content: center;
+    align-self: stretch;
+    min-height: 44px;
+  }
+
+  /* Overrides the components' inline `minWidth: '260px'` / `width: '280px'`
+     so the panels fill the narrow viewport instead of forcing horizontal
+     scroll. */
+  .follow-along-panel {
+    min-width: 0 !important;
+    width: 100%;
+  }
+
+  .review-main__body {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .review-text-view {
+    flex: 1 1 auto;
+    min-height: 200px;
+  }
+
+  .review-annotations-drawer {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 45vh;
+    flex-shrink: 0;
+  }
+
+  /* Touch targets: the follow-along/annotations buttons are plain
+     unclassed <button>s sized inline (e.g. `padding: '3px 8px'`) for the
+     desktop density — widen the hit area at mobile widths without
+     touching their desktop sizing. */
+  .follow-along-panel button,
+  .review-annotations-drawer button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* ── Revise mode: per-segment inline edit (Director's Console) ───────────── */
+.revise-tool {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.revise-tool__topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.revise-tool__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.revise-tool__banner {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--action-primary);
+  background: var(--accent-tint-bg);
+  border: 1px solid var(--accent-tint-border);
+  border-radius: var(--radius-button);
+  padding: 4px 10px;
+}
+
+/* Persistent, quiet hint shown in place of the banner while not editing —
+   states the tab's own editability instead of relying on hover discovery. */
+.revise-tool__hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.revise-text-view {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  padding: var(--space-4);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 0;
+}
+
+.revise-text-view__empty {
+  font-size: var(--type-caption);
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--space-5);
+}
+
+.revise-text-view__segment {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--type-caption);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  padding: 6px 8px;
+  border-radius: var(--radius-button);
+  background: transparent;
+  border: 1px solid transparent;
+  border-left: 2px solid var(--border-muted);
+  cursor: pointer;
+  font-weight: 400;
+  transition: all 0.15s ease-in-out;
+}
+
+.revise-text-view__segment:hover,
+.revise-text-view__segment:focus-within {
+  background: var(--surface-alt);
+  color: var(--text-primary);
+  border-color: var(--border);
+  border-left-color: var(--border);
+}
+
+.revise-text-view__segment:hover .revise-text-view__edit-icon,
+.revise-text-view__segment:focus-within .revise-text-view__edit-icon {
+  opacity: 1;
+}
+
+.revise-text-view__edit-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.15s ease-in-out;
+}
+
+.revise-text-view__segment--readonly {
+  cursor: default;
+  opacity: 0.6;
+  border-left-color: var(--border-muted);
+}
+
+.revise-text-view__segment--readonly:hover {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: transparent;
+  border-left-color: var(--border-muted);
+}
+
+.revise-text-view__segment--readonly:hover .revise-text-view__edit-icon {
+  opacity: 0;
+}
+
+.revise-text-view__segment--editing {
+  flex-direction: column;
+  align-items: stretch;
+  cursor: default;
+  background: var(--accent-tint-bg);
+  border-color: var(--accent-tint-border);
+}
+
+.revise-text-view__textarea {
+  width: 100%;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  padding: var(--space-2);
+  resize: vertical;
+  font-family: inherit;
+}
+
+.revise-text-view__overflow-hint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-top: var(--space-1);
+}
+
+.revise-text-view__error {
+  font-size: 0.65rem;
+  color: var(--error);
+  background: var(--error-tint-bg);
+  border: 1px solid var(--error-tint-border);
+  border-radius: var(--radius-button);
+  padding: 4px 6px;
+  margin-top: var(--space-1);
+}
+
+.revise-text-view__actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.revise-text-view__save-btn,
+.revise-text-view__cancel-btn {
+  padding: 6px 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: var(--radius-button);
+  cursor: pointer;
+}
+
+.revise-text-view__save-btn {
+  background: var(--action-primary);
+  color: var(--on-action);
+  border: 1px solid var(--action-primary);
+}
+
+.revise-text-view__save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.revise-text-view__cancel-btn {
+  background: var(--surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.revise-text-view__long-badge {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* ── Write mode: full source editor (Director's Console) ─────────────────── */
+.write-tool {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.write-tool__hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.write-tool .chapter-text-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+

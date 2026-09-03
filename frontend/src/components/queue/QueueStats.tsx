@@ -1,6 +1,7 @@
 import React from 'react';
 import { Clock } from 'lucide-react';
-import type { ProcessingQueueItem, Job } from '../../types';
+import type { ProcessingQueueItem, Job } from '@/types';
+import { useNow } from '@/hooks/useNow';
 
 interface QueueStatsProps {
     queue: ProcessingQueueItem[];
@@ -8,12 +9,8 @@ interface QueueStatsProps {
 }
 
 export const QueueStats: React.FC<QueueStatsProps> = React.memo(({ queue, jobs }) => {
-    const [now, setNow] = React.useState(Date.now());
-
-    React.useEffect(() => {
-        const interval = setInterval(() => setNow(Date.now()), 1000);
-        return () => clearInterval(interval);
-    }, []);
+    // P6: use shared clock hook so N mounted instances share one interval.
+    const now = useNow();
 
     const activeProcessing = queue.filter(q => ['queued', 'preparing', 'running', 'finalizing'].includes(q.status));
     
@@ -21,34 +18,36 @@ export const QueueStats: React.FC<QueueStatsProps> = React.memo(({ queue, jobs }
 
     const totalSeconds = (() => {
         let total = 0;
-        activeProcessing.forEach(q => {
+        let hasUncalibrated = false;
+
+        for (const q of activeProcessing) {
             const liveJob = Object.values(jobs).find(j => j.id === q.id);
-            if (liveJob && liveJob.status !== 'queued') {
+            if (liveJob) {
                 const p = liveJob.progress || 0;
                 const startedAt = liveJob.started_at;
                 const etaSeconds = liveJob.eta_seconds;
 
-                if (startedAt && etaSeconds) {
-                    // Smoothly interpolate progress like PredictiveProgressBar
-                    const elapsed = (now / 1000) - startedAt;
-                    
-                    // We use the same blending logic roughly: 
-                    // remaining = eta - elapsed
-                    // but we floors it at 0
-                    total += Math.max(0, etaSeconds - elapsed);
-                } else if (etaSeconds) {
-                    total += etaSeconds * (1 - p);
+                if (etaSeconds !== undefined && etaSeconds !== null) {
+                    if (startedAt) {
+                        const elapsed = (now / 1000) - startedAt;
+                        total += Math.max(0, etaSeconds - elapsed);
+                    } else {
+                        total += etaSeconds * (1 - p);
+                    }
                 } else {
-                    const pred = q.predicted_audio_length || ((q.char_count || 0) / 16.7);
-                    total += pred * (1 - p);
+                    hasUncalibrated = true;
+                    break;
                 }
             } else {
-                // Queued items use full predicted length
-                total += q.predicted_audio_length || ((q.char_count || 0) / 16.7);
+                hasUncalibrated = true;
+                break;
             }
-        });
-        return total;
+        }
+
+        return hasUncalibrated ? null : total;
     })();
+
+    if (totalSeconds === null) return null;
 
     const formatETA = (total: number) => {
         if (total <= 0) return "Finishing...";
@@ -73,7 +72,7 @@ export const QueueStats: React.FC<QueueStatsProps> = React.memo(({ queue, jobs }
                 display: 'flex', 
                 alignItems: 'center', 
                 gap: '6px', 
-                color: 'var(--accent)', 
+                color: 'var(--action-primary)', 
                 fontSize: '0.85rem', 
                 fontWeight: 600,
                 background: 'var(--accent-tint)',

@@ -1,0 +1,41 @@
+# 005 — Code simplification (W2)
+
+**Status: MOSTLY DONE (2026-07-17)** — FE dead-code removal, styling separation (`components.css` →
+an 11-file split), large-file splits (incl. `ChapterHeader.tsx`), backend cleanup, and plugin SDK
+consolidation have all shipped (see `COMPLETED_WORK.md`). Remaining, per `REMAINING_TASKS.md`: LF-6
+(`progress/service.py` `enrich()` extraction, deliberately deferred to a supervised follow-up), BE-6
+(`app/jobs` package rename/move, deferred to its own dedicated session — widest blast radius in this
+phase), the four-way input-class consolidation, U10 z-index, and LF-1 (`useStudioChapter.ts` split,
+blocked on DC-1a — no payoff since DC-1b closed will-not-delete).
+
+**Goal:** the simplification refactor — remove FE dead code, separate styling, split oversized files,
+clean the backend, consolidate plugin duplication. Behavior-preserving.
+**Authoritative source:** the [`simplification/`](../../active/simplification/00_overview.md) folder
+(newest, 06-19), docs 02–06. Execute those task docs; this file only places them in the master order
+and records what older plans they supersede.
+
+**Sub-parts & folded-in older items:**
+- **FE dead-code removal** → `simplification/02`. ⚠️ Its dead-tree deletion (DC-1b) is **GATED on 002
+  (restoration)** per INV-2. Folds `final_release/09` R4/R5.
+- **Styling separation** → `simplification/03`. Folds `final_release/10` **U3** (semantic type scale),
+  **U9** (button/input system), **U10** (z-index single source) — do them here, not in 008.
+  Supersedes `final_release/07` residue. **Also absorbs QW-6** (dead-CSS removal, deferred here from 001
+  on 2026-06-20): delete the 5 dead selectors in `frontend/src/theme/components.css` (`.btn-home`,
+  `.btn-menu-destructive`, `.action-menu-item`, `.select-glass`, `.engine-chunk`) **as part of the
+  components.css split** so the file is touched once. ⚠️ 2 of the 5 (incl. `.btn-home`) are referenced
+  by the demo styleguide the owner is keeping — **relocate those rules into the demo's own CSS**, don't
+  delete them outright; re-grep each selector before removing.
+- **Large-file splits** → `simplification/04`. Folds `file_split_plan` split #5 (`scriptViewProgress.ts`)
+  + backend seams (`state_jobs.py`, `speakers.py`, `plugin_loader.py`). ⚠️ INV-4: do NOT strip
+  `useStudioChapter` segment-playback exports (004 needs them).
+- **Backend cleanup** → `simplification/05`. Folds `organizational_cleanup` overlaps (speakers
+  decomposition, router restructure) + `final_release/06 §3` legacy engine-path deletions.
+- **Plugin SDK consolidation** → `simplification/06`, incl. **PL-6**: the xtts adapter is the LIVE
+  path (INV-5) — document or unify the redundant `to_bridge_request`; do NOT delete the adapter.
+
+**Map links:** W2. DC-1b ← gated by W3 (002). Styling folds W7 items. Splits touch the surface W3/W4/W5
+build on (INV-4). Honors INV-1/3/5/6/7.
+**Dependencies:** 001 (clean base) first; DC-1b after 002. Otherwise parallel-safe.
+**Acceptance:** per `simplification/` done-checks (suites green, specs bumped: `design-system.md` 1.3.0,
+`code-organization.md` 1.2.0); owner visual verification for styling.
+**Out of scope:** namespace rename (006); restoration (002).

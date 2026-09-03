@@ -1,0 +1,28 @@
+# XTTS Local Requirements
+#
+# manifest.json declares "dependency_check": "external" (see
+# design-docs/specs/plugin-contract.md), so NONE of the packages below are
+# checked against (or expected in) the TTS Server's own venv -- this entire
+# file is installed only into the external xtts-env by run.sh. The two
+# packages below happen to also be present in the server venv today (as
+# transitive deps of the app's own requirements.txt / FastAPI), but that is
+# incidental, not verified by anything: don't rely on this file to guarantee
+# a package is available server-side.
+requests>=2.31.0
+pydantic>=2.0.0
+
+# Inference Environment Dependencies — Idiap community fork ("coqui-tts" on PyPI).
+# Pinned to a STABLE released version (not a moving main-branch commit): a branch
+# commit's setuptools_scm version drifts as upstream tags move, which silently
+# shifts its transitive pins (e.g. coqpit-config) and breaks `./run.sh` installs.
+# 0.27.5 is the latest stable release and the known-good version in ~/xtts-env.
+coqui-tts==0.27.5
+
+# coqpit-config: 0.27.5 declares coqpit-config>=0.2.0,<0.3.0; pin the known-good
+# exact version installed alongside it so the resolve is fully reproducible.
+coqpit-config==0.2.4
+transformers<5.0.0
+torch>=2.10.0
+torchcodec
+torchvision
+torchaudio

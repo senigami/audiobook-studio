@@ -1,0 +1,35 @@
+{
+  "spec": "audiobook-studio-voice",
+  "spec_version": "1.0",
+  "taxonomy_version": "1.0",
+  "id": "gravel-road",
+  "name": "Gravel Road",
+  "description": "A weathered, low Southern drawl. Reads like an old ranch hand telling a hard story.",
+  "image": "icon.png",
+  "samples": [
+    { "path": "samples/preview.mp3", "text": "The sun went down slow over the dry creek.", "primary": true }
+  ],
+  "languages": ["en-US"],
+  "attributes": {
+    "class": "human",
+    "gender": "masculine",
+    "age": "senior",
+    "accent": "us-southern",
+    "tone": ["authoritative", "somber"],
+    "timbre": ["deep", "gravelly"],
+    "pace": "measured",
+    "use_case": ["audiobook", "narration", "character-dialogue"],
+    "quality": ["studio-quality"]
+  },
+  "tags": ["cowboy", "weathered", "rancher"],
+  "engines": [
+    { "engine_id": "xtts", "asset_type": "xtts_latents", "path": "assets/xtts/", "min_engine_version": "2.0.0" }
+  ],
+  "provenance": {
+    "source": "recorded",
+    "author": "your-namespace",
+    "consent_ack": true,
+    "created_at": "2026-05-29T00:00:00Z"
+  },
+  "license": "cc-by-4.0"
+}

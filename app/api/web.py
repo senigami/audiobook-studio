@@ -1,0 +1,598 @@
+import asyncio
+import os
+import re
+import sys
+import threading
+import logging
+from typing import Optional, List
+from pathlib import Path
+from urllib.parse import urlparse
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Depends, HTTPException
+from fastapi.responses import JSONResponse, FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+
+from ..core.config import (
+    VOICES_DIR, COVER_DIR, PROJECTS_DIR, TRANSIENT_DIR,
+    FRONTEND_DIST, get_project_cover_dir, get_project_m4b_dir,
+)
+from ..db import init_db
+from .routers import projects, chapters, voices, queue, settings, generation, system, analysis, migration, engines
+from .routers.projects_lexicon import router as lexicon_router
+from .ws import manager, broadcast_job_updated
+from .tts_api import tts_app
+from .routers.analysis import AnalysisError
+
+# Compatibility for tests that monkeypatch these
+COVER_DIR = COVER_DIR
+PROJECTS_DIR = PROJECTS_DIR
+
+logger = logging.getLogger(__name__)
+
+_NO_CACHE_HEADERS = {
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
+
+app = FastAPI()
+
+
+def _install_windows_disconnect_handler(loop: asyncio.AbstractEventLoop) -> None:
+    previous_handler = loop.get_exception_handler()
+
+    def handle_exception(active_loop: asyncio.AbstractEventLoop, context):
+        exc = context.get("exception")
+        message = str(context.get("message", ""))
+        is_windows_disconnect = (
+            isinstance(exc, ConnectionResetError)
+            and getattr(exc, "winerror", None) == 10054
+        )
+
+        if is_windows_disconnect and "_ProactorBasePipeTransport._call_connection_lost" in message:
+            logger.debug("Suppressed Windows client disconnect during streamed response: %s", exc)
+            return
+
+        if previous_handler is not None:
+            previous_handler(active_loop, context)
+        else:
+            active_loop.default_exception_handler(context)
+
+    loop.set_exception_handler(handle_exception)
+
+
+def _contained_root_file(root: Path, filename: str) -> Optional[Path]:
+    if not filename or Path(filename).name != filename:
+        return None
+    base_dir = os.path.abspath(os.path.normpath(os.fspath(root)))
+    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, filename)))
+    if not fullpath.startswith(base_dir + os.sep):
+        return None
+    candidate = Path(fullpath)
+    if not candidate.is_file():
+        return None
+    return candidate
+
+
+def _contained_file(root: Path, relative_path: str) -> Optional[Path]:
+    if not root.exists() or not relative_path:
+        return None
+    normalized_parts = [part for part in Path(relative_path).parts if part not in ("", ".", "/")]
+    if not normalized_parts or any(part == ".." for part in normalized_parts):
+        return None
+    base_dir = os.path.abspath(os.path.normpath(os.fspath(root)))
+    fullpath = os.path.abspath(os.path.normpath(os.path.join(base_dir, *normalized_parts)))
+    if not fullpath.startswith(base_dir + os.sep):
+        return None
+    candidate = Path(fullpath)
+    if not candidate.is_file():
+        return None
+    return candidate
+
+
+def _frontend_dist_file(full_path: str) -> Optional[Path]:
+    # 1. Try exact match (e.g. "assets/foo.js" or "favicon.ico")
+    file = _contained_file(FRONTEND_DIST, full_path)
+    if file:
+        return file
+
+    # 2. Try stripping known route prefixes if it looks like an asset (e.g. "settings/assets/foo.js")
+    # This handles deep-linked SPA reloads where the browser might request assets relatively.
+    if "/" in full_path:
+        parts = full_path.split("/")
+        # If it looks like a deep link into assets or other dist files
+        if any(p in {"assets", "docs", "static"} for p in parts):
+            # Find the index of the first known asset directory
+            for i, p in enumerate(parts):
+                if p in {"assets", "docs", "static"}:
+                    candidate_path = "/".join(parts[i:])
+                    file = _contained_file(FRONTEND_DIST, candidate_path)
+                    if file:
+                        return file
+
+    return None
+
+
+def _frontend_index_response(index_file: Path) -> FileResponse:
+    return FileResponse(index_file, headers=_NO_CACHE_HEADERS)
+
+# --- Ensure mounted static roots exist before mounting ---
+# StaticFiles raises at startup if the target directory is missing. These are the
+# only directories that must exist at boot time. Other working directories
+# (uploads, chapter text, reports) are created lazily by the endpoints that use
+# them.
+#
+# VOICES_DIR and PROJECTS_DIR are mounted directly and must exist at startup.
+for d in [VOICES_DIR, PROJECTS_DIR]:
+    d.mkdir(parents=True, exist_ok=True)
+
+# --- Static File Serving ---
+
+# Serve React build if it exists
+if FRONTEND_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
+
+# Serve the compiled design-mockup demo (static, relative-base build) at /demo.
+# Built via `npm run build:demo` into docs/demo; html=True serves index.html for
+# the directory and its hashed assets + logo. Mounted before the SPA catch-all.
+DEMO_DIST = FRONTEND_DIST.parent.parent / "docs" / "demo"
+if DEMO_DIST.exists():
+    app.mount("/demo", StaticFiles(directory=str(DEMO_DIST), html=True), name="demo")
+
+
+# The StaticFiles mount only matches "/demo/..."; a bare "/demo" (no trailing
+# slash) would otherwise fall through to the SPA catch-all and serve the main
+# app instead of the demo. Redirect it to the mounted path. Registered
+# unconditionally (before the catch-all) so the slash is never required.
+@app.get("/demo")
+def _demo_trailing_slash_redirect():
+    return RedirectResponse(url="/demo/")
+
+
+@app.get("/projects/{project_id}/cover/{filename}")
+def get_project_cover_hardened(project_id: str, filename: str):
+    """Serve project cover art from the project-local cover directory."""
+    if not filename.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+        raise HTTPException(status_code=404)
+    try:
+        from ..core.config import _canonical_project_id
+        canonical_pid = _canonical_project_id(project_id)
+        root = get_project_cover_dir(canonical_pid)
+    except ValueError:
+        raise HTTPException(status_code=404)
+    file_path = _contained_root_file(root, filename)
+    if not file_path:
+        raise HTTPException(status_code=404)
+    return FileResponse(file_path)
+
+
+@app.get("/projects/{project_id}/m4b/{filename}")
+def get_project_m4b_hardened(project_id: str, filename: str):
+    """Serve assembled audiobooks and sidecars from the project-local m4b directory."""
+    # Allow .m4b audio and common image/metadata sidecars
+    allowed_exts = (".m4b", ".jpg", ".jpeg", ".png", ".webp", ".description")
+    if not filename.lower().endswith(allowed_exts):
+        raise HTTPException(status_code=404)
+    try:
+        from ..core.config import _canonical_project_id
+        canonical_pid = _canonical_project_id(project_id)
+        root = get_project_m4b_dir(canonical_pid)
+    except ValueError:
+        raise HTTPException(status_code=404)
+    file_path = _contained_root_file(root, filename)
+    if not file_path:
+        raise HTTPException(status_code=404)
+    return FileResponse(file_path)
+
+
+@app.get("/out/voices/{full_path:path}")
+def get_voice_preview_hardened(full_path: str):
+    """Serve public voice preview samples. Blocks metadata and model assets."""
+    # Split into components to find the filename
+    parts = full_path.split("/")
+    if not parts:
+        raise HTTPException(status_code=404)
+
+    filename = parts[-1]
+    if filename.lower() not in ("sample.mp3", "sample.wav", "artifact.mp3"):
+        raise HTTPException(status_code=404)
+
+    # Use _contained_file to handle the relative path from VOICES_DIR (could be nested)
+    file_path = _contained_file(VOICES_DIR, full_path)
+    if not file_path:
+        raise HTTPException(status_code=404)
+    return FileResponse(file_path)
+
+
+@app.get("/out/covers/{filename}")
+def get_legacy_cover_output(filename: str):
+    """Legacy route for shared covers in the shared upload directory's covers subfolder."""
+    file_path = _contained_root_file(COVER_DIR, filename)
+    if not file_path:
+        raise HTTPException(status_code=404)
+    return FileResponse(file_path)
+
+
+_AB_TEST_JOB_ID_RE = re.compile(r"^abtest-[0-9a-f]{8}$")
+
+
+@app.get("/out/voice-ab-test/{job_id}/{filename}")
+def get_voice_ab_test_render(job_id: str, filename: str):
+    """Serve a scratch A/B-test render (voice-variant version history feature).
+
+    These are one-off comparison renders under TRANSIENT_DIR, never the
+    canonical voice tree — job_id is validated against the exact format the
+    A/B endpoint generates before any path is constructed.
+    """
+    if not _AB_TEST_JOB_ID_RE.match(job_id) or filename.lower() != "render.mp3":
+        raise HTTPException(status_code=404)
+
+    root = TRANSIENT_DIR / "voice-ab-test"
+    file_path = _contained_file(root, f"{job_id}/{filename}")
+    if not file_path:
+        raise HTTPException(status_code=404)
+    return FileResponse(file_path)
+
+
+
+
+# --- WebSockets ---
+_main_loop = [None]
+
+# urlparse(...).hostname strips IPv6 brackets, so store the bare "::1" form
+# (keep "[::1]" too in case a raw bracketed host is ever compared).
+_WS_LOCALHOST_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "[::1]"})
+
+
+def _ws_origin_allowed(origin: str, host_header: str) -> bool:
+    """Return True if the WebSocket upgrade Origin is from a permitted host.
+
+    Permitted hosts:
+    - localhost / 127.0.0.1 / [::1]  (loopback variants)
+    - the server's own Host header value (same-origin requests)
+
+    This prevents cross-site WebSocket hijacking (CSWSH) from browsers.
+    Non-browser clients omit the Origin header entirely and must be allowed by
+    the caller (absence-of-Origin ≠ rejected).
+    """
+    try:
+        parsed = urlparse(origin)
+        # urlparse puts host+port in netloc; extract just the hostname
+        host = parsed.hostname or ""
+    except Exception:
+        return False
+    if host in _WS_LOCALHOST_HOSTS:
+        return True
+    # Compare against the server's own Host header (strip port for comparison)
+    server_host = host_header.split(":")[0].lower() if host_header else ""
+    return host.lower() == server_host
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    # S6: Origin check — reject cross-origin browser upgrade attempts (CSWSH prevention).
+    # Non-browser clients (native apps, CLI tools) omit Origin entirely; treat absence as allowed
+    # since the CSWSH attack vector requires a browser to send the Origin header automatically.
+    # NOTE: This is a localhost-first app; the meaningful protection is against pages on
+    # other origins running in the same browser session making background WS connections.
+    origin = websocket.headers.get("origin")
+    if origin is not None:
+        host_header = websocket.headers.get("host", "")
+        if not _ws_origin_allowed(origin, host_header):
+            logger.warning("WebSocket upgrade rejected: cross-origin request from %r", origin)
+            await websocket.close(code=1008)
+            return
+    await manager.connect(websocket)
+    if not _main_loop[0]:
+        try:
+            _main_loop[0] = asyncio.get_running_loop()
+        except RuntimeError: pass
+    try:
+        while True:
+            data = await websocket.receive_json()
+            if isinstance(data, dict) and data.get("type") == "jobs_snapshot_request":
+                from ..db.state import get_jobs
+                from dataclasses import asdict
+                all_jobs = get_jobs()
+                jobs_list = [asdict(j) for j in all_jobs.values()]
+                jobs_list.sort(key=lambda j: j.get('created_at', 0))
+
+                # bandwidth optimization (matching retired HTTP behavior)
+                for j in jobs_list:
+                    if j.get('status') == 'running':
+                        continue
+                    if 'log' in j:
+                        del j['log']
+
+                # §4A hydration: enrich each row with contract-correct progress/ETA
+                # fields so page-load/reconnect carries the same numeric eta_confidence,
+                # ETA basis, and grouped_progress as live frames.  sample=False is
+                # read-only — it computes from the existing ring WITHOUT pushing a new
+                # velocity sample or advancing the monotonic floor (PI8 safety).
+                from ..orchestration.progress.service import get_progress_service  # noqa: PLC0415
+                _svc = get_progress_service()
+                for j in jobs_list:
+                    _jid = j.get("id")
+                    if _jid:
+                        try:
+                            _svc.enrich(_jid, j, sample=False)
+                        except Exception:
+                            pass  # enrich is best-effort; unenriched row is still valid
+
+                await websocket.send_json({
+                    "type": "jobs_snapshot",
+                    "jobs": jobs_list[:400]
+                })
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"WS error: {e}")
+        manager.disconnect(websocket)
+
+@app.exception_handler(AnalysisError)
+async def analysis_error_handler(request: Request, exc: AnalysisError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"status": "error", "message": exc.message}
+    )
+
+def _clear_terminal_jobs_from_snapshot() -> int:
+    """Remove done/failed/cancelled jobs from the in-memory state.json snapshot.
+
+    Called during startup after DB reconciliation has already consumed any terminal
+    job statuses it needed. The SQLite processing_queue table retains durable history;
+    this keeps the jobs_snapshot WebSocket message free of vestigial terminal entries
+    and prevents unbounded accumulation across restarts.
+
+    Returns the number of jobs cleared (0 if none).
+    """
+    from ..db.state import get_jobs, delete_jobs as _delete_jobs
+    terminal_jids = [jid for jid, j in get_jobs().items() if j.status in ("done", "failed", "cancelled")]
+    if terminal_jids:
+        _delete_jobs(terminal_jids)
+        logger.info(f"Startup: Cleared {len(terminal_jids)} terminal jobs from snapshot state (history retained in DB).")
+    return len(terminal_jids)
+
+
+# --- Lifecycle Events ---
+@app.on_event("startup")
+def startup_event():
+    # Capture the main event loop
+    try:
+        _main_loop[0] = asyncio.get_running_loop()
+        if sys.platform.startswith("win"):
+            _install_windows_disconnect_handler(_main_loop[0])
+    except RuntimeError:
+        pass # Handle case where loop isn't running yet
+
+    # Initialize DB
+    init_db()
+
+    # 0a. Apply pending versioned schema migrations BEFORE anything else
+    # touches DB state (recovery, reconciliation, chapter/segment routes).
+    # Deliberately not wrapped in a swallowing try/except: a migration
+    # reshaping segment state (like #232's) must never race against
+    # recovery resubmitting jobs or a request reading pre-migration shape
+    # (#247). A failed migration aborts startup rather than serving on a
+    # half-migrated schema (#233).
+    from ..core.boot import run_schema_migrations
+    run_schema_migrations()
+
+    # Reconcile speaker metadata and default profile assignments during transition to v2 storage.
+    try:
+        from ..db.migration import migrate_voice_profiles
+        migrate_voice_profiles()
+    except Exception as e:
+        logger.warning(f"Startup Warning: Voice profile migration failed: {e}")
+
+
+    # Move any shared global cover files into project-local storage so demo
+    # assets are correctly partitioned in v2.
+    try:
+        from ..db.migration import migrate_legacy_project_covers
+        migrated = migrate_legacy_project_covers()
+        if migrated > 0:
+            logger.info("Startup: Migrated %s shared project cover(s) into project storage.", migrated)
+    except Exception as e:
+        logger.warning(f"Startup Warning: Project cover migration failed: {e}")
+
+    # 0. Snapshot recoverable task contexts BEFORE clearing stuck jobs or
+    #    reconciling the DB — the evidence is destroyed by those steps.
+    _recovery_contexts: list = []
+    try:
+        from ..orchestration.scheduler.recovery import load_recoverable_task_contexts
+        _recovery_contexts = load_recoverable_task_contexts()
+    except Exception as _e:
+        logger.warning("Startup Warning: Could not snapshot recoverable tasks: %s", _e)
+
+    # 1. Clear out any stuck jobs from state.json
+    from ..db.state import get_jobs, delete_jobs
+    jobs = get_jobs()
+    stuck_jids = [jid for jid, j in jobs.items() if j.status in ("queued", "running", "preparing", "finalizing")]
+    if stuck_jids:
+        delete_jobs(stuck_jids)
+        logger.info(f"Startup: Cleared {len(stuck_jids)} stuck jobs from memory state.")
+
+    # 2. Reconcile Database tables (Clear ghost indicators)
+    try:
+        from ..db.reconcile import reconcile_all_chapter_statuses
+        from ..db.queue import reconcile_queue_status
+
+        # Fresh job list after deletion
+        remaining_jobs = get_jobs()
+        active_statuses = {"queued", "preparing", "running", "finalizing"}
+        terminal_statuses = {"done", "failed", "cancelled"}
+        active_jobs = {
+            jid: job
+            for jid, job in remaining_jobs.items()
+            if getattr(job, "status", None) in active_statuses
+        }
+        known_job_statuses = {
+            jid: job.status
+            for jid, job in remaining_jobs.items()
+            if getattr(job, "status", None) in terminal_statuses
+        }
+        active_ids = list(active_jobs.keys())
+        active_chapter_ids = {j.chapter_id for j in active_jobs.values() if j.chapter_id}
+
+        reconcile_all_chapter_statuses(active_chapter_ids)
+        reconcile_queue_status(active_ids, known_job_statuses)
+        logger.info("Startup: Database reconciliation complete.")
+    except Exception as e:
+        logger.warning(f"Startup Warning: Database reconciliation failed: {e}")
+
+    # 2b. Clear terminal jobs from state.json now that reconciliation has consumed
+    #     their statuses. The DB's processing_queue table retains the durable history;
+    #     removing them here keeps jobs_snapshot limited to active/recovered work and
+    #     prevents unbounded cross-restart accumulation in state.json.
+    try:
+        _clear_terminal_jobs_from_snapshot()
+    except Exception as e:
+        logger.warning(f"Startup Warning: Failed to clear terminal jobs from snapshot state: {e}")
+
+    # 3. Register job listener for WebSocket updates
+    from ..db.state import add_job_listener
+    from ..orchestration.progress.broadcaster import configure_progress_broadcaster
+    add_job_listener(broadcast_job_updated)
+    configure_progress_broadcaster(lambda payload, _channel: manager.broadcast(payload))
+    logger.info("Startup: Job listeners registered.")
+
+    # 3b. Recover interrupted tasks — must happen after listener registration so
+    #     recovery progress events broadcast to the UI.
+    try:
+        from ..core.boot import run_startup_recovery
+        run_startup_recovery(_recovery_contexts)
+    except Exception as _e:
+        logger.warning("Startup Warning: run_startup_recovery raised unexpectedly: %s", _e)
+
+    # 4. Restore Pause State
+    from ..db.state import get_settings
+    from ..orchestration.scheduler.resources import set_paused
+    settings = get_settings()
+    if settings.get("is_paused"):
+        set_paused(True)
+        logger.info("Startup: Queue restored to PAUSED state.")
+
+    # 5. Studio 2.0 boot sequence — starts the TTS Server watchdog explicitly.
+    #    Run in a background thread to prevent blocking the web server startup
+    #    while engines are being verified.
+    def _background_boot():
+        try:
+            from ..core.boot import boot_studio
+            boot_studio()
+        except Exception as e:
+            logger.warning(f"Startup Warning: Studio 2.0 boot sequence failed: {e}")
+
+    threading.Thread(target=_background_boot, name="StudioBoot", daemon=True).start()
+
+
+@app.on_event("shutdown")
+def shutdown_event():
+    from ..orchestration.progress.broadcaster import configure_progress_broadcaster
+    from ..engines.proc_utils import terminate_all_subprocesses
+    configure_progress_broadcaster(None)
+    terminate_all_subprocesses()
+
+
+# Mutating management endpoints that accept untrusted input and must not be
+# reachable from the LAN by default. Voice-bundle import is the priority: it
+# writes attacker-supplied files that the XTTS engine later loads (see the
+# weights_only hardening) — an unauthenticated LAN client must not reach it.
+# The socket may still bind 0.0.0.0 (reads/UI stay reachable); these specific
+# write paths are gated unless the operator enables LAN access in Settings.
+_LAN_GATED_MGMT_PREFIXES = (
+    "/api/voices/bundle/import",   # voice-bundle import (RCE vector via torch.load)
+    "/api/voices/huggingface",     # remote fetch + write to disk
+    "/api/settings",               # system settings writes (default speaker, paths, engine config)
+    # Engine-plugin management (the ENTIRE mutating surface). Importing/staging/
+    # confirming a plugin installs and later executes plugin code (interface.py)
+    # inside the TTS server — a direct RCE from an untrusted upload or attacker-
+    # supplied git URL, strictly worse than the voice-bundle torch.load vector and
+    # unmitigated by weights_only. install/delete/settings/calibrate/test/verify
+    # are all admin operations. The whole /api/engines/ write surface is gated so
+    # no dynamic-path member (e.g. /api/engines/{id}/install) can slip the matcher.
+    "/api/engines",
+)
+_MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+
+def _is_loopback_client(host: str) -> bool:
+    return host in ("127.0.0.1", "localhost", "::1", "testclient")
+
+
+@app.middleware("http")
+async def lan_protection_middleware(request: Request, call_next):
+    """Enforce 'local_only' vs 'lan' binding controls at the application level.
+
+    The external TTS API (/api/v1/tts) is gated on all methods; the sensitive
+    mutating management endpoints above are gated on mutating methods only, so
+    the main UI (reads, browsing) stays reachable from the LAN while the
+    dangerous write paths require the operator to opt in via ``lan_binding_enabled``.
+    """
+    path = request.url.path
+    gated = False
+    if path.startswith("/api/v1/tts"):
+        gated = True
+    elif request.method in _MUTATING_METHODS:
+        gated = any(
+            path == prefix or path.startswith(prefix + "/")
+            for prefix in _LAN_GATED_MGMT_PREFIXES
+        )
+
+    if gated:
+        from app.db.state import get_settings  # noqa: PLC0415
+        settings = get_settings()
+        if not settings.get("lan_binding_enabled"):
+            client_host = request.client.host if request.client else "127.0.0.1"
+            if not _is_loopback_client(client_host):
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "detail": (
+                            "LAN access to this endpoint is disabled. Enable LAN access in "
+                            "Studio settings to allow it from other machines."
+                        )
+                    },
+                )
+
+    return await call_next(request)
+
+# --- Include Routers ---
+app.include_router(projects.router)
+app.include_router(chapters.router)
+app.include_router(voices.router)
+app.include_router(queue.router)
+app.include_router(settings.router)
+app.include_router(generation.router)
+app.include_router(system.router)
+app.include_router(analysis.router)
+app.include_router(migration.router)
+app.include_router(engines.router)
+app.include_router(lexicon_router, prefix="/api")
+
+# --- External TTS API ---
+app.mount("/api/v1/tts", tts_app)
+
+# --- Catch-all for React Router ---
+@app.get("/{full_path:path}")
+def catch_all(full_path: str):
+    static_file = _frontend_dist_file(full_path)
+    if static_file:
+        return FileResponse(static_file)
+
+    if full_path.startswith("api/") or "." in full_path.split("/")[-1]:
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+
+    index_file = FRONTEND_DIST / "index.html"
+    if index_file.exists():
+        return _frontend_index_response(index_file)
+
+    # If no index, return a basic welcome for the API
+    return JSONResponse({
+        "name": "Audiobook Studio API",
+        "status": "online",
+        "frontend": "Not built/found",
+        "endpoints": {
+            "home": "/api/home",
+            "speaker_profiles": "/api/speaker-profiles"
+        }
+    })

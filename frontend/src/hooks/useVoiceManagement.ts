@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { Speaker, SpeakerProfile, Job, VoiceEngine } from '../types';
+import type { Speaker, SpeakerProfile, Job, VoiceEngine } from '@/types';
+import { emitToast, TOAST_VISIBLE_MS } from '@/utils/toast';
 
 export function useVoiceManagement(
     onRefresh: () => void, 
@@ -17,10 +18,25 @@ export function useVoiceManagement(
     // Map of profileName -> jobId for in-flight build jobs
     const [buildingProfiles, setBuildingProfiles] = useState<Record<string, string | true>>({});
     const hasSeenJobSnapshot = useRef(false);
+    // Pending, undoable profile deletes keyed by profile name — the actual
+    // DELETE request is deferred until the toast's undo window elapses.
+    const pendingDeletesRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
     // Keep the local "building" map in sync with the authoritative jobs snapshot.
     // We preserve optimistic local entries until the server confirms completion,
     // but clear everything once an established job snapshot goes empty.
+    //
+    // Bug fix (owner-reported, 2026-07-16): this used to be two separate
+    // `useEffect`s both watching `[jobs]` -- one that added in-flight jobs
+    // AND silently cleared terminal ones, another that cleared terminal jobs
+    // AND called onRefresh(). Both fired in the same commit, in declaration
+    // order, via the functional setState form, so the first effect's cleanup
+    // always removed a just-completed job's entry before the second effect's
+    // updater ever ran -- its "was this job still tracked as building"
+    // check always saw it already gone, so onRefresh() never fired. The
+    // profile list (and its `is_new`/`is_rebuild_required` flags) then never
+    // refreshed after a rebuild finished, until something unrelated happened
+    // to refetch it. Merged into one effect so add/clear/refresh cannot race.
     useEffect(() => {
         const jobValues = Object.values(jobs);
         const snapshotIsEmpty = jobValues.length === 0;
@@ -58,32 +74,14 @@ export function useVoiceManagement(
                 if (job && (job.status === 'done' || job.status === 'failed' || job.status === 'cancelled' || job.status === 'error')) {
                     delete updated[profileName];
                     changed = true;
+                    // Refresh profile list so rebuilt status (including
+                    // built_samples / is_new) is shown.
+                    onRefresh();
                 }
             }
 
             return changed ? updated : prev;
         });
-    }, [jobs]);
-
-    // Watch jobs map: when a tracked build job completes, clear the buildingProfiles entry
-    useEffect(() => {
-        setBuildingProfiles(prev => {
-            const updated = { ...prev };
-            let changed = false;
-            for (const [profileName, jobId] of Object.entries(prev)) {
-                if (typeof jobId === 'string') {
-                    const job = jobs[jobId];
-                    if (job && (job.status === 'done' || job.status === 'failed')) {
-                        delete updated[profileName];
-                        changed = true;
-                        // Refresh profile list so rebuilt status is shown
-                        onRefresh();
-                    }
-                }
-            }
-            return changed ? updated : prev;
-        });
-
     }, [jobs, onRefresh]);
 
     const fetchSpeakers = useCallback(async () => {
@@ -205,14 +203,34 @@ export function useVoiceManagement(
     }, [fetchSpeakers, requestConfirm]);
 
     const handleDelete = async (name: string) => {
-        try {
-            const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}`, {
-                method: 'DELETE',
-            });
-            if (resp.ok) onRefresh();
-        } catch (err) {
-            console.error('Failed to delete profile', err);
-        }
+        // Deleting a voice profile has no undo endpoint on the backend, so the
+        // actual DELETE is deferred until the toast's undo window elapses —
+        // clicking "Undo" just cancels the pending request.
+        const existingPending = pendingDeletesRef.current[name];
+        if (existingPending) clearTimeout(existingPending);
+
+        pendingDeletesRef.current[name] = setTimeout(async () => {
+            delete pendingDeletesRef.current[name];
+            try {
+                const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}`, {
+                    method: 'DELETE',
+                });
+                if (resp.ok) onRefresh();
+            } catch (err) {
+                console.error('Failed to delete profile', err);
+            }
+        }, TOAST_VISIBLE_MS);
+
+        emitToast(`Deleted voice "${name}".`, {
+            label: 'Undo',
+            onClick: () => {
+                const pending = pendingDeletesRef.current[name];
+                if (pending) {
+                    clearTimeout(pending);
+                    delete pendingDeletesRef.current[name];
+                }
+            }
+        });
     };
 
     const handleUpdateEngine = useCallback(async (name: string, engine: VoiceEngine) => {
@@ -251,20 +269,22 @@ export function useVoiceManagement(
         return false;
     }, [onRefresh]);
 
-    const handleUpdateVoxtralVoiceId = useCallback(async (name: string, voiceId: string) => {
+    const handleUpdateSettings = useCallback(async (name: string, settings: Record<string, any>) => {
         try {
-            const formData = new URLSearchParams();
-            formData.append('voice_id', voiceId || '');
-            const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}/voxtral-voice-id`, {
+            const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(name)}/settings`, {
                 method: 'POST',
-                body: formData
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settings)
             });
             if (resp.ok) {
                 onRefresh();
                 return true;
             }
+            console.error('Failed to update profile settings: non-ok response', resp.status);
+            emitToast('Failed to save voice settings — try again.');
         } catch (err) {
-            console.error('Failed to update Voxtral voice id', err);
+            console.error('Failed to update profile settings', err);
+            emitToast('Failed to save voice settings — try again.');
         }
         return false;
     }, [onRefresh]);
@@ -284,7 +304,8 @@ export function useVoiceManagement(
         handleDelete,
         handleUpdateEngine,
         handleUpdateReferenceSample,
-        handleUpdateVoxtralVoiceId,
+
+        handleUpdateSettings,
         formatError
     };
 }

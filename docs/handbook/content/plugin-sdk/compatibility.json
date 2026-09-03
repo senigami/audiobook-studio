@@ -1,0 +1,6 @@
+{
+ "title": "Compatibility &amp; Versioning",
+ "desc": "Verifying a plugin matches the Studio plugin contract before use.",
+ "lede": "Studio checks that a plugin matches the contract version it expects before trusting it.",
+ "body": "<div class=\"soon-note\"><b>In progress —</b> contract-version checks are being finalized in Phase 12.</div>\n        <div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>A contract version (v1) defines the expected surface.</li><li>Expected callables and signatures are verified.</li><li>Checks run at load, before synthesis.</li></ul></div>\n        <h2>Contract version</h2>\n        <p><strong>The plugin contract is versioned.</strong> Studio knows which contract version it supports and validates plugins against it.</p>\n        <h2>What's checked</h2>\n        <p><strong>Required callables must exist with the expected signatures.</strong> Validation happens at load, so an incompatible plugin fails fast with a clear reason instead of mid-job.</p>"
+}

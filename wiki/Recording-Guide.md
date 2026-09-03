@@ -11,6 +11,10 @@ High-quality audio starts with high-quality source recordings. Follow these tips
 - **Natural Delivery**: Speak clearly and naturally, as if you’re reading to a friend.
 - **Style Blending**: If you want to shape a profile, try mixing deliveries on purpose. The first sample usually anchors the voice, and later samples can nudge the tone, age, or emotion in subtle ways.
 
+## ✨ Suggest From Voice Qualities
+
+If you've already tagged a voice's Class, Gender, Age, Tone, Timbre, and Pace, the Script Editor can suggest a test/preview prompt that matches those qualities instead of you picking one of the packs below by hand. It matches against a set of curated archetypes, or composes a fallback phrase from your voice's tone and timbre tags if nothing matches closely. This only suggests text — it doesn't replace your own script, and you can still edit or discard the suggestion.
+
 ## 📜 Prompt Packs (Suggested Prompts)
 
 ### 🌿 Neutral Narrator

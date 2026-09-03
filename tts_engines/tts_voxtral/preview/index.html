@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voxtral CLI Builder Harness</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+            --accent: #f472b6; /* Pink accent for Voxtral */
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --border: #334155;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 2rem;
+        }
+
+        header {
+            grid-column: 1 / -1;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        h1 { margin: 0; color: var(--accent); }
+        p.subtitle { color: var(--text-dim); margin-top: 0.5rem; }
+
+        .harness-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .studio-mock {
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            background: #111827;
+            margin-top: 1rem;
+        }
+
+        .state-controls {
+            margin-bottom: 2rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        button {
+            background: var(--border);
+            color: var(--text-main);
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.875rem;
+        }
+
+        button:hover { background: var(--accent); color: white; }
+        button.active { background: var(--accent); color: white; font-weight: 600; }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-dim);
+            margin-bottom: 0.25rem;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            background: #0f172a;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 0.625rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            box-sizing: border-box;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            margin-bottom: 1rem;
+        }
+
+        .badge-ready { background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+        .badge-setup { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .badge-error { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+        .json-panel {
+            background: #020617;
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.8125rem;
+            color: #ec4899;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            position: sticky;
+            top: 2rem;
+            height: fit-content;
+        }
+
+        .json-panel h3 {
+            margin-top: 0;
+            color: var(--text-dim);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #1e293b;
+            padding-bottom: 0.5rem;
+        }
+
+        .info-card {
+            background: rgba(244, 114, 182, 0.1);
+            border-left: 4px solid var(--accent);
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+        }
+
+        .privacy-box {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            color: #fbbf24;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Voxtral CLI Builder Harness</h1>
+        <p class="subtitle">Standalone CLI Command Composer & Contract Debugger</p>
+        <p style="font-size: 0.75rem; color: var(--warning); margin-top: 1rem; max-width: 600px; margin-left: auto; margin-right: auto;">
+            <strong>Note:</strong> This is a developer tool for testing CLI commands and contracts.
+            For the accurate Studio UI preview, use <strong>Studio Dev Mode</strong> inside the app.
+        </p>
+    </header>
+
+    <div class="container">
+        <div class="harness-panel">
+            <div class="state-controls">
+                <button onclick="setState('ready')" id="btn-ready">Ready</button>
+                <button onclick="setState('missing_key')" id="btn-missing_key">Missing Key</button>
+                <button onclick="setState('error')" id="btn-error">API Error</button>
+                <button onclick="setState('verifying')" id="btn-verifying">Verifying...</button>
+            </div>
+
+            <div id="status-container">
+                <div id="badge" class="status-badge">Unknown</div>
+                <div id="info-box" class="info-card"></div>
+            </div>
+
+            <div class="studio-mock">
+                <h3 style="margin-top: 0; font-size: 1rem; border-bottom: 1px solid #334155; padding-bottom: 0.5rem; margin-bottom: 1rem;">Engine Settings</h3>
+                <div id="settings-form">
+                    <!-- Dynamic fields -->
+                </div>
+                <div class="privacy-box">
+                    <strong>Privacy Note:</strong> This engine sends text and optional reference audio to external servers.
+                </div>
+            </div>
+
+            <div class="studio-mock" style="border-color: var(--accent); background: rgba(244, 114, 182, 0.05);">
+                <h3 style="margin-top: 0; font-size: 1rem; border-bottom: 1px solid var(--accent); padding-bottom: 0.5rem; margin-bottom: 1rem; color: var(--accent);">Harness Inputs (Local Only)</h3>
+                <p style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 1rem;">These values are used to compose the CLI command below but are not part of the Studio settings contract.</p>
+                <div class="form-group">
+                    <label>Text To Synthesize</label>
+                    <textarea id="input-text" rows="2" oninput="updateHarnessInput('text', this.value)"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Reference Audio (Optional)</label>
+                    <input type="text" id="input-ref_audio" placeholder="e.g. voice.wav" oninput="updateHarnessInput('ref_audio', this.value)">
+                </div>
+                <div class="form-group">
+                    <label>Output Path</label>
+                    <input type="text" id="input-out" placeholder="e.g. output.wav" oninput="updateHarnessInput('out', this.value)">
+                </div>
+            </div>
+        </div>
+
+        <div class="json-panel">
+            <h3>CLI Command Composer</h3>
+            <div style="position: relative;">
+                <code id="command-output" style="color: var(--accent); display: block; background: #0f172a; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; border: 1px solid var(--border);"></code>
+                <button onclick="copyCommand()" style="position: absolute; right: 0.5rem; top: 0.5rem; font-size: 0.7rem; padding: 0.2rem 0.5rem; background: var(--accent); color: white;">Copy</button>
+            </div>
+
+            <h3>Studio State Object</h3>
+            <code id="state-json">{}</code>
+        </div>
+    </div>
+
+    <script src="preview-state.js"></script>
+</body>
+</html>

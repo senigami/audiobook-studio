@@ -1,0 +1,6 @@
+{
+ "title": "The XTTS Environment",
+ "desc": "Maintaining the separate engine install.",
+ "lede": "The local engine lives in its own environment. Occasionally you'll update or rebuild it.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>What lives in the engine environment.</li><li>An update script keeps it current.</li><li>Recreate it if dependencies go stale.</li></ul></div>\n        <h2>What lives there</h2>\n        <p><strong>The local engine and its heavy dependencies</strong> live separately from the app to avoid conflicts. See <a href=\"#getting-started/environments\">The Two Environments</a>.</p>\n        <h2>Updating &amp; recreating</h2>\n        <p><strong>An update script refreshes the engine environment.</strong> If dependencies get into a bad state, recreate it without touching the app.</p>"
+}

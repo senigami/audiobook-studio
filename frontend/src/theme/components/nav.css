@@ -1,0 +1,824 @@
+.nav-rail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: var(--nav-rail-expanded-width, var(--rail-width));
+  min-height: 100%;
+  overflow: visible;
+  background: var(--surface-alt);
+  border-right: 1px solid var(--hairline);
+  transition: width 0.18s ease;
+  /* NO backdrop-filter — pinned chrome is opaque structural material */
+}
+
+.nav-rail--collapsed {
+  width: var(--rail-width-collapsed);
+}
+
+.nav-rail__panel {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.nav-rail__content-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0;
+  /* Scroll the nav list internally (e.g. a long chapter list in a book) so the
+     bottom row (theme toggle + collapse chevron) stays pinned to the viewport. */
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.nav-rail__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+/* ==========================================================================
+   RailBookBlock — nested book tree under the Library nav item
+   Expanded: indented block with a left-border tree line.
+   Collapsed: centred book cover thumbnail beneath the Library icon.
+   ========================================================================== */
+
+/* Expanded tree container */
+.rail-book-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  /* Indent from the rail left edge to match the Library icon content column */
+  margin-left: 0.875rem;
+  margin-bottom: 0.25rem;
+  /* Left border "tree line" matching the mock pattern */
+  border-left: 1px solid var(--border);
+}
+
+/* Collapsed thumbnail strip — centred under the Library icon */
+.rail-book-block--collapsed {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0;
+  padding: 0.3rem 0;
+  border-left: none;
+  background: var(--accent-tint-bg);
+  cursor: pointer;
+}
+
+.rail-book-block--collapsed:hover {
+  background: var(--accent-glow);
+}
+
+.rail-book-block__cover-compact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.8rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.rail-book-block__cover-compact img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Book title row */
+.rail-book-block__header {
+  display: flex;
+  align-items: center;
+  /* Override the global button `justify-content: center` so the cover + title
+     sit at the left (tree line), matching the mock. */
+  justify-content: flex-start;
+  gap: 0.4rem;
+  min-width: 0;
+  min-height: 1.75rem;
+  padding: 0.25rem 0.6rem 0.2rem 0.625rem;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+.rail-book-block__header:hover {
+  background: var(--accent-glow);
+  color: var(--action-primary);
+}
+
+.rail-book-block__cover {
+  flex: 0 0 auto;
+  width: 1.1rem;
+  height: 1.3rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  background: var(--surface);
+}
+
+.rail-book-block__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rail-book-block__title {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+/* Ambient chapter-progress glance (persona fast-follow: Oliver/deadline-editor
+   finding, contextual-left-nav sign-off round 4) — a no-click substitute for
+   the rail's removed permanent chapter list, visible while working a
+   different tab (Cast/Publish) within the book. */
+.rail-book-block__progress {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.35rem;
+  padding-left: 2px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.rail-book-block__progress-rendering {
+  color: var(--action-primary);
+}
+
+/* Stage links — indented further than title row */
+.rail-book-block__stages {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Active signature: left accent bar + tint fill + accent text.
+   Matches .nav-rail__item--active. */
+.rail-book-block__stage {
+  display: flex;
+  align-items: center;
+  min-height: 1.65rem;
+  /* Extra indent so stage links sit visually inside the tree */
+  padding: 0.2rem 0.6rem 0.2rem 1.25rem;
+  border-left: 2px solid transparent;
+  margin-left: -1px;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.rail-book-block__stage:hover {
+  background: var(--accent-glow);
+  color: var(--action-primary);
+}
+
+.rail-book-block__stage--active {
+  border-left-color: var(--action-primary);
+  background: var(--accent-tint-bg);
+  color: var(--action-primary);
+  font-weight: 700;
+}
+
+.nav-rail__group-label {
+  padding: 0.45rem 0.875rem 0.125rem;
+  color: var(--text-muted);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Scoped to the non-overlay panel only (`> .nav-rail__panel:not(--overlay)`,
+   not a bare descendant selector): the hover-preview overlay renders a full
+   expanded copy of this content *nested inside the same* `.nav-rail--collapsed`
+   <nav>, so an unscoped descendant selector here would hide labels in the
+   overlay too and defeat the hover-expand preview. */
+.nav-rail--collapsed > .nav-rail__panel:not(.nav-rail__panel--overlay) .nav-rail__group-label {
+  display: none;
+}
+
+.nav-rail__group-items {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-rail__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.875rem;
+  border: 0;
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.nav-rail__item:hover {
+  background: var(--accent-glow);
+  color: var(--action-primary);
+}
+
+.nav-rail--collapsed > .nav-rail__panel:not(.nav-rail__panel--overlay) .nav-rail__item {
+  justify-content: center;
+  padding: 0.5rem 0;
+}
+
+.nav-rail__item--active {
+  border-left-color: var(--action-primary);
+  background: var(--accent-glow);
+  color: var(--action-primary);
+  font-weight: 600;
+}
+
+.nav-rail__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.nav-rail--collapsed > .nav-rail__panel:not(.nav-rail__panel--overlay) .nav-rail__label {
+  display: none;
+}
+
+.nav-rail__resize-handle {
+  position: absolute;
+  inset: 0 -0.375rem 0 auto;
+  width: 0.75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 2;
+}
+
+.nav-rail__resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 0.75rem;
+  bottom: 0.75rem;
+  left: 50%;
+  width: 2px;
+  border-radius: var(--radius-round);
+  background: var(--border);
+  transform: translateX(-50%);
+  opacity: 0.7;
+}
+
+.nav-rail__resize-handle:hover::after,
+.nav-rail__resize-handle:focus-visible::after,
+.nav-rail__resize-handle--active::after {
+  background: var(--action-primary);
+  opacity: 1;
+}
+
+.nav-rail__resize-handle:focus-visible {
+  outline: 2px solid var(--action-primary);
+  outline-offset: -2px;
+}
+
+.nav-rail--collapsed .nav-rail__resize-handle {
+  display: none;
+}
+
+.nav-rail__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding: 0 0.3125rem;
+  border-radius: var(--radius-round);
+  background: var(--action-primary);
+  color: var(--text-on-accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.nav-rail__badge--collapsed {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+}
+
+.nav-rail__bottom {
+  margin-top: auto;
+  padding: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.nav-rail__bottom-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.nav-rail__bottom-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.nav-rail__bottom-button:hover {
+  background: var(--accent-glow);
+  color: var(--action-primary);
+}
+
+.nav-rail__bottom-button--theme {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-button);
+}
+
+.nav-rail__bottom-button--chevron {
+  flex: 0 0 auto;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  padding: 0 0.75rem;
+  border-radius: var(--radius-button);
+  justify-content: center;
+}
+
+.nav-rail__bottom-button--icon {
+  width: 100%;
+  min-height: 2.25rem;
+  border-radius: var(--radius-button);
+}
+
+.nav-rail__bottom-button--icon + .nav-rail__bottom-button--icon {
+  margin-top: 0.25rem;
+}
+
+/* Same collapse as .player-btn svg (player.css): lucide icons carry
+   width/height as presentation attributes, not real CSS sizing, so inside a
+   tight inline-flex button the flex algorithm's automatic minimum size can
+   shrink their main axis to 0 — rendering a blank button with no visible
+   icon at all. Pin them to their intrinsic size. */
+.nav-rail__bottom-button--icon svg {
+  flex-shrink: 0;
+}
+
+.nav-rail__bottom-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.nav-rail__overlay {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--nav-rail-expanded-width, var(--rail-width));
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  /* Mounted only after the JS dwell delay (NavRail.tsx), so this animates
+     every time it appears rather than gating on a class toggle. */
+  animation: nav-rail-overlay-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: left center;
+}
+
+@keyframes nav-rail-overlay-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-rail__overlay {
+    animation: none;
+  }
+}
+
+.nav-rail__panel--overlay {
+  pointer-events: auto;
+}
+
+.mobile-nav-drawer {
+  position: fixed;
+  inset: var(--header-height, 56px) auto 0 0;
+  z-index: var(--z-drawer, 400);
+  display: flex;
+  flex-direction: column;
+  width: min(20rem, 86vw);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+}
+
+.mobile-nav-drawer__content {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0;
+  overflow-y: auto;
+}
+
+.mobile-nav-drawer__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.mobile-nav-drawer__group-label {
+  padding: 0.45rem 0.875rem 0.125rem;
+  color: var(--text-muted);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mobile-nav-drawer__group-items {
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-nav-drawer__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.875rem;
+  border: 0;
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mobile-nav-drawer__item:hover,
+.mobile-nav-drawer__item--active {
+  background: var(--accent-glow);
+  color: var(--action-primary);
+}
+
+.mobile-nav-drawer__item--active {
+  border-left-color: var(--action-primary);
+  font-weight: 600;
+}
+
+.mobile-nav-drawer__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mobile-nav-drawer__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding: 0 0.3125rem;
+  border-radius: var(--radius-round);
+  background: var(--action-primary);
+  color: var(--text-on-accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.mobile-nav-drawer__bottom {
+  padding: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.mobile-nav-drawer__theme {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: var(--radius-button);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.mobile-nav-drawer__theme:hover {
+  background: var(--accent-glow);
+  color: var(--action-primary);
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  height: var(--header-height, 56px);
+  padding-inline: 1rem;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--hairline);
+  box-sizing: border-box;
+  /* NO backdrop-filter — pinned chrome is opaque structural material */
+}
+
+.top-bar__brand-btn {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* Icon-only brand mark at phone width: the full "Audiobook Studio" wordmark
+   plus the hamburger, breadcrumb, and queue button together overflow a
+   375px top bar even with the breadcrumb squeezed to 0 (confirmed via
+   layout measurement: ~403px of fixed-width chrome). Dropping the wordmark
+   text is the standard compact-nav-bar pattern and the single biggest
+   space win (~140px) — the icon alone still identifies "home". */
+@media (max-width: 480px) {
+  /* !important is required here: BrandLogo sets display:flex via an inline
+     style attribute, which always outranks a stylesheet rule regardless of
+     selector specificity. */
+  .top-bar__brand-btn .as-wordmark > div:last-child {
+    display: none !important;
+  }
+}
+
+/* Vertical pipe divider between the brand and the breadcrumb (matches the mock). */
+.top-bar__divider {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  margin-inline: -0.375rem 0;
+}
+
+.top-bar__breadcrumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.top-bar__breadcrumb-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Trailing chevron after the breadcrumb (matches the mock's "Library ›"). */
+.top-bar__breadcrumb-caret {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Pushes the connection dot + queue button to the far right now that the
+   book identity lives inline in the breadcrumb (not a centered slot). */
+.top-bar__spacer {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Clickable "Library" crumb shown when inside a book. */
+.top-bar__crumb-link {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.top-bar__crumb-link:hover {
+  color: var(--action-primary);
+}
+
+/* Inline book-identity wrapper inside the breadcrumb — allowed to truncate. */
+.top-bar__crumb-identity {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Current stage segment (e.g. "Studio"). */
+.top-bar__crumb-current {
+  flex: 0 0 auto;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.book-identity-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: min(100%, 48rem);
+  min-height: 2.25rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-button);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.book-identity-line:hover {
+  background: var(--accent-glow);
+  border-color: var(--border);
+}
+
+.book-identity-line__cover {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.75rem;
+  height: 1.75rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  background: var(--surface-light);
+  color: var(--text-muted);
+}
+
+.book-identity-line__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.book-identity-line__text {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.book-identity-line__title {
+  overflow: hidden;
+  font-weight: 800;
+  text-overflow: ellipsis;
+}
+
+.book-identity-line__meta {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+}
+
+.book-identity-line__chip {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-height: 1.35rem;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-round);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.top-bar__connection-dot {
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-round);
+  background: var(--text-muted);
+}
+
+.top-bar__connection-dot[data-state='success'] {
+  background: var(--success);
+}
+
+.top-bar__connection-dot[data-state='warning'] {
+  background: var(--warning);
+}
+
+.top-bar__connection-dot[data-state='muted'] {
+  background: var(--text-muted);
+}
+
+.top-bar__queue-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  background: var(--surface);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.top-bar__queue-btn:hover {
+  background: var(--accent-glow);
+  border-color: var(--action-primary);
+  color: var(--action-primary);
+}
+
+.top-bar__queue-btn[aria-pressed='true'] {
+  background: var(--accent-glow);
+  border-color: var(--action-primary);
+  color: var(--action-primary);
+}
+
+.top-bar__queue-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.125rem;
+  height: 1.125rem;
+  padding: 0 0.3125rem;
+  border-radius: var(--radius-round);
+  background: var(--action-primary);
+  color: var(--text-on-accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+}
+

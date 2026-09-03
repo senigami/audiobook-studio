@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Handbook | Audiobook Studio 2.0</title>
+    <meta name="description" content="The Audiobook Studio 2.0 handbook — install, create projects, build voices, produce audiobooks, and extend Studio with engines, voices, and the API." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../assets/studio2.css" />
+    <link rel="stylesheet" href="../assets/handbook.css" />
+  </head>
+  <body>
+    <!-- The CENTRAL DESIGN. Content is loaded as JSON and rendered into #hb-article.
+         Restyle here / in the CSS once and every page updates; content is never touched. -->
+    <nav class="site-nav" id="hb-top"></nav>
+    <div class="doc-shell">
+      <aside class="doc-sidebar" id="hb-sidebar"></aside>
+      <article class="doc-article" id="hb-article"><p class="lede">Loading…</p></article>
+    </div>
+    <footer class="site-footer" id="hb-foot"></footer>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha384-rRoXxn2yHlrZYB587Ki9RO1tONhLdM6XfORg7Rw4uwH4/Fh/5nP7IUX91bkaKUgs" crossorigin="anonymous"></script>
+    <script src="../assets/nav-data.js"></script>
+    <script src="../assets/handbook-app.js"></script>
+  </body>
+</html>

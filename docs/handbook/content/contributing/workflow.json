@@ -1,0 +1,6 @@
+{
+ "title": "Contribution Workflow",
+ "desc": "How to propose changes to the project.",
+ "lede": "Contributions follow a simple fork-and-PR flow with focused, reviewed changes.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Fork &amp; pull-request workflow.</li><li>Squash-merge, focused PRs.</li><li>Review expectations.</li></ul></div>\n        <h2>The flow</h2>\n        <p><strong>Fork, branch, and open a pull request.</strong> Keep PRs focused on one change; they're squash-merged to keep history clean.</p>\n        <h2>Review</h2>\n        <p><strong>Expect review on correctness, scope, and tests.</strong> See <a href=\"#contributing/testing-verification\">Testing &amp; Verification</a> and <a href=\"#contributing/agent-rules\">Repository Agent Rules</a>.</p>"
+}

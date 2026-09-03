@@ -1,25 +1,56 @@
 import time
 from typing import List, Optional
+from dataclasses import asdict
 from pydantic import BaseModel
 from fastapi import APIRouter, Form
 from fastapi.responses import JSONResponse
 from ...db import get_queue, clear_queue, clear_completed_queue, reorder_queue, remove_from_queue
-from ...state import get_jobs
-from ...jobs import cancel as cancel_job
+from ...db.state import get_jobs
+
 from ..ws import broadcast_queue_update
 
 router = APIRouter(prefix="/api", tags=["queue"])
 ACTIVE_JOB_STATUSES = {"queued", "preparing", "running", "finalizing"}
 TERMINAL_JOB_STATUSES = {"done", "failed", "cancelled"}
+_LIVE_QUEUE_JOB_FIELDS = (
+    "progress",
+    "status",
+    "started_at",
+    "updated_at",
+    "eta_seconds",
+    "segment_ids",
+    "engine",
+    "custom_title",
+    "active_segment_id",
+    "active_segment_progress",
+    "render_group_count",
+    "completed_render_groups",
+    "active_render_group_index",
+    "total_render_weight",
+    "completed_render_weight",
+    "active_render_group_weight",
+    "grouped_progress",
+    "reason_code",
+    "active_render_batch_id",
+    "active_render_batch_progress",
+    "classification",
+)
+
+
+def _merge_live_queue_job(item: dict, job) -> None:
+    for field in _LIVE_QUEUE_JOB_FIELDS:
+        value = getattr(job, field, None)
+        if value is not None:
+            item[field] = value
+
+
 
 @router.get("/processing_queue")
 def api_get_queue():
     from ...db import reconcile_queue_status
     from ...db.reconcile import reconcile_all_chapter_statuses
-    from ...jobs import sync_memory_queue, ensure_workers
-    from ...jobs.core import job_queue, assembly_queue
 
-    ensure_workers()
+    # ensure_workers() - Decommissioned for V2
     queue_items = get_queue()
     all_jobs = get_jobs()
     active_jobs = {
@@ -54,16 +85,6 @@ def api_get_queue():
         reconcile_all_chapter_statuses(active_chapter_ids)
         queue_items = get_queue()
 
-    recoverable_queued_rows = [
-        item for item in queue_items
-        if item["status"] == "queued"
-        and item["id"] in active_jobs
-        and getattr(active_jobs[item["id"]], "status", None) == "queued"
-    ]
-    if recoverable_queued_rows and job_queue.qsize() == 0 and assembly_queue.qsize() == 0:
-        sync_memory_queue()
-        queue_items = get_queue()
-
     active_queue_chapter_ids = {
         item["chapter_id"]
         for item in queue_items
@@ -76,32 +97,32 @@ def api_get_queue():
         jid = item["id"]
         job = all_jobs.get(jid)
         if job:
-            from dataclasses import asdict
-            job_dict = asdict(job)
-            item["progress"] = job_dict.get("progress", 0.0)
-            item["logs"] = job_dict.get("logs", "")
-            item["status"] = job_dict.get("status", item["status"])
-            item["segment_ids"] = job_dict.get("segment_ids")
-        has_chapter_audio = item.get("chapter_audio_status") == "done" or bool(item.get("chapter_audio_file_path"))
-        completed_at = item.get("completed_at") or 0
-        has_active_sibling = bool(item.get("chapter_id")) and item.get("chapter_id") in active_queue_chapter_ids
-        if (
-            item.get("engine") == "voxtral"
-            and item.get("status") == "done"
-            and item.get("chapter_id")
-            and not has_chapter_audio
-            and not has_active_sibling
-            and completed_at
-            and (now - completed_at) <= 12
-        ):
-            item["status"] = "finalizing"
-            item["progress"] = 1.0
+            _merge_live_queue_job(item, job)
+            # PI6: enrich running/in-flight rows that carry a progress value so
+            # the queue hydration snapshot surfaces numeric eta_confidence and
+            # contract ETA fields matching what live frames carry.  QUEUED and
+            # terminal rows (no progress or no ring state) are left as-is —
+            # enrich on a progress-less row is a no-op / could add a meaningless
+            # BASE_FLOOR confidence.  sample=False guarantees no mutation of the
+            # live ring or monotonic floor.
+            item_status = item.get("status")
+            item_progress = item.get("progress")
+            if (
+                item_status in {"running", "preparing", "finalizing"}
+                and item_progress is not None
+            ):
+                try:
+                    from ...orchestration.progress.service import get_progress_service  # noqa: PLC0415
+                    svc = get_progress_service()
+                    svc.enrich(jid, item, sample=False)
+                except Exception:
+                    pass
     return JSONResponse(queue_items)
 
 @router.delete("/processing_queue")
 def api_mass_delete_queue():
     from ...db import get_queue
-    from ...state import get_jobs, delete_jobs
+    from ...db.state import get_jobs, delete_jobs
     count = len([item for item in get_queue() if item['status'] != 'running'])
     clear_queue()
     # Clear all non-running jobs from in-memory state too
@@ -119,7 +140,7 @@ def api_clear_queue_route():
 
 @router.post("/processing_queue/clear_completed")
 def api_clear_completed():
-    from ...state import get_jobs, delete_jobs
+    from ...db.state import get_jobs, delete_jobs
     count = clear_completed_queue()
     # Also clear from state.json
     jobs = get_jobs()
@@ -134,19 +155,24 @@ class ReorderRequest(BaseModel):
 @router.put("/processing_queue/reorder")
 def api_reorder_queue_route(request: ReorderRequest):
     reorder_queue(request.queue_ids)
-    from ...jobs import sync_memory_queue
-    sync_memory_queue()
+    # sync_memory_queue() - Decommissioned for V2
     broadcast_queue_update()
     return JSONResponse({"status": "ok"})
 
 @router.delete("/processing_queue/{queue_id}")
 def api_delete_queue_item(queue_id: str):
     # Cancel if running
-    cancel_job(queue_id)
+    from ...orchestration.scheduler.orchestrator import create_orchestrator
+    orchestrator = create_orchestrator()
+    if not orchestrator.cancel(queue_id):
+        from ...db.state import get_jobs, update_job
+        jobs = get_jobs()
+        if queue_id in jobs:
+            update_job(queue_id, status="cancelled", force_broadcast=True)
     # Remove from DB
     remove_from_queue(queue_id)
     # Remove from live state memory
-    from ...state import delete_jobs
+    from ...db.state import delete_jobs
     delete_jobs([queue_id])
     broadcast_queue_update()
     return JSONResponse({"status": "ok"})

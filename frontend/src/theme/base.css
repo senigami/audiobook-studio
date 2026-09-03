@@ -1,0 +1,173 @@
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* State-communicating exemption (INV-5): the running pulse conveys "actively
+     working" (essential info) and is a calm opacity breathe (no movement), so it
+     survives reduced-motion. Higher specificity + !important re-enables it over
+     the blanket * rule. Consumed in P3 (StatusOrb / PredictiveProgressBar). */
+  .is-running {
+    animation-duration: var(--pulse-duration) !important;
+    animation-iteration-count: infinite !important;
+  }
+  /* Fill breathe survives reduced-motion (same reasoning as is-running: communicates active state). */
+  .progress-bar-breathe {
+    animation-duration: 4s !important;
+    animation-iteration-count: infinite !important;
+  }
+  /* Route-change fade/slide (U14) is non-essential motion — collapse it. Framer
+     Motion drives this animation via JS rather than a CSS transition/animation,
+     so App.tsx also short-circuits the motion values themselves (matchMedia
+     check, no new hook needed for a one-off page-load read); this class is the
+     CSS-only backstop for the wrapper's own transition/animation properties. */
+  .route-transition {
+    transition: none !important;
+    animation: none !important;
+  }
+  /* Functional/essential motion exemption: loading spinners and indeterminate
+     progress (preparing/finalizing barber-pole) are the SOLE cue distinguishing
+     "working" from "hung" — freezing them is worse than the motion. WCAG 2.3.3
+     only requires suppressing non-essential motion. These convey busy state, so
+     they survive the guard. Each cadence below is the element's normal-state
+     duration (in utilities.css) slowed ~1.5–2x to stay calm under reduced-motion:
+       .animate-spin       normal 1s   -> 1.6s
+       .animate-spin-slow  normal 3s   -> 3s   (already calm; left as-is)
+       barber-pole         normal 0.7s -> 1.2s
+     (Literal seconds, not tokens: these are reduced-motion-only overrides with no
+     normal-state token to share; keep in sync if the utilities.css durations change.) */
+  .animate-spin {
+    animation-duration: 1.6s !important;
+    animation-iteration-count: infinite !important;
+  }
+  .animate-spin-slow {
+    animation-duration: 3s !important;
+    animation-iteration-count: infinite !important;
+  }
+  .progress-bar-animated,
+  .progress-bar-finalizing::before {
+    animation-duration: 1.2s !important;
+    animation-iteration-count: infinite !important;
+  }
+  /* pending has two animations: barber-pole (movement) + stripe-breathe (opacity).
+     Provide both durations: barber-pole slowed to 1.2s, stripe-breathe kept at 3s. */
+  .progress-bar-pending::before {
+    animation-duration: 1.2s, 3s !important;
+    animation-iteration-count: infinite !important;
+  }
+  /* The segment "preparing / loading voice model" pulse is the SOLE cue that a
+     segment is actively loading its engine (essential state, same reasoning as
+     the progress-bar barber-pole above) — survive reduced-motion as a calm
+     1.6s opacity breathe rather than freezing to a static dim. */
+  .script-line.is-preparing,
+  .script-render-group.is-preparing {
+    animation-duration: 1.6s !important;
+    animation-iteration-count: infinite !important;
+  }
+  /* .orb-is-preparing is the StatusOrb preparing pulse (orb-preparing-pulse, a
+     calm dimmed opacity breathe, no movement) — same essential-state exemption.
+     Scoped (not bare .is-preparing) so it can't re-enable ScriptView's bare
+     is-preparing spans under reduced-motion. */
+  .orb-is-preparing {
+    animation-duration: var(--preparing-pulse-duration, 2s) !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+code,
+pre {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+/* tap-target: standard buttons via padding; icon-button 44px hit-area is a follow-up (don't blanket min-height — it deforms compact transport/card buttons) */
+button {
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    color            var(--dur-fast) var(--ease-standard),
+    border-color     var(--dur-fast) var(--ease-standard),
+    box-shadow       var(--dur-fast) var(--ease-standard),
+    opacity          var(--dur-fast) var(--ease-standard);
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius-button);
+}
+
+input, select, textarea {
+  min-height: 44px;
+}
+
+/* Suppress focus ring on mouse/pointer interaction; keep it for keyboard navigation */
+button:not(:focus-visible),
+input:not(:focus-visible),
+select:not(:focus-visible),
+textarea:not(:focus-visible),
+a:not(:focus-visible) {
+  outline: none;
+}
+
+/* WCAG-AA keyboard focus ring — double-ring: applies only when focused via keyboard */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--action-primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(255,255,255,.55);
+}
+
+[data-theme="dark"] button:focus-visible,
+[data-theme="dark"] input:focus-visible,
+[data-theme="dark"] select:focus-visible,
+[data-theme="dark"] textarea:focus-visible,
+[data-theme="dark"] a:focus-visible,
+[data-theme="dark"] [tabindex]:focus-visible {
+  box-shadow: 0 0 0 5px rgba(0,0,0,.5);
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  width: 100%;
+  margin: 1rem 0;
+}

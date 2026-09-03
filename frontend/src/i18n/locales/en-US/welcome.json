@@ -1,0 +1,37 @@
+{
+  "hero": {
+    "title": "Audiobook Studio",
+    "tagline": "Professional AI voice generation for creators and authors. Local-first, plugin-powered, and built for the long run."
+  },
+  "status": {
+    "ready": "Ready",
+    "pluginPoweredTts": "Plugin-powered TTS",
+    "localFirst": "Local-first"
+  },
+  "gettingStarted": {
+    "sectionLabel": "Getting started",
+    "step1": {
+      "heading": "Add or choose a voice",
+      "body": "Browse the voice library or clone a new speaker from a short audio sample. Voices are portable and work across any book."
+    },
+    "step2": {
+      "heading": "Create a book and import your manuscript",
+      "body": "Start a new project, then paste or upload chapter text. The manuscript editor keeps your source and generated audio in sync."
+    },
+    "step3": {
+      "heading": "Cast characters and render to audio",
+      "body": "Assign voices to characters in the Casting pane, then send chapters to the render queue. Studio shows live progress, segment by segment."
+    }
+  },
+  "learnMore": {
+    "sectionLabel": "Learn more",
+    "gettingStartedGuide": "Getting Started Guide",
+    "voiceCloningGuide": "How voice cloning works",
+    "pluginsAndEngines": "Plugins and engines",
+    "readTheDocs": "Read the docs"
+  },
+  "cta": {
+    "enterLibrary": "Enter Library",
+    "viewDocumentation": "View Documentation"
+  }
+}

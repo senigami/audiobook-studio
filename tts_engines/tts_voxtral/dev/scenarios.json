@@ -1,0 +1,50 @@
+{
+  "scenarios": [
+    {
+      "id": "ready",
+      "label": "Ready",
+      "description": "API Key is valid and cloud synthesis is ready.",
+      "engine_detail": {
+        "status": "ready",
+        "verified": true,
+        "enabled": true,
+        "current_settings": {
+          "enabled": true,
+          "mistral_api_key": "sk-****************",
+          "model": "mistral-tts-latest",
+          "output_format": "wav"
+        }
+      }
+    },
+    {
+      "id": "not_ready",
+      "label": "Missing API key",
+      "description": "Engine needs an API key before it can be enabled.",
+      "engine_detail": {
+        "status": "needs_setup",
+        "verified": false,
+        "enabled": false,
+        "setup_message": "Mistral API key is missing."
+      },
+      "dev_logs": {
+        "verify": "Simulated Error: API key is required for verification.",
+        "test": "Simulated Error: Engine not ready."
+      }
+    },
+    {
+      "id": "api_error",
+      "label": "API Error (401)",
+      "description": "Invalid API key detected during verification.",
+      "engine_detail": {
+        "status": "unverified",
+        "verified": false,
+        "enabled": false,
+        "setup_message": "Verification failed: 401 Unauthorized. Check your API key."
+      },
+      "dev_logs": {
+        "verify": "Simulated: Checking API key...\nError: 401 Unauthorized from api.mistral.ai",
+        "test": "Simulated: Synthesis requested...\nError: 401 Unauthorized."
+      }
+    }
+  ]
+}

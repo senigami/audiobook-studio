@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "Voxtral Settings",
+  "description": "Configuration for the Voxtral (Mistral AI) speech synthesis engine.",
+  "type": "object",
+  "properties": {
+    "mistral_api_key": {
+      "type": "string",
+      "title": "Mistral API Key",
+      "description": "Enter your Mistral AI API key. You can get one at console.mistral.ai",
+      "format": "password",
+      "default": ""
+    },
+    "model": {
+      "type": "string",
+      "title": "Model",
+      "description": "Mistral TTS model to use for synthesis.",
+      "enum": ["mistral-tts-latest", "mistral-tts-1", "mistral-tts-1-hd", "voxtral-mini-tts-2603"],
+      "default": "mistral-tts-latest",
+      "x-ui": {
+        "hide_when_unverified": true
+      }
+    },
+    "output_format": {
+      "type": "string",
+      "title": "Output Format",
+      "description": "Audio format for synthesis output.",
+      "enum": ["wav", "mp3"],
+      "default": "wav",
+      "x-ui": {
+        "hide_when_unverified": true
+      }
+    },
+    "computer_speed_multiplier": {
+      "type": "number",
+      "title": "Computer Speed",
+      "description": "Computed from completed renders for this plugin and shown in characters per second. This calibrates Studio's render-time estimates and does not change audio output.",
+      "minimum": 0.01,
+      "maximum": 100,
+      "default": 1.0,
+      "readOnly": true,
+      "x-ui": {
+        "display": "computer_speed_cps",
+        "baseline_cps": 16.7,
+        "hide_when_unverified": true
+      }
+    }
+  },
+  "additionalProperties": false,
+  "x-ui": {
+    "panel_title": "Voxtral Cloud Voices",
+    "summary": "Create a Mistral API key in your workspace settings. Get started by following the instructions in the link below.",
+    "privacy_tone": "warning",
+    "hide_metadata_when_verified": true,
+    "hide_verification_guidance": true,
+    "help_label": "Open Mistral API key instructions",
+    "help_url": "https://help.mistral.ai/en/articles/347464-how-do-i-create-api-keys-within-a-workspace"
+  }
+}

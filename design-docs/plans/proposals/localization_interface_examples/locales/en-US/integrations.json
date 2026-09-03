@@ -1,0 +1,8 @@
+{
+  "integrations.page.title": "Integrations",
+  "integrations.api.title": "Local API",
+  "integrations.api.status.enabled": "Enabled",
+  "integrations.api.status.disabled": "Disabled",
+  "integrations.actions.copyEndpoint": "Copy endpoint",
+  "integrations.actions.viewDocs": "View docs"
+}

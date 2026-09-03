@@ -1,0 +1,85 @@
+# ============================================================================
+# CodeQL advanced configuration — TEMPLATE, NOT ACTIVE.
+#
+# This file is intentionally NOT under .github/workflows/, so GitHub does not
+# run it. Until the 2.0 release, GitHub **default setup** owns code scanning
+# (Settings -> Code security -> Code scanning -> Default setup).
+#
+# Do NOT enable an advanced CodeQL workflow while default setup is enabled:
+# the two conflict and silence each other. To switch to this advanced setup
+# after 2.0 ships:
+#   1. Move this file to .github/workflows/codeql.yml on main.
+#   2. Disable default setup in Settings -> Code security -> Code scanning.
+#   3. Enable the "CodeQL" workflow in the Actions tab.
+#
+# It uses the default CodeQL query suite to keep alert noise (false positives)
+# low.
+# ============================================================================
+name: CodeQL
+
+on:
+  push:
+    branches: [main, studio-2.0]
+  pull_request:
+    branches: [main, studio-2.0]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: python
+            setup: python
+          - language: javascript-typescript
+            setup: node
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: matrix.setup == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        if: matrix.setup == 'python'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Set up Node.js
+        if: matrix.setup == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        if: matrix.setup == 'node'
+        run: cd frontend && npm ci
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Build frontend
+        if: matrix.setup == 'node'
+        run: cd frontend && npm run build
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4

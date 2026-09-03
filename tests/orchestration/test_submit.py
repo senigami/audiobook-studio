@@ -1,0 +1,316 @@
+"""Tests for TaskOrchestrator.submit() logic."""
+
+from __future__ import annotations
+
+import threading
+from unittest.mock import MagicMock, patch
+import pytest
+
+from app.orchestration.tasks.base import TaskResult
+
+
+class TestOrchestratorSubmitValidation:
+    def test_validate_called_before_reconcile(self, orchestrator, make_task):
+        task = make_task()
+        orchestrator.submit(task)
+        task.validate.assert_called_once()
+
+    def test_validation_failure_raises_value_error(self, orchestrator, make_task):
+        task = make_task(validate_raises=ValueError("bad input"))
+        with pytest.raises(ValueError, match="Task validation failed"):
+            orchestrator.submit(task)
+
+    def test_validation_failure_does_not_publish(self, orchestrator, progress_service, make_task):
+        task = make_task(validate_raises=ValueError("bad"))
+        with pytest.raises(ValueError):
+            orchestrator.submit(task)
+        progress_service.publish.assert_not_called()
+
+
+class TestOrchestratorSubmitReconciliation:
+    def test_reuse_decision_skips_dispatch(self, orchestrator, progress_service, make_task):
+        progress_service.reconcile.return_value = {"artifact_state": "valid", "can_reuse": True}
+        task = make_task()
+        task_id = orchestrator.submit(task)
+
+        assert task_id == "t1"
+        task.run.assert_not_called()
+
+    def test_reuse_decision_publishes_queued_then_completed(self, orchestrator, progress_service, make_task):
+        progress_service.reconcile.return_value = {"artifact_state": "valid", "can_reuse": True}
+        task = make_task()
+        orchestrator.submit(task)
+
+        statuses = [c.kwargs["status"] for c in progress_service.publish.call_args_list]
+        assert statuses[0] == "queued"
+        assert statuses[-1] == "done"
+        assert "artifact_reused" in [c.kwargs.get("reason_code") for c in progress_service.publish.call_args_list]
+
+    def test_reuse_decision_publishes_progress_1(self, orchestrator, progress_service, make_task):
+        progress_service.reconcile.return_value = {"artifact_state": "valid", "can_reuse": True}
+        orchestrator.submit(make_task())
+        last = progress_service.publish.call_args_list[-1]
+        assert last.kwargs["progress"] == 1.0
+
+    def test_missing_artifact_dispatches(self, orchestrator, progress_service, make_task):
+        progress_service.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}
+        task = make_task()
+        orchestrator.submit(task)
+        task.run.assert_called_once()
+
+    def test_stale_artifact_publishes_rerender_reason(self, orchestrator, progress_service, make_task):
+        progress_service.reconcile.return_value = {"artifact_state": "stale", "can_reuse": False}
+        orchestrator.submit(make_task())
+        reason_codes = [c.kwargs.get("reason_code") for c in progress_service.publish.call_args_list]
+        assert "artifact_stale" in reason_codes
+
+    def test_reconcile_exception_defaults_to_queue(self, orchestrator, progress_service, make_task):
+        progress_service.reconcile.side_effect = RuntimeError("db down")
+        task = make_task()
+        # Should not raise — defaults to queue decision and dispatches
+        task_id = orchestrator.submit(task)
+        assert task_id == "t1"
+        task.run.assert_called_once()
+
+
+class TestOrchestratorProgressTransitions:
+    def _get_statuses(self, progress: MagicMock) -> list[str]:
+        return [c.kwargs["status"] for c in progress.publish.call_args_list]
+
+    def test_full_success_transition_sequence(self, orchestrator, progress_service, make_task):
+        progress_service.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}
+        orchestrator.submit(make_task())
+        statuses = self._get_statuses(progress_service)
+        assert statuses[0] == "queued"
+        assert "preparing" in statuses
+        assert "running" in statuses
+        assert "finalizing" not in statuses
+        assert statuses[-1] == "done"
+
+    def test_running_event_includes_started_at(self, orchestrator, progress_service, make_task):
+        progress_service.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}
+        orchestrator.submit(make_task())
+        running_calls = [c for c in progress_service.publish.call_args_list if c.kwargs.get("status") == "running"]
+        assert len(running_calls) == 1
+        assert running_calls[0].kwargs.get("started_at") is not None
+
+    def test_task_failure_publishes_failed_not_completed(self, orchestrator, progress_service, make_task):
+        progress_service.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}
+        task = make_task(result=TaskResult(status="failed", message="engine crashed"))
+        orchestrator.submit(task)
+        statuses = self._get_statuses(progress_service)
+        assert "failed" in statuses
+        assert "done" not in statuses
+
+    def test_dispatch_exception_publishes_failed(self, orchestrator, progress_service, make_task):
+        progress_service.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}
+        task = make_task()
+        task.run.side_effect = RuntimeError("unexpected crash")
+        orchestrator.submit(task)
+        statuses = self._get_statuses(progress_service)
+        assert "failed" in statuses
+
+    def test_queued_event_published_first(self, orchestrator, progress_service, make_task):
+        progress_service.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}
+        orchestrator.submit(make_task())
+        first_status = progress_service.publish.call_args_list[0].kwargs["status"]
+        assert first_status == "queued"
+
+    def test_publish_exception_does_not_abort_task(self, orchestrator, progress_service, make_task):
+        """Progress publication failures must not crash the orchestrator."""
+        progress_service.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}
+        progress_service.publish.side_effect = RuntimeError("ws disconnected")
+        task = make_task()
+        # Should not raise — task still runs
+        task_id = orchestrator.submit(task)
+        assert task_id == "t1"
+
+    def test_bridge_tasks_wait_for_resources_before_dispatching(self, orchestrator, progress_service, make_task):
+        progress_service.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}
+        task = make_task()
+
+        reservation_denied = {
+            "admitted": False,
+            "task_type": "synthesis",
+            "task_id": "t1",
+            "gpu": False,
+            "vram_mb": 0,
+            "cpu_heavy": False,
+            "waiting_reason": "Synthesis slot held by task other-job.",
+        }
+        reservation_admitted = {
+            "admitted": True,
+            "task_type": "synthesis",
+            "task_id": "t1",
+            "gpu": False,
+            "vram_mb": 0,
+            "cpu_heavy": False,
+            "waiting_reason": None,
+        }
+
+        # COR-B-2: the admission wait now polls via a per-task `stop_event.wait(1.0)`
+        # (interruptible by a concurrent cancel()) instead of a bare `time.sleep(1.0)`.
+        # Patch Event.wait itself (returns False, i.e. "timed out") so the retry is
+        # instant instead of a real 1s wait (R4: no sleep-based timing in tests).
+        with patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", side_effect=[reservation_denied, reservation_admitted]) as mock_reserve, \
+             patch.object(threading.Event, "wait", return_value=False) as mock_wait:
+            orchestrator.submit(task)
+
+        assert mock_reserve.call_count == 2
+        assert mock_wait.call_count == 1
+        task.run.assert_called_once()
+        statuses = self._get_statuses(progress_service)
+        assert statuses[0] == "queued"
+        assert "preparing" in statuses
+        assert "running" in statuses
+
+    def test_completed_bridge_task_records_render_stats(self, orchestrator, progress_service):
+        from app.orchestration.tasks.synthesis import SynthesisTask
+
+        progress_service.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}
+        task = SynthesisTask(
+            task_id="t-render",
+            engine_id="xtts",
+            script_text="Hello world from Studio",
+            output_path="/tmp/t-render.wav",
+            project_id="p1",
+            chapter_id="c1",
+            voice_profile_id="speaker-1",
+            synthesis_settings={"model": "model-a"},
+        )
+
+        import time
+        task.submitted_at = time.monotonic() - 5.0
+
+        with patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value={"admitted": True}), \
+             patch("app.orchestration.scheduler.orchestrator.release_task_resources"), \
+             patch("app.jobs.registry.JobHandlerRegistry.get_handler", return_value=None), \
+             patch("app.db.performance.record_render_sample") as mock_record:
+            # Real synthesis: the bridge reports a timing payload, which yields a
+            # positive synthesis duration. A calibration sample is only recorded
+            # when a synthesis duration was actually measured — a reuse render
+            # (no timing/markers) is correctly skipped (see test_startup_eta).
+            orchestrator.voice_bridge.synthesize.return_value = {
+                "status": "ok",
+                "tts_server_result": {
+                    "timing": {
+                        "chapter_render_started_at": 100.0,
+                        "chapter_render_completed_at": 105.0,
+                        "segments": [{"render_started_at": 100.0, "render_completed_at": 105.0}],
+                    }
+                },
+            }
+            orchestrator.submit(task)
+
+        assert mock_record.call_count == 1
+        assert mock_record.call_args.kwargs["engine"] == "xtts"
+        assert mock_record.call_args.kwargs["job_id"] == "t-render"
+        assert mock_record.call_args.kwargs["tts_model"] == "model-a"
+        assert mock_record.call_args.kwargs["synthesis_duration_seconds"] == 5.0
+
+
+class TestOrchestratorCancelDuringAdmissionWait:
+    """COR-B-2: a task cancelled while spinning in submit()'s resource-
+    admission wait loop must not be resurrected and dispatched once a slot
+    frees.
+
+    R1 revert-check: pre-fix, `submit()` only added the task to `self._active`
+    AFTER the admission loop admitted it — while spinning, `cancel()`'s lookup
+    (`self._active.pop(task_id, None)`) found nothing and returned False. Once
+    the mocked reservation admitted (simulating a sibling task's slot
+    freeing), pre-fix `submit()` dispatched (`task.run()`) and published
+    `completed` anyway, resurrecting a job the caller believed was cancelled.
+    This test's `task.run.assert_not_called()` fails on that code.
+    """
+
+    def test_cancel_while_waiting_for_admission_prevents_dispatch(self, orchestrator, progress_service, make_task):
+        progress_service.reconcile.return_value = {"artifact_state": "missing", "can_reuse": False}
+        task = make_task()
+
+        reached_wait = threading.Event()
+        release_slot = threading.Event()
+        call_count = {"n": 0}
+
+        def _fake_reserve(*, task_type, resource_claims):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                reached_wait.set()
+            if release_slot.is_set():
+                return {"admitted": True, "waiting_reason": None}
+            return {"admitted": False, "waiting_reason": "Synthesis slot held by another task."}
+
+        # No Event.wait patching needed here (R4): submit()'s internal
+        # `stop_event.wait(1.0)` is woken immediately, for real, the instant
+        # cancel() calls `stop_event.set()` below — genuine cross-thread
+        # signaling, not a timed sleep.
+        with patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", side_effect=_fake_reserve), \
+             patch("app.orchestration.scheduler.orchestrator.release_task_resources") as mock_release:
+            t = threading.Thread(target=orchestrator.submit, args=(task,), daemon=True)
+            t.start()
+            try:
+                assert reached_wait.wait(timeout=5), "submit() never reached the admission wait loop"
+
+                cancelled = orchestrator.cancel(task.task_id)
+
+                # Simulate the slot freeing shortly after cancellation — the
+                # exact scenario the bug report describes. Post-fix, submit()
+                # must still not dispatch even though admission now succeeds.
+                release_slot.set()
+
+                t.join(timeout=10)
+                assert not t.is_alive(), "submit() did not return after cancellation"
+            finally:
+                release_slot.set()
+
+        assert cancelled is True, "cancel() must find and stop a task still waiting for admission"
+        task.run.assert_not_called()
+        task.on_cancel.assert_called_once()
+        mock_release.assert_not_called()
+
+        assert task.task_id not in orchestrator._waiting, "waiting registry entry must not leak"
+        assert task.task_id not in orchestrator._active
+
+        statuses = [c.kwargs.get("status") for c in progress_service.publish.call_args_list]
+        assert statuses[-1] == "cancelled"
+        assert "done" not in statuses
+        assert "running" not in statuses
+
+
+class TestOrchestratorFailureDiagnostics:
+    def test_registry_handler_raising_exception_surfaces_rich_info(self, orchestrator, make_task):
+        task = make_task(task_type="synthesis")
+        context = task.describe()
+        context.payload = {"engine_id": "test_engine"}
+
+        def failing_handler(**kwargs):
+            raise ValueError("Something bad happened in the handler")
+
+        with patch("app.orchestration.scheduler.orchestrator_helpers.get_handler_registry") as mock_get_reg:
+            mock_reg = MagicMock()
+            mock_reg.get_handler.return_value = failing_handler
+            mock_get_reg.return_value = mock_reg
+
+            result = orchestrator._dispatch(task=task, context=context)
+
+            assert result.status == "failed"
+            assert "Handler raised exception: ValueError: Something bad happened in the handler" in result.message
+            assert "[Handler: failing_handler | Engine: test_engine | Kind: synthesis]" in result.message
+
+    def test_registry_handler_returning_non_zero_rc_surfaces_rich_info(self, orchestrator, make_task):
+        task = make_task(task_type="synthesis")
+        context = task.describe()
+        context.payload = {"engine_id": "test_engine"}
+
+        def failing_handler(**kwargs):
+            return 42
+
+        with patch("app.orchestration.scheduler.orchestrator_helpers.get_handler_registry") as mock_get_reg:
+            mock_reg = MagicMock()
+            mock_reg.get_handler.return_value = failing_handler
+            mock_get_reg.return_value = mock_reg
+
+            result = orchestrator._dispatch(task=task, context=context)
+
+            assert result.status == "failed"
+            assert "Handler failed with exit code 42" in result.message
+            assert "[Handler: failing_handler | Engine: test_engine | Kind: synthesis]" in result.message

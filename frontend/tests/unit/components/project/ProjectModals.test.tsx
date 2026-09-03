@@ -1,0 +1,226 @@
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { AddChapterModal } from '@/pages/Book/components/AddChapterModal';
+import { EditProjectModal, CoverImageModal } from '@/pages/ProjectDetail/components/ProjectModals';
+import type { Project } from '@/types';
+import * as toast from '@/utils/toast';
+
+// Mock framer-motion to avoid animation issues in tests
+vi.mock('framer-motion', () => ({
+  motion: {
+    div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+  },
+}));
+
+describe('ProjectModals', () => {
+  const mockProject: Project = {
+    id: 'proj1',
+    name: 'Test Project',
+    series: 'Test Series',
+    series_position: null,
+    author: 'Test Author',
+    speaker_profile_name: null,
+    cover_image_path: null,
+    created_at: 123456789,
+    updated_at: 123456789,
+  };
+
+  describe('AddChapterModal', () => {
+    it('renders when open', () => {
+      render(
+        <AddChapterModal 
+          isOpen={true} 
+          onClose={vi.fn()} 
+          onSubmit={vi.fn()} 
+          submitting={false} 
+        />
+      );
+      expect(screen.getByText('Add New Chapter')).toBeInTheDocument();
+    });
+
+    it('calls onSubmit with title and text', () => {
+      const onSubmit = vi.fn();
+      render(
+        <AddChapterModal 
+          isOpen={true} 
+          onClose={vi.fn()} 
+          onSubmit={onSubmit} 
+          submitting={false} 
+        />
+      );
+
+      fireEvent.change(screen.getByPlaceholderText('e.g. Chapter 1'), { target: { value: 'New Chapter' } });
+      fireEvent.change(screen.getByPlaceholderText('Paste your chapter text here...'), { target: { value: 'Some text' } });
+      fireEvent.click(screen.getByText('Add Chapter'));
+
+      expect(onSubmit).toHaveBeenCalledWith('New Chapter', 'Some text', null);
+    });
+
+    it('handles file upload and clearing', async () => {
+      const onSubmit = vi.fn();
+      const { container } = render(
+        <AddChapterModal 
+          isOpen={true} 
+          onClose={vi.fn()} 
+          onSubmit={onSubmit} 
+          submitting={false} 
+        />
+      );
+
+      const file = new File(['hello'], 'hello.txt', { type: 'text/plain' });
+      const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+      
+      fireEvent.change(input, { target: { files: [file] } });
+      expect(await screen.findByText('hello.txt')).toBeInTheDocument();
+      
+      // Clearing file
+      fireEvent.click(screen.getByRole('button', { name: '' })); // The Trash2 button
+      expect(screen.queryByText('hello.txt')).not.toBeInTheDocument();
+    });
+
+    it('rejects unsupported files with a toast and clears the selection', () => {
+      const toastSpy = vi.spyOn(toast, 'emitToast').mockImplementation(() => undefined);
+      const { container } = render(
+        <AddChapterModal
+          isOpen={true}
+          onClose={vi.fn()}
+          onSubmit={vi.fn()}
+          submitting={false}
+        />
+      );
+
+      const file = new File(['bad'], 'bad.docx', {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      });
+      const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+
+      fireEvent.change(input, { target: { files: [file] } });
+
+      expect(toastSpy).toHaveBeenCalledWith(expect.stringContaining('Unsupported chapter file'));
+      expect(screen.queryByText('bad.docx')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('EditProjectModal', () => {
+    it('renders with project data', () => {
+      render(
+        <EditProjectModal 
+          isOpen={true} 
+          onClose={vi.fn()} 
+          project={mockProject} 
+          onSubmit={vi.fn()} 
+          submitting={false} 
+        />
+      );
+      expect(screen.getByDisplayValue('Test Project')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Test Series')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Test Author')).toBeInTheDocument();
+      expect(screen.getByLabelText('Increase series position')).toBeInTheDocument();
+      expect(screen.getByLabelText('Decrease series position')).toBeInTheDocument();
+    });
+
+    it('rejects invalid series positions before submitting', () => {
+      const toastSpy = vi.spyOn(toast, 'emitToast').mockImplementation(() => undefined);
+      const onSubmit = vi.fn();
+
+      const { container } = render(
+        <EditProjectModal
+          isOpen={true}
+          onClose={vi.fn()}
+          project={mockProject}
+          onSubmit={onSubmit}
+          submitting={false}
+        />
+      );
+
+      const input = container.querySelector('input[inputmode="numeric"]') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '1.5' } });
+      fireEvent.click(screen.getByText('Save Changes'));
+
+      expect(toastSpy).toHaveBeenCalledWith('Series position must be a whole number.');
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
+
+    it('handles cover image selection and preview', async () => {
+      const { container } = render(
+        <EditProjectModal 
+          isOpen={true} 
+          onClose={vi.fn()} 
+          project={mockProject} 
+          onSubmit={vi.fn()} 
+          submitting={false} 
+        />
+      );
+
+      const file = new File(['(⌐□_□)'], 'chucknorris.png', { type: 'image/png' });
+      const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+      
+      // Mock FileReader
+      const readAsDataURLSpy = vi.spyOn(FileReader.prototype, 'readAsDataURL');
+      
+      fireEvent.change(input, { target: { files: [file] } });
+      
+      expect(readAsDataURLSpy).toHaveBeenCalledWith(file);
+      
+      // Wait for preview image to appear
+      await waitFor(() => {
+        expect(screen.getByAltText('Preview')).toBeInTheDocument();
+      });
+
+      // Clear cover
+      fireEvent.click(screen.getByRole('button', { name: '' })); // The Trash2 button
+      expect(screen.queryByAltText('Preview')).not.toBeInTheDocument();
+    });
+
+    it('handles drag and drop for cover image', async () => {
+      render(
+        <EditProjectModal 
+          isOpen={true} 
+          onClose={vi.fn()} 
+          project={mockProject} 
+          onSubmit={vi.fn()} 
+          submitting={false} 
+        />
+      );
+
+      const dropzone = screen.getByText('New Cover').closest('div') as HTMLElement;
+      const file = new File(['(⌐□_□)'], 'cover.png', { type: 'image/png' });
+      
+      fireEvent.dragOver(dropzone);
+      expect(await screen.findByText('Drop')).toBeInTheDocument();
+      
+      fireEvent.drop(dropzone, {
+        dataTransfer: {
+          files: [file]
+        }
+      });
+      
+      expect(screen.queryByText('Drop')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('CoverImageModal', () => {
+    it('renders image and handles close', () => {
+      const onClose = vi.fn();
+      render(
+        <CoverImageModal 
+          isOpen={true} 
+          onClose={onClose} 
+          imagePath="/path/to/cover.jpg" 
+        />
+      );
+
+      const img = screen.getByAltText('Cover');
+      expect(img).toHaveAttribute('src', '/path/to/cover.jpg');
+      
+      // Clicking the overlay closes
+      fireEvent.click(screen.getByAltText('Cover').parentElement as HTMLElement);
+      expect(onClose).toHaveBeenCalled();
+      
+      // Clicking the image itself does NOT close (stopPropagation)
+      onClose.mockClear();
+      fireEvent.click(img);
+      expect(onClose).not.toHaveBeenCalled();
+    });
+  });
+});

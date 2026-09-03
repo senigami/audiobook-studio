@@ -1,0 +1,6 @@
+{
+ "title": "Demo Library",
+ "desc": "The optional sample project and voices that let you explore the workflow immediately.",
+ "lede": "The demo library is an optional bundle of a sample project and voices, so the app has something to explore the moment you open it.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Optional — install it during setup or skip it.</li><li>Includes a sample project and ready-made voices.</li><li>Safe to remove later.</li></ul></div>\n        <h2>What it includes</h2>\n        <p><strong>A small, finished-style project plus sample voices.</strong> It's the fastest way to see how chapters, voices, generation, and playback fit together without building anything first.</p>\n        <h2>Installing it</h2>\n        <p>Pinokio can install the demo library as part of setup; from source you can add it during the guided setup. Either way it's optional.</p>\n        <h2>Removing it</h2>\n        <p>Delete the demo project and voices like any other — nothing else depends on them.</p>\n        <div class=\"tip\"><b>Tip —</b> New to Studio? Install the demo library, then follow the <a href=\"#getting-started/quick-tour\">5-Minute Workflow Tour</a> using it.</div>"
+}

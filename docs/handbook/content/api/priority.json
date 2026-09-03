@@ -1,0 +1,6 @@
+{
+ "title": "Priority Policies",
+ "desc": "How API jobs are scheduled relative to Studio's own work.",
+ "lede": "When the gateway and the app both want the engine, a priority policy decides who goes first.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li><code>TTS_API_PRIORITY</code> sets the mode.</li><li>Modes: studio_first, equal, api_first.</li><li>Designed to avoid starvation.</li></ul></div>\n        <h2>The modes</h2>\n        <table><thead><tr><th>Mode</th><th>Behavior</th></tr></thead><tbody><tr><td><code>studio_first</code></td><td>Studio's own jobs take precedence over API jobs.</td></tr><tr><td><code>equal</code></td><td>API and Studio jobs share the queue fairly.</td></tr><tr><td><code>api_first</code></td><td>API jobs take precedence (for backend-style use).</td></tr></tbody></table>\n        <h2>Avoiding starvation</h2>\n        <p><strong>Whichever mode you pick, scheduling avoids starving the other side.</strong> Set the mode via the <code>TTS_API_PRIORITY</code> environment variable — see <a href=\"#operations/env-vars\">Environment Variables</a>.</p>"
+}

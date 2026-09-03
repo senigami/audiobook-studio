@@ -1,0 +1,64 @@
+# Facade for global application state and job management.
+# Original monolithic state.py has been decomposed into specialized sub-modules.
+
+from .models import Job
+from .state_helpers import (
+    STATE_FILE,
+    SAFE_OUTPUT_FILE_RE,
+    _STATE_LOCK,
+    _JOB_LISTENERS,
+    _LISTENER_SNAPSHOT_SUPPORT,
+    _cache_listener_snapshot_support,
+    add_job_listener,
+    load_state,
+    save_state,
+)
+from .state_settings import (
+    _default_state,
+    get_settings,
+    update_settings,
+    set_engine_cap,
+)
+from .state_performance import (
+    _default_performance_metrics,
+    get_performance_metrics,
+    update_performance_metrics,
+)
+from .state_jobs import (
+    get_jobs,
+    put_job,
+    update_job,
+    prune_completed_jobs,
+    delete_jobs,
+    clear_all_jobs,
+    purge_jobs_for_chapter,
+    requeue,
+)
+
+# Re-exporting for backward compatibility and centralized access
+__all__ = [
+    "STATE_FILE",
+    "SAFE_OUTPUT_FILE_RE",
+    "_JOB_LISTENERS",
+    "_LISTENER_SNAPSHOT_SUPPORT",
+    "_cache_listener_snapshot_support",
+    "Job",
+    "add_job_listener",
+    "load_state",
+    "save_state",
+    "_default_state",
+    "get_settings",
+    "update_settings",
+    "set_engine_cap",
+    "_default_performance_metrics",
+    "get_performance_metrics",
+    "update_performance_metrics",
+    "get_jobs",
+    "put_job",
+    "update_job",
+    "prune_completed_jobs",
+    "delete_jobs",
+    "clear_all_jobs",
+    "purge_jobs_for_chapter",
+    "requeue",
+]

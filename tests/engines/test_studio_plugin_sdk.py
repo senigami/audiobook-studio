@@ -1,0 +1,863 @@
+"""Tests for the studio_plugin_sdk S1 infrastructure.
+
+Covers:
+- SDK importable and exposes the full public surface (both processes)
+- StudioPluginContext instantiation and each service-group method routed to
+  the correct underlying app.* symbol (boundary mocks only)
+- Version-field manifest validation: present+wrong → PluginLoadError,
+  missing → accepted with deprecation warning, present+right → accepted
+- Exception hierarchy (BridgeError / ValidationError)
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+import textwrap
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+
+# ---------------------------------------------------------------------------
+# §1 — SDK import surface
+# ---------------------------------------------------------------------------
+
+class TestSDKImportSurface:
+    """SDK must expose the full public surface in both process contexts."""
+
+    def test_import_via_app_namespace(self):
+        import app.studio_plugin_sdk as sdk
+        assert sdk.__version__ == "1.2"
+
+    def test_top_level_package_resolves_outside_app(self):
+        """studio_plugin_sdk is a REAL top-level package, not an alias of
+        app.studio_plugin_sdk (the _register_sdk_alias hack is deleted)."""
+        import studio_plugin_sdk as sdk
+        sdk_file = Path(sdk.__file__).resolve()
+        repo_root = Path(__file__).resolve().parents[2]
+        assert sdk_file == repo_root / "studio_plugin_sdk" / "__init__.py"
+        assert (repo_root / "app") not in sdk_file.parents
+
+    def test_top_level_package_exposes_studio_tts_engine(self):
+        import studio_plugin_sdk as sdk
+        assert hasattr(sdk, "StudioTTSEngine")
+
+    def test_identity_survives_app_shim_and_loader_import(self):
+        """Importing the app-namespace shim and the plugin loader must not
+        replace or shadow the top-level package in sys.modules."""
+        import studio_plugin_sdk  # noqa: F401
+        import app.studio_plugin_sdk  # noqa: F401
+        import app.tts_server.plugin_loader  # noqa: F401
+        mod = sys.modules["studio_plugin_sdk"]
+        repo_root = Path(__file__).resolve().parents[2]
+        assert Path(mod.__file__).resolve() == repo_root / "studio_plugin_sdk" / "__init__.py"
+
+    def test_all_public_symbols_present(self):
+        import studio_plugin_sdk as sdk
+        required = [
+            "StudioTTSEngine",
+            "StudioPluginContext",
+            "JobSpec",
+            "JobResult",
+            "TTSRequest",
+            "TTSResult",
+            "TimingEvent",
+            "VerificationResult",
+            "VoiceProcessingHooks",
+            "SynthesisPlan",
+        ]
+        for sym in required:
+            assert hasattr(sdk, sym), f"studio_plugin_sdk missing {sym!r}"
+
+    def test_version_string(self):
+        import studio_plugin_sdk as sdk
+        assert sdk.__version__ == "1.2"
+
+
+# ---------------------------------------------------------------------------
+# §2 — JobSpec / JobResult dataclasses
+# ---------------------------------------------------------------------------
+
+class TestJobDataclasses:
+    def test_jobspec_construction(self):
+        from app.studio_plugin_sdk.context import JobSpec
+        spec = JobSpec(
+            id="j1",
+            engine="xtts",
+            kind="synthesis",
+            chapter_id="ch1",
+            project_id="p1",
+            segment_ids=["s1"],
+            speaker_profile="alice",
+            is_bake=False,
+            make_mp3=False,
+            safe_mode=True,
+        )
+        assert spec.id == "j1"
+        assert spec.extra == {}
+
+    def test_jobresult_defaults(self):
+        from app.studio_plugin_sdk.context import JobResult
+        r = JobResult(status="done")
+        assert r.error is None
+        assert r.progress == 1.0
+
+
+# ---------------------------------------------------------------------------
+# §2b — get_plugin_ctx shared factory (PL-1: kills 9 copies of _get_ctx())
+# ---------------------------------------------------------------------------
+
+class TestGetPluginCtxFactory:
+    """PL-1: one SDK context factory, keyed per engine_id.
+
+    Each of the 9 formerly-duplicated ``_get_ctx()`` blocks hardcoded a
+    single engine_id and expected a shared, lazily-built singleton for that
+    engine. ``get_plugin_ctx`` must preserve that exact semantic: same
+    engine_id -> same cached instance; different engine_id -> independent
+    instances (never collide).
+    """
+
+    def setup_method(self):
+        # The cache is process-lifetime module state; reset it around each
+        # test so tests don't leak instances into each other.
+        from app.studio_plugin_sdk import plugin_utils
+        plugin_utils._ctx_cache.clear()
+
+    def test_returns_studio_plugin_context(self):
+        from app.studio_plugin_sdk import get_plugin_ctx, StudioPluginContext
+        ctx = get_plugin_ctx("xtts")
+        assert isinstance(ctx, StudioPluginContext)
+
+    def test_same_engine_id_returns_same_cached_instance(self):
+        from app.studio_plugin_sdk import get_plugin_ctx
+        first = get_plugin_ctx("xtts")
+        second = get_plugin_ctx("xtts")
+        assert first is second
+
+    def test_different_engine_ids_do_not_collide(self):
+        from app.studio_plugin_sdk import get_plugin_ctx
+        xtts_ctx = get_plugin_ctx("xtts")
+        voxtral_ctx = get_plugin_ctx("voxtral")
+        mixed_ctx = get_plugin_ctx("mixed")
+        assert xtts_ctx is not voxtral_ctx
+        assert xtts_ctx is not mixed_ctx
+        assert voxtral_ctx is not mixed_ctx
+        # Re-fetching each still returns its own cached instance.
+        assert get_plugin_ctx("xtts") is xtts_ctx
+        assert get_plugin_ctx("voxtral") is voxtral_ctx
+        assert get_plugin_ctx("mixed") is mixed_ctx
+
+    def test_engine_id_recorded_on_context(self):
+        # StudioPluginContext stores engine_id privately (_engine_id) and
+        # uses it downstream (e.g. as the logger name / plugin dir lookup
+        # key) — verify the factory threads the exact engine_id through
+        # rather than a hardcoded default.
+        from app.studio_plugin_sdk import get_plugin_ctx
+        ctx = get_plugin_ctx("voxtral")
+        assert ctx._engine_id == "voxtral"
+
+
+class TestLoadSettingsSchemaCaching:
+    """PL-3 merged xtts's ``@lru_cache(maxsize=1)`` and voxtral's uncached ``_load_settings_schema``.
+
+    The two originals were NOT behaviorally identical: xtts cached forever, voxtral re-read the
+    file on every call (schema edits took effect live, no restart needed). ``cache`` defaults to
+    True (xtts's call site, unchanged) but must be overridable to False (voxtral's call site) so
+    voxtral keeps its live-reload behavior instead of silently inheriting xtts's permanent cache.
+    """
+
+    def setup_method(self):
+        from app.studio_plugin_sdk import plugin_utils
+        plugin_utils._settings_schema_cache.clear()
+
+    def test_cache_true_returns_stale_content_after_file_changes(self, tmp_path):
+        from app.studio_plugin_sdk.plugin_utils import load_settings_schema
+        schema_path = tmp_path / "settings_schema.json"
+        schema_path.write_text(json.dumps({"version": 1}))
+        first = load_settings_schema(schema_path, engine_name="XTTS", cache=True)
+        schema_path.write_text(json.dumps({"version": 2}))
+        second = load_settings_schema(schema_path, engine_name="XTTS", cache=True)
+        assert first == {"version": 1}
+        assert second == {"version": 1}  # stale — cached, matching xtts's original lru_cache
+
+    def test_cache_false_reflects_file_changes_live(self, tmp_path):
+        from app.studio_plugin_sdk.plugin_utils import load_settings_schema
+        schema_path = tmp_path / "settings_schema.json"
+        schema_path.write_text(json.dumps({"version": 1}))
+        first = load_settings_schema(schema_path, engine_name="Voxtral", cache=False)
+        schema_path.write_text(json.dumps({"version": 2}))
+        second = load_settings_schema(schema_path, engine_name="Voxtral", cache=False)
+        assert first == {"version": 1}
+        assert second == {"version": 2}  # live — matching voxtral's original uncached behavior
+
+    def test_voxtral_call_site_passes_cache_false(self):
+        # Pins the actual call site, not just the helper's capability — a future edit that drops
+        # the cache=False kwarg would silently regress voxtral back to permanent caching.
+        repo_root = Path(__file__).parents[2]
+        source = (repo_root / "tts_engines/tts_voxtral/plugin/studio/app_adapter.py").read_text(encoding="utf-8")
+        assert 'load_settings_schema(schema_path, engine_name="Voxtral", cache=False)' in source
+
+
+# ---------------------------------------------------------------------------
+# §2c — make_segment_output_handler factory (PL-2: kills 4 on_output copies)
+# ---------------------------------------------------------------------------
+
+class TestMakeSegmentOutputHandlerFactory:
+    """PL-2: one shared on_output closure factory, parameterized on the
+    progress formula and on the two genuine per-plugin behavioral
+    differences found while enumerating the four originals (see the
+    docstring/comment in plugin_utils.py) — never on engine_id.
+    """
+
+    def _build(self, **overrides):
+        from app.studio_plugin_sdk.plugin_utils import make_segment_output_handler
+
+        forwarded: list[str] = []
+        update_seg_calls: list[tuple] = []
+        update_job_calls: list[dict] = []
+
+        def _on_output(line):
+            forwarded.append(line)
+
+        def _update_seg(segment_id, **kwargs):
+            update_seg_calls.append((segment_id, kwargs))
+
+        def _update_job_fn(jid, **kwargs):
+            update_job_calls.append({"jid": jid, **kwargs})
+
+        def _progress_formula(completed, total, active_segment_progress, *, active_index):
+            return {"progress": round(completed / total, 2) if total else 0.0}
+
+        kwargs = dict(
+            on_output=_on_output,
+            cancel_check=lambda: False,
+            path_to_group={"/out/seg-1.wav": [{"id": "seg-1"}]},
+            update_seg=_update_seg,
+            completed_groups=[0],
+            total_groups=2,
+            update_job_fn=_update_job_fn,
+            jid="job-1",
+            progress_formula=_progress_formula,
+        )
+        kwargs.update(overrides)
+        handler = make_segment_output_handler(**kwargs)
+        return handler, forwarded, update_seg_calls, update_job_calls, kwargs
+
+    def test_every_line_is_forwarded_to_on_output_first(self):
+        handler, forwarded, _, _, _ = self._build()
+        handler("some random log line")
+        handler("[SEGMENT_SAVED] /out/seg-1.wav")
+        assert forwarded == ["some random log line", "[SEGMENT_SAVED] /out/seg-1.wav"]
+
+    def test_segment_saved_writes_segment_rows_and_calls_update_job(self):
+        handler, _, update_seg_calls, update_job_calls, _ = self._build()
+        handler("[SEGMENT_SAVED] /out/seg-1.wav")
+        assert update_seg_calls == [
+            ("seg-1", {"audio_status": "done", "audio_file_path": "seg-1.wav", "audio_generated_at": update_seg_calls[0][1]["audio_generated_at"]})
+        ]
+        assert len(update_job_calls) == 1
+        call = update_job_calls[0]
+        assert call["active_segment_id"] is None
+        assert call["active_segment_progress"] == 0.0
+        assert call["skip_studio_job_event"] is True
+        assert call["skip_job_updated"] is True
+        assert call["progress"] == 0.5  # completed=1, total=2
+
+    def test_i17_cancel_guard_drops_segment_saved_write(self):
+        """I17: a cancelled render must not write segment 'done' state on a
+        straggler [SEGMENT_SAVED]. R1: before the `and not cancel_check()`
+        guard, this assertion fails (the write fires regardless)."""
+        handler, _, update_seg_calls, update_job_calls, _ = self._build(cancel_check=lambda: True)
+        handler("[SEGMENT_SAVED] /out/seg-1.wav")
+        assert update_seg_calls == []
+        assert update_job_calls == []
+
+    def test_unmatched_path_is_a_noop_besides_forwarding(self):
+        handler, forwarded, update_seg_calls, update_job_calls, _ = self._build()
+        handler("[SEGMENT_SAVED] /out/unknown.wav")
+        assert forwarded == ["[SEGMENT_SAVED] /out/unknown.wav"]
+        assert update_seg_calls == []
+        assert update_job_calls == []
+
+    def test_start_segment_calls_update_job_with_force_broadcast(self):
+        handler, _, _, update_job_calls, _ = self._build()
+        handler("[START_SEGMENT] seg-2")
+        assert len(update_job_calls) == 1
+        call = update_job_calls[0]
+        assert call["force_broadcast"] is True
+        assert call["active_segment_id"] == "seg-2"
+        assert call["active_segment_progress"] == 0.0
+
+    def test_progress_marker_parses_percent_and_calls_update_job(self):
+        handler, _, _, update_job_calls, _ = self._build()
+        handler("[PROGRESS] 42%")
+        assert len(update_job_calls) == 1
+        call = update_job_calls[0]
+        assert call["force_broadcast"] is True
+        assert call["active_segment_progress"] == pytest.approx(0.42)
+
+    def test_malformed_progress_line_is_swallowed_not_raised(self):
+        handler, _, _, update_job_calls, _ = self._build()
+        handler("[PROGRESS] not-a-number%")  # must not raise
+        assert update_job_calls == []
+
+    def test_emit_on_save_false_suppresses_update_job_but_still_writes_segment(self):
+        """voxtral segments.py's original asymmetry: SEGMENT_SAVED still marks
+        the segment row done and increments the counter, but never calls
+        update_job. Every other original (emit_on_save defaults True) does
+        call update_job on SEGMENT_SAVED — see test above."""
+        handler, _, update_seg_calls, update_job_calls, _ = self._build(emit_on_save=False)
+        handler("[SEGMENT_SAVED] /out/seg-1.wav")
+        assert update_seg_calls  # segment row still written
+        assert update_job_calls == []  # but update_job is NOT called
+
+    def test_on_group_completed_hook_invoked_with_new_count(self):
+        seen = []
+        handler, _, _, _, _ = self._build(on_group_completed=seen.append)
+        handler("[SEGMENT_SAVED] /out/seg-1.wav")
+        assert seen == [1]
+
+    def test_on_group_started_hook_invoked_with_active_index(self):
+        seen = []
+        handler, _, _, _, _ = self._build(on_group_started=seen.append)
+        handler("[START_SEGMENT] seg-2")
+        assert seen == [1]  # completed_groups[0]=0 -> active_index = min(0+1, total=2) = 1
+
+    def test_progress_formula_extra_keys_are_merged_into_update_job_call(self):
+        """xtts's formula returns extra tracking keys (grouped_progress, etc.)
+        beyond 'progress' — the factory must merge them all, not just 'progress'."""
+        def _formula(completed, total, active_segment_progress, *, active_index):
+            return {"progress": 0.5, "grouped_progress": 0.55, "completed_render_groups": completed}
+
+        handler, _, _, update_job_calls, _ = self._build(progress_formula=_formula)
+        handler("[START_SEGMENT] seg-2")
+        call = update_job_calls[0]
+        assert call["progress"] == 0.5
+        assert call["grouped_progress"] == 0.55
+        assert call["completed_render_groups"] == 0
+
+    def test_completed_groups_counter_is_mutated_in_place(self):
+        """The caller's completed_groups list must be mutated (not replaced) so
+        the caller can read it after the closure runs, matching every
+        original's `completed_groups[0]` idiom."""
+        counter = [0]
+        handler, _, _, _, _ = self._build(completed_groups=counter)
+        handler("[SEGMENT_SAVED] /out/seg-1.wav")
+        assert counter == [1]
+
+
+# ---------------------------------------------------------------------------
+# §2d — StudioPluginContext.group_needs_render (PL-2: kills 3 _group_needs_render copies)
+# ---------------------------------------------------------------------------
+
+class TestGroupNeedsRender:
+    """PL-2: the single shared definition, validated-artifact-metadata based
+    (never raw file existence) per modular_architecture.md."""
+
+    def _ctx(self):
+        from app.studio_plugin_sdk.context import StudioPluginContext
+        return StudioPluginContext("xtts")
+
+    def _write_valid_wav(self, path, seconds: float = 1.0) -> None:
+        import wave
+        with wave.open(str(path), "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(22050)
+            wf.writeframes(b"\x00\x00" * int(22050 * seconds))
+
+    def test_missing_file_needs_render(self, tmp_path):
+        ctx = self._ctx()
+        group = {"segments": [{"id": "s1", "audio_status": "done", "audio_file_path": "s1.wav"}]}
+        assert ctx.group_needs_render(group, tmp_path) is True
+
+    def test_zero_byte_file_needs_render(self, tmp_path):
+        """R1: pre-fix (raw .exists() check, as xtts/voxtral originals used)
+        a zero-byte file reads as valid and this assertion fails."""
+        seg_dir = tmp_path / "segments"
+        seg_dir.mkdir()
+        (seg_dir / "s1.wav").write_bytes(b"")
+        group = {"segments": [{"id": "s1", "audio_status": "done", "audio_file_path": "s1.wav"}]}
+        ctx = self._ctx()
+        assert ctx.group_needs_render(group, tmp_path) is True
+
+    def test_valid_wav_with_matching_db_state_does_not_need_render(self, tmp_path):
+        seg_dir = tmp_path / "segments"
+        seg_dir.mkdir()
+        self._write_valid_wav(seg_dir / "s1.wav")
+        group = {"segments": [{"id": "s1", "audio_status": "done", "audio_file_path": "s1.wav"}]}
+        ctx = self._ctx()
+        assert ctx.group_needs_render(group, tmp_path) is False
+
+    def test_valid_wav_but_segment_not_marked_done_needs_render(self, tmp_path):
+        seg_dir = tmp_path / "segments"
+        seg_dir.mkdir()
+        self._write_valid_wav(seg_dir / "s1.wav")
+        group = {"segments": [{"id": "s1", "audio_status": "unprocessed", "audio_file_path": "s1.wav"}]}
+        ctx = self._ctx()
+        assert ctx.group_needs_render(group, tmp_path) is True
+
+    def test_valid_wav_but_filename_mismatch_needs_render(self, tmp_path):
+        seg_dir = tmp_path / "segments"
+        seg_dir.mkdir()
+        self._write_valid_wav(seg_dir / "s1.wav")
+        group = {"segments": [{"id": "s1", "audio_status": "done", "audio_file_path": "stale.wav"}]}
+        ctx = self._ctx()
+        assert ctx.group_needs_render(group, tmp_path) is True
+
+    def test_force_rerender_true_always_needs_render_even_when_valid(self, tmp_path):
+        seg_dir = tmp_path / "segments"
+        seg_dir.mkdir()
+        self._write_valid_wav(seg_dir / "s1.wav")
+        group = {"segments": [{"id": "s1", "audio_status": "done", "audio_file_path": "s1.wav"}]}
+        ctx = self._ctx()
+        assert ctx.group_needs_render(group, tmp_path, force_rerender=True) is True
+
+    def test_force_rerender_defaults_to_false(self, tmp_path):
+        """Callers that never pass force_rerender (mixed's original call site)
+        keep exact prior behavior — the parameter must default to False."""
+        seg_dir = tmp_path / "segments"
+        seg_dir.mkdir()
+        self._write_valid_wav(seg_dir / "s1.wav")
+        group = {"segments": [{"id": "s1", "audio_status": "done", "audio_file_path": "s1.wav"}]}
+        ctx = self._ctx()
+        assert ctx.group_needs_render(group, tmp_path) is False
+
+    def test_multi_segment_group_all_must_be_done(self, tmp_path):
+        seg_dir = tmp_path / "segments"
+        seg_dir.mkdir()
+        self._write_valid_wav(seg_dir / "s1.wav")  # leader's expected file
+        group = {
+            "segments": [
+                {"id": "s1", "audio_status": "done", "audio_file_path": "s1.wav"},
+                {"id": "s2", "audio_status": "unprocessed", "audio_file_path": None},
+            ]
+        }
+        ctx = self._ctx()
+        assert ctx.group_needs_render(group, tmp_path) is True
+
+
+# ---------------------------------------------------------------------------
+# §3 — StudioPluginContext service-group smoke tests (boundary mocks only)
+# ---------------------------------------------------------------------------
+
+class TestContextServiceGroups:
+    """Each group is called once; we mock only the wrapped app.* symbol."""
+
+    def _ctx(self):
+        from app.studio_plugin_sdk.context import StudioPluginContext
+        return StudioPluginContext(engine_id="xtts")
+
+    # 3.3.1 Job progress
+    def test_update_job_progress(self):
+        ctx = self._ctx()
+        with patch("app.db.state_jobs.update_job") as mock_uj:
+            ctx.update_job_progress("j1", status="running", progress=0.5)
+            mock_uj.assert_called_once()
+            kwargs = mock_uj.call_args
+            assert kwargs[0][0] == "j1"
+            assert kwargs[1]["status"] == "running"
+            assert kwargs[1]["progress"] == 0.5
+
+    # 3.3.2 Segment events
+    def test_emit_segment_started(self):
+        ctx = self._ctx()
+        with patch("app.api.ws.broadcast_job_updated") as mock_bju:
+            ctx.emit_segment_started("ch1", "seg1", "j1")
+            mock_bju.assert_called_once()
+
+    def test_emit_segment_saved(self):
+        ctx = self._ctx()
+        with patch("app.api.ws.broadcast_job_updated") as mock_bju:
+            ctx.emit_segment_saved("ch1", "seg1", "j1", "/tmp/seg1.wav", duration_sec=3.2)
+            mock_bju.assert_called_once()
+
+    def test_emit_segment_progress(self):
+        ctx = self._ctx()
+        with patch("app.api.ws.broadcast_segment_progress") as mock_bsp:
+            ctx.emit_segment_progress("ch1", "seg1", "j1", 0.75)
+            mock_bsp.assert_called_once_with(
+                job_id="j1", chapter_id="ch1", segment_id="seg1", progress=0.75
+            )
+
+    def test_broadcast_segments_updated(self):
+        ctx = self._ctx()
+        with patch("app.api.ws.broadcast_segments_updated") as mock_bsu:
+            ctx.broadcast_segments_updated("ch1")
+            mock_bsu.assert_called_once_with(chapter_id="ch1")
+
+    # 3.3.3 Queue row
+    def test_update_queue_row(self):
+        ctx = self._ctx()
+        with patch("app.api.ws.broadcast_queue_update") as mock_bqu:
+            ctx.update_queue_row("j1", status="running", progress=0.3)
+            mock_bqu.assert_called_once()
+
+    # 3.3.4 Speaker / voice settings
+    def test_get_speaker_wavs_splits_comma_string(self):
+        ctx = self._ctx()
+        with patch("app.db.speakers.get_profile_wavs", return_value="/a.wav,/b.wav") as mock_gpw:
+            result = ctx.get_speaker_wavs("alice")
+            mock_gpw.assert_called_once_with("alice")
+            assert result == ["/a.wav", "/b.wav"]
+
+    def test_get_speaker_wavs_returns_empty_for_none(self):
+        ctx = self._ctx()
+        with patch("app.db.speakers.get_profile_wavs", return_value=None):
+            assert ctx.get_speaker_wavs("alice") == []
+
+    def test_get_voice_profile_dir(self):
+        ctx = self._ctx()
+        with patch("app.db.speakers.get_profile_dir", return_value=Path("/voices/alice")):
+            result = ctx.get_voice_profile_dir("alice")
+            assert result == "/voices/alice"
+
+    def test_get_voice_settings(self):
+        ctx = self._ctx()
+        with patch("app.db.speakers.get_speaker_settings", return_value={"speed": 1.0}) as m:
+            result = ctx.get_voice_settings("alice")
+            m.assert_called_once_with("alice")
+            assert result == {"speed": 1.0}
+
+    # 3.3.5 Chunk groups
+    def test_get_chapter_segments(self):
+        ctx = self._ctx()
+        with patch("app.db.segments.get_chapter_segments", return_value=[{"id": "s1"}]) as m:
+            result = ctx.get_chapter_segments("ch1")
+            m.assert_called_once_with("ch1")
+            assert result == [{"id": "s1"}]
+
+    def test_build_chunk_groups(self):
+        # #232 Task 005b: ctx.build_chunk_groups no longer delegates to
+        # app.domain.chunk_groups.build_chunk_groups (which would re-merge
+        # already-distinct chapter_segments rows into a shared filename) --
+        # it wraps each row as its own one-row group via rows_as_groups,
+        # still resolving a real per-row `engine`.
+        ctx = self._ctx()
+        segs = [{"id": "s1", "text_content": "hello", "speaker_profile_name": None,
+                 "character_speaker_profile_name": None}]
+        with patch("app.domain.chunk_groups.build_chunk_groups") as m:
+            result = ctx.build_chunk_groups(segs, 500)
+            m.assert_not_called()
+        assert len(result) == 1
+        assert result[0]["segments"] == segs
+        assert "engine" in result[0]
+
+    # 3.3.6 Bridge synthesis
+    def test_generate_via_bridge(self):
+        ctx = self._ctx()
+        with patch("app.jobs.handlers.bridge_helpers.generate_via_bridge", return_value=0) as m:
+            rc = ctx.generate_via_bridge("xtts", "Hello", Path("/tmp/out.wav"))
+            m.assert_called_once()
+            assert rc == 0
+
+    # 3.3.7 Engine behavior
+    def test_get_behavior_returns_normalized_dict(self):
+        ctx = self._ctx()
+        # behavior module's normalize_behavior accepts None and returns defaults
+        result = ctx.get_behavior("nonexistent_engine_xyz")
+        assert isinstance(result, dict)
+
+    # 3.3.8 Cancellation
+    def test_is_cancelled_false_when_no_job(self):
+        ctx = self._ctx()
+        from app.db import state_jobs as _sjobs
+        with patch.object(_sjobs, "get_jobs", return_value={}):
+            assert ctx.is_cancelled("j_missing") is False
+
+    def test_is_cancelled_true_when_status_cancelled(self):
+        ctx = self._ctx()
+        from app.db import state_jobs as _sjobs
+        with patch.object(_sjobs, "get_jobs", return_value={"j1": {"status": "cancelled"}}):
+            assert ctx.is_cancelled("j1") is True
+
+    # 3.3.9 Logging
+    def test_log_calls_broadcast(self):
+        ctx = self._ctx()
+        with patch("app.api.ws.broadcast_tts_log_line") as mock_log:
+            ctx.log("hello", job_id="j1")
+            mock_log.assert_called_once()
+            call_kwargs = mock_log.call_args[1]
+            assert call_kwargs["line"] == "hello"
+            assert call_kwargs["job_id"] == "j1"
+
+    # 3.3.10 Segment persistence
+    def test_update_segment(self):
+        ctx = self._ctx()
+        with patch("app.db.segments.update_segment") as m:
+            ctx.update_segment("s1", audio_status="done")
+            m.assert_called_once_with("s1", audio_status="done")
+
+    def test_update_segments_status_bulk(self):
+        ctx = self._ctx()
+        with patch("app.db.segments.update_segments_status_bulk") as m:
+            ctx.update_segments_status_bulk(["s1", "s2"], "unprocessed")
+            m.assert_called_once()
+
+    def test_cleanup_orphaned_segments(self):
+        ctx = self._ctx()
+        with patch("app.db.segments.cleanup_orphaned_segments") as m:
+            ctx.cleanup_orphaned_segments("ch1")
+            m.assert_called_once_with("ch1")
+
+    def test_update_queue_item(self):
+        ctx = self._ctx()
+        with patch("app.db.queue.update_queue_item") as m:
+            ctx.update_queue_item("j1", status="done")
+            m.assert_called_once()
+
+    # 3.3.11 Path resolution
+    def test_get_plugin_data_dir(self, tmp_path):
+        ctx = self._ctx()
+        with patch("app.core.config.PLUGIN_DATA_DIR", tmp_path):
+            result = ctx.get_plugin_data_dir("xtts")
+            assert result == str(tmp_path / "xtts")
+            assert Path(result).is_dir()
+
+    def test_get_voices_dir(self, tmp_path):
+        ctx = self._ctx()
+        with patch("app.core.config.VOICES_DIR", tmp_path):
+            result = ctx.get_voices_dir()
+            assert result == str(tmp_path)
+
+    # 3.3.12 Audio operations
+    def test_stitch_segments_basic(self):
+        """ctx.stitch_segments routes to audio_ops with default pdir/callbacks."""
+        from pathlib import Path
+        ctx = self._ctx()
+        with patch("app.engines.audio_ops.stitch_segments", return_value=0) as m:
+            rc = ctx.stitch_segments(["/a.wav", "/b.wav"], "/out.wav")
+        assert rc == 0
+        args = m.call_args[0]
+        # pdir defaults to parent of out_wav
+        assert args[0] == Path("/")           # parent of /out.wav
+        assert args[1] == [Path("/a.wav"), Path("/b.wav")]
+        assert args[2] == Path("/out.wav")
+        # on_output and cancel_check are callable stubs
+        assert callable(args[3])
+        assert callable(args[4])
+
+    def test_stitch_segments_explicit_on_output_cancel_check(self):
+        """Explicit on_output and cancel_check are forwarded."""
+        from pathlib import Path
+        ctx = self._ctx()
+
+        def on_out(line: str) -> None:
+            pass
+
+        def cancel() -> bool:
+            return False
+
+        with patch("app.engines.audio_ops.stitch_segments", return_value=0) as m:
+            ctx.stitch_segments(["/a.wav"], "/tmp/out.wav", on_output=on_out, cancel_check=cancel)
+        args = m.call_args[0]
+        assert args[3] is on_out
+        assert args[4] is cancel
+
+    def test_stitch_segments_explicit_pdir(self):
+        """Explicit pdir is forwarded as a Path."""
+        from pathlib import Path
+        ctx = self._ctx()
+        with patch("app.engines.audio_ops.stitch_segments", return_value=0) as m:
+            ctx.stitch_segments(["/a.wav"], "/tmp/out.wav", pdir="/work/dir")
+        args = m.call_args[0]
+        assert args[0] == Path("/work/dir")
+
+    def test_wav_to_mp3(self):
+        ctx = self._ctx()
+        with patch("app.engines.audio_ops.wav_to_mp3") as m:
+            ctx.wav_to_mp3("/in.wav", "/out.mp3")
+            m.assert_called_once_with("/in.wav", "/out.mp3", on_output=None, cancel_check=None)
+
+    def test_wav_to_mp3_forwards_cancellation_and_returns_rc(self):
+        """Issue #200: the render path needs the return code and the cancel hook.
+
+        app.engines.audio_ops.wav_to_mp3 accepts on_output/cancel_check and
+        returns the ffmpeg exit code. Until SDK 1.1 the ctx wrapper dropped both
+        callbacks and returned None, so a plugin swapping a direct app import for
+        this method lost cancellation support and could not tell a failed
+        transcode from a successful one.
+        """
+        ctx = self._ctx()
+        seen = []
+
+        def _on_output(line):
+            seen.append(line)
+
+        def _cancel_check():
+            return True
+
+        with patch("app.engines.audio_ops.wav_to_mp3", return_value=7) as m:
+            rc = ctx.wav_to_mp3(
+                "/in.wav",
+                "/out.mp3",
+                on_output=_on_output,
+                cancel_check=_cancel_check,
+            )
+
+        assert rc == 7
+        m.assert_called_once_with(
+            "/in.wav",
+            "/out.mp3",
+            on_output=_on_output,
+            cancel_check=_cancel_check,
+        )
+
+    def test_get_audio_duration(self):
+        ctx = self._ctx()
+        with patch("app.engines.audio_ops.get_audio_duration", return_value=5.0) as m:
+            result = ctx.get_audio_duration("/audio.wav")
+            assert result == 5.0
+
+    def test_get_chapter_dir_looks_up_project_when_not_supplied(self):
+        ctx = self._ctx()
+        with patch("app.db.chapters.get_chapter", return_value={"project_id": "proj-1"}) as g, \
+             patch("app.core.config.get_chapter_dir", return_value=Path("/base/proj-1/ch-1")) as m:
+            result = ctx.get_chapter_dir("ch-1")
+        g.assert_called_once_with("ch-1")
+        m.assert_called_once_with("proj-1", "ch-1")
+        assert result == "/base/proj-1/ch-1"
+
+    def test_get_chapter_dir_with_explicit_project_skips_lookup(self):
+        """Issue #200: callers that already hold the project id must not pay a
+        DB round trip, and must not risk resolving a different project than the
+        one they were handed."""
+        ctx = self._ctx()
+        with patch("app.db.chapters.get_chapter") as g, \
+             patch("app.core.config.get_chapter_dir", return_value=Path("/base/proj-9/ch-1")) as m:
+            result = ctx.get_chapter_dir("ch-1", project_id="proj-9")
+        g.assert_not_called()
+        m.assert_called_once_with("proj-9", "ch-1")
+        assert result == "/base/proj-9/ch-1"
+
+    # 3.3.13 Text preparation
+    def test_sanitize_text(self):
+        ctx = self._ctx()
+        with patch("app.utils.text.textops_cleaning.sanitize_text", return_value="clean") as m:
+            result = ctx.sanitize_text("raw")
+            m.assert_called_once_with("raw")
+            assert result == "clean"
+
+    def test_split_long_sentences(self):
+        """Returns the wrapped function's str unchanged (issue #200: was list-wrapped)."""
+        ctx = self._ctx()
+        with patch("app.utils.text.textops_splitting.safe_split_long_sentences",
+                   return_value="part1 part2") as m:
+            result = ctx.split_long_sentences("long text", 50)
+            m.assert_called_once_with("long text", target=50)
+            assert result == "part1 part2"
+
+    def test_get_text_chunk_limit(self):
+        ctx = self._ctx()
+        with patch("app.engines.behavior.get_text_chunk_limit", return_value=500) as m:
+            result = ctx.get_text_chunk_limit("xtts")
+            m.assert_called_once_with("xtts")
+            assert result == 500
+
+
+# ---------------------------------------------------------------------------
+# §4 — Version-field manifest validation
+# ---------------------------------------------------------------------------
+
+def _make_plugin_dir(tmp_path, folder_name, manifest, engine_src=""):
+    plugin_dir = tmp_path / folder_name
+    plugin_dir.mkdir()
+    (plugin_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    if engine_src:
+        (plugin_dir / "engine.py").write_text(textwrap.dedent(engine_src), encoding="utf-8")
+    return plugin_dir
+
+
+_ENGINE_SRC = """
+from app.engines.voice.sdk import TTSRequest, TTSResult
+from app.engines.voice.base import StudioTTSEngine
+
+class MockEngine(StudioTTSEngine):
+    def info(self): return {}
+    def check_env(self): return True, "OK"
+    def check_request(self, req): return True, "OK"
+    def synthesize(self, req): return TTSResult(ok=True, output_path=req.output_path)
+    def settings_schema(self): return {}
+"""
+
+_BASE_MANIFEST = {
+    "studio_tts_manifest": "1.0",
+    "contract_version": "1.0",
+    "sdk_version": "1.0",
+    "settings_schema_version": "1.0",
+    "event_envelope_version": "1.0",
+    "engine_id": "mock",
+    "display_name": "Mock",
+    "entry_class": "engine:MockEngine",
+    "capabilities": ["synthesis"],
+}
+
+_VERSION_FIELDS = ["contract_version", "sdk_version", "settings_schema_version", "event_envelope_version"]
+
+
+class TestVersionFieldValidation:
+    """present+wrong → PluginLoadError; missing → PluginLoadError (S8 gate flip); present+right → OK."""
+
+    @pytest.mark.parametrize("vfield", _VERSION_FIELDS)
+    def test_wrong_value_raises_plugin_load_error(self, tmp_path, vfield):
+        from app.tts_server.plugin_loader import _validate_manifest, PluginLoadError
+        manifest = {**_BASE_MANIFEST, vfield: "9.9"}
+        with pytest.raises(PluginLoadError, match=vfield):
+            _validate_manifest(manifest=manifest, folder_name="tts_mock")
+
+    @pytest.mark.parametrize("vfield", _VERSION_FIELDS)
+    def test_missing_field_raises_plugin_load_error(self, tmp_path, vfield):
+        """S8 gate flip: missing version field is now a hard PluginLoadError."""
+        from app.tts_server.plugin_loader import _validate_manifest, PluginLoadError
+        manifest = {**_BASE_MANIFEST}
+        manifest.pop(vfield, None)
+        with pytest.raises(PluginLoadError, match=vfield):
+            _validate_manifest(manifest=manifest, folder_name="tts_mock")
+
+    @pytest.mark.parametrize("vfield", _VERSION_FIELDS)
+    def test_correct_value_accepted_without_error(self, tmp_path, vfield):
+        from app.tts_server.plugin_loader import _validate_manifest
+        manifest = {**_BASE_MANIFEST, vfield: "1.0"}
+        # Should not raise
+        _validate_manifest(manifest=manifest, folder_name="tts_mock")
+
+    def test_all_four_fields_correct_accepted(self):
+        from app.tts_server.plugin_loader import _validate_manifest
+        manifest = {
+            **_BASE_MANIFEST,
+            "contract_version": "1.0",
+            "sdk_version": "1.0",
+            "settings_schema_version": "1.0",
+            "event_envelope_version": "1.0",
+        }
+        _validate_manifest(manifest=manifest, folder_name="tts_mock")  # no raise
+
+
+# ---------------------------------------------------------------------------
+# §5 — Exception hierarchy
+# ---------------------------------------------------------------------------
+
+class TestExceptionHierarchy:
+    def test_bridge_error_is_studio_exception(self):
+        from app.studio_plugin_sdk.errors import BridgeError, StudioException
+        assert issubclass(BridgeError, StudioException)
+
+    def test_validation_error_is_studio_exception(self):
+        from app.studio_plugin_sdk.errors import ValidationError, StudioException
+        assert issubclass(ValidationError, StudioException)
+
+    def test_bridge_error_can_be_raised_and_caught(self):
+        from app.studio_plugin_sdk.errors import BridgeError, StudioException
+        with pytest.raises(StudioException):
+            raise BridgeError("synthesis failed")
+
+    def test_validation_error_can_be_raised_and_caught(self):
+        from app.studio_plugin_sdk.errors import ValidationError, StudioException
+        with pytest.raises(StudioException):
+            raise ValidationError("bad value")
+
+    def test_bridge_error_is_also_exception(self):
+        from app.studio_plugin_sdk.errors import BridgeError
+        assert issubclass(BridgeError, Exception)

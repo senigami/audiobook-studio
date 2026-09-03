@@ -1,0 +1,97 @@
+import pytest
+import os
+import json
+from pathlib import Path
+from unittest.mock import patch, MagicMock
+
+from app.db.speakers import update_speaker_settings, get_speaker_settings
+from app.core import config
+
+@pytest.fixture
+def mock_voices_root(tmp_path):
+    voices_dir = tmp_path / "voices"
+    voices_dir.mkdir()
+    # app.db.speakers uses config.VOICES_DIR
+    with patch("app.core.config.VOICES_DIR", voices_dir):
+        yield voices_dir
+
+def test_update_speaker_settings_traversal_blocked(mock_voices_root):
+    # Setup malicious profile name
+    evil_name = "valid - ../../evil"
+
+    # We want to verify that update_speaker_settings blocks traversal.
+    # In app.db.speakers, it uses _existing_profile_dir which is V2-nested only.
+
+    # If we have a profile that looks like it might escape
+    with patch("app.db.speakers._profile_name_or_error", return_value=evil_name):
+        outside_dir = mock_voices_root.parent / "evil_voice"
+        outside_dir.mkdir(exist_ok=True)
+        (outside_dir / "profile.json").write_text("{}")
+
+        # The new implementation uses _existing_profile_dir internally.
+        # We want to prove that even if it returns an outside dir, the containment check in normalize_profile_metadata blocks it.
+        with patch("app.db.speakers._existing_profile_dir", return_value=outside_dir):
+            success = update_speaker_settings(evil_name, test_text="pwned")
+            assert not success
+
+    # Verify the file was NOT updated
+    meta = json.loads((outside_dir / "profile.json").read_text())
+    assert "test_text" not in meta
+
+def test_new_profile_dir_traversal_rejected(mock_voices_root):
+    """_new_profile_dir must reject traversal names; nothing is created outside VOICES_DIR."""
+    from app.db.speakers import _new_profile_dir
+    import pytest
+
+    # "../x" goes through _profile_name_or_error first which rejects non-alphanumeric starts
+    with pytest.raises(ValueError):
+        _new_profile_dir(mock_voices_root, "../x")
+
+    # Confirm nothing was written outside voices_dir
+    outside = mock_voices_root.parent / "x"
+    assert not outside.exists()
+
+
+def test_new_profile_dir_traversal_variant_rejected(mock_voices_root):
+    """_new_profile_dir must reject traversal in the variant part of a
+    'Speaker - <variant>' name via safe_basename(), not merely via the
+    earlier, unrelated SAFE_PROFILE_NAME_RE full-name gate.
+
+    "Speaker - ../escape" (used previously here) contains a literal "/",
+    so SAFE_PROFILE_NAME_RE._profile_name_or_error() rejects the whole name
+    before the " - " split/safe_basename logic this test is meant to guard
+    ever runs -- passing for the wrong reason. "Speaker - .." has no "/" so
+    it clears that earlier gate and specifically exercises
+    safe_basename("..") raising for the variant part.
+    """
+    from app.db.speakers import _new_profile_dir
+    from app.db.speaker_paths import SAFE_PROFILE_NAME_RE
+    import pytest
+
+    payload = "Speaker - .."
+    assert SAFE_PROFILE_NAME_RE.fullmatch(payload), (
+        "Payload must clear the earlier full-name gate to prove this test "
+        "exercises the variant-splitting safe_basename() check, not the gate."
+    )
+
+    with pytest.raises(ValueError):
+        _new_profile_dir(mock_voices_root, payload)
+
+    # Nothing was created inside voices_dir, and ".." couldn't have escaped
+    # to create a "Speaker" directory alongside it.
+    assert list(mock_voices_root.iterdir()) == []
+    assert not (mock_voices_root.parent / "Speaker").exists()
+
+
+def test_update_speaker_settings_success(mock_voices_root):
+    profile_name = "SpeakerA"
+    # Create V2 structure: voices/SpeakerA/Default/profile.json
+    pdir = mock_voices_root / profile_name / "Default"
+    pdir.mkdir(parents=True)
+    (pdir / "profile.json").write_text(json.dumps({"test_text": "old"}))
+
+    success = update_speaker_settings(profile_name, test_text="new")
+    assert success
+
+    meta = json.loads((pdir / "profile.json").read_text())
+    assert meta["test_text"] == "new"

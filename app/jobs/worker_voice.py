@@ -1,0 +1,148 @@
+from __future__ import annotations
+import time
+import logging
+import shutil
+from pathlib import Path
+from typing import Any, Mapping
+
+from ..db.state import update_job
+from ..core.config import VOICES_DIR
+from ..engines.errors import EngineBridgeError
+from ..db.speakers import get_profile_wavs as get_speaker_wavs, get_speaker_settings, get_profile_dir as get_voice_profile_dir
+from .worker_helpers import _mark_queue_failed
+
+logger = logging.getLogger(__name__)
+
+def _resolve_reference_audio_path(
+    *,
+    engine: str,
+    pdir: Path,
+    settings: Mapping[str, Any],
+    speaker_wavs: str | None,
+) -> str | None:
+    from ..engines.behavior import has_behavior
+    if not has_behavior(engine, "reference_sample"):
+        return None
+
+    reference_sample = settings.get("reference_sample")
+    candidates: list[Path] = []
+    if reference_sample:
+        sample_path = pdir / reference_sample
+        candidates.append(sample_path)
+        candidates.append(Path(reference_sample))
+    if speaker_wavs:
+        first_wav = str(speaker_wavs).split(",", 1)[0].strip()
+        if first_wav:
+            candidates.append(Path(first_wav))
+
+    for candidate in candidates:
+        try:
+            if candidate.exists() and candidate.is_file():
+                return str(candidate)
+        except OSError as e:
+            logger.debug("Failed to check reference audio candidate %s: %s", candidate, e)
+            continue
+    return None
+
+
+def _generate_voice_sample_via_bridge(
+    *,
+    engine: str,
+    profile_name: str,
+    test_text: str,
+    out_wav: Path,
+    on_output,
+    cancel_check,
+    settings: Mapping[str, Any],
+    voice_profile_dir: Path | None,
+) -> int:
+    from ..engines.bridge import create_voice_bridge
+    bridge = create_voice_bridge()
+    request: dict[str, Any] = {
+        "engine_id": engine,
+        "voice_profile_id": profile_name,
+        "script_text": test_text,
+        "output_path": str(out_wav),
+        "output_format": "wav",
+        "on_output": on_output,
+        "cancel_check": cancel_check,
+    }
+
+    from ..engines.behavior import extract_engine_settings
+    engine_settings = extract_engine_settings(engine, settings)
+    request.update(engine_settings)
+
+    if voice_profile_dir:
+        request["voice_profile_dir"] = str(voice_profile_dir)
+
+    response = bridge.synthesize(request)
+    if response.get("audio_path") and Path(str(response["audio_path"])) != out_wav:
+        generated = Path(str(response["audio_path"]))
+        if generated.exists() and generated != out_wav:
+            shutil.move(str(generated), str(out_wav))
+    return 0
+
+
+def handle_voice_job(jid, j, on_output, cancel_check, voice_job_settings=None):
+    try:
+        pdir = get_voice_profile_dir(j.speaker_profile)
+    except ValueError:
+        pdir = VOICES_DIR / j.speaker_profile
+    pdir.mkdir(parents=True, exist_ok=True)
+
+    # For voice_test or missing sample (wav or mp3), generate one. voice_build always rebuilds.
+    sample_path = pdir / "sample.wav"
+    sample_mp3_path = pdir / "sample.mp3"
+    if j.engine in ("voice_build", "voice_test") or not (sample_path.exists() or sample_mp3_path.exists()):
+        on_output(f"Generating test sample for {j.speaker_profile}...\n")
+        spk = voice_job_settings or get_speaker_settings(j.speaker_profile)
+        sw = get_speaker_wavs(j.speaker_profile)
+        voice_profile_dir = pdir
+        engine = spk.get("engine")
+        if not engine:
+            _mark_queue_failed(jid, "No TTS engine configured for this voice job.")
+            return
+        try:
+            rc = _generate_voice_sample_via_bridge(
+                engine=engine,
+                profile_name=j.speaker_profile,
+                test_text=spk["test_text"],
+                out_wav=sample_path,
+                on_output=on_output,
+                cancel_check=cancel_check,
+                settings=spk,
+                voice_profile_dir=voice_profile_dir,
+            )
+        except EngineBridgeError as exc:
+            _mark_queue_failed(jid, str(exc))
+            return
+        if rc != 0:
+            _mark_queue_failed(jid, "Voice synthesis failed.")
+            return
+
+        # Convert WAV → MP3 and delete WAV (voice samples are always MP3)
+        from ..engines.audio_ops import finalize_sample_artifact
+        sample_path = finalize_sample_artifact(sample_path, on_output=on_output, cancel_check=cancel_check)
+
+        # After success: mark samples as built if this was a build job
+        if j.engine == "voice_build" or j.engine == "voice_test":
+            try:
+                from ..db.speakers import update_speaker_settings
+                raw_wavs = sorted([
+                    f.name for f in pdir.glob("*.wav")
+                    if f.name != "sample.wav"
+                ])
+                update_speaker_settings(
+                    j.speaker_profile,
+                    built_samples=raw_wavs,
+                    preview_test_text=spk["test_text"],
+                    preview_engine=engine,
+                    preview_reference_sample=spk.get("reference_sample"),
+                    preview_voice_asset_id=spk.get("voice_asset_id"),
+                    preview_model=spk.get("model"),
+                )
+                on_output(f"Updated build samples for {j.speaker_profile}.\n")
+            except Exception as e:
+                logger.error(f"Error updating build samples for {j.speaker_profile}: {e}")
+
+    update_job(jid, status="done", progress=1.0, finished_at=time.time())
