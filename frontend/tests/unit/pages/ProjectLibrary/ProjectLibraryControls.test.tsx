@@ -65,7 +65,7 @@ describe('ProjectLibrary Controls', () => {
         
         // Confirm list view specific elements or structure
         // In list view we expect a table-like structure or specific class
-        expect(screen.getByRole('list')).toHaveClass('project-list-view')
+        expect(await screen.findByRole('list')).toHaveClass('project-list-view')
     })
 
     it('shows created and updated columns in list view', async () => {
@@ -79,7 +79,7 @@ describe('ProjectLibrary Controls', () => {
 
         fireEvent.click(screen.getByLabelText(/List View/i))
 
-        expect(screen.getByRole('columnheader', { name: /Created/i })).toBeTruthy()
+        expect(await screen.findByRole('columnheader', { name: /Created/i })).toBeTruthy()
         expect(screen.getByRole('columnheader', { name: /Updated/i })).toBeTruthy()
     })
 
@@ -167,12 +167,12 @@ describe('ProjectLibrary Controls', () => {
         // "Project Alpha" is rendered (status: rendered) — filtered out.
         expect(screen.queryByText('Project Alpha')).toBeNull()
         // "Project Zulu" is casting (in progress) — stays visible.
-        expect(screen.getByText('Project Zulu')).toBeInTheDocument()
+        expect(await screen.findByText('Project Zulu')).toBeInTheDocument()
 
         // Toggling again restores both.
         fireEvent.click(chip)
         expect(chip).toHaveAttribute('aria-pressed', 'false')
-        expect(screen.getByText('Project Alpha')).toBeInTheDocument()
+        expect(await screen.findByText('Project Alpha')).toBeInTheDocument()
         expect(screen.getByText('Project Zulu')).toBeInTheDocument()
     })
 

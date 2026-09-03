@@ -13,10 +13,10 @@ describe('InlineEdit', () => {
     expect(screen.getByText('Add something...')).toBeInTheDocument();
   });
 
-  it('enters edit mode on single click', () => {
+  it('enters edit mode on single click', async () => {
     render(<InlineEdit value="Click me" onSave={() => {}} />);
     fireEvent.click(screen.getByText('Click me'));
-    expect(screen.getByRole('textbox')).toBeInTheDocument();
+    expect(await screen.findByRole('textbox')).toBeInTheDocument();
     expect(screen.getByRole('textbox')).toHaveValue('Click me');
   });
 
@@ -46,7 +46,7 @@ describe('InlineEdit', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
-  it('cancels on Escape key', () => {
+  it('cancels on Escape key', async () => {
     const onSave = vi.fn();
     render(<InlineEdit value="Original" onSave={onSave} />);
     
@@ -57,7 +57,7 @@ describe('InlineEdit', () => {
     
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-    expect(screen.getByText('Original')).toBeInTheDocument();
+    expect(await screen.findByText('Original')).toBeInTheDocument();
   });
 
   it('does not save if value has not changed', () => {

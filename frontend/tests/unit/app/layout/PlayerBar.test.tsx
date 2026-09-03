@@ -227,7 +227,7 @@ describe('PlayerBar', () => {
       expect(localStorage.getItem('studio-player-volume')).toBe('0.4');
     });
 
-    it('mute toggle silences the player and restores the prior level on unmute', () => {
+    it('mute toggle silences the player and restores the prior level on unmute', async () => {
       playerBus.loadAndPlay({
         scope: 'chapter',
         title: 'Chapter 1',
@@ -244,11 +244,11 @@ describe('PlayerBar', () => {
       const muteButton = screen.getByLabelText('Mute');
       fireEvent.click(muteButton);
       expect(audio.volume).toBe(0);
-      expect(screen.getByLabelText('Unmute')).toBeInTheDocument();
+      expect(await screen.findByLabelText('Unmute')).toBeInTheDocument();
 
       fireEvent.click(screen.getByLabelText('Unmute'));
       expect(audio.volume).toBeCloseTo(0.6);
-      expect(screen.getByLabelText('Mute')).toBeInTheDocument();
+      expect(await screen.findByLabelText('Mute')).toBeInTheDocument();
     });
 
     it('loads a persisted volume preference on mount', () => {
@@ -455,7 +455,7 @@ describe('PlayerBar', () => {
       expect(screen.queryByTestId('waveform-strip')).toBeNull();
     });
 
-    it('the AudioLines toggle still flips waveform → bar regardless of scope', () => {
+    it('the AudioLines toggle still flips waveform → bar regardless of scope', async () => {
       playerBus.loadAndPlay({
         scope: 'chapter',
         title: 'Flip test',
@@ -472,7 +472,7 @@ describe('PlayerBar', () => {
       act(() => { fireEvent.click(toggle); });
 
       expect(screen.queryByTestId('waveform-strip')).toBeNull();
-      expect(screen.getByLabelText('Seek progress')).toBeInTheDocument();
+      expect(await screen.findByLabelText('Seek progress')).toBeInTheDocument();
       // duration=10 is under TAPE_DURATION_CAP_SEC, so once flipped to the bar
       // representation the toggle becomes the tape-open control (task 001),
       // not a plain "Show waveform" re-flip — that label is reserved for
@@ -508,11 +508,11 @@ describe('PlayerBar', () => {
 
       act(() => { fireEvent.click(toggle); });
 
-      expect(screen.getByTestId('waveform-strip')).toBeInTheDocument();
+      expect(await screen.findByTestId('waveform-strip')).toBeInTheDocument();
       expect(screen.queryByLabelText('Seek progress')).toBeNull();
     });
 
-    it('resets the forceWave override to the duration default on a new source (requestId bump)', () => {
+    it('resets the forceWave override to the duration default on a new source (requestId bump)', async () => {
       playerBus.loadAndPlay({
         scope: 'chapter',
         title: 'First source',
@@ -525,7 +525,7 @@ describe('PlayerBar', () => {
 
       // Flip short clip's waveform to a bar via the override.
       act(() => { fireEvent.click(screen.getByLabelText('Show progress bar')); });
-      expect(screen.getByLabelText('Seek progress')).toBeInTheDocument();
+      expect(await screen.findByLabelText('Seek progress')).toBeInTheDocument();
 
       // Loading a new (also short) source should clear the override and fall
       // back to the duration default (waveform), not stay forced to bar.

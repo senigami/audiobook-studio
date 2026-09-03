@@ -18,7 +18,7 @@ const analysis = {
 };
 
 describe('AnalysisStrip', () => {
-  it('shows stats, expands long-sentence details, and links to Manuscript edit', () => {
+  it('shows stats, expands long-sentence details, and links to Manuscript edit', async () => {
     const { container } = render(
       <MemoryRouter>
         <AnalysisStrip
@@ -47,7 +47,7 @@ describe('AnalysisStrip', () => {
     expect(container.querySelector('.animate-spin')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /action required/i }));
-    expect(screen.getByText(/these sentences are still too long after auto-split/i)).toBeInTheDocument();
+    expect(await screen.findByText(/these sentences are still too long after auto-split/i)).toBeInTheDocument();
     expect(screen.getByText('The moon was sailing through the black clouds, and the wolves kept howling without pause.')).toBeInTheDocument();
 
     const editLink = screen.getByRole('link', { name: /edit in manuscript/i });

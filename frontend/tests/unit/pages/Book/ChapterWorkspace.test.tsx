@@ -169,7 +169,7 @@ describe('ChapterWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Switch chapter' }));
 
     // All three chapters should be listed in the listbox
-    expect(screen.getByRole('option', { name: /Chapter One/i })).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: /Chapter One/i })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /Chapter Two/i })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /Chapter Three/i })).toBeInTheDocument();
   });
@@ -277,7 +277,7 @@ describe('ChapterWorkspace', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Lexicon/i }));
 
-    expect(screen.getByTestId('lexicon-panel-stub')).toBeInTheDocument();
+    expect(await screen.findByTestId('lexicon-panel-stub')).toBeInTheDocument();
   });
 
   it('clicking the panel close button hides the panel', async () => {
@@ -289,7 +289,7 @@ describe('ChapterWorkspace', () => {
 
     // Open
     fireEvent.click(screen.getByRole('button', { name: /Lexicon/i }));
-    expect(screen.getByTestId('lexicon-panel-stub')).toBeInTheDocument();
+    expect(await screen.findByTestId('lexicon-panel-stub')).toBeInTheDocument();
 
     // Close via X button inside the WorkspacePanel
     fireEvent.click(screen.getByRole('button', { name: /Close Lexicon panel/i }));
@@ -307,7 +307,7 @@ describe('ChapterWorkspace', () => {
     // Open then close via the same toggle button
     const toggle = screen.getByRole('button', { name: /Lexicon/i });
     fireEvent.click(toggle);
-    expect(screen.getByTestId('lexicon-panel-stub')).toBeInTheDocument();
+    expect(await screen.findByTestId('lexicon-panel-stub')).toBeInTheDocument();
 
     fireEvent.click(toggle);
     expect(screen.queryByTestId('lexicon-panel-stub')).not.toBeInTheDocument();
@@ -322,6 +322,6 @@ describe('ChapterWorkspace', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Lexicon/i }));
 
-    expect(screen.getByTestId('lexicon-panel-stub')).toHaveAttribute('data-project-id', 'book-1');
+    expect(await screen.findByTestId('lexicon-panel-stub')).toHaveAttribute('data-project-id', 'book-1');
   });
 });

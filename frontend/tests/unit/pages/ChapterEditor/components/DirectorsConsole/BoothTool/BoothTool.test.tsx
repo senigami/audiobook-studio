@@ -291,7 +291,7 @@ describe('BoothTool', () => {
     fireEvent.click(regenBtn);
 
     expect(api.generateSegments).toHaveBeenCalledWith(['s1']);
-    expect(screen.getByText('Regenerating...')).toBeInTheDocument();
+    expect(await screen.findByText('Regenerating...')).toBeInTheDocument();
     expect(regenBtn).toBeDisabled();
   });
 
@@ -313,7 +313,7 @@ describe('BoothTool', () => {
     fireEvent.click(toggleBtn);
 
     expect(toggleBtn).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByText(/Select a segment to add a note/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Select a segment to add a note/i)).toBeInTheDocument();
   });
 
   // Ported from frontend/tests/unit/pages/Book/stages/ReviewStage.test.tsx —
@@ -366,7 +366,7 @@ describe('BoothTool', () => {
     const regenBtn = await screen.findByRole('button', { name: /regenerate segment/i });
     fireEvent.click(regenBtn);
 
-    expect(screen.getByText(/Regenerating/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Regenerating/i)).toBeInTheDocument();
 
     act(() => {
       mockSegmentProgress = { s1: { job_id: 'job-1', segment_id: 's1', progress: 0.5 } };

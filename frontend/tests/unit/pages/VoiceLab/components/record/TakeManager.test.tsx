@@ -126,7 +126,7 @@ describe('TakeManager', () => {
         await screen.findByRole('button', { name: 'Retake' });
         fireEvent.keyDown(container, { key: 'r' });
 
-        expect(screen.getByText(/1 take kept/i)).toBeInTheDocument();
+        expect(await screen.findByText(/1 take kept/i)).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Start recording' })).toBeInTheDocument();
     });
 });

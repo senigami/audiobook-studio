@@ -25,10 +25,10 @@ describe('TagAutocompleteInput', () => {
         expect(screen.getByLabelText('Add tag')).toBeInTheDocument();
     });
 
-    it('opening the popover shows the full suggestion list immediately, no typing required', () => {
+    it('opening the popover shows the full suggestion list immediately, no typing required', async () => {
         render(<TagAutocompleteInput tags={[]} onChange={vi.fn()} suggestions={['wizard', 'warrior']} />);
         fireEvent.click(screen.getByLabelText('Add tag'));
-        expect(screen.getByText('wizard')).toBeInTheDocument();
+        expect(await screen.findByText('wizard')).toBeInTheDocument();
         expect(screen.getByText('warrior')).toBeInTheDocument();
     });
 
@@ -47,11 +47,11 @@ describe('TagAutocompleteInput', () => {
         expect(onChange).toHaveBeenCalledWith(['cowboy']);
     });
 
-    it('narrows suggestions as the user types and commits on click, closing the popover', () => {
+    it('narrows suggestions as the user types and commits on click, closing the popover', async () => {
         const { onChange, input } = setup([], ['wizard', 'warrior', 'grandmother']);
         fireEvent.change(input, { target: { value: 'wa' } });
 
-        expect(screen.getByText('warrior')).toBeInTheDocument();
+        expect(await screen.findByText('warrior')).toBeInTheDocument();
         expect(screen.queryByText('grandmother')).not.toBeInTheDocument();
 
         fireEvent.click(screen.getByText('warrior'));
@@ -109,11 +109,11 @@ describe('TagAutocompleteInput', () => {
         expect(onChange).not.toHaveBeenCalled();
     });
 
-    it('clicking the "+" again toggles the popover closed', () => {
+    it('clicking the "+" again toggles the popover closed', async () => {
         render(<TagAutocompleteInput tags={[]} onChange={vi.fn()} suggestions={[]} />);
         const trigger = screen.getByLabelText('Add tag');
         fireEvent.click(trigger);
-        expect(screen.getByLabelText('Search tag')).toBeInTheDocument();
+        expect(await screen.findByLabelText('Search tag')).toBeInTheDocument();
         fireEvent.click(trigger);
         expect(screen.queryByLabelText('Search tag')).not.toBeInTheDocument();
     });

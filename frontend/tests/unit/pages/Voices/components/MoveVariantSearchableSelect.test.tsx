@@ -39,7 +39,7 @@ describe('MoveVariantModal — SearchableSelect (WIRE-3)', () => {
         expect(screen.getByRole('button', { name: /Select a speaker/i })).toBeInTheDocument();
     });
 
-    it('opens the dropdown and shows speaker options when trigger is clicked', () => {
+    it('opens the dropdown and shows speaker options when trigger is clicked', async () => {
         render(
             <MoveVariantModal
                 isOpen={true}
@@ -55,7 +55,7 @@ describe('MoveVariantModal — SearchableSelect (WIRE-3)', () => {
 
         fireEvent.click(screen.getByRole('button', { name: /Select a speaker/i }));
 
-        expect(screen.getByText('Alice')).toBeInTheDocument();
+        expect(await screen.findByText('Alice')).toBeInTheDocument();
         expect(screen.getByText('Bob')).toBeInTheDocument();
         expect(screen.getByText('Charlie')).toBeInTheDocument();
     });
@@ -83,7 +83,7 @@ describe('MoveVariantModal — SearchableSelect (WIRE-3)', () => {
         expect(onSelectSpeaker).toHaveBeenCalledWith('spk-2');
     });
 
-    it('supports keyboard-searchable filtering', () => {
+    it('supports keyboard-searchable filtering', async () => {
         render(
             <MoveVariantModal
                 isOpen={true}
@@ -102,7 +102,7 @@ describe('MoveVariantModal — SearchableSelect (WIRE-3)', () => {
         const searchInput = screen.getByPlaceholderText('Search speakers...');
         fireEvent.change(searchInput, { target: { value: 'ali' } });
 
-        expect(screen.getByText('Alice')).toBeInTheDocument();
+        expect(await screen.findByText('Alice')).toBeInTheDocument();
         expect(screen.queryByText('Bob')).not.toBeInTheDocument();
     });
 });

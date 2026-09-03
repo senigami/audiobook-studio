@@ -116,7 +116,7 @@ describe('ProjectView - Navigation', () => {
     await waitFor(() => screen.findAllByText('Test Project'));
 
     fireEvent.click(screen.getByText('Add Chapter'));
-    expect(screen.getByText('Add New Chapter')).toBeInTheDocument();
+    expect(await screen.findByText('Add New Chapter')).toBeInTheDocument();
   });
 
   it('opens edit project modal', async () => {
@@ -124,7 +124,7 @@ describe('ProjectView - Navigation', () => {
     await waitFor(() => screen.findAllByText('Test Project'));
 
     fireEvent.click(screen.getByTitle('Edit Project Metadata'));
-    expect(screen.getByText('Edit Project Details')).toBeInTheDocument();
+    expect(await screen.findByText('Edit Project Details')).toBeInTheDocument();
   });
 
   it('enters assembly mode', async () => {
@@ -132,7 +132,7 @@ describe('ProjectView - Navigation', () => {
     await waitFor(() => screen.findAllByText('Test Project'));
 
     fireEvent.click(screen.getByTitle('Assemble Project'));
-    expect(screen.getByText('Select Chapters for Assembly')).toBeInTheDocument();
+    expect(await screen.findByText('Select Chapters for Assembly')).toBeInTheDocument();
     expect(screen.getByText('Confirm Assembly')).toBeInTheDocument();
   });
 });

@@ -211,17 +211,17 @@ describe('VariantEditor', () => {
             await vi.waitFor(() => expect(onRefresh).toHaveBeenCalled());
         });
 
-        it('aggregates sibling variants\' tags plus the starter vocabulary into suggestions', () => {
+        it('aggregates sibling variants\' tags plus the starter vocabulary into suggestions', async () => {
             const taggedProfile = { ...softProfile, performance_tags: [] };
             render(<VariantEditor {...baseProps} profile={taggedProfile} tagSuggestions={['gravelly']} />);
 
             fireEvent.click(screen.getByLabelText('Add tag'));
             const input = screen.getByLabelText('Search tag');
             fireEvent.change(input, { target: { value: 'grav' } });
-            expect(screen.getByText('gravelly')).toBeInTheDocument();
+            expect(await screen.findByText('gravelly')).toBeInTheDocument();
 
             fireEvent.change(input, { target: { value: 'calm' } });
-            expect(screen.getByText('calm')).toBeInTheDocument();
+            expect(await screen.findByText('calm')).toBeInTheDocument();
         });
     });
 
@@ -279,34 +279,34 @@ describe('VariantEditor', () => {
             expect(deleteItem).toHaveAttribute('data-destructive', 'true');
         });
 
-        it('clicking Script toggles the in-place Script/engine-config panel open and closed (task 009: no more onEditTestText tab-switch)', () => {
+        it('clicking Script toggles the in-place Script/engine-config panel open and closed (task 009: no more onEditTestText tab-switch)', async () => {
             render(<VariantEditor {...baseProps} profile={softProfile} />);
             expect(screen.queryByText('PREVIEW TEXT SCRIPT')).not.toBeInTheDocument();
 
             fireEvent.click(screen.getByTestId('menu-item-Script'));
-            expect(screen.getByText('PREVIEW TEXT SCRIPT')).toBeInTheDocument();
+            expect(await screen.findByText('PREVIEW TEXT SCRIPT')).toBeInTheDocument();
 
             fireEvent.click(screen.getByTestId('menu-item-Script'));
             expect(screen.queryByText('PREVIEW TEXT SCRIPT')).not.toBeInTheDocument();
         });
 
-        it('clicking Record samples toggles the in-place record-mode capture UI', () => {
+        it('clicking Record samples toggles the in-place record-mode capture UI', async () => {
             render(<VariantEditor {...baseProps} profile={softProfile} />);
             expect(screen.queryByText(/skip/i)).not.toBeInTheDocument();
 
             fireEvent.click(screen.getByTestId('menu-item-Record samples'));
-            expect(screen.getByRole('button', { name: /skip/i })).toBeInTheDocument();
+            expect(await screen.findByRole('button', { name: /skip/i })).toBeInTheDocument();
 
             fireEvent.click(screen.getByTestId('menu-item-Record samples'));
             expect(screen.queryByRole('button', { name: /skip/i })).not.toBeInTheDocument();
         });
 
-        it('the mic button next to the samples upload "+" also toggles record-mode (owner-requested, 2026-07-16)', () => {
+        it('the mic button next to the samples upload "+" also toggles record-mode (owner-requested, 2026-07-16)', async () => {
             render(<VariantEditor {...baseProps} profile={softProfile} />);
             expect(screen.queryByText(/skip/i)).not.toBeInTheDocument();
 
             fireEvent.click(screen.getByRole('button', { name: 'Record a sample' }));
-            expect(screen.getByRole('button', { name: /skip/i })).toBeInTheDocument();
+            expect(await screen.findByRole('button', { name: /skip/i })).toBeInTheDocument();
 
             fireEvent.click(screen.getByRole('button', { name: 'Record a sample' }));
             expect(screen.queryByRole('button', { name: /skip/i })).not.toBeInTheDocument();

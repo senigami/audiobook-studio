@@ -244,7 +244,7 @@ describe('CastingSuggestionsModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /use this voice/i }));
 
     expect(onAssign).not.toHaveBeenCalled();
-    expect(screen.getByText(/no longer available to assign/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no longer available to assign/i)).toBeInTheDocument();
   });
 
   it('surfaces a 422 (unknown contract/card version) error state', async () => {

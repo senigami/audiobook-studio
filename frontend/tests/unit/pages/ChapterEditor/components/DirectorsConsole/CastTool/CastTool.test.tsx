@@ -328,17 +328,17 @@ describe('CastTool', () => {
     expect(screen.getByTestId('render-controls-strip')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /script view/i }));
-    expect(screen.getByTestId('script-view')).toHaveAttribute('data-view-mode', 'script');
+    expect(await screen.findByTestId('script-view')).toHaveAttribute('data-view-mode', 'script');
 
     fireEvent.click(screen.getByRole('button', { name: /safe text/i }));
-    expect(screen.getByTestId('script-view')).toHaveAttribute('data-safe-text', 'true');
+    expect(await screen.findByTestId('script-view')).toHaveAttribute('data-safe-text', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: /^#$/i }));
-    expect(screen.getByTestId('script-view')).toHaveAttribute('data-show-numbers', 'true');
+    expect(await screen.findByTestId('script-view')).toHaveAttribute('data-show-numbers', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: 'Commit' }));
     expect(latestStudioChapterState.handleRequestResyncPreview).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('confirm-modal')).toHaveAttribute('data-open', 'true');
+    expect(await screen.findByTestId('confirm-modal')).toHaveAttribute('data-open', 'true');
     expect(screen.getByTestId('resync-preview-modal')).toHaveAttribute('data-open', 'true');
     expect(screen.getByTestId('queue-notice')).toHaveTextContent('Queued');
 

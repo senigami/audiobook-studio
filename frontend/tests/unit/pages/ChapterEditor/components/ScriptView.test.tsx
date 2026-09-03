@@ -147,7 +147,7 @@ describe('ScriptView', () => {
     expect(screen.getByText('Narrator')).toBeInTheDocument();
   });
 
-  it('toggles safe text overlay', () => {
+  it('toggles safe text overlay', async () => {
     render(
       <ScriptView
         data={mockData}
@@ -162,7 +162,7 @@ describe('ScriptView', () => {
     expect(screen.queryByText('Diff para.')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTitle('Toggle Safe Text'));
     expect(screen.queryByText('Different paragraph.')).not.toBeInTheDocument();
-    expect(screen.getByText('Diff para.')).toBeInTheDocument();
+    expect(await screen.findByText('Diff para.')).toBeInTheDocument();
   });
 
   it('highlights the playing span when playingSpanId is set', () => {
@@ -368,7 +368,7 @@ describe('ScriptView', () => {
     expect(renderGroup).toContainElement(screen.getByTestId('script-span-s2'));
   });
 
-  it('toggles segment numbers', () => {
+  it('toggles segment numbers', async () => {
     render(
       <ScriptView
         data={mockData}
@@ -381,7 +381,7 @@ describe('ScriptView', () => {
 
     expect(screen.queryByText('1')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTitle('Toggle Segment Numbers'));
-    expect(screen.getByText('1')).toBeInTheDocument();
+    expect(await screen.findByText('1')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
   });

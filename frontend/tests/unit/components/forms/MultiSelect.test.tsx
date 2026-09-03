@@ -38,22 +38,22 @@ describe('MultiSelect', () => {
     expect(onChange).toHaveBeenCalledWith([]);
   });
 
-  it('does not close the panel after toggling an option', () => {
+  it('does not close the panel after toggling an option', async () => {
     const onChange = vi.fn();
     render(<MultiSelect options={options} value={[]} onChange={onChange} label="Pick" />);
     fireEvent.click(screen.getByRole('combobox', { name: 'Pick' }));
     fireEvent.click(screen.getByRole('option', { name: 'Option 1' }));
-    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    expect(await screen.findByRole('listbox')).toBeInTheDocument();
   });
 
-  it('opens and toggles the highlighted option via arrow keys + space, changing the value', () => {
+  it('opens and toggles the highlighted option via arrow keys + space, changing the value', async () => {
     const onChange = vi.fn();
     render(<MultiSelect options={options} value={[]} onChange={onChange} label="Pick" />);
     const combobox = screen.getByRole('combobox', { name: 'Pick' });
 
     // Keyboard alone opens the panel — focus never leaves the combobox trigger.
     fireEvent.keyDown(combobox, { key: 'ArrowDown' });
-    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    expect(await screen.findByRole('listbox')).toBeInTheDocument();
 
     fireEvent.keyDown(combobox, { key: 'ArrowDown' }); // highlight moves 0 -> 1
     fireEvent.keyDown(combobox, { key: ' ' });         // toggle options[1]
@@ -123,7 +123,7 @@ describe('MultiSelect', () => {
     render(<MultiSelect options={options} value={[]} onChange={vi.fn()} label="Pick" />);
     const combobox = screen.getByRole('combobox', { name: 'Pick' });
     fireEvent.click(combobox);
-    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    expect(await screen.findByRole('listbox')).toBeInTheDocument();
 
     fireEvent.keyDown(combobox, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
@@ -137,7 +137,7 @@ describe('MultiSelect', () => {
       </div>
     );
     fireEvent.click(screen.getByRole('combobox', { name: 'Pick' }));
-    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    expect(await screen.findByRole('listbox')).toBeInTheDocument();
 
     fireEvent.mouseDown(screen.getByTestId('outside'));
     await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());

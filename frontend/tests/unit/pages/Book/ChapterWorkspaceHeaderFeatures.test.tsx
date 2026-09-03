@@ -297,7 +297,7 @@ describe('Bookmarks', () => {
     expect(screen.queryByRole('menu', { name: 'Bookmarks' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Show bookmarks' }));
-    expect(screen.getByRole('menu', { name: 'Bookmarks' })).toBeInTheDocument();
+    expect(await screen.findByRole('menu', { name: 'Bookmarks' })).toBeInTheDocument();
   });
 
   it('clicking a bookmark in the panel navigates to the correct chapter route', async () => {

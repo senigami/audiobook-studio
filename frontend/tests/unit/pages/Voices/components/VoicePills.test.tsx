@@ -122,22 +122,22 @@ describe('VoicePillRow', () => {
         expect(screen.queryByText('d')).not.toBeInTheDocument();
     });
 
-    it('expands all pills on +N click', () => {
+    it('expands all pills on +N click', async () => {
         render(<VoicePillRow pills={makePills(['a', 'b', 'c', 'd', 'e'])} max={3} />);
         fireEvent.click(screen.getByText('+2'));
-        expect(screen.getByText('d')).toBeInTheDocument();
+        expect(await screen.findByText('d')).toBeInTheDocument();
         expect(screen.getByText('e')).toBeInTheDocument();
         expect(screen.queryByText('+2')).not.toBeInTheDocument();
     });
 
-    it('shows collapse button after expand, clicking collapses', () => {
+    it('shows collapse button after expand, clicking collapses', async () => {
         render(<VoicePillRow pills={makePills(['a', 'b', 'c', 'd', 'e'])} max={3} />);
         fireEvent.click(screen.getByText('+2'));
         const collapseBtn = screen.getByRole('button', { name: 'Show fewer attributes' });
         expect(collapseBtn).toBeInTheDocument();
         fireEvent.click(collapseBtn);
         expect(screen.queryByText('d')).not.toBeInTheDocument();
-        expect(screen.getByText('+2')).toBeInTheDocument();
+        expect(await screen.findByText('+2')).toBeInTheDocument();
     });
 
     it('renders nothing when no pills', () => {

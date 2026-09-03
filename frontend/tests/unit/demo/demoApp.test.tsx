@@ -353,18 +353,18 @@ describe('DemoApp routing', () => {
     fireEvent.change(screen.getByRole('combobox', { name: 'Add language' }), {
       target: { value: 'Mandarin Chinese' },
     });
-    expect(screen.getByRole('button', { name: 'Remove language Mandarin Chinese' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Remove language Mandarin Chinese' })).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole('combobox', { name: 'Add dialect or vocal origin' }), {
       target: { value: 'Fantasy courtly' },
     });
-    expect(screen.getByRole('button', { name: 'Remove dialect or vocal origin Fantasy courtly' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Remove dialect or vocal origin Fantasy courtly' })).toBeInTheDocument();
 
     expect(screen.getByRole('heading', { name: 'Voice variations' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Dark Fiction.*default variation/i })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Sad/i }));
-    expect(screen.getByRole('button', { name: 'Remove emotion Sad' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Remove emotion Sad' })).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Variation intensity' })).toHaveValue('Moderate');
   });
 

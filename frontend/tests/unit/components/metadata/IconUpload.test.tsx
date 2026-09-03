@@ -157,14 +157,14 @@ describe('IconUpload', () => {
       expect(api.uploadVoiceIcon).not.toHaveBeenCalled();
     });
 
-    it('shows a drag-active hint while a file is dragged over, and clears it on drag-leave', () => {
+    it('shows a drag-active hint while a file is dragged over, and clears it on drag-leave', async () => {
       const { container } = render(<IconUpload voiceId="v1" currentImagePath={undefined} onSuccess={vi.fn()} onError={vi.fn()} />);
 
       const zone = dropZone(container);
       expect(screen.queryByText('Drop to upload')).toBeNull();
 
       fireEvent.dragOver(zone, { dataTransfer: { files: [] } });
-      expect(screen.getByText('Drop to upload')).toBeInTheDocument();
+      expect(await screen.findByText('Drop to upload')).toBeInTheDocument();
 
       fireEvent.dragLeave(zone);
       expect(screen.queryByText('Drop to upload')).toBeNull();
