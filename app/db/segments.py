@@ -1,14 +1,27 @@
 from __future__ import annotations
+import hashlib
 import os
 import logging
 import re
 import time
 from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
+from .segment_tombstones import has_tombstone
 from ..utils.render_trace import trace
 
 logger = logging.getLogger(__name__)
 SEGMENT_AUDIO_RE = re.compile(r"^(?P<segment_id>.+)\.(?:wav|mp3|m4a)$", re.IGNORECASE)
+
+
+def segment_text_hash(text_content: str) -> str:
+    """Canonical content fingerprint for a `chapter_segments` row's text.
+
+    Owned here (migration 001, #232) so every writer of `text_content` —
+    the migration's own backfill, resync, and row-creation-time grouping —
+    computes the same value via this one function (INV-9). Never
+    reimplement this formula at a call site.
+    """
+    return hashlib.sha256(text_content.strip().encode("utf-8")).hexdigest()
 
 
 def _chapter_has_active_generation(chapter_id: str) -> bool:
@@ -79,41 +92,6 @@ def update_segments_status_bulk(segment_ids: List[str], chapter_id: str, status:
         except Exception:
             logger.warning("Failed to clean up chapter audio after bulk segment reset", exc_info=True)
 
-def chapter_completion_by_size(chapter_id: str) -> tuple[int, int]:
-    """Return ``(done_chars, total_chars)`` for a chapter's segments, size-
-    weighted by ``LENGTH(text_content)`` rather than segment count.
-
-    Used as the order-independent source of truth for chapter completion
-    (W-PAR enable-gate, size-weighted/order-independent completion): unlike a
-    count-based ``completed/total`` ratio, this reflects the fraction of
-    manuscript TEXT actually rendered, so an out-of-order completion of a
-    large segment before smaller ones is not under-reported. ``audio_status
-    = 'done'`` is the sole completion value for ``chapter_segments`` (see
-    ``app/db/segments.py`` / ``update_segment``).
-
-    Returns ``(0, 0)`` for a chapter with no segments.
-    """
-    with _db_lock:
-        with get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                SELECT
-                    COALESCE(SUM(LENGTH(text_content)), 0) AS total_chars,
-                    COALESCE(SUM(CASE WHEN audio_status = 'done' THEN LENGTH(text_content) ELSE 0 END), 0) AS done_chars
-                FROM chapter_segments
-                WHERE chapter_id = ?
-                """,
-                (chapter_id,),
-            )
-            row = cursor.fetchone()
-    if not row:
-        return (0, 0)
-    total_chars = int(row["total_chars"] or 0)
-    done_chars = int(row["done_chars"] or 0)
-    return (done_chars, total_chars)
-
-
 def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
     request_started_at = time.perf_counter()
     with _db_lock:
@@ -157,7 +135,6 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
 
     # Rule 3: Disk as Source of Truth - Outside Lock
     from ..core import config
-    from ..domain.chunk_groups import build_chunk_groups
 
     chapter_dir = config.get_chapter_dir(project_id, chapter_id) if project_id else None
     seg_dir = config.secure_join_flat(chapter_dir, "segments") if chapter_dir else None
@@ -169,34 +146,11 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
         except OSError:
             existing_segment_files = set()
 
-    # Fetch default profile for group validation
-    default_profile = None
-    if project_id and chapter_id:
-        with _db_lock:
-            with get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT c.speaker_profile_name AS chapter_profile,
-                           p.speaker_profile_name AS project_profile
-                    FROM chapters c
-                    JOIN projects p ON p.id = c.project_id
-                    WHERE c.id = ?
-                """, (chapter_id,))
-                row = cursor.fetchone()
-                if row:
-                    default_profile = row["chapter_profile"] or row["project_profile"]
-
-    # Calculate current groups to determine canonical names
-    # This ensures that if groups change, old shared files are invalidated for the split segments.
-    current_groups = build_chunk_groups(rows, default_profile, engine_cache={})
-    segment_to_canonical = {}
-    for group in current_groups:
-        if not group['segments']:
-            continue
-        canonical_name = f"{group['segments'][0]['id']}.wav"
-        for seg in group['segments']:
-            segment_to_canonical[seg['id']] = canonical_name
-
+    # #232 Task 005b (item 6): a row's own audio_file_path is canonical by
+    # construction now (a chapter_segments row IS the render unit -- there
+    # is no separate "what would build_chunk_groups decide today" to compare
+    # against any longer). The self-heal below only ever invalidates a row
+    # for a genuinely MISSING file, never for a live-regroup mismatch.
     invalid_done_ids: list[str] = []
     for s in rows:
         if not s.get('speaker_profile_name') and s.get('character_speaker_profile_name'):
@@ -204,17 +158,18 @@ def get_chapter_segments(chapter_id: str) -> List[Dict[str, Any]]:
 
         if s['audio_status'] == 'done':
             path = s['audio_file_path']
-            exists = False
+            file_exists = path in existing_segment_files if (path and seg_dir) else False
 
-            # Rule: Segment audio must live in V2 segments/ directory
-            if path and seg_dir:
-                # Canonical check: must match the current group's canonical name
-                canonical_for_seg = segment_to_canonical.get(s['id'])
-                file_exists = path in existing_segment_files
-                if path == canonical_for_seg and file_exists:
-                    exists = True
-
-            if not exists:
+            if not file_exists:
+                # #232 Task 004: a file missing on disk could be mid-grace-
+                # period in a tombstone-then-sweep cycle (GC has tombstoned
+                # it but not yet deleted it, or has already deleted it and
+                # is about to clear the row itself). Don't race that: if a
+                # tombstone exists for this filename, its terminal state is
+                # GC's business, not this read path's — skip rather than
+                # NULL it out from here.
+                if path and has_tombstone(chapter_id, os.path.basename(path)):
+                    continue
                 s['audio_status'] = 'unprocessed'
                 s['audio_file_path'] = None
                 invalid_done_ids.append(s['id'])
@@ -450,6 +405,98 @@ def update_segments_bulk(segment_ids: List[str], **updates) -> bool:
 
             return cursor.rowcount > 0
 
+def write_back_segment_audio_guarded(
+    fingerprints: Dict[str, Dict[str, Any]],
+    audio_file_path: str,
+    chapter_id: str,
+) -> Dict[str, List[str]]:
+    """Guarded write-back for a completed render's segments (#232 Task 003, INV-2).
+
+    Applies ``audio_status='done'``/``audio_file_path``/``audio_generated_at``
+    per segment id ONLY if the row's live ``(text_hash, character_id,
+    speaker_profile_name)`` still matches the fingerprint captured at job
+    submission time. A mismatch means the segment's shape changed underneath
+    an in-flight render (a resync or reassignment) -- that id's result is
+    discarded rather than applied to a row that now means something
+    different. Handled per-row, not all-or-nothing: a multi-segment group
+    sharing one audio file can have some members apply and others discard.
+
+    If EVERY id in the batch is discarded, the shared audio file is
+    tombstoned (INV-3 -- never deleted directly here; GC removes it after
+    the grace period). If any id applies, any pre-existing tombstone for
+    that filename is cleared in the same transaction (a filename that was
+    tombstoned by a prior invalidation and is now legitimately live again).
+
+    Returns ``{"applied": [...ids], "stale": [...ids]}``.
+    """
+    if not fingerprints:
+        return {"applied": [], "stale": []}
+
+    now = time.time()
+    filename = os.path.basename(audio_file_path)
+    applied: List[str] = []
+    stale: List[str] = []
+
+    with _db_lock:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            for seg_id, fp in fingerprints.items():
+                cursor.execute(
+                    """
+                    UPDATE chapter_segments
+                       SET audio_status = 'done',
+                           audio_file_path = ?,
+                           audio_generated_at = ?
+                     WHERE id = ?
+                       AND text_hash = ?
+                       AND character_id IS ?
+                       AND speaker_profile_name IS ?
+                    """,
+                    (
+                        filename,
+                        now,
+                        seg_id,
+                        fp.get("text_hash"),
+                        fp.get("character_id"),
+                        fp.get("speaker_profile_name"),
+                    ),
+                )
+                if cursor.rowcount == 1:
+                    applied.append(seg_id)
+                else:
+                    stale.append(seg_id)
+
+            if applied:
+                cursor.execute(
+                    "DELETE FROM segment_audio_tombstones WHERE filename = ? AND chapter_id = ?",
+                    (filename, chapter_id),
+                )
+                cursor.execute(
+                    "UPDATE chapters SET audio_generated_at = ? WHERE id = ?",
+                    (now, chapter_id),
+                )
+            elif stale:
+                # The whole batch was stale: nothing applied, so this file is
+                # not referenced by any live row. Tombstone it rather than
+                # deleting directly (GC, Task 004, does the actual delete
+                # after the grace period).
+                cursor.execute(
+                    "INSERT OR IGNORE INTO segment_audio_tombstones (filename, chapter_id, created_at) VALUES (?, ?, ?)",
+                    (filename, chapter_id, now),
+                )
+
+            conn.commit()
+
+    trace(
+        "segments.write_back_guarded",
+        chapter_id=chapter_id,
+        filename=filename,
+        applied=applied,
+        stale=stale,
+    )
+    return {"applied": applied, "stale": stale}
+
+
 def cleanup_orphaned_segments(chapter_id: str):
     """
     Finds and deletes any files in the chapter's segments directory
@@ -504,11 +551,32 @@ def sync_chapter_segments(chapter_id: str, text_content: str, conn=None):
     import logging
     logger = logging.getLogger(__name__)
     from .nlp import split_into_sentences
-    from .segment_alignment import align_segments
+    from .segment_alignment import align_render_blocks
     sentences = split_into_sentences(text_content)
+
+    def _fresh_offsets(sents: list[str]) -> list[tuple[int, int]]:
+        offsets = []
+        pos = 0
+        for s in sents:
+            offsets.append((pos, pos + len(s)))
+            pos += len(s)
+        return offsets
 
     def _sync_with_conn(conn):
         cursor = conn.cursor()
+        # #232 migration 001 is additive and may not have run against every
+        # schema this function is exercised on (a handful of test fixtures
+        # still build a bare pre-migration chapter_segments table). Detect
+        # the column rather than assuming it, so this stays correct on both
+        # shapes -- see INV-9 below for why it's still written whenever it
+        # IS present. text_hash/start_offset/end_offset were all added by the
+        # same migration, so one column's presence stands in for all three.
+        has_render_block_columns = "text_hash" in {
+            row[1] for row in cursor.execute("PRAGMA table_info(chapter_segments)")
+        }
+        has_render_epoch_column = "render_epoch" in {
+            row[1] for row in cursor.execute("PRAGMA table_info(chapters)")
+        }
         # 1. Get existing segments
         cursor.execute("SELECT * FROM chapter_segments WHERE chapter_id = ? ORDER BY segment_order ASC", (chapter_id,))
         existing = [dict(row) for row in cursor.fetchall()]
@@ -517,114 +585,302 @@ def sync_chapter_segments(chapter_id: str, text_content: str, conn=None):
         project_id = crow["project_id"] if crow else None
         existing_by_id = {row["id"]: row for row in existing}
 
-        # 2. Content-anchored alignment (RC-1 fix): preserve matched runs (including
-        # multi-row fragment runs from manual sub-sentence splits) IN PLACE -- never
-        # delete-and-reinsert them, which is what kept destroying manual assignments
-        # (see design-docs/plans/active/span_resync_preservation_fix/).
-        alignment = align_segments(existing, sentences)
+        # 2. Content-anchored alignment at RENDER-BLOCK grain (#232 Task 005c):
+        # align_render_blocks() re-splits each existing row's text_content back
+        # into sentence anchors, reuses the proven three-pass matcher at that
+        # granularity, then translates the result into per-row outcomes
+        # (unchanged / split / deleted / re-homed) carrying fresh, whole-chapter
+        # -recomputed start_offset/end_offset -- see app/db/segment_alignment.py
+        # and tasks/002-resync-alignment-extension.md for the full contract.
+        alignment = align_render_blocks(existing, sentences)
 
-        preserved_by_fresh_index = {}
-        preserved_ids = set()
-        for run in alignment.preserved:
-            preserved_by_fresh_index[run.fresh_index] = run.existing_ids
-            preserved_ids.update(run.existing_ids)
+        fresh_offsets = _fresh_offsets(sentences)
+        placed: list[dict] = []
+        deleted_ids: set[str] = set()
 
-        unmatched_ids = alignment.unmatched_existing_ids
-        removed_rows = [existing_by_id[rid] for rid in unmatched_ids]
-        removed_audio_paths = {r.get("audio_file_path") for r in removed_rows if r.get("audio_file_path")}
+        def _carry(outcome, row):
+            placed.append({
+                "id": outcome.row_id,
+                "orig_segment_order": row.get("segment_order"),
+                "text_content": outcome.text_content,
+                "text_hash": outcome.text_hash,
+                "start_offset": outcome.start_offset,
+                "end_offset": outcome.end_offset,
+                "character_id": row.get("character_id"),
+                "speaker_profile_name": row.get("speaker_profile_name"),
+                "audio_status": row.get("audio_status", "unprocessed"),
+                "audio_file_path": row.get("audio_file_path"),
+                "audio_generated_at": row.get("audio_generated_at"),
+                "preserved": True,
+            })
 
-        # 3. Lay out the final row set in fresh-sentence order. A fragment run's rows
-        # keep their own text_content and relative order; only segment_order may change
-        # (Invariant I1a) -- id, character_id, speaker_profile_name, and audio fields on
-        # a preserved row are untouched here, and are only overwritten below if that
-        # exact row shares an audio file with a removed row (the shared-audio-invalidation
-        # pass, unchanged from before).
-        final_rows = []
-        order = 0
-        for i, sent in enumerate(sentences):
-            run_ids = preserved_by_fresh_index.get(i)
-            if run_ids:
-                for rid in run_ids:
-                    row = existing_by_id[rid]
-                    final_rows.append({
-                        "id": rid,
-                        "segment_order": order,
-                        "orig_segment_order": row.get("segment_order"),
-                        "text_content": row.get("text_content"),
-                        "character_id": row.get("character_id"),
-                        "speaker_profile_name": row.get("speaker_profile_name"),
-                        "audio_status": row.get("audio_status", "unprocessed"),
-                        "audio_file_path": row.get("audio_file_path"),
-                        "audio_generated_at": row.get("audio_generated_at"),
-                        "preserved": True,
-                    })
-                    order += 1
+        for outcome in alignment.outcomes:
+            row = existing_by_id.get(outcome.row_id)
+            if outcome.kind in ("unchanged", "re-homed"):
+                _carry(outcome, row)
+            elif outcome.kind == "deleted":
+                deleted_ids.add(outcome.row_id)
+            elif outcome.kind == "split":
+                # Task 002 step 4: every piece of a split row is invalidated --
+                # no partial-audio reuse -- but cast (character/profile) carries
+                # forward to every piece, since a boundary edit is not a
+                # re-casting decision. Exactly one piece may keep the original
+                # row's id (per align_render_blocks' tie-break); if none does,
+                # the original row disappears entirely.
+                any_kept = False
+                for piece in outcome.pieces or []:
+                    if piece.keeps_original_id:
+                        any_kept = True
+                        placed.append({
+                            "id": piece.id,
+                            "orig_segment_order": row.get("segment_order"),
+                            "text_content": piece.text_content,
+                            "text_hash": piece.text_hash,
+                            "start_offset": piece.start_offset,
+                            "end_offset": piece.end_offset,
+                            "character_id": row.get("character_id"),
+                            "speaker_profile_name": row.get("speaker_profile_name"),
+                            "audio_status": "unprocessed",
+                            "audio_file_path": None,
+                            "audio_generated_at": None,
+                            "preserved": True,
+                        })
+                    else:
+                        placed.append({
+                            "id": None,
+                            "orig_segment_order": None,
+                            "text_content": piece.text_content,
+                            "text_hash": piece.text_hash,
+                            "start_offset": piece.start_offset,
+                            "end_offset": piece.end_offset,
+                            "character_id": row.get("character_id"),
+                            "speaker_profile_name": row.get("speaker_profile_name"),
+                            "audio_status": "unprocessed",
+                            "audio_file_path": None,
+                            "audio_generated_at": None,
+                            "preserved": False,
+                        })
+                if not any_kept:
+                    deleted_ids.add(outcome.row_id)
+
+        removed_audio_paths = {
+            existing_by_id[rid].get("audio_file_path")
+            for rid in deleted_ids
+            if existing_by_id.get(rid, {}).get("audio_file_path")
+        }
+
+        # 3. Leftover fresh sentences claimed by nothing above (Task 005b): grouped
+        # into as few new rows as build_chunk_groups' chunk-limit rule allows,
+        # never inserted one row per sentence -- this is what closes the
+        # frontier-tier IntegrityError crash on ux_seg_audio_file. Grouping only
+        # ever happens HERE, at row-creation time.
+        #
+        # Scoped to `bool(existing)` -- i.e. only when this chapter already has
+        # at least one prior row, meaning genuinely new content is being ADDED
+        # to already-cast manuscript, not a chapter's first-ever import. A
+        # virgin import (existing == []) keeps one-row-per-sentence granularity
+        # so the editor's per-sentence casting workflow has something to cast.
+        should_group_new_rows = bool(existing)
+        remaining = sorted(alignment.new_sentence_indices)
+
+        def _new_row_dict(lo: int, hi: int, order_key: int) -> dict:
+            start, end = fresh_offsets[lo][0], fresh_offsets[hi][1]
+            text = "".join(sentences[lo: hi + 1])
+            return {
+                "id": None,
+                "orig_segment_order": None,
+                "text_content": text,
+                "text_hash": segment_text_hash(text),
+                "start_offset": start,
+                "end_offset": end,
+                "character_id": None,
+                "speaker_profile_name": None,
+                "audio_status": "unprocessed",
+                "audio_file_path": None,
+                "audio_generated_at": None,
+                "preserved": False,
+            }
+
+        i = 0
+        while i < len(remaining):
+            j = i
+            while j + 1 < len(remaining) and remaining[j + 1] == remaining[j] + 1:
+                j += 1
+            run = remaining[i: j + 1]
+            if not should_group_new_rows:
+                for k in run:
+                    placed.append(_new_row_dict(k, k, k))
             else:
-                final_rows.append({
-                    "id": str(time.time_ns()) + f"_{i}",
-                    "segment_order": order,
-                    "orig_segment_order": None,
-                    "text_content": sent,
-                    "character_id": None,
-                    "speaker_profile_name": None,
-                    "audio_status": "unprocessed",
-                    "audio_file_path": None,
-                    "audio_generated_at": None,
-                    "preserved": False,
-                })
-                order += 1
+                from ..domain.chunk_groups import build_chunk_groups  # noqa: PLC0415 -- avoid import cycle at module load
+                fake_segments = [
+                    {"text_content": sentences[k], "character_id": None, "speaker_profile_name": None}
+                    for k in run
+                ]
+                new_groups = build_chunk_groups(fake_segments, default_profile=None)
+                idx = 0
+                for group in new_groups:
+                    n = len(group["segments"])
+                    group_run = run[idx: idx + n]
+                    idx += n
+                    placed.append(_new_row_dict(group_run[0], group_run[-1], group_run[0]))
+            i = j + 1
 
         # 4. Shared-audio invalidation: a preserved row whose audio file is shared with a
         # removed row must still be force-invalidated (protects the existing
         # test_chapters_sync.py shared-audio-invalidation test).
-        for r in final_rows:
+        for r in placed:
             if r["preserved"] and r["audio_file_path"] in removed_audio_paths:
                 r["audio_status"] = "unprocessed"
                 r["audio_file_path"] = None
                 r["audio_generated_at"] = None
 
-        # 5. Execute the minimal write set. Preserved rows whose order didn't move and
-        # whose audio wasn't just invalidated get NO DB write at all -- this is the
-        # actual "preserve in place" guarantee, not delete-and-reinsert-with-old-id.
-        if unmatched_ids:
+        # 5. Lay out the final row set in whole-chapter offset order and assign
+        # segment_order by position -- offsets are always derived fresh from
+        # position in `sentences` (Task 002 step 7: never `+= delta`), so
+        # sorting by start_offset reproduces fresh-sentence order exactly.
+        placed.sort(key=lambda r: r["start_offset"])
+        final_rows = []
+        preserved_ids: set[str] = set()
+        for order, r in enumerate(placed):
+            r["segment_order"] = order
+            if r["preserved"]:
+                preserved_ids.add(r["id"])
+            else:
+                r["id"] = f"{time.time_ns()}_{order}"
+            final_rows.append(r)
+
+        # 6. Execute the minimal write set. Any existing row not carried forward
+        # into `final_rows` (deleted outright, or a split row whose id was not
+        # kept by any surviving piece) is removed here.
+        ids_to_delete = set(existing_by_id) - preserved_ids
+        if ids_to_delete:
             cursor.executemany(
                 "DELETE FROM chapter_segments WHERE id = ?",
-                [(rid,) for rid in unmatched_ids],
+                [(rid,) for rid in ids_to_delete],
             )
+
+        # Precompute which preserved rows actually need a write (content, order,
+        # audio, or offset changed) -- needed up-front (not just inline below) so
+        # the offset-collision guard just below can act on the same set.
+        for r in final_rows:
+            if not r["preserved"]:
+                r["_changed"] = True
+                continue
+            orig = existing_by_id[r["id"]]
+            r["_changed"] = (
+                r["segment_order"] != r["orig_segment_order"]
+                or r["text_content"] != orig.get("text_content")
+                or r["audio_status"] != orig.get("audio_status")
+                or r["audio_file_path"] != orig.get("audio_file_path")
+                or r["audio_generated_at"] != orig.get("audio_generated_at")
+                or (
+                    has_render_block_columns
+                    and (
+                        r["start_offset"] != orig.get("start_offset")
+                        or r["end_offset"] != orig.get("end_offset")
+                    )
+                )
+            )
+
+        # `start_offset`/`end_offset` carry per-chapter UNIQUE indexes
+        # (ux_seg_start/ux_seg_end, Task 005) checked immediately -- SQLite has
+        # no deferred UNIQUE constraints. A preserved row moving into a span
+        # another not-yet-written row currently still occupies (e.g. two rows
+        # trading positions on a reorder) would spuriously violate that
+        # constraint mid-transaction even though the FINAL layout is always a
+        # disjoint partition of the chapter's fresh text. Clear every updating
+        # preserved row's offsets to row-unique negative sentinels first --
+        # collision-free by construction (deleted rows are already gone above;
+        # any preserved row NOT being updated keeps its real, still-disjoint
+        # offset) -- so every INSERT/UPDATE below can then write its real
+        # final offset in any order without a transient collision.
+        if has_render_block_columns:
+            sentinel_updates = [
+                (-(i + 1), -(i + 1), r["id"])
+                for i, r in enumerate(final_rows)
+                if r["preserved"] and r["_changed"]
+            ]
+            if sentinel_updates:
+                cursor.executemany(
+                    "UPDATE chapter_segments SET start_offset = ?, end_offset = ? WHERE id = ?",
+                    sentinel_updates,
+                )
 
         for r in final_rows:
             if not r["preserved"]:
-                cursor.execute(
-                    """
-                    INSERT INTO chapter_segments
-                        (id, chapter_id, segment_order, text_content, character_id,
-                         speaker_profile_name, audio_status, audio_file_path, audio_generated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        r["id"], chapter_id, r["segment_order"], r["text_content"],
-                        r["character_id"], r["speaker_profile_name"], r["audio_status"],
-                        r["audio_file_path"], r["audio_generated_at"],
-                    ),
-                )
+                if has_render_block_columns:
+                    # INV-9 (#232): a fresh row's text_hash must be written in
+                    # the same statement as its text_content, via the one
+                    # canonical helper -- otherwise Task 003's write-back
+                    # guard would see a NULL live hash for every newly-synced
+                    # segment and discard every legitimate render as "stale".
+                    cursor.execute(
+                        """
+                        INSERT INTO chapter_segments
+                            (id, chapter_id, segment_order, text_content, text_hash, start_offset, end_offset,
+                             character_id, speaker_profile_name, audio_status, audio_file_path, audio_generated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            r["id"], chapter_id, r["segment_order"], r["text_content"],
+                            r["text_hash"], r["start_offset"], r["end_offset"],
+                            r["character_id"], r["speaker_profile_name"], r["audio_status"],
+                            r["audio_file_path"], r["audio_generated_at"],
+                        ),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        INSERT INTO chapter_segments
+                            (id, chapter_id, segment_order, text_content, character_id,
+                             speaker_profile_name, audio_status, audio_file_path, audio_generated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            r["id"], chapter_id, r["segment_order"], r["text_content"],
+                            r["character_id"], r["speaker_profile_name"], r["audio_status"],
+                            r["audio_file_path"], r["audio_generated_at"],
+                        ),
+                    )
                 continue
 
-            orig = existing_by_id[r["id"]]
-            order_changed = r["segment_order"] != r["orig_segment_order"]
-            audio_changed = (
-                r["audio_status"] != orig.get("audio_status")
-                or r["audio_file_path"] != orig.get("audio_file_path")
-                or r["audio_generated_at"] != orig.get("audio_generated_at")
-            )
-            if not order_changed and not audio_changed:
+            if not r["_changed"]:
                 continue  # genuinely untouched -- skip the DB write entirely
+            if has_render_block_columns:
+                cursor.execute(
+                    """
+                    UPDATE chapter_segments
+                    SET segment_order = ?, text_content = ?, text_hash = ?, start_offset = ?, end_offset = ?,
+                        audio_status = ?, audio_file_path = ?, audio_generated_at = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        r["segment_order"], r["text_content"], r["text_hash"],
+                        r["start_offset"], r["end_offset"],
+                        r["audio_status"], r["audio_file_path"], r["audio_generated_at"], r["id"],
+                    ),
+                )
+            else:
+                cursor.execute(
+                    """
+                    UPDATE chapter_segments
+                    SET segment_order = ?, text_content = ?, audio_status = ?, audio_file_path = ?, audio_generated_at = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        r["segment_order"], r["text_content"],
+                        r["audio_status"], r["audio_file_path"], r["audio_generated_at"], r["id"],
+                    ),
+                )
+
+        # #232 Task 005c: bump chapters.render_epoch once per resync call --
+        # align_render_blocks() signals this (render_epoch_bumped) but cannot
+        # perform the write itself (it's a pure function); this integration
+        # layer is where the actual UPDATE happens, per Task 002's contract.
+        if has_render_epoch_column and alignment.render_epoch_bumped:
             cursor.execute(
-                """
-                UPDATE chapter_segments
-                SET segment_order = ?, audio_status = ?, audio_file_path = ?, audio_generated_at = ?
-                WHERE id = ?
-                """,
-                (r["segment_order"], r["audio_status"], r["audio_file_path"], r["audio_generated_at"], r["id"]),
+                "UPDATE chapters SET render_epoch = render_epoch + 1 WHERE id = ?",
+                (chapter_id,),
             )
 
         return existing, preserved_ids, project_id

@@ -381,7 +381,7 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             from app.core.config import get_chapter_dir  # noqa: PLC0415
             from app.db.chapters import get_chapter  # noqa: PLC0415
             from app.db.segments import get_chapter_segments  # noqa: PLC0415
-            from app.domain.chunk_groups import build_chunk_groups, group_wav_path  # noqa: PLC0415
+            from app.domain.chunk_groups import rows_as_groups, group_wav_path  # noqa: PLC0415
             from app.domain.chapters.timing_generator import (  # noqa: PLC0415
                 build_chapter_timing,
                 write_timing_sidecar,
@@ -389,7 +389,7 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
 
             segments = get_chapter_segments(chapter_id)
             voice_profile_id = payload.get("voice_profile_id")
-            groups = build_chunk_groups(segments, voice_profile_id)
+            groups = rows_as_groups(segments, voice_profile_id)
 
             chapter_dir = get_chapter_dir(project_id, chapter_id)
             ordered_groups = [
@@ -501,9 +501,25 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
                 continue
 
             # Unresolved work remains — re-queue with recovery priority.
+            # #232 Task 008: pass the real persisted percent so the frontend
+            # never sees a bare "queued" with implied 0% on a resume.
+            requeue_progress = None
+            if context.chapter_id:
+                try:
+                    from app.db import get_connection  # noqa: PLC0415
+                    from app.domain.chapters.summary import get_chapter_summary  # noqa: PLC0415
+                    with get_connection() as _conn:
+                        requeue_progress = get_chapter_summary(_conn, context.chapter_id).percent_complete / 100.0
+                except Exception:
+                    logger.warning(
+                        "Recovery: task %s — failed to compute persisted progress for re-queue (fail-open).",
+                        task_id, exc_info=True,
+                    )
+                    requeue_progress = None
             self.progress_service.publish(
                 job_id=task_id,
                 status="queued",
+                progress=requeue_progress,
                 parent_job_id=context.project_id,
                 chapter_id=context.chapter_id,
                 message="Unresolved batches re-queued after recovery. Resuming...",

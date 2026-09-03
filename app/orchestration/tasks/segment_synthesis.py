@@ -1018,10 +1018,12 @@ class ChapterSynthesisTask(StudioTask):
             )
 
     def _build_groups(self) -> list[dict[str, Any]]:
-        """Build chunk groups from the parent's script (no DB access needed
-        when ``self.script`` is already populated by the caller)."""
-        from app.domain.chunk_groups import build_chunk_groups  # noqa: PLC0415
-        return build_chunk_groups(self.script, self.voice_profile_id)
+        """Wrap the parent's script rows as one-row groups (#232 Task 005b:
+        a ``chapter_segments`` row is the render unit by construction, so
+        this no longer regroups via ``build_chunk_groups`` -- no DB access
+        needed when ``self.script`` is already populated by the caller)."""
+        from app.domain.chunk_groups import rows_as_groups  # noqa: PLC0415
+        return rows_as_groups(self.script, self.voice_profile_id)
 
     def _fan_out_chapter(self) -> tuple[list[SegmentSynthesisTask], list[tuple[int, str]]]:
         """Construct one ``SegmentSynthesisTask`` per chunk group that still

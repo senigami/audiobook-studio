@@ -172,16 +172,20 @@ class StudioTask:
                 chapter_id = getattr(self, "chapter_id", None)
                 if chapter_id:
                     try:
-                        from app.domain.chunk_groups import build_chunk_groups, load_chunk_segments, get_chunk_group_indexes_for_segment_ids  # noqa: PLC0415
+                        from app.domain.chunk_groups import load_chunk_segments, get_chunk_group_indexes_for_segment_ids  # noqa: PLC0415
                         segment_ids = getattr(self, "segment_ids", None)
                         voice_profile_id = getattr(self, "voice_profile_id", None)
                         if segment_ids:
                             indexes = get_chunk_group_indexes_for_segment_ids(chapter_id, segment_ids, voice_profile_id)
                             group_count = len(indexes) if indexes else 1
                         else:
+                            # #232 Task 005b: a chapter_segments row IS the
+                            # render group by construction -- count non-blank
+                            # rows directly instead of recomputing groups via
+                            # build_chunk_groups.
                             segments = load_chunk_segments(chapter_id)
-                            groups = build_chunk_groups(segments, voice_profile_id)
-                            group_count = len(groups) if groups else 1
+                            non_blank = [s for s in segments if (s.get("text_content") or "").strip()]
+                            group_count = len(non_blank) if non_blank else 1
                     except Exception as exc:
                         import logging
                         logging.getLogger(__name__).warning("Failed to determine chunk group count fallback for chapter %s: %s", chapter_id, exc, exc_info=True)

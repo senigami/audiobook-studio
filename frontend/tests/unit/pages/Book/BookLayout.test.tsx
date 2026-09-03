@@ -130,11 +130,13 @@ describe('BookLayout', () => {
   it('redirects /book/:bookId to book by default', async () => {
     renderBookRoute('/book/book-1');
 
+    // The stage shell renders before the book data resolves, so the region is
+    // asserted inside waitFor: asserting it after waiting only on the pathname
+    // races the fetch and fails on a slow machine (seen in CI, green locally).
     await waitFor(() => {
       expect(screen.getByTestId('pathname')).toHaveTextContent('/book/book-1/book');
+      expect(screen.getByRole('region', { name: 'Book info' })).toBeInTheDocument();
     });
-
-    expect(screen.getByRole('region', { name: 'Book info' })).toBeInTheDocument();
   });
 
   it('redirects /book/:bookId to the last visited stage when present', async () => {
@@ -144,10 +146,9 @@ describe('BookLayout', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('pathname')).toHaveTextContent('/book/book-1/publish');
+      expect(screen.getByRole('region', { name: 'Publish' })).toBeInTheDocument();
+      expect(screen.getByRole('region', { name: 'Book identity' })).toBeInTheDocument();
     });
-
-    expect(screen.getByRole('region', { name: 'Publish' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Book identity' })).toBeInTheDocument();
   });
 
   it('persists the selected stage when a stage tab is clicked', () => {

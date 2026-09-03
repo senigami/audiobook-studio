@@ -1,3 +1,5 @@
+import time
+
 import pytest
 import os
 from pathlib import Path
@@ -92,3 +94,54 @@ def test_get_chapter_segments_resets_stale_processing_without_active_work(db_con
         ).fetchone()
         assert refreshed["audio_status"] == "unprocessed"
         assert refreshed["audio_file_path"] is None
+
+
+def test_get_chapter_segments_skips_tombstoned_missing_file_instead_of_nulling(db_conn, tmp_path):
+    """#232 Task 004: a 'done' row whose audio file is missing on disk must
+    NOT be nulled out by get_chapter_segments' self-heal if the filename has
+    a live tombstone — that missing file is expected (mid-grace-period GC),
+    and the row's terminal state is GC's business, not this read path's.
+
+    R1 revert-check target: fails against pre-Task-004 code, which nulls
+    any 'done' row whose file is missing regardless of tombstone status.
+    """
+    from app.db.migrations.registry import MIGRATIONS
+    from app.db.migrations.runner import run_migrations
+
+    with get_connection() as conn:
+        run_migrations(conn, MIGRATIONS)
+
+    pid = create_project("Tombstone Self-Heal Project")
+    cid = create_chapter(pid, "Tombstone Self-Heal Chapter")
+
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO chapter_segments
+              (id, chapter_id, segment_order, text_content, audio_status, audio_file_path)
+            VALUES (?, ?, 0, 'text', 'done', ?)
+            """,
+            ("seg_tombstoned", cid, "seg_tombstoned.wav"),
+        )
+        # Tombstoned — the file is gone because GC already swept it (or is
+        # about to), not because the row's data is wrong.
+        conn.execute(
+            "INSERT INTO segment_audio_tombstones (filename, chapter_id, created_at) VALUES (?, ?, ?)",
+            ("seg_tombstoned.wav", cid, time.time()),
+        )
+        conn.commit()
+
+    # No file on disk at all for seg_tombstoned.wav.
+    with patch("app.core.config.get_chapter_dir", return_value=tmp_path):
+        rows = get_chapter_segments(cid)
+
+    assert rows[0]["audio_status"] == "done", "Tombstoned-missing row must be left alone, not nulled"
+    assert rows[0]["audio_file_path"] == "seg_tombstoned.wav"
+
+    with get_connection() as conn:
+        refreshed = conn.execute(
+            "SELECT audio_status, audio_file_path FROM chapter_segments WHERE id = ?",
+            ("seg_tombstoned",),
+        ).fetchone()
+        assert refreshed["audio_status"] == "done"
+        assert refreshed["audio_file_path"] == "seg_tombstoned.wav"

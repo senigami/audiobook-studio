@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Iterable, Optional
 
 from ..db.core import get_connection
+from ..db.segments import segment_text_hash
 from ..engines.voice_engines import resolve_profile_engine
 from ..engines.behavior import (
     get_text_chunk_limit,
@@ -94,6 +95,59 @@ def build_chunk_groups(
     return groups
 
 
+def segment_row_as_group(
+    segment: dict,
+    default_profile: str | None,
+    *,
+    engine_cache: Optional[dict[str | None, str]] = None,
+) -> dict:
+    """Wrap a single ``chapter_segments`` row as a one-row chunk-group dict.
+
+    Post-#232 Task 005b, a row IS the render unit by construction (grouping
+    now happens once, at row-creation time, inside ``sync_chapter_segments``)
+    -- this exists only so the many consumers built against the historical
+    ``build_chunk_groups`` group-dict shape (``character_id``/``profile_name``/
+    ``engine``/``segments``/``text_parts``/``text_length``) don't each need an
+    independent rewrite. Never merges rows; callers that need every row of a
+    chapter wrapped this way should use ``rows_as_groups``.
+    """
+    text = (segment.get("text_content") or "").strip()
+    profile_name = resolve_segment_profile_name(segment, default_profile)
+    engine_cache = engine_cache if engine_cache is not None else {}
+    cache_key = profile_name or None
+    if cache_key in engine_cache:
+        engine = engine_cache[cache_key]
+    else:
+        engine = resolve_profile_engine(profile_name, "unknown")
+        engine_cache[cache_key] = engine
+    return {
+        "character_id": segment.get("character_id"),
+        "profile_name": profile_name,
+        "engine": engine,
+        "segments": [segment],
+        "text_parts": [text],
+        "text_length": len(text),
+    }
+
+
+def rows_as_groups(segments: list[dict], default_profile: str | None) -> list[dict]:
+    """Wrap each non-blank row of ``segments`` as its own one-row group.
+
+    Drop-in replacement for ``build_chunk_groups(segments, default_profile)``
+    at every call site that must NOT re-derive grouping at read/render time
+    (#232 Task 005b) -- a ``chapter_segments`` row is already the render unit,
+    so there is no merging left to do, only the per-row engine resolution
+    downstream consumers (e.g. ``handle_mixed_job``'s engine dispatch) still
+    depend on.
+    """
+    engine_cache: dict[str | None, str] = {}
+    return [
+        segment_row_as_group(segment, default_profile, engine_cache=engine_cache)
+        for segment in segments
+        if (segment.get("text_content") or "").strip()
+    ]
+
+
 def group_wav_path(chapter_dir: Path, group: dict) -> Path:
     """Canonical on-disk WAV path for a rendered chunk group.
 
@@ -172,6 +226,22 @@ def build_script_entry_for_group(
     # The orchestrator uses absolute paths for bridge transport
     seg_out = group_wav_path(chapter_dir, group)
 
+    # Write-back fingerprint guard (#232 Task 003, INV-2): capture, per
+    # member segment, the exact (text_hash, character_id,
+    # speaker_profile_name) the guard will re-check at write-back time.
+    # speaker_profile_name is the RAW column (not the resolved
+    # engine/profile above) -- comparing raw-to-raw at both ends is what
+    # makes the guard correct for a fallback-voiced segment whose column is
+    # NULL (see 003's task file for why comparing raw-vs-resolved is wrong).
+    fingerprints = {
+        s["id"]: {
+            "text_hash": segment_text_hash(s.get("text_content") or ""),
+            "character_id": s.get("character_id"),
+            "speaker_profile_name": s.get("speaker_profile_name"),
+        }
+        for s in group["segments"]
+    }
+
     script_entry: dict[str, Any] = {
         "text": processed,
         "speaker_wav": sw,
@@ -180,6 +250,7 @@ def build_script_entry_for_group(
         "save_path": str(seg_out.absolute()),
         "weight": max(1, len(processed)),  # Store weight for orchestrator progress tracking
         "engine": engine_id,
+        "fingerprints": fingerprints,
     }
     if vdir:
         script_entry["voice_profile_dir"] = vdir
@@ -192,15 +263,28 @@ def get_chunk_group_indexes_for_segment_ids(
     segment_ids: Iterable[str],
     default_profile: Optional[str] = None,
 ) -> list[int]:
+    """1-based ordinal position (among non-blank rows, in row order) of every
+    row in ``segment_ids``.
+
+    Post-#232 Task 005b: a row IS a render group by construction, so this
+    reads ``chapter_segments`` rows directly instead of recomputing groups
+    via ``build_chunk_groups`` -- the numbering is identical to before
+    (build_chunk_groups no longer merges distinct rows either), just derived
+    without the redundant regroup. ``default_profile`` is accepted for
+    backward-compatible call signatures but no longer used.
+    """
     target_ids = {segment_id for segment_id in segment_ids if segment_id}
     if not target_ids:
         return []
 
-    groups = build_chunk_groups(load_chunk_segments(chapter_id), default_profile)
     indexes: list[int] = []
-    for group_index, group in enumerate(groups, start=1):
-        if any(segment["id"] in target_ids for segment in group["segments"]):
-            indexes.append(group_index)
+    ordinal = 0
+    for segment in load_chunk_segments(chapter_id):
+        if not (segment.get("text_content") or "").strip():
+            continue
+        ordinal += 1
+        if segment["id"] in target_ids:
+            indexes.append(ordinal)
     return indexes
 
 

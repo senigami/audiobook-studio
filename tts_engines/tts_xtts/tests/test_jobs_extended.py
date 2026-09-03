@@ -184,16 +184,22 @@ def test_handle_xtts_job_standard_mixed_latent_only_profiles_builds_script(mock_
             pdir, out_wav, out_mp3, text="Fallback text"
         )
 
-    assert len(captured["script"]) == 2
-    assert "Narrator one" in captured["script"][0]["text"]
-    assert "Narrator two" in captured["script"][0]["text"]
+    # #232 Task 005b: ctx.build_chunk_groups no longer merges adjacent
+    # same-profile rows (n1/n2) into one render group at render time -- each
+    # row is its own script entry now, named after its own id.
+    assert len(captured["script"]) == 3
+    assert captured["script"][0]["text"] == "Narrator one."
     assert captured["script"][0]["save_path"].endswith("/segments/n1.wav")
     assert captured["script"][0]["voice_profile_dir"] == "/tmp/voices/Senigami"
     assert captured["script"][0]["speaker_wav"] is None
-    assert captured["script"][1]["text"] == "Character line."
-    assert captured["script"][1]["save_path"].endswith("/segments/c1.wav")
-    assert captured["script"][1]["voice_profile_dir"] == "/tmp/voices/Old Man - Angry"
+    assert captured["script"][1]["text"] == "Narrator two."
+    assert captured["script"][1]["save_path"].endswith("/segments/n2.wav")
+    assert captured["script"][1]["voice_profile_dir"] == "/tmp/voices/Senigami"
     assert captured["script"][1]["speaker_wav"] is None
+    assert captured["script"][2]["text"] == "Character line."
+    assert captured["script"][2]["save_path"].endswith("/segments/c1.wav")
+    assert captured["script"][2]["voice_profile_dir"] == "/tmp/voices/Old Man - Angry"
+    assert captured["script"][2]["speaker_wav"] is None
 
 
 def test_handle_xtts_job_standard_ignores_orphan_progress_before_start_segment(mock_job, tmp_path):

@@ -129,8 +129,16 @@ def test_sync_chapter_segments_does_not_cross_match_reordered_duplicates(db_conn
         assert refreshed[1]["audio_status"] == "unprocessed"
         assert refreshed[1]["audio_file_path"] is None
         assert refreshed[2]["text_content"].strip() == "Middle."
-        assert refreshed[2]["audio_status"] == "unprocessed"
-        assert refreshed[2]["audio_file_path"] is None
+        # #232 Task 005b (item 6): Middle's row is genuinely preserved and its
+        # audio file genuinely still exists on disk -- pre-005b this was
+        # invalidated only because get_chapter_segments' read-time self-heal
+        # recomputed a live "canonical" group filename (via build_chunk_groups)
+        # and found it didn't match Middle's own stored path, even though the
+        # file was valid. That mismatch-based invalidation is removed by
+        # 005b: a row's own audio_file_path is canonical by construction now,
+        # so a still-present, still-preserved file must stay "done".
+        assert refreshed[2]["audio_status"] == "done"
+        assert refreshed[2]["audio_file_path"] == middle_file.name
 
 def test_sync_chapter_segments_preserves_unchanged_trailing_segments_after_local_edit(db_conn, tmp_path):
     from app.db.segments import sync_chapter_segments, get_chapter_segments

@@ -40,6 +40,8 @@ def clean_db(tmp_path):
     import app.db.core
     importlib.reload(app.db.core)
     app.db.core.init_db()
+    from app.core.boot import run_schema_migrations
+    run_schema_migrations()
 
     from app.db.state import update_settings
     update_settings({"default_speaker_profile": "Voice1", "default_engine": "xtts", "mistral_api_key": "test_key", "enabled_plugins": {"voxtral": True}})
@@ -206,7 +208,7 @@ def test_build_script_uses_chunk_group_engine_for_safe_text(monkeypatch, tmp_pat
     )
     monkeypatch.setattr(
         generation,
-        "build_chunk_groups",
+        "rows_as_groups",
         lambda segments, default_profile: [
             {
                 "segments": [{"id": "s1"}],
@@ -289,7 +291,7 @@ def test_build_script_for_chapter_propagates_group_engine(clean_db, monkeypatch)
     )
     monkeypatch.setattr(
         generation,
-        "build_chunk_groups",
+        "rows_as_groups",
         lambda _segments, _default_profile: [{
             "segments": [{"id": "s1"}],
             "profile_name": "Voice",
@@ -305,6 +307,8 @@ def test_build_script_for_chapter_propagates_group_engine(clean_db, monkeypatch)
 
     script = generation._build_script_for_chapter("chapter-1", "project-1", "Default Voice", safe_mode=False)
 
+    from app.db.segments import segment_text_hash
+
     assert script == [{
         "text": "Hello",
         "speaker_wav": "ref.wav",
@@ -313,6 +317,13 @@ def test_build_script_for_chapter_propagates_group_engine(clean_db, monkeypatch)
         "save_path": str(Path("/tmp/project/chapter/segments/s1.wav").absolute()),
         "weight": 5,
         "engine": "xtts",
+        "fingerprints": {
+            "s1": {
+                "text_hash": segment_text_hash(""),
+                "character_id": None,
+                "speaker_profile_name": None,
+            },
+        },
         "voice_profile_dir": str(Path("/tmp/voice")),
     }]
 
@@ -383,7 +394,12 @@ def test_generate_segments_sets_segment_specific_queue_title(clean_db, client):
         response = client.post("/api/segments/generate", data={"segment_ids": f"{segs[0]['id']},{segs[1]['id']}"})
         assert response.status_code == 200
         job = mock_put_job.call_args.args[0]
-        assert job.custom_title == "Overview: segment #1"
+        # #232 Task 005b: a chapter_segments row IS its own render group now,
+        # so both requested rows are distinct groups (#1 and #2), not one
+        # merged group -- pre-005b these two same-profile rows would have
+        # been merged into a single render group by a live build_chunk_groups
+        # recompute at label-building time.
+        assert job.custom_title == "Overview: segments #1-2"
 
 
 def test_generate_segments_hydrates_segment_ids_without_live_job(clean_db, client):
@@ -409,7 +425,9 @@ def test_generate_segments_hydrates_segment_ids_without_live_job(clean_db, clien
     queue_response = client.get("/api/processing_queue")
     assert queue_response.status_code == 200
     row = next(item for item in queue_response.json() if item["id"] == job_id)
-    assert row["custom_title"] == "Overview: segment #1"
+    # #232 Task 005b: see test_generate_segments_sets_segment_specific_queue_title
+    # -- each row is its own group now, so both requested rows label as a range.
+    assert row["custom_title"] == "Overview: segments #1-2"
     assert row["segment_ids"] == segment_ids
 
 
@@ -516,15 +534,21 @@ def test_get_chapter_segments_treats_other_segment_audio_paths_as_unprocessed(cl
 
     with get_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute(
-            """
-            UPDATE chapter_segments
-            SET audio_status = 'done',
-                audio_file_path = ?
-            WHERE chapter_id = ?
-            """,
-            (expected_name, cid),
-        )
+        # #232 Task 005's ux_seg_audio_file unique index (chapter_id,
+        # audio_file_path) now forbids two rows in one chapter sharing a
+        # filename, so each segment gets its own distinct (still-nonexistent
+        # on disk) path -- the point under test (neither is found in the
+        # real segments dir) is unaffected by the paths being distinct.
+        for i, seg in enumerate(segs):
+            cursor.execute(
+                """
+                UPDATE chapter_segments
+                SET audio_status = 'done',
+                    audio_file_path = ?
+                WHERE id = ?
+                """,
+                (expected_name if i == 1 else f"other-{seg['id']}.wav", seg["id"]),
+            )
         conn.commit()
 
     # We no longer patch get_project_audio_dir because it's deleted.

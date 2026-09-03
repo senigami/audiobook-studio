@@ -18,7 +18,7 @@ from ...db.state import get_jobs, get_settings
 from ...db.state import update_job
 from ...core.constants import DEFAULT_VOICE_SENTINEL
 from ..ws import broadcast_chapter_updated, broadcast_queue_update
-from ...domain.chunk_groups import build_chunk_groups, load_chunk_segments
+from ...domain.chunk_groups import rows_as_groups, load_chunk_segments
 
 # Sub-modules
 from .chapters_models import BulkStatusUpdate, BulkSegmentsUpdate
@@ -185,7 +185,7 @@ def api_get_chapter_render_groups(project_id: str, chapter_id: str):
     default_profile = chapter_default or settings_default or None
 
     segments = load_chunk_segments(chapter_id)
-    groups = build_chunk_groups(segments, default_profile)
+    groups = rows_as_groups(segments, default_profile)
 
     result = []
     for idx, group in enumerate(groups):
@@ -201,7 +201,17 @@ def api_get_chapter_render_groups(project_id: str, chapter_id: str):
 
 @router.get("/chapters/{chapter_id}/segments")
 def api_get_segments(chapter_id: str):
-    return JSONResponse({"segments": get_chapter_segments(chapter_id)})
+    # #232 Task 009: segment_order is a derived-on-write convenience column
+    # (ordering authority is start_offset -- see 01-map.md's round-5
+    # correction); it has zero frontend readers, so stop serving it over the
+    # API here even though the DB column itself is untouched (internal
+    # callers of get_chapter_segments() still receive it -- e.g.
+    # tests/db/test_sync_chapter_segments_offsets.py sorts by it directly).
+    segments = [
+        {k: v for k, v in seg.items() if k != "segment_order"}
+        for seg in get_chapter_segments(chapter_id)
+    ]
+    return JSONResponse({"segments": segments})
 
 
 # Untrusted request bodies for PUT /segments/{id} are forwarded into

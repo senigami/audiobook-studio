@@ -9,36 +9,6 @@ from ..db.state import update_job
 logger = logging.getLogger(__name__)
 
 
-def _calculate_group_resume_state(job) -> tuple[float, int, int]:
-    if not getattr(job, "chapter_id", None):
-        return 0.0, 0, 0
-
-    try:
-        from ..domain.chunk_groups import build_chunk_groups, load_chunk_segments
-
-        groups = build_chunk_groups(load_chunk_segments(job.chapter_id), job.speaker_profile)
-        if not groups:
-            return 0.0, 0, 0
-
-        completed_groups = 0
-        for group in groups:
-            segments = group.get("segments", [])
-            if not segments:
-                continue
-            if all(segment.get("audio_status") == "done" and segment.get("audio_file_path") for segment in segments):
-                completed_groups += 1
-
-        return round(completed_groups / len(groups), 2), completed_groups, len(groups)
-    except Exception:
-        logger.error("Failed to get grouped chapter progress for resume initialization", exc_info=True)
-        return 0.0, 0, 0
-
-
-def _calculate_group_resume_progress(job) -> float:
-    progress, _, _ = _calculate_group_resume_state(job)
-    return progress
-
-
 def _broadcast_segment_progress(j, jid: str, progress: float):
     segment_id = getattr(j, "active_segment_id", None)
     if not segment_id:

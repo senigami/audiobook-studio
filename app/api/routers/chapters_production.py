@@ -8,6 +8,7 @@ from ...domain.chapters.facade import (
     get_resync_preview,
     compact_script_view,
     RevisionMismatch,
+    MergeChunkLimitExceeded,
 )
 
 from .chapters_models import (
@@ -90,6 +91,16 @@ def api_compact_script_view(chapter_id: str, payload: CompactionRequest):
         )
     except KeyError:
         return JSONResponse({"status": "error", "message": "Chapter not found"}, status_code=404)
+    except MergeChunkLimitExceeded as exc:
+        return JSONResponse(
+            {
+                "status": "error",
+                "message": str(exc),
+                "left_segment_id": exc.left_id,
+                "right_segment_id": exc.right_id,
+            },
+            status_code=422,
+        )
     except Exception as e:
         logger.error(f"Failed to compact script view for chapter {chapter_id}: {e}", exc_info=True)
         return JSONResponse({"status": "error", "message": "Internal server error during compaction"}, status_code=500)
