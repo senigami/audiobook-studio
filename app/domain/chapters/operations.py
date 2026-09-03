@@ -307,19 +307,20 @@ def save_script_assignments(
 def get_resync_preview(chapter_id: str, new_text: str) -> dict[str, Any]:
     """Calculates the impact of a source text resync without modifying the database.
 
-    Uses the SAME shared alignment function as the real sync (align_segments) so this
-    preview cannot drift from what a real save will actually do -- see
-    design-docs/plans/active/span_resync_preservation_fix/ (RC-1 fix, Task 5). Remains a
-    pure read: no DB writes.
+    Aligns at RENDER-BLOCK grain via align_render_blocks -- the same function
+    sync_chapter_segments commits with -- so the preview cannot disagree with the save.
+    Aligning at sentence grain here instead reports every multi-sentence row as lost,
+    because align_segments' position-anchored pass compares a whole row against a single
+    fresh sentence and can never match one. Remains a pure read: no DB writes.
     """
     from app.db.nlp import split_into_sentences
-    from app.db.segment_alignment import align_segments
+    from app.db.segment_alignment import align_render_blocks
 
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT s.id, s.text_content, s.character_id, s.speaker_profile_name, c.name as character_name
+            SELECT s.*, c.name as character_name
             FROM chapter_segments s
             LEFT JOIN characters c ON s.character_id = c.id
             WHERE s.chapter_id = ?
@@ -330,34 +331,45 @@ def get_resync_preview(chapter_id: str, new_text: str) -> dict[str, Any]:
         existing = [dict(row) for row in cursor.fetchall()]
 
     new_sentences = split_into_sentences(new_text)
-
     total_old = len(existing)
-    total_new = len(new_sentences)
 
-    alignment = align_segments(existing, new_sentences)
+    alignment = align_render_blocks(existing, new_sentences)
     existing_by_id = {row["id"]: row for row in existing}
 
-    # preserved_assignments_count is at fresh-sentence granularity: a preserved run of
-    # N fragment rows for one sentence counts once if ANY row in it carries a character
-    # assignment (a fragment run and a whole-sentence match are both "one sentence" from
-    # the preview's point of view).
+    # A row survives unless its outcome is "deleted". A split keeps the original id on
+    # one piece, so the assignment travels with it and is not a loss.
     preserved_count = 0
-    for run in alignment.preserved:
-        if any(existing_by_id[rid].get("character_id") for rid in run.existing_ids):
-            preserved_count += 1
-
     lost_assignments_count = 0
     affected_character_names = set()
-    for rid in alignment.unmatched_existing_ids:
-        row = existing_by_id[rid]
+    surviving_rows = 0
+    for outcome in alignment.outcomes:
+        row = existing_by_id.get(outcome.row_id)
+        if row is None:
+            continue
+        if outcome.kind == "deleted":
+            if row.get("character_id"):
+                lost_assignments_count += 1
+                affected_character_names.add(row.get("character_name") or "Unknown")
+            continue
+        surviving_rows += len(outcome.pieces) if outcome.kind == "split" and outcome.pieces else 1
         if row.get("character_id"):
+            preserved_count += 1
+
+    # An existing row with no outcome at all would be placed by nothing and therefore
+    # dropped by the save. Count it as lost: under-reporting loss is the one direction
+    # this preview must never fail in.
+    accounted = {o.row_id for o in alignment.outcomes}
+    for rid, row in existing_by_id.items():
+        if rid not in accounted and row.get("character_id"):
             lost_assignments_count += 1
             affected_character_names.add(row.get("character_name") or "Unknown")
+
+    total_new = surviving_rows + _count_new_rows(alignment.new_sentence_indices, new_sentences, bool(existing))
 
     # is_destructive is keyed purely to actual assignment loss (RC-1 fix, Task 5 follow-up
     # -- code review independently found the same bug): the old
     # `total_new < total_old` row-count heuristic was a valid proxy for "something got
-    # destroyed" BEFORE align_segments existed, since a legitimate manual split had no way
+    # destroyed" BEFORE shared alignment existed, since a legitimate manual split had no way
     # to shrink the row count while preserving assignments. Now a preserved multi-row
     # fragment run legitimately maps to one fresh sentence, so total_new < total_old on its
     # own no longer implies loss -- it produced a contradictory UI (a destructive-resync
@@ -371,6 +383,40 @@ def get_resync_preview(chapter_id: str, new_text: str) -> dict[str, Any]:
         "affected_character_names": sorted(list(affected_character_names)),
         "is_destructive": lost_assignments_count > 0
     }
+
+
+def _count_new_rows(
+    new_sentence_indices: Sequence[int], sentences: Sequence[str], should_group: bool
+) -> int:
+    """How many rows sync_chapter_segments will create for the leftover fresh sentences.
+
+    Mirrors that function's step 3 exactly: contiguous runs, grouped by
+    build_chunk_groups' chunk-limit rule, except on a chapter's first-ever import
+    (should_group False) where one row per sentence is kept for the casting workflow.
+    Counting sentences instead would overstate the post-sync row count.
+    """
+    remaining = sorted(new_sentence_indices)
+    if not remaining:
+        return 0
+    if not should_group:
+        return len(remaining)
+
+    from app.domain.chunk_groups import build_chunk_groups  # noqa: PLC0415 -- import cycle
+
+    total = 0
+    i = 0
+    while i < len(remaining):
+        j = i
+        while j + 1 < len(remaining) and remaining[j + 1] == remaining[j] + 1:
+            j += 1
+        run = remaining[i: j + 1]
+        fake_segments = [
+            {"text_content": sentences[k], "character_id": None, "speaker_profile_name": None}
+            for k in run
+        ]
+        total += len(build_chunk_groups(fake_segments, default_profile=None))
+        i = j + 1
+    return total
 
 
 def _plan_script_view_merges(segments: Sequence[Mapping[str, Any]]) -> list[dict]:

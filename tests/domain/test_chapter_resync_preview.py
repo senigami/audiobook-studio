@@ -122,11 +122,63 @@ def test_preview_is_not_destructive_for_a_split_that_shrinks_row_count_with_zero
         cursor.execute("UPDATE chapter_segments SET segment_order = 3 WHERE id = ?", (second_id,))
         conn.commit()
 
-    # 4 existing rows (3 fragments + 1 whole) -> 2 fresh sentences: total_new < total_old,
-    # but nothing is actually lost -- all 3 fragments and the second sentence are unchanged.
     preview = get_resync_preview(cid, "The quick fox. Second sentence.")
 
     assert preview["total_segments_before"] == 4
-    assert preview["total_segments_after"] == 2
     assert preview["lost_assignments_count"] == 0
+    assert preview["is_destructive"] is False
+
+    # total_segments_after is checked against what the sync ACTUALLY produces, never a
+    # hand-written number: this assertion previously expected 2 (the sentence-grain
+    # preview's own answer) while the sync has always kept all four rows, so the test
+    # was pinning the drift instead of catching it.
+    sync_chapter_segments(cid, "The quick fox. Second sentence.")
+    rows_after_real_sync = len(get_chapter_segments(cid))
+    assert preview["total_segments_after"] == rows_after_real_sync
+    assert "m_frag" in {s["id"] for s in get_chapter_segments(cid)}
+
+
+def test_preview_matches_the_real_sync_on_a_multi_sentence_render_block():
+    """#232 render-block grain: a chapter_segments row can hold several sentences.
+
+    The preview must predict what the real sync does. The expectation here is taken
+    from the sync itself (not recomputed from the preview's own arithmetic), so this
+    cannot pass by agreeing with its own implementation.
+    """
+    pid = create_project("PP-RB")
+    cid = create_chapter(pid, "CP-RB", text_content="Alpha one. Beta two.")
+
+    # First sync is virgin -> one row per sentence.
+    sync_chapter_segments(cid, "Alpha one. Beta two.")
+    # Second sync ADDS content, so the new sentences group into ONE render block
+    # holding more than one sentence (Task 005b: grouping happens at row creation).
+    full_text = "Alpha one. Beta two. Gamma three. Delta four."
+    sync_chapter_segments(cid, full_text)
+
+    segs = get_chapter_segments(cid)
+    multi = [s for s in segs if len(s["text_content"].strip().split(". ")) > 1]
+    assert multi, f"expected a multi-sentence render block, got {[s['text_content'] for s in segs]}"
+
+    block = multi[0]
+    hero = create_character(pid, "Blockhero")
+    update_segment(block["id"], character_id=hero)
+
+    # Preview a resync of the IDENTICAL text: nothing changes, so nothing can be lost.
+    preview = get_resync_preview(cid, full_text)
+
+    # Independent expectation: perform the real sync and observe the truth.
+    sync_chapter_segments(cid, full_text)
+    after = get_chapter_segments(cid)
+    surviving = {s["id"] for s in after}
+    really_lost = 0 if block["id"] in surviving else 1
+    still_assigned = next(
+        (s for s in after if s["id"] == block["id"] and s["character_id"] == hero), None
+    )
+
+    assert really_lost == 0, "precondition: the real sync preserves the row on identical text"
+    assert still_assigned is not None, "precondition: the real sync keeps the assignment"
+
+    # The preview must have said the same thing.
+    assert preview["lost_assignments_count"] == really_lost
+    assert preview["affected_character_names"] == []
     assert preview["is_destructive"] is False
