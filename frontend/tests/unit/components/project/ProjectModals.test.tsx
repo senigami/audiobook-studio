@@ -56,7 +56,7 @@ describe('ProjectModals', () => {
       expect(onSubmit).toHaveBeenCalledWith('New Chapter', 'Some text', null);
     });
 
-    it('handles file upload and clearing', () => {
+    it('handles file upload and clearing', async () => {
       const onSubmit = vi.fn();
       const { container } = render(
         <AddChapterModal 
@@ -71,7 +71,7 @@ describe('ProjectModals', () => {
       const input = container.querySelector('input[type="file"]') as HTMLInputElement;
       
       fireEvent.change(input, { target: { files: [file] } });
-      expect(screen.getByText('hello.txt')).toBeInTheDocument();
+      expect(await screen.findByText('hello.txt')).toBeInTheDocument();
       
       // Clearing file
       fireEvent.click(screen.getByRole('button', { name: '' })); // The Trash2 button
@@ -172,7 +172,7 @@ describe('ProjectModals', () => {
       expect(screen.queryByAltText('Preview')).not.toBeInTheDocument();
     });
 
-    it('handles drag and drop for cover image', () => {
+    it('handles drag and drop for cover image', async () => {
       render(
         <EditProjectModal 
           isOpen={true} 
@@ -187,7 +187,7 @@ describe('ProjectModals', () => {
       const file = new File(['(⌐□_□)'], 'cover.png', { type: 'image/png' });
       
       fireEvent.dragOver(dropzone);
-      expect(screen.getByText('Drop')).toBeInTheDocument();
+      expect(await screen.findByText('Drop')).toBeInTheDocument();
       
       fireEvent.drop(dropzone, {
         dataTransfer: {

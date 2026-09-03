@@ -266,7 +266,7 @@ describe('VoicesTab', () => {
         fireEvent.click(screen.getByText('Voxtral (1)'))
 
         expect(screen.queryByText('Narrator1')).not.toBeInTheDocument()
-        expect(screen.getByText('Narrator2')).toBeInTheDocument()
+        expect(await screen.findByText('Narrator2')).toBeInTheDocument()
     })
 
     it('hides disabled Voxtral voices while keeping enabled XTTS voices visible', async () => {
@@ -312,7 +312,7 @@ describe('VoicesTab', () => {
 
         // Narrator2 (voxtral, disabled engine) appears on the disabled tab
         expect(screen.queryByText('Narrator1')).not.toBeInTheDocument()
-        expect(screen.getByText('Narrator2')).toBeInTheDocument()
+        expect(await screen.findByText('Narrator2')).toBeInTheDocument()
     })
 
     it('uses the first ready engine as default when adding a variant if profile has no engine', async () => {

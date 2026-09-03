@@ -92,7 +92,7 @@ describe('CastPalette', () => {
     expect(clearBtn).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('shows "click sentences to clear" subtitle when CLEAR_ASSIGNMENT is armed', () => {
+  it('shows "click sentences to clear" subtitle when CLEAR_ASSIGNMENT is armed', async () => {
     render(<Harness />);
 
     const clearBtn = screen.getByRole('button', { name: /narrator \(default\)/i });
@@ -100,7 +100,7 @@ describe('CastPalette', () => {
     expect(screen.getByText(/revert lines to narrator/i)).toBeInTheDocument();
 
     fireEvent.click(clearBtn);
-    expect(screen.getByText(/click sentences to clear/i)).toBeInTheDocument();
+    expect(await screen.findByText(/click sentences to clear/i)).toBeInTheDocument();
   });
 
   it('labels the line-count pill and shows a chevron (not a bare number) for variants', () => {
@@ -112,7 +112,7 @@ describe('CastPalette', () => {
     expect(screen.getByLabelText(/2 voices available/i)).toBeInTheDocument();
   });
 
-  it('expands variants for a character with multiple profiles', () => {
+  it('expands variants for a character with multiple profiles', async () => {
     render(<Harness />);
 
     // Maren has 2 variants; accessible name includes initial, name, profile and count
@@ -122,7 +122,7 @@ describe('CastPalette', () => {
 
     // Selecting a multi-profile character auto-expands its variant list
     // (no separate "variants" toggle).
-    expect(screen.getByRole('button', { name: /^a$/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /^a$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^b$/i })).toBeInTheDocument();
   });
 
@@ -133,15 +133,15 @@ describe('CastPalette', () => {
   // plain state container, not the audio boundary itself.
   // ---------------------------------------------------------------------------
 
-  it('renders a disabled play button per variant when no preview_url is set', () => {
+  it('renders a disabled play button per variant when no preview_url is set', async () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole('button', { name: /M Maren/i }));
 
-    expect(screen.getByRole('button', { name: /play a preview/i })).toBeDisabled();
+    expect(await screen.findByRole('button', { name: /play a preview/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /play b preview/i })).toBeDisabled();
   });
 
-  it('clicking a variant play button loads it via playerBus and toggles to Pause', () => {
+  it('clicking a variant play button loads it via playerBus and toggles to Pause', async () => {
     const profilesWithPreview: SpeakerProfile[] = mockProfiles.map((p) =>
       p.name === 'Maren A' ? { ...p, preview_url: '/preview/maren-a.mp3' } : p
     );
@@ -177,7 +177,7 @@ describe('CastPalette', () => {
 
     // playerBus is a real store here — loading candidate A flips this same
     // button to its Pause state.
-    expect(screen.getByRole('button', { name: /pause a preview/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /pause a preview/i })).toBeInTheDocument();
   });
 });
 
@@ -262,7 +262,7 @@ describe('CastPalette — 3-tier grouping', () => {
     expect(screen.getByRole('button', { name: /A Alice/i })).toBeInTheDocument();
   });
 
-  it('places book chars with no assignment in this chapter in tier 3 (Everyone else)', () => {
+  it('places book chars with no assignment in this chapter in tier 3 (Everyone else)', async () => {
     render(
       <TieredHarness
         characters={[alice, bob, tempChar]}
@@ -275,7 +275,7 @@ describe('CastPalette — 3-tier grouping', () => {
     // (tier3 defaults to collapsed — button is not visible yet)
     // Expand tier 3
     fireEvent.click(screen.getByText(/everyone else/i));
-    expect(screen.getByRole('button', { name: /B Bob/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /B Bob/i })).toBeInTheDocument();
   });
 
   it('places characters whose chapter_id matches currentChapterId in tier 2 (Chapter cast)', () => {

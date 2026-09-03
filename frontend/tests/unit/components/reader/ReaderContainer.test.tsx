@@ -151,12 +151,12 @@ describe('ReaderContainer', () => {
     expect(document.activeElement).toBe(screen.getByLabelText(/expand/i));
   });
 
-  it('hides the fullscreen control when the Fullscreen API is unsupported', () => {
+  it('hides the fullscreen control when the Fullscreen API is unsupported', async () => {
     // No stub installed: jsdom's HTMLElement has no requestFullscreen by default.
     render(<ReaderContainer {...baseProps()} />);
     fireEvent.click(screen.getByLabelText(/expand/i));
 
-    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(await screen.findByRole('dialog')).toBeTruthy();
     expect(screen.queryByLabelText(/enter fullscreen/i)).toBeNull();
   });
 

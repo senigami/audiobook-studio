@@ -151,7 +151,7 @@ describe('EngineCard developer scenarios', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'API Error (401)' }));
 
-    expect(screen.getByRole('heading', { name: 'Voxtral (Mistral AI)' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Voxtral (Mistral AI)' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Voxtral Cloud' })).not.toBeInTheDocument();
     expect(screen.getByText('Voxtral Cloud Voices')).toBeInTheDocument();
     expect(screen.getByText('Mistral API Key')).toBeInTheDocument();

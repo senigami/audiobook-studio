@@ -51,7 +51,7 @@ describe('AnnotationsPanel', () => {
     expect(screen.getByRole('button', { name: /Save Note/i })).toBeInTheDocument();
   });
 
-  it('can save a note and display it in the list', () => {
+  it('can save a note and display it in the list', async () => {
     render(
       <AnnotationsPanel
         chapterId="chapter-1"
@@ -69,7 +69,7 @@ describe('AnnotationsPanel', () => {
 
     // The note should show up in the list, addressed by its human-readable
     // ordinal — never the raw engine segment id.
-    expect(screen.getByText('This is my segment note', { selector: 'p' })).toBeInTheDocument();
+    expect(await screen.findByText('This is my segment note', { selector: 'p' })).toBeInTheDocument();
     expect(screen.getByText(/Segment 1/i)).toBeInTheDocument();
   });
 
@@ -130,7 +130,7 @@ describe('AnnotationsPanel', () => {
     expect(container.textContent).not.toMatch(/seg-2/);
   });
 
-  it('does NOT wipe the note being typed when activeSegmentId changes underneath it, and saves against the pinned segment', () => {
+  it('does NOT wipe the note being typed when activeSegmentId changes underneath it, and saves against the pinned segment', async () => {
     const { rerender } = render(
       <AnnotationsPanel
         chapterId="chapter-1"
@@ -174,11 +174,11 @@ describe('AnnotationsPanel', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /Save Note/i }));
 
-    expect(screen.getByText('Half-typed note about the villain, finished.', { selector: 'p' })).toBeInTheDocument();
+    expect(await screen.findByText('Half-typed note about the villain, finished.', { selector: 'p' })).toBeInTheDocument();
     expect(screen.getByText(/Segment 1/i)).toBeInTheDocument();
   });
 
-  it('releases the pin on blur when the note is empty', () => {
+  it('releases the pin on blur when the note is empty', async () => {
     const { rerender } = render(
       <AnnotationsPanel
         chapterId="chapter-1"
@@ -190,7 +190,7 @@ describe('AnnotationsPanel', () => {
 
     const textarea = screen.getByPlaceholderText(/Add a note for the active segment/i);
     fireEvent.focus(textarea);
-    expect(screen.getByText(/Note for segment/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Note for segment/i)).toBeInTheDocument();
 
     // Blur with no text typed — pin releases.
     fireEvent.blur(textarea);

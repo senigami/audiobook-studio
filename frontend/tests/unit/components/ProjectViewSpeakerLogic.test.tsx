@@ -144,7 +144,7 @@ describe('ProjectView - Speaker Logic', () => {
 
     const select = screen.getByRole('combobox');
     fireEvent.change(select, { target: { value: '' } });
-    expect(screen.getByDisplayValue('Default Speaker (Voice 1)')).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('Default Speaker (Voice 1)')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Queue Remaining'));
     await waitFor(() => {
@@ -225,7 +225,7 @@ describe('ProjectView - Speaker Logic', () => {
     });
 
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Dark Fantasy - Default' } });
-    expect(screen.getByDisplayValue('Dark Fantasy')).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('Dark Fantasy')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Queue Remaining'));
     await waitFor(() => {

@@ -206,7 +206,7 @@ describe('SegmentRenderMonitor — degrade-by-count', () => {
     expect(rows.length).toBe(76);
   });
 
-  it('opens the accessible table when the "Segment detail (N)" toggle button is clicked', () => {
+  it('opens the accessible table when the "Segment detail (N)" toggle button is clicked', async () => {
     mockMatchMedia(false);
     const segments = makeSegments(75, Array.from({ length: 75 }, (_, i) => (i < 40 ? { phase: 'done' as const } : { phase: 'preparing' as const, progress: 0 })));
     render(<SegmentRenderMonitor segments={segments} cap={3} />);
@@ -220,7 +220,7 @@ describe('SegmentRenderMonitor — degrade-by-count', () => {
     fireEvent.click(toggle);
 
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('table', { hidden: true })).toBeInTheDocument();
+    expect(await screen.findByRole('table', { hidden: true })).toBeInTheDocument();
   });
 
   it('keeps the table open across a live progress update (re-render with new segment props)', () => {

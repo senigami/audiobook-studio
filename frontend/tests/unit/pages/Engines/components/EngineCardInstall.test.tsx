@@ -155,7 +155,7 @@ describe('EngineCard Install Deps', () => {
     fireEvent.click(screen.getByText('Voxtral'));
 
     expect(screen.queryByRole('button', { name: /Install Deps/i })).not.toBeInTheDocument();
-    expect(screen.getByText(/Voxtral requires MISTRAL_API_KEY/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Voxtral requires MISTRAL_API_KEY/i)).toBeInTheDocument();
     expect(screen.queryByText(/Install Deps installs/i)).not.toBeInTheDocument();
   });
 
@@ -167,7 +167,7 @@ describe('EngineCard Install Deps', () => {
     expect(screen.queryByText(/Voxtral requires/i)).not.toBeInTheDocument();
     // NOT READY and UNVERIFIED are now a single merged status badge
     // (EngineCard.tsx's `statusLabel`) rather than two separate pills.
-    expect(screen.getByText('UNVERIFIED')).toBeInTheDocument();
+    expect(await screen.findByText('UNVERIFIED')).toBeInTheDocument();
     expect(screen.queryByText('NOT READY')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Verify/i })).toBeInTheDocument();
   });

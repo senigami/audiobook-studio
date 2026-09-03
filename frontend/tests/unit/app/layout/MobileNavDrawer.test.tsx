@@ -63,7 +63,7 @@ describe('MobileNavDrawer', () => {
     expect(document.querySelector('.mobile-nav-backdrop')).toBeNull();
   });
 
-  it('navigates and closes when a nav item is clicked', () => {
+  it('navigates and closes when a nav item is clicked', async () => {
     const onClose = vi.fn();
 
     render(
@@ -75,7 +75,7 @@ describe('MobileNavDrawer', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Voices' }));
 
-    expect(screen.getByTestId('pathname')).toHaveTextContent('/voices');
+    expect(await screen.findByTestId('pathname')).toHaveTextContent('/voices');
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -116,7 +116,7 @@ describe('MobileNavDrawer', () => {
     expect(screen.getByRole('button', { name: 'Event stream' })).toBeTruthy();
   });
 
-  it('uses the shared theme toggle behavior', () => {
+  it('uses the shared theme toggle behavior', async () => {
     document.documentElement.dataset.theme = 'light';
 
     render(
@@ -128,7 +128,7 @@ describe('MobileNavDrawer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Switch to dark mode' }));
 
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
-    expect(screen.getByRole('button', { name: 'Switch to light mode' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Switch to light mode' })).toBeTruthy();
   });
 
   it('traps focus inside the drawer, wrapping Tab from the last item back to the first', () => {

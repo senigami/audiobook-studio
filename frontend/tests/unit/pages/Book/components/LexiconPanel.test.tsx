@@ -251,6 +251,6 @@ describe('LexiconPanel', () => {
 
     expect(api.deleteLexiconEntry).not.toHaveBeenCalled();
     // Entry is still present
-    expect(screen.getByText('vale')).toBeInTheDocument();
+    expect(await screen.findByText('vale')).toBeInTheDocument();
   });
 });

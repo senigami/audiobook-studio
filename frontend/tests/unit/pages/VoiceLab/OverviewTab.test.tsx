@@ -43,7 +43,7 @@ describe('OverviewTab', () => {
         expect(screen.getByRole('button', { name: 'Adult' })).toBeInTheDocument();
     });
 
-    it('picking an archetype from the quick-pick overwrites class/gender/age even when different values were already set (owner-requested, 2026-07-16)', () => {
+    it('picking an archetype from the quick-pick overwrites class/gender/age even when different values were already set (owner-requested, 2026-07-16)', async () => {
         const differentlyTagged: VoiceMetadata = {
             ...mockVoice,
             attributes: { class: 'creature', gender: 'ambiguous', age: 'ageless' },
@@ -57,7 +57,7 @@ describe('OverviewTab', () => {
         // Warm Storyteller is class=human/gender=feminine/age=adult -- the
         // comboboxes must now show that, not the original creature/ambiguous/
         // ageless values (a real overwrite, not a no-op or a merge-only-blanks).
-        expect(screen.getByRole('button', { name: 'Human' })).toBeInTheDocument();
+        expect(await screen.findByRole('button', { name: 'Human' })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Feminine' })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Adult' })).toBeInTheDocument();
     });
@@ -80,7 +80,7 @@ describe('OverviewTab', () => {
         expect(screen.getByText('Class, Gender, and Age are required to save.')).toBeInTheDocument();
     });
 
-    it('unblocks Save once a required combobox value is picked', () => {
+    it('unblocks Save once a required combobox value is picked', async () => {
         const incompleteVoice: VoiceMetadata = {
             ...mockVoice,
             attributes: { gender: 'feminine', age: 'adult' },
@@ -90,7 +90,7 @@ describe('OverviewTab', () => {
         fireEvent.click(screen.getByRole('button', { name: /Select Class/i }));
         fireEvent.click(screen.getByRole('button', { name: 'Human' }));
 
-        expect(screen.getByRole('button', { name: /Saving|Save/ })).not.toBeDisabled();
+        expect(await screen.findByRole('button', { name: /Saving|Save/ })).not.toBeDisabled();
     });
 
     // F3.1 (design-critique/voices-variants-round2): the CLASS/GENDER/AGE
@@ -115,7 +115,7 @@ describe('OverviewTab', () => {
     // owner-requested 2026-07-16) -- this now exercises STYLE instead, the
     // remaining voice-level many-value field, to keep covering the
     // TagAutocompleteInput pattern in OverviewTab specifically.
-    it('renders STYLE as a type-to-filter autocomplete with removable pills, not a toggle-chip row', () => {
+    it('renders STYLE as a type-to-filter autocomplete with removable pills, not a toggle-chip row', async () => {
         const voiceWithStyle: VoiceMetadata = {
             ...mockVoice,
             attributes: { ...mockVoice.attributes, style: ['warm'] },
@@ -133,7 +133,7 @@ describe('OverviewTab', () => {
         const input = screen.getByLabelText('Search style');
         fireEvent.change(input, { target: { value: 'calm' } });
         fireEvent.keyDown(input, { key: 'Enter' });
-        expect(screen.getByRole('button', { name: 'Remove calm' })).toBeInTheDocument();
+        expect(await screen.findByRole('button', { name: 'Remove calm' })).toBeInTheDocument();
     });
 
     // Owner-requested (2026-07-16): Save must be disabled ("grayed out") when
@@ -156,7 +156,7 @@ describe('OverviewTab', () => {
 
             const description = screen.getByLabelText('DESCRIPTION');
             fireEvent.change(description, { target: { value: 'Updated.' } });
-            expect(screen.getByRole('button', { name: 'Save' })).not.toBeDisabled();
+            expect(await screen.findByRole('button', { name: 'Save' })).not.toBeDisabled();
 
             fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 

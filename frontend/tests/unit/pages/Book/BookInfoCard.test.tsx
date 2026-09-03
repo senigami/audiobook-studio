@@ -69,12 +69,12 @@ describe('BookInfoCard metadata', () => {
     expect(screen.getByRole('button', { name: 'Increase series position' })).toHaveTextContent('+');
   });
 
-  it('shows the series steppers while editing when the book number is unset', () => {
+  it('shows the series steppers while editing when the book number is unset', async () => {
     renderCard({ project: { ...baseProject, series: 'Aurora Cycle', series_position: null } });
 
     fireEvent.click(screen.getByRole('button', { name: 'Add series number' }));
 
-    expect(screen.getByRole('button', { name: 'Decrease series position' })).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Decrease series position' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Increase series position' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Series position' })).toHaveValue('');
   });
@@ -107,28 +107,28 @@ describe('BookInfoCard metadata', () => {
     expect(screen.getByText('Add series').closest('.inline-edit-trigger')).toHaveStyle({ fontStyle: 'italic' });
   });
 
-  it('allows the title to be edited in place', () => {
+  it('allows the title to be edited in place', async () => {
     renderCard();
 
     fireEvent.click(screen.getByText('Book One'));
 
-    expect(screen.getByRole('textbox')).toHaveValue('Book One');
+    expect(await screen.findByRole('textbox')).toHaveValue('Book One');
   });
 
-  it('uses the same borderless inline editor for title, author, and series text', () => {
+  it('uses the same borderless inline editor for title, author, and series text', async () => {
     renderCard({ project: { ...baseProject, series: 'Aurora Cycle', series_position: 12 } });
 
     fireEvent.click(screen.getByText('Book One'));
-    expect(screen.getByRole('textbox', { name: 'Title' })).toHaveStyle({ borderStyle: 'none', background: 'transparent' });
+    expect(await screen.findByRole('textbox', { name: 'Title' })).toHaveStyle({ borderStyle: 'none', background: 'transparent' });
     fireEvent.blur(screen.getByRole('textbox', { name: 'Title' }));
 
     fireEvent.click(screen.getByText('Author One'));
-    expect(screen.getByRole('textbox', { name: 'Author' })).toHaveStyle({ borderStyle: 'none', background: 'transparent' });
+    expect(await screen.findByRole('textbox', { name: 'Author' })).toHaveStyle({ borderStyle: 'none', background: 'transparent' });
     expect(screen.getByRole('textbox', { name: 'Author' })).toHaveClass('inline-edit-input');
     fireEvent.blur(screen.getByRole('textbox', { name: 'Author' }));
 
     fireEvent.click(screen.getByText('Aurora Cycle'));
-    expect(screen.getByRole('textbox', { name: 'Series name' })).toHaveStyle({ borderStyle: 'none', background: 'transparent' });
+    expect(await screen.findByRole('textbox', { name: 'Series name' })).toHaveStyle({ borderStyle: 'none', background: 'transparent' });
     expect(screen.getByRole('textbox', { name: 'Series name' })).toHaveClass('inline-edit-input');
   });
 

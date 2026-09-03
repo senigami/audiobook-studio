@@ -85,7 +85,7 @@ describe('GeneralSettingsPanel Developer Mode toggle', () => {
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
-  it('clicking the Developer Mode toggle writes true to localStorage and reveals the Developer nav entry', () => {
+  it('clicking the Developer Mode toggle writes true to localStorage and reveals the Developer nav entry', async () => {
     render(
       <MemoryRouter initialEntries={['/settings']}>
         <SettingsRoute {...defaultProps} />
@@ -98,7 +98,7 @@ describe('GeneralSettingsPanel Developer Mode toggle', () => {
     expect(localStorage.getItem(STORAGE_KEY)).toBe('true');
 
     // Developer nav link should now appear in the sidebar
-    expect(screen.getByRole('link', { name: /Developer/i })).toBeTruthy();
+    expect(await screen.findByRole('link', { name: /Developer/i })).toBeTruthy();
   });
 
   it('toggling Developer Mode off again removes the Developer nav entry', () => {

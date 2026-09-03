@@ -86,7 +86,7 @@ describe('ProjectLibrary', () => {
         const createBtn = await screen.findByText(/New Project/i)
         fireEvent.click(createBtn)
 
-        expect(screen.getByText('Title *')).toBeTruthy()
+        expect(await screen.findByText('Title *')).toBeTruthy()
     })
 
     it('does not contain hardcoded XTTS-v2 copy', async () => {

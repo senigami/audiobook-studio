@@ -96,11 +96,11 @@ describe('Voices Tab Components', () => {
             expect(screen.getByText('Speaker One')).toBeInTheDocument();
         });
 
-        it('opens create voice modal', () => {
+        it('opens create voice modal', async () => {
             render(<MemoryRouter><VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} /></MemoryRouter>);
             // Button label hidden in compact mode; use accessible name
             fireEvent.click(screen.getByRole('button', { name: 'New Voice' }));
-            expect(screen.getByText('Create New Voice')).toBeInTheDocument();
+            expect(await screen.findByText('Create New Voice')).toBeInTheDocument();
         });
     });
 
@@ -133,7 +133,7 @@ describe('Voices Tab Components', () => {
             expect(screen.getAllByText('XTTS').length).toBeGreaterThan(0);
         });
 
-        it('disables play and rebuild actions when no samples exist', () => {
+        it('disables play and rebuild actions when no samples exist', async () => {
             render(
                 <NarratorCard
                     speaker={mockSpeaker}
@@ -162,10 +162,10 @@ describe('Voices Tab Components', () => {
             // (task 009 chrome demotion) — open it (index 1: index 0 is the
             // card-level ActionMenu) and check the item's disabled state.
             fireEvent.click(screen.getAllByLabelText('More actions')[1]);
-            expect(screen.getByRole('button', { name: 'Rebuild' })).toBeDisabled();
+            expect(await screen.findByRole('button', { name: 'Rebuild' })).toBeDisabled();
         });
 
-        it('allows testing and rebuilding when a latent exists even without raw samples', () => {
+        it('allows testing and rebuilding when a latent exists even without raw samples', async () => {
             render(
                 <NarratorCard
                     speaker={mockSpeaker}
@@ -195,7 +195,7 @@ describe('Voices Tab Components', () => {
             // (task 009 chrome demotion) — open it (index 1: index 0 is the
             // card-level ActionMenu) and check the item is enabled.
             fireEvent.click(screen.getAllByLabelText('More actions')[1]);
-            expect(screen.getByRole('button', { name: 'Rebuild' })).not.toBeDisabled();
+            expect(await screen.findByRole('button', { name: 'Rebuild' })).not.toBeDisabled();
         });
 
         it('prefers the base Default profile over a sibling variant', () => {
@@ -227,7 +227,7 @@ describe('Voices Tab Components', () => {
             expect(screen.getByText('1.00x')).toBeInTheDocument();
         });
 
-        it('shows Voxtral badge and hides XTTS-only controls for Voxtral profiles', () => {
+        it('shows Voxtral badge and hides XTTS-only controls for Voxtral profiles', async () => {
             render(
                 <NarratorCard
                     speaker={mockSpeaker}
@@ -258,11 +258,11 @@ describe('Voices Tab Components', () => {
             // (task 009 chrome demotion) — open it (index 1: index 0 is the
             // card-level ActionMenu) and confirm the item, not "Rebuild".
             fireEvent.click(screen.getAllByLabelText('More actions')[1]);
-            expect(screen.getByText('Generate')).toBeInTheDocument();
+            expect(await screen.findByText('Generate')).toBeInTheDocument();
             expect(screen.queryByText('Rebuild')).not.toBeInTheDocument();
         });
 
-        it('shows rebuild required status and regenerate action for stale Voxtral previews', () => {
+        it('shows rebuild required status and regenerate action for stale Voxtral previews', async () => {
             render(
                 <NarratorCard
                     speaker={mockSpeaker}
@@ -291,10 +291,10 @@ describe('Voices Tab Components', () => {
             // (task 009 chrome demotion) — open it (index 1: index 0 is the
             // card-level ActionMenu) and confirm the item.
             fireEvent.click(screen.getAllByLabelText('More actions')[1]);
-            expect(screen.getByText('Regenerate')).toBeInTheDocument();
+            expect(await screen.findByText('Regenerate')).toBeInTheDocument();
         });
 
-        it('keeps existing Voxtral previews playable but blocks new generation when cloud voices are disabled', () => {
+        it('keeps existing Voxtral previews playable but blocks new generation when cloud voices are disabled', async () => {
             render(
                 <NarratorCard
                     speaker={mockSpeaker}
@@ -323,7 +323,7 @@ describe('Voices Tab Components', () => {
             // (task 009 chrome demotion) — open it (index 1: index 0 is the
             // card-level ActionMenu) and confirm the item is disabled.
             fireEvent.click(screen.getAllByLabelText('More actions')[1]);
-            expect(screen.getByRole('button', { name: /Regenerate/i })).toBeDisabled();
+            expect(await screen.findByRole('button', { name: /Regenerate/i })).toBeDisabled();
         });
     });
 
@@ -369,7 +369,7 @@ describe('Voices Tab Components', () => {
     });
 
     describe('VariantEditor', () => {
-        it('renders editor with speed and script button', () => {
+        it('renders editor with speed and script button', async () => {
             render(
                 <VariantEditor
                     profile={mockProfile}
@@ -392,7 +392,7 @@ describe('Voices Tab Components', () => {
             // Script/Move Variant/Delete Variant are now consolidated into the
             // ActionMenu overflow (task 009 chrome demotion) — open it to reach them.
             fireEvent.click(screen.getByTitle('More actions'));
-            expect(screen.getByRole('button', { name: 'Script' })).toBeInTheDocument();
+            expect(await screen.findByRole('button', { name: 'Script' })).toBeInTheDocument();
             expect(screen.getByRole('button', { name: 'Move Variant' })).toBeInTheDocument();
             expect(screen.getByRole('button', { name: 'Delete Variant' })).toBeInTheDocument();
         });
@@ -444,18 +444,18 @@ describe('Voices Tab Components', () => {
             expect(await screen.findByText(/Imported "Speaker One"/i)).toBeInTheDocument();
         });
 
-        it('renders Export Voice button and opens export modal', () => {
+        it('renders Export Voice button and opens export modal', async () => {
             render(<MemoryRouter><VoicesTab onRefresh={vi.fn()} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} /></MemoryRouter>);
             // Button label text hidden in compact mode; use accessible name query then click
             const exportBtn = screen.getByRole('button', { name: 'Export Voice' });
             expect(exportBtn).toBeInTheDocument();
 
             fireEvent.click(exportBtn);
-            expect(screen.getByText('Export Voice Bundle')).toBeInTheDocument();
+            expect(await screen.findByText('Export Voice Bundle')).toBeInTheDocument();
             expect(screen.getByLabelText('Voice to export')).toBeInTheDocument();
         });
 
-        it('shows Export Voice Bundle in NarratorCard ActionMenu', () => {
+        it('shows Export Voice Bundle in NarratorCard ActionMenu', async () => {
             const onExport = vi.fn();
             render(
                 <NarratorCard
@@ -483,13 +483,13 @@ describe('Voices Tab Components', () => {
             // Open the card-level ActionMenu (index 0: index 1 is the nested
             // VariantEditor's own ActionMenu, added by task 009's chrome demotion).
             fireEvent.click(screen.getAllByLabelText('More actions')[0]);
-            expect(screen.getByText('Export Voice Bundle')).toBeInTheDocument();
+            expect(await screen.findByText('Export Voice Bundle')).toBeInTheDocument();
 
             fireEvent.click(screen.getByText('Export Voice Bundle'));
             expect(onExport).toHaveBeenCalledWith('Speaker One');
         });
 
-        it('shows export confirmation modal with source WAV toggle', () => {
+        it('shows export confirmation modal with source WAV toggle', async () => {
             const mockRefresh = vi.fn();
             render(<MemoryRouter><VoicesTab onRefresh={mockRefresh} speakerProfiles={[mockProfile]} testProgress={{}} engines={mockEngines} /></MemoryRouter>);
 
@@ -498,7 +498,7 @@ describe('Voices Tab Components', () => {
             fireEvent.click(screen.getByText('Export Voice Bundle'));
 
             // Modal should appear
-            expect(screen.getByText('Export Voice Bundle')).toBeInTheDocument();
+            expect(await screen.findByText('Export Voice Bundle')).toBeInTheDocument();
             expect(screen.getByText(/Export a voice bundle with all variants/)).toBeInTheDocument();
             expect(screen.getByLabelText('Voice to export')).toHaveValue('Speaker One');
 

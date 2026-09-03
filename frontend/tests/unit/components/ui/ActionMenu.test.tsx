@@ -15,7 +15,7 @@ describe('ActionMenu', () => {
         
         // Open menu
         fireEvent.click(button)
-        expect(screen.getByText(/Delete Project/i)).toBeTruthy()
+        expect(await screen.findByText(/Delete Project/i)).toBeTruthy()
         
         // Close menu
         fireEvent.click(button)
@@ -24,7 +24,7 @@ describe('ActionMenu', () => {
         })
     })
 
-    it('works with the new items prop', () => {
+    it('works with the new items prop', async () => {
         const mockFn1 = vi.fn()
         const mockFn2 = vi.fn()
         
@@ -37,7 +37,7 @@ describe('ActionMenu', () => {
         
         fireEvent.click(screen.getByRole('button'))
         
-        expect(screen.getByText('Edit Project')).toBeTruthy()
+        expect(await screen.findByText('Edit Project')).toBeTruthy()
         const removeBtn = screen.getByText('Remove')
         expect(removeBtn).toBeTruthy()
         

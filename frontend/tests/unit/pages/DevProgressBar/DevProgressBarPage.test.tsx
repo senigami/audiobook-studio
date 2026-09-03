@@ -36,7 +36,7 @@ describe('ProgressBarTestPage', () => {
 
     fireEvent.change(screen.getByLabelText('Segment target %'), { target: { value: '50' } })
 
-    expect(screen.getByTestId('segment-debug-bar')).toHaveTextContent('0%')
+    expect(await screen.findByTestId('segment-debug-bar')).toHaveTextContent('0%')
 
     await waitFor(() => {
       expect(screen.getByTestId('segment-debug-bar')).toHaveTextContent('50%')
@@ -92,7 +92,7 @@ describe('ProgressBarTestPage', () => {
     fireEvent.change(screen.getAllByLabelText('ETA Seconds')[0], { target: { value: '300' } })
     fireEvent.change(screen.getByLabelText('Label'), { target: { value: 'Custom Run' } })
 
-    expect(screen.getByDisplayValue('0.67')).toBeTruthy()
+    expect(await screen.findByDisplayValue('0.67')).toBeTruthy()
     expect(screen.getAllByDisplayValue('300').length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByText('Launch From Config'))

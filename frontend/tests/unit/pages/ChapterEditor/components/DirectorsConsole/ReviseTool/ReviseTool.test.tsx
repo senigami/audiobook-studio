@@ -232,7 +232,7 @@ describe('ReviseTool', () => {
     fireEvent.change(textarea, { target: { value: overLimitText } });
 
     // Passive, non-blocking indicator — not a validation error blocking save.
-    expect(screen.getByText(/exceeds the engine's ~500 char buffer/i)).toBeInTheDocument();
+    expect(await screen.findByText(/exceeds the engine's ~500 char buffer/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^save$/i })).not.toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }));

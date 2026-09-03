@@ -16,7 +16,7 @@ describe('BookIdentityLine', () => {
     });
   });
 
-  it('renders the book identity line on book routes and navigates to publish when clicked', () => {
+  it('renders the book identity line on book routes and navigates to publish when clicked', async () => {
     act(() => {
       setBookIdentity({
         id: 'book-1',
@@ -47,7 +47,7 @@ describe('BookIdentityLine', () => {
 
     fireEvent.click(identity);
 
-    expect(screen.getByTestId('pathname')).toHaveTextContent('/book/book-1/publish');
+    expect(await screen.findByTestId('pathname')).toHaveTextContent('/book/book-1/publish');
   });
 
   it('does not render outside book routes', () => {

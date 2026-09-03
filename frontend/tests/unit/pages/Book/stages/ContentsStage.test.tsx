@@ -218,7 +218,7 @@ describe('ContentsStage publish-readiness control', () => {
     });
   });
 
-  it('highlights the import dropzone while files are dragged over it', () => {
+  it('highlights the import dropzone while files are dragged over it', async () => {
     renderInRouter(<ContentsStage />);
 
     const dropzone = screen.getByRole('button', { name: 'Import manuscript, browse or drop files' });
@@ -231,12 +231,12 @@ describe('ContentsStage publish-readiness control', () => {
     // "release" wording while dragging, rather than asserting the incidental
     // inline CSS used to paint the highlight.
     expect(dropzone).toHaveAttribute('aria-label', 'Import manuscript, release to import files');
-    expect(screen.getByText('Release to import')).toBeInTheDocument();
+    expect(await screen.findByText('Release to import')).toBeInTheDocument();
 
     fireEvent.dragLeave(dropzone, { dataTransfer });
 
     expect(dropzone).toHaveAttribute('aria-label', 'Import manuscript, browse or drop files');
-    expect(screen.getByText('Import manuscript')).toBeInTheDocument();
+    expect(await screen.findByText('Import manuscript')).toBeInTheDocument();
   });
 
   it('shows a toast when importing a file fails', async () => {
@@ -337,7 +337,7 @@ describe('ContentsStage book-scoped bookmarks panel', () => {
     expect(screen.getByText(/no bookmarks yet/i)).toBeInTheDocument();
   });
 
-  it('navigates to the bookmarked chapter when a bookmark row is clicked', () => {
+  it('navigates to the bookmarked chapter when a bookmark row is clicked', async () => {
     addBookmark({ bookId: 'book-1', chapterId: 'ch-1', label: 'The reveal' });
 
     render(
@@ -351,10 +351,10 @@ describe('ContentsStage book-scoped bookmarks panel', () => {
 
     fireEvent.click(screen.getByRole('listitem').querySelector('.bookmark-list__nav-btn')!);
 
-    expect(screen.getByText('Chapter workspace')).toBeInTheDocument();
+    expect(await screen.findByText('Chapter workspace')).toBeInTheDocument();
   });
 
-  it('removes a bookmark when its remove control is clicked', () => {
+  it('removes a bookmark when its remove control is clicked', async () => {
     addBookmark({ bookId: 'book-1', chapterId: 'ch-1', label: 'The reveal' });
 
     renderInRouter(<ContentsStage />, { bookId: 'book-1' });
@@ -362,6 +362,6 @@ describe('ContentsStage book-scoped bookmarks panel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove bookmark: The reveal' }));
 
     expect(screen.queryByText('The reveal')).not.toBeInTheDocument();
-    expect(screen.getByText(/no bookmarks yet/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no bookmarks yet/i)).toBeInTheDocument();
   });
 });

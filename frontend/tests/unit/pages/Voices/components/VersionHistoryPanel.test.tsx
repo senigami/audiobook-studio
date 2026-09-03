@@ -109,7 +109,7 @@ describe('VersionHistoryPanel', () => {
         // Expand the panel to reveal rows.
         fireEvent.click(screen.getByText('Version history (2)'));
 
-        expect(screen.getByText('Active')).toBeInTheDocument();
+        expect(await screen.findByText('Active')).toBeInTheDocument();
         const promoteBtn = screen.getByRole('button', { name: /promote/i });
         fireEvent.click(promoteBtn);
 
@@ -222,7 +222,7 @@ describe('VersionHistoryPanel', () => {
             fireEvent.click(screen.getByLabelText('Compare version v0'));
             fireEvent.click(screen.getByLabelText('Compare version v1'));
 
-            expect(screen.getByText('Run comparison')).toBeInTheDocument();
+            expect(await screen.findByText('Run comparison')).toBeInTheDocument();
             // Default test-passage text comes from versionA (v0, the first selected).
             expect(screen.getByDisplayValue('Hello world')).toBeInTheDocument();
         });
@@ -242,7 +242,7 @@ describe('VersionHistoryPanel', () => {
 
             // v0 was the oldest-selected (first clicked), so it should now be
             // deselected while v1/v2 remain checked and the panel still shows.
-            expect(screen.getByLabelText('Compare version v0')).not.toBeChecked();
+            expect(await screen.findByLabelText('Compare version v0')).not.toBeChecked();
             expect(screen.getByLabelText('Compare version v1')).toBeChecked();
             expect(screen.getByLabelText('Compare version v2')).toBeChecked();
             expect(screen.getByText('Run comparison')).toBeInTheDocument();

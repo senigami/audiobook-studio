@@ -110,7 +110,7 @@ describe('ServerDiagnostics', () => {
 
     fireEvent.click(screen.getByTestId('restart-server-btn'));
 
-    expect(screen.getByTestId('restart-server-btn')).toBeDisabled();
+    expect(await screen.findByTestId('restart-server-btn')).toBeDisabled();
 
     resolveRestart();
     await waitFor(() => {

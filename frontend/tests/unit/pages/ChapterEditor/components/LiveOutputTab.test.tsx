@@ -195,16 +195,16 @@ describe('LiveOutputTab', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
-    expect(screen.getByText('No live output captured yet.')).toBeInTheDocument();
+    expect(await screen.findByText('No live output captured yet.')).toBeInTheDocument();
   });
 
-  it('toggles autoscroll pause without removing rows', () => {
+  it('toggles autoscroll pause without removing rows', async () => {
     publishEvent('queue.items', 'queue_item_status', { status: 'running' }, { jobId: 'job-1' });
 
     render(<LiveOutputTab />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Pause autoscroll' }));
-    expect(screen.getByRole('button', { name: 'Resume autoscroll' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Resume autoscroll' })).toBeInTheDocument();
     expect(document.querySelectorAll('tbody tr[data-frame-id]')).toHaveLength(1);
   });
 

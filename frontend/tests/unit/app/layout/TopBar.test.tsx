@@ -158,7 +158,7 @@ describe('TopBar', () => {
     expect(breadcrumb.querySelector('.top-bar__breadcrumb-caret')).toBeNull();
   });
 
-  it('navigates home when the brand button is clicked', () => {
+  it('navigates home when the brand button is clicked', async () => {
     render(
       <MemoryRouter initialEntries={['/voices']}>
         <LocationProbe />
@@ -168,6 +168,6 @@ describe('TopBar', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Audiobook Studio home' }));
 
-    expect(screen.getByTestId('pathname')).toHaveTextContent('/');
+    expect(await screen.findByTestId('pathname')).toHaveTextContent('/');
   });
 });

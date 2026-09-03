@@ -46,7 +46,7 @@ describe('VoiceDropzone', () => {
     const file = new File(['audio'], 'dragged.wav', { type: 'audio/wav' });
     
     fireEvent.dragOver(dropzone);
-    expect(screen.getByText(/Drop to Upload/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Drop to Upload/i)).toBeInTheDocument();
     
     fireEvent.drop(dropzone, {
       dataTransfer: {

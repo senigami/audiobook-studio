@@ -49,13 +49,13 @@ describe('ArchetypePicker', () => {
         expect(onSkip).toHaveBeenCalledTimes(1);
     });
 
-    it('picking an archetype from the quick-pick fills all 6 fields at once and updates the connected cue card (owner-requested, 2026-07-16)', () => {
+    it('picking an archetype from the quick-pick fills all 6 fields at once and updates the connected cue card (owner-requested, 2026-07-16)', async () => {
         render(<PickerWithCueCard />);
 
         fireEvent.click(screen.getByRole('button', { name: /Pick a voice archetype/i }));
         fireEvent.click(screen.getByText('Warm Storyteller'));
 
-        expect(screen.getByRole('button', { name: 'Human', pressed: true })).toBeInTheDocument();
+        expect(await screen.findByRole('button', { name: 'Human', pressed: true })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Feminine', pressed: true })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Adult', pressed: true })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Measured', pressed: true })).toBeInTheDocument();

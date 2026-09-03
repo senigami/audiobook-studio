@@ -147,7 +147,7 @@ describe('Layout', () => {
     expect(screen.getByTestId('layout-root')).toHaveAttribute('data-shell-hydration', 'reconnecting');
   });
 
-  it('burger button toggles nav open state', () => {
+  it('burger button toggles nav open state', async () => {
     render(
       <MemoryRouter>
         <Layout {...defaultProps} />
@@ -159,14 +159,14 @@ describe('Layout', () => {
 
     fireEvent.click(burger);
     expect(burger.getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByRole('dialog', { name: 'Mobile navigation' })).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'Mobile navigation' })).toBeTruthy();
 
     fireEvent.click(burger);
     expect(burger.getAttribute('aria-expanded')).toBe('false');
     expect(screen.queryByRole('dialog', { name: 'Mobile navigation' })).toBeNull();
   });
 
-  it('mobile nav backdrop click closes the drawer', () => {
+  it('mobile nav backdrop click closes the drawer', async () => {
     render(
       <MemoryRouter>
         <Layout {...defaultProps} />
@@ -176,7 +176,7 @@ describe('Layout', () => {
     const burger = screen.getByRole('button', { name: /Open navigation/i });
     fireEvent.click(burger);
     expect(burger.getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByRole('dialog', { name: 'Mobile navigation' })).toBeTruthy();
+    expect(await screen.findByRole('dialog', { name: 'Mobile navigation' })).toBeTruthy();
 
     const backdrop = document.querySelector('.mobile-nav-backdrop');
     expect(backdrop).toBeTruthy();
@@ -205,7 +205,7 @@ describe('Layout', () => {
     expect(within(rail).getByRole('button', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('navigates home when the brand button is clicked', () => {
+  it('navigates home when the brand button is clicked', async () => {
     render(
       <MemoryRouter initialEntries={['/voices']}>
         <LocationProbe />
@@ -215,6 +215,6 @@ describe('Layout', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Audiobook Studio home/i }));
 
-    expect(screen.getByTestId('pathname')).toHaveTextContent('/');
+    expect(await screen.findByTestId('pathname')).toHaveTextContent('/');
   });
 });

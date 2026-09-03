@@ -8,20 +8,20 @@ describe('SearchableSelect', () => {
     { id: '2', name: 'Option 2' },
   ];
 
-  it('opens dropdown on click', () => {
+  it('opens dropdown on click', async () => {
     render(<SearchableSelect options={options} value="" onChange={vi.fn()} placeholder="Select test" />);
     fireEvent.click(screen.getByRole('button', { name: 'Select test' }));
-    expect(screen.getByPlaceholderText('Search speakers...')).toBeInTheDocument();
+    expect(await screen.findByPlaceholderText('Search speakers...')).toBeInTheDocument();
   });
 
-  it('filters options based on search', () => {
+  it('filters options based on search', async () => {
     render(<SearchableSelect options={options} value="" onChange={vi.fn()} placeholder="Select test" />);
     fireEvent.click(screen.getByRole('button', { name: 'Select test' }));
     
     const input = screen.getByPlaceholderText('Search speakers...');
     fireEvent.change(input, { target: { value: 'Option 1' } });
     
-    expect(screen.getByText('Option 1')).toBeInTheDocument();
+    expect(await screen.findByText('Option 1')).toBeInTheDocument();
     expect(screen.queryByText('Option 2')).not.toBeInTheDocument();
   });
 
