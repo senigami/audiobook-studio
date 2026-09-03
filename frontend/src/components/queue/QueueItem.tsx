@@ -13,7 +13,7 @@ import { selectEtaSource, selectEtaSourceTimestamp } from '@/utils/queueItemEtaS
 import { buildQueueItemDebugPayload } from '@/utils/queueItemDebugPayload';
 import { useSegmentInventory } from '@/hooks/useSegmentInventory';
 import { isPeekStripDismissed, setPeekStripDismissed } from '@/utils/segmentPeekStripState';
-import { ACTIVE_STATUSES } from '@/utils/jobStatus';
+import { ACTIVE_STATUSES, HAS_LIVE_ETA_STATUSES } from '@/utils/jobStatus';
 import { isTerminalStatus } from '@/components/progress/PredictiveProgressBar/predictiveProgressBarHelpers';
 import { emitToast } from '@/utils/toast';
 
@@ -64,7 +64,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
         latestSnapshotRef.current = snapshot;
     }, []);
     const status = job.status;
-    const isTrulyActive = ['preparing', 'running', 'processing', 'finalizing'].includes(status);
+    const isTrulyActive = HAS_LIVE_ETA_STATUSES.has(status);
 
     // W-PAR task 015: per-row segment inventory + peek-strip/render-monitor
     // state, previously owned by ActivityPage.tsx for a single page-wide
