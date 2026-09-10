@@ -21,6 +21,13 @@ consumer (Tasks 4/5) can use it.
 ### Workload C — Wire the fix into both consumers
 - Task 4: `sync_chapter_segments` uses `align_segments`, preserves in place
 - Task 5: `get_resync_preview` uses `align_segments`, no more duplicated logic
+  - **SUPERSEDED 2026-09-03 (#232 follow-up, commit `0a3f2f6b`).** The preview now uses
+    `align_render_blocks`, not `align_segments`. Task 005c moved the commit path to render-block
+    grain and the preview was left behind, so the two disagreed on every multi-sentence row: an
+    unchanged chapter reported `is_destructive: true` and named a character as at risk. This task's
+    intent (one shared alignment, preview cannot drift from the save) is intact and is what the
+    change restores; only the function named here changed. See `design-docs/specs/data-model.md`
+    1.16.0.
 - Task 6: surface `lost_assignments_count` on the save response (`update_chapter` / the API route)
 
 ### Workload D — Full regression coverage

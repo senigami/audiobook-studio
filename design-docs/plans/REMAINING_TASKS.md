@@ -22,6 +22,15 @@ observation is missing.
     mid-render clears cleanly; concurrent renders respect fairness/priority mode
   - Site-redesign live-app validation items 1–18 + manually verify fixed-but-pending Phase-11
     behaviors
+- **Render-block grain (#232), merged 2026-09-03** — code shipped, owner verification outstanding
+  - Full real-TTS render → crash → restart → resume-percentage observation end to end. The owner
+    confirmed this manually before merge; it has never been independently reproduced, and the
+    collapse migration is destructive and one-way with no `down()` anywhere (#263).
+  - Preparing-with-progress (#237, fixed 2026-09-03): a parallel XTTS render at cap 2, watching the
+    Segment detail table for any row still reading "Preparing" with a nonzero percentage. A unit
+    test proved the mechanism reachable and it is fixed; nobody has confirmed it was the mechanism
+    behind the original screenshot. A row still showing it means a second cause exists.
+
 - **W-PAR render monitor** (Phases 1–3, all code shipped 2026-07-12) — [detail](active/parallel-segment-rendering/10-phase2-render-monitor.md)
   - Real char-weighted segment blocks + failure cue on a live render, cap ≥2 (task 008)
   - Peek strip auto-appear/expand in both light and dark theme (task 011)
