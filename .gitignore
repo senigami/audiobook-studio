@@ -200,6 +200,7 @@ tts_engines/*/assets/last_test.json
 # SQLite backups produced by cleanup steps
 *.db.bak
 *.sqlite.bak
+audiobook_studio.db.backup-*
 
 # design-review-loop scratch
 .design-review/

@@ -1,10 +1,12 @@
 # Segment/render-block redesign — preliminary plan
 
-**Status:** preliminary sketch, not a build-ready spec — **superseded 2026-09-01**. The real
-detailed plan this sketch called for was written and fully executed: all 9 tasks plus a gap-closing
-wiring task (005c) and a real-data migration-defect fix are implemented and merged to `studio-2.0` as commit `9a477174` (PR #260, 2026-09-03). This sketch's reasoning is still accurate background; its own instruction
-below ("no code should land without a real detailed plan reviewed first") has been satisfied and is
-now historical, not a live gate. Tracked in [GitHub issue #232](https://github.com/senigami/audiobook-studio/issues/232) —
+**Status:** preliminary sketch, not a build-ready spec — **superseded 2026-09-01**, the day the
+real detailed plan this sketch called for was written and its execution began (PR #260, opened
+2026-09-01). All 9 tasks plus a gap-closing wiring task (005c) and a real-data migration-defect
+fix were implemented on `feature/232-additive-schema-migration` and squash-merged to
+`studio-2.0` as `9a477174` on 2026-09-03. This sketch's reasoning is still accurate background;
+its own instruction below ("no code should land without a real detailed plan reviewed first")
+has been satisfied and is now historical, not a live gate. Tracked in [GitHub issue #232](https://github.com/senigami/audiobook-studio/issues/232) —
 this file is the durable record; treat the issue as a pointer to this file, not the other way
 around.
 
