@@ -8,6 +8,15 @@ Use these panels when you need a fast adversarial pass without rereading the ful
 - **Disagreement is the product.** When personas conflict (the Casual Listener wants zero casting input; the Casting Director wants explicit approval gates), report the conflict as a named trade-off with both stakes stated — never average it into a mushy middle recommendation. The owner resolves trade-offs; panels surface them.
 - **Concrete over taste.** A finding must name the user-visible harm and the moment it occurs ("the Casual Listener cancels a completing job because the bar paused at 'assembling'"), not a preference ("this feels cluttered").
 - **Weighting:** the Nontechnical Author (28) is the primary persona — their blockers outweigh other personas' preferences. Accessibility-floor findings (29, 30, 32, 43) are vetoes, not votes: they can't be traded away by majority.
+- **Walk before judging.** Give each persona one concrete task and starting state, then trace the actual path
+  until success or the first consequential break. Do not generate a generic wishlist from the role title.
+- **Separate fact from forecast.** Label product evidence `observed`, persona-grounded consequences `inferred`,
+  and missing validation `unknown`. An inferred persona cannot convert a plausible reaction into user research.
+- **Use a common severity scale.** `BLOCKER` means the task cannot be completed safely or accessibly;
+  `SERIOUS FRICTION` means completion is possible but likely to cause error, abandonment, or substantial waste;
+  `PREFERENCE` improves fit without threatening success; `NO STAKE` yields the seat.
+- **End with proof.** Every proposed repair names the behavior test, screenshot state, trace, or user validation
+  that would demonstrate the harm is gone. Persona testimony alone is not verification.
 
 ## First-Run And Onboarding
 

@@ -94,6 +94,12 @@ Not product-usage personas — these are professional design-reviewer personas, 
 
 Ask: **"What would the [Role Name] want to know about this screen, and what would make them close the tab?"**
 
+Then make the question executable: give the persona a concrete task, starting state, and supplied evidence;
+walk the shortest plausible path; stop at the first consequential break; cite the matching F# or red flag;
+and state what proof would show the repair worked. The shared protocol lives in
+[README.md](README.md#enactment-contract). Do not perform the legacy character implied by a filename—the
+role title is the persona, and the filename is only a stable historical path.
+
 For ready-made multi-persona panels covering **every** persona (first-run, chapter editor, casting, queue, plugins, accessibility, publish, support), see [review-panels.md](review-panels.md). To compose a panel for a *novel* ask, or to check a panel for stance/level diversity, use the [persona-matrix.md](persona-matrix.md) trait view. The table below is just the highest-signal starting point per area — not the full mapping.
 
 **High-signal pairings by design area:**

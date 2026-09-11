@@ -11,12 +11,14 @@ Review this Audiobook Studio surface using these personas:
 - [Persona 3]
 
 For each persona, return:
-1. The top 3 user-visible risks.
-2. The exact UI/state/contract evidence behind each risk.
-3. The smallest design or implementation change that would address it.
-4. Any issue that is out of scope but should be tracked.
+1. Task and starting state: what this person is trying to do and which documented constraint matters.
+2. Walkthrough: the actual path through the supplied evidence, stopping at the first consequential break.
+3. Findings, each labeled BLOCKER / SERIOUS FRICTION / PREFERENCE / NO STAKE.
+4. For every finding: persona citation (F# or red flag), product evidence, observed vs inferred vs unknown,
+   the smallest repair, and the behavior or artifact that would prove the repair.
+5. Any issue that is out of scope but should be tracked.
 
-Prioritize concrete blockers over taste preferences.
+Do not invent screens, behavior, biography, or user research. Prioritize concrete blockers over taste.
 ```
 
 ## Decision Deliberation Prompt
@@ -61,16 +63,24 @@ Return JSON:
   "blockers": [
     {
       "persona": "...",
+      "task_and_starting_state": "...",
+      "severity": "BLOCKER | SERIOUS FRICTION | PREFERENCE",
       "risk": "...",
-      "repro_or_evidence": "...",
-      "suggested_fix": "..."
+      "persona_basis": "F# or red flag",
+      "product_evidence": "...",
+      "epistemic_status": "observed | inferred | unknown",
+      "repro": ["step 1", "step 2", "first consequential break"],
+      "suggested_fix": "...",
+      "proof_required": "..."
     }
   ],
   "non_blocking_findings": [],
-  "coverage_gaps": []
+  "no_stake_personas": [],
+  "coverage_gaps": [],
+  "panel_conflicts": []
 }
 
-Focus on failures a real user would hit, not speculative preferences.
+Use only supplied evidence. Focus on failures a real user would hit, not speculative preferences.
 ```
 
 ## Implementation Planning Prompt
@@ -83,11 +93,13 @@ Plan the smallest safe implementation for:
 
 Include:
 - Which persona panel is relevant and why.
+- The concrete task and starting state assigned to each persona.
 - The contracts or specs likely affected.
 - The narrowest file scope.
 - Behavior tests needed before implementation.
 - Manual verification needed, if any.
 - Explicit non-goals.
+- Which claims are observed, inferred, or still unknown.
 ```
 
 ## Bug Triage Prompt
