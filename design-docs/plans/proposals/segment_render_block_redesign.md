@@ -1,8 +1,10 @@
 # Segment/render-block redesign — preliminary plan
 
-**Status:** preliminary sketch, not a build-ready spec. Full detailed design comes later; this
-captures the reasoning and decisions made so far so they survive being picked up cold in a future
-session. Tracked in [GitHub issue #232](https://github.com/senigami/audiobook-studio/issues/232) —
+**Status:** preliminary sketch, not a build-ready spec — **superseded 2026-09-01**. The real
+detailed plan this sketch called for was written and fully executed: all 9 tasks plus a gap-closing
+wiring task (005c) and a real-data migration-defect fix are implemented and merged to `studio-2.0` as commit `9a477174` (PR #260, 2026-09-03). This sketch's reasoning is still accurate background; its own instruction
+below ("no code should land without a real detailed plan reviewed first") has been satisfied and is
+now historical, not a live gate. Tracked in [GitHub issue #232](https://github.com/senigami/audiobook-studio/issues/232) —
 this file is the durable record; treat the issue as a pointer to this file, not the other way
 around.
 
