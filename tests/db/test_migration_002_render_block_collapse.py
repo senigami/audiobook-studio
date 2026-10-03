@@ -374,7 +374,7 @@ class TestDryRunIsolationSafety:
 
 
 class TestRegistryWiring:
-    def test_both_migrations_apply_in_order_via_the_runner(self, db_path):
+    def test_all_registered_migrations_apply_in_order_via_the_runner(self, db_path):
         conn = _raw_connect(db_path)
         try:
             chapter_id = _make_project_and_chapter(conn, "Hello world.")
@@ -382,7 +382,7 @@ class TestRegistryWiring:
             conn.commit()
 
             applied = run_migrations(conn, MIGRATIONS, db_path=db_path)
-            assert [m.version for m in applied] == [1, 2]
+            assert [m.version for m in applied] == [1, 2, 3]
 
             row = conn.execute(
                 "SELECT text_hash, start_offset, end_offset FROM chapter_segments WHERE chapter_id = ?",
