@@ -327,6 +327,15 @@ def clean_storage():
 
 
 @pytest.fixture(autouse=True)
+def detach_file_logging():
+    """startup_event() installs the persistent log handler; never let it leak between tests."""
+    yield
+    from app.core.log_file import teardown_file_logging
+
+    teardown_file_logging()
+
+
+@pytest.fixture(autouse=True)
 def reset_progress_service_singleton():
     """Reset the ProgressService singleton between tests.
 

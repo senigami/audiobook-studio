@@ -2,7 +2,7 @@
 
 Nothing here runs at import time. ``setup_file_logging()`` is called from the
 boot sequence (``app.core.boot.boot_logging``) and is idempotent, because
-``uvicorn --reload`` re-runs startup in the same interpreter.
+a second startup call (or a test) must not stack duplicate handlers.
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import logging.handlers
 import re
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -21,6 +22,9 @@ MAX_BYTES = 5 * 1024 * 1024
 BACKUP_COUNT = 5
 
 _MARKER = "_studio_file_log"
+_CONSOLE_MARKER = "_studio_console_log"
+_prior_root_level: Optional[int] = None
+_UVICORN_LOGGERS = ("uvicorn", "uvicorn.access")
 _FORMAT = "%(asctime)s %(levelname)s [%(threadName)s] %(name)s: %(message)s"
 
 # Header values, key=value / key: value pairs, and bearer tokens.
@@ -74,21 +78,45 @@ def setup_file_logging(log_dir: Path | None = None) -> Optional[Path]:
     handler.setFormatter(_RedactingFormatter(_FORMAT))
     setattr(handler, _MARKER, True)
 
+    global _prior_root_level  # noqa: PLW0603
     root = logging.getLogger()
+    # A root handler switches off logging.lastResort, which is what prints
+    # app warnings/errors to the terminal today. Keep the console output.
+    if not any(
+        isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+        for h in root.handlers
+    ):
+        console = logging.StreamHandler(sys.stderr)
+        console.setLevel(logging.WARNING)
+        console.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+        setattr(console, _CONSOLE_MARKER, True)
+        root.addHandler(console)
     root.addHandler(handler)
     if root.level == logging.NOTSET or root.level > logging.INFO:
+        _prior_root_level = root.level
         root.setLevel(logging.INFO)
-    # uvicorn.access does not propagate, so attach there too (it keeps its
-    # own console handler untouched).
-    logging.getLogger("uvicorn.access").addHandler(handler)
+    # uvicorn and uvicorn.access do not propagate (they keep their own console
+    # handlers), so attach there too; uvicorn.error propagates to uvicorn and
+    # carries the unhandled-exception tracebacks.
+    for name in _UVICORN_LOGGERS:
+        logging.getLogger(name).addHandler(handler)
     return path
 
 
 def teardown_file_logging() -> None:
     """Detach and close the handler. Used by tests."""
+    global _prior_root_level  # noqa: PLW0603
+    root = logging.getLogger()
+    for h in list(root.handlers):
+        if getattr(h, _CONSOLE_MARKER, False):
+            root.removeHandler(h)
     handler = _installed()
     if handler is None:
         return
-    logging.getLogger().removeHandler(handler)
-    logging.getLogger("uvicorn.access").removeHandler(handler)
+    root.removeHandler(handler)
+    for name in _UVICORN_LOGGERS:
+        logging.getLogger(name).removeHandler(handler)
     handler.close()
+    if _prior_root_level is not None:
+        root.setLevel(_prior_root_level)
+        _prior_root_level = None

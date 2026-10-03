@@ -84,3 +84,41 @@ def test_startup_event_attaches_file_logging_before_anything_else():
 
     boot_log.assert_called_once()
     init_db.assert_not_called()
+
+
+def _run_fresh(code, tmp_path):
+    repo = Path(__file__).resolve().parents[2]
+    env = {"AUDIOBOOK_BASE_DIR": str(tmp_path), "PATH": "/usr/bin:/bin"}
+    return subprocess.run(
+        [sys.executable, "-c", code], cwd=repo, env=env, capture_output=True, text=True, timeout=60, check=True
+    )
+
+
+def test_warnings_still_reach_the_console_and_uvicorn_errors_reach_the_file(tmp_path):
+    """A root handler disables logging.lastResort, so the console must be kept explicitly."""
+    code = (
+        "import logging, logging.config, uvicorn.config\n"
+        "logging.config.dictConfig(uvicorn.config.LOGGING_CONFIG)\n"  # uvicorn's non-propagating loggers
+        "from app.core.log_file import setup_file_logging\n"
+        "setup_file_logging(); setup_file_logging()\n"
+        "logging.getLogger('app.x').warning('console-visible-warning')\n"
+        "logging.getLogger('uvicorn.error').error('crash-traceback-marker')\n"
+    )
+    result = _run_fresh(code, tmp_path)
+    assert result.stderr.count("console-visible-warning") == 1  # shown once, not duplicated
+    log = (tmp_path / "logs" / "studio.log").read_text(encoding="utf-8")
+    assert "console-visible-warning" in log
+    assert "crash-traceback-marker" in log
+
+
+def test_teardown_restores_root_level(tmp_path):
+    root = logging.getLogger()
+    before = root.level
+    root.setLevel(logging.WARNING)
+    try:
+        log_file.setup_file_logging(log_dir=tmp_path / "logs")
+        assert root.level == logging.INFO
+        log_file.teardown_file_logging()
+        assert root.level == logging.WARNING
+    finally:
+        root.setLevel(before)
