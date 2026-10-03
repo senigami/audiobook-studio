@@ -466,7 +466,7 @@ class XttsPlugin(StudioTTSEngine):
             except Exception:
                 pass
         except Exception as exc:
-            return TTSResult(ok=False, error=f"XTTS synthesis raised: {exc}")
+            return TTSResult(ok=False, error=f"XTTS synthesis raised: {type(exc).__name__}: {exc}")
         finally:
             if temp_wav and temp_wav.exists() and rc != 0:
                 temp_wav.unlink(missing_ok=True)

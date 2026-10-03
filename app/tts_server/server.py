@@ -10,6 +10,7 @@ Callers from Studio should go through the VoiceBridge HTTP client
 from __future__ import annotations
 
 import logging
+import re
 import threading
 import time
 from pathlib import Path
@@ -44,6 +45,28 @@ from app.tts_server.verification import verify_plugin
 from app.tts_server import plugin_staging
 
 logger = logging.getLogger(__name__)
+
+_URL_RE = re.compile(r"\b[a-z][a-z0-9+.-]*://\S+", re.IGNORECASE)
+_WIN_PATH_RE = re.compile(r"\b[A-Za-z]:[\\/][^\s'\"]*")
+_POSIX_PATH_RE = re.compile(r"(?<![\w.:])/(?:[^\s'\"/]+/)+[^\s'\"/]*")
+_PUBLIC_ERROR_MAX_CHARS = 1000
+
+
+def _public_synthesis_error(error: Optional[str]) -> str:
+    """Client-safe text for a failed synthesis: the real reason, minus paths and URLs.
+
+    Engine errors can embed filesystem paths and local server URLs, which must not
+    leave the server (api-conventions.md). Keep the tail when truncating, since
+    the exception type and message come last in a worker traceback.
+    """
+    text = (error or "").strip()
+    if not text:
+        return "Synthesis failed."
+    text = _URL_RE.sub("<url>", text)
+    text = _WIN_PATH_RE.sub("<path>", text)
+    text = _POSIX_PATH_RE.sub("<path>", text)
+    return text[-_PUBLIC_ERROR_MAX_CHARS:]
+
 
 # ---------------------------------------------------------------------------
 # Application state
@@ -644,10 +667,10 @@ async def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
                 _cancelled_tasks.pop(body.task_id, None)
 
     if not result.ok:
-        logger.exception("Synthesis failed for engine %s: %s", body.engine_id, result.error)
+        logger.error("Synthesis failed for engine %s: %s", body.engine_id, result.error)
         raise HTTPException(
             status_code=500,
-            detail="Synthesis failed.",
+            detail=_public_synthesis_error(result.error),
         )
 
     # 3. postprocess_audio
