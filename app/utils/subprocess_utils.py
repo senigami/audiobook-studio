@@ -1,9 +1,11 @@
+import logging
 import subprocess
 import sys
 from pathlib import Path
 
 from studio_plugin_sdk.proc import coerce_subprocess_output  # noqa: F401 — re-export for app callers
 
+logger = logging.getLogger(__name__)
 
 FFPROBE_DURATION_CMD = (
     "ffprobe",
@@ -36,12 +38,11 @@ def probe_audio_duration(audio_path: Path, *, timeout: int = 2) -> float:
         timeout=timeout,
     )
     stdout = coerce_subprocess_output(getattr(result, "stdout", ""))
-    if stdout:
-        write_subprocess_output(stdout=stdout)
     returncode = getattr(result, "returncode", 0)
     if not isinstance(returncode, int):
         returncode = 0
     if returncode != 0:
+        logger.debug("ffprobe duration probe failed for %s (rc=%s): %s", audio_path, returncode, stdout.strip())
         return 0.0
     return float(stdout.strip())
 
@@ -65,12 +66,11 @@ def probe_audio_stream_info(audio_path: Path, *, timeout: int = 2) -> tuple[int,
         timeout=timeout,
     )
     stdout = coerce_subprocess_output(getattr(result, "stdout", ""))
-    if stdout:
-        write_subprocess_output(stdout=stdout)
     returncode = getattr(result, "returncode", 0)
     if not isinstance(returncode, int):
         returncode = 0
     if returncode != 0:
+        logger.debug("ffprobe stream probe failed for %s (rc=%s): %s", audio_path, returncode, stdout.strip())
         return (0, 0)
     lines = [line.strip() for line in stdout.strip().splitlines() if line.strip()]
     if len(lines) < 2:
