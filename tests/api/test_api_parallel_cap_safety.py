@@ -422,3 +422,52 @@ def test_get_concurrency_agrees_with_the_guard_when_the_server_registry_is_empty
     refusal = client.post("/api/settings", json={"tts_parallel_cap": 8})
     assert refusal.status_code == 422
     assert refusal.json()["detail"]["violations"][0]["safe_maximum"] == body["global_safe_max"]
+
+
+def _lock_is_held_by_someone(lock):
+    """True when another thread cannot take the lock right now (so the caller holds it)."""
+    import threading
+
+    result = {}
+
+    def probe():
+        got = lock.acquire(blocking=False)
+        if got:
+            lock.release()
+        result["free"] = got
+
+    thread = threading.Thread(target=probe)
+    thread.start()
+    thread.join(timeout=5)
+    return not result["free"]
+
+
+def test_post_writes_while_holding_the_cap_lock(client, machine, monkeypatch):
+    from app.api.routers import cap_guard, system
+
+    real = system.update_settings
+    seen = []
+
+    def spy(updates):
+        seen.append(_lock_is_held_by_someone(cap_guard.cap_write_lock))
+        return real(updates)
+
+    monkeypatch.setattr(system, "update_settings", spy)
+    assert client.post("/api/settings", json={"tts_parallel_cap": 1}).status_code == 200
+    assert seen == [True]
+
+
+def test_put_writes_while_holding_the_cap_lock(client, machine, monkeypatch):
+    import app.db.state as state
+    from app.api.routers import cap_guard
+
+    real = state.set_engine_cap
+    seen = []
+
+    def spy(engine_id, cap):
+        seen.append(_lock_is_held_by_someone(cap_guard.cap_write_lock))
+        return real(engine_id, cap)
+
+    monkeypatch.setattr(state, "set_engine_cap", spy)
+    assert client.put("/api/engines/xtts/concurrency", json={"cap": 1}).status_code == 200
+    assert seen == [True]

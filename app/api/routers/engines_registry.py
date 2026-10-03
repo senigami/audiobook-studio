@@ -57,10 +57,7 @@ def get_engine_concurrency():
         get_global_parallel_cap,
         resolve_effective_cap,
     )
-    from ...orchestration.scheduler.resources import (  # noqa: PLC0415
-        MAX_GLOBAL_CONCURRENT_SYNTHESIS,
-        get_engine_id_semaphore,
-    )
+    from ...orchestration.scheduler.resources import MAX_GLOBAL_CONCURRENT_SYNTHESIS  # noqa: PLC0415
     from ...orchestration.scheduler.cap_safety import (  # noqa: PLC0415
         engine_safe_max,
         global_safe_max,

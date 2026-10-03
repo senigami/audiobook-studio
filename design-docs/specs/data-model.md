@@ -133,7 +133,7 @@ Each key is a job UUID. Values conform to:
 | `enabled_plugins` | object | `{}` | Map of engine ID → bool |
 | `verified_plugins` | object | `{}` | Map of engine ID → bool |
 | `tts_parallel_cap` | integer | `2` | W-PAR task 007: global per-engine concurrency cap; clamped to each engine's manifest `max_concurrent_workers` at claim-build time (never raises above it). Raising it is refused by the API when it exceeds the safe maximum (queue-jobs.md §7.3d); a stored value above the safe maximum is not rewritten. |
-| `tts_engine_caps` | object | `{}` | W-PAR task 007: map of engine ID → per-engine cap override; takes precedence over `tts_parallel_cap` for that engine Raising it is refused by the API when it exceeds the safe maximum (queue-jobs.md §7.3d); a stored value above the safe maximum is not rewritten. |
+| `tts_engine_caps` | object | `{}` | W-PAR task 007: map of engine ID → per-engine cap override; takes precedence over `tts_parallel_cap` for that engine. Raising it is refused by the API when it exceeds the safe maximum (queue-jobs.md §7.3d); a stored value above the safe maximum is not rewritten. |
 
 Settings MUST be persisted to `state.json` on every mutation. Callers MUST NOT modify the settings dict directly — use the `state_settings` API.
 
