@@ -7,6 +7,7 @@ import { PluginTrustModal, type PluginPreviewInfo } from '@/components/overlays/
 import { EngineCard } from '@/pages/Engines/components/EngineCard';
 import { OfficialRegistryPanel } from '@/pages/Engines/components/OfficialRegistryPanel';
 import { useLiveTtsLogLines } from '@/hooks/useLiveTtsLogLines';
+import { useEngineConcurrency } from '@/hooks/useEngineConcurrency';
 
 interface EnginesPanelProps {
   onShowNotification?: (message: string) => void;
@@ -16,6 +17,7 @@ interface EnginesPanelProps {
 }
 
 export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, onRefresh, startupReady = true, settings }) => {
+  const { safeMax, memoryMeasurable, refresh: refreshLimits } = useEngineConcurrency();
   const [engines, setEngines] = useState<TtsEngine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -271,6 +273,9 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
           onUpdate={refreshAppState}
           onShowNotification={onShowNotification}
           settings={settings}
+          safeMax={safeMax[engine.engine_id]}
+          memoryMeasurable={memoryMeasurable}
+          onLimitsRefresh={refreshLimits}
         />
       ))}
       <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', paddingTop: '0.25rem' }}>

@@ -2,7 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { ShieldCheck, PlugZap, Music, Palette, FlaskConical, Layers, KeyRound } from 'lucide-react';
 import type { Settings as AppSettings, SpeakerProfile, TtsEngine, Speaker } from '@/types';
 import { buildVoiceOptions } from '@/utils/voiceProfiles';
-import { SettingCard, ToggleButton, NumberStepper } from '@/pages/Settings/components/SettingsComponents';
+import { SettingCard, ToggleButton, NumberStepper, CapHintText, CapRefusalMessage } from '@/pages/Settings/components/SettingsComponents';
+import { api } from '@/api';
+import { isParallelCapRefused } from '@/api/capRefusal';
+import { capHint, PARALLEL_CAP_COPY } from '@/utils/parallelCapCopy';
 import { loadThemePref, saveThemePref, type Theme } from '@/utils/theme';
 import { isDevModeEnabled, setDevModeEnabled, useDevMode } from '@/utils/devMode';
 
@@ -16,6 +19,10 @@ interface GeneralSettingsPanelProps {
   engines?: TtsEngine[];
   onRefresh: () => void;
   onShowNotification?: (message: string) => void;
+  /** Largest global cap the server will accept right now (null until it answers). */
+  globalSafeMax?: number | null;
+  memoryMeasurable?: boolean;
+  onLimitsRefresh?: () => void;
 }
 
 export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({ 
@@ -24,9 +31,19 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
   speakers = [],
   engines = [], 
   onRefresh, 
-  onShowNotification 
+  onShowNotification,
+  globalSafeMax = null,
+  memoryMeasurable = true,
+  onLimitsRefresh,
 }) => {
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [capRefusal, setCapRefusal] = useState<string | null>(null);
+  const parallelCapMax = Math.min(MAX_GLOBAL_PARALLEL_CAP, globalSafeMax ?? MAX_GLOBAL_PARALLEL_CAP);
+  const parallelCapHint = capHint({ safeMax: globalSafeMax, ceiling: MAX_GLOBAL_PARALLEL_CAP, memoryMeasurable });
+  const parallelCapDescribedBy =
+    [parallelCapHint ? 'parallel-cap-hint' : null, capRefusal ? 'parallel-cap-error' : null]
+      .filter(Boolean)
+      .join(' ') || undefined;
   const [theme, setTheme] = useState<Theme>(loadThemePref);
   const devMode = useDevMode();
   const [hfTokenInput, setHfTokenInput] = useState('');
@@ -57,21 +74,25 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
     }
   };
 
-  // tts_parallel_cap is only read from the JSON body on the backend
-  // (app/api/routers/system.py's form branch doesn't parse it), so this
-  // posts JSON rather than reusing the form-encoded helpers above.
+  // A refused cap saves nothing, so the stepper keeps showing the stored value;
+  // the server's own sentence is shown inline because a toast is gone before a
+  // sentence this long is read.
   const updateParallelCap = async (cap: number) => {
     setSavingKey('tts_parallel_cap');
+    setCapRefusal(null);
     try {
-      await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tts_parallel_cap: cap }),
-      });
+      await api.saveParallelCap(cap);
       onRefresh();
+      onLimitsRefresh?.();
     } catch (error) {
-      console.error('Failed to update setting', error);
-      onShowNotification?.('Settings update failed. Please try again.');
+      if (isParallelCapRefused(error)) {
+        setCapRefusal(error.refusal.message);
+        onRefresh();
+        onLimitsRefresh?.();
+      } else {
+        console.error('Failed to update setting', error);
+        onShowNotification?.(PARALLEL_CAP_COPY.genericSaveError);
+      }
     } finally {
       setSavingKey(null);
     }
@@ -294,18 +315,25 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
             icon={Layers}
             title="Parallel Segment Rendering"
             description="How many segments Studio may render at once, across all engines. Set to 1 to force strictly one-at-a-time (sequential) rendering."
+            hint={
+              <>
+                {parallelCapHint && <CapHintText id="parallel-cap-hint">{parallelCapHint}</CapHintText>}
+                {capRefusal && <CapRefusalMessage id="parallel-cap-error">{capRefusal}</CapRefusalMessage>}
+              </>
+            }
             action={
               <NumberStepper
                 ariaLabel="Max concurrent segment renders"
                 value={settings?.tts_parallel_cap ?? 1}
                 min={1}
-                max={MAX_GLOBAL_PARALLEL_CAP}
+                max={parallelCapMax}
+                describedBy={parallelCapDescribedBy}
                 disabled={savingKey === 'tts_parallel_cap'}
                 onStep={(next) => updateParallelCap(next)}
                 onInputChange={(raw) => {
                   const parsed = parseInt(raw, 10);
                   if (Number.isNaN(parsed)) return;
-                  const clamped = Math.min(MAX_GLOBAL_PARALLEL_CAP, Math.max(1, parsed));
+                  const clamped = Math.min(parallelCapMax, Math.max(1, parsed));
                   updateParallelCap(clamped);
                 }}
               />

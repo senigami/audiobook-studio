@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Minus, Plus } from 'lucide-react';
+import { AlertCircle, Minus, Plus } from 'lucide-react';
 import type { SettingsTab } from '@/pages/Settings/settingsRouteConfig';
 import type { RuntimeService } from '@/types';
 import { api } from '@/api';
@@ -59,12 +59,45 @@ export const TabHeading: React.FC<{ tab: SettingsTab }> = ({ tab }) => {
   );
 };
 
+/** Muted explanatory line under a control. Not a live region: polls would make it noisy. */
+export const CapHintText: React.FC<{ id: string; children: React.ReactNode }> = ({ id, children }) => (
+  <p id={id} style={{ margin: '0.25rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.8rem', lineHeight: 1.4 }}>
+    {children}
+  </p>
+);
+
+/** Inline refusal reason. The icon is a non-color cue next to the words "not saved". */
+export const CapRefusalMessage: React.FC<{ id: string; children: React.ReactNode }> = ({ id, children }) => (
+  <div
+    id={id}
+    role="alert"
+    style={{
+      display: 'flex',
+      alignItems: 'flex-start',
+      gap: '0.4rem',
+      margin: '0.4rem 0 0 0',
+      padding: '0.5rem 0.65rem',
+      borderRadius: '8px',
+      border: '1px solid var(--error-tint-border)',
+      background: 'var(--error-tint-bg)',
+      color: 'var(--error-text-strong)',
+      fontSize: '0.8rem',
+      lineHeight: 1.4,
+    }}
+  >
+    <AlertCircle size={14} aria-hidden="true" style={{ flexShrink: 0, marginTop: '0.15rem' }} />
+    <span>{children}</span>
+  </div>
+);
+
 export const SettingCard: React.FC<{
   icon: React.ComponentType<{ size?: number }>;
   title: string;
   description: string;
+  /** Extra lines under the description (a hint, an inline error), in the same text column. */
+  hint?: React.ReactNode;
   action: React.ReactNode;
-}> = ({ icon: Icon, title, description, action }) => (
+}> = ({ icon: Icon, title, description, hint, action }) => (
   <div
     style={{
       display: 'flex',
@@ -87,6 +120,7 @@ export const SettingCard: React.FC<{
         <p style={{ margin: '0.2rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.5 }}>
           {description}
         </p>
+        {hint}
       </div>
     </div>
     {action}
@@ -165,11 +199,41 @@ export const NumberStepper: React.FC<{
   onStep: (next: number) => void;
   onInputChange?: (raw: string) => void;
   onInputBlur?: (raw: string) => void;
-}> = ({ id, ariaLabel, value, displayValue, min, max, step = 1, disabled, onStep, onInputChange, onInputBlur }) => {
+  /** Space-separated ids of hint or error text, wired to the input and both buttons. */
+  describedBy?: string;
+}> = ({ id, ariaLabel, value, displayValue, min, max, step = 1, disabled, onStep, onInputChange, onInputBlur, describedBy }) => {
   const [pressed, setPressed] = React.useState<'dec' | 'inc' | null>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const decRef = React.useRef<HTMLButtonElement>(null);
+  const incRef = React.useRef<HTMLButtonElement>(null);
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const hadFocusRef = React.useRef(false);
   const clamp = (n: number) => Math.min(max, Math.max(min, n));
   const canDecrement = !disabled && value > min;
   const canIncrement = !disabled && value < max;
+
+  // A disabled control drops focus to <body> (WCAG 2.4.3). Hand focus to the
+  // input when a focused step button reaches its limit, and give it back to the
+  // input once a save that disabled the whole stepper finishes.
+  React.useLayoutEffect(() => {
+    if (disabled) return;
+    const active = document.activeElement;
+    if ((!canDecrement && active === decRef.current) || (!canIncrement && active === incRef.current)) {
+      inputRef.current?.focus();
+    }
+  }, [canDecrement, canIncrement, disabled]);
+
+  React.useLayoutEffect(() => {
+    const active = document.activeElement;
+    if (disabled) {
+      hadFocusRef.current = !!rootRef.current && !!active && rootRef.current.contains(active);
+      return;
+    }
+    if (hadFocusRef.current && (!active || active === document.body)) {
+      inputRef.current?.focus();
+    }
+    hadFocusRef.current = false;
+  }, [disabled]);
 
   // A single fused capsule — one continuous control split by hairlines, not
   // three separate floating buttons. Matches Apple's numeric stepper pattern
@@ -189,6 +253,7 @@ export const NumberStepper: React.FC<{
 
   return (
     <div
+      ref={rootRef}
       style={{
         display: 'inline-flex',
         flexShrink: 0,
@@ -202,7 +267,9 @@ export const NumberStepper: React.FC<{
       <button
         type="button"
         className="number-stepper-segment"
+        ref={decRef}
         aria-label={`Decrease ${ariaLabel}`}
+        aria-describedby={describedBy}
         disabled={!canDecrement}
         onClick={() => onStep(clamp(value - step))}
         onMouseDown={() => setPressed('dec')}
@@ -214,10 +281,12 @@ export const NumberStepper: React.FC<{
       </button>
       <input
         id={id}
+        ref={inputRef}
         type="text"
         inputMode="numeric"
         className="number-stepper-input"
         aria-label={ariaLabel}
+        aria-describedby={describedBy}
         disabled={disabled}
         value={displayValue ?? String(value)}
         onChange={(e) => onInputChange?.(e.target.value)}
@@ -237,7 +306,9 @@ export const NumberStepper: React.FC<{
       <button
         type="button"
         className="number-stepper-segment"
+        ref={incRef}
         aria-label={`Increase ${ariaLabel}`}
+        aria-describedby={describedBy}
         disabled={!canIncrement}
         onClick={() => onStep(clamp(value + step))}
         onMouseDown={() => setPressed('inc')}

@@ -1,10 +1,12 @@
 import type { Project, Chapter, ScriptViewResponse, ScriptAssignmentsUpdate } from '@/types';
 import { DEFAULT_VOICE_SENTINEL } from '@/constants/api';
+import { ParallelCapRefusedError, readCapRefusal } from '@/api/capRefusal';
 
 export interface SystemResourcesResponse {
   cpu_pct: number;
   ram_used_gb: number;
   ram_total_gb: number;
+  ram_available_gb?: number | null;
   vram_used_gb: number | null;
   vram_total_gb: number | null;
 }
@@ -16,10 +18,13 @@ export interface EngineConcurrencyEntry {
   requested_cap: number;
   effective_cap: number;
   active_count: number;
+  safe_max: number;
 }
 
 export interface EngineConcurrencyResponse {
   global_cap: number;
+  global_safe_max: number;
+  memory_measurable: boolean;
   engines: EngineConcurrencyEntry[];
 }
 
@@ -31,6 +36,19 @@ const parseApiResponse = async (res: Response) => {
     throw error;
   }
   return data;
+};
+
+// parseApiResponse would turn an object `detail` into "[object Object]", so the
+// two cap saves read their own failures.
+const failCapSave = async (res: Response): Promise<never> => {
+  const data = await res.json().catch(() => null);
+  const refusal = readCapRefusal(data);
+  if (refusal) throw new ParallelCapRefusedError(refusal);
+  const error = new Error(
+    typeof data?.detail === 'string' ? data.detail : data?.message || 'Request failed'
+  ) as Error & { status?: number };
+  error.status = res.status;
+  throw error;
 };
 
 export const api = {
@@ -517,6 +535,24 @@ export const api = {
   fetchEngineConcurrency: async (): Promise<EngineConcurrencyResponse> => {
     const res = await fetch('/api/engines/concurrency');
     return parseApiResponse(res);
+  },
+  saveParallelCap: async (cap: number): Promise<any> => {
+    const res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tts_parallel_cap: cap }),
+    });
+    if (!res.ok) return failCapSave(res);
+    return res.json();
+  },
+  saveEngineCap: async (engineId: string, cap: number | null): Promise<any> => {
+    const res = await fetch(`/api/engines/${encodeURIComponent(engineId)}/concurrency`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cap }),
+    });
+    if (!res.ok) return failCapSave(res);
+    return res.json();
   },
 
   // --- Pronunciation Lexicon ---
