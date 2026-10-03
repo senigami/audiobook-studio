@@ -275,7 +275,7 @@ async def save_settings(
                 if "tts_parallel_cap" in body:
                     try:
                         updates["tts_parallel_cap"] = max(1, int(body["tts_parallel_cap"]))
-                    except (TypeError, ValueError):
+                    except (TypeError, ValueError, OverflowError):
                         raise cap_guard.invalid_cap_error("tts_parallel_cap", body["tts_parallel_cap"]) from None
                 if "tts_engine_caps" in body and isinstance(body["tts_engine_caps"], dict):
                     unknown_keys = _unknown_engine_cap_keys(body["tts_engine_caps"])
@@ -288,9 +288,11 @@ async def save_settings(
                             ),
                         )
                     for engine_key, raw_cap in body["tts_engine_caps"].items():
+                        if raw_cap is None:
+                            continue  # null clears that engine's override
                         try:
                             int(raw_cap)
-                        except (TypeError, ValueError):
+                        except (TypeError, ValueError, OverflowError):
                             raise cap_guard.invalid_cap_error(f"tts_engine_caps.{engine_key}", raw_cap) from None
                     updates["tts_engine_caps"] = body["tts_engine_caps"]
                 # Accept secret-field updates but silently ignore round-tripped
@@ -329,10 +331,11 @@ async def save_settings(
 
     # Outside the JSON parse block above on purpose: its broad `except Exception`
     # would swallow a failure here and save anyway.
-    cap_guard.refuse_if_unsafe_settings(updates)
+    with cap_guard.cap_write_lock:
+        cap_guard.refuse_if_unsafe_settings(updates)
 
-    if updates:
-        update_settings(updates)
+        if updates:
+            update_settings(updates)
 
     return JSONResponse({"status": "ok", "settings": _redact_settings(get_settings())})
 

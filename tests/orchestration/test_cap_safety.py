@@ -166,14 +166,21 @@ def test_voxtral_only_registry_accepts_any_global_value():
     assert _check({"tts_parallel_cap": 8}, limits=(VOXTRAL,)) == []
 
 
-def test_every_registered_engine_is_checked_regardless_of_enablement():
-    # The function takes only limits; there is no enablement input to consult.
-    assert [v.engine for v in _check({"tts_parallel_cap": 4}, limits=(VOXTRAL, XTTS))] == ["xtts"]
-
-
 def test_unmeasurable_sample_refuses_a_raise_with_that_basis():
     sample = {"ram_total_gb": 24.0, "ram_available_gb": None}
     assert _check({"tts_parallel_cap": 3}, sample=sample) == [
         CapViolation("tts_parallel_cap", "xtts", 3, 1, BASIS_UNMEASURABLE)
     ]
     assert _check({"tts_parallel_cap": 1}, sample=sample) == []
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+def test_non_finite_ram_is_unmeasurable(bad):
+    assert engine_safe_max(XTTS, {"ram_total_gb": 24.0, "ram_available_gb": bad}) == (1, BASIS_UNMEASURABLE)
+    assert engine_safe_max(XTTS, {"ram_total_gb": bad, "ram_available_gb": 10.0}) == (1, BASIS_UNMEASURABLE)
+    assert is_memory_measurable({"ram_total_gb": 24.0, "ram_available_gb": bad}) is False
+
+
+def test_non_finite_vram_is_ignored_not_trusted():
+    sample = _sample(65536, 60000, vram_total_gb=float("nan"), vram_used_gb=1.0)
+    assert engine_safe_max(XTTS, sample)[0] == 8

@@ -53,6 +53,8 @@ def _usable_ram(sample: Mapping[str, Any]) -> Optional[tuple]:
         total_f = float(total)
     except (TypeError, ValueError):
         return None
+    if not (math.isfinite(avail_f) and math.isfinite(total_f)):
+        return None
     if total_f <= 0 or avail_f < 0 or avail_f > total_f:
         return None
     return avail_f * _MB_PER_GB, total_f * _MB_PER_GB
@@ -65,6 +67,9 @@ def is_memory_measurable(sample: Mapping[str, Any]) -> bool:
 
 def memory_budget_mb(sample: Mapping[str, Any], limits: EngineLimits) -> tuple:
     """Return (budget_mb, basis). An unusable sample is budget 0, never a guess.
+
+    RAM is always charged; when VRAM is measurable and the engine is a GPU
+    engine, the tighter of the two budgets wins.
 
     Renders already running hold memory that ``available`` no longer counts,
     so their footprint is added back; otherwise raising 1 to 2 mid-render
@@ -79,10 +84,11 @@ def memory_budget_mb(sample: Mapping[str, Any], limits: EngineLimits) -> tuple:
 
     vram_total = sample.get("vram_total_gb")
     vram_used = sample.get("vram_used_gb")
-    if limits.gpu and vram_total is not None and vram_used is not None and float(vram_total) > 0:
+    if limits.gpu and vram_total is not None and vram_used is not None:
         vt_mb = float(vram_total) * _MB_PER_GB
-        free_mb = vt_mb - float(vram_used) * _MB_PER_GB
-        budget = min(budget, free_mb - HEADROOM_FRACTION * vt_mb + resident_mb)
+        vu_mb = float(vram_used) * _MB_PER_GB
+        if math.isfinite(vt_mb) and math.isfinite(vu_mb) and vt_mb > 0:
+            budget = min(budget, vt_mb - vu_mb - HEADROOM_FRACTION * vt_mb + resident_mb)
     return max(0.0, budget), BASIS_MEMORY
 
 

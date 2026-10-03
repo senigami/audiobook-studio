@@ -205,7 +205,7 @@ without a code change.
 - Every route that can raise an effective cap MUST call the guard (`app/api/routers/cap_guard.py`) before writing.
 - A refusal MUST save nothing, including unrelated fields sent in the same request.
 - The 422 body MUST contain only the fixed `code`, the fixed-template `message`, `correlation_id`, and integer or enum violations. Sampled memory figures go to the server log under the same `correlation_id`, never into the body.
-- An empty or unavailable engine registry MUST fail closed (503, plain string detail), never pass; this applies only when the request touches a cap field.
+- Engines are enumerated from the plugin manifests on disk, unioned with the TTS Server registry, so an unloaded plugin or a server that is down is still checked. When NO engine is known, a request that could raise a cap MUST fail closed (503, plain string detail); a request that cannot raise one (lowering, re-saving, cap 1, unrelated fields) MUST succeed.
 - `violations[].engine` MUST be a registered engine id from the registry, never user-supplied text, and `basis` MUST be `memory` or `unmeasurable`.
 - The guard MUST run outside any broad `except Exception` in the handler, so a failure cannot be swallowed into a save.
 

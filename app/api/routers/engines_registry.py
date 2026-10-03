@@ -143,10 +143,11 @@ def update_engine_concurrency(engine_id: str, body: ConcurrencyUpdateRequest):
         )
 
     # Checked before the write: a refusal changes nothing.
-    if refusal := cap_guard.unsafe_engine_cap_response(engine_id, body.cap):
-        return refusal
+    with cap_guard.cap_write_lock:
+        if refusal := cap_guard.unsafe_engine_cap_response(engine_id, body.cap):
+            return refusal
 
-    set_engine_cap(engine_id, body.cap)
+        set_engine_cap(engine_id, body.cap)
 
     engine_caps = get_engine_caps()
     global_cap = get_global_parallel_cap()

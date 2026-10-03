@@ -9,8 +9,10 @@ decision to ``app.orchestration.scheduler.cap_safety``.
 from __future__ import annotations
 
 import logging
+import threading
 import uuid
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any, Callable, Mapping, Optional
 
 from fastapi import HTTPException
@@ -19,6 +21,7 @@ from fastapi.responses import JSONResponse
 from ...db.state import get_settings
 from ...engines.system_resources import sample_resources
 from ...orchestration.scheduler.cap_safety import CapViolation, EngineLimits, find_cap_violations
+from ...orchestration.scheduler.cap_settings import get_engine_caps, get_global_parallel_cap
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +38,10 @@ INVALID_CAP_MESSAGE = (
 )
 
 _CAP_FIELDS = ("tts_parallel_cap", "tts_engine_caps")
+
+# Held across check AND write on both routes, so two individually safe saves
+# cannot interleave into an unsafe combined cap.
+cap_write_lock = threading.RLock()
 
 
 def new_correlation_id() -> str:
@@ -54,7 +61,7 @@ def invalid_cap_error(field: str, raw_value: Any) -> HTTPException:
 
 
 def limits_for(engine_id: str, claim: Any, active_count: int) -> EngineLimits:
-    """Footprint is the manifest's vram_mb, charged to RAM when VRAM is unmeasurable (see cap_safety)."""
+    """Footprint is the manifest's vram_mb. RAM is always charged; VRAM too when it is measurable (see cap_safety)."""
     return EngineLimits(
         engine_id=engine_id,
         manifest_max=int(claim.manifest_max),
@@ -64,18 +71,57 @@ def limits_for(engine_id: str, claim: Any, active_count: int) -> EngineLimits:
     )
 
 
+def local_engine_ids() -> list[str]:
+    """Engine ids with a plugin manifest on disk, whether or not the TTS Server loaded them.
+
+    Read from the same plugins directory the scheduler's manifest claim uses, so a
+    plugin that failed to load (or a server that is down) is still checked.
+    """
+    from ...core.config import PLUGINS_DIR  # noqa: PLC0415
+
+    try:
+        entries = sorted(Path(PLUGINS_DIR).iterdir())
+    except OSError:
+        return []
+    return [
+        entry.name[len("tts_"):]
+        for entry in entries
+        if entry.is_dir() and entry.name.startswith("tts_") and (entry / "manifest.json").is_file()
+    ]
+
+
 def collect_limits() -> list[EngineLimits]:
-    """Limits for EVERY registered engine, enabled or not."""
+    """Limits for EVERY known engine (on disk or reported by the server), enabled or not."""
     from ...engines.registry import load_engine_registry  # noqa: PLC0415
     from ...orchestration.scheduler.resources import get_engine_id_semaphore  # noqa: PLC0415
     from ...orchestration.tasks.synthesis import _manifest_resource_claim  # noqa: PLC0415
 
+    engine_ids = set(local_engine_ids())
+    try:
+        engine_ids.update(load_engine_registry().keys())
+    except Exception:
+        logger.warning("Engine registry unavailable while checking a cap; using manifests on disk", exc_info=True)
+
     limits: list[EngineLimits] = []
-    for engine_id in sorted(load_engine_registry().keys()):
+    for engine_id in sorted(engine_ids):
         claim = _manifest_resource_claim(engine_id)
         active = get_engine_id_semaphore(engine_id, claim.manifest_max).active_count
         limits.append(limits_for(engine_id, claim, active))
     return limits
+
+
+def _could_raise_a_cap(current: Mapping[str, Any], candidate: Mapping[str, Any]) -> bool:
+    """Raw comparison used only when no engine is known (manifest ceilings are unknown then)."""
+    cur_global = get_global_parallel_cap(current)
+    new_global = get_global_parallel_cap(candidate)
+    cur_over = get_engine_caps(current)
+    new_over = get_engine_caps(candidate)
+    if new_global > cur_global:
+        return True
+    return any(
+        new_over.get(engine, new_global) > cur_over.get(engine, cur_global)
+        for engine in set(cur_over) | set(new_over)
+    )
 
 
 def _refusal_detail(violations: list[CapViolation], sample: Mapping[str, Any]) -> dict:
@@ -99,18 +145,14 @@ def _refusal_detail(violations: list[CapViolation], sample: Mapping[str, Any]) -
 def _violations_for(build_updates: Callable[[dict], dict]) -> tuple[list[CapViolation], Mapping[str, Any]]:
     current = dict(get_settings() or {})
     candidate = {**current, **build_updates(current)}
-    try:
-        limits = collect_limits()
-    except Exception as exc:
-        raise HTTPException(
-            status_code=503,
-            detail="Cannot verify parallel cap safety: engine registry is unavailable.",
-        ) from exc
+    limits = collect_limits()
     if not limits:
-        # An empty registry would check nothing and let any value through.
+        if not _could_raise_a_cap(current, candidate):
+            return [], {}
+        # No engine information at all would check nothing and let a raise through.
         raise HTTPException(
             status_code=503,
-            detail="Cannot verify parallel cap safety: no engines are currently loaded.",
+            detail="Cannot verify parallel cap safety: no engines are currently known.",
         )
     sample = sample_resources()
     violations = find_cap_violations(

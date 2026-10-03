@@ -147,11 +147,78 @@ def test_voxtral_override_of_1_is_allowed(client, machine):
     assert client.post("/api/settings", json={"tts_engine_caps": {"voxtral": 1}}).status_code == 200
 
 
-def test_empty_registry_fails_closed_with_503_and_saves_nothing(client, machine, monkeypatch):
+def _no_engines_known(monkeypatch):
     monkeypatch.setattr("app.engines.registry.load_engine_registry", lambda: {})
+    monkeypatch.setattr("app.api.routers.cap_guard.local_engine_ids", lambda: [])
+
+
+def test_raising_with_no_engine_information_fails_closed_with_503(client, machine, monkeypatch):
+    _no_engines_known(monkeypatch)
     resp = client.post("/api/settings", json={"tts_parallel_cap": 3})
     assert resp.status_code == 503
     assert get_settings()["tts_parallel_cap"] == 2
+    assert client.put("/api/engines/xtts/concurrency", json={"cap": 4}).status_code == 503
+    assert get_settings()["tts_engine_caps"] == {}
+
+
+def test_lowering_works_when_the_server_registry_is_empty(client, machine, monkeypatch):
+    update_settings({"tts_parallel_cap": 4})
+    monkeypatch.setattr("app.engines.registry.load_engine_registry", lambda: {})
+    assert client.post("/api/settings", json={"tts_parallel_cap": 1}).status_code == 200
+    assert get_settings()["tts_parallel_cap"] == 1
+    assert client.put("/api/engines/xtts/concurrency", json={"cap": 1}).status_code == 200
+
+
+def test_lowering_works_even_when_no_engine_is_known_at_all(client, machine, monkeypatch):
+    update_settings({"tts_parallel_cap": 4})
+    _no_engines_known(monkeypatch)
+    assert client.post("/api/settings", json={"tts_parallel_cap": 1}).status_code == 200
+    assert get_settings()["tts_parallel_cap"] == 1
+    assert client.put("/api/engines/xtts/concurrency", json={"cap": 1}).status_code == 200
+    assert client.post("/api/settings", json={"safe_mode": True}).status_code == 200
+
+
+def test_a_plugin_on_disk_but_missing_from_the_server_registry_is_still_checked(client, machine, monkeypatch):
+    monkeypatch.setattr("app.engines.registry.load_engine_registry", lambda: {"voxtral": object()})
+    put = client.put("/api/engines/xtts/concurrency", json={"cap": 8})
+    assert put.status_code == 422
+    assert put.json()["detail"]["violations"] == [_xtts_violation("tts_engine_caps", 8)]
+    post = client.post("/api/settings", json={"tts_parallel_cap": 8})
+    assert post.status_code == 422
+    assert get_settings()["tts_engine_caps"] == {}
+    assert get_settings()["tts_parallel_cap"] == 2
+
+
+def test_concurrent_safe_saves_cannot_combine_into_an_unsafe_cap(client, machine, monkeypatch):
+    import threading
+
+    from app.orchestration.scheduler.cap_settings import get_engine_caps, resolve_effective_cap
+
+    sample = {**MAC, "ram_available_gb": 16000 / 1024}  # XTTS safe maximum is 2
+    update_settings({"tts_parallel_cap": 2, "tts_engine_caps": {"xtts": 1}})
+    barrier = threading.Barrier(2)
+
+    def sampler():
+        try:
+            barrier.wait(timeout=1.5)  # both checks in flight before either writes, if nothing serializes them
+        except threading.BrokenBarrierError:
+            pass
+        return dict(sample)
+
+    monkeypatch.setattr("app.api.routers.cap_guard.sample_resources", sampler)
+    results = {}
+    threads = [
+        threading.Thread(target=lambda: results.update(a=client.post("/api/settings", json={"tts_parallel_cap": 8}))),
+        threading.Thread(target=lambda: results.update(b=client.put("/api/engines/xtts/concurrency", json={"cap": None}))),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=20)
+    assert {results["a"].status_code, results["b"].status_code} == {200, 422}
+    stored = get_settings()
+    assert resolve_effective_cap(engine_id="xtts", manifest_max=8, settings=stored) <= 2
+    assert get_engine_caps(stored) in ({"xtts": 1}, {})
 
 
 def test_get_concurrency_reports_safe_maxima_matching_the_refusal(client, machine):
@@ -200,3 +267,57 @@ def test_non_numeric_cap_is_refused_with_invalid_cap_and_saves_nothing(client, m
     assert stored["tts_parallel_cap"] == 2
     assert stored["tts_engine_caps"] == {}
     assert stored["safe_mode"] is False
+
+
+@pytest.mark.parametrize(
+    "raw_body",
+    [
+        b'{"tts_parallel_cap": Infinity}',
+        b'{"tts_parallel_cap": 1e400}',
+        b'{"safe_mode": true, "tts_engine_caps": {"xtts": Infinity}}',
+        b'{"safe_mode": true, "tts_engine_caps": {"xtts": 1e400}}',
+    ],
+)
+def test_overflowing_cap_is_refused_with_invalid_cap_and_saves_nothing(client, machine, raw_body):
+    resp = client.post("/api/settings", content=raw_body, headers={"content-type": "application/json"})
+    assert resp.status_code == 422
+    assert resp.json()["detail"]["code"] == "invalid_cap"
+    assert get_settings()["safe_mode"] is False
+    assert get_settings()["tts_parallel_cap"] == 2
+
+
+def test_null_engine_cap_clears_that_override_as_before(client, machine):
+    from app.orchestration.scheduler.cap_settings import get_engine_caps
+
+    machine["sample"] = AMPLE
+    update_settings({"tts_engine_caps": {"xtts": 1}})
+    resp = client.post("/api/settings", json={"tts_engine_caps": {"xtts": None}})
+    assert resp.status_code == 200
+    assert get_engine_caps(get_settings()) == {}
+
+
+def test_a_global_raise_is_checked_against_every_engine_not_only_those_named(client, machine):
+    # voxtral (named, safe at 1) is not the engine that goes unsafe; xtts inherits the new global.
+    update_settings({"tts_engine_caps": {"voxtral": 1}})
+    for body in (
+        {"tts_parallel_cap": 4},
+        {"tts_parallel_cap": 4, "tts_engine_caps": {"voxtral": 1}},
+    ):
+        resp = client.post("/api/settings", json=body)
+        assert resp.status_code == 422
+        assert resp.json()["detail"]["violations"] == [_xtts_violation("tts_parallel_cap", 4)]
+    assert get_settings()["tts_parallel_cap"] == 2
+
+
+def test_an_unexpected_failure_inside_the_guard_never_results_in_a_save(client, machine, monkeypatch):
+    def broken_sampler():
+        raise RuntimeError("sampler exploded")
+
+    monkeypatch.setattr("app.api.routers.cap_guard.sample_resources", broken_sampler)
+    try:
+        resp = client.post("/api/settings", json={"tts_parallel_cap": 3, "safe_mode": True})
+        assert resp.status_code >= 500
+    except RuntimeError:
+        pass  # the test client re-raises server errors; either way nothing may be saved
+    assert get_settings()["tts_parallel_cap"] == 2
+    assert get_settings()["safe_mode"] is False
