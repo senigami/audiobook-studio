@@ -614,7 +614,7 @@ async def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
             detail=f"Engine {body.engine_id} is not ready (status: {status})",
         )
     if getattr(plugin, "verification_error", None):
-        logger.exception("Engine %s failed verification: %s", body.engine_id, plugin.verification_error)
+        logger.error("Engine %s failed verification: %s", body.engine_id, plugin.verification_error)
         raise HTTPException(
             status_code=503,
             detail=f"Engine {body.engine_id} failed verification.",
@@ -691,13 +691,18 @@ async def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
 
     if not result.ok:
         correlation_id = uuid.uuid4().hex[:12]
+        caught = getattr(result, "exception", None)
+        # One record carries the correlation id, the engine's text, and (when the
+        # engine caught an exception) its traceback.
         logger.error(
             "Synthesis failed for engine %s [correlation_id=%s]: %s",
             body.engine_id,
             correlation_id,
             result.error,
+            exc_info=(type(caught), caught, caught.__traceback__) if caught is not None else None,
         )
-        raise _synthesis_failure("synthesis_failed", correlation_id)
+        code = _classify_synthesis_exception(caught) if caught is not None else "synthesis_failed"
+        raise _synthesis_failure(code, correlation_id)
 
     # 3. postprocess_audio
     if result.output_path:
@@ -848,7 +853,7 @@ def preview(body: PreviewRequest) -> dict[str, Any]:
     result = plugin.engine.preview(req)
 
     if not result.ok:
-        logger.exception("Preview failed for engine %s: %s", body.engine_id, result.error)
+        logger.error("Preview failed for engine %s: %s", body.engine_id, result.error)
         raise HTTPException(
             status_code=500,
             detail="Preview failed.",

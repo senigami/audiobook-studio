@@ -12,7 +12,6 @@ so that loading this module does not trigger model loading.
 from __future__ import annotations
 
 import json
-import logging
 import os
 import sys
 import tempfile
@@ -28,8 +27,6 @@ from studio_plugin_sdk.proc import run_cmd_stream
 # not be redefined per-module — a separate lock per writer wouldn't
 # serialize writers against EACH OTHER, defeating the point).
 from ..core.diagnostics import emit_stderr_atomic as _emit_stderr_atomic_line
-
-logger = logging.getLogger(__name__)
 
 # LAME VBR quality for MP3 sample output (ffmpeg -q:a). Same value as the
 # Studio host default (app/core/config.py MP3_QUALITY) — kept as a local
@@ -469,8 +466,7 @@ class XttsPlugin(StudioTTSEngine):
             except Exception:
                 pass
         except Exception as exc:
-            logger.error("XTTS synthesis raised %s", type(exc).__name__, exc_info=True)
-            return TTSResult(ok=False, error=f"XTTS synthesis raised: {exc}")
+            return TTSResult(ok=False, error=f"XTTS synthesis raised: {exc}", exception=exc)
         finally:
             if temp_wav and temp_wav.exists() and rc != 0:
                 temp_wav.unlink(missing_ok=True)

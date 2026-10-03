@@ -24,7 +24,7 @@ Last updated: 2026-08-26
 | [system-architecture.md](system-architecture.md) | Two-process model (Studio + TTS Server), boot sequence, component ownership boundaries; boot must not host destructive reconciliation (I13) | 1.7.2 |
 | [data-model.md](data-model.md) | SQLite schema, state.json structure, voice directory layout V2; segment-audio artifacts (group→filename fan-out) + orphan GC; source-of-truth = validated metadata, not file existence; versioned transactional schema-migration runner (§ Migration) | 1.13.2 |
 | [api-conventions.md](api-conventions.md) | REST URL patterns, standard error shape, API key auth, WebSocket protocol, external TTS API; live reads must bypass browser cache (`no-store`); per-book GC on project open | 1.2.0 |
-| [plugin-contract.md](plugin-contract.md) | `StudioTTSEngine` ABC, manifest schema, SDK types, capability flags | 1.11.0 |
+| [plugin-contract.md](plugin-contract.md) | `StudioTTSEngine` ABC, manifest schema, SDK types, capability flags | 1.13.0 |
 | [performance-script-format.md](performance-script-format.md) | Canonical `performance_data` JSON shape, rendering-mode resolution (`resolve_rendering()`), INV-2; AI pipeline/export layer explicitly deferred | 1.0.0 |
 | [engines-and-plugins.md](engines-and-plugins.md) | Plugin discovery, health state machine, verification flow, hot-reload rules | 1.3.0 |
 | [video-sample.md](video-sample.md) | Per-chapter shareable MP4 sample (book cover + capped chapter audio); local-only ffmpeg render, letterboxed visual, Studio-logo fallback, orientation/duration params, `POST /chapters/{id}/export-video` | 1.0.0 |

@@ -100,3 +100,46 @@ def test_classification_ignores_message_text(tmp_path):
     # A RuntimeError whose message says "timeout" must not be classified as one.
     resp = _post(tmp_path, raises=RuntimeError("timeout while loading"))
     assert resp.json()["detail"]["code"] == "synthesis_failed"
+
+
+@pytest.mark.parametrize(
+    "exc, code",
+    [
+        (TimeoutError("slow C:\\Users\\Jane Doe\\x.wav"), "timeout"),
+        (FileNotFoundError("/Users/secret/model.bin"), "engine_unavailable"),
+        (ConnectionError("refused http://127.0.0.1:9"), "engine_unavailable"),
+        (ValueError("bad"), "invalid_request"),
+        (TypeError("bad"), "invalid_request"),
+        (RuntimeError("boom"), "synthesis_failed"),
+    ],
+)
+def test_engine_caught_exception_on_result_is_classified_by_type(tmp_path, caplog, exc, code):
+    # Engines such as XTTS catch their own exceptions and hand them back on the result.
+    try:
+        raise exc
+    except Exception as caught:
+        result = TTSResult(ok=False, error=f"engine said: {caught}", exception=caught)
+    with caplog.at_level(logging.ERROR, logger="app.tts_server.server"):
+        resp = _post(tmp_path, result=result)
+    detail = resp.json()["detail"]
+    assert detail["code"] == code
+    assert set(detail) == {"code", "message", "correlation_id"}
+    for marker in LEAK_MARKERS + ["engine said", "boom"]:
+        assert marker not in resp.text
+    assert type(exc).__name__ not in resp.text
+
+
+def test_exactly_one_record_carries_correlation_id_and_traceback(tmp_path, caplog):
+    try:
+        raise TimeoutError("worker stalled")
+    except TimeoutError as caught:
+        result = TTSResult(ok=False, error="XTTS synthesis raised: worker stalled", exception=caught)
+    with caplog.at_level(logging.DEBUG):
+        resp = _post(tmp_path, result=result)
+    cid = resp.json()["detail"]["correlation_id"]
+    carrying = [r for r in caplog.records if cid in r.getMessage()]
+    assert len(carrying) == 1
+    record = carrying[0]
+    assert record.exc_info is not None and record.exc_info[0] is TimeoutError
+    assert record.exc_info[2] is not None  # traceback attached
+    assert "worker stalled" in record.getMessage()

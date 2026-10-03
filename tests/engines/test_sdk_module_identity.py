@@ -176,8 +176,8 @@ class TestPackageNamespaceIdentity:
     def test_sdk_version_declared(self):
         import studio_plugin_sdk as sdk
 
-        assert sdk.SDK_VERSION == "1.2"
-        assert sdk.__version__ == "1.2"
+        assert sdk.SDK_VERSION == "1.3"
+        assert sdk.__version__ == "1.3"
 
         # The app-side shim must re-export, not re-declare (issue #200).
         import app.studio_plugin_sdk as app_sdk
