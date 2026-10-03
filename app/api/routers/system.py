@@ -18,6 +18,7 @@ from ...db.models import Job
 from ...engines.system_resources import sample_resources
 from ...utils.pathing import safe_basename, safe_join_flat
 from ..utils import read_preview
+from . import cap_guard
 # Compatibility for tests that monkeypatch these
 VOICES_DIR = config.VOICES_DIR
 
@@ -275,7 +276,7 @@ async def save_settings(
                     try:
                         updates["tts_parallel_cap"] = max(1, int(body["tts_parallel_cap"]))
                     except (TypeError, ValueError):
-                        logger.warning("Ignoring invalid tts_parallel_cap value: %r", body["tts_parallel_cap"])
+                        raise cap_guard.invalid_cap_error("tts_parallel_cap", body["tts_parallel_cap"]) from None
                 if "tts_engine_caps" in body and isinstance(body["tts_engine_caps"], dict):
                     unknown_keys = _unknown_engine_cap_keys(body["tts_engine_caps"])
                     if unknown_keys:
@@ -286,6 +287,11 @@ async def save_settings(
                                 f"{', '.join(sorted(unknown_keys))}"
                             ),
                         )
+                    for engine_key, raw_cap in body["tts_engine_caps"].items():
+                        try:
+                            int(raw_cap)
+                        except (TypeError, ValueError):
+                            raise cap_guard.invalid_cap_error(f"tts_engine_caps.{engine_key}", raw_cap) from None
                     updates["tts_engine_caps"] = body["tts_engine_caps"]
                 # Accept secret-field updates but silently ignore round-tripped
                 # redacted sentinel values so the real key is never overwritten.
@@ -320,6 +326,10 @@ async def save_settings(
     if "safe_mode" not in updates and safe_mode is not None:
         val = to_bool(safe_mode)
         if val is not None: updates["safe_mode"] = val
+
+    # Outside the JSON parse block above on purpose: its broad `except Exception`
+    # would swallow a failure here and save anyway.
+    cap_guard.refuse_if_unsafe_settings(updates)
 
     if updates:
         update_settings(updates)

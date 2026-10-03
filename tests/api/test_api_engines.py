@@ -593,7 +593,8 @@ def test_put_concurrency_rejects_out_of_range_with_422(clean_db, client):
 
     assert response.status_code == 422
     body = response.json()
-    assert body["manifest_max"] == 4
+    assert body["detail"]["code"] == "cap_out_of_range"
+    assert body["detail"]["manifest_max"] == 4
 
 
 def test_put_concurrency_null_cap_clears_override(clean_db, client):
