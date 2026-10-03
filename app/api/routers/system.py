@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 from typing import Optional, List, Any
 from fastapi import APIRouter, Form, UploadFile, File, Request, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, FileResponse
 from ...core import config
 from ...db.state import get_settings, update_settings, get_jobs, put_job, update_job
@@ -18,6 +19,7 @@ from ...db.models import Job
 from ...engines.system_resources import sample_resources
 from ...utils.pathing import safe_basename, safe_join_flat
 from ..utils import read_preview
+from . import cap_guard
 # Compatibility for tests that monkeypatch these
 VOICES_DIR = config.VOICES_DIR
 
@@ -274,8 +276,8 @@ async def save_settings(
                 if "tts_parallel_cap" in body:
                     try:
                         updates["tts_parallel_cap"] = max(1, int(body["tts_parallel_cap"]))
-                    except (TypeError, ValueError):
-                        logger.warning("Ignoring invalid tts_parallel_cap value: %r", body["tts_parallel_cap"])
+                    except (TypeError, ValueError, OverflowError):
+                        raise cap_guard.invalid_cap_error("tts_parallel_cap", body["tts_parallel_cap"]) from None
                 if "tts_engine_caps" in body and isinstance(body["tts_engine_caps"], dict):
                     unknown_keys = _unknown_engine_cap_keys(body["tts_engine_caps"])
                     if unknown_keys:
@@ -286,7 +288,18 @@ async def save_settings(
                                 f"{', '.join(sorted(unknown_keys))}"
                             ),
                         )
-                    updates["tts_engine_caps"] = body["tts_engine_caps"]
+                    for engine_key, raw_cap in body["tts_engine_caps"].items():
+                        if raw_cap is None:
+                            continue  # null clears that engine's override
+                        try:
+                            int(raw_cap)
+                        except (TypeError, ValueError, OverflowError):
+                            raise cap_guard.invalid_cap_error(f"tts_engine_caps.{engine_key}", raw_cap) from None
+                    # Null clears that engine's override. Dropped here so the guard checks
+                    # exactly what is stored (an emptied map falls back to TTS_ENGINE_CAPS).
+                    updates["tts_engine_caps"] = {
+                        key: value for key, value in body["tts_engine_caps"].items() if value is not None
+                    }
                 # Accept secret-field updates but silently ignore round-tripped
                 # redacted sentinel values so the real key is never overwritten.
                 for field in _SECRET_FIELDS:
@@ -321,8 +334,17 @@ async def save_settings(
         val = to_bool(safe_mode)
         if val is not None: updates["safe_mode"] = val
 
-    if updates:
-        update_settings(updates)
+    # Outside the JSON parse block above on purpose: its broad `except Exception`
+    # would swallow a failure here and save anyway.
+    def _check_and_save() -> None:
+        with cap_guard.cap_write_lock:
+            cap_guard.refuse_if_unsafe_settings(updates)
+
+            if updates:
+                update_settings(updates)
+
+    # Off the event loop: the lock may be held by a PUT, and the check samples memory.
+    await run_in_threadpool(_check_and_save)
 
     return JSONResponse({"status": "ok", "settings": _redact_settings(get_settings())})
 

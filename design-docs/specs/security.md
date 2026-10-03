@@ -1,13 +1,15 @@
 # Security
 
 ```
-spec_version: 1.4.4
+spec_version: 1.4.5
 status: active
 updated: 2026-10-03
 sources:
   - app/utils/pathing.py
   - app/core/security.py
   - app/api/routers/system.py
+  - app/api/routers/cap_guard.py
+  - app/api/routers/engines_registry.py
   - app/api/web.py
   - app/api/tts_api.py
   - app/tts_server/server.py
@@ -28,6 +30,7 @@ sources:
 
 | Version | Date       | Change                  |
 |---------|------------|-------------------------|
+| 1.4.5   | 2026-10-03 | **S21 (parallel-cap refusal contract, #251):** a save-time refusal of an unsafe parallel-render cap returns `detail: {code, message, correlation_id, violations[]}`, following the S20 shape. `message` is a fixed template with one integer; `violations` carry integers and enums only; the sampled memory numbers are logged server-side under the correlation id. The Status Payload Rule is unchanged. A non-numeric cap value is refused with `invalid_cap` in the same shape (no raw value echoed), and the PUT concurrency route's out-of-range body moved to the same coded shape (`cap_out_of_range`). Engines are enumerated from the plugin manifests on disk unioned with the TTS Server registry, so a down server or an unloaded plugin does not hide one. Only when no engine is known at all and the request would raise a cap does the guard fail closed with 503 (plain string `detail`, not the coded shape): a check that cannot see any engine must not pass a raise. A request that cannot raise a cap always succeeds. Non-finite cap values (`Infinity`, `1e400`) get the coded 422 `invalid_cap`, a per-engine `null` is dropped before saving (so the guard checks exactly what is stored), and check plus write run under one lock. Engines found on disk must match the plugin loader's folder rule (`^tts_[a-z][a-z0-9]{1,14}$`). `violations[].engine` is a known engine id (never user text) and `basis` is `memory` or `unmeasurable`. |
 | 1.4.4   | 2026-10-03 | **S20 (TTS Server synthesis failure contract, #255):** `POST /synthesize` returned a fixed `500 "Synthesis failed."` with no way to tie it to the real cause. It now returns `detail: {code, message, correlation_id}`: `code` is one of `engine_unavailable`, `invalid_request`, `timeout`, `synthesis_failed`, chosen from the exception TYPE only (never message text; a failed `TTSResult` is classified by its optional `exception` field, and is `synthesis_failed` when absent); `message` is a fixed string per code; `correlation_id` is a random 12-hex id. The full engine error, exception type, and traceback are logged server-side in a single `logger.error` record (with `exc_info`) carrying the same id. The Status Payload Rule is unchanged: no exception class name, traceback, path, or engine text reaches the body. `TtsClient` surfaces `error_code` and `correlation_id` on `TtsServerResponseError`. The external `/api/v1/tts` surface is unchanged. |
 | 1.4.3   | 2026-08-28 | **S19 (settings key allowlist, #235):** `POST /api/settings`'s `tts_engine_caps` accepted any string key with no validation against real engine ids (found inert during #228/#229's adversarial review, tracked separately). Now rejected with 400 unless every key matches a currently-loaded `engine_id` from `bridge.describe_registry()` — see Settings Key Allowlist below. |
 | 1.4.2   | 2026-08-26 | **S17 correction (#219a):** 1.4.0/1.4.1 claimed "Python's `zipfile` module enforces `file_size` as the stop condition when reading/extracting a member" as a blanket property of the module. Measured directly rather than assumed, and it is not: that truncation-at-declared-size behavior belongs to the streaming reader (`zf.open(member)`, which `extractall()` also uses internally), NOT to `ZipFile.read(name)`, the single-shot convenience method this module called for `manifest.json`/`settings_schema.json`/`requirements.txt`. `read(name)` decompresses a member's entire DEFLATE stream in one call regardless of declared size and only compares against it (via CRC) at the very end. Confirmed empirically: a member declaring 100 bytes while its real content was 800 MB cost +839 MB RSS through `zf.read()` before raising; the identical forgery read through `zf.open()` in a bounded loop cost none, because the streaming reader's own EOF tracking stopped it at the declared size first — meaning `extractall()` was never actually exploitable this way, only the three pre-extraction convenience reads were. Fixed by routing all four reads (those three, plus extraction itself, for defense-in-depth and consistent error handling) through `_safe_read_member`/`_safe_extractall`, which stream via `zf.open()` and count real bytes rather than relying on `zipfile`'s internal bookkeeping. Because a forged declared size and an honest CRC can never coexist (truncating an honest CRC's real content always mismatches), the actual failure mode this closes is not "size ceiling bypassed" but "corrupted/tampered member propagated as an unhandled `zipfile.BadZipFile`" — pre-fix, that surfaced as a bare 500 (extraction) or a misleading 400 "Invalid manifest.json" (mis-caught by the JSON-parse handler). Now a clean, correctly-labeled 400. The stale "single member just under the [uncompressed] ceiling is still read whole into memory by `zf.read(\"manifest.json\")`" note from 1.4.1 no longer applies and is removed below. |
@@ -194,6 +197,18 @@ without a code change.
   the check itself going stale against installed/removed plugins.
 
 ---
+
+## Parallel Cap Refusal (S21)
+
+`POST /api/settings` and `PUT /api/engines/{engine_id}/concurrency` refuse a parallel-render cap the machine cannot safely run (contract: `queue-jobs.md` §7.3d). The refusal body follows the S20 shape and carries nothing a caller could not already know.
+
+- Every route that can raise an effective cap MUST call the guard (`app/api/routers/cap_guard.py`) before writing.
+- A refusal MUST save nothing, including unrelated fields sent in the same request.
+- The 422 body MUST contain only the fixed `code`, the fixed-template `message`, `correlation_id`, and integer or enum violations. Sampled memory figures go to the server log under the same `correlation_id`, never into the body.
+- Engines are enumerated from the plugin manifests on disk, unioned with the TTS Server registry, so an unloaded plugin or a server that is down is still checked. When NO engine is known, a request that could raise a cap MUST fail closed (503, plain string detail); a request that cannot raise one (lowering, re-saving, cap 1, unrelated fields) MUST succeed.
+- The check and the write MUST run under one lock on both routes, so two safe saves cannot combine into an unsafe one.
+- `violations[].engine` MUST be a known engine id (from a manifest on disk or the registry), never user-supplied text, and `basis` MUST be `memory` or `unmeasurable`.
+- The guard MUST run outside any broad `except Exception` in the handler, so a failure cannot be swallowed into a save.
 
 ## Plugin Zip Import Security
 

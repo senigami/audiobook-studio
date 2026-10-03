@@ -1,7 +1,7 @@
 # SP9 — System Architecture Spec
 
 ```
-spec_version: 1.8.0
+spec_version: 1.9.0
 status: active
 created: 2026-06-10
 updated: 2026-10-03
@@ -11,7 +11,9 @@ sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py, app/core/log_f
          app/tts_server/plugin_loader.py, app/orchestration/scheduler/orchestrator.py,
          app/orchestration/scheduler/resources.py, app/orchestration/tasks/synthesis.py,
          app/db/state_settings.py, app/api/routers/engines.py, tts_engines/*/manifest.json,
-         tts_engines/tts_xtts/plugin/core/warm_worker.py
+         tts_engines/tts_xtts/plugin/core/warm_worker.py,
+         app/orchestration/scheduler/cap_safety.py, app/api/routers/cap_guard.py,
+         app/api/routers/engines_registry.py, app/engines/system_resources.py
 ```
 
 > **TL;DR:** Studio runs as two processes — a main FastAPI app and a managed TTS Server subprocess — with a strict ownership split between the orchestrator (job lifecycle), watchdog (server process lifecycle), and VoiceBridge (engine routing).
@@ -19,6 +21,7 @@ sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py, app/core/log_f
 ## Changelog
 
 | Version | Date       | Summary                                                    |
+| 1.9.0   | 2026-10-03 | **§3.1c save-time safe maximum (#251).** The parallel-cap guard sits in the routers (`app/api/routers/cap_guard.py`), not the orchestrator: it gathers one memory sample and the known engines' manifest claims (manifests on disk plus the registry) and calls the pure functions in `app/orchestration/scheduler/cap_safety.py`. Admission is untouched. `GET /api/engines/concurrency` gains `safe_max`, `global_safe_max`, `memory_measurable`; the PUT concurrency route's out-of-range 422 moves to a coded body. Contract in `queue-jobs.md` §7.3d. |
 | 1.8.0   | 2026-10-03 | **Persistent rotating server log (#252).** New step 0 in §4: `startup_event` first calls `boot_logging()` (`app/core/boot.py`), which attaches a `RotatingFileHandler` (`app/core/log_file.py`: 5 MB x 5 backups, INFO+) to the root logger and `uvicorn.access`, writing `<LOG_DIR>/studio.log` (`LOG_DIR` in `app/core/config.py`, default `<AUDIOBOOK_BASE_DIR>/logs`, env-overridable, gitignored). Idempotent across `uvicorn --reload`; import creates nothing; setup failure is swallowed (the app still boots); token/api-key/password/Bearer values are redacted before they reach the file. |
 | 1.7.2   | 2026-07-14 | Mixed-handler marker set gains `[SEGMENT_ENGINE_SAMPLE] {segment_id} {engine} {chars} {duration_seconds}`, emitted per group after INV-3 artifact validation, so the orchestrator can attribute render-performance samples to the group's real engine instead of the `"mixed"` container label. Full contract in `queue-jobs.md` §Changelog 1.12.2. |
 |---------|------------|------------------------------------------------------------|
@@ -237,6 +240,12 @@ direct settings writes). Writes go through
 the settings lock — a raw whole-object `update_settings({"tts_engine_caps":
 {...}})` write would silently clobber a concurrent write to a *different*
 engine's override; `set_engine_cap` merges just the one key.
+
+### 3.1c Save-time safe maximum (#251)
+
+Refusing a parallel-render cap the machine cannot safely run is a save-time check owned by the API layer, not the orchestrator. `app/api/routers/cap_guard.py` gathers the inputs (every known engine's manifest claim, from plugin manifests on disk unioned with the registry, and one memory sample from `app/engines/system_resources.py`) and calls the pure functions in `app/orchestration/scheduler/cap_safety.py`, which do all the deciding and perform no I/O. `POST /api/settings` and `PUT /api/engines/{engine_id}/concurrency` call it before they write. It does not touch admission: `resolve_effective_cap` and the semaphores behave as in §3.1a and §3.1b.
+
+The split exists so that the hint on `GET /api/engines/concurrency` and the refusal cannot disagree: both call the same functions. That endpoint builds its engine list and additionally returns per-engine `safe_max`, top-level `global_safe_max` and `memory_measurable` from the same enumeration as the guard (manifests on disk unioned with the registry, so it agrees with the refusal even when the server is down). The PUT route's out-of-range 422 body changed from `{status, message, manifest_max}` to `{detail: {code: "cap_out_of_range", message, correlation_id, manifest_max}}`. Formula, rule and refusal body: `queue-jobs.md` §7.3d.
 
 ---
 

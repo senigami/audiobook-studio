@@ -9,6 +9,7 @@ from fastapi import APIRouter, Body
 from fastapi.responses import JSONResponse
 from ...engines.bridge import create_voice_bridge
 from .engines_shared import ConcurrencyUpdateRequest, _check_engine_id
+from . import cap_guard
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +45,11 @@ def get_engine_concurrency():
     effective cap (``resolve_effective_cap``, same function
     ``reserve_task_resources`` resolves fresh on every admission attempt),
     and each engine's per-engine-id semaphore ``active_count``. All
-    in-process reads (one manifest.json read per registered engine), no new
-    I/O against the TTS Server.
+    in-process reads (one manifest.json read per known engine), no new
+    I/O against the TTS Server beyond the registry fetch the guard also makes.
+    The engine list is the union of manifests on disk and the registry; the
+    safe maxima use the same functions as the
+    save-time refusal.
     """
     from ...orchestration.tasks.synthesis import _manifest_resource_claim  # noqa: PLC0415
     from ...orchestration.scheduler.cap_settings import (  # noqa: PLC0415
@@ -53,16 +57,25 @@ def get_engine_concurrency():
         get_global_parallel_cap,
         resolve_effective_cap,
     )
-    from ...orchestration.scheduler.resources import get_engine_id_semaphore  # noqa: PLC0415
-    from ...engines.registry import load_engine_registry  # noqa: PLC0415
+    from ...orchestration.scheduler.resources import MAX_GLOBAL_CONCURRENT_SYNTHESIS  # noqa: PLC0415
+    from ...orchestration.scheduler.cap_safety import (  # noqa: PLC0415
+        engine_safe_max,
+        global_safe_max,
+        is_memory_measurable,
+    )
 
-    registry = load_engine_registry()
     engine_caps = get_engine_caps()
     global_cap = get_global_parallel_cap()
 
+    sample = cap_guard.sample_resources()
+    # Same enumeration as the save-time guard (manifests on disk plus the server
+    # registry), so the hint and the refusal cannot disagree.
+    all_limits = cap_guard.collect_limits()
     engines = []
-    for engine_id in sorted(registry.keys()):
+    for limits in all_limits:
+        engine_id = limits.engine_id
         claim = _manifest_resource_claim(engine_id)
+        active = limits.active_count
         engines.append(
             {
                 "engine_id": engine_id,
@@ -72,11 +85,19 @@ def get_engine_concurrency():
                 "effective_cap": resolve_effective_cap(
                     engine_id=engine_id, manifest_max=claim.manifest_max
                 ),
-                "active_count": get_engine_id_semaphore(engine_id, claim.manifest_max).active_count,
+                "active_count": active,
+                "safe_max": engine_safe_max(limits, sample)[0],
             }
         )
 
-    return JSONResponse({"global_cap": global_cap, "engines": engines})
+    return JSONResponse(
+        {
+            "global_cap": global_cap,
+            "engines": engines,
+            "global_safe_max": global_safe_max(all_limits, sample, MAX_GLOBAL_CONCURRENT_SYNTHESIS),
+            "memory_measurable": is_memory_measurable(sample),
+        }
+    )
 
 
 @router.put("/{engine_id}/concurrency")
@@ -88,6 +109,8 @@ def update_engine_concurrency(engine_id: str, body: ConcurrencyUpdateRequest):
     clamping — ``resolve_effective_cap``'s own clamp stays as the backstop
     for env-var edits or clients that bypass this endpoint).
     ``{"cap": null}`` clears the override back to the global cap.
+    Out-of-range and unsafe values are rejected with a coded 422 and nothing
+    is saved.
     """
     if err := _check_engine_id(engine_id):
         return err
@@ -107,14 +130,22 @@ def update_engine_concurrency(engine_id: str, body: ConcurrencyUpdateRequest):
     if body.cap is not None and not (1 <= body.cap <= manifest_max):
         return JSONResponse(
             {
-                "status": "error",
-                "message": f"cap must be between 1 and {manifest_max} (the manifest ceiling)",
-                "manifest_max": manifest_max,
+                "detail": {
+                    "code": "cap_out_of_range",
+                    "message": f"cap must be between 1 and {manifest_max}",
+                    "correlation_id": cap_guard.new_correlation_id(),
+                    "manifest_max": manifest_max,
+                }
             },
             status_code=422,
         )
 
-    set_engine_cap(engine_id, body.cap)
+    # Checked before the write: a refusal changes nothing.
+    with cap_guard.cap_write_lock:
+        if refusal := cap_guard.unsafe_engine_cap_response(engine_id, body.cap):
+            return refusal
+
+        set_engine_cap(engine_id, body.cap)
 
     engine_caps = get_engine_caps()
     global_cap = get_global_parallel_cap()

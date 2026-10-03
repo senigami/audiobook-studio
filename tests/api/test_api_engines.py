@@ -550,6 +550,7 @@ def test_get_concurrency_returns_manifest_and_effective_caps(clean_db, client):
     fake_claim = ResourceClaim(engine_class="gpu", cap=4, engine_id="tts_xtts", manifest_max=4)
 
     with patch("app.engines.registry.load_engine_registry", return_value=_fake_registry(["tts_xtts"])), \
+         patch("app.api.routers.cap_guard.local_engine_ids", return_value=[]), \
          patch("app.orchestration.tasks.synthesis._manifest_resource_claim", return_value=fake_claim):
         response = client.get("/api/engines/concurrency")
 
@@ -593,7 +594,8 @@ def test_put_concurrency_rejects_out_of_range_with_422(clean_db, client):
 
     assert response.status_code == 422
     body = response.json()
-    assert body["manifest_max"] == 4
+    assert body["detail"]["code"] == "cap_out_of_range"
+    assert body["detail"]["manifest_max"] == 4
 
 
 def test_put_concurrency_null_cap_clears_override(clean_db, client):

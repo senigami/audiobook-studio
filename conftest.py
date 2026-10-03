@@ -467,4 +467,29 @@ def mock_tts_server_watchdog(monkeypatch):
     finally:
         app.engines.watchdog._global_watchdog = original_watchdog
 
+
+@pytest.fixture(autouse=True)
+def ample_memory_for_cap_guard(monkeypatch):
+    """Unrelated tests must not depend on this machine's free memory.
+
+    The parallel-cap guard samples real RAM at save time; without this a test
+    that saves a cap of 4 would pass on a big machine and fail on a small one.
+    Tests of the guard itself replace this sampler.
+    """
+    import app.api.routers.cap_guard as cap_guard
+
+    monkeypatch.setattr(
+        cap_guard,
+        "sample_resources",
+        lambda: {
+            "cpu_pct": 1.0,
+            "ram_used_gb": 8.0,
+            "ram_total_gb": 131072 / 1024,
+            "ram_available_gb": 120000 / 1024,
+            "vram_used_gb": None,
+            "vram_total_gb": None,
+        },
+    )
+
+
 atexit.register(_cleanup_test_runtime)
