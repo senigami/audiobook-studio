@@ -16,6 +16,7 @@ import { STORAGE_KEY } from '@/utils/devMode';
 
 vi.mock('@/api', () => ({
   api: {
+    fetchEngineConcurrency: vi.fn().mockResolvedValue({ global_cap: 2, global_safe_max: 8, memory_measurable: true, engines: [] }),
     fetchHome: vi.fn().mockResolvedValue({ version: '2.0.0', engines: [], render_stats: {}, runtime_services: [], system_info: {} }),
     fetchEngines: vi.fn().mockResolvedValue([]),
     refreshPlugins: vi.fn(),

@@ -14,6 +14,7 @@ import {
 
 vi.mock('@/api', () => ({
   api: {
+    fetchEngineConcurrency: vi.fn().mockResolvedValue({ global_cap: 2, global_safe_max: 8, memory_measurable: true, engines: [] }),
     fetchHome: vi.fn(),
     fetchEngines: vi.fn(),
     refreshPlugins: vi.fn(),

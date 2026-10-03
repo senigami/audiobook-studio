@@ -2,6 +2,7 @@ import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useEngineConcurrency } from '@/hooks/useEngineConcurrency';
 import { api } from '@/api';
+import { concurrencyFixture } from '../../helpers/capSafetyFixtures';
 
 vi.mock('@/api', () => ({
   api: {
@@ -99,5 +100,61 @@ describe('useEngineConcurrency', () => {
     await flush();
 
     expect((api.fetchEngineConcurrency as any).mock.calls.length).toBe(callsAtUnmount);
+  });
+
+  it('exposes the safe maximums and memory flag from the response', async () => {
+    (api.fetchEngineConcurrency as any).mockResolvedValue(concurrencyFixture({ global_safe_max: 3 }));
+
+    const { result } = renderHook(() => useEngineConcurrency());
+    await flush();
+
+    expect(result.current.safeMax).toEqual({ xtts: 1, voxtral: 1 });
+    expect(result.current.globalSafeMax).toBe(3);
+    expect(result.current.memoryMeasurable).toBe(true);
+  });
+
+  it('reports memory as not measurable when the server says so', async () => {
+    (api.fetchEngineConcurrency as any).mockResolvedValue(concurrencyFixture({ memory_measurable: false }));
+
+    const { result } = renderHook(() => useEngineConcurrency());
+    await flush();
+
+    expect(result.current.memoryMeasurable).toBe(false);
+  });
+
+  it('has no global safe maximum before the first poll answers', () => {
+    (api.fetchEngineConcurrency as any).mockReturnValue(new Promise(() => {}));
+
+    const { result } = renderHook(() => useEngineConcurrency());
+
+    expect(result.current.globalSafeMax).toBeNull();
+    expect(result.current.safeMax).toEqual({});
+  });
+
+  it('keeps the last good safe maximums when a later poll fails', async () => {
+    (api.fetchEngineConcurrency as any).mockResolvedValue(concurrencyFixture({ global_safe_max: 3 }));
+    const { result } = renderHook(() => useEngineConcurrency());
+    await flush();
+
+    (api.fetchEngineConcurrency as any).mockRejectedValue(new Error('boundary failure'));
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    await flush();
+
+    expect(result.current.globalSafeMax).toBe(3);
+    expect(result.current.safeMax.xtts).toBe(1);
+  });
+
+  it('refresh() polls again right away', async () => {
+    (api.fetchEngineConcurrency as any).mockResolvedValue(concurrencyFixture());
+    const { result } = renderHook(() => useEngineConcurrency());
+    await flush();
+    expect(api.fetchEngineConcurrency).toHaveBeenCalledTimes(1);
+
+    act(() => result.current.refresh());
+    await flush();
+
+    expect(api.fetchEngineConcurrency).toHaveBeenCalledTimes(2);
   });
 });

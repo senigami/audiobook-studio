@@ -4,7 +4,9 @@ import type { TtsEngine, Settings } from '@/types';
 import { api } from '@/api';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { PluginTrustModal, type PluginPreviewInfo } from '@/components/overlays/PluginTrustModal';
-import { ToggleButton, NumberStepper } from '@/pages/Settings/components/SettingsComponents';
+import { ToggleButton, NumberStepper, CapHintText, CapRefusalMessage } from '@/pages/Settings/components/SettingsComponents';
+import { isParallelCapRefused } from '@/api/capRefusal';
+import { capHint, PARALLEL_CAP_COPY } from '@/utils/parallelCapCopy';
 import { getEngineStatusLabel, getBadgeStyles } from '@/pages/Settings/settingsRouteHelpers';
 import { EngineDevPanel } from '@/pages/Engines/components/EngineDevPanel';
 import { mergeScenarioEngine } from '@/pages/Engines/components/engineScenarioMerge';
@@ -28,7 +30,11 @@ export const EngineCard: React.FC<{
   onUpdate: () => void;
   onShowNotification?: (message: string) => void;
   settings?: Settings;
-}> = ({ engine, onUpdate, onShowNotification, settings }) => {
+  /** The most this computer can safely run for this engine right now. */
+  safeMax?: number;
+  memoryMeasurable?: boolean;
+  onLimitsRefresh?: () => void;
+}> = ({ engine, onUpdate, onShowNotification, settings, safeMax, memoryMeasurable = true, onLimitsRefresh }) => {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -44,10 +50,20 @@ export const EngineCard: React.FC<{
   const [activeScenario, setActiveScenario] = useState<any | null>(null);
   const [devLogs, setDevLogs] = useState<string[]>([]);
   const [savingCap, setSavingCap] = useState(false);
+  const [capRefusal, setCapRefusal] = useState<string | null>(null);
   const engineCapCeiling: number =
     typeof engine.behavior?.max_concurrent_workers === 'number'
       ? engine.behavior.max_concurrent_workers
       : DEFAULT_ENGINE_CAP_CEILING;
+  const effectiveCapLimit = safeMax != null ? Math.min(engineCapCeiling, safeMax) : engineCapCeiling;
+  const capHintText = capHint({ safeMax, ceiling: engineCapCeiling, memoryMeasurable });
+  const capDescribedBy =
+    [
+      capHintText ? `engine-cap-hint-${engine.engine_id}` : null,
+      capRefusal ? `engine-cap-error-${engine.engine_id}` : null,
+    ]
+      .filter(Boolean)
+      .join(' ') || undefined;
   const currentEngineCap = settings?.tts_engine_caps?.[engine.engine_id];
   const [engineCapInput, setEngineCapInput] = useState<string>(
     currentEngineCap != null ? String(currentEngineCap) : ''
@@ -177,11 +193,10 @@ export const EngineCard: React.FC<{
     }
   };
 
-  // tts_engine_caps is only read from the JSON body on the backend
-  // (app/api/routers/system.py's form branch doesn't parse it), so this
-  // posts JSON directly rather than going through api.updateEngineSettings
-  // (which writes to the engine's own manifest-declared settings_schema, a
-  // different store — see task 012 findings).
+  // Saves through the single-key PUT, which merges one engine's override
+  // server-side (a whole-map POST from a stale copy could clobber another
+  // engine's override). Typed values above the safe maximum still go to the
+  // server so the refusal can explain itself.
   const handleSaveEngineCap = async (rawValue: string) => {
     if (activeScenario) {
       addDevLog(`Simulated: Concurrency cap saved for ${displayEngine.display_name}.`);
@@ -192,19 +207,24 @@ export const EngineCard: React.FC<{
     const clamped = Math.min(parsed, engineCapCeiling);
     setEngineCapInput(String(clamped));
     setSavingCap(true);
+    setCapRefusal(null);
     try {
-      await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tts_engine_caps: { ...(settings?.tts_engine_caps || {}), [engine.engine_id]: clamped },
-        }),
-      });
+      await api.saveEngineCap(engine.engine_id, clamped);
       await onUpdate();
+      onLimitsRefresh?.();
       onShowNotification?.(`${engine.display_name} concurrency cap saved.`);
     } catch (err) {
-      console.error('Failed to save engine concurrency cap', err);
-      onShowNotification?.('Failed to save concurrency cap.');
+      if (isParallelCapRefused(err)) {
+        // Nothing was saved: snap the field back and keep the reason on screen.
+        console.info('Cap save refused', err.refusal.correlation_id);
+        setCapRefusal(err.refusal.message);
+        setEngineCapInput(currentEngineCap != null ? String(currentEngineCap) : '');
+        onLimitsRefresh?.();
+      } else {
+        console.error('Failed to save engine concurrency cap', err);
+        setEngineCapInput(currentEngineCap != null ? String(currentEngineCap) : '');
+        onShowNotification?.(PARALLEL_CAP_COPY.genericSaveError);
+      }
     } finally {
       setSavingCap(false);
     }
@@ -395,8 +415,10 @@ export const EngineCard: React.FC<{
               Concurrent Renders
             </label>
             <p style={{ margin: '0.2rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.8rem', lineHeight: 1.4 }}>
-              Override how many segments this engine may render at once (up to {engineCapCeiling} — engine limit). Takes effect immediately, no restart needed.
+              {PARALLEL_CAP_COPY.engineCardDescription(effectiveCapLimit)}
             </p>
+            {capHintText && <CapHintText id={`engine-cap-hint-${engine.engine_id}`}>{capHintText}</CapHintText>}
+            {capRefusal && <CapRefusalMessage id={`engine-cap-error-${engine.engine_id}`}>{capRefusal}</CapRefusalMessage>}
           </div>
           <NumberStepper
             id={`engine-cap-${engine.engine_id}`}
@@ -404,13 +426,17 @@ export const EngineCard: React.FC<{
             value={Number(engineCapInput) || 1}
             displayValue={engineCapInput}
             min={1}
-            max={engineCapCeiling}
+            max={effectiveCapLimit}
+            describedBy={capDescribedBy}
             disabled={savingCap}
             onStep={(next) => {
               setEngineCapInput(String(next));
               handleSaveEngineCap(String(next));
             }}
-            onInputChange={(raw) => setEngineCapInput(raw)}
+            onInputChange={(raw) => {
+              setCapRefusal(null);
+              setEngineCapInput(raw);
+            }}
             onInputBlur={(raw) => handleSaveEngineCap(raw)}
           />
         </div>

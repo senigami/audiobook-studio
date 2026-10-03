@@ -7,8 +7,8 @@
  * consumer. This control lets the user override an engine's concurrency
  * cap, clamped client-side to that engine's manifest ceiling
  * (behavior.max_concurrent_workers), and saves via a raw JSON POST to
- * /api/settings (tts_engine_caps is only parsed from the JSON-body branch
- * server-side, same as tts_parallel_cap).
+ * the single-key PUT (api.saveEngineCap), which merges one engine's override
+ * server-side.
  *
  * Mocks: fetch (external network) and the api module (external module) only.
  */
@@ -17,6 +17,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { EngineCard } from '@/pages/Engines/components/EngineCard';
 import type { TtsEngine } from '@/types';
+import { api } from '@/api';
+import { ParallelCapRefusedError } from '@/api/capRefusal';
+import { refusalFixture, refusalResponse } from '../../../../helpers/capSafetyFixtures';
 
 vi.mock('@/api', () => ({
   api: {
@@ -29,6 +32,7 @@ vi.mock('@/api', () => ({
     fetchEngineRequirements: vi.fn().mockResolvedValue({ ok: true, requirements: [] }),
     removeEnginePlugin: vi.fn(),
     resetEngineCalibration: vi.fn(),
+    saveEngineCap: vi.fn(),
   },
 }));
 
@@ -78,12 +82,16 @@ const openCard = (label: string = 'XTTS') => {
 describe('EngineCard concurrency cap override', () => {
   beforeEach(() => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ status: 'ok', settings: {} }) }) as any;
+    (api.saveEngineCap as any).mockReset();
+    (api.saveEngineCap as any).mockResolvedValue({});
   });
 
   it('shows the manifest ceiling as the visible limit', () => {
     render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} />);
     openCard();
-    expect(screen.getByText(/up to 4 — engine limit/i)).toBeInTheDocument();
+    expect(
+      screen.getByText('How many segments this engine may render at once, up to 4. Changes apply right away, no restart needed.')
+    ).toBeInTheDocument();
   });
 
   it('pre-fills the input from settings.tts_engine_caps for this engine', () => {
@@ -99,7 +107,7 @@ describe('EngineCard concurrency cap override', () => {
     expect(input.value).toBe('3');
   });
 
-  it('saving posts a merged tts_engine_caps object to /api/settings, preserving other engines', async () => {
+  it('saving calls the single-key PUT save with the engine id and value', async () => {
     const onUpdate = vi.fn();
     render(
       <EngineCard
@@ -113,12 +121,9 @@ describe('EngineCard concurrency cap override', () => {
     fireEvent.change(input, { target: { value: '4' } });
     fireEvent.blur(input);
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
-    const [url, init] = (global.fetch as any).mock.calls[0];
-    expect(url).toBe('/api/settings');
-    expect(init.headers['Content-Type']).toBe('application/json');
-    expect(JSON.parse(init.body)).toEqual({ tts_engine_caps: { voxtral: 2, xtts: 4 } });
+    await waitFor(() => expect(api.saveEngineCap).toHaveBeenCalledWith('xtts', 4));
     await waitFor(() => expect(onUpdate).toHaveBeenCalled());
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it('clamps a value above the manifest ceiling client-side before saving', async () => {
@@ -134,9 +139,129 @@ describe('EngineCard concurrency cap override', () => {
     fireEvent.change(input, { target: { value: '99' } });
     fireEvent.blur(input);
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
-    const [, init] = (global.fetch as any).mock.calls[0];
-    expect(JSON.parse(init.body)).toEqual({ tts_engine_caps: { xtts: 4 } });
+    await waitFor(() => expect(api.saveEngineCap).toHaveBeenCalledWith('xtts', 4));
+  });
+
+  it('lets a typed value above the safe maximum reach the server so a refusal can explain it', async () => {
+    render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} safeMax={2} settings={{ tts_engine_caps: {} } as any} />);
+    openCard();
+    const input = screen.getByLabelText('XTTS concurrent render cap') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '4' } });
+    fireEvent.blur(input);
+
+    await waitFor(() => expect(api.saveEngineCap).toHaveBeenCalledWith('xtts', 4));
+  });
+
+  it('lowers the visible limit and the stepper max to the safe maximum', () => {
+    render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} safeMax={2} settings={{ tts_engine_caps: { xtts: 2 } } as any} />);
+    openCard();
+    expect(
+      screen.getByText('How many segments this engine may render at once, up to 2. Changes apply right away, no restart needed.')
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Increase XTTS concurrent render cap')).toBeDisabled();
+  });
+
+  it('shows the hint and links it to the stepper', () => {
+    render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} safeMax={1} />);
+    openCard();
+    expect(screen.getByLabelText('XTTS concurrent render cap')).toHaveAttribute('aria-describedby', 'engine-cap-hint-xtts');
+    expect(document.getElementById('engine-cap-hint-xtts')).toHaveTextContent(
+      'Studio estimates this computer can render one at a time right now. Closing other apps may allow more.'
+    );
+  });
+
+  it('shows no hint before the first answer', () => {
+    render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} />);
+    openCard();
+    expect(document.getElementById('engine-cap-hint-xtts')).toBeNull();
+    expect(screen.getByLabelText('XTTS concurrent render cap')).not.toHaveAttribute('aria-describedby');
+  });
+
+  it('shows a refusal inline, snaps the field back to the stored value, and shows no toast', async () => {
+    (api.saveEngineCap as any).mockRejectedValue(new ParallelCapRefusedError(refusalFixture()));
+    const onShowNotification = vi.fn();
+    const onLimitsRefresh = vi.fn();
+    render(
+      <EngineCard
+        engine={xttsEngine}
+        onUpdate={vi.fn()}
+        onShowNotification={onShowNotification}
+        onLimitsRefresh={onLimitsRefresh}
+        settings={{ tts_engine_caps: { xtts: 2 } } as any}
+      />
+    );
+    openCard();
+    const input = screen.getByLabelText('XTTS concurrent render cap') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '4' } });
+    fireEvent.blur(input);
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Server sentence for tests, safe maximum 1.');
+    expect(alert.id).toBe('engine-cap-error-xtts');
+    expect(input.value).toBe('2');
+    expect(input).toHaveAttribute('aria-describedby', 'engine-cap-error-xtts');
+    expect(onLimitsRefresh).toHaveBeenCalled();
+    expect(onShowNotification).not.toHaveBeenCalled();
+  });
+
+  it('snaps back to empty when a refused save had no stored override', async () => {
+    (api.saveEngineCap as any).mockRejectedValue(new ParallelCapRefusedError(refusalFixture()));
+    render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} settings={{ tts_engine_caps: {} } as any} />);
+    openCard();
+    const input = screen.getByLabelText('XTTS concurrent render cap') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '4' } });
+    fireEvent.blur(input);
+
+    await screen.findByRole('alert');
+    expect(input.value).toBe('');
+  });
+
+  it('clears the refusal when the person edits the value again', async () => {
+    (api.saveEngineCap as any).mockRejectedValue(new ParallelCapRefusedError(refusalFixture()));
+    render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} settings={{ tts_engine_caps: {} } as any} />);
+    openCard();
+    const input = screen.getByLabelText('XTTS concurrent render cap') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '4' } });
+    fireEvent.blur(input);
+    await screen.findByRole('alert');
+
+    fireEvent.change(input, { target: { value: '3' } });
+
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('uses the generic toast, with no inline message, for any other failure', async () => {
+    (api.saveEngineCap as any).mockRejectedValue(new Error('network down'));
+    const onShowNotification = vi.fn();
+    render(
+      <EngineCard engine={xttsEngine} onUpdate={vi.fn()} onShowNotification={onShowNotification} settings={{ tts_engine_caps: { xtts: 2 } } as any} />
+    );
+    openCard();
+    const input = screen.getByLabelText('XTTS concurrent render cap') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '4' } });
+    fireEvent.blur(input);
+
+    await waitFor(() => expect(onShowNotification).toHaveBeenCalledWith('Settings update failed. Please try again.'));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(input.value).toBe('2');
+  });
+
+  it('a real 422 refusal through the actual save call shows the alert and snaps back (response.ok is honoured)', async () => {
+    const actual = await vi.importActual<typeof import('@/api')>('@/api');
+    (api.saveEngineCap as any).mockImplementation((...args: [string, number | null]) => actual.api.saveEngineCap(...args));
+    global.fetch = vi.fn().mockResolvedValue(refusalResponse(refusalFixture())) as any;
+    const onShowNotification = vi.fn();
+    render(
+      <EngineCard engine={xttsEngine} onUpdate={vi.fn()} onShowNotification={onShowNotification} settings={{ tts_engine_caps: { xtts: 2 } } as any} />
+    );
+    openCard();
+    const input = screen.getByLabelText('XTTS concurrent render cap') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '4' } });
+    fireEvent.blur(input);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Server sentence for tests, safe maximum 1.');
+    expect(input.value).toBe('2');
+    expect(onShowNotification).not.toHaveBeenCalled();
   });
 
   it('does not save when the field is cleared (blank input)', async () => {
@@ -146,7 +271,7 @@ describe('EngineCard concurrency cap override', () => {
     fireEvent.change(input, { target: { value: '' } });
     fireEvent.blur(input);
 
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(api.saveEngineCap).not.toHaveBeenCalled();
   });
 
   it('shows the control for an engine declaring segment_orchestration but not delegation_only (XTTS)', () => {
@@ -164,7 +289,7 @@ describe('EngineCard concurrency cap override', () => {
   it('describes the cap as taking effect immediately, not requiring a restart', () => {
     render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} />);
     openCard();
-    expect(screen.getByText(/takes effect immediately, no restart needed/i)).toBeInTheDocument();
+    expect(screen.getByText(/changes apply right away, no restart needed/i)).toBeInTheDocument();
     expect(screen.queryByText(/takes effect on next app restart/i)).not.toBeInTheDocument();
   });
 });

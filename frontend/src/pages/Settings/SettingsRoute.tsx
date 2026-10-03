@@ -14,6 +14,7 @@ import { GeneralSettingsPanel } from '@/pages/Settings/components/GeneralSetting
 import { AboutSettingsPanel } from '@/pages/Settings/components/AboutSettingsPanel';
 import { DeveloperSettingsPanel } from '@/pages/Settings/components/DeveloperSettingsPanel';
 import { useDevMode } from '@/utils/devMode';
+import { useEngineConcurrency } from '@/hooks/useEngineConcurrency';
 
 interface SettingsRouteProps {
   settings: AppSettings | undefined;
@@ -36,6 +37,7 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
 }) => {
   const { pathname } = useLocation();
   const devMode = useDevMode();
+  const { globalSafeMax, memoryMeasurable, refresh: refreshLimits } = useEngineConcurrency();
   const canonicalPathname = useMemo(() => normalizeSettingsPath(pathname), [pathname]);
   const activeTab = useMemo(() => getActiveSettingsTab(canonicalPathname), [canonicalPathname]);
   const visibleTabs = useMemo(
@@ -132,6 +134,9 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
               engines={engines}
               onRefresh={onRefresh}
               onShowNotification={onShowNotification}
+              globalSafeMax={globalSafeMax}
+              memoryMeasurable={memoryMeasurable}
+              onLimitsRefresh={refreshLimits}
             />
           )}
           {activeTab.id === 'about' && <AboutSettingsPanel onRefresh={onRefresh} />}
