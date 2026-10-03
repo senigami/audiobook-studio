@@ -291,3 +291,12 @@ class TestBackupDatabase:
         run_migrations(conn, [], db_path=db_path)
         backups = list(tmp_path.glob("runner_test.db.backup-*"))
         assert backups == []
+
+
+def test_migration_has_no_down_field_because_rollback_is_not_implemented():
+    """The runner never invokes a ``down``; a field that silently does nothing
+    reads like a rollback capability that does not exist (#263), so declaring
+    one must fail loudly."""
+    with pytest.raises(TypeError, match="down"):
+        Migration(version=1, name="x", up=lambda conn: None, down=lambda conn: None)
+    assert not hasattr(Migration(version=1, name="x", up=lambda conn: None), "down")

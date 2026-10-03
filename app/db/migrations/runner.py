@@ -42,14 +42,13 @@ class Migration:
 
     ``version`` must be unique and is the ordering key — migrations run in
     ascending version order regardless of the order they're passed in.
-    ``down`` is accepted for future rollback tooling but is not yet invoked
-    by the runner itself (see #233 follow-up).
+    Migrations are one-way: there is deliberately no ``down`` (rollback is
+    restoring the pre-migration backup).
     """
 
     version: int
     name: str
     up: MigrationFn
-    down: Optional[MigrationFn] = None
 
 
 class MigrationError(RuntimeError):
