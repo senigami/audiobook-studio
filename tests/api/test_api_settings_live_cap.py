@@ -9,10 +9,16 @@ from app.orchestration.scheduler import resources as res
 
 @pytest.fixture(autouse=True)
 def _fresh_semaphores(monkeypatch):
+    from app.db.state import get_settings, update_settings
+
     monkeypatch.setenv("ENGINE_CLASS_ADMISSION", "1")
+    saved = get_settings()
+    saved_cap = saved.get("tts_parallel_cap")
+    saved_caps = dict(saved.get("tts_engine_caps") or {})
     res._engine_semaphores.clear()
     res._engine_id_semaphores.clear()
     yield
+    update_settings({"tts_parallel_cap": saved_cap, "tts_engine_caps": saved_caps})
     res._engine_semaphores.clear()
     res._engine_id_semaphores.clear()
 
