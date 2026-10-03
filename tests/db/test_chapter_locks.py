@@ -157,3 +157,22 @@ def test_release_failure_never_replaces_the_callers_exception(monkeypatch, caplo
             with chapter_locks.chapter_lock(conn, "lock-test-release-fails", held_by="test"):
                 raise ValueError("body failed")
     assert "chapter_lock release failed" in caplog.text
+
+
+def test_normal_exit_with_uncommitted_body_fails_loudly_and_still_releases():
+    """A body that forgets to commit must not silently lose its writes."""
+    from app.db.chapter_locks import chapter_lock
+
+    chapter_id = "lock-test-forgot-commit"
+    with get_connection() as conn:
+        with pytest.raises(RuntimeError, match="open transaction"):
+            with chapter_lock(conn, chapter_id, held_by="test"):
+                conn.execute(
+                    "INSERT INTO chapter_locks (chapter_id, held_by, acquired_at) VALUES ('other', 'x', 1)"
+                )
+
+    with get_connection() as conn:
+        held = conn.execute(
+            "SELECT 1 FROM chapter_locks WHERE chapter_id = ?", (chapter_id,)
+        ).fetchone()
+    assert held is None

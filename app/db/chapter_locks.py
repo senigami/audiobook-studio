@@ -68,14 +68,21 @@ def chapter_lock(conn: sqlite3.Connection, chapter_id: str, held_by: str):
         conn.rollback()
         raise ChapterLockHeldError(chapter_id)
 
+    body_failed = False
     try:
         yield
+    except BaseException:
+        body_failed = True
+        raise
     finally:
-        # Must never replace the caller's exception: a body that raised with
-        # its own transaction still open is rolled back first, and any release
-        # failure is logged (the stale-eviction window then clears the row).
+        # Must never replace the caller's exception. On the exception path a
+        # transaction the body left open is rolled back. On a normal exit it
+        # is a caller bug (writes never committed), so it is rolled back only
+        # to release the row and then raised, never silently discarded.
+        leaked_txn = False
         try:
             if conn.in_transaction:
+                leaked_txn = not body_failed
                 conn.rollback()
             conn.execute("BEGIN IMMEDIATE")
             conn.execute("DELETE FROM chapter_locks WHERE chapter_id = ?", (chapter_id,))
@@ -86,3 +93,8 @@ def chapter_lock(conn: sqlite3.Connection, chapter_id: str, held_by: str):
                 conn.rollback()
             except Exception:
                 pass
+        if leaked_txn:
+            raise RuntimeError(
+                f"chapter_lock body for {chapter_id} exited with an open transaction; "
+                "its uncommitted writes were rolled back"
+            )
