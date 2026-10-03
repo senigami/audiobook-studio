@@ -354,84 +354,8 @@ def init_db():
             add_column_if_missing("ALTER TABLE characters ADD COLUMN locked INTEGER DEFAULT 0", "characters.locked")
             add_column_if_missing("ALTER TABLE characters ADD COLUMN ai_suggested INTEGER DEFAULT 0", "characters.ai_suggested")
 
-            # Migration: Ensure project_id and chapter_id allow NULLs for system tasks
-            try:
-                cursor.execute("PRAGMA table_info(processing_queue)")
-                columns = cursor.fetchall()
-                needs_migration = False
-                for col in columns:
-                    if col[1] == 'project_id' and col[3] == 1: # NOT NULL flag
-                        needs_migration = True
-                        break
-
-                if needs_migration:
-                    logger.info("Migrating processing_queue to remove NOT NULL constraints")
-                    cursor.execute("ALTER TABLE processing_queue RENAME TO _processing_queue_old")
-                    cursor.execute("""
-                        CREATE TABLE processing_queue (
-                            id TEXT PRIMARY KEY,
-                            project_id TEXT,
-                            chapter_id TEXT,
-                            segment_ids TEXT,
-                            split_part INTEGER DEFAULT 0,
-                            status TEXT DEFAULT 'queued',
-                            created_at REAL,
-                            started_at REAL,
-                            completed_at REAL,
-                            error TEXT,
-                            custom_title TEXT,
-                            engine TEXT,
-                            FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
-                            FOREIGN KEY (chapter_id) REFERENCES chapters (id) ON DELETE CASCADE
-                        )
-                    """)
-                    cursor.execute("PRAGMA table_info(_processing_queue_old)")
-                    old_columns = {col[1] for col in cursor.fetchall()}
-                    copy_columns = [
-                        "id",
-                        "project_id",
-                        "chapter_id",
-                        "segment_ids",
-                        "split_part",
-                        "status",
-                        "created_at",
-                        "started_at",
-                        "completed_at",
-                        "error",
-                        "custom_title",
-                        "engine",
-                    ]
-                    defaults = {
-                        "segment_ids": "NULL",
-                        "split_part": "0",
-                        "status": "'queued'",
-                        "created_at": "NULL",
-                        "started_at": "NULL",
-                        "completed_at": "NULL",
-                        "error": "NULL",
-                        "custom_title": "NULL",
-                        "engine": "NULL",
-                    }
-                    select_exprs = [
-                        column if column in old_columns else defaults.get(column, "NULL")
-                        for column in copy_columns
-                    ]
-                    cursor.execute(f"""
-                        INSERT INTO processing_queue ({", ".join(copy_columns)})
-                        SELECT {", ".join(select_exprs)}
-                        FROM _processing_queue_old
-                    """)
-                    cursor.execute("DROP TABLE _processing_queue_old")
-                    # Restore the composite index dropped along with the old
-                    # table (PERF-3) — self-heals on the next boot anyway
-                    # (idempotent CREATE INDEX IF NOT EXISTS above), but
-                    # restoring it immediately avoids a window with no index.
-                    cursor.execute("""
-                        CREATE INDEX IF NOT EXISTS idx_processing_queue_chapter_status
-                        ON processing_queue (chapter_id, status)
-                    """)
-            except Exception:
-                logger.warning("Failed to migrate processing_queue NULL constraints", exc_info=True)
+            # processing_queue's NOT NULL rebuild lives in the versioned
+            # runner (migration 3), not here.
 
             conn.commit()
         finally:

@@ -12,6 +12,9 @@ from app.db.migrations.steps.render_block_foundations import (
 from app.db.migrations.steps.render_block_collapse import (
     migrate_002_render_block_collapse,
 )
+from app.db.migrations.steps.queue_nullable_ids import (
+    migrate_003_queue_nullable_ids,
+)
 
 MIGRATIONS: list[Migration] = [
     Migration(
@@ -23,5 +26,10 @@ MIGRATIONS: list[Migration] = [
         version=2,
         name="segment_render_block_collapse",
         up=migrate_002_render_block_collapse,
+    ),
+    Migration(
+        version=3,
+        name="processing_queue_nullable_ids",
+        up=migrate_003_queue_nullable_ids,
     ),
 ]
