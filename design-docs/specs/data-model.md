@@ -1,9 +1,9 @@
 # Data Model
 
 ```
-spec_version: 1.16.0
+spec_version: 1.17.0
 status: active
-updated: 2026-09-03
+updated: 2026-10-03
 sources:
   - app/domain/chapters/operations.py
   - app/db/segment_alignment.py
@@ -30,6 +30,7 @@ sources:
 
 | Version | Date       | Change             |
 |---------|------------|--------------------|
+| 1.17.0  | 2026-10-03 | **Migrations are explicitly one-way; the unused `down` field is removed (#263).** `Migration` no longer has a `down` field. The runner never invoked it, so it read like a rollback capability that did not exist; declaring `down=` now raises `TypeError`. Real rollback is deferred until a migration actually needs it. Documented in the Migration section: migration 2 (`segment_render_block_collapse`) is destructive and one-shot, and restoring the pre-migration `<db>.backup-<unix-ts>` is the only supported recovery for it (which also discards anything committed after the migration ran). |
 | 1.16.0  | 2026-09-03 | **The resync preview now aligns at render-block grain, matching the commit path (#232 follow-up).** `get_resync_preview()` (`app/domain/chapters/operations.py`) called `align_segments` while `sync_chapter_segments` had moved to `align_render_blocks` (Task 005c), so preview and save disagreed on every multi-sentence row: `align_segments`' position-anchored first pass compares a whole render-block row against one fresh sentence and can never match, so each such row was reported unmatched. Reproduced directly — one unchanged two-sentence render block carrying a character assignment yielded `is_destructive: True` with the character named as at risk, while the real sync returned `RowOutcome(kind='unchanged')` and lost nothing. The editor therefore warned of a destructive resync on a chapter where nothing had changed, which is the same contradictory UI the RC-1 fix removed. The preview now uses `align_render_blocks` and derives its counts from `RowOutcome`: a `deleted` outcome on a row carrying `character_id` is the only assignment loss, and a `split` keeps the original id on one piece so its assignment travels with it. `total_segments_after` is now the surviving row count plus the rows `sync_chapter_segments` will actually create for leftover sentences (new helper `_count_new_rows`, mirroring that function's chunk-limit grouping and its virgin-import exemption) rather than a raw sentence count. `is_destructive` remains keyed purely to actual assignment loss. One pre-existing test asserted `total_segments_after == 2` for a fragment-run case where the sync has always produced 4 rows; it was pinning the sentence-grain preview's own answer, and now measures the sync instead of hard-coding a number. |
 | 1.15.0  | 2026-08-31 | **Destructive collapse migration lands: migration registry entry version 2, `segment_render_block_collapse` (#232 Task 005).** Every chapter's sentence-grain `chapter_segments` rows collapse into render-block-grain rows in place: a contiguous run of rows sharing one non-null `audio_file_path` collapses into its leader row (id, filename preserved verbatim — zero renames); never-rendered rows group by the live `build_chunk_groups` decision instead. `start_offset`/`end_offset` are populated for every surviving row via sequential (never global) location against `chapters.text_content`, and `ux_seg_start`/`ux_seg_end` (unique per `chapter_id`) plus a new partial unique index `ux_seg_audio_file ON chapter_segments(chapter_id, audio_file_path) WHERE audio_file_path IS NOT NULL` are added once every chapter's rows pass the non-overlap/contiguity assertion (INV-1). **Known, accepted gap, not fixed by this version:** the task's own spec also calls for a `CHECK (end_offset > start_offset)` table constraint; SQLite has never supported adding a table-level CHECK to an existing table via `ALTER TABLE` (only a full table rebuild does), so this version does NOT add it — INV-1's one-time migration-time assertion is the only enforcement of that property today. Also flagged, not resolved: `ux_seg_audio_file` is only durably compatible with the live write path once Task 005b (grouping new rows into render-blocks at creation time) ships — until then, an ordinary multi-sentence render on a chapter re-synced after this migration writes the same filename to more than one row and violates this index (confirmed empirically against this session's own test suite, not just theorized). `sync_chapter_segments` is NOT yet wired to Task 002's `align_render_blocks`/Task 004's `chapter_lock` in this version — see the Task 005 report for why that wiring was flagged back rather than built here. |
 | 1.14.0  | 2026-08-31 | **First additive schema migration lands: migration registry entry version 1, `segment_render_block_foundations` (#232 Task 001).** `chapter_segments` gains three nullable columns: `start_offset`, `end_offset` (INTEGER, populated by the future destructive collapse migration — Task 005 — not by this one), and `text_hash` (TEXT, backfilled for every existing row by this migration via `app/db/segments.py::segment_text_hash()`, `sha256(text_content.strip())`, so no row is ever NULL from the moment this migration completes). `chapters` gains `render_epoch` (`INTEGER NOT NULL DEFAULT 0`), a coarse per-chapter "something structurally changed" counter for future cache-invalidation use — not load-bearing for correctness. Two new tables: `chapter_locks` (`chapter_id` PK, `held_by`, `acquired_at` — observability only, not the serialization mechanism; SQLite's own writer lock does that) and `segment_audio_tombstones` (`filename`, `chapter_id`, `created_at`, composite PK — GC only ever deletes a committed tombstone past its grace period, never on inference). No `ux_seg_start`/`ux_seg_end` unique index yet: `start_offset`/`end_offset` are still NULL for existing rows, so the non-overlap invariant can't be meaningfully asserted until Task 005 populates real values. |
@@ -429,9 +430,10 @@ Two independent migration mechanisms run at boot, in order:
 
 1. **Versioned schema-migration runner** (`app/db/migrations/`, added #233) — the mechanism any
    future destructive schema change (starting with #232's `chapter_segments` redesign) MUST use.
-   - `runner.py::Migration(version, name, up, down=None)` — one migration per version number,
+   - `runner.py::Migration(version, name, up)` — one migration per version number,
      never reordered or renumbered once shipped. `registry.py::MIGRATIONS` is the ordered list;
      append, never edit or remove a past entry.
+   - **Migrations are one-way.** There is no `down` and no rollback path. Migration 2 (`segment_render_block_collapse`) is destructive and one-shot (it deletes non-leader rows and rewrites leader rows in place; re-running it against collapsed data would corrupt, not no-op). Restoring the pre-migration backup is the only supported recovery, and it discards everything committed after the migration ran.
    - `runner.py::run_migrations()` applies every migration whose `version` isn't yet recorded in
      the `schema_migrations` table, in ascending version order, **one real transaction per
      migration** (`BEGIN IMMEDIATE` → the migration's `up` → commit-and-record, or
@@ -469,9 +471,8 @@ Two independent migration mechanisms run at boot, in order:
      This intentionally reverses the previous `except Exception: logger.exception(...)` swallow
      around migration (#233); `_booted` is left `False` on failure so a corrected migration can be
      retried by calling `boot_studio()` again.
-   - Rollback tooling (invoking a migration's own `down`) is not yet implemented by the runner —
-     `down` is accepted on `Migration` for forward-compatibility but unused; recovery from a failed
-     migration today is via the pre-migration backup file.
+   - There is no rollback tooling; recovery from a failed or unwanted migration is the
+     pre-migration backup file (see above).
 
 2. **Legacy one-shot data migrations** (`app/db/migration.py`, pre-#233, unversioned) —
    `migrate_state_json_to_db()`, `migrate_legacy_project_covers()`, `migrate_voice_profiles()`.
