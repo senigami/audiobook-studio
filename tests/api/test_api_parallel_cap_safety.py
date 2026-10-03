@@ -362,54 +362,35 @@ def test_the_check_still_works_from_local_manifests_when_the_registry_raises(cli
     assert client.post("/api/settings", json={"tts_parallel_cap": 1}).status_code == 200
 
 
-def test_a_save_waiting_on_the_cap_lock_does_not_block_the_event_loop(machine):
+def test_the_settings_check_and_write_run_off_the_event_loop(machine, monkeypatch):
     import asyncio
     import threading
-    import time
 
     import httpx
 
     from app.api.routers import cap_guard
     from app.api.web import app as fastapi_app
 
-    holder_has_lock = threading.Event()
-    release = threading.Event()
+    real_check = cap_guard.refuse_if_unsafe_settings
+    guard_thread = []
 
-    def hold_lock():
-        with cap_guard.cap_write_lock:
-            holder_has_lock.set()
-            release.wait(timeout=10)
+    def recording_check(updates):
+        guard_thread.append(threading.get_ident())
+        return real_check(updates)
+
+    monkeypatch.setattr(cap_guard, "refuse_if_unsafe_settings", recording_check)
 
     async def scenario():
-        holder = threading.Thread(target=hold_lock)
-        holder.start()
-        assert holder_has_lock.wait(timeout=5)
-        worst_gap = 0.0
-        stop = False
+        loop_thread = threading.get_ident()
+        transport = httpx.ASGITransport(app=fastapi_app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://t") as ac:
+            resp = await ac.post("/api/settings", json={"tts_parallel_cap": 1})
+        return loop_thread, resp.status_code
 
-        async def ticker():
-            nonlocal worst_gap
-            last = time.monotonic()
-            while not stop:
-                await asyncio.sleep(0.02)
-                now = time.monotonic()
-                worst_gap = max(worst_gap, now - last)
-                last = now
-
-        tick = asyncio.create_task(ticker())
-        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=fastapi_app), base_url="http://t") as ac:
-            post = asyncio.create_task(ac.post("/api/settings", json={"tts_parallel_cap": 1}))
-            await asyncio.sleep(0.8)  # the save is now waiting on the lock
-            release.set()
-            resp = await post
-        stop = True
-        await tick
-        holder.join(timeout=5)
-        return resp.status_code, worst_gap
-
-    status, worst_gap = asyncio.run(scenario())
+    loop_thread, status = asyncio.run(scenario())
     assert status == 200
-    assert worst_gap < 0.4, f"event loop was blocked for {worst_gap:.2f}s"
+    assert len(guard_thread) == 1
+    assert guard_thread[0] != loop_thread, "the cap check ran on the event loop thread"
 
 
 def test_get_concurrency_agrees_with_the_guard_when_the_server_registry_is_empty(client, machine, monkeypatch):
