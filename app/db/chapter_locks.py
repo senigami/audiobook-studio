@@ -21,9 +21,12 @@ it "held."
 """
 from __future__ import annotations
 
+import logging
 import sqlite3
 import time
 from contextlib import contextmanager
+
+logger = logging.getLogger(__name__)
 
 # Generous: a real migration or a large resync can legitimately run long.
 CHAPTER_LOCK_STALE_AFTER_SECONDS = 900
@@ -68,6 +71,18 @@ def chapter_lock(conn: sqlite3.Connection, chapter_id: str, held_by: str):
     try:
         yield
     finally:
-        conn.execute("BEGIN IMMEDIATE")
-        conn.execute("DELETE FROM chapter_locks WHERE chapter_id = ?", (chapter_id,))
-        conn.commit()
+        # Must never replace the caller's exception: a body that raised with
+        # its own transaction still open is rolled back first, and any release
+        # failure is logged (the stale-eviction window then clears the row).
+        try:
+            if conn.in_transaction:
+                conn.rollback()
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute("DELETE FROM chapter_locks WHERE chapter_id = ?", (chapter_id,))
+            conn.commit()
+        except Exception:
+            logger.exception("chapter_lock release failed for %s", chapter_id)
+            try:
+                conn.rollback()
+            except Exception:
+                pass
