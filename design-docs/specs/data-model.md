@@ -471,9 +471,8 @@ Two independent migration mechanisms run at boot, in order:
      This intentionally reverses the previous `except Exception: logger.exception(...)` swallow
      around migration (#233); `_booted` is left `False` on failure so a corrected migration can be
      retried by calling `boot_studio()` again.
-   - Rollback tooling (invoking a migration's own `down`) is not yet implemented by the runner —
-     `down` is accepted on `Migration` for forward-compatibility but unused; recovery from a failed
-     migration today is via the pre-migration backup file.
+   - There is no rollback tooling; recovery from a failed or unwanted migration is the
+     pre-migration backup file (see above).
 
 2. **Legacy one-shot data migrations** (`app/db/migration.py`, pre-#233, unversioned) —
    `migrate_state_json_to_db()`, `migrate_legacy_project_covers()`, `migrate_voice_profiles()`.
