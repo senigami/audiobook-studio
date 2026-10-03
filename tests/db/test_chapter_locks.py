@@ -112,3 +112,67 @@ def test_stale_lock_is_evicted_and_new_acquire_succeeds():
             "SELECT 1 FROM chapter_locks WHERE chapter_id = ?", (chapter_id,)
         ).fetchone()
     assert row is None
+
+
+def test_body_exception_with_open_transaction_is_not_masked_and_row_is_released():
+    from app.db.chapter_locks import chapter_lock
+
+    chapter_id = "lock-test-open-txn"
+    with get_connection() as conn:
+        with pytest.raises(ValueError, match="the real error"):
+            with chapter_lock(conn, chapter_id, held_by="test"):
+                conn.execute("BEGIN IMMEDIATE")
+                raise ValueError("the real error")
+
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM chapter_locks WHERE chapter_id = ?", (chapter_id,)
+        ).fetchone()
+    assert row is None
+
+
+def test_release_failure_never_replaces_the_callers_exception(monkeypatch, caplog):
+    """If the release itself fails, the body's exception still reaches the caller."""
+    import sqlite3 as _sqlite3
+
+    from app.db import chapter_locks
+
+    class FailingRelease:
+        """Proxy over a real connection whose release DELETE raises (a boundary fault)."""
+
+        def __init__(self, real):
+            self._real = real
+
+        def execute(self, sql, *args):
+            if sql.lstrip().upper().startswith("DELETE FROM CHAPTER_LOCKS WHERE CHAPTER_ID = ?") and "acquired_at" not in sql:
+                raise _sqlite3.OperationalError("disk I/O error")
+            return self._real.execute(sql, *args)
+
+        def __getattr__(self, name):
+            return getattr(self._real, name)
+
+    with get_connection() as real:
+        conn = FailingRelease(real)
+        with pytest.raises(ValueError, match="body failed"):
+            with chapter_locks.chapter_lock(conn, "lock-test-release-fails", held_by="test"):
+                raise ValueError("body failed")
+    assert "chapter_lock release failed" in caplog.text
+
+
+def test_normal_exit_with_uncommitted_body_fails_loudly_and_still_releases():
+    """A body that forgets to commit must not silently lose its writes."""
+    from app.db.chapter_locks import chapter_lock
+
+    chapter_id = "lock-test-forgot-commit"
+    with get_connection() as conn:
+        with pytest.raises(RuntimeError, match="open transaction"):
+            with chapter_lock(conn, chapter_id, held_by="test"):
+                conn.execute(
+                    "INSERT INTO chapter_locks (chapter_id, held_by, acquired_at) VALUES ('other', 'x', 1)"
+                )
+
+    with get_connection() as conn:
+        held = conn.execute(
+            "SELECT 1 FROM chapter_locks WHERE chapter_id = ?", (chapter_id,)
+        ).fetchone()
+    assert held is None
