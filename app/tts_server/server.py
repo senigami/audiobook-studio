@@ -10,9 +10,9 @@ Callers from Studio should go through the VoiceBridge HTTP client
 from __future__ import annotations
 
 import logging
-import re
 import threading
 import time
+import uuid
 from pathlib import Path
 from typing import Any, Optional
 
@@ -46,26 +46,38 @@ from app.tts_server import plugin_staging
 
 logger = logging.getLogger(__name__)
 
-_URL_RE = re.compile(r"\b[a-z][a-z0-9+.-]*://\S+", re.IGNORECASE)
-_WIN_PATH_RE = re.compile(r"\b[A-Za-z]:[\\/][^\s'\"]*")
-_POSIX_PATH_RE = re.compile(r"(?<![\w.:])/(?:[^\s'\"/]+/)+[^\s'\"/]*")
-_PUBLIC_ERROR_MAX_CHARS = 1000
+# Fixed client-facing messages, keyed by failure category. Nothing derived from
+# an exception or engine error text may reach a response body (security.md,
+# Status Payload Rule); the full detail goes to the server log under the same
+# correlation id.
+_SYNTHESIS_ERROR_MESSAGES = {
+    "engine_unavailable": "The voice engine is unavailable.",
+    "invalid_request": "The synthesis request was not valid for this engine.",
+    "timeout": "Synthesis timed out.",
+    "synthesis_failed": "Synthesis failed.",
+}
 
 
-def _public_synthesis_error(error: Optional[str]) -> str:
-    """Client-safe text for a failed synthesis: the real reason, minus paths and URLs.
+def _classify_synthesis_exception(exc: BaseException) -> str:
+    """Pick a failure category from the exception TYPE only, never its message."""
+    if isinstance(exc, TimeoutError):
+        return "timeout"
+    if isinstance(exc, (ImportError, FileNotFoundError, ConnectionError)):
+        return "engine_unavailable"
+    if isinstance(exc, (ValueError, TypeError, KeyError)):
+        return "invalid_request"
+    return "synthesis_failed"
 
-    Engine errors can embed filesystem paths and local server URLs, which must not
-    leave the server (api-conventions.md). Keep the tail when truncating, since
-    the exception type and message come last in a worker traceback.
-    """
-    text = (error or "").strip()
-    if not text:
-        return "Synthesis failed."
-    text = _URL_RE.sub("<url>", text)
-    text = _WIN_PATH_RE.sub("<path>", text)
-    text = _POSIX_PATH_RE.sub("<path>", text)
-    return text[-_PUBLIC_ERROR_MAX_CHARS:]
+
+def _synthesis_failure(code: str, correlation_id: str) -> HTTPException:
+    return HTTPException(
+        status_code=500,
+        detail={
+            "code": code,
+            "message": _SYNTHESIS_ERROR_MESSAGES[code],
+            "correlation_id": correlation_id,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -660,6 +672,17 @@ async def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
         # can service other requests concurrently.  Starlette's default anyio thread
         # limiter (40 threads) comfortably exceeds any realistic per-engine cap (≤8).
         result = await run_in_threadpool(plugin.engine.synthesize, req)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        correlation_id = uuid.uuid4().hex[:12]
+        logger.error(
+            "Synthesis raised for engine %s [correlation_id=%s]",
+            body.engine_id,
+            correlation_id,
+            exc_info=True,
+        )
+        raise _synthesis_failure(_classify_synthesis_exception(exc), correlation_id) from None
     finally:
         # Cleanup cancellation flag after synthesis attempt
         if body.task_id:
@@ -667,11 +690,14 @@ async def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
                 _cancelled_tasks.pop(body.task_id, None)
 
     if not result.ok:
-        logger.error("Synthesis failed for engine %s: %s", body.engine_id, result.error)
-        raise HTTPException(
-            status_code=500,
-            detail=_public_synthesis_error(result.error),
+        correlation_id = uuid.uuid4().hex[:12]
+        logger.error(
+            "Synthesis failed for engine %s [correlation_id=%s]: %s",
+            body.engine_id,
+            correlation_id,
+            result.error,
         )
+        raise _synthesis_failure("synthesis_failed", correlation_id)
 
     # 3. postprocess_audio
     if result.output_path:

@@ -37,10 +37,20 @@ class TtsServerConnectionError(TtsServerError):
 class TtsServerResponseError(TtsServerError):
     """The TTS Server returned an unexpected HTTP status code."""
 
-    def __init__(self, message: str, *, status_code: int | None = None, detail: str | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        detail: str | None = None,
+        error_code: str | None = None,
+        correlation_id: str | None = None,
+    ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.detail = detail
+        self.error_code = error_code
+        self.correlation_id = correlation_id
 
 
 class TtsServerOutputRejectedError(TtsServerError):
@@ -427,11 +437,18 @@ def _raise_for_status(resp: httpx.Response, url: str) -> None:
             reason = str(payload.get("reason", "engine rejected its own output"))
             raise TtsServerOutputRejectedError(reason)
 
+        error_code = correlation_id = None
+        if isinstance(payload, dict) and isinstance(payload.get("detail"), dict):
+            structured = payload["detail"]
+            error_code = str(structured.get("code") or "") or None
+            correlation_id = str(structured.get("correlation_id") or "") or None
         detail = _response_error_detail(resp)
         raise TtsServerResponseError(
             f"TTS Server returned {resp.status_code} for {url}: {detail}",
             status_code=resp.status_code,
             detail=detail,
+            error_code=error_code,
+            correlation_id=correlation_id,
         )
 
 
@@ -444,6 +461,12 @@ def _response_error_detail(resp: httpx.Response) -> str:
 
     if isinstance(payload, dict):
         detail = payload.get("detail") or payload.get("message")
+        if isinstance(detail, dict):
+            message = str(detail.get("message") or "Synthesis failed.")
+            code = detail.get("code")
+            ref = detail.get("correlation_id")
+            tags = ", ".join(x for x in (str(code) if code else "", f"ref {ref}" if ref else "") if x)
+            return f"{message} ({tags})" if tags else message
         if detail:
             return str(detail)[-4000:]
 
