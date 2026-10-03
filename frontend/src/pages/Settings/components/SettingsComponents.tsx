@@ -271,7 +271,7 @@ export const NumberStepper: React.FC<{
         aria-label={`Decrease ${ariaLabel}`}
         aria-describedby={describedBy}
         disabled={!canDecrement}
-        onClick={() => onStep(clamp(value - step))}
+        onClick={() => onStep(Math.max(min, value - step))}
         onMouseDown={() => setPressed('dec')}
         onMouseUp={() => setPressed(null)}
         onMouseLeave={() => setPressed(null)}

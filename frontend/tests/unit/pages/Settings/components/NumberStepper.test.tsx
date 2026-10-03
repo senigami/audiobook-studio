@@ -54,9 +54,21 @@ describe('NumberStepper focus', () => {
     screen.getByLabelText('Cap').focus();
 
     rerender(<Stepper value={1} max={4} disabled />);
+    // jsdom keeps focus on a disabled input; a browser drops it to <body>, so
+    // simulate that by focusing the body explicitly.
+    document.body.tabIndex = -1;
+    document.body.focus();
+    expect(document.body).toHaveFocus();
     rerender(<Stepper value={1} max={4} />);
 
     expect(screen.getByLabelText('Cap')).toHaveFocus();
+  });
+
+  it('decrement steps by one even when the max was lowered below the value', () => {
+    const onStep = vi.fn();
+    render(<NumberStepper ariaLabel="Cap" min={1} max={1} value={4} onStep={onStep} />);
+    screen.getByLabelText('Decrease Cap').click();
+    expect(onStep).toHaveBeenCalledWith(3);
   });
 
   it('does not take focus when it was elsewhere before the save', () => {

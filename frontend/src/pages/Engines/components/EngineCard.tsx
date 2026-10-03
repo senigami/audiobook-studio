@@ -216,11 +216,13 @@ export const EngineCard: React.FC<{
     } catch (err) {
       if (isParallelCapRefused(err)) {
         // Nothing was saved: snap the field back and keep the reason on screen.
+        console.info('Cap save refused', err.refusal.correlation_id);
         setCapRefusal(err.refusal.message);
         setEngineCapInput(currentEngineCap != null ? String(currentEngineCap) : '');
         onLimitsRefresh?.();
       } else {
         console.error('Failed to save engine concurrency cap', err);
+        setEngineCapInput(currentEngineCap != null ? String(currentEngineCap) : '');
         onShowNotification?.(PARALLEL_CAP_COPY.genericSaveError);
       }
     } finally {

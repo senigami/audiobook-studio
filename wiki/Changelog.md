@@ -8,7 +8,7 @@ All notable changes to this project will be documented in this file.
 
 - **Before:** you could set Parallel Segment Rendering (or an engine's Concurrent Renders) as high as the engine allowed. On a computer without enough free memory, too many at once could freeze the whole machine.
 - **Now:** Studio checks free memory when you save. If the number is too high, it does not save it, shows a message with the highest number that is safe right now, and puts the setting back to its last saved value. The Settings page and each engine card show that estimate up front. One at a time is always allowed.
-- Lowering a number, or saving any other setting, is never blocked. A value that is not a whole number is also not saved, with a message asking for a whole number such as 1 or 2.
+- Lowering a number, or saving any other setting, is never blocked.
 - The estimate depends on how much memory is free at that moment, so it can change. A number you saved earlier is left as it is.
 - Backend contract: `design-docs/specs/queue-jobs.md` 1.14.0 (section 7.3d), `design-docs/specs/security.md` 1.4.5.
 

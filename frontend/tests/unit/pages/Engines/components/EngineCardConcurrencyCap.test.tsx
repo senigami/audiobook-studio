@@ -19,7 +19,7 @@ import { EngineCard } from '@/pages/Engines/components/EngineCard';
 import type { TtsEngine } from '@/types';
 import { api } from '@/api';
 import { ParallelCapRefusedError } from '@/api/capRefusal';
-import { refusalFixture } from '../../../../helpers/capSafetyFixtures';
+import { refusalFixture, refusalResponse } from '../../../../helpers/capSafetyFixtures';
 
 vi.mock('@/api', () => ({
   api: {
@@ -234,7 +234,7 @@ describe('EngineCard concurrency cap override', () => {
     (api.saveEngineCap as any).mockRejectedValue(new Error('network down'));
     const onShowNotification = vi.fn();
     render(
-      <EngineCard engine={xttsEngine} onUpdate={vi.fn()} onShowNotification={onShowNotification} settings={{ tts_engine_caps: {} } as any} />
+      <EngineCard engine={xttsEngine} onUpdate={vi.fn()} onShowNotification={onShowNotification} settings={{ tts_engine_caps: { xtts: 2 } } as any} />
     );
     openCard();
     const input = screen.getByLabelText('XTTS concurrent render cap') as HTMLInputElement;
@@ -243,6 +243,25 @@ describe('EngineCard concurrency cap override', () => {
 
     await waitFor(() => expect(onShowNotification).toHaveBeenCalledWith('Settings update failed. Please try again.'));
     expect(screen.queryByRole('alert')).toBeNull();
+    expect(input.value).toBe('2');
+  });
+
+  it('a real 422 refusal through the actual save call shows the alert and snaps back (response.ok is honoured)', async () => {
+    const actual = await vi.importActual<typeof import('@/api')>('@/api');
+    (api.saveEngineCap as any).mockImplementation((...args: [string, number | null]) => actual.api.saveEngineCap(...args));
+    global.fetch = vi.fn().mockResolvedValue(refusalResponse(refusalFixture())) as any;
+    const onShowNotification = vi.fn();
+    render(
+      <EngineCard engine={xttsEngine} onUpdate={vi.fn()} onShowNotification={onShowNotification} settings={{ tts_engine_caps: { xtts: 2 } } as any} />
+    );
+    openCard();
+    const input = screen.getByLabelText('XTTS concurrent render cap') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '4' } });
+    fireEvent.blur(input);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Server sentence for tests, safe maximum 1.');
+    expect(input.value).toBe('2');
+    expect(onShowNotification).not.toHaveBeenCalled();
   });
 
   it('does not save when the field is cleared (blank input)', async () => {

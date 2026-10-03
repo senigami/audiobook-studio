@@ -1,7 +1,7 @@
 export const PARALLEL_CAP_COPY = {
   hintSafe: (n: number): string => `Studio estimates this computer can render up to ${n} at once right now.`,
   hintOne: 'Studio estimates this computer can render one at a time right now. Closing other apps may allow more.',
-  hintUnmeasurable: 'Studio could not check how much memory is free, so it will render one at a time for now.',
+  hintUnmeasurable: "Studio could not check how much memory is free, so for now the number can't be raised above 1. The number you already saved still applies.",
   engineCardDescription: (limit: number): string =>
     `How many segments this engine may render at once, up to ${limit}. Changes apply right away, no restart needed.`,
   genericSaveError: 'Settings update failed. Please try again.',

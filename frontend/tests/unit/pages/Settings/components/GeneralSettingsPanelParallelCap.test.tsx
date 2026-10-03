@@ -90,12 +90,27 @@ describe('GeneralSettingsPanel parallel cap safety', () => {
     expect(screen.getByLabelText('Increase Max concurrent segment renders')).toBeDisabled();
   });
 
-  it('clamps a typed value to the safe maximum before saving', async () => {
+  it('sends a typed value above the safe maximum to the server unclamped, so a refusal can explain it', async () => {
     render(<GeneralSettingsPanel {...baseProps} settings={stored} globalSafeMax={2} />);
     fireEvent.change(getInput(), { target: { value: '5' } });
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
-    expect(JSON.parse((global.fetch as any).mock.calls[0][1].body)).toEqual({ tts_parallel_cap: 2 });
+    expect(JSON.parse((global.fetch as any).mock.calls[0][1].body)).toEqual({ tts_parallel_cap: 5 });
+  });
+
+  it('shows the numbered hint when the safe maximum is between 2 and the ceiling', () => {
+    render(<GeneralSettingsPanel {...baseProps} settings={stored} globalSafeMax={3} />);
+    expect(document.getElementById('parallel-cap-hint')).toHaveTextContent(
+      'Studio estimates this computer can render up to 3 at once right now.'
+    );
+  });
+
+  it('minus steps down by one, not to a lowered safe maximum', async () => {
+    render(<GeneralSettingsPanel {...baseProps} settings={{ safe_mode: false, tts_parallel_cap: 4 } as any} globalSafeMax={1} />);
+    fireEvent.click(screen.getByLabelText('Decrease Max concurrent segment renders'));
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    expect(JSON.parse((global.fetch as any).mock.calls[0][1].body)).toEqual({ tts_parallel_cap: 3 });
   });
 
   it('shows the one-at-a-time hint and links it to the stepper', () => {
@@ -118,7 +133,7 @@ describe('GeneralSettingsPanel parallel cap safety', () => {
   it('shows the unmeasurable hint when memory cannot be read', () => {
     render(<GeneralSettingsPanel {...baseProps} settings={stored} globalSafeMax={1} memoryMeasurable={false} />);
     expect(document.getElementById('parallel-cap-hint')).toHaveTextContent(
-      'Studio could not check how much memory is free, so it will render one at a time for now.'
+      "Studio could not check how much memory is free, so for now the number can't be raised above 1. The number you already saved still applies."
     );
   });
 
@@ -182,12 +197,25 @@ describe('GeneralSettingsPanel parallel cap safety', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
+  it('treats an object detail with an unknown code as a generic failure', async () => {
+    (global.fetch as any).mockResolvedValue(failureResponse(422, { code: 'something_else', message: 'Server text.' }));
+    render(<GeneralSettingsPanel {...baseProps} settings={stored} />);
+    fireEvent.change(getInput(), { target: { value: '3' } });
+
+    await waitFor(() =>
+      expect(baseProps.onShowNotification).toHaveBeenCalledWith('Settings update failed. Please try again.')
+    );
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   it('does not treat the 503 plain-string detail as a cap refusal', async () => {
     (global.fetch as any).mockResolvedValue(failureResponse(503, 'No engine is known right now.'));
     render(<GeneralSettingsPanel {...baseProps} settings={stored} />);
     fireEvent.change(getInput(), { target: { value: '3' } });
 
-    await waitFor(() => expect(baseProps.onShowNotification).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(baseProps.onShowNotification).toHaveBeenCalledWith('Settings update failed. Please try again.')
+    );
     expect(screen.queryByRole('alert')).toBeNull();
   });
 });

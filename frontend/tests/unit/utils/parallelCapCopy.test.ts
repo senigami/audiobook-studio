@@ -9,7 +9,7 @@ describe('capHint', () => {
 
   it('says memory could not be checked when it is not measurable', () => {
     expect(capHint({ safeMax: 1, ceiling: 8, memoryMeasurable: false })).toBe(
-      'Studio could not check how much memory is free, so it will render one at a time for now.'
+      "Studio could not check how much memory is free, so for now the number can't be raised above 1. The number you already saved still applies."
     );
   });
 

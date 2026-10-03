@@ -86,6 +86,7 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
       onLimitsRefresh?.();
     } catch (error) {
       if (isParallelCapRefused(error)) {
+        console.info('Cap save refused', error.refusal.correlation_id);
         setCapRefusal(error.refusal.message);
         onRefresh();
         onLimitsRefresh?.();
@@ -333,7 +334,9 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
                 onInputChange={(raw) => {
                   const parsed = parseInt(raw, 10);
                   if (Number.isNaN(parsed)) return;
-                  const clamped = Math.min(parallelCapMax, Math.max(1, parsed));
+                  // Only the fixed ceiling clamps here: a value above the safe maximum must reach
+                  // the server so its refusal explains why, instead of being lowered silently.
+                  const clamped = Math.min(MAX_GLOBAL_PARALLEL_CAP, Math.max(1, parsed));
                   updateParallelCap(clamped);
                 }}
               />
