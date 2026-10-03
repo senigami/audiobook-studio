@@ -221,3 +221,6 @@ audiobook_studio.db
 
 # plan doc whose only deliverable is the local, untracked guidance file
 /design-docs/plans/active/sd2_claude_md_task_inventory/
+
+# Persisted rotating server log (#252)
+/logs/

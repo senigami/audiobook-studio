@@ -1,11 +1,11 @@
 # SP9 — System Architecture Spec
 
 ```
-spec_version: 1.7.2
+spec_version: 1.8.0
 status: active
 created: 2026-06-10
-updated: 2026-07-14
-sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
+updated: 2026-10-03
+sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py, app/core/log_file.py,
          app/engines/watchdog.py, app/engines/bridge.py,
          app/engines/bridge_remote.py, app/engines/tts_client.py,
          app/tts_server/plugin_loader.py, app/orchestration/scheduler/orchestrator.py,
@@ -19,6 +19,7 @@ sources: run.py, tts_server.py, app/api/web.py, app/core/boot.py,
 ## Changelog
 
 | Version | Date       | Summary                                                    |
+| 1.8.0   | 2026-10-03 | **Persistent rotating server log (#252).** New step 0 in §4: `startup_event` first calls `boot_logging()` (`app/core/boot.py`), which attaches a `RotatingFileHandler` (`app/core/log_file.py`: 5 MB x 5 backups, INFO+) to the root logger and `uvicorn.access`, writing `<LOG_DIR>/studio.log` (`LOG_DIR` in `app/core/config.py`, default `<AUDIOBOOK_BASE_DIR>/logs`, env-overridable, gitignored). Idempotent across `uvicorn --reload`; import creates nothing; setup failure is swallowed (the app still boots); token/api-key/password/Bearer values are redacted before they reach the file. |
 | 1.7.2   | 2026-07-14 | Mixed-handler marker set gains `[SEGMENT_ENGINE_SAMPLE] {segment_id} {engine} {chars} {duration_seconds}`, emitted per group after INV-3 artifact validation, so the orchestrator can attribute render-performance samples to the group's real engine instead of the `"mixed"` container label. Full contract in `queue-jobs.md` §Changelog 1.12.2. |
 |---------|------------|------------------------------------------------------------|
 | 1.7.1   | 2026-07-14 | **XTTS manifest ceiling raised `2 → 8` (owner directive).** `tts_engines/tts_xtts/manifest.json`'s `behavior.max_concurrent_workers` moved from 2 to 8, matching the `MAX_GLOBAL_CONCURRENT_SYNTHESIS` backstop and the Settings → General "Parallel Segment Rendering" slider's max. Rationale: the manifest ceiling was silently clamping the user-facing `tts_parallel_cap` setting (`effective_cap = min(requested, manifest_max)`) with no error/warning surfaced in the UI — the owner's own hardware (VRAM headroom) should be the deciding factor for how many concurrent XTTS warm workers to run, not an author-set ceiling baked into the plugin. The global backstop (env-overridable via `MAX_GLOBAL_CONCURRENT_SYNTHESIS`) remains the only enforced safety limit; each additional concurrent XTTS warm worker loads its own model copy into VRAM (~`resource.vram_mb` per worker, declared 4000 MB), so raising `tts_parallel_cap` above what the GPU can hold risks OOM — this is now the user's own tradeoff to explore, not a hard-blocked one. Dynamic VRAM/CPU-aware auto-throttling (drop concurrency live if VRAM pressure rises) was discussed and explicitly deferred as future scope, not implemented here. Voxtral/Mixed remain pinned to `max_concurrent_workers: 1` in their own manifests — unchanged, since those engines' sequential constraint is not the same class of "arbitrary ceiling" (Voxtral is a remote API, Mixed's worker is not verified concurrency-safe). |
@@ -247,6 +248,7 @@ The steps are deterministic and MUST execute in this order:
 
 | Step | Action | Call site / Module |
 |---|---|---|
+| 0 | `boot_logging()` — attach the rotating `studio.log` file handler (idempotent; failure never blocks boot) | `app/api/web.py:startup_event` → `app/core/boot.py` → `app/core/log_file.py` |
 | 1a | `init_db()` — create SQLite tables if not present | `app/api/web.py:startup_event` → `app/db/__init__.py` |
 | 1b | Migrate voice profiles to V2 storage format | `app/api/web.py:startup_event` → `app/db/migration.py` |
 | 1c | Migrate legacy project covers to project-local storage | `app/api/web.py:startup_event` → `app/db/migration.py` |
