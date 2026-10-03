@@ -201,6 +201,7 @@ class TTSResult:
     warnings: list[str]
     error: Optional[str]
     timing: Optional[TTSTimingResult]   # structured timing, not a plain dict
+    exception: Optional[BaseException] = None  # optional, host-only, never sent to a client (SDK 1.3)
 
 @dataclass(frozen=True)
 class VerificationResult:
@@ -355,7 +356,7 @@ a per-engine limit.
 
 `sdk_version` is the one version field NOT checked against a literal allow-list.
 It is compared at load time against the installed
-`studio_plugin_sdk.SDK_VERSION`, currently `"1.2"`:
+`studio_plugin_sdk.SDK_VERSION`, currently `"1.3"`:
 
 - The **major** MUST match exactly.
 - The **minor** MUST be at or below the installed SDK's minor. A plugin written

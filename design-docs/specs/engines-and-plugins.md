@@ -1,8 +1,8 @@
 # Engines and Plugin Lifecycle
 
 ```
-spec_version: 1.3.0
-updated: 2026-08-24
+spec_version: 1.3.1
+updated: 2026-10-03
 status: active
 sources:
   - app/tts_server/server.py
@@ -19,6 +19,7 @@ sources:
 
 | Version | Date       | Change                 |
 |---------|------------|------------------------|
+| 1.3.1   | 2026-10-03 | `SDK_VERSION` reference updated from `"1.2"` to `"1.3"` (additive optional `TTSResult.exception`, see plugin-contract.md 1.13.0). |
 | 1.3.0   | 2026-08-24 | SDK module list corrected (was missing `engine_adapter`, `engine_models`, `engine_errors`, `text`) and `SDK_VERSION` corrected from stale `"1.0"` to `"1.2"`; import-boundary rule tightened for `tts_xtts`'s `plugin/studio/` extraction targets to ZERO `app.*` imports at any position (was module-level-only), with the older module-level-only rule kept for `tts_voxtral`, which has not been migrated (#200 C5). |
 | 1.2.0   | 2026-07-16 | SDK dependency inversion: `studio_plugin_sdk/` is a real top-level package (`SDK_VERSION = "1.0"`); `app/engines/voice/sdk.py`, `app/engines/voice/base.py` (StudioTTSEngine), and `app/studio_plugin_sdk/*` are re-export shims; the `sys.modules` alias hack in the plugin loader is gone. Documented the plugin import boundary and the `built_in: true` exception (`tts_mixed`: in-tree only, `app.*` imports allowed, uninstall returns 403). |
 | 1.1.3   | 2026-07-16 | Manifests gained an optional shape-validated `distribution` block (standalone-repo source; plan 05 §1.2) — full contract documented in `plugin-contract.md` v1.7.0. In-tree `tts_xtts`/`tts_voxtral` manifests now carry blocks matching the official registry's repo URLs. |
@@ -237,7 +238,7 @@ permanent architectural constraint, not a temporary gap.
 ## Plugin SDK and import boundary
 
 `studio_plugin_sdk/` (repo root) is the real top-level SDK package
-(`SDK_VERSION = "1.2"`, ships `py.typed`): `types`, `engine` (StudioTTSEngine),
+(`SDK_VERSION = "1.3"`, ships `py.typed`): `types`, `engine` (StudioTTSEngine),
 `engine_adapter` (VoiceEngineAdapter Protocol + the four request helpers),
 `engine_models`, `engine_errors`, `context`, `plugin_utils`, `errors`, `text`,
 `proc`, `audio`, `_import_utils`.

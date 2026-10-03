@@ -692,6 +692,8 @@ async def synthesize(body: SynthesizeRequest) -> dict[str, Any]:
     if not result.ok:
         correlation_id = uuid.uuid4().hex[:12]
         caught = getattr(result, "exception", None)
+        if not isinstance(caught, BaseException):
+            caught = None
         # One record carries the correlation id, the engine's text, and (when the
         # engine caught an exception) its traceback.
         logger.error(

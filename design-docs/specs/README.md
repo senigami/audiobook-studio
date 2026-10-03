@@ -26,7 +26,7 @@ Last updated: 2026-08-26
 | [api-conventions.md](api-conventions.md) | REST URL patterns, standard error shape, API key auth, WebSocket protocol, external TTS API; live reads must bypass browser cache (`no-store`); per-book GC on project open | 1.2.0 |
 | [plugin-contract.md](plugin-contract.md) | `StudioTTSEngine` ABC, manifest schema, SDK types, capability flags | 1.13.0 |
 | [performance-script-format.md](performance-script-format.md) | Canonical `performance_data` JSON shape, rendering-mode resolution (`resolve_rendering()`), INV-2; AI pipeline/export layer explicitly deferred | 1.0.0 |
-| [engines-and-plugins.md](engines-and-plugins.md) | Plugin discovery, health state machine, verification flow, hot-reload rules | 1.3.0 |
+| [engines-and-plugins.md](engines-and-plugins.md) | Plugin discovery, health state machine, verification flow, hot-reload rules | 1.3.1 |
 | [video-sample.md](video-sample.md) | Per-chapter shareable MP4 sample (book cover + capped chapter audio); local-only ffmpeg render, letterboxed visual, Studio-logo fallback, orientation/duration params, `POST /chapters/{id}/export-video` | 1.0.0 |
 | [voice-bundles.md](voice-bundles.md) | Bundle directory structure, MP3/WAV format rules, voice attribute taxonomy, voice catalog + Voice Lab UI | 1.12.0 |
 | [interface-localization.md](interface-localization.md) | Interface localization, locale catalogs, first-run picker, settings selector, locale-aware formatting | 1.0.4 |

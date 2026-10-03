@@ -143,3 +143,13 @@ def test_exactly_one_record_carries_correlation_id_and_traceback(tmp_path, caplo
     assert record.exc_info is not None and record.exc_info[0] is TimeoutError
     assert record.exc_info[2] is not None  # traceback attached
     assert "worker stalled" in record.getMessage()
+
+
+@pytest.mark.parametrize("bogus", ["a string", 42, {"k": "v"}, object()])
+def test_non_exception_value_on_result_falls_back_to_synthesis_failed(tmp_path, bogus):
+    result = TTSResult(ok=False, error="engine said no", exception=bogus)
+    resp = _post(tmp_path, result=result)
+    assert resp.status_code == 500
+    detail = resp.json()["detail"]
+    assert detail["code"] == "synthesis_failed"
+    assert set(detail) == {"code", "message", "correlation_id"}
