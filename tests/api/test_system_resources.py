@@ -95,3 +95,33 @@ def test_get_system_resources_route_returns_200_and_expected_shape():
     assert body["cpu_pct"] == 42.5
     assert body["vram_used_gb"] == pytest.approx(2.0)
     assert body["vram_total_gb"] == pytest.approx(10.0)
+
+
+class _FakeVirtualMemoryWithAvailable(_FakeVirtualMemory):
+    def __init__(self, used_bytes, total_bytes, available_bytes):
+        super().__init__(used_bytes, total_bytes)
+        self.available = available_bytes
+
+
+def test_sample_resources_reports_ram_available_gb():
+    fake = _FakeVirtualMemoryWithAvailable(8 * 1024 ** 3, 16 * 1024 ** 3, 5 * 1024 ** 3)
+    with patch("app.engines.system_resources.psutil.cpu_percent", return_value=1.0), \
+         patch("app.engines.system_resources.psutil.virtual_memory", return_value=fake), \
+         patch("app.engines.system_resources.subprocess.run", side_effect=FileNotFoundError()):
+        sample = sample_resources()
+    assert sample["ram_available_gb"] == pytest.approx(5.0)
+
+
+def test_sample_resources_available_is_none_when_os_does_not_report_it():
+    p1, p2 = _patch_cpu_ram()
+    with p1, p2, patch("app.engines.system_resources.subprocess.run", side_effect=FileNotFoundError()):
+        sample = sample_resources()
+    assert sample["ram_available_gb"] is None
+
+
+def test_sample_resources_never_raises_when_psutil_fails():
+    with patch("app.engines.system_resources.psutil.virtual_memory", side_effect=OSError("boom")), \
+         patch("app.engines.system_resources.subprocess.run", side_effect=FileNotFoundError()):
+        sample = sample_resources()
+    assert sample["ram_available_gb"] is None
+    assert sample["ram_total_gb"] == 0.0

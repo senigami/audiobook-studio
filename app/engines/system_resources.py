@@ -19,16 +19,26 @@ class ResourceSample(TypedDict):
     cpu_pct: float
     ram_used_gb: float
     ram_total_gb: float
+    ram_available_gb: Optional[float]
     vram_used_gb: Optional[float]
     vram_total_gb: Optional[float]
 
 
-def _sample_cpu_ram() -> tuple[float, float, float]:
-    cpu_pct = psutil.cpu_percent(interval=None)
-    vm = psutil.virtual_memory()
-    ram_used_gb = vm.used / _BYTES_PER_GB
-    ram_total_gb = vm.total / _BYTES_PER_GB
-    return cpu_pct, ram_used_gb, ram_total_gb
+def _sample_cpu_ram() -> tuple[float, float, float, Optional[float]]:
+    """CPU percent and RAM figures. Never raises.
+
+    ``available`` (not ``free``, not total minus used) is what the OS says can
+    be handed to a new process without swapping; on macOS ``free`` is a small
+    fraction of that. None when the OS did not report it.
+    """
+    try:
+        cpu_pct = psutil.cpu_percent(interval=None)
+        vm = psutil.virtual_memory()
+        available = getattr(vm, "available", None)
+        ram_available_gb = None if available is None else available / _BYTES_PER_GB
+        return cpu_pct, vm.used / _BYTES_PER_GB, vm.total / _BYTES_PER_GB, ram_available_gb
+    except Exception:
+        return 0.0, 0.0, 0.0, None
 
 
 def _sample_vram() -> tuple[Optional[float], Optional[float]]:
@@ -70,12 +80,13 @@ def _sample_vram() -> tuple[Optional[float], Optional[float]]:
 
 def sample_resources() -> ResourceSample:
     """Sample current host CPU/RAM/VRAM usage. Never raises."""
-    cpu_pct, ram_used_gb, ram_total_gb = _sample_cpu_ram()
+    cpu_pct, ram_used_gb, ram_total_gb, ram_available_gb = _sample_cpu_ram()
     vram_used_gb, vram_total_gb = _sample_vram()
     return {
         "cpu_pct": cpu_pct,
         "ram_used_gb": ram_used_gb,
         "ram_total_gb": ram_total_gb,
+        "ram_available_gb": ram_available_gb,
         "vram_used_gb": vram_used_gb,
         "vram_total_gb": vram_total_gb,
     }
