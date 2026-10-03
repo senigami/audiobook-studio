@@ -113,3 +113,20 @@ class TestSynthesizeFailureTailSurfaced:
             assert line in result.error, (
                 f"Expected {line!r} in error tail. Got: {result.error!r}"
             )
+
+
+class TestSynthesizeReturnsCaughtException:
+    """XTTS catches its own exceptions; the host classifies them by TYPE, so the
+    caught exception must travel back on the result."""
+
+    def test_caught_exception_is_attached_to_result(self, engine, tmp_path):
+        _make_fake_voice_ref(tmp_path)
+        req = _simple_request(tmp_path)
+        boom = TimeoutError("worker stalled")
+
+        with patch.object(engine, "_xtts_generate", side_effect=boom):
+            result = engine.synthesize(req)
+
+        assert result.ok is False
+        assert result.exception is boom
+        assert "worker stalled" in result.error

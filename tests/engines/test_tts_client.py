@@ -113,6 +113,25 @@ class TestTtsClientGet:
         assert exc_info.value.status_code == 400
         assert exc_info.value.detail == "Plugin manifest failed validation."
 
+    def test_structured_error_detail_exposes_code_and_correlation_id(self):
+        client = TtsClient("http://127.0.0.1:7862")
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 500
+        mock_resp.json.return_value = {
+            "detail": {"code": "timeout", "message": "Synthesis timed out.", "correlation_id": "abc123def456"}
+        }
+        mock_resp.text = "ignored"
+
+        with patch("httpx.post", return_value=mock_resp):
+            with pytest.raises(TtsServerResponseError) as exc_info:
+                client.preview_github_plugin("https://github.com/audiobook-studio/bad.git")
+
+        err = exc_info.value
+        assert err.error_code == "timeout"
+        assert err.correlation_id == "abc123def456"
+        assert err.detail == "Synthesis timed out. (timeout, ref abc123def456)"
+
     def test_get_engines_returns_list(self):
         client = TtsClient("http://127.0.0.1:7862")
 

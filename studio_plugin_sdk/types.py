@@ -105,6 +105,9 @@ class TTSResult:
             when unavailable.
         warnings: Non-fatal messages the engine wants to surface to the user.
         error: Human-readable error message when ``ok`` is ``False``.
+        exception: The exception an engine caught while failing, if any. Host
+            use only: the TTS Server classifies the failure by its type and
+            logs its traceback server-side. It is never sent to a client.
     """
 
     ok: bool
@@ -113,6 +116,7 @@ class TTSResult:
     warnings: list[str] = field(default_factory=list)
     error: str | None = None
     timing: Optional[TTSTimingResult] = None
+    exception: Optional[BaseException] = None
 
 
 
