@@ -78,6 +78,7 @@ def local_engine_ids() -> list[str]:
     plugin that failed to load (or a server that is down) is still checked.
     """
     from ...core.config import PLUGINS_DIR  # noqa: PLC0415
+    from ...tts_server.plugin_loader import _PLUGIN_FOLDER_RE  # noqa: PLC0415 (same folder rule as the loader)
 
     try:
         entries = sorted(Path(PLUGINS_DIR).iterdir())
@@ -86,7 +87,7 @@ def local_engine_ids() -> list[str]:
     return [
         entry.name[len("tts_"):]
         for entry in entries
-        if entry.is_dir() and entry.name.startswith("tts_") and (entry / "manifest.json").is_file()
+        if entry.is_dir() and _PLUGIN_FOLDER_RE.match(entry.name) and (entry / "manifest.json").is_file()
     ]
 
 

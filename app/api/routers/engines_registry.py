@@ -45,8 +45,10 @@ def get_engine_concurrency():
     effective cap (``resolve_effective_cap``, same function
     ``reserve_task_resources`` resolves fresh on every admission attempt),
     and each engine's per-engine-id semaphore ``active_count``. All
-    in-process reads (one manifest.json read per registered engine), no new
-    I/O against the TTS Server. The safe maxima use the same functions as the
+    in-process reads (one manifest.json read per known engine), no new
+    I/O against the TTS Server beyond the registry fetch the guard also makes.
+    The engine list is the union of manifests on disk and the registry; the
+    safe maxima use the same functions as the
     save-time refusal.
     """
     from ...orchestration.tasks.synthesis import _manifest_resource_claim  # noqa: PLC0415
@@ -64,20 +66,19 @@ def get_engine_concurrency():
         global_safe_max,
         is_memory_measurable,
     )
-    from ...engines.registry import load_engine_registry  # noqa: PLC0415
 
-    registry = load_engine_registry()
     engine_caps = get_engine_caps()
     global_cap = get_global_parallel_cap()
 
     sample = cap_guard.sample_resources()
-    all_limits = []
+    # Same enumeration as the save-time guard (manifests on disk plus the server
+    # registry), so the hint and the refusal cannot disagree.
+    all_limits = cap_guard.collect_limits()
     engines = []
-    for engine_id in sorted(registry.keys()):
+    for limits in all_limits:
+        engine_id = limits.engine_id
         claim = _manifest_resource_claim(engine_id)
-        active = get_engine_id_semaphore(engine_id, claim.manifest_max).active_count
-        limits = cap_guard.limits_for(engine_id, claim, active)
-        all_limits.append(limits)
+        active = limits.active_count
         engines.append(
             {
                 "engine_id": engine_id,

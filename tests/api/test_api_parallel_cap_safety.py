@@ -321,3 +321,104 @@ def test_an_unexpected_failure_inside_the_guard_never_results_in_a_save(client, 
         pass  # the test client re-raises server errors; either way nothing may be saved
     assert get_settings()["tts_parallel_cap"] == 2
     assert get_settings()["safe_mode"] is False
+
+
+def test_null_engine_cap_cannot_fall_back_to_an_unsafe_env_override(client, machine, monkeypatch):
+    monkeypatch.setenv("TTS_ENGINE_CAPS", '{"xtts": 8}')
+    update_settings({"tts_parallel_cap": 1, "tts_engine_caps": {"xtts": 1}})
+    resp = client.post("/api/settings", json={"tts_engine_caps": {"xtts": None}})
+    assert resp.status_code == 422
+    assert resp.json()["detail"]["violations"] == [_xtts_violation("tts_engine_caps", 8)]
+    assert get_settings()["tts_engine_caps"] == {"xtts": 1}
+
+
+def test_put_null_cap_cannot_fall_back_to_an_unsafe_env_override(client, machine, monkeypatch):
+    monkeypatch.setenv("TTS_ENGINE_CAPS", '{"xtts": 8}')
+    update_settings({"tts_parallel_cap": 1, "tts_engine_caps": {"xtts": 1}})
+    resp = client.put("/api/engines/xtts/concurrency", json={"cap": None})
+    assert resp.status_code == 422
+    assert get_settings()["tts_engine_caps"] == {"xtts": 1}
+
+
+def test_a_stray_plugin_folder_is_not_a_checked_phantom_engine(machine, monkeypatch, tmp_path):
+    from app.api.routers import cap_guard
+
+    for name in ("tts_alpha", "tts_alpha_old", "tts_Bad", "notaplugin"):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "manifest.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "tts_nomanifest").mkdir()
+    monkeypatch.setattr("app.core.config.PLUGINS_DIR", tmp_path)
+    assert cap_guard.local_engine_ids() == ["alpha"]
+
+
+def test_the_check_still_works_from_local_manifests_when_the_registry_raises(client, machine, monkeypatch):
+    def boom():
+        raise RuntimeError("server unreachable")
+
+    monkeypatch.setattr("app.engines.registry.load_engine_registry", boom)
+    resp = client.post("/api/settings", json={"tts_parallel_cap": 4})
+    assert resp.status_code == 422
+    assert resp.json()["detail"]["violations"] == [_xtts_violation("tts_parallel_cap", 4)]
+    assert client.post("/api/settings", json={"tts_parallel_cap": 1}).status_code == 200
+
+
+def test_a_save_waiting_on_the_cap_lock_does_not_block_the_event_loop(machine):
+    import asyncio
+    import threading
+    import time
+
+    import httpx
+
+    from app.api.routers import cap_guard
+    from app.api.web import app as fastapi_app
+
+    holder_has_lock = threading.Event()
+    release = threading.Event()
+
+    def hold_lock():
+        with cap_guard.cap_write_lock:
+            holder_has_lock.set()
+            release.wait(timeout=10)
+
+    async def scenario():
+        holder = threading.Thread(target=hold_lock)
+        holder.start()
+        assert holder_has_lock.wait(timeout=5)
+        worst_gap = 0.0
+        stop = False
+
+        async def ticker():
+            nonlocal worst_gap
+            last = time.monotonic()
+            while not stop:
+                await asyncio.sleep(0.02)
+                now = time.monotonic()
+                worst_gap = max(worst_gap, now - last)
+                last = now
+
+        tick = asyncio.create_task(ticker())
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=fastapi_app), base_url="http://t") as ac:
+            post = asyncio.create_task(ac.post("/api/settings", json={"tts_parallel_cap": 1}))
+            await asyncio.sleep(0.8)  # the save is now waiting on the lock
+            release.set()
+            resp = await post
+        stop = True
+        await tick
+        holder.join(timeout=5)
+        return resp.status_code, worst_gap
+
+    status, worst_gap = asyncio.run(scenario())
+    assert status == 200
+    assert worst_gap < 0.4, f"event loop was blocked for {worst_gap:.2f}s"
+
+
+def test_get_concurrency_agrees_with_the_guard_when_the_server_registry_is_empty(client, machine, monkeypatch):
+    monkeypatch.setattr("app.engines.registry.load_engine_registry", lambda: {})
+    body = client.get("/api/engines/concurrency").json()
+    by_id = {e["engine_id"]: e for e in body["engines"]}
+    assert {"xtts", "voxtral", "mixed"} <= set(by_id)
+    assert by_id["xtts"]["safe_max"] == 1
+    assert body["global_safe_max"] == 1
+    refusal = client.post("/api/settings", json={"tts_parallel_cap": 8})
+    assert refusal.status_code == 422
+    assert refusal.json()["detail"]["violations"][0]["safe_maximum"] == body["global_safe_max"]

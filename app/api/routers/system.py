@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 from typing import Optional, List, Any
 from fastapi import APIRouter, Form, UploadFile, File, Request, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, FileResponse
 from ...core import config
 from ...db.state import get_settings, update_settings, get_jobs, put_job, update_job
@@ -294,7 +295,11 @@ async def save_settings(
                             int(raw_cap)
                         except (TypeError, ValueError, OverflowError):
                             raise cap_guard.invalid_cap_error(f"tts_engine_caps.{engine_key}", raw_cap) from None
-                    updates["tts_engine_caps"] = body["tts_engine_caps"]
+                    # Null clears that engine's override. Dropped here so the guard checks
+                    # exactly what is stored (an emptied map falls back to TTS_ENGINE_CAPS).
+                    updates["tts_engine_caps"] = {
+                        key: value for key, value in body["tts_engine_caps"].items() if value is not None
+                    }
                 # Accept secret-field updates but silently ignore round-tripped
                 # redacted sentinel values so the real key is never overwritten.
                 for field in _SECRET_FIELDS:
@@ -331,11 +336,15 @@ async def save_settings(
 
     # Outside the JSON parse block above on purpose: its broad `except Exception`
     # would swallow a failure here and save anyway.
-    with cap_guard.cap_write_lock:
-        cap_guard.refuse_if_unsafe_settings(updates)
+    def _check_and_save() -> None:
+        with cap_guard.cap_write_lock:
+            cap_guard.refuse_if_unsafe_settings(updates)
 
-        if updates:
-            update_settings(updates)
+            if updates:
+                update_settings(updates)
+
+    # Off the event loop: the lock may be held by a PUT, and the check samples memory.
+    await run_in_threadpool(_check_and_save)
 
     return JSONResponse({"status": "ok", "settings": _redact_settings(get_settings())})
 
