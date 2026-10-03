@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Added] - 2026-10-03
+
+### Rolling server log file
+
+- Studio now keeps a rolling log at `logs/studio.log` (up to about 30 MB, oldest trimmed automatically), so a crash or freeze leaves something to look at after the terminal closes. Passwords and API keys are masked. Spec: `design-docs/specs/system-architecture.md` 1.8.0.
+
 ## [Added] - 2026-07-17
 
 ### Read-along reader for the Book tab ("player-piano" sync)

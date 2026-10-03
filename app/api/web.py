@@ -356,6 +356,9 @@ def _clear_terminal_jobs_from_snapshot() -> int:
 # --- Lifecycle Events ---
 @app.on_event("startup")
 def startup_event():
+    from ..core.boot import boot_logging
+    boot_logging()
+
     # Capture the main event loop
     try:
         _main_loop[0] = asyncio.get_running_loop()

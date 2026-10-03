@@ -75,6 +75,7 @@ By default, the application stores data in the following folders:
 - `/chapters/`: Default loose chapter-text folder for fresh installs when you use legacy text-file flows.
 - `/xtts_audio/`: Historical/global audio output root. Preserved only as a migration-only legacy import source for older workspaces.
 - `/audiobooks/`: Historical/global assembled `.m4b` output root. Preserved only for legacy import compatibility.
+- `/logs/studio.log`: A rolling server log (up to about 30 MB total, oldest trimmed automatically). If Studio crashes or freezes, this file is what to attach to a bug report, since the terminal text is gone once the window closes. Passwords and API keys are masked before they are written.
 
 ---
 

@@ -33,6 +33,17 @@ logger = logging.getLogger(__name__)
 _booted = False
 
 
+def boot_logging() -> None:
+    """Attach the persistent rotating server log (#252). Idempotent, never raises.
+
+    Called first in the startup sequence so everything after it, including
+    migrations and recovery, leaves a trace that outlives the terminal.
+    """
+    from app.core.log_file import setup_file_logging  # noqa: PLC0415
+
+    setup_file_logging()
+
+
 def run_startup_recovery(recovery_contexts: list) -> None:
     """Re-submit interrupted tasks that were snapshotted before reconciliation.
 

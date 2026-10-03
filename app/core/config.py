@@ -23,6 +23,7 @@ PROJECTS_DIR = Path(os.getenv("PROJECTS_DIR", str(BASE_DIR / "projects")))
 COVER_DIR = Path(os.getenv("COVER_DIR", str(UPLOAD_DIR / "covers")))
 TRANSIENT_DIR = Path(os.getenv("TRANSIENT_DIR", str(BASE_DIR / "transient")))
 TRASH_DIR = Path(os.getenv("TRASH_DIR", str(BASE_DIR / "trash")))
+LOG_DIR = Path(os.getenv("LOG_DIR", str(BASE_DIR / "logs")))
 
 # Storage layout constants
 PLUGINS_DIR = Path(os.getenv("PLUGINS_DIR", str(BASE_DIR / "tts_engines")))
