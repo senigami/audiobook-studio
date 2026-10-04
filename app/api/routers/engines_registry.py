@@ -8,6 +8,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Body
 from fastapi.responses import JSONResponse
 from ...engines.bridge import create_voice_bridge
+from ...orchestration.scheduler.cap_limits import collect_limits
 from .engines_shared import ConcurrencyUpdateRequest, _check_engine_id
 from . import cap_guard
 
@@ -35,6 +36,13 @@ def get_official_registry_list():
     return JSONResponse(get_official_registry())
 
 
+def _resolved_global_cap(global_safe: int, cap_is_auto: bool) -> int:
+    """The global cap in force: the saved one, or the automatic default when unset."""
+    from ...orchestration.scheduler.cap_settings import DEFAULT_GLOBAL_CAP, get_global_parallel_cap  # noqa: PLC0415
+
+    return min(DEFAULT_GLOBAL_CAP, global_safe) if cap_is_auto else get_global_parallel_cap()
+
+
 @router.get("/concurrency")
 def get_engine_concurrency():
     """Return the global parallel cap and a per-engine concurrency snapshot.
@@ -42,35 +50,39 @@ def get_engine_concurrency():
     W-PAR task 014 — the engine-scoped counterpart of the manifest ceiling
     the caps UI reads. Sources: the manifest ceiling and engine class
     (``_manifest_resource_claim``, reused not reimplemented), the live
-    effective cap (``resolve_effective_cap``, same function
+    effective cap (``resolve_live_effective_cap``, same function
     ``reserve_task_resources`` resolves fresh on every admission attempt),
     and each engine's per-engine-id semaphore ``active_count``. All
     in-process reads (one manifest.json read per known engine), no new
     I/O against the TTS Server beyond the registry fetch the guard also makes.
     The engine list is the union of manifests on disk and the registry; the
-    safe maxima use the same functions as the
+    safe and hard maxima use the same functions as the
     save-time refusal.
     """
     from ...orchestration.tasks.synthesis import _manifest_resource_claim  # noqa: PLC0415
+    from ...orchestration.scheduler.cap_default import resolve_live_effective_cap  # noqa: PLC0415
     from ...orchestration.scheduler.cap_settings import (  # noqa: PLC0415
         get_engine_caps,
-        get_global_parallel_cap,
-        resolve_effective_cap,
+        is_global_cap_explicit,
     )
     from ...orchestration.scheduler.resources import MAX_GLOBAL_CONCURRENT_SYNTHESIS  # noqa: PLC0415
     from ...orchestration.scheduler.cap_safety import (  # noqa: PLC0415
+        engine_hard_max,
         engine_safe_max,
+        global_hard_max,
         global_safe_max,
         is_memory_measurable,
     )
 
     engine_caps = get_engine_caps()
-    global_cap = get_global_parallel_cap()
+    cap_is_auto = not is_global_cap_explicit()
 
     sample = cap_guard.sample_resources()
     # Same enumeration as the save-time guard (manifests on disk plus the server
     # registry), so the hint and the refusal cannot disagree.
-    all_limits = cap_guard.collect_limits()
+    all_limits = collect_limits()
+    global_safe = global_safe_max(all_limits, sample, MAX_GLOBAL_CONCURRENT_SYNTHESIS)
+    global_cap = _resolved_global_cap(global_safe, cap_is_auto)
     engines = []
     for limits in all_limits:
         engine_id = limits.engine_id
@@ -82,11 +94,10 @@ def get_engine_concurrency():
                 "engine_class": claim.engine_class,
                 "manifest_max": claim.manifest_max,
                 "requested_cap": engine_caps.get(engine_id, global_cap),
-                "effective_cap": resolve_effective_cap(
-                    engine_id=engine_id, manifest_max=claim.manifest_max
-                ),
+                "effective_cap": resolve_live_effective_cap(engine_id, claim.manifest_max),
                 "active_count": active,
                 "safe_max": engine_safe_max(limits, sample)[0],
+                "hard_max": engine_hard_max(limits, sample)[0],
             }
         )
 
@@ -94,7 +105,9 @@ def get_engine_concurrency():
         {
             "global_cap": global_cap,
             "engines": engines,
-            "global_safe_max": global_safe_max(all_limits, sample, MAX_GLOBAL_CONCURRENT_SYNTHESIS),
+            "global_cap_is_auto": cap_is_auto,
+            "global_safe_max": global_safe,
+            "global_hard_max": global_hard_max(all_limits, sample, MAX_GLOBAL_CONCURRENT_SYNTHESIS),
             "memory_measurable": is_memory_measurable(sample),
         }
     )
@@ -118,10 +131,14 @@ def update_engine_concurrency(engine_id: str, body: ConcurrencyUpdateRequest):
     from ...orchestration.tasks.synthesis import _manifest_resource_claim  # noqa: PLC0415
     from ...orchestration.scheduler.cap_settings import (  # noqa: PLC0415
         get_engine_caps,
-        get_global_parallel_cap,
-        resolve_effective_cap,
+        is_global_cap_explicit,
     )
-    from ...orchestration.scheduler.resources import get_engine_id_semaphore  # noqa: PLC0415
+    from ...orchestration.scheduler.cap_default import resolve_live_effective_cap  # noqa: PLC0415
+    from ...orchestration.scheduler.cap_safety import global_safe_max  # noqa: PLC0415
+    from ...orchestration.scheduler.resources import (  # noqa: PLC0415
+        MAX_GLOBAL_CONCURRENT_SYNTHESIS,
+        get_engine_id_semaphore,
+    )
     from ...db.state import set_engine_cap  # noqa: PLC0415
 
     claim = _manifest_resource_claim(engine_id)
@@ -148,14 +165,20 @@ def update_engine_concurrency(engine_id: str, body: ConcurrencyUpdateRequest):
         set_engine_cap(engine_id, body.cap)
 
     engine_caps = get_engine_caps()
-    global_cap = get_global_parallel_cap()
+    cap_is_auto = not is_global_cap_explicit()
+    global_safe = (
+        global_safe_max(collect_limits(), cap_guard.sample_resources(), MAX_GLOBAL_CONCURRENT_SYNTHESIS)
+        if cap_is_auto
+        else 0
+    )
+    global_cap = _resolved_global_cap(global_safe, cap_is_auto)
     return JSONResponse(
         {
             "engine_id": engine_id,
             "engine_class": claim.engine_class,
             "manifest_max": manifest_max,
             "requested_cap": engine_caps.get(engine_id, global_cap),
-            "effective_cap": resolve_effective_cap(engine_id=engine_id, manifest_max=manifest_max),
+            "effective_cap": resolve_live_effective_cap(engine_id, manifest_max),
             "active_count": get_engine_id_semaphore(engine_id, manifest_max).active_count,
         }
     )

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { capHint, PARALLEL_CAP_COPY } from '@/utils/parallelCapCopy';
+import { capHint, capWarning, PARALLEL_CAP_COPY } from '@/utils/parallelCapCopy';
 
 describe('capHint', () => {
   it('shows nothing before the first answer', () => {
@@ -13,21 +13,50 @@ describe('capHint', () => {
     );
   });
 
-  it('shows nothing when the safe maximum reaches the control ceiling', () => {
-    expect(capHint({ safeMax: 8, ceiling: 8, memoryMeasurable: true })).toBeNull();
-    expect(capHint({ safeMax: 9, ceiling: 8, memoryMeasurable: true })).toBeNull();
+  it('shows nothing when the comfortable number reaches the control ceiling', () => {
+    expect(capHint({ safeMax: 8, hardMax: 8, ceiling: 8, memoryMeasurable: true })).toBeNull();
+    expect(capHint({ safeMax: 9, hardMax: 9, ceiling: 8, memoryMeasurable: true })).toBeNull();
   });
 
-  it('says one at a time when the safe maximum is 1', () => {
-    expect(capHint({ safeMax: 1, ceiling: 8, memoryMeasurable: true })).toBe(
-      'Studio estimates this computer can render one at a time right now. Closing other apps may allow more.'
+  it('names both numbers when one at a time is comfortable but more is allowed', () => {
+    expect(capHint({ safeMax: 1, hardMax: 2, ceiling: 8, memoryMeasurable: true })).toBe(
+      'This computer can comfortably render one at a time right now, and can go as high as 2. Closing other apps may allow more.'
     );
   });
 
-  it('names the safe maximum when it is between 2 and the ceiling', () => {
-    expect(capHint({ safeMax: 3, ceiling: 8, memoryMeasurable: true })).toBe(
-      'Studio estimates this computer can render up to 3 at once right now.'
+  it('names both numbers when the comfortable number is 2 or more', () => {
+    expect(capHint({ safeMax: 2, hardMax: 4, ceiling: 8, memoryMeasurable: true })).toBe(
+      'This computer can comfortably render 2 at once right now, and can go as high as 4.'
     );
+  });
+
+  it('says one at a time when nothing is allowed above 1', () => {
+    expect(capHint({ safeMax: 1, hardMax: 1, ceiling: 8, memoryMeasurable: true })).toBe(
+      'This computer can render one at a time right now. Closing other apps may allow more.'
+    );
+  });
+
+  it('says up to the limit when the comfortable and hard numbers match', () => {
+    expect(capHint({ safeMax: 3, hardMax: 3, ceiling: 8, memoryMeasurable: true })).toBe(
+      'This computer can render up to 3 at once right now.'
+    );
+  });
+});
+
+describe('capWarning', () => {
+  const warning = 'Above 1, Studio uses memory it normally keeps free, so your computer may feel slow while rendering.';
+
+  it('warns when the value is above the comfortable number', () => {
+    expect(capWarning({ value: 2, safeMax: 1, memoryMeasurable: true })).toBe(warning);
+  });
+
+  it('is quiet at or below the comfortable number', () => {
+    expect(capWarning({ value: 1, safeMax: 1, memoryMeasurable: true })).toBeNull();
+  });
+
+  it('is quiet when memory could not be measured or the limit is unknown', () => {
+    expect(capWarning({ value: 2, safeMax: 1, memoryMeasurable: false })).toBeNull();
+    expect(capWarning({ value: 2, safeMax: null, memoryMeasurable: true })).toBeNull();
   });
 });
 
@@ -44,8 +73,11 @@ describe('PARALLEL_CAP_COPY', () => {
 
   it('contains no em dashes', () => {
     const all = [
-      PARALLEL_CAP_COPY.hintSafe(3),
+      PARALLEL_CAP_COPY.hintComfortable(2, 4),
+      PARALLEL_CAP_COPY.hintOneComfortable(2),
       PARALLEL_CAP_COPY.hintOne,
+      PARALLEL_CAP_COPY.hintUpTo(3),
+      PARALLEL_CAP_COPY.overComfortableWarning(1),
       PARALLEL_CAP_COPY.hintUnmeasurable,
       PARALLEL_CAP_COPY.engineCardDescription(4),
       PARALLEL_CAP_COPY.genericSaveError,

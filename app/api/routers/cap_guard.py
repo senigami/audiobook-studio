@@ -12,7 +12,6 @@ import logging
 import threading
 import uuid
 from dataclasses import asdict
-from pathlib import Path
 from typing import Any, Callable, Mapping, Optional
 
 from fastapi import HTTPException
@@ -20,15 +19,16 @@ from fastapi.responses import JSONResponse
 
 from ...db.state import get_settings
 from ...engines.system_resources import sample_resources
-from ...orchestration.scheduler.cap_safety import CapViolation, EngineLimits, find_cap_violations
+from ...orchestration.scheduler.cap_limits import collect_limits
+from ...orchestration.scheduler.cap_safety import CapViolation, find_cap_violations
 from ...orchestration.scheduler.cap_settings import get_engine_caps, get_global_parallel_cap
 
 logger = logging.getLogger(__name__)
 
 PARALLEL_CAP_UNSAFE = "parallel_cap_unsafe"
 PARALLEL_CAP_UNSAFE_MESSAGE = (
-    "Your change was not saved. Studio estimates this computer can render up to "
-    "{safe_maximum} at once right now. Lower the number, or close other apps and try again."
+    "Your change was not saved. This computer can render at most {hard_maximum} at once right now. "
+    "Lower the number, or close other apps and try again."
 )
 
 INVALID_CAP = "invalid_cap"
@@ -60,57 +60,6 @@ def invalid_cap_error(field: str, raw_value: Any) -> HTTPException:
     )
 
 
-def limits_for(engine_id: str, claim: Any, active_count: int) -> EngineLimits:
-    """Footprint is the manifest's vram_mb. RAM is always charged; VRAM too when it is measurable (see cap_safety)."""
-    return EngineLimits(
-        engine_id=engine_id,
-        manifest_max=int(claim.manifest_max),
-        footprint_mb=int(claim.vram_mb or 0),
-        gpu=bool(claim.gpu),
-        active_count=int(active_count),
-    )
-
-
-def local_engine_ids() -> list[str]:
-    """Engine ids with a plugin manifest on disk, whether or not the TTS Server loaded them.
-
-    Read from the same plugins directory the scheduler's manifest claim uses, so a
-    plugin that failed to load (or a server that is down) is still checked.
-    """
-    from ...core.config import PLUGINS_DIR  # noqa: PLC0415
-    from ...tts_server.plugin_loader import _PLUGIN_FOLDER_RE  # noqa: PLC0415 (same folder rule as the loader)
-
-    try:
-        entries = sorted(Path(PLUGINS_DIR).iterdir())
-    except OSError:
-        return []
-    return [
-        entry.name[len("tts_"):]
-        for entry in entries
-        if entry.is_dir() and _PLUGIN_FOLDER_RE.match(entry.name) and (entry / "manifest.json").is_file()
-    ]
-
-
-def collect_limits() -> list[EngineLimits]:
-    """Limits for EVERY known engine (on disk or reported by the server), enabled or not."""
-    from ...engines.registry import load_engine_registry  # noqa: PLC0415
-    from ...orchestration.scheduler.resources import get_engine_id_semaphore  # noqa: PLC0415
-    from ...orchestration.tasks.synthesis import _manifest_resource_claim  # noqa: PLC0415
-
-    engine_ids = set(local_engine_ids())
-    try:
-        engine_ids.update(load_engine_registry().keys())
-    except Exception:
-        logger.warning("Engine registry unavailable while checking a cap; using manifests on disk", exc_info=True)
-
-    limits: list[EngineLimits] = []
-    for engine_id in sorted(engine_ids):
-        claim = _manifest_resource_claim(engine_id)
-        active = get_engine_id_semaphore(engine_id, claim.manifest_max).active_count
-        limits.append(limits_for(engine_id, claim, active))
-    return limits
-
-
 def _could_raise_a_cap(current: Mapping[str, Any], candidate: Mapping[str, Any]) -> bool:
     """Raw comparison used only when no engine is known (manifest ceilings are unknown then)."""
     cur_global = get_global_parallel_cap(current)
@@ -127,7 +76,8 @@ def _could_raise_a_cap(current: Mapping[str, Any], candidate: Mapping[str, Any])
 
 def _refusal_detail(violations: list[CapViolation], sample: Mapping[str, Any]) -> dict:
     correlation_id = new_correlation_id()
-    smallest = min(v.safe_maximum for v in violations)
+    smallest_safe = min(v.safe_maximum for v in violations)
+    smallest_hard = min(v.hard_maximum for v in violations)
     logger.warning(
         "Refused unsafe parallel cap [correlation_id=%s] violations=%s ram_available_gb=%s ram_total_gb=%s",
         correlation_id,
@@ -137,7 +87,11 @@ def _refusal_detail(violations: list[CapViolation], sample: Mapping[str, Any]) -
     )
     return {
         "code": PARALLEL_CAP_UNSAFE,
-        "message": PARALLEL_CAP_UNSAFE_MESSAGE.replace("{safe_maximum}", str(smallest)),
+        "message": (
+            PARALLEL_CAP_UNSAFE_MESSAGE.replace("{safe_maximum}", str(smallest_safe)).replace(
+                "{hard_maximum}", str(smallest_hard)
+            )
+        ),
         "correlation_id": correlation_id,
         "violations": [asdict(v) for v in violations],
     }

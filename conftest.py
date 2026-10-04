@@ -251,6 +251,24 @@ def pytest_runtest_protocol(item, nextitem):
         _ACTIVE_TIMEOUT_SECONDS = _DEFAULT_TEST_TIMEOUT_SECONDS
 
 @pytest.fixture(autouse=True)
+def fixed_memory_sample(monkeypatch):
+    """An unset cap samples memory; fix it so no result depends on the machine running the suite."""
+    from app.orchestration.scheduler import cap_default
+
+    monkeypatch.setattr(cap_default, "_cache", {})
+    monkeypatch.setattr(
+        cap_default,
+        "_default_sampler",
+        lambda: {
+            "ram_total_gb": 24.0,
+            "ram_available_gb": 10.0,
+            "vram_total_gb": None,
+            "vram_used_gb": None,
+        },
+    )
+
+
+@pytest.fixture(autouse=True)
 def clean_storage():
     """
     Ensures that every test starts with a fresh database and cleared state.

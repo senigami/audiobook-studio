@@ -37,9 +37,14 @@ describe('GeneralSettingsPanel parallel rendering stepper', () => {
     expect(getParallelCapInput().value).toBe('4');
   });
 
-  it('defaults to 1 when tts_parallel_cap is unset', () => {
+  it('defaults to 1 when tts_parallel_cap is unset and the server has not answered', () => {
     render(<GeneralSettingsPanel {...baseProps} settings={{ safe_mode: false } as any} />);
     expect(getParallelCapInput().value).toBe('1');
+  });
+
+  it('shows the cap the server chose when tts_parallel_cap is unset', () => {
+    render(<GeneralSettingsPanel {...baseProps} settings={{ safe_mode: false } as any} globalCap={2} />);
+    expect(getParallelCapInput().value).toBe('2');
   });
 
   it('changing the value posts the raw number as JSON to /api/settings', async () => {
@@ -85,23 +90,26 @@ describe('GeneralSettingsPanel parallel cap safety', () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ status: 'ok', settings: {} }) }) as any;
   });
 
-  it('disables the increase button at the safe maximum', () => {
-    render(<GeneralSettingsPanel {...baseProps} settings={stored} globalSafeMax={1} />);
+  it('disables the increase button at the hard limit, not the comfortable number', () => {
+    const { rerender } = render(<GeneralSettingsPanel {...baseProps} settings={stored} globalSafeMax={1} globalHardMax={2} />);
+    expect(screen.getByLabelText('Increase Max concurrent segment renders')).toBeEnabled();
+
+    rerender(<GeneralSettingsPanel {...baseProps} settings={{ ...stored, tts_parallel_cap: 2 }} globalSafeMax={1} globalHardMax={2} />);
     expect(screen.getByLabelText('Increase Max concurrent segment renders')).toBeDisabled();
   });
 
-  it('sends a typed value above the safe maximum to the server unclamped, so a refusal can explain it', async () => {
-    render(<GeneralSettingsPanel {...baseProps} settings={stored} globalSafeMax={2} />);
+  it('sends a typed value above the hard limit to the server unclamped, so a refusal can explain it', async () => {
+    render(<GeneralSettingsPanel {...baseProps} settings={stored} globalSafeMax={1} globalHardMax={2} />);
     fireEvent.change(getInput(), { target: { value: '5' } });
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
     expect(JSON.parse((global.fetch as any).mock.calls[0][1].body)).toEqual({ tts_parallel_cap: 5 });
   });
 
-  it('shows the numbered hint when the safe maximum is between 2 and the ceiling', () => {
-    render(<GeneralSettingsPanel {...baseProps} settings={stored} globalSafeMax={3} />);
+  it('shows both numbers when the comfortable number is between 2 and the ceiling', () => {
+    render(<GeneralSettingsPanel {...baseProps} settings={stored} globalSafeMax={3} globalHardMax={5} />);
     expect(document.getElementById('parallel-cap-hint')).toHaveTextContent(
-      'Studio estimates this computer can render up to 3 at once right now.'
+      'This computer can comfortably render 3 at once right now, and can go as high as 5.'
     );
   });
 
@@ -114,11 +122,29 @@ describe('GeneralSettingsPanel parallel cap safety', () => {
   });
 
   it('shows the one-at-a-time hint and links it to the stepper', () => {
-    render(<GeneralSettingsPanel {...baseProps} settings={stored} globalSafeMax={1} />);
+    render(<GeneralSettingsPanel {...baseProps} settings={stored} globalSafeMax={1} globalHardMax={2} />);
     expect(getInput()).toHaveAttribute('aria-describedby', 'parallel-cap-hint');
     expect(document.getElementById('parallel-cap-hint')).toHaveTextContent(
-      'Studio estimates this computer can render one at a time right now. Closing other apps may allow more.'
+      'This computer can comfortably render one at a time right now, and can go as high as 2. Closing other apps may allow more.'
     );
+  });
+
+  it('warns, politely and linked to the stepper, while the value is above the comfortable number', () => {
+    render(<GeneralSettingsPanel {...baseProps} settings={{ ...stored, tts_parallel_cap: 2 }} globalSafeMax={1} globalHardMax={2} />);
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Above 1, Studio uses memory it normally keeps free, so your computer may feel slow while rendering.'
+    );
+    expect(getInput()).toHaveAttribute('aria-describedby', 'parallel-cap-hint parallel-cap-warning');
+  });
+
+  it('warns about a saved number that sits above the comfortable number', () => {
+    render(<GeneralSettingsPanel {...baseProps} settings={{ safe_mode: false, tts_parallel_cap: 2 } as any} globalCap={2} globalSafeMax={1} globalHardMax={2} />);
+    expect(screen.getByRole('status')).toBeInTheDocument();
+  });
+
+  it('shows no warning at the comfortable number', () => {
+    render(<GeneralSettingsPanel {...baseProps} settings={stored} globalSafeMax={1} globalHardMax={2} />);
+    expect(screen.queryByRole('status')).toBeNull();
   });
 
   it('shows no hint before the first answer or when nothing is limited', () => {

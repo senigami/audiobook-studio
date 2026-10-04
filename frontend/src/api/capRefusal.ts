@@ -5,6 +5,7 @@ export interface ParallelCapViolation {
   engine: string | null;
   requested: number;
   safe_maximum: number;
+  hard_maximum: number;
   basis: ParallelCapBasis;
 }
 

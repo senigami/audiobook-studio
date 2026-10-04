@@ -22,7 +22,6 @@ def _default_state() -> Dict[str, Any]:
             "lan_binding_enabled": False,
             "api_priority_mode": "studio_first",
             "huggingface_token": "",
-            "tts_parallel_cap": 2,
             "tts_engine_caps": {},
         },
     }
@@ -113,18 +112,16 @@ def _normalize_settings(
         priority_mode = defaults["api_priority_mode"]
     normalized["api_priority_mode"] = priority_mode
 
-    # W-PAR task 007: parallel-cap toggle surfaced as a real setting.
-    # Default 2 (2026-07-05): parallel rendering ships as the default mode —
-    # sequential is just the cap=1 case of this same code path, not a
-    # separately maintained mode. Effective cap is further clamped to each
-    # engine's manifest max_concurrent_workers at claim-build time
-    # (app.orchestration.scheduler.cap_settings.resolve_effective_cap), so
-    # engines that only declare 1 worker (e.g. Voxtral, Mixed) stay sequential
-    # regardless of this default.
-    try:
-        normalized["tts_parallel_cap"] = max(1, int(normalized.get("tts_parallel_cap", defaults["tts_parallel_cap"])))
-    except (TypeError, ValueError):
-        normalized["tts_parallel_cap"] = defaults["tts_parallel_cap"]
+    # Parallel-cap toggle surfaced as a real setting. Unset means
+    # automatic: the value is resolved at read time (cap_default) and never
+    # written here, so a stored value is only ever the one the user saved.
+    # Effective cap is further clamped to each engine's manifest
+    # max_concurrent_workers (cap_settings.resolve_effective_cap).
+    if "tts_parallel_cap" in normalized:
+        try:
+            normalized["tts_parallel_cap"] = max(1, int(normalized["tts_parallel_cap"]))
+        except (TypeError, ValueError):
+            normalized.pop("tts_parallel_cap")  # unreadable value = unset = automatic
 
     engine_caps = normalized.get("tts_engine_caps")
     if not isinstance(engine_caps, dict):

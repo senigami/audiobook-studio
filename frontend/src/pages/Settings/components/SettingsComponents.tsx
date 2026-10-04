@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { AlertCircle, Minus, Plus } from 'lucide-react';
+import { AlertCircle, Minus, Plus, TriangleAlert } from 'lucide-react';
 import type { SettingsTab } from '@/pages/Settings/settingsRouteConfig';
 import type { RuntimeService } from '@/types';
 import { api } from '@/api';
@@ -64,6 +64,30 @@ export const CapHintText: React.FC<{ id: string; children: React.ReactNode }> = 
   <p id={id} style={{ margin: '0.25rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.8rem', lineHeight: 1.4 }}>
     {children}
   </p>
+);
+
+/** Allowed-but-slow note. Polite status, and the icon plus words carry it without color. */
+export const CapWarningMessage: React.FC<{ id: string; children: React.ReactNode }> = ({ id, children }) => (
+  <div
+    id={id}
+    role="status"
+    style={{
+      display: 'flex',
+      alignItems: 'flex-start',
+      gap: '0.4rem',
+      margin: '0.4rem 0 0 0',
+      padding: '0.5rem 0.65rem',
+      borderRadius: '8px',
+      border: '1px solid var(--warning-tint-border)',
+      background: 'var(--warning-tint-bg)',
+      color: 'var(--warning-text)',
+      fontSize: '0.8rem',
+      lineHeight: 1.4,
+    }}
+  >
+    <TriangleAlert size={14} aria-hidden="true" style={{ flexShrink: 0, marginTop: '0.15rem' }} />
+    <span>{children}</span>
+  </div>
 );
 
 /** Inline refusal reason. The icon is a non-color cue next to the words "not saved". */

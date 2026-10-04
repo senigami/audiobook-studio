@@ -113,12 +113,15 @@ def test_settings_get_and_update(clean_db, client):
     assert data["default_engine"] == "xtts"
     assert data["default_engine"] == "xtts"
 
-def test_settings_get_returns_default_parallel_cap(clean_db, client):
-    """GET /api/home surfaces the effective TTS_PARALLEL_CAP setting (default 2, 2026-07-05)."""
+def test_settings_get_returns_default_parallel_cap(clean_db, client, monkeypatch, tmp_path):
+    """GET /api/home leaves the global cap unset on a clean db (automatic, resolved at read time)."""
+    from app.db import state as state_module
+
+    monkeypatch.setattr(state_module, "STATE_FILE", tmp_path / "state.json")
     response = client.get("/api/home")
     assert response.status_code == 200
     settings = response.json()["settings"]
-    assert settings["tts_parallel_cap"] == 2
+    assert "tts_parallel_cap" not in settings
     assert settings["tts_engine_caps"] == {}
 
 

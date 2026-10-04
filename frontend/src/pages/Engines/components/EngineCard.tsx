@@ -4,9 +4,9 @@ import type { TtsEngine, Settings } from '@/types';
 import { api } from '@/api';
 import { ConfirmModal } from '@/components/overlays/ConfirmModal';
 import { PluginTrustModal, type PluginPreviewInfo } from '@/components/overlays/PluginTrustModal';
-import { ToggleButton, NumberStepper, CapHintText, CapRefusalMessage } from '@/pages/Settings/components/SettingsComponents';
+import { ToggleButton, NumberStepper, CapHintText, CapRefusalMessage, CapWarningMessage } from '@/pages/Settings/components/SettingsComponents';
 import { isParallelCapRefused } from '@/api/capRefusal';
-import { capHint, PARALLEL_CAP_COPY } from '@/utils/parallelCapCopy';
+import { capHint, capWarning, PARALLEL_CAP_COPY } from '@/utils/parallelCapCopy';
 import { getEngineStatusLabel, getBadgeStyles } from '@/pages/Settings/settingsRouteHelpers';
 import { EngineDevPanel } from '@/pages/Engines/components/EngineDevPanel';
 import { mergeScenarioEngine } from '@/pages/Engines/components/engineScenarioMerge';
@@ -30,11 +30,15 @@ export const EngineCard: React.FC<{
   onUpdate: () => void;
   onShowNotification?: (message: string) => void;
   settings?: Settings;
-  /** The most this computer can safely run for this engine right now. */
+  /** The most this computer can comfortably run for this engine right now. */
   safeMax?: number;
+  /** The most the server will accept for this engine right now; the stepper stops here. */
+  hardMax?: number;
+  /** What the server runs with for this engine; judged for the warning when there is no override. */
+  effectiveCap?: number;
   memoryMeasurable?: boolean;
   onLimitsRefresh?: () => void;
-}> = ({ engine, onUpdate, onShowNotification, settings, safeMax, memoryMeasurable = true, onLimitsRefresh }) => {
+}> = ({ engine, onUpdate, onShowNotification, settings, safeMax, hardMax, effectiveCap, memoryMeasurable = true, onLimitsRefresh }) => {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -55,19 +59,24 @@ export const EngineCard: React.FC<{
     typeof engine.behavior?.max_concurrent_workers === 'number'
       ? engine.behavior.max_concurrent_workers
       : DEFAULT_ENGINE_CAP_CEILING;
-  const effectiveCapLimit = safeMax != null ? Math.min(engineCapCeiling, safeMax) : engineCapCeiling;
-  const capHintText = capHint({ safeMax, ceiling: engineCapCeiling, memoryMeasurable });
-  const capDescribedBy =
-    [
-      capHintText ? `engine-cap-hint-${engine.engine_id}` : null,
-      capRefusal ? `engine-cap-error-${engine.engine_id}` : null,
-    ]
-      .filter(Boolean)
-      .join(' ') || undefined;
+  const effectiveCapLimit = hardMax != null ? Math.min(engineCapCeiling, hardMax) : engineCapCeiling;
+  const capHintText = capHint({ safeMax, hardMax, ceiling: engineCapCeiling, memoryMeasurable });
   const currentEngineCap = settings?.tts_engine_caps?.[engine.engine_id];
   const [engineCapInput, setEngineCapInput] = useState<string>(
     currentEngineCap != null ? String(currentEngineCap) : ''
   );
+  const warnedCap = engineCapInput === '' ? effectiveCap ?? 0 : Number(engineCapInput) || 0;
+  const capWarningText = capWarning({ value: warnedCap, safeMax, memoryMeasurable });
+  const inheritText = engineCapInput === '' && effectiveCap != null ? PARALLEL_CAP_COPY.inheritsGlobal(effectiveCap) : null;
+  const capDescribedBy =
+    [
+      inheritText ? `engine-cap-inherit-${engine.engine_id}` : null,
+      capHintText ? `engine-cap-hint-${engine.engine_id}` : null,
+      capWarningText ? `engine-cap-warning-${engine.engine_id}` : null,
+      capRefusal ? `engine-cap-error-${engine.engine_id}` : null,
+    ]
+      .filter(Boolean)
+      .join(' ') || undefined;
 
   const addDevLog = (msg: string) => {
     setDevLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 50));
@@ -195,21 +204,23 @@ export const EngineCard: React.FC<{
 
   // Saves through the single-key PUT, which merges one engine's override
   // server-side (a whole-map POST from a stale copy could clobber another
-  // engine's override). Typed values above the safe maximum still go to the
+  // engine's override). Typed values above the hard limit still go to the
   // server so the refusal can explain itself.
   const handleSaveEngineCap = async (rawValue: string) => {
     if (activeScenario) {
       addDevLog(`Simulated: Concurrency cap saved for ${displayEngine.display_name}.`);
       return;
     }
+    const blank = rawValue.trim() === '';
     const parsed = parseInt(rawValue, 10);
-    if (rawValue.trim() === '' || Number.isNaN(parsed) || parsed < 1) return;
-    const clamped = Math.min(parsed, engineCapCeiling);
-    setEngineCapInput(String(clamped));
+    if (blank ? currentEngineCap == null : Number.isNaN(parsed) || parsed < 1) return;
+    // Blank with a saved override clears it back to the Settings value.
+    const next = blank ? null : Math.min(parsed, engineCapCeiling);
+    setEngineCapInput(next == null ? '' : String(next));
     setSavingCap(true);
     setCapRefusal(null);
     try {
-      await api.saveEngineCap(engine.engine_id, clamped);
+      await api.saveEngineCap(engine.engine_id, next);
       await onUpdate();
       onLimitsRefresh?.();
       onShowNotification?.(`${engine.display_name} concurrency cap saved.`);
@@ -417,13 +428,15 @@ export const EngineCard: React.FC<{
             <p style={{ margin: '0.2rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.8rem', lineHeight: 1.4 }}>
               {PARALLEL_CAP_COPY.engineCardDescription(effectiveCapLimit)}
             </p>
+            {inheritText && <CapHintText id={`engine-cap-inherit-${engine.engine_id}`}>{inheritText}</CapHintText>}
             {capHintText && <CapHintText id={`engine-cap-hint-${engine.engine_id}`}>{capHintText}</CapHintText>}
+            {capWarningText && <CapWarningMessage id={`engine-cap-warning-${engine.engine_id}`}>{capWarningText}</CapWarningMessage>}
             {capRefusal && <CapRefusalMessage id={`engine-cap-error-${engine.engine_id}`}>{capRefusal}</CapRefusalMessage>}
           </div>
           <NumberStepper
             id={`engine-cap-${engine.engine_id}`}
             ariaLabel={`${engine.display_name} concurrent render cap`}
-            value={Number(engineCapInput) || 1}
+            value={engineCapInput === '' ? effectiveCap ?? 1 : Number(engineCapInput) || 1}
             displayValue={engineCapInput}
             min={1}
             max={effectiveCapLimit}

@@ -72,7 +72,7 @@ def _manifest_resource_claim(engine_id: str) -> ResourceClaim:
         # declared max_concurrent_workers) — NOT the effective/live
         # concurrency limit. The live limit (min(setting/env cap, manifest
         # max)) is resolved fresh on every admission attempt inside
-        # `reserve_task_resources` via `resolve_effective_cap`, using the
+        # `reserve_task_resources` via `resolve_live_effective_cap`, using the
         # `manifest_max` field carried alongside `cap` below. This split lets
         # a settings change reach already-queued/in-flight work without a
         # process restart, while the semaphore's structural ceiling (grown

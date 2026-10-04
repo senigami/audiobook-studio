@@ -113,6 +113,20 @@ describe('useEngineConcurrency', () => {
     expect(result.current.memoryMeasurable).toBe(true);
   });
 
+  it('exposes the hard limits and the global cap in force', async () => {
+    (api.fetchEngineConcurrency as any).mockResolvedValue(
+      concurrencyFixture({ global_cap: 2, global_hard_max: 4, global_cap_is_auto: true })
+    );
+
+    const { result } = renderHook(() => useEngineConcurrency());
+    await flush();
+
+    expect(result.current.hardMax).toEqual({ xtts: 2, voxtral: 1 });
+    expect(result.current.globalHardMax).toBe(4);
+    expect(result.current.globalCap).toBe(2);
+    expect(result.current.globalCapIsAuto).toBe(true);
+  });
+
   it('reports memory as not measurable when the server says so', async () => {
     (api.fetchEngineConcurrency as any).mockResolvedValue(concurrencyFixture({ memory_measurable: false }));
 
@@ -128,6 +142,8 @@ describe('useEngineConcurrency', () => {
     const { result } = renderHook(() => useEngineConcurrency());
 
     expect(result.current.globalSafeMax).toBeNull();
+    expect(result.current.globalHardMax).toBeNull();
+    expect(result.current.globalCap).toBeNull();
     expect(result.current.safeMax).toEqual({});
   });
 

@@ -2,7 +2,9 @@
 
 No I/O and no import-time work. Callers pass in the memory sample and the
 per-engine limits; this module never reads settings, the registry or psutil.
-Used at save time only. Runtime admission (resolve_effective_cap) is unchanged.
+The safe maximum is the guide (20% reserve); the hard maximum is the wall a save
+is refused above (no reserve). Used at save time, and by cap_default for the live automatic
+limit when no cap is set; an explicit cap is admitted as saved.
 """
 
 from __future__ import annotations
@@ -12,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Sequence
 
 from app.orchestration.scheduler.cap_settings import (
+    DEFAULT_GLOBAL_CAP,
     get_engine_caps,
     get_global_parallel_cap,
     resolve_effective_cap,
@@ -42,6 +45,7 @@ class CapViolation:
     engine: Optional[str]
     requested: int
     safe_maximum: int
+    hard_maximum: int
     basis: str  # BASIS_MEMORY or BASIS_UNMEASURABLE
 
 
@@ -65,7 +69,9 @@ def is_memory_measurable(sample: Mapping[str, Any]) -> bool:
     return _usable_ram(sample) is not None
 
 
-def memory_budget_mb(sample: Mapping[str, Any], limits: EngineLimits) -> tuple:
+def memory_budget_mb(
+    sample: Mapping[str, Any], limits: EngineLimits, reserve_fraction: float = HEADROOM_FRACTION
+) -> tuple:
     """Return (budget_mb, basis). An unusable sample is budget 0, never a guess.
 
     RAM is always charged; when VRAM is measurable and the engine is a GPU
@@ -80,7 +86,7 @@ def memory_budget_mb(sample: Mapping[str, Any], limits: EngineLimits) -> tuple:
         return 0.0, BASIS_UNMEASURABLE
     avail_mb, total_mb = ram
     resident_mb = max(0, limits.active_count) * max(0, limits.footprint_mb)
-    budget = avail_mb - HEADROOM_FRACTION * total_mb + resident_mb
+    budget = avail_mb - reserve_fraction * total_mb + resident_mb
 
     vram_total = sample.get("vram_total_gb")
     vram_used = sample.get("vram_used_gb")
@@ -88,7 +94,7 @@ def memory_budget_mb(sample: Mapping[str, Any], limits: EngineLimits) -> tuple:
         vt_mb = float(vram_total) * _MB_PER_GB
         vu_mb = float(vram_used) * _MB_PER_GB
         if math.isfinite(vt_mb) and math.isfinite(vu_mb) and vt_mb > 0:
-            budget = min(budget, vt_mb - vu_mb - HEADROOM_FRACTION * vt_mb + resident_mb)
+            budget = min(budget, vt_mb - vu_mb - reserve_fraction * vt_mb + resident_mb)
     return max(0.0, budget), BASIS_MEMORY
 
 
@@ -109,6 +115,15 @@ def engine_safe_max(limits: EngineLimits, sample: Mapping[str, Any]) -> tuple:
     return safe, basis
 
 
+def engine_hard_max(limits: EngineLimits, sample: Mapping[str, Any]) -> tuple:
+    """Return (hard_max, basis): the same math with no reserve, so never below safe_max."""
+    budget, basis = memory_budget_mb(sample, limits, reserve_fraction=0.0)
+    hard = safe_cap_ceiling(
+        footprint_mb=limits.footprint_mb, manifest_max=limits.manifest_max, budget_mb=budget
+    )
+    return hard, basis
+
+
 def global_safe_max(limits: Sequence[EngineLimits], sample: Mapping[str, Any], hard_cap: int) -> int:
     """Largest global cap no engine would exceed its own safe maximum under.
 
@@ -124,6 +139,16 @@ def global_safe_max(limits: Sequence[EngineLimits], sample: Mapping[str, Any], h
     return max(1, best)
 
 
+def global_hard_max(limits: Sequence[EngineLimits], sample: Mapping[str, Any], hard_cap: int) -> int:
+    """Largest global cap no engine would exceed its own hard maximum under."""
+    best = max(1, int(hard_cap))
+    for lim in limits:
+        hard, _ = engine_hard_max(lim, sample)
+        if hard < min(lim.manifest_max, hard_cap):
+            best = min(best, hard)
+    return max(1, best)
+
+
 def find_cap_violations(
     *,
     current_settings: Mapping[str, Any],
@@ -131,7 +156,7 @@ def find_cap_violations(
     limits: Sequence[EngineLimits],
     sample: Mapping[str, Any],
 ) -> list:
-    """Refuse only where an engine's EFFECTIVE cap goes up and ends above its safe maximum.
+    """Refuse only where an engine's EFFECTIVE cap goes up and ends above its hard maximum.
 
     Effective caps are compared (not raw settings) so a string "8", an
     override removal that re-exposes the global value, and a global value no
@@ -142,14 +167,17 @@ def find_cap_violations(
     candidate_overrides = get_engine_caps(candidate_settings)
     violations: list = []
     for lim in sorted(limits, key=lambda item: item.engine_id):
+        safe, basis = engine_safe_max(lim, sample)
+        hard, _ = engine_hard_max(lim, sample)
+        # Same automatic default on both sides, so an unrelated save never reads as a raise.
+        auto = min(DEFAULT_GLOBAL_CAP, safe)
         before = resolve_effective_cap(
-            engine_id=lim.engine_id, manifest_max=lim.manifest_max, settings=current_settings
+            engine_id=lim.engine_id, manifest_max=lim.manifest_max, settings=current_settings, auto_cap=auto
         )
         after = resolve_effective_cap(
-            engine_id=lim.engine_id, manifest_max=lim.manifest_max, settings=candidate_settings
+            engine_id=lim.engine_id, manifest_max=lim.manifest_max, settings=candidate_settings, auto_cap=auto
         )
-        safe, basis = engine_safe_max(lim, sample)
-        if after <= before or after <= safe:
+        if after <= before or after <= hard:
             continue
         if lim.engine_id in candidate_overrides:
             setting, requested = "tts_engine_caps", candidate_overrides[lim.engine_id]
@@ -161,6 +189,7 @@ def find_cap_violations(
                 engine=lim.engine_id,
                 requested=requested,
                 safe_maximum=safe,
+                hard_maximum=hard,
                 basis=basis,
             )
         )
