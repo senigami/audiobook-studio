@@ -66,20 +66,52 @@ def test_cancel_between_retry_check_and_dispatch_ends_cancelled(orchestrator, pr
     assert task.run.call_count == 2  # the check passed, then cancel landed: that dispatch is the race window
 
 
-def test_chapter_fanout_nonforced_preparing_cannot_revive_cancelled_row(orchestrator, progress_service, make_task):
+def test_nonforced_preparing_frame_revives_cancelled_row_and_tail_restores_it(orchestrator, progress_service, make_task):
     _seed_job("rv3")
     task = make_task("rv3", task_type="synthesis")
     task.is_chapter_fanout = True
-    task.run.return_value = TaskResult(status="cancelled", message="Chapter render cancelled.")
+    revived = {}
 
-    def eta(*, task, context):
-        orchestrator._publish(context=context, status="preparing", eta_seconds=30, reason_code="pre_load_eta")
+    def run(*_a, **_k):
+        assert orchestrator.cancel("rv3") is True
+        orchestrator._publish(context=task.describe.return_value, status="preparing", reason_code="pre_load_eta")
+        revived["status"] = get_jobs()["rv3"].status
+        return TaskResult(status="cancelled", message="Chapter render cancelled.")
 
-    with patch.object(orchestrator, "_publish", side_effect=_cancel_on_first_new_work_preparing(orchestrator, "rv3")), \
-            patch.object(orchestrator, "_publish_chapter_dispatch_eta", side_effect=eta):
+    task.run.side_effect = run
+    orchestrator.submit(task)
+
+    assert revived["status"] == "preparing"  # the frame does revive the row
+    assert get_jobs()["rv3"].status == "cancelled"  # and the tail puts it back
+
+
+def test_fanout_cancel_after_loop_top_check_with_eta_frame_ends_cancelled(orchestrator, progress_service, make_task):
+    _seed_job("rv3b")
+    task = make_task("rv3b", task_type="synthesis")
+    task.is_chapter_fanout = True
+    real_owns = orchestrator._owns_active
+    first_check = {"done": False}
+
+    def owns(task_id, t):
+        owned = real_owns(task_id, t)
+        if not first_check["done"]:
+            first_check["done"] = True  # the loop-top check passed, cancel lands before dispatch
+            orchestrator.cancel(task_id)
+        return owned
+
+    def run(*_a, **_k):
+        orchestrator._publish(
+            context=task.describe.return_value, status="preparing", eta_seconds=30, reason_code="pre_load_eta"
+        )
+        return TaskResult(status="cancelled", message="Chapter render cancelled.")
+
+    task.run.side_effect = run
+    with patch.object(orchestrator, "_owns_active", side_effect=owns):
         orchestrator.submit(task)
 
-    assert get_jobs()["rv3"].status == "cancelled"
+    task.run.assert_called_once()
+    assert get_jobs()["rv3b"].status == "cancelled"
+    assert not orchestrator._active
 
 
 def test_row_deleted_after_cancel_is_not_recreated(orchestrator, progress_service, make_task):
@@ -102,6 +134,7 @@ def test_cancelled_result_for_deleted_row_does_not_recreate_stub(orchestrator, p
 
 
 def test_completion_racing_cancel_yields_no_terminal_after_cancelled(orchestrator, progress_service, make_task):
+    """Guard test: also green on the pre-fix source; pins that the lock winner decides."""
     _seed_job("rv6")
     task = make_task("rv6")
     in_run, release = threading.Event(), threading.Event()

@@ -1,7 +1,7 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.9.10
+spec_version: 1.9.11
 status: active
 updated: 2026-10-04
 sources:
@@ -24,6 +24,7 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.9.11  | 2026-10-04 | Wording fix (no behavior change): "never emits `done`/`failed` after `cancelled`" is scoped to a task whose terminal `cancel()` owns; the route fallbacks and a re-entry are outside it (`queue-jobs.md` 3.4a) (#258). |
 | 1.9.10  | 2026-10-04 | Wording fix (no behavior change): a `done`/`failed` overlay absent from the snapshot is kept for the 30 s window or while the snapshot holds another row for the same chapter, not for the 30 s window alone (#258). |
 | 1.9.9   | 2026-10-04 | **A cancelled job is never followed by `done`/`failed`; a cancelled overlay creates no queue row (#258).** Server: after `cancelled` for a job id, the server never emits `done` or `failed` for that job (`queue-jobs.md` 3.4a); the existing re-entry `queued`/`preparing` rule is unchanged. Client: a `cancelled` overlay for a job absent from the canonical snapshot MUST NOT be synthesized into a queue row (a deliberate cancel or removal leaves no ghost card); `done`/`failed` overlays keep the 30 s history hold. Gateway jobs (`/api/v1/tts`) have no `processing_queue` row, so they are overlay-only: a plain cancel makes their row disappear instead of showing "Cancelled". No envelope change; `version` stays 1. |
 | 1.9.8   | 2026-10-04 | **`QueueItemPayload.status` gains `waiting_for_resources` (#266).** A task submitted while the orchestrator is paused now publishes this status on `queue.items` and is kept by the state guard (`queue-jobs.md` 1.16.0). It ranks with `queued`. The `jobs.lifecycle` and segment-frame unions are unchanged. |
@@ -779,8 +780,8 @@ Rules:
 - Not broadcast `queue.items` invalidation for ordinary running/progress updates
   (only for terminal resets and explicit force-broadcast with non-terminal status).
 - Not broadcast a non-terminal frame for a job after its terminal frame, except
-  via the `queued`/`preparing` re-entry (see "Terminal ordering guarantee"). After `cancelled`, the server also never emits `done` or `failed` for that
-  job (queue-jobs §3.4a).
+  via the `queued`/`preparing` re-entry (see "Terminal ordering guarantee"). For a task whose terminal `cancel()` owns, the orchestrator also never emits `done` or `failed` after `cancelled`
+  (queue-jobs §3.4a; the route fallbacks and a re-entry are outside this).
 - Emit `etaSeconds: null` on any frame whose status is `queued` (progress-presentation
   §2.6 / I10, amended 1.8.0). A `preparing` or `running+indeterminate` frame MAY carry
   a **positive** `etaSeconds` when the backend has load-aware history to justify it
