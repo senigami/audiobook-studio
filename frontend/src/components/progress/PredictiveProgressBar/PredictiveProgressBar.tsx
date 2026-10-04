@@ -47,6 +47,7 @@ export interface PredictiveProgressBarProps {
     showEta?: boolean;
     showPercent?: boolean;
     showLabel?: boolean;
+    statusTextOverride?: string;
     barOnly?: boolean;
     status?: string;
     etaBasis?: 'remaining_from_update' | 'total_from_start';
@@ -131,6 +132,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
     showEta = true,
     showPercent = true,
     showLabel = true,
+    statusTextOverride,
     barOnly = false,
     status,
     etaBasis = 'total_from_start',
@@ -673,7 +675,7 @@ export const PredictiveProgressBar: React.FC<PredictiveProgressBarProps> = ({
                 label={label}
                 localProgress={localProgress}
                 displayedRemaining={displayedRemaining}
-                terminalStatusText={terminalStatusText}
+                terminalStatusText={statusTextOverride ?? terminalStatusText}
                 busyStatusText={busyStatusText}
             />
             <div style={{ height: '6px', background: 'var(--progress-track)', borderRadius: '3px', overflow: 'hidden' }}>

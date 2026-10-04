@@ -83,7 +83,7 @@ def put_job(job: Job) -> None:
         _snapshot_existing_status = existing_job.get("status") if existing_job else None
         if existing_job:
             old_status = existing_job.get("status")
-            if old_status in ("done", "failed", "cancelled") and job.status in ("queued", "waiting_for_resources", "preparing"):
+            if old_status in ("done", "failed", "cancelled") and job.status in ("queued", "preparing"):
                 is_terminal_reset = True
         # Snapshot derived values before releasing lock so post-lock broadcast
         # uses consistent data even if a concurrent update_job interleaves.

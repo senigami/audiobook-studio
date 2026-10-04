@@ -6,8 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### A paused queue now says "Waiting to start"
 
-- **Before:** when the queue was paused for resources, the waiting job could vanish from the list or look like it was working.
-- **Now:** that job stays in the queue and reads "Waiting to start". It shows no time estimate and no progress until it really begins.
+- **Before:** a job submitted while the queue was paused showed as "Queued", with no hint that the queue was paused.
+- **Now:** that job reads "Waiting to start: the queue is paused." It shows no time estimate and no progress.
 
 ## [Changed] - 2026-10-03
 

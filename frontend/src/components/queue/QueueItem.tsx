@@ -619,6 +619,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     updatedAt={derivedUpdatedAt}
                     persistenceKey={activeSegmentId ? `${job.id}:${activeSegmentId}` : job.id}
                     status={displayStatus === 'waiting_for_resources' ? 'queued' : displayStatus}
+                    statusTextOverride={displayStatus === 'waiting_for_resources' ? 'Waiting to start' : undefined}
                     label={
                         // Terminal jobs (done/failed/cancelled) already show their state on
                         // the right side of this row via terminalStatusText ("Complete" /
@@ -626,7 +627,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                         // at the same time is a contradictory display (design-review fix).
                         isTerminalStatus(displayStatus)
                             ? ""
-                            : displayStatus === 'waiting_for_resources' ? "Waiting to start"
+                            : displayStatus === 'waiting_for_resources' ? ""
                             : displayStatus === 'preparing' ? "Preparing..." : (displayStatus === 'finalizing' ? "Finalizing..." : "Processing...")
                     }
                     predictive={true}

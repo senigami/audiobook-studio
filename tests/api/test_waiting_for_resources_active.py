@@ -76,12 +76,12 @@ def test_waiting_job_counts_as_active_generation_for_its_chapter():
     assert _chapter_has_active_generation(cid) is True
 
 
-def test_terminal_latch_clears_when_a_finished_job_goes_back_to_waiting():
+def test_terminal_latch_holds_against_a_waiting_frame_but_clears_for_queued():
     from app.api.ws import _terminal_latched, clear_terminal_latch
 
     clear_terminal_latch("wait-latch")
     _terminal_latched("wait-latch", "running", "done")
 
-    assert _terminal_latched("wait-latch", "done", "waiting_for_resources") is False
-    assert _terminal_latched("wait-latch", "waiting_for_resources", "running") is False
+    assert _terminal_latched("wait-latch", "done", "waiting_for_resources") is True
+    assert _terminal_latched("wait-latch", "done", "queued") is False
     clear_terminal_latch("wait-latch")

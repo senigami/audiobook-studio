@@ -25,7 +25,8 @@ describe('QueueItem waiting_for_resources row', () => {
         onRemove={vi.fn()}
       />
     );
-    expect(screen.getByText('Waiting to start')).toBeTruthy();
+    expect(screen.getAllByText('Waiting to start')).toHaveLength(1);
+    expect(screen.queryByText('Queued')).toBeNull();
     expect(screen.queryByText(/Processing/)).toBeNull();
     expect(container.querySelector('[data-testid*="eta" i]')).toBeNull();
     expect(container.textContent).not.toMatch(/T120|\b120\b|\b2m\b|remaining|ETA/i);

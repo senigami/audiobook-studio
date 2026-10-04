@@ -106,7 +106,7 @@ class EmitGateMixin:
 
         prev_status = previous.get("status")
         curr_status = payload.get("status")
-        if prev_status in {"done", "failed", "cancelled"} and curr_status not in {"done", "failed", "cancelled", "queued", "waiting_for_resources", "preparing"}:
+        if prev_status in {"done", "failed", "cancelled"} and curr_status not in {"done", "failed", "cancelled", "queued", "preparing"}:
             return False
 
         if payload.get("status") != previous.get("status"):

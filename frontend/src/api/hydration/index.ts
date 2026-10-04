@@ -155,6 +155,7 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
       finalizing: 4,
       preparing: 3,
       queued: 2,
+      waiting_for_resources: 2,
       done: 1,
       failed: 0,
       cancelled: 0,

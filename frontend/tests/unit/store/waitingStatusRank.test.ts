@@ -1,0 +1,72 @@
+import { describe, it, expect } from 'vitest';
+import type { Job } from '@/types';
+import { createLiveJobsStore } from '@/store/live-jobs';
+import { applyJobUpdated } from '@/utils/jobUpdateReducer';
+import { createHydrationCoordinator } from '@/api/hydration';
+
+const WAITING = 'waiting_for_resources';
+
+function makeJob(status: string): Job {
+  return {
+    id: 'job-1', updated_at: 100, engine: 'xtts', chapter_file: 'ch.txt', status, progress: 0, created_at: 0,
+    safe_mode: false, make_mp3: false, warning_count: 0,
+  } as Job;
+}
+
+describe('waiting_for_resources ranks with queued in every frontend status-rank map', () => {
+  describe('live overlay store', () => {
+    it('accepts a waiting frame after a queued frame', () => {
+      const store = createLiveJobsStore();
+      store.applyJobUpdated('j1', { status: 'queued', updated_at: 100 });
+      store.applyJobUpdated('j1', { status: WAITING, updated_at: 101 });
+      expect(store.getState().eventsById['j1']?.status).toBe(WAITING);
+    });
+
+    it('treats a queued frame after a waiting frame like queued after queued', () => {
+      const store = createLiveJobsStore();
+      store.applyJobUpdated('j1', { status: WAITING, updated_at: 100 });
+      store.applyJobUpdated('j1', { status: 'queued', updated_at: 101 });
+      expect(store.getState().eventsById['j1']?.status).toBe('queued');
+    });
+
+    it('shows the waiting overlay on the merged queue row', () => {
+      const store = createLiveJobsStore();
+      store.applyJobUpdated('j1', { status: 'queued', updated_at: 100 });
+      store.applyJobUpdated('j1', { status: WAITING, updated_at: 101 });
+      const merged = createHydrationCoordinator().mergeQueueWithOverlays(
+        { items: [{ id: 'j1', status: 'queued', progress: 0, created_at: 1, updated_at: 50 } as any] } as any,
+        store.getState(),
+      );
+      expect(merged[0]?.status).toBe(WAITING);
+    });
+  });
+
+  describe('job update reducer', () => {
+    it('accepts a waiting update on a queued job', () => {
+      const next = applyJobUpdated({ 'job-1': makeJob('queued') }, 'job-1', { status: WAITING, updated_at: 101 });
+      expect(next!['job-1'].status).toBe(WAITING);
+    });
+
+    it('treats a queued update on a waiting job like queued on queued', () => {
+      const next = applyJobUpdated({ 'job-1': makeJob(WAITING) }, 'job-1', { status: 'queued', updated_at: 101 });
+      expect(next!['job-1'].status).toBe('queued');
+    });
+  });
+
+  describe('hydration chapter dedup', () => {
+    function winner(statuses: string[]): string {
+      const items = statuses.map((status, i) => (
+        { id: `j${i}`, chapter_id: 'c1', status, progress: 0, created_at: 5 } as any
+      ));
+      const merged = createHydrationCoordinator().mergeQueueWithOverlays(
+        { items } as any, { eventsById: {} } as any,
+      );
+      return merged[0].status;
+    }
+
+    it.each([[WAITING], ['queued']])('%s outranks done and yields to preparing', (status) => {
+      expect(winner([status, 'done'])).toBe(status);
+      expect(winner([status, 'preparing'])).toBe('preparing');
+    });
+  });
+});
