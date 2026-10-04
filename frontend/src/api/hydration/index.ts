@@ -127,6 +127,8 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
         if (mergedIds.has(jobId)) return null;
         const item = buildOverlayQueueItem(jobId, delta);
         if (!item) return null;
+        // A cancelled job missing from the snapshot was removed; a deliberate cancel needs no ghost card.
+        if (item.status === 'cancelled') return null;
         const isChapterScoped = !isMainQueueSegmentItem(item);
         const hasSnapshotSibling = isChapterScoped && items.some(snapItem => snapItem.chapter_id === item.chapter_id);
         const terminalTimestamp = item.completed_at ?? item.updated_at ?? item.created_at ?? 0;

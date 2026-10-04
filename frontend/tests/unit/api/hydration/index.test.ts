@@ -447,4 +447,48 @@ describe('HydrationCoordinator', () => {
     const merged = coordinator.mergeQueueWithOverlays(snapshot, overlays);
     expect(merged[0].confidence).toBe(0.92);
   });
+
+  describe('cancelled overlays (removed rows)', () => {
+    const now = 1713210000;
+    const overlay = (status: string, extra: Record<string, unknown> = {}) => ({
+      project_id: 'proj-1', chapter_id: 'chap-1', classification: 'chapter', status, progress: 0.4,
+      updated_at: now - 3, completed_at: status === 'running' ? null : now - 3, ...extra,
+    }) as any;
+
+    it('cancelled overlay absent from the snapshot creates no row', () => {
+      const merged = coordinator.mergeQueueWithOverlays(
+        coordinator.createSnapshot([]), { eventsById: { 'job-x': overlay('cancelled') } }, now * 1000);
+      expect(merged).toHaveLength(0);
+    });
+
+    it('cancelled overlay does not displace an older snapshot row for the same chapter', () => {
+      // the overlay is newer (created_at falls back to updated_at, now-3), so without the fix it wins the chapter dedupe
+      const older = { id: 'job-old', chapter_id: 'chap-1', project_id: 'proj-1', status: 'done', created_at: now - 100, completed_at: now - 90 } as any;
+      const merged = coordinator.mergeQueueWithOverlays(
+        coordinator.createSnapshot([older]), { eventsById: { 'job-x': overlay('cancelled') } }, now * 1000);
+      expect(merged.map(i => i.id)).toEqual(['job-old']);
+    });
+
+    it('guard: a cancelled job that IS in the snapshot still renders as cancelled', () => {
+      const row = { id: 'job-x', chapter_id: 'chap-1', project_id: 'proj-1', status: 'cancelled', created_at: now - 9, completed_at: now - 3 } as any;
+      const merged = coordinator.mergeQueueWithOverlays(
+        coordinator.createSnapshot([row]), { eventsById: { 'job-x': overlay('cancelled') } }, now * 1000);
+      expect(merged).toHaveLength(1);
+      expect(merged[0].status).toBe('cancelled');
+    });
+
+    it.each(['done', 'failed'])('guard: a %s overlay absent from the snapshot is still held for the history window', status => {
+      const merged = coordinator.mergeQueueWithOverlays(
+        coordinator.createSnapshot([]), { eventsById: { 'job-y': overlay(status) } }, now * 1000);
+      expect(merged).toHaveLength(1);
+      expect(merged[0].status).toBe(status);
+    });
+
+    it('guard: an active overlay absent from the snapshot still creates a row', () => {
+      const merged = coordinator.mergeQueueWithOverlays(
+        coordinator.createSnapshot([]), { eventsById: { 'job-z': overlay('running') } }, now * 1000);
+      expect(merged).toHaveLength(1);
+      expect(merged[0].status).toBe('running');
+    });
+  });
 });
