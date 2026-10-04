@@ -9,8 +9,10 @@ from app.orchestration.scheduler.cap_safety import (
     BASIS_UNMEASURABLE,
     CapViolation,
     EngineLimits,
+    engine_hard_max,
     engine_safe_max,
     find_cap_violations,
+    global_hard_max,
     global_safe_max,
     is_memory_measurable,
     safe_cap_ceiling,
@@ -117,9 +119,9 @@ def _check(candidate_updates, *, current=CURRENT, limits=(XTTS, VOXTRAL), sample
 
 
 @pytest.mark.parametrize("requested", [3, 4])
-def test_raising_global_above_safe_max_is_refused(requested):
-    assert _check({"tts_parallel_cap": requested}) == [
-        CapViolation("tts_parallel_cap", "xtts", requested, 1, BASIS_MEMORY)
+def test_raising_global_above_hard_max_is_refused(requested):
+    assert _check({"tts_parallel_cap": requested}, current={"tts_parallel_cap": 1, "tts_engine_caps": {}}) == [
+        CapViolation("tts_parallel_cap", "xtts", requested, 1, 2, BASIS_MEMORY)
     ]
 
 
@@ -137,22 +139,22 @@ def test_lowering_is_allowed():
     assert _check({"tts_parallel_cap": 2}, current=current) == []
 
 
-def test_engine_override_above_safe_max_is_refused_and_attributed():
+def test_engine_override_above_hard_max_is_refused_and_attributed():
     assert _check({"tts_engine_caps": {"xtts": 3}}) == [
-        CapViolation("tts_engine_caps", "xtts", 3, 1, BASIS_MEMORY)
+        CapViolation("tts_engine_caps", "xtts", 3, 1, 2, BASIS_MEMORY)
     ]
 
 
 def test_string_override_cannot_escape_the_check():
     assert _check({"tts_engine_caps": {"xtts": "8"}}) == [
-        CapViolation("tts_engine_caps", "xtts", 8, 1, BASIS_MEMORY)
+        CapViolation("tts_engine_caps", "xtts", 8, 1, 2, BASIS_MEMORY)
     ]
 
 
 def test_removing_an_override_that_re_exposes_the_global_is_checked():
     current = {"tts_parallel_cap": 8, "tts_engine_caps": {"xtts": 1}}
     assert _check({"tts_engine_caps": {}}, current=current) == [
-        CapViolation("tts_parallel_cap", "xtts", 8, 1, BASIS_MEMORY)
+        CapViolation("tts_parallel_cap", "xtts", 8, 1, 2, BASIS_MEMORY)
     ]
 
 
@@ -169,7 +171,7 @@ def test_voxtral_only_registry_accepts_any_global_value():
 def test_unmeasurable_sample_refuses_a_raise_with_that_basis():
     sample = {"ram_total_gb": 24.0, "ram_available_gb": None}
     assert _check({"tts_parallel_cap": 3}, sample=sample) == [
-        CapViolation("tts_parallel_cap", "xtts", 3, 1, BASIS_UNMEASURABLE)
+        CapViolation("tts_parallel_cap", "xtts", 3, 1, 1, BASIS_UNMEASURABLE)
     ]
     assert _check({"tts_parallel_cap": 1}, sample=sample) == []
 
@@ -184,3 +186,125 @@ def test_non_finite_ram_is_unmeasurable(bad):
 def test_non_finite_vram_is_ignored_not_trusted():
     sample = _sample(65536, 60000, vram_total_gb=float("nan"), vram_used_gb=1.0)
     assert engine_safe_max(XTTS, sample)[0] == 8
+
+
+def test_mac_numbers_give_safe_1_hard_2():
+    assert engine_safe_max(XTTS, MAC) == (1, BASIS_MEMORY)
+    assert engine_hard_max(XTTS, MAC) == (2, BASIS_MEMORY)
+
+
+def test_mac_raise_to_2_allowed_to_3_refused():
+    current = {"tts_parallel_cap": 1, "tts_engine_caps": {}}
+    assert _check({"tts_parallel_cap": 2}, current=current) == []
+    assert _check({"tts_parallel_cap": 3}, current=current) == [
+        CapViolation("tts_parallel_cap", "xtts", 3, 1, 2, BASIS_MEMORY)
+    ]
+
+
+@pytest.mark.parametrize(
+    "total_mb, avail_mb, expected_safe, expected_hard",
+    [
+        (16384, 9000, 1, 2),
+        (16384, 6000, 1, 1),
+        (16384, 3000, 1, 1),
+        (65536, 24000, 2, 6),
+        (65536, 40000, 6, 8),
+        (65536, 60000, 8, 8),
+        (24576, 4000, 1, 1),
+        (24576, 8000, 1, 2),
+    ],
+)
+def test_safe_and_hard_grid(total_mb, avail_mb, expected_safe, expected_hard):
+    sample = _sample(total_mb, avail_mb)
+    assert engine_safe_max(XTTS, sample)[0] == expected_safe
+    assert engine_hard_max(XTTS, sample)[0] == expected_hard
+
+
+def test_running_workers_added_back_to_hard():
+    one = EngineLimits("xtts", manifest_max=8, footprint_mb=4000, gpu=True, active_count=1)
+    two = EngineLimits("xtts", manifest_max=8, footprint_mb=4000, gpu=True, active_count=2)
+    assert engine_safe_max(one, _sample(24576, 6934))[0] == 1
+    assert engine_hard_max(one, _sample(24576, 6934))[0] == 2
+    assert engine_hard_max(two, _sample(24576, 2934))[0] == 2
+
+
+def test_footprint_zero_hard_is_manifest_ceiling():
+    assert engine_hard_max(EngineLimits("v", manifest_max=1, footprint_mb=0), MAC)[0] == 1
+    assert engine_hard_max(EngineLimits("v", manifest_max=5, footprint_mb=0), MAC)[0] == 5
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"ram_total_gb": 24.0, "ram_available_gb": None},
+        {"ram_total_gb": 24.0, "ram_available_gb": float("nan")},
+        {"ram_total_gb": float("inf"), "ram_available_gb": 10.0},
+        {"ram_total_gb": 0, "ram_available_gb": 0},
+    ],
+)
+def test_unmeasurable_gives_hard_1(bad):
+    assert engine_hard_max(XTTS, bad) == (1, BASIS_UNMEASURABLE)
+
+
+def test_vram_term_uses_zero_reserve_too():
+    sample = _sample(65536, 60000, vram_total_gb=16.0, vram_used_gb=2.0)
+    assert engine_safe_max(XTTS, sample)[0] == 2
+    assert engine_hard_max(XTTS, sample)[0] == 3
+
+
+def test_available_below_reserve_hard_never_below_safe():
+    assert (engine_safe_max(XTTS, _sample(24576, 4500))[0], engine_hard_max(XTTS, _sample(24576, 4500))[0]) == (1, 1)
+    assert (engine_safe_max(XTTS, _sample(24576, 8500))[0], engine_hard_max(XTTS, _sample(24576, 8500))[0]) == (1, 2)
+
+
+def test_hard_never_below_safe():
+    for total in (8192, 16384, 24576, 65536):
+        for avail in (0, 1000, 3000, 4915, 6000, 10934, 24000, 60000):
+            if avail > total:
+                continue
+            for footprint in (0, 1000, 4000):
+                for manifest in (1, 2, 8):
+                    for active in (0, 1, 3):
+                        for vram in (None, (16.0, 2.0)):
+                            extra = {} if vram is None else {"vram_total_gb": vram[0], "vram_used_gb": vram[1]}
+                            lim = EngineLimits("e", manifest, footprint, gpu=True, active_count=active)
+                            sample = _sample(total, avail, **extra)
+                            safe = engine_safe_max(lim, sample)[0]
+                            hard = engine_hard_max(lim, sample)[0]
+                            assert hard >= safe >= 1
+                            assert hard <= manifest
+
+
+def test_global_hard_max():
+    assert global_hard_max([XTTS, VOXTRAL], MAC, 8) == 2
+    assert global_hard_max([XTTS, VOXTRAL], _sample(65536, 60000), 8) == 8
+    assert global_hard_max([VOXTRAL], MAC, 8) == 8
+    assert global_hard_max([], MAC, 8) == 8
+
+
+def test_unrelated_save_and_lowering_still_never_violate():
+    current = {"tts_parallel_cap": 4, "tts_engine_caps": {}}
+    assert _check({"safe_mode": True}, current=current) == []
+    assert _check({"tts_parallel_cap": 3}, current=current) == []
+
+
+def test_unset_cap_resolves_to_min_2_safe():
+    unset = {"tts_engine_caps": {}}
+    # Mac: auto is min(2, safe 1) = 1, so raising to 2 is within hard 2 and allowed, 3 is refused.
+    assert _check({"tts_parallel_cap": 2}, current=unset) == []
+    assert _check({"tts_parallel_cap": 3}, current=unset) == [
+        CapViolation("tts_parallel_cap", "xtts", 3, 1, 2, BASIS_MEMORY)
+    ]
+    # An unrelated save from an unset cap never violates, on any machine.
+    assert _check({"safe_mode": True}, current=unset) == []
+    assert _check({"safe_mode": True}, current=unset, sample=_sample(65536, 60000)) == []
+
+
+def test_unset_cap_on_a_hard_1_machine_refuses_a_global_2_and_allows_an_unrelated_override():
+    unset = {"tts_engine_caps": {}}
+    tight = _sample(24576, 5000)
+    assert _check({"tts_parallel_cap": 2}, current=unset, sample=tight) == [
+        CapViolation("tts_parallel_cap", "xtts", 2, 1, 1, BASIS_MEMORY)
+    ]
+    assert _check({"tts_engine_caps": {"voxtral": 1}}, current=unset, sample=tight) == []
+

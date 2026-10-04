@@ -142,8 +142,8 @@ describe('EngineCard concurrency cap override', () => {
     await waitFor(() => expect(api.saveEngineCap).toHaveBeenCalledWith('xtts', 4));
   });
 
-  it('lets a typed value above the safe maximum reach the server so a refusal can explain it', async () => {
-    render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} safeMax={2} settings={{ tts_engine_caps: {} } as any} />);
+  it('lets a typed value above the hard limit reach the server so a refusal can explain it', async () => {
+    render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} safeMax={1} hardMax={2} settings={{ tts_engine_caps: {} } as any} />);
     openCard();
     const input = screen.getByLabelText('XTTS concurrent render cap') as HTMLInputElement;
     fireEvent.change(input, { target: { value: '4' } });
@@ -152,8 +152,8 @@ describe('EngineCard concurrency cap override', () => {
     await waitFor(() => expect(api.saveEngineCap).toHaveBeenCalledWith('xtts', 4));
   });
 
-  it('lowers the visible limit and the stepper max to the safe maximum', () => {
-    render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} safeMax={2} settings={{ tts_engine_caps: { xtts: 2 } } as any} />);
+  it('lowers the visible limit and the stepper max to the hard limit, not the comfortable number', () => {
+    render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} safeMax={1} hardMax={2} settings={{ tts_engine_caps: { xtts: 2 } } as any} />);
     openCard();
     expect(
       screen.getByText('How many segments this engine may render at once, up to 2. Changes apply right away, no restart needed.')
@@ -162,12 +162,119 @@ describe('EngineCard concurrency cap override', () => {
   });
 
   it('shows the hint and links it to the stepper', () => {
-    render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} safeMax={1} />);
+    render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} safeMax={1} hardMax={2} />);
     openCard();
     expect(screen.getByLabelText('XTTS concurrent render cap')).toHaveAttribute('aria-describedby', 'engine-cap-hint-xtts');
     expect(document.getElementById('engine-cap-hint-xtts')).toHaveTextContent(
-      'Studio estimates this computer can render one at a time right now. Closing other apps may allow more.'
+      'This computer can comfortably render one at a time right now, and can go as high as 2. Closing other apps may allow more.'
     );
+  });
+
+  it('shows a polite warning, linked to the stepper, while the value is above the comfortable number', () => {
+    render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} safeMax={1} hardMax={2} settings={{ tts_engine_caps: { xtts: 2 } } as any} />);
+    openCard();
+    const warning = screen.getByRole('status');
+    expect(warning.id).toBe('engine-cap-warning-xtts');
+    expect(warning).toHaveTextContent(
+      'Above 1, Studio uses memory it normally keeps free, so your computer may feel slow while rendering.'
+    );
+    expect(screen.getByLabelText('XTTS concurrent render cap')).toHaveAttribute(
+      'aria-describedby',
+      'engine-cap-hint-xtts engine-cap-warning-xtts'
+    );
+  });
+
+  it('warns on the inherited value when there is no override', () => {
+    render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} safeMax={1} hardMax={2} effectiveCap={2} settings={{ tts_engine_caps: {} } as any} />);
+    openCard();
+    expect(screen.getByRole('status')).toBeInTheDocument();
+  });
+
+  it('shows no warning when the inherited value is at the comfortable number', () => {
+    render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} safeMax={1} hardMax={2} effectiveCap={1} settings={{ tts_engine_caps: {} } as any} />);
+    openCard();
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('judges an override, not the inherited value, when one is set', () => {
+    render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} safeMax={1} hardMax={2} effectiveCap={2} settings={{ tts_engine_caps: { xtts: 1 } } as any} />);
+    openCard();
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('shows no warning at the comfortable number', () => {
+    render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} safeMax={1} hardMax={2} settings={{ tts_engine_caps: { xtts: 1 } } as any} />);
+    openCard();
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  describe('inherit line while the override is empty', () => {
+    const inheritText = (n: number) =>
+      `Left empty, this engine uses the Parallel Segment Rendering setting, which is ${n} right now.`;
+
+    it('shows the effective number, linked first in aria-describedby, and never live', () => {
+      render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} safeMax={1} hardMax={2} effectiveCap={2} settings={{ tts_engine_caps: {} } as any} />);
+      openCard();
+      const line = document.getElementById('engine-cap-inherit-xtts');
+      expect(line).toHaveTextContent(inheritText(2));
+      expect(line).not.toHaveAttribute('role');
+      expect(line?.closest('[aria-live]')).toBeNull();
+      expect(screen.getByLabelText('XTTS concurrent render cap')).toHaveAttribute(
+        'aria-describedby',
+        'engine-cap-inherit-xtts engine-cap-hint-xtts engine-cap-warning-xtts'
+      );
+      expect(screen.getByRole('status').id).toBe('engine-cap-warning-xtts');
+    });
+
+    it('shows the effective number even when it is not the saved global setting', () => {
+      render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} effectiveCap={3} settings={{ tts_engine_caps: {} } as any} />);
+      openCard();
+      expect(document.getElementById('engine-cap-inherit-xtts')).toHaveTextContent(inheritText(3));
+    });
+
+    it('is shown without a warning when the effective number is comfortable', () => {
+      render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} safeMax={2} hardMax={4} effectiveCap={2} settings={{ tts_engine_caps: {} } as any} />);
+      openCard();
+      expect(document.getElementById('engine-cap-inherit-xtts')).toHaveTextContent(inheritText(2));
+      expect(screen.queryByRole('status')).toBeNull();
+    });
+
+    it('is hidden before the first answer', () => {
+      render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} settings={{ tts_engine_caps: {} } as any} />);
+      openCard();
+      expect(document.getElementById('engine-cap-inherit-xtts')).toBeNull();
+    });
+
+    it('is absent when an override exists', () => {
+      render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} safeMax={1} hardMax={2} effectiveCap={2} settings={{ tts_engine_caps: { xtts: 1 } } as any} />);
+      openCard();
+      expect(document.getElementById('engine-cap-inherit-xtts')).toBeNull();
+      expect(screen.getByLabelText('XTTS concurrent render cap')).toHaveAttribute('aria-describedby', 'engine-cap-hint-xtts');
+    });
+
+    it('goes away when a value is typed and returns when the field is cleared', () => {
+      render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} effectiveCap={2} settings={{ tts_engine_caps: {} } as any} />);
+      openCard();
+      const input = screen.getByLabelText('XTTS concurrent render cap') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '3' } });
+      expect(document.getElementById('engine-cap-inherit-xtts')).toBeNull();
+      fireEvent.change(input, { target: { value: '' } });
+      expect(document.getElementById('engine-cap-inherit-xtts')).toHaveTextContent(inheritText(2));
+    });
+
+    it('steps up from the effective number, not from 1', async () => {
+      render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} effectiveCap={3} settings={{ tts_engine_caps: {} } as any} />);
+      openCard();
+      fireEvent.click(screen.getByLabelText('Increase XTTS concurrent render cap'));
+      await waitFor(() => expect(api.saveEngineCap).toHaveBeenCalledWith('xtts', 4));
+    });
+
+    it('steps down from the effective number', async () => {
+      render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} effectiveCap={3} settings={{ tts_engine_caps: {} } as any} />);
+      openCard();
+      fireEvent.click(screen.getByLabelText('Decrease XTTS concurrent render cap'));
+      await waitFor(() => expect(api.saveEngineCap).toHaveBeenCalledWith('xtts', 2));
+    });
   });
 
   it('shows no hint before the first answer', () => {
@@ -264,14 +371,62 @@ describe('EngineCard concurrency cap override', () => {
     expect(onShowNotification).not.toHaveBeenCalled();
   });
 
-  it('does not save when the field is cleared (blank input)', async () => {
-    render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} settings={{ safe_mode: false, default_engine: 'xtts', tts_engine_caps: { xtts: 2 } } as any} />);
-    openCard();
-    const input = screen.getByLabelText('XTTS concurrent render cap') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '' } });
-    fireEvent.blur(input);
+  describe('clearing the field', () => {
+    const withOverride = { tts_engine_caps: { xtts: 2 } } as any;
+    const clearAndBlur = () => {
+      const input = screen.getByLabelText('XTTS concurrent render cap') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '' } });
+      fireEvent.blur(input);
+      return input;
+    };
 
-    expect(api.saveEngineCap).not.toHaveBeenCalled();
+    it('clears a saved override with a null save, once, then refreshes', async () => {
+      const onUpdate = vi.fn();
+      const onLimitsRefresh = vi.fn();
+      render(<EngineCard engine={xttsEngine} onUpdate={onUpdate} onLimitsRefresh={onLimitsRefresh} settings={withOverride} />);
+      openCard();
+      clearAndBlur();
+
+      await waitFor(() => expect(api.saveEngineCap).toHaveBeenCalledWith('xtts', null));
+      expect(api.saveEngineCap).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(onUpdate).toHaveBeenCalled());
+      expect(onLimitsRefresh).toHaveBeenCalled();
+    });
+
+    it('sends nothing when there is no saved override', async () => {
+      render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} settings={{ tts_engine_caps: {} } as any} />);
+      openCard();
+      clearAndBlur();
+
+      expect(api.saveEngineCap).not.toHaveBeenCalled();
+    });
+
+    it('shows the refusal and restores the override when the server refuses the clear', async () => {
+      (api.saveEngineCap as any).mockRejectedValue(new ParallelCapRefusedError(refusalFixture()));
+      const onShowNotification = vi.fn();
+      render(<EngineCard engine={xttsEngine} onUpdate={vi.fn()} onShowNotification={onShowNotification} settings={withOverride} />);
+      openCard();
+      const input = clearAndBlur();
+
+      const alert = await screen.findByRole('alert');
+      expect(alert).toHaveTextContent('Server sentence for tests, safe maximum 1.');
+      expect(input.value).toBe('2');
+      expect(onShowNotification).not.toHaveBeenCalled();
+    });
+
+    it('shows the inherited number once the clear is saved and the refreshed answer arrives', async () => {
+      const onUpdate = vi.fn();
+      const { rerender } = render(<EngineCard engine={xttsEngine} onUpdate={onUpdate} effectiveCap={2} settings={withOverride} />);
+      openCard();
+      const input = clearAndBlur();
+      await waitFor(() => expect(onUpdate).toHaveBeenCalled());
+
+      rerender(<EngineCard engine={xttsEngine} onUpdate={onUpdate} effectiveCap={3} settings={{ tts_engine_caps: {} } as any} />);
+      expect(input.value).toBe('');
+      expect(document.getElementById('engine-cap-inherit-xtts')).toHaveTextContent(
+        'Left empty, this engine uses the Parallel Segment Rendering setting, which is 3 right now.'
+      );
+    });
   });
 
   it('shows the control for an engine declaring segment_orchestration but not delegation_only (XTTS)', () => {

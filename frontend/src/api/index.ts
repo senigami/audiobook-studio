@@ -19,11 +19,14 @@ export interface EngineConcurrencyEntry {
   effective_cap: number;
   active_count: number;
   safe_max: number;
+  hard_max: number;
 }
 
 export interface EngineConcurrencyResponse {
   global_cap: number;
   global_safe_max: number;
+  global_hard_max: number;
+  global_cap_is_auto: boolean;
   memory_measurable: boolean;
   engines: EngineConcurrencyEntry[];
 }

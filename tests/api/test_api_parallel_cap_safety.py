@@ -21,7 +21,7 @@ LOW = {**MAC, "ram_available_gb": 3000 / 1024}
 UNMEASURABLE = {**MAC, "ram_available_gb": None}
 
 REFUSAL_MESSAGE_AT_1 = (
-    "Your change was not saved. Studio estimates this computer can render up to 1 at once right now. "
+    "Your change was not saved. This computer can render at most 2 at once right now. "
     "Lower the number, or close other apps and try again."
 )
 INVALID_CAP_MESSAGE = (
@@ -31,25 +31,25 @@ INVALID_CAP_MESSAGE = (
 
 
 @pytest.fixture
-def machine(monkeypatch, clean_db):
+def machine(monkeypatch, clean_db, tmp_path):
     """Patch the memory sampler (a boundary). Set machine['sample'] to change the machine."""
+    from app.db import state as state_module
+
+    # A private state file, so the cap this fixture saves cannot outlive the test.
+    monkeypatch.setattr(state_module, "STATE_FILE", tmp_path / "state.json")
     state = {"sample": MAC}
     monkeypatch.setattr("app.api.routers.cap_guard.sample_resources", lambda: dict(state["sample"]))
-    keys = ("tts_parallel_cap", "tts_engine_caps", "safe_mode", "enabled_plugins")
-    before = {key: get_settings().get(key) for key in keys}
     update_settings({"tts_parallel_cap": 2, "tts_engine_caps": {}, "safe_mode": False})
-    yield state
-    # Settings outlive the test db fixture; leave them as found for later tests.
-    update_settings({key: value for key, value in before.items() if value is not None})
+    return state
 
 
-def _xtts_violation(setting, requested, basis="memory", safe_maximum=1):
+def _xtts_violation(setting, requested, basis="memory", safe_maximum=1, hard_maximum=2):
     return {"setting": setting, "engine": "xtts", "requested": requested,
-            "safe_maximum": safe_maximum, "basis": basis}
+            "safe_maximum": safe_maximum, "hard_maximum": hard_maximum, "basis": basis}
 
 
 @pytest.mark.parametrize("requested", [3, 4])
-def test_post_global_above_safe_max_is_refused_and_saves_nothing(client, machine, requested, caplog):
+def test_post_global_above_hard_max_is_refused_and_saves_nothing(client, machine, requested, caplog):
     with caplog.at_level(logging.WARNING):
         resp = client.post("/api/settings", json={"tts_parallel_cap": requested})
     assert resp.status_code == 422
@@ -69,7 +69,7 @@ def test_refusal_is_atomic_an_unrelated_field_in_the_same_post_is_not_applied(cl
     assert get_settings()["tts_parallel_cap"] == 2
 
 
-def test_post_engine_override_above_safe_max_is_refused(client, machine):
+def test_post_engine_override_above_hard_max_is_refused(client, machine):
     resp = client.post("/api/settings", json={"tts_engine_caps": {"xtts": 4}})
     assert resp.status_code == 422
     assert resp.json()["detail"]["violations"] == [_xtts_violation("tts_engine_caps", 4)]
@@ -139,7 +139,7 @@ def test_unmeasurable_memory_refuses_a_raise_and_allows_1(client, machine):
     machine["sample"] = UNMEASURABLE
     resp = client.post("/api/settings", json={"tts_parallel_cap": 3})
     assert resp.status_code == 422
-    assert resp.json()["detail"]["violations"] == [_xtts_violation("tts_parallel_cap", 3, basis="unmeasurable")]
+    assert resp.json()["detail"]["violations"] == [_xtts_violation("tts_parallel_cap", 3, basis="unmeasurable", hard_maximum=1)]
     assert client.post("/api/settings", json={"tts_parallel_cap": 1}).status_code == 200
 
 
@@ -149,7 +149,7 @@ def test_voxtral_override_of_1_is_allowed(client, machine):
 
 def _no_engines_known(monkeypatch):
     monkeypatch.setattr("app.engines.registry.load_engine_registry", lambda: {})
-    monkeypatch.setattr("app.api.routers.cap_guard.local_engine_ids", lambda: [])
+    monkeypatch.setattr("app.orchestration.scheduler.cap_limits.local_engine_ids", lambda: [])
 
 
 def test_raising_with_no_engine_information_fails_closed_with_503(client, machine, monkeypatch):
@@ -194,7 +194,7 @@ def test_concurrent_safe_saves_cannot_combine_into_an_unsafe_cap(client, machine
 
     from app.orchestration.scheduler.cap_settings import get_engine_caps, resolve_effective_cap
 
-    sample = {**MAC, "ram_available_gb": 16000 / 1024}  # XTTS safe maximum is 2
+    sample = {**MAC, "ram_available_gb": 16000 / 1024}  # XTTS safe maximum is 2, hard maximum is 4
     update_settings({"tts_parallel_cap": 2, "tts_engine_caps": {"xtts": 1}})
     barrier = threading.Barrier(2)
 
@@ -217,7 +217,7 @@ def test_concurrent_safe_saves_cannot_combine_into_an_unsafe_cap(client, machine
         thread.join(timeout=20)
     assert {results["a"].status_code, results["b"].status_code} == {200, 422}
     stored = get_settings()
-    assert resolve_effective_cap(engine_id="xtts", manifest_max=8, settings=stored) <= 2
+    assert resolve_effective_cap(engine_id="xtts", manifest_max=8, settings=stored) <= 4
     assert get_engine_caps(stored) in ({"xtts": 1}, {})
 
 
@@ -226,10 +226,14 @@ def test_get_concurrency_reports_safe_maxima_matching_the_refusal(client, machin
     by_id = {e["engine_id"]: e for e in body["engines"]}
     assert by_id["xtts"]["safe_max"] == 1
     assert by_id["voxtral"]["safe_max"] == 1
+    assert by_id["xtts"]["hard_max"] == 2
+    assert by_id["voxtral"]["hard_max"] == 1
     assert body["global_safe_max"] == 1
+    assert body["global_hard_max"] == 2
     assert body["memory_measurable"] is True
     refusal = client.post("/api/settings", json={"tts_parallel_cap": 3}).json()["detail"]
     assert refusal["violations"][0]["safe_maximum"] == by_id["xtts"]["safe_max"]
+    assert refusal["violations"][0]["hard_maximum"] == by_id["xtts"]["hard_max"]
 
 
 def test_get_concurrency_on_a_big_machine_and_with_unmeasurable_memory(client, machine):
@@ -237,10 +241,12 @@ def test_get_concurrency_on_a_big_machine_and_with_unmeasurable_memory(client, m
     big = client.get("/api/engines/concurrency").json()
     assert {e["engine_id"]: e["safe_max"] for e in big["engines"]}["xtts"] == 8
     assert big["global_safe_max"] == 8
+    assert {e["engine_id"]: e["hard_max"] for e in big["engines"]}["xtts"] == 8
     machine["sample"] = UNMEASURABLE
     unknown = client.get("/api/engines/concurrency").json()
     assert unknown["memory_measurable"] is False
     assert {e["engine_id"]: e["safe_max"] for e in unknown["engines"]}["xtts"] == 1
+    assert {e["engine_id"]: e["hard_max"] for e in unknown["engines"]}["xtts"] == 1
 
 
 @pytest.mark.parametrize(
@@ -341,14 +347,14 @@ def test_put_null_cap_cannot_fall_back_to_an_unsafe_env_override(client, machine
 
 
 def test_a_stray_plugin_folder_is_not_a_checked_phantom_engine(machine, monkeypatch, tmp_path):
-    from app.api.routers import cap_guard
+    from app.orchestration.scheduler import cap_limits
 
     for name in ("tts_alpha", "tts_alpha_old", "tts_Bad", "notaplugin"):
         (tmp_path / name).mkdir()
         (tmp_path / name / "manifest.json").write_text("{}", encoding="utf-8")
     (tmp_path / "tts_nomanifest").mkdir()
     monkeypatch.setattr("app.core.config.PLUGINS_DIR", tmp_path)
-    assert cap_guard.local_engine_ids() == ["alpha"]
+    assert cap_limits.local_engine_ids() == ["alpha"]
 
 
 def test_the_check_still_works_from_local_manifests_when_the_registry_raises(client, machine, monkeypatch):
@@ -403,6 +409,7 @@ def test_get_concurrency_agrees_with_the_guard_when_the_server_registry_is_empty
     refusal = client.post("/api/settings", json={"tts_parallel_cap": 8})
     assert refusal.status_code == 422
     assert refusal.json()["detail"]["violations"][0]["safe_maximum"] == body["global_safe_max"]
+    assert refusal.json()["detail"]["violations"][0]["hard_maximum"] == body["global_hard_max"]
 
 
 def _lock_is_held_by_someone(lock):
@@ -452,3 +459,77 @@ def test_put_writes_while_holding_the_cap_lock(client, machine, monkeypatch):
     monkeypatch.setattr(state, "set_engine_cap", spy)
     assert client.put("/api/engines/xtts/concurrency", json={"cap": 1}).status_code == 200
     assert seen == [True]
+
+
+def test_post_between_safe_and_hard_saves(client, machine):
+    update_settings({"tts_parallel_cap": 1})
+    assert client.post("/api/settings", json={"tts_parallel_cap": 2}).status_code == 200
+    assert get_settings()["tts_parallel_cap"] == 2
+    assert client.put("/api/engines/xtts/concurrency", json={"cap": 2}).status_code == 200
+    assert get_settings()["tts_engine_caps"] == {"xtts": 2}
+
+
+def test_post_above_hard_is_refused_with_both_numbers(client, machine):
+    update_settings({"tts_parallel_cap": 1})
+    resp = client.post("/api/settings", json={"tts_parallel_cap": 3})
+    assert resp.status_code == 422
+    detail = resp.json()["detail"]
+    assert detail["violations"][0]["safe_maximum"] == 1
+    assert detail["violations"][0]["hard_maximum"] == 2
+    assert detail["message"] == REFUSAL_MESSAGE_AT_1
+    assert get_settings()["tts_parallel_cap"] == 1
+
+
+def test_get_concurrency_reports_an_unset_cap_as_automatic(client, monkeypatch, tmp_path):
+    from app.db import state as state_module
+
+    # A private state file, so no earlier test's saved cap can make this one order-dependent.
+    monkeypatch.setattr(state_module, "STATE_FILE", tmp_path / "state.json")
+    monkeypatch.setattr("app.api.routers.cap_guard.sample_resources", lambda: dict(MAC))
+    body = client.get("/api/engines/concurrency").json()
+    assert body["global_cap_is_auto"] is True
+    assert body["global_cap"] == 1  # min(2, global safe max 1) on the Mac
+
+
+def test_get_concurrency_reports_a_saved_cap_as_explicit(client, machine):
+    body = client.get("/api/engines/concurrency").json()
+    assert body["global_cap_is_auto"] is False
+    assert body["global_cap"] == 2
+
+
+def test_put_concurrency_on_an_unset_install_reports_the_automatic_cap_like_get(client, monkeypatch, tmp_path):
+    from app.db import state as state_module
+    from app.orchestration.scheduler import cap_default
+
+    monkeypatch.setattr(state_module, "STATE_FILE", tmp_path / "state.json")
+    monkeypatch.setattr("app.api.routers.cap_guard.sample_resources", lambda: dict(MAC))
+    monkeypatch.setattr(cap_default, "_default_sampler", lambda: dict(MAC))
+
+    response = client.put("/api/engines/tts_xtts/concurrency", json={"cap": None})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["requested_cap"] == 1  # min(2, safe max 1) on the Mac, not the old default 2
+    assert body["effective_cap"] == 1
+    assert client.get("/api/engines/concurrency").json()["global_cap"] == body["requested_cap"]
+
+
+@pytest.fixture
+def unset_tight_machine(monkeypatch, tmp_path):
+    """No saved cap (private state file) on a machine whose hard limit is 1."""
+    from app.db import state as state_module
+
+    monkeypatch.setattr(state_module, "STATE_FILE", tmp_path / "state.json")
+    tight = {**MAC, "ram_total_gb": 24576 / 1024, "ram_available_gb": 5000 / 1024}
+    monkeypatch.setattr("app.api.routers.cap_guard.sample_resources", lambda: dict(tight))
+
+
+def test_unset_cap_on_a_hard_1_machine_refuses_a_post_of_2(client, unset_tight_machine):
+    resp = client.post("/api/settings", json={"tts_parallel_cap": 2})
+    assert resp.status_code == 422
+    assert resp.json()["detail"]["violations"] == [_xtts_violation("tts_parallel_cap", 2, hard_maximum=1)]
+
+
+def test_unset_cap_on_a_hard_1_machine_allows_a_voxtral_override_of_1(client, unset_tight_machine):
+    assert client.put("/api/engines/voxtral/concurrency", json={"cap": 1}).status_code == 200
+

@@ -53,7 +53,7 @@ def _resolve_pool_cap(engine_id: str) -> int:
 
     W-PAR task 013 (bracketed-ETA wiring): mirrors the manifest-max +
     live-settings resolution `ClaimingSynthesisTask`-style callers already use
-    for admission (`app.orchestration.scheduler.cap_settings.resolve_effective_cap`),
+    for admission (`app.orchestration.scheduler.cap_default.resolve_live_effective_cap`),
     so the ETA bracket's `global_cap`/`effective_cps` model reflects the SAME
     cap the scheduler actually enforces — not a re-derived or guessed value.
 
@@ -66,7 +66,7 @@ def _resolve_pool_cap(engine_id: str) -> int:
     try:
         import json  # noqa: PLC0415
 
-        from app.orchestration.scheduler.cap_settings import resolve_effective_cap  # noqa: PLC0415
+        from app.orchestration.scheduler.cap_default import resolve_live_effective_cap  # noqa: PLC0415
         from app.tts_server.plugin_loader import (  # noqa: PLC0415
             get_manifest_max_concurrent_workers,
             get_plugin_dir,
@@ -76,7 +76,7 @@ def _resolve_pool_cap(engine_id: str) -> int:
         manifest_path = plugin_dir / "manifest.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.is_file() else {}
         manifest_max = get_manifest_max_concurrent_workers(manifest)
-        return resolve_effective_cap(engine_id=engine_id, manifest_max=manifest_max)
+        return resolve_live_effective_cap(engine_id, manifest_max)
     except Exception:
         return 1
 

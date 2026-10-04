@@ -1,7 +1,7 @@
 # Data Model
 
 ```
-spec_version: 1.19.0
+spec_version: 1.20.0
 status: active
 updated: 2026-10-03
 sources:
@@ -30,6 +30,7 @@ sources:
 
 | Version | Date       | Change             |
 |---------|------------|--------------------|
+| 1.20.0  | 2026-10-03 | **`tts_parallel_cap` is unset by default (#285).** The store no longer seeds it; unset means automatic, `min(2, safe max)` resolved at read time and never written (precedence settings, then `TTS_PARALLEL_CAP`, then automatic), and an unreadable stored value counts as unset. The `tts_parallel_cap` and `tts_engine_caps` rows now say a raise is refused only above the hard limit (`queue-jobs.md` §7.3d) and that between the safe maximum and the hard limit it saves. |
 | 1.19.0  | 2026-10-03 | **Settings notes for the parallel-cap safe maximum (#251).** The `tts_parallel_cap` and `tts_engine_caps` rows now say the API refuses a raise above the safe maximum (`queue-jobs.md` §7.3d) and that a stored value above it is not rewritten; a non-numeric or non-finite value is refused with 422 `invalid_cap`, and a per-engine `null` clears that override (dropped before saving; an emptied map falls back to `TTS_ENGINE_CAPS`). Drive-by correction: the `tts_parallel_cap` default is `2` (it has been since queue-jobs 1.11.5), not `1`. |
 | 1.18.0  | 2026-10-03 | **`processing_queue` NOT NULL rebuild moves onto the migration runner: registry entry version 3, `processing_queue_nullable_ids` (#245).** The rebuild that drops NOT NULL on `project_id`/`chapter_id` (so system tasks with no project or chapter can be queued) used to run inside `init_db()` behind a swallowing `except Exception`. It is now `app/db/migrations/steps/queue_nullable_ids.py`, run by `run_migrations()` like any other step: one transaction, rolled back and raised as `MigrationError` on failure instead of being logged and skipped. Behavior on existing databases is unchanged (same rebuilt table, rows copied, missing legacy columns defaulted, `idx_processing_queue_chapter_status` restored); it is a no-op where `project_id` is already nullable, which is every fresh database. `init_db()` no longer performs the rebuild, so a legacy database is only fixed once the runner has run (always the case through `startup_event()`/`boot_studio()`). |
 | 1.17.0  | 2026-10-03 | **Migrations are explicitly one-way; the unused `down` field is removed (#263).** `Migration` no longer has a `down` field. The runner never invoked it, so it read like a rollback capability that did not exist; declaring `down=` now raises `TypeError`. Real rollback is deferred until a migration actually needs it. Documented in the Migration section: migration 2 (`segment_render_block_collapse`) is destructive and one-shot, and restoring the pre-migration `<db>.backup-<unix-ts>` is the only supported recovery for it (which also discards anything committed after the migration ran). |
@@ -132,8 +133,8 @@ Each key is a job UUID. Values conform to:
 | `default_speaker_profile` | string | `""` | Default voice profile name |
 | `enabled_plugins` | object | `{}` | Map of engine ID → bool |
 | `verified_plugins` | object | `{}` | Map of engine ID → bool |
-| `tts_parallel_cap` | integer | `2` | W-PAR task 007: global per-engine concurrency cap; clamped to each engine's manifest `max_concurrent_workers` at claim-build time (never raises above it). Raising it is refused by the API when it exceeds the safe maximum (queue-jobs.md §7.3d); a stored value above the safe maximum is not rewritten. |
-| `tts_engine_caps` | object | `{}` | W-PAR task 007: map of engine ID → per-engine cap override; takes precedence over `tts_parallel_cap` for that engine. Raising it is refused by the API when it exceeds the safe maximum (queue-jobs.md §7.3d); a stored value above the safe maximum is not rewritten. |
+| `tts_parallel_cap` | integer | (unset) | W-PAR task 007: global per-engine concurrency cap; clamped to each engine's manifest `max_concurrent_workers` at admission time (never raises above it). Unset is automatic: `min(2, safe max)` per engine, resolved at read time and never written. Raising it is refused by the API only when it exceeds the hard limit (queue-jobs.md §7.3d); between the safe maximum and the hard limit it saves. A stored whole number of 1 or more is never rewritten; other numbers are coerced to a whole number of at least 1, and an unreadable value is dropped on the next save. |
+| `tts_engine_caps` | object | `{}` | W-PAR task 007: map of engine ID → per-engine cap override; takes precedence over `tts_parallel_cap` for that engine. Raising it is refused by the API only when it exceeds the hard limit (queue-jobs.md §7.3d); between the safe maximum and the hard limit it saves. A stored whole number of 1 or more is never rewritten; other numbers are coerced to a whole number of at least 1, and an unreadable value is dropped on the next save. |
 
 Settings MUST be persisted to `state.json` on every mutation. Callers MUST NOT modify the settings dict directly — use the `state_settings` API.
 

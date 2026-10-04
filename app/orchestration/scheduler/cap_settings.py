@@ -12,11 +12,13 @@ reason to ship dark anymore.
 
 Settings
 --------
-``tts_parallel_cap`` (int, default 2)
+``tts_parallel_cap`` (int, default unset = automatic)
     Global concurrency cap applied to every engine that does not have a more
     specific per-engine override. Still clamped per-engine to that engine's
     manifest ``max_concurrent_workers`` (e.g. Voxtral/Mixed declare 1, so they
-    stay sequential regardless of this default).
+    stay sequential regardless of this default). When unset, the live value is
+    ``min(2, safe max)`` per engine (``cap_default``), never written to the store. A ``TTS_PARALLEL_CAP`` set by an operator
+    is an explicit value outside the hard-limit check and applies as set.
 
 ``tts_engine_caps`` (dict[str, int], default ``{}``)
     Per-engine cap overrides, keyed by ``engine_id``. Takes precedence over
@@ -28,13 +30,10 @@ Environment fallback
 corresponding setting is absent from the settings store — the same
 settings-then-env precedence used by ``TTS_API_PRIORITY`` / ``api_priority_mode``.
 
-Note: ``app.db.state_settings._normalize_settings`` always materializes a
-default value for ``tts_parallel_cap`` (``2``) once it has run, so in
-practice — exactly like ``api_priority_mode`` / ``TTS_API_PRIORITY`` — the env
-var is a true fallback only before ``state.json`` has ever been normalized
-(e.g. a bare/fresh install, or a caller passing an explicit sparse
-``settings=`` dict in tests). Raising the cap in a running Studio instance
-always goes through the Settings API (``update_settings``), not the env var.
+Precedence for the global cap is settings, then env, then automatic. The store
+no longer seeds ``tts_parallel_cap``, so the env var is a real fallback on any
+install that has not saved a cap. Raising the cap in a running Studio instance
+goes through the Settings API (``update_settings``), not the env var.
 
 Effective cap resolution (INV-5: no engine-ID branching — the same function
 runs for every engine_id)
@@ -86,6 +85,20 @@ def get_global_parallel_cap(settings: Mapping[str, Any] | None = None) -> int:
     return DEFAULT_GLOBAL_CAP
 
 
+def is_global_cap_explicit(settings: Mapping[str, Any] | None = None) -> bool:
+    """True when a readable global cap is set in settings or the environment."""
+    resolved_settings = dict(settings) if settings is not None else _read_settings()
+    for raw in (resolved_settings.get("tts_parallel_cap"), os.environ.get("TTS_PARALLEL_CAP")):
+        if raw is None:
+            continue
+        try:
+            int(raw)
+        except (TypeError, ValueError):
+            continue
+        return True
+    return False
+
+
 def get_engine_caps(settings: Mapping[str, Any] | None = None) -> dict[str, int]:
     """Return the per-engine cap override map (settings, then env, then ``{}``)."""
     resolved_settings = dict(settings) if settings is not None else _read_settings()
@@ -121,14 +134,15 @@ def resolve_effective_cap(
     engine_id: str,
     manifest_max: int,
     settings: Mapping[str, Any] | None = None,
+    auto_cap: int | None = None,
 ) -> int:
     """Resolve the effective concurrency cap for ``engine_id``.
 
     Enforcement order (INV-5 — one code path for every engine_id, no
     engine-ID branching on behavior; ``engine_id`` is used only as a dict key):
     1. Per-engine override (``tts_engine_caps[engine_id]``), if present.
-    2. Otherwise the global cap (``tts_parallel_cap`` / ``TTS_PARALLEL_CAP``),
-       default ``DEFAULT_GLOBAL_CAP`` (2).
+    2. Otherwise the global cap (``tts_parallel_cap`` / ``TTS_PARALLEL_CAP``);
+       when neither is set, ``auto_cap`` if given, else ``DEFAULT_GLOBAL_CAP`` (2).
     3. Clamped to ``manifest_max`` (``behavior.max_concurrent_workers``) —
        the manifest is always the ceiling; a Studio setting can only lower
        the effective cap, never raise it above what the plugin author
@@ -141,6 +155,7 @@ def resolve_effective_cap(
         settings: Optional pre-loaded settings dict (tests / callers that
             already hold a snapshot). When omitted, reads the live settings
             store.
+        auto_cap: Value to use when no global cap is explicitly set.
 
     Returns:
         int: Effective cap, always ``>= 1`` and ``<= manifest_max``.
@@ -151,6 +166,9 @@ def resolve_effective_cap(
     engine_caps = get_engine_caps(resolved_settings)
     requested_cap = engine_caps.get(engine_id)
     if requested_cap is None:
-        requested_cap = get_global_parallel_cap(resolved_settings)
+        if auto_cap is not None and not is_global_cap_explicit(resolved_settings):
+            requested_cap = max(1, int(auto_cap))
+        else:
+            requested_cap = get_global_parallel_cap(resolved_settings)
 
     return max(1, min(requested_cap, manifest_ceiling))

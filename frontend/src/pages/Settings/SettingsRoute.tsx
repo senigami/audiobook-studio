@@ -37,7 +37,7 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
 }) => {
   const { pathname } = useLocation();
   const devMode = useDevMode();
-  const { globalSafeMax, memoryMeasurable, refresh: refreshLimits } = useEngineConcurrency();
+  const { globalSafeMax, globalHardMax, globalCap, memoryMeasurable, refresh: refreshLimits } = useEngineConcurrency();
   const canonicalPathname = useMemo(() => normalizeSettingsPath(pathname), [pathname]);
   const activeTab = useMemo(() => getActiveSettingsTab(canonicalPathname), [canonicalPathname]);
   const visibleTabs = useMemo(
@@ -135,6 +135,8 @@ export const SettingsRoute: React.FC<SettingsRouteProps> = ({
               onRefresh={onRefresh}
               onShowNotification={onShowNotification}
               globalSafeMax={globalSafeMax}
+              globalHardMax={globalHardMax}
+              globalCap={globalCap}
               memoryMeasurable={memoryMeasurable}
               onLimitsRefresh={refreshLimits}
             />

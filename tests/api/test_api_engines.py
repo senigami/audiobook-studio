@@ -550,13 +550,14 @@ def test_get_concurrency_returns_manifest_and_effective_caps(clean_db, client):
     fake_claim = ResourceClaim(engine_class="gpu", cap=4, engine_id="tts_xtts", manifest_max=4)
 
     with patch("app.engines.registry.load_engine_registry", return_value=_fake_registry(["tts_xtts"])), \
-         patch("app.api.routers.cap_guard.local_engine_ids", return_value=[]), \
+         patch("app.orchestration.scheduler.cap_limits.local_engine_ids", return_value=[]), \
          patch("app.orchestration.tasks.synthesis._manifest_resource_claim", return_value=fake_claim):
         response = client.get("/api/engines/concurrency")
 
     assert response.status_code == 200
     body = response.json()
-    assert body["global_cap"] == 2  # DEFAULT_GLOBAL_CAP
+    assert body["global_cap"] == 2
+    assert body["global_cap_is_auto"] is False
     assert len(body["engines"]) == 1
     entry = body["engines"][0]
     assert entry["engine_id"] == "tts_xtts"
@@ -565,6 +566,8 @@ def test_get_concurrency_returns_manifest_and_effective_caps(clean_db, client):
     assert entry["requested_cap"] == 2
     assert entry["effective_cap"] == 2
     assert entry["active_count"] == 0
+    assert "hard_max" in entry
+    assert "global_hard_max" in body
 
 
 def test_put_concurrency_sets_override_within_ceiling(clean_db, client):

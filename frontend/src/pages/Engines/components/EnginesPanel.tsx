@@ -17,7 +17,7 @@ interface EnginesPanelProps {
 }
 
 export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, onRefresh, startupReady = true, settings }) => {
-  const { safeMax, memoryMeasurable, refresh: refreshLimits } = useEngineConcurrency();
+  const { engineCaps, safeMax, hardMax, memoryMeasurable, refresh: refreshLimits } = useEngineConcurrency();
   const [engines, setEngines] = useState<TtsEngine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -274,6 +274,8 @@ export const EnginesPanel: React.FC<EnginesPanelProps> = ({ onShowNotification, 
           onShowNotification={onShowNotification}
           settings={settings}
           safeMax={safeMax[engine.engine_id]}
+          hardMax={hardMax[engine.engine_id]}
+          effectiveCap={engineCaps[engine.engine_id]}
           memoryMeasurable={memoryMeasurable}
           onLimitsRefresh={refreshLimits}
         />

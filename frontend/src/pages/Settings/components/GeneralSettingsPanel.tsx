@@ -2,10 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { ShieldCheck, PlugZap, Music, Palette, FlaskConical, Layers, KeyRound } from 'lucide-react';
 import type { Settings as AppSettings, SpeakerProfile, TtsEngine, Speaker } from '@/types';
 import { buildVoiceOptions } from '@/utils/voiceProfiles';
-import { SettingCard, ToggleButton, NumberStepper, CapHintText, CapRefusalMessage } from '@/pages/Settings/components/SettingsComponents';
+import { SettingCard, ToggleButton, NumberStepper, CapHintText, CapRefusalMessage, CapWarningMessage } from '@/pages/Settings/components/SettingsComponents';
 import { api } from '@/api';
 import { isParallelCapRefused } from '@/api/capRefusal';
-import { capHint, PARALLEL_CAP_COPY } from '@/utils/parallelCapCopy';
+import { capHint, capWarning, PARALLEL_CAP_COPY } from '@/utils/parallelCapCopy';
 import { loadThemePref, saveThemePref, type Theme } from '@/utils/theme';
 import { isDevModeEnabled, setDevModeEnabled, useDevMode } from '@/utils/devMode';
 
@@ -19,8 +19,12 @@ interface GeneralSettingsPanelProps {
   engines?: TtsEngine[];
   onRefresh: () => void;
   onShowNotification?: (message: string) => void;
-  /** Largest global cap the server will accept right now (null until it answers). */
+  /** Largest global cap that is comfortable right now (null until the server answers). */
   globalSafeMax?: number | null;
+  /** Largest global cap the server will accept right now (null until it answers). */
+  globalHardMax?: number | null;
+  /** The global cap in force, saved or automatic (null until the server answers). */
+  globalCap?: number | null;
   memoryMeasurable?: boolean;
   onLimitsRefresh?: () => void;
 }
@@ -33,15 +37,25 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
   onRefresh, 
   onShowNotification,
   globalSafeMax = null,
+  globalHardMax = null,
+  globalCap = null,
   memoryMeasurable = true,
   onLimitsRefresh,
 }) => {
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [capRefusal, setCapRefusal] = useState<string | null>(null);
-  const parallelCapMax = Math.min(MAX_GLOBAL_PARALLEL_CAP, globalSafeMax ?? MAX_GLOBAL_PARALLEL_CAP);
-  const parallelCapHint = capHint({ safeMax: globalSafeMax, ceiling: MAX_GLOBAL_PARALLEL_CAP, memoryMeasurable });
+  const parallelCapMax = Math.min(MAX_GLOBAL_PARALLEL_CAP, globalHardMax ?? MAX_GLOBAL_PARALLEL_CAP);
+  const parallelCapHint = capHint({
+    safeMax: globalSafeMax,
+    hardMax: globalHardMax,
+    ceiling: MAX_GLOBAL_PARALLEL_CAP,
+    memoryMeasurable,
+  });
+  // An unset cap is automatic, so the server's resolved value is what is in force.
+  const parallelCapValue = settings?.tts_parallel_cap ?? globalCap ?? 1;
+  const parallelCapWarning = capWarning({ value: parallelCapValue, safeMax: globalSafeMax, memoryMeasurable });
   const parallelCapDescribedBy =
-    [parallelCapHint ? 'parallel-cap-hint' : null, capRefusal ? 'parallel-cap-error' : null]
+    [parallelCapHint ? 'parallel-cap-hint' : null, parallelCapWarning ? 'parallel-cap-warning' : null, capRefusal ? 'parallel-cap-error' : null]
       .filter(Boolean)
       .join(' ') || undefined;
   const [theme, setTheme] = useState<Theme>(loadThemePref);
@@ -319,13 +333,14 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
             hint={
               <>
                 {parallelCapHint && <CapHintText id="parallel-cap-hint">{parallelCapHint}</CapHintText>}
+                {parallelCapWarning && <CapWarningMessage id="parallel-cap-warning">{parallelCapWarning}</CapWarningMessage>}
                 {capRefusal && <CapRefusalMessage id="parallel-cap-error">{capRefusal}</CapRefusalMessage>}
               </>
             }
             action={
               <NumberStepper
                 ariaLabel="Max concurrent segment renders"
-                value={settings?.tts_parallel_cap ?? 1}
+                value={parallelCapValue}
                 min={1}
                 max={parallelCapMax}
                 describedBy={parallelCapDescribedBy}
@@ -334,7 +349,7 @@ export const GeneralSettingsPanel: React.FC<GeneralSettingsPanelProps> = ({
                 onInputChange={(raw) => {
                   const parsed = parseInt(raw, 10);
                   if (Number.isNaN(parsed)) return;
-                  // Only the fixed ceiling clamps here: a value above the safe maximum must reach
+                  // Only the fixed ceiling clamps here: a value above the hard limit must reach
                   // the server so its refusal explains why, instead of being lowered silently.
                   const clamped = Math.min(MAX_GLOBAL_PARALLEL_CAP, Math.max(1, parsed));
                   updateParallelCap(clamped);

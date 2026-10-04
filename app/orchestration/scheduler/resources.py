@@ -64,7 +64,7 @@ CLASS_ADMISSION_KEY = "_class_admission_at_reserve"
 # children (see ``ResourceClaim.chapter_admission``). ``manifest_max`` is a
 # structural ceiling well above any realistic ``tts_parallel_cap`` value; the
 # live/effective limit is resolved fresh on every admission attempt from the
-# real setting via ``resolve_effective_cap``.
+# real setting via ``resolve_live_effective_cap``.
 CHAPTER_ADMISSION_ENGINE_CLASS = "chapter_admission"
 CHAPTER_ADMISSION_MANIFEST_MAX = 64
 
@@ -180,7 +180,7 @@ class ResourceClaim:
         child segments wait forever for a slot the parent itself is holding.
         ``manifest_max`` is set well above any real cap so it never actually
         clamps — the live limit still tracks the operator's ``tts_parallel_cap``
-        setting via the existing ``resolve_effective_cap`` machinery.
+        setting via the existing ``resolve_live_effective_cap`` machinery.
 
         This engine class is also exempt from the global cap backstop in
         ``reserve_task_resources`` (a second issue found by adversarial
@@ -693,7 +693,8 @@ def reserve_task_resources(
     - ``manifest_max`` (int): Same ceiling value, carried alongside ``cap``
       (task 014). When present together with ``engine_id``, the *live*
       admission limit is resolved fresh on every call via
-      ``resolve_effective_cap(engine_id, manifest_max)`` and passed as
+      ``resolve_live_effective_cap(engine_id, manifest_max)`` (``cap_default``, which
+      defers to ``resolve_effective_cap`` for an explicit cap) and passed as
       ``limit`` to ``try_acquire`` — this is what makes a settings change to
       ``tts_parallel_cap``/``tts_engine_caps`` take effect on already-queued
       work without a restart (M7).
@@ -734,9 +735,9 @@ def reserve_task_resources(
     if engine_class and engine_id:
         manifest_max = resource_claims.get("manifest_max")
         if manifest_max is not None:
-            from app.orchestration.scheduler.cap_settings import resolve_effective_cap  # noqa: PLC0415
+            from app.orchestration.scheduler.cap_default import resolve_live_effective_cap  # noqa: PLC0415
 
-            live_limit = resolve_effective_cap(engine_id=engine_id, manifest_max=int(manifest_max))
+            live_limit = resolve_live_effective_cap(engine_id, int(manifest_max))
 
     waiting_reason: Optional[str] = None
 

@@ -7,10 +7,13 @@ All notable changes to this project will be documented in this file.
 ### Studio now refuses a parallel-rendering setting your computer can't handle
 
 - **Before:** you could set Parallel Segment Rendering (or an engine's Concurrent Renders) as high as the engine allowed. On a computer without enough free memory, too many at once could freeze the whole machine.
-- **Now:** Studio checks free memory when you save. If the number is too high, it does not save it, shows a message with the highest number that is safe right now, and puts the setting back to its last saved value. The Settings page and each engine card show that estimate up front. One at a time is always allowed.
-- Lowering a number, or saving any other setting, is never blocked.
-- The estimate depends on how much memory is free at that moment, so it can change. A number you saved earlier is left as it is.
-- Backend contract: `design-docs/specs/queue-jobs.md` 1.14.0 (section 7.3d), `design-docs/specs/security.md` 1.4.5.
+- **Now:** Studio works out two numbers from the memory that is free when you save: a comfortable number, and a most it can go to (where no free memory would be left). The Settings page and each engine card show both up front. On a new install, until you choose a number, Studio starts at the comfortable number, or 2, whichever is lower; a number saved on an earlier version stays as it was.
+- You can go above the comfortable number, up to the most. The page then shows a calm note that this uses memory Studio normally keeps free, so your computer may feel slow while rendering.
+- Above the most, Studio does not save the number, says why, and puts the setting back to its last saved value. One at a time is always allowed.
+- If Studio cannot check free memory, it will not let you raise the number above 1 for now.
+- Studio checks when you save. It does not check again while a render is running.
+- Lowering a number, or saving any other setting, is never blocked. A number you saved earlier is left exactly as it is.
+- Backend contract: `design-docs/specs/queue-jobs.md` 1.15.0 (section 7.3d), `design-docs/specs/security.md` 1.4.6.
 
 ## [Added] - 2026-10-03
 
