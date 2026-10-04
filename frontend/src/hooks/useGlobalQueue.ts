@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '@/api';
 import { emitToast, TOAST_VISIBLE_MS } from '@/utils/toast';
+import { isPendingJobStatus } from '@/utils/jobStatus';
 import type { ProcessingQueueItem } from '@/types';
 
 export const useGlobalQueue = (initialQueue: ProcessingQueueItem[], paused: boolean, onRefresh?: () => void) => {
@@ -79,7 +80,7 @@ export const useGlobalQueue = (initialQueue: ProcessingQueueItem[], paused: bool
 
     const handleReorder = useCallback((newOrder: ProcessingQueueItem[]) => {
         setQueue(prev => {
-            const nonQueued = prev.filter(q => q.status !== 'queued');
+            const nonQueued = prev.filter(q => !isPendingJobStatus(q.status));
             return [...nonQueued, ...newOrder];
         });
     }, []);
@@ -99,7 +100,7 @@ export const useGlobalQueue = (initialQueue: ProcessingQueueItem[], paused: bool
         }
         
         try {
-            const queuedIds = queue.filter(q => q.status === 'queued').map(q => q.id);
+            const queuedIds = queue.filter(q => isPendingJobStatus(q.status)).map(q => q.id);
             await api.reorderProcessingQueue(queuedIds);
             
             await new Promise(resolve => setTimeout(resolve, 300));

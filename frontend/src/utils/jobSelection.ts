@@ -1,4 +1,5 @@
 import type { Engine, Job } from '@/types';
+import { isPendingJobStatus } from '@/utils/jobStatus';
 
 type SegmentScopedShape = {
   segment_ids?: string[];
@@ -79,7 +80,7 @@ export function pickRelevantJob(candidates: Job[], includeDone = false): Job | u
       const bRank = STATUS_RANK[b.status] ?? 0;
       if (aRank !== bRank) return bRank - aRank;
 
-      if (a.status === 'queued' && b.status === 'queued') {
+      if (isPendingJobStatus(a.status) && isPendingJobStatus(b.status)) {
         const aCreated = a.created_at ?? 0;
         const bCreated = b.created_at ?? 0;
         if (aCreated !== bCreated) return aCreated - bCreated;

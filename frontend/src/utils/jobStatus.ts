@@ -20,3 +20,10 @@ export const ACTIVE_STATUSES = new Set(['queued', 'waiting_for_resources', 'prep
  * report. That single difference from ACTIVE_STATUSES is the intended one.
  */
 export const HAS_LIVE_ETA_STATUSES = new Set(['preparing', 'running', 'finalizing']);
+
+/**
+ * "Is this job still waiting to start?" The one definition the pending queue list, its drag-reorder
+ * and the queued-order commit share, so they cannot disagree about which rows belong to the list.
+ */
+export const isPendingJobStatus = (status: string | undefined): boolean =>
+    status === 'queued' || status === 'waiting_for_resources';

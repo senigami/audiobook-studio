@@ -117,7 +117,7 @@ const ChapterRow: React.FC<ChapterRowProps> = ({
       : 'Queue Chapter';
   const isLoadingModel = activeJob?.reason_code === 'LOADING_MODEL' && displayStatus === 'preparing';
   const queueStatus = activeJob
-    ? (displayStatus === 'queued'
+    ? ((displayStatus === 'queued' || displayStatus === 'waiting_for_resources')
       ? 'Queued'
       : isLoadingModel
         ? 'Loading model'

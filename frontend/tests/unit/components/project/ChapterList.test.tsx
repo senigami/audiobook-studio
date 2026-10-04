@@ -267,6 +267,21 @@ describe('ChapterList', () => {
     expect(screen.getByText('Queued')).toBeInTheDocument();
   });
 
+  it('shows the queued badge for a chapter whose job is waiting for resources', () => {
+    const waitingJob = {
+      id: 'job-waiting',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      status: 'waiting_for_resources',
+      progress: 0,
+      created_at: Date.now() / 1000,
+    } as any;
+
+    render(<ChapterList {...defaultProps} jobs={{ [waitingJob.id]: waitingJob }} />);
+
+    expect(screen.getByText('Queued')).toBeInTheDocument();
+  });
+
   it('shows indeterminate jobs as working instead of predictive percentages while running', () => {
     const liveJob = {
       id: 'job-indeterminate',

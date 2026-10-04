@@ -10,6 +10,7 @@ import { QueueStats } from '@/components/queue/QueueStats';
 import type { Job, ProcessingQueueItem } from '@/types';
 import { formatQueueContext } from '@/utils/queueLabels';
 import { isMainQueueSegmentItem } from '@/utils/jobSelection';
+import { isPendingJobStatus } from '@/utils/jobStatus';
 import './GlobalQueue.css';
 
 type HistoryFilter = 'All' | 'Renders' | 'Samples' | 'API';
@@ -244,7 +245,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
         [activeJobs]
     );
 
-    const pendingJobs = React.useMemo(() => chapterJobs.filter(q => q.status === 'queued' || q.status === 'waiting_for_resources'), [chapterJobs]);
+    const pendingJobs = React.useMemo(() => chapterJobs.filter(q => isPendingJobStatus(q.status)), [chapterJobs]);
     const nothingToPause = trulyProcessingCount === 0 && pendingJobs.length === 0;
     const activeIds = React.useMemo(() => new Set(activeJobs.map(j => j.id)), [activeJobs]);
     const pastJobs = React.useMemo(() => chapterJobs.filter(q => (q.status === 'done' || q.status === 'failed' || q.status === 'cancelled') && !activeIds.has(q.id)), [chapterJobs, activeIds]);
