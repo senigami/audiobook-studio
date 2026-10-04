@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Changed] - 2026-10-04
+
+### A paused queue now says "Waiting to start"
+
+- **Before:** when the queue was paused for resources, the waiting job could vanish from the list or look like it was working.
+- **Now:** that job stays in the queue and reads "Waiting to start". It shows no time estimate and no progress until it really begins.
+
 ## [Changed] - 2026-10-03
 
 ### Studio now refuses a parallel-rendering setting your computer can't handle

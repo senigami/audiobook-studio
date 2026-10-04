@@ -86,7 +86,7 @@ describe('Global Queue Components', () => {
         id: 'job-1',
         type: 'chapter_generation',
         engine: 'xtts',
-        status: 'processing',
+        status: 'running',
         progress: 0.45,
         project_name: 'Test Project',
         split_part: 0,

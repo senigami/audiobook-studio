@@ -245,7 +245,7 @@ export function applyJobUpdated(
         !isNewerRun &&
         typeof oldJob.started_at === 'number'
         && typeof nextUpdates.started_at === 'number'
-        && ['running', 'processing', 'finalizing', 'done'].includes(effectiveStatus || '')
+        && ['running', 'finalizing', 'done'].includes(effectiveStatus || '')
         && nextUpdates.started_at !== oldJob.started_at
     ) {
         delete nextUpdates.started_at;
@@ -255,7 +255,7 @@ export function applyJobUpdated(
     if (
         typeof oldJob.eta_seconds === 'number'
         && typeof nextUpdates.eta_seconds === 'number'
-        && ['running', 'processing', 'finalizing'].includes(effectiveStatus || '')
+        && ['running', 'finalizing'].includes(effectiveStatus || '')
     ) {
         if (Math.abs(nextUpdates.eta_seconds - oldJob.eta_seconds) < 1) {
             delete nextUpdates.eta_seconds;

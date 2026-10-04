@@ -12,6 +12,7 @@ There are two places to watch active and recent work:
 Job types visible in both surfaces:
 
 - **Queued**: Tasks waiting for their turn.
+- **Waiting to start**: A task held back until the computer has room for it. It shows no time estimate until it begins.
 - **Running**: The current task being processed by the AI engine. You will see a predictive progress bar here.
 - **Done/Failed**: History of recent work.
 - **Chunk Labels**: Segment jobs use displayed Performance/Production chunk numbers, so the queue can show titles like `overview: segment #7`.
@@ -63,7 +64,7 @@ The full set of stable topics (authoritative spec: `design-docs/specs/live-event
 
 | Topic | What it carries |
 |---|---|
-| `jobs.lifecycle` | Job-level lifecycle: `queued`, `preparing`, `running`, `finalizing`, `done`, `failed`, `cancelled`. |
+| `jobs.lifecycle` | Job-level lifecycle: `queued`, `waiting_for_resources`, `preparing`, `running`, `finalizing`, `done`, `failed`, `cancelled`. |
 | `queue.items` | Authoritative queue-row creation, status updates, refresh invalidation, and pause state. This is the sole authority for queue rows; other topics are overlay-only. |
 | `chapters.lifecycle` | Chapter-level create/update/delete events. |
 | `chapters.progress` | Chapter-level render progress only. |

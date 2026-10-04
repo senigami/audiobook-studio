@@ -49,7 +49,7 @@ export function buildQueueItemDebugPayload(inputs: QueueItemDebugInputs): Record
         selectedEvidenceWeightFraction, lastActiveDiagnosticsRef, latestSnapshotRef,
     } = inputs;
 
-    const isActiveNow = ['running', 'processing', 'finalizing'].includes(displayStatus);
+    const isActiveNow = ['running', 'finalizing'].includes(displayStatus);
     const lastActive = lastActiveDiagnosticsRef.current || {};
 
     return {

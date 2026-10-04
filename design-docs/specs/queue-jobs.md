@@ -1165,7 +1165,7 @@ is implemented in `app.db.queue` and used by `load_recoverable_task_contexts()`.
 The function returns all `processing_queue` rows for a given status string.
 Startup recovery is now fully wired via `run_startup_recovery()` in `app.core.boot`.
 
-**G3 — RESOLVED (v1.16.0 / #266).** `waiting_for_resources` is a member of the
+**G3: RESOLVED (v1.16.0 / #266).** `waiting_for_resources` is a member of the
 `Status` Literal and has a `STATUS_PRIORITY` entry (1, same as `queued`), so
 `update_job` keeps it and `state.json` and `processing_queue` can hold it. Only
 `cancelling` and `completed` remain orchestrator-internal transition labels:
