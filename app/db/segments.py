@@ -885,7 +885,8 @@ def sync_chapter_segments(chapter_id: str, text_content: str, conn=None):
 
         return existing, preserved_ids, project_id
 
-    if conn:
+    caller_owns_transaction = bool(conn)
+    if caller_owns_transaction:
         existing, preserved_ids, project_id = _sync_with_conn(conn)
     else:
         with _db_lock:
@@ -902,13 +903,30 @@ def sync_chapter_segments(chapter_id: str, text_content: str, conn=None):
     # callers (create_chapter, update_chapter, the explicit resync route) all discard the
     # old bare `True` return today, so this shape change is backward compatible.
     lost_assignments_count = sum(1 for row in removed_rows if row.get("character_id"))
+    result = {"success": True, "lost_assignments_count": lost_assignments_count}
+    cleanup = {
+        "project_id": project_id,
+        "chapter_id": chapter_id,
+        "segment_ids": removed_ids,
+        "explicit_files": removed_files,
+    }
+    if caller_owns_transaction:
+        # The caller has not committed yet; deleting now would strand rows that a failed
+        # commit restores. It runs the cleanup once the commit lands.
+        result["pending_cleanup"] = cleanup
+        return result
+    run_pending_segment_cleanup(cleanup)
+    return result
+
+
+def run_pending_segment_cleanup(cleanup: dict) -> None:
     try:
         from .chapters import cleanup_chapter_audio_files
         cleanup_chapter_audio_files(
-            project_id,
-            chapter_id,
-            removed_ids,
-            explicit_files=removed_files,
+            cleanup["project_id"],
+            cleanup["chapter_id"],
+            cleanup["segment_ids"],
+            explicit_files=cleanup["explicit_files"],
             delete_chapter_outputs=False,
         )
     except Exception:
@@ -916,5 +934,3 @@ def sync_chapter_segments(chapter_id: str, text_content: str, conn=None):
             "Failed to clean up stale chapter audio after segment sync",
             exc_info=True,
         )
-
-    return {"success": True, "lost_assignments_count": lost_assignments_count}
