@@ -234,6 +234,8 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         result = TaskResult(status="failed", message="Unknown error")
 
         while attempt < max_attempts:
+            if attempt > 0 and not self._owns_active(task_id, task):
+                break
             attempt += 1
             try:
                 result = self._dispatch(task=task, context=context)
@@ -245,6 +247,8 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
                     break
 
                 if attempt < max_attempts:
+                    if not self._owns_active(task_id, task):
+                        break
                     logger.warning(
                         "Task %s: retriable failure (attempt %d/%d): %s. Retrying in 2s...",
                         task_id, attempt, max_attempts, result.message
@@ -263,7 +267,14 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         # Final cleanup - always release resources after all attempts
         release_task_resources(task_id=task_id, resource_claims=claim_dict)
         with self._registry_lock:
-            self._active.pop(task_id, None)
+            owns_terminal = self._active.get(task_id) is task
+            if owns_terminal:
+                del self._active[task_id]
+
+        if not owns_terminal:
+            # cancel() took the task and already published the terminal state.
+            logger.info("Task %s: cancelled while running; cancel() owns the terminal event.", task_id)
+            return task_id
 
         if result.status == "completed":
             self._publish(
@@ -276,6 +287,14 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             )
             self._emit_chapter_peaks_sidecar(context)
             self._emit_chapter_timing_sidecar(context)
+        elif result.status == "cancelled":
+            self._publish(
+                context=context,
+                status="cancelled",
+                message=result.message or "Task cancelled.",
+                reason_code="cancelled_ok",
+                force=True,
+            )
         else:
             reason_code = "synthesis_error_retriable" if getattr(result, "retriable", False) else "synthesis_error"
             self._publish(
@@ -756,6 +775,11 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             update_job(context.task_id, status="done", finished_at=time.time(), progress=1.0, output_wav=output_path.name)
         except Exception:
             logger.exception("Recovery: failed to write terminal job status for task %s.", context.task_id)
+
+    def _owns_active(self, task_id: str, task: StudioTask) -> bool:
+        """True while this exact task is still registered; cancel() takes it out."""
+        with self._registry_lock:
+            return self._active.get(task_id) is task
 
     def _is_task_cancelled_in_db(self, task_id: str) -> bool:
         """Secondary, defense-in-depth check for the admission wait loop.
