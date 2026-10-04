@@ -152,6 +152,20 @@ def test_reconcile_queue_status(db_conn):
     assert q[qid1]["status"] == "running"
     assert q[qid2]["status"] == "cancelled"
 
+def test_waiting_for_resources_row_counts_as_active(db_conn):
+    upsert_queue_row("job-done", status="done")
+    upsert_queue_row("job-wait", status="waiting_for_resources")
+    upsert_queue_row("job-run", status="running")
+
+    # Active rows sort ahead of history, so the waiting row must not fall behind "done".
+    ids = [row["id"] for row in get_queue()]
+    assert ids.index("job-wait") < ids.index("job-done")
+
+    # A waiting row with no live job behind it is cancelled like any other active row.
+    reconcile_queue_status(["job-run"])
+    q = {row["id"]: row for row in get_queue()}
+    assert q["job-wait"]["status"] == "cancelled"
+
 def test_reorder_and_remove(db_conn):
     pid = create_project("P1")
     c1 = create_chapter(pid, "C1")

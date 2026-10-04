@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Optional
 from .core import _db_lock, get_connection
 from ..utils.render_trace import trace
 
-ACTIVE_QUEUE_STATUSES = ("queued", "preparing", "running", "finalizing")
+ACTIVE_QUEUE_STATUSES = ("queued", "waiting_for_resources", "preparing", "running", "finalizing")
 TERMINAL_QUEUE_STATUSES = ("done", "failed", "cancelled")
 
 
@@ -157,9 +157,9 @@ def get_queue() -> List[Dict[str, Any]]:
                     LIMIT 1
                 )
                 ORDER BY 
-                   CASE WHEN q.status IN ('queued', 'running', 'preparing', 'finalizing') THEN 0 ELSE 1 END,
-                   CASE WHEN q.status IN ('queued', 'running', 'preparing', 'finalizing') THEN q.created_at END ASC,
-                   CASE WHEN q.status IN ('queued', 'running', 'preparing', 'finalizing') THEN q.rowid END ASC,
+                   CASE WHEN q.status IN ('queued', 'waiting_for_resources', 'running', 'preparing', 'finalizing') THEN 0 ELSE 1 END,
+                   CASE WHEN q.status IN ('queued', 'waiting_for_resources', 'running', 'preparing', 'finalizing') THEN q.created_at END ASC,
+                   CASE WHEN q.status IN ('queued', 'waiting_for_resources', 'running', 'preparing', 'finalizing') THEN q.rowid END ASC,
                    q.completed_at DESC,
                    q.created_at DESC,
                    q.rowid DESC
@@ -187,11 +187,11 @@ def clear_queue() -> bool:
                 SET audio_status = 'unprocessed' 
                 WHERE id IN (
                     SELECT chapter_id FROM processing_queue 
-                    WHERE status IN ('queued', 'preparing')
+                    WHERE status IN ('queued', 'waiting_for_resources', 'preparing')
                 )
             """)
             # 2. Delete all non-running queue items (including done, failed and cancelled)
-            cursor.execute("DELETE FROM processing_queue WHERE status IN ('queued', 'preparing', 'done', 'failed', 'cancelled')")
+            cursor.execute("DELETE FROM processing_queue WHERE status IN ('queued', 'waiting_for_resources', 'preparing', 'done', 'failed', 'cancelled')")
             conn.commit()
             return True
 
@@ -311,7 +311,7 @@ def reconcile_queue_status(active_ids: List[str], known_job_statuses: Optional[D
                     SET status = ?,
                         completed_at = COALESCE(completed_at, ?)
                     WHERE id = ?
-                      AND status IN ('queued', 'preparing', 'running', 'finalizing')
+                      AND status IN ('queued', 'waiting_for_resources', 'preparing', 'running', 'finalizing')
                     """,
                     (status, now, job_id),
                 )
@@ -320,7 +320,7 @@ def reconcile_queue_status(active_ids: List[str], known_job_statuses: Optional[D
             cursor.execute(f"""
                 UPDATE processing_queue 
                 SET status = 'cancelled', completed_at = ? 
-                WHERE status IN ('running', 'queued', 'preparing', 'finalizing')
+                WHERE status IN ('running', 'queued', 'waiting_for_resources', 'preparing', 'finalizing')
                   AND id NOT IN ({placeholders})
                   AND id NOT IN ({','.join(['?'] * len(terminal_ids)) if terminal_ids else "''"})
             """, (now, *active_ids, *terminal_ids))

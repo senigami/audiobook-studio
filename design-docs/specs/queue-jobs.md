@@ -1,11 +1,11 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.15.0
+spec_version: 1.16.0
 status: active
-updated: 2026-10-03
+updated: 2026-10-04
 created: 2026-06-10
-sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
+sources: app/db/models.py, app/db/state_jobs.py, app/db/state_job_guards.py, app/db/queue.py,
          app/orchestration/scheduler/{orchestrator,orchestrator_helpers,policies,resources,recovery,cap_settings,cap_default,cap_limits}.py,
          app/orchestration/tasks/{synthesis,segment_synthesis}.py,
          tts_engines/tts_xtts/plugin/studio/standard_handler.py,
@@ -13,7 +13,8 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
          app/orchestration/progress/eta.py, app/core/boot.py, app/api/web.py,
          app/db/performance.py, app/db/state_settings.py, app/api/routers/engines.py,
          frontend/src/components/queue/QueueItem.tsx,
-         tests/db/test_state_rules.py, test_state_jobs_broadcast.py, test_db_reconcile.py,
+         tests/db/test_state_rules.py, test_state_job_guards.py, test_state_jobs_broadcast.py, test_db_reconcile.py,
+         tests/orchestration/test_submit.py,
          tests/orchestration/test_recovery_db_integration.py,
          tests/orchestration/test_engine_semaphores.py,
          tests/orchestration/test_live_cap_admission.py,
@@ -23,6 +24,7 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/queue.py,
 
 ## Changelog
 
+| 1.16.0  | 2026-10-04 | **`waiting_for_resources` is a real job status; `processing` is not a job status (#266, #236).** §3.3 and G3 claimed the orchestrator maps `waiting_for_resources` to a proper `Status` before `update_job`. It never did: a paused submit published the raw string, it was not in `Status` and had no priority, so the regression guard dropped it for a `queued` job while the live frame still carried it. Fixed: `waiting_for_resources` joins `Status` at priority 1 (same rank as `queued`, so `queued` to `waiting_for_resources` to `preparing` all apply), and it joins `ACTIVE_QUEUE_STATUSES` and every active-status SQL list in `app/db/queue.py`, because `update_job` writes the new status verbatim to `processing_queue` through `update_queue_item`. The chapter segment-status normaliser puts it in the `queued` bucket. §3.9 no longer lists `processing` among the job `displayStatus` values (the backend never emitted it; chapter and segment `audio_status` `processing` is a different field and is unchanged). §7.1 and G3 rewritten to the true behaviour. Regression tests: `tests/db/test_state_rules.py::test_waiting_for_resources_is_kept_and_can_advance`, `tests/db/test_state_job_guards.py::TestStatusPriorityCoversStatus`, `tests/db/test_db_queue.py::test_waiting_for_resources_row_counts_as_active`, `tests/orchestration/test_submit.py::TestOrchestratorPausedSubmit` (R1 revert-checked: red on pre-fix code, green after). |
 | 1.15.0  | 2026-10-03 | **§7.3b/§7.3c/§7.3d: the safe maximum is the guide, a hard limit is the wall (#285).** The estimate from 1.14.0 is now the default and the guide, and a save is refused only above a hard limit: the same formula with the 20 percent reserve at zero on both RAM and VRAM (never below the safe maximum). The refusal keeps the code `parallel_cap_unsafe` and its body now carries `safe_maximum` and `hard_maximum` per violation. `GET /api/engines/concurrency` adds per-engine `hard_max` and top-level `global_hard_max`, `global_cap` and `global_cap_is_auto`. An unset `tts_parallel_cap` is no longer seeded into the settings store; it resolves at read time to `min(2, safe max)` per engine from a result cached per engine for 30 s (`cap_default.resolve_live_effective_cap`, used by admission, the ETA bracket and the GET), with precedence settings, then `TTS_PARALLEL_CAP`, then automatic. A stored whole number of 1 or more is never rewritten; other numbers are coerced to a whole number of at least 1, and an unreadable value is dropped on the next save. Unmeasurable memory resolves to 1. The chapter pool takes `min(2, global safe max)`, and an engine with a footprint of 0 keeps its manifest ceiling. There is no admission clamp to the hard limit and no re-check after save. |
 | 1.14.0  | 2026-10-03 | **§7.3d save-time safe maximum for parallel caps (#251).** Studio now refuses to save a parallel-render cap the machine cannot safely run (four workers of a roughly 4 GB model froze a 24 GB Mac). Per engine, `safe_max = max(1, min(manifest_max, floor(budget / footprint)))`, where `budget = available RAM - 20% of total RAM + (running renders x footprint)` (the same 20% headroom applies to VRAM where measurable) and the footprint is the manifest's `resource.vram_mb`; a footprint of 0 keeps the manifest ceiling even when memory is unmeasurable. Violations carry the known engine id and `basis` of `memory` or `unmeasurable`. Engines are enumerated from the plugin manifests on disk (folders matching the loader's `^tts_[a-z][a-z0-9]{1,14}$` rule) unioned with the TTS Server registry, so a down server or a plugin that failed to load is still checked; a 503 with a plain string detail is returned only when the request would raise a cap AND no engine is known at all, and a request that cannot raise a cap always succeeds. One lock is held across check and write on both routes, and the POST runs it off the event loop. One check on effective caps over every known engine guards both write paths (`POST /api/settings` and `PUT /api/engines/{engine_id}/concurrency`) and refuses with a coded 422 (`parallel_cap_unsafe`) only when an engine's effective cap goes up and ends above its safe maximum; a non-numeric or non-finite cap value (including `Infinity` and `1e400`) is refused with 422 `invalid_cap`, while a per-engine value of `null` clears that override (dropped before saving, so the guard checks exactly what is stored). `GET /api/engines/concurrency` gains `safe_max`, `global_safe_max` and `memory_measurable`, and the PUT route's out-of-range 422 body moves to the coded `cap_out_of_range` shape. Runtime admission (§7.3c) is unchanged. |
 | 1.13.4  | 2026-08-28 | **Issue #238 — recovered synthesis jobs crashed startup recovery with `ValueError: engine_id is required`.** Root-caused to one defect, not two. `SynthesisTask.from_task_context()` (§5.3 step 5) read only `payload.get("engine_id", "")`, but a recovered payload is a raw `processing_queue` row (per `list_jobs_by_status`'s own docstring) whose column is `engine` — there is no `engine_id` key anywhere in a raw DB row, so this affected every recovered plain (non-chapter-fanout) `SynthesisTask` since the recovery path was introduced, not just the reported job. The DB row observed with `status="cancelled"` at crash time is **not** a separate filtering bug — confirmed against §5.3 step 3: `reconcile_queue_status()` intentionally cancels the snapshotted rows between snapshot and recover(), "this is expected and intentional." The crash simply prevented `run_startup_recovery()` from ever reactivating that row back to `queued`/`preparing` per step 5's normal flow. Fixed: `from_task_context` now resolves `engine_id = payload.get("engine_id") or payload.get("engine") or ""`. Also hardened: the background thread `recover()` spawns per job to call `submit()` had no exception handling around the actual thread body — an uncaught exception inside a real thread's target is invisible to the parent stack (Python's default excepthook only prints it to stderr), so a resubmission failure silently dropped the job, stuck forever in whatever terminal status reconciliation had already written, with no trace in the app's own logs or progress stream. The thread body now catches any exception, logs it, and publishes `status="failed"` with `reason_code="recovery_submission_failed"`. Regression tests: `tests/orchestration/test_recovery_db_integration.py::TestRecoveredSynthesisEngineField`, `::TestRecoverySubmissionCrashIsSurfaced` (R1 revert-checked — red on pre-fix code for the correct reason, green after). |
@@ -187,7 +189,7 @@ All fields live on `app.db.models.Job` (a `@dataclass`).
 ### 3.1 Defined statuses
 
 ```
-Status = Literal["queued", "preparing", "running", "finalizing", "done", "failed", "cancelled"]
+Status = Literal["queued", "waiting_for_resources", "preparing", "running", "finalizing", "done", "failed", "cancelled"]
 ```
 
 Priority ordering enforced by `update_job`:
@@ -195,6 +197,7 @@ Priority ordering enforced by `update_job`:
 | Status | Priority value |
 |---|---|
 | `queued` | 1 |
+| `waiting_for_resources` | 1 |
 | `preparing` | 2 |
 | `running` | 3 |
 | `finalizing` | 4 |
@@ -216,10 +219,12 @@ queued → preparing → running → done
                   └──────────→ cancelled
 ```
 
-The orchestrator also uses transient labels (`cancelling`,
-`waiting_for_resources`, `completed`) in `_publish()` calls; these are
-progress-service vocabulary and map to the terminal statuses above before
-reaching `update_job`.
+`waiting_for_resources` is a real `Status`, not a label. A task submitted while
+the orchestrator is paused is published `queued`, then `waiting_for_resources`
+(§7.1), and moves on to `preparing` once admitted. It shares `queued`'s priority,
+so both moves apply. The orchestrator also uses the transient labels
+`cancelling` and `completed` in `_publish()` calls; these are progress-service
+vocabulary and map to the terminal statuses above before reaching `update_job`.
 
 ### 3.4 Transition enforcement
 
@@ -376,7 +381,7 @@ per-group preparing phase to the frontend without touching the durable status.
 
 The global queue row (`frontend/src/components/queue/QueueItem.tsx`) normally
 retains its "active" display params (started time, ETA, ETA basis) only while
-`displayStatus` is `running`/`processing`/`finalizing`, or during the brief
+`displayStatus` is `running`/`finalizing`, or during the brief
 done-transition/visually-pending windows. A plain `preparing` row has none of
 these — there is nothing to count down.
 
@@ -390,7 +395,7 @@ load will take.
 
 `preparingWithEta` is a derived boolean: `displayStatus === 'preparing' && (rawEtaSeconds ?? 0) > 0`.
 When true, it is OR'd into `shouldRetainActiveParams` alongside the
-running/processing/finalizing check, so the row retains `started`/`etaSeconds`/
+running/finalizing check, so the row retains `started`/`etaSeconds`/
 `etaBasis` exactly as it would for an active render. This is presentation-only —
 it does not touch `displayStatus`, does not imply the durable job status is
 anything other than `preparing`/`running` per §3.8, and does not fabricate a
@@ -550,7 +555,7 @@ JobKind = Literal["synthesis", "assembly", "voice_build", "voice_test", "mixed",
 ### 5.1 Queue status sets
 
 ```python
-ACTIVE_QUEUE_STATUSES   = ("queued", "preparing", "running", "finalizing")
+ACTIVE_QUEUE_STATUSES   = ("queued", "waiting_for_resources", "preparing", "running", "finalizing")
 TERMINAL_QUEUE_STATUSES = ("done", "failed", "cancelled")
 ```
 
@@ -663,8 +668,9 @@ done as part of the 1.13.2 fix below.
 `is_paused=True` to settings.  `reserve_task_resources` checks this first; if
 paused, the task receives `admitted=False` with
 `waiting_reason="Orchestrator is paused."` and the orchestrator returns early
-without dispatching (task stays in memory in a `waiting_for_resources` state —
-it is not re-queued).
+without dispatching. Before returning it publishes `status="waiting_for_resources"`
+(a real `Status`, §3.1), which `update_job` stores and `processing_queue` mirrors;
+the task is not re-queued.
 
 ### 7.2 Per-engine-class counting semaphores (`EngineClassSemaphore`) — W-PAR task 001
 
@@ -1159,13 +1165,12 @@ is implemented in `app.db.queue` and used by `load_recoverable_task_contexts()`.
 The function returns all `processing_queue` rows for a given status string.
 Startup recovery is now fully wired via `run_startup_recovery()` in `app.core.boot`.
 
-**G3 — `waiting_for_resources` / `cancelling` / `completed` are
-orchestrator-internal transition labels**, not members of the `Status` Literal in
-`models.py`.  They appear in `_publish()` calls and are surfaced as progress
-events to WebSocket listeners, but `state.json` will never store these strings
-(the orchestrator maps them to proper `Status` values before calling
-`update_job`).  A future spec revision should enumerate the complete set of
-orchestrator-internal transition labels.
+**G3 — RESOLVED (v1.16.0 / #266).** `waiting_for_resources` is a member of the
+`Status` Literal and has a `STATUS_PRIORITY` entry (1, same as `queued`), so
+`update_job` keeps it and `state.json` and `processing_queue` can hold it. Only
+`cancelling` and `completed` remain orchestrator-internal transition labels:
+`_publish` maps `completed` to `done`, and the progress service maps `cancelling`
+to `cancelled` for the queue frame.
 
 **G4 — RESOLVED (v1.0.1 / B20).** `requeue()` now calls `update_job` with
 `status="queued"` and no `force_broadcast=True`, relying on the standard

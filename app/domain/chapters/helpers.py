@@ -51,7 +51,7 @@ def _normalize_segment_status(status: Any) -> str:
         return "rendering"
     if s in {"failed", "error"}:
         return "failed"
-    if s in {"queued", "preparing", "finalizing"}:
+    if s in {"queued", "waiting_for_resources", "preparing", "finalizing"}:
         return "queued"
     return "draft"
 

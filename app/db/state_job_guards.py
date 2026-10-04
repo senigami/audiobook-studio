@@ -22,6 +22,7 @@ STATUS_PRIORITY: Dict[Optional[str], int] = {
     "running": 3,
     "preparing": 2,
     "queued": 1,
+    "waiting_for_resources": 1,
     None: 0,
 }
 

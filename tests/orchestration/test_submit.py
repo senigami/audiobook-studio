@@ -73,6 +73,27 @@ class TestOrchestratorSubmitReconciliation:
         task.run.assert_called_once()
 
 
+class TestOrchestratorPausedSubmit:
+    def test_paused_submit_publishes_a_real_job_status(self, orchestrator, progress_service, make_task):
+        from typing import get_args
+        from app.db.models import Status
+
+        paused = {
+            "admitted": False,
+            "task_type": "synthesis",
+            "task_id": "t1",
+            "waiting_reason": "Orchestrator is paused.",
+        }
+        task = make_task()
+        with patch("app.orchestration.scheduler.orchestrator.reserve_task_resources", return_value=paused):
+            orchestrator.submit(task)
+
+        statuses = [c.kwargs["status"] for c in progress_service.publish.call_args_list]
+        assert statuses[-1] == "waiting_for_resources"
+        assert set(statuses) <= set(get_args(Status))
+        task.run.assert_not_called()
+
+
 class TestOrchestratorProgressTransitions:
     def _get_statuses(self, progress: MagicMock) -> list[str]:
         return [c.kwargs["status"] for c in progress.publish.call_args_list]

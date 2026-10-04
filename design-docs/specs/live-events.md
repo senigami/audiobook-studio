@@ -1,9 +1,9 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.9.7
+spec_version: 1.9.8
 status: active
-updated: 2026-07-11
+updated: 2026-10-04
 sources:
   - app/api/ws.py
   - app/api/contracts/events.py
@@ -24,6 +24,7 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.9.8   | 2026-10-04 | **`QueueItemPayload.status` gains `waiting_for_resources` (#266).** A task submitted while the orchestrator is paused now publishes this status on `queue.items` and is kept by the state guard (`queue-jobs.md` 1.16.0). It ranks with `queued`. The `jobs.lifecycle` and segment-frame unions are unchanged. |
 | 1.9.7   | 2026-07-11 | **Bracketed ETA under parallelism wired onto `chapters.progress` (W-PAR task 013 — closes 1.9.3 Known gaps §7 for the ETA half).** `ProgressService` now maintains a per-job `BracketedEtaTracker`, fed real segment completions at the existing SEGMENT_SAVED transition inside `publish()` (pool key = engine, chars = `active_render_group_weight`, wall-seconds = a per-segment start-time stamp taken at first observation in `enrich()`). `build_chapter_progress_event` gained additive `eta_low_seconds`/`eta_high_seconds`/`eta_display` params, only populated once a job's tracker exists (i.e. after its first real segment completion) — before that, the fields are entirely absent, never `null` placeholders. The no-fabrication guard (`"estimating…"`, both bounds `None`) is preserved end-to-end until >= 3 completions. `engine_id` is now also threaded through `ProgressService.publish`/`orchestrator_publish._publish` (previously never threaded — a pre-existing gap this task closes as a prerequisite) so the tracker's pool key reflects the real active engine rather than always falling back to a single `"default"` pool. The pre-existing single-value `etaSeconds` computation is completely untouched — cap=1 parity confirmed by the pinned `test_eta_bracket_and_engine_cap.py::TestBracketedEtaCap1Parity` tests, still passing. `ChapterSynthesisTask.stalled_segments` (task 005) is unaffected and remains the other, still-open half of the original 1.9.3 gap note. |
 | 1.9.6   | 2026-07-11 | **`active_segments_map` entries gain `'failed'` phase, `char_count`, and `engine_id` (W-PAR task 008).** Backend: `ChapterSynthesisTask._on_child_segment_tick` (`app/orchestration/tasks/segment_synthesis.py`) now writes `phase: "failed"` for a segment whose retry-once policy has been exhausted (`final=True` only from the `as_completed` loop's authoritative post-retry outcome — never from a mid-render marker tick, so a first-attempt failure still eligible for its one permitted retry keeps popping, not fabricating a premature permanent-failure signal). Every entry (`preparing`/`rendering`/`done`/`failed`) now also carries a best-effort `char_count`, looked up per-segment by `segment_id` via `_segment_char_count` — **never** the render-group's combined `text_length` (a group can merge several manuscript segments up to the engine's chunk limit; using the group total would inflate every segment folded into a multi-segment group). `char_count`/`engine_id` are additive and optional; no wire-shape change for existing consumers that don't read them. Frontend: `ActiveSegmentMapEntry` (`frontend/src/types/index.ts`) updated to match; `frontend/src/hooks/useSegmentInventory.ts` merges this map with the chapter's full script-view segment list to hydrate `SegmentRenderMonitor` on the Activity page (dev-gated). |
 | 1.9.5   | 2026-07-05 | **`active_segments_map` now also rides `chapters.progress` (the missing "delivery leg").** `build_chapter_progress_event` previously had no `active_segments_map` parameter — the field could reach `queue_item_status` but never `chapter_progress`, and a map-only update (no status change) never triggers `queue.items` either (gated on `status_changed`/`terminal_reset`), so the field was structurally unreachable by the frontend for any mid-render tick regardless of how often the backend wrote it. Same shape as the existing `queue_item_status` field (snake_case, additive). Companion fix, `queue-jobs.md` 1.11.4: the map is now populated event-driven (per-child tick, diff-gated) instead of only at group-completion boundaries, which were structurally always empty. |
@@ -169,7 +170,7 @@ interface JobLifecyclePayload {
 
 ```ts
 interface QueueItemPayload {
-  status?: 'queued'|'preparing'|'running'|'finalizing'|'done'|'failed'|'cancelled';
+  status?: 'queued'|'waiting_for_resources'|'preparing'|'running'|'finalizing'|'done'|'failed'|'cancelled';
   progress?: number;
   etaSeconds?: number | null;
   message?: string | null;
