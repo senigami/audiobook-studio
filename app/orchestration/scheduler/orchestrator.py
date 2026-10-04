@@ -120,6 +120,7 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             message="Task accepted, reconciling batches.",
             reason_code="submitted",
         )
+        job_seen = self._job_exists(task_id)
 
         # Step 3 — reconcile per batch
         reconcile_result = self._reconcile_task(context)
@@ -162,7 +163,7 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         admitted = False
         try:
             while True:
-                if stop_event.is_set() or self._is_task_cancelled_in_db(task_id):
+                if stop_event.is_set() or self._is_task_cancelled_in_db(task_id, job_was_seen=job_seen):
                     logger.info(
                         "Task %s: cancelled while waiting for resource admission — not dispatching.",
                         task_id,
@@ -781,19 +782,26 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         with self._registry_lock:
             return self._active.get(task_id) is task
 
-    def _is_task_cancelled_in_db(self, task_id: str) -> bool:
-        """Secondary, defense-in-depth check for the admission wait loop.
+    def _job_exists(self, task_id: str) -> bool:
+        try:
+            from app.db.state import get_jobs  # noqa: PLC0415
+            return task_id in get_jobs()
+        except Exception:
+            return False
 
-        A caller that fails to reach ``cancel()`` in time (e.g. a stale race
-        outside this orchestrator) may still write ``status="cancelled"``
-        directly to the job row. Fail-open on any error — this is a belt-
-        and-suspenders check alongside the ``stop_event`` registry, not the
-        primary cancellation signal.
+    def _is_task_cancelled_in_db(self, task_id: str, *, job_was_seen: bool = False) -> bool:
+        """Defence-in-depth check for the admission wait loop.
+
+        A job that existed after ``queued`` and is now gone was deleted by the
+        user, so it counts as cancelled. A job that was never seen stays
+        fail-open (a failed ``queued`` publish must not strand real work).
         """
         try:
             from app.db.state import get_jobs  # noqa: PLC0415
             job = get_jobs().get(task_id)
-            return bool(job) and getattr(job, "status", None) == "cancelled"
+            if job is None:
+                return job_was_seen
+            return getattr(job, "status", None) == "cancelled"
         except Exception:
             return False
 
