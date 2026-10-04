@@ -54,7 +54,7 @@ def cancel_chapter_generation(chapter_id: str):
     orchestrator = create_orchestrator()
     jobs = get_jobs()
     for jid, job in jobs.items():
-        if job.get("chapter_id") == chapter_id and job.get("status") in ["queued", "running", "preparing"]:
+        if job.get("chapter_id") == chapter_id and job.get("status") in ["queued", "waiting_for_resources", "running", "preparing"]:
             if not orchestrator.cancel(jid):
                 update_job(jid, status="cancelled", force_broadcast=True)
     broadcast_chapter_updated(chapter_id)

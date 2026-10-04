@@ -64,7 +64,7 @@ The full set of stable topics (authoritative spec: `design-docs/specs/live-event
 
 | Topic | What it carries |
 |---|---|
-| `jobs.lifecycle` | Job-level lifecycle: `queued`, `waiting_for_resources`, `preparing`, `running`, `finalizing`, `done`, `failed`, `cancelled`. |
+| `jobs.lifecycle` | Job-level lifecycle: `queued`, `preparing`, `running`, `finalizing`, `done`, `failed`, `cancelled`. A job held while the queue is paused (`waiting_for_resources`) shows on `queue.items`, not here. |
 | `queue.items` | Authoritative queue-row creation, status updates, refresh invalidation, and pause state. This is the sole authority for queue rows; other topics are overlay-only. |
 | `chapters.lifecycle` | Chapter-level create/update/delete events. |
 | `chapters.progress` | Chapter-level render progress only. |

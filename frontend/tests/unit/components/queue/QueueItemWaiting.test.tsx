@@ -16,7 +16,7 @@ const waitingJob = {
 
 describe('QueueItem waiting_for_resources row', () => {
   it('reads "Waiting to start" and shows no live ETA', () => {
-    render(
+    const { container } = render(
       <QueueItem
         job={waitingJob}
         localPaused={false}
@@ -27,6 +27,7 @@ describe('QueueItem waiting_for_resources row', () => {
     );
     expect(screen.getByText('Waiting to start')).toBeTruthy();
     expect(screen.queryByText(/Processing/)).toBeNull();
-    expect(screen.queryByText(/remaining|ETA/i)).toBeNull();
+    expect(container.querySelector('[data-testid*="eta" i]')).toBeNull();
+    expect(container.textContent).not.toMatch(/T120|\b120\b|\b2m\b|remaining|ETA/i);
   });
 });

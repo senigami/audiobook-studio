@@ -218,7 +218,7 @@ def update_queue_item(queue_id: str, status: str, audio_length_seconds: float = 
                 updates.append("started_at = NULL")
                 updates.append("completed_at = NULL")
                 updates.append("error = NULL")
-            elif status == 'queued':
+            elif status in ('queued', 'waiting_for_resources'):
                 updates.append("started_at = NULL")
                 updates.append("completed_at = NULL")
                 updates.append("error = NULL")

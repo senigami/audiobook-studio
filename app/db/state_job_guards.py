@@ -27,7 +27,7 @@ STATUS_PRIORITY: Dict[Optional[str], int] = {
 }
 
 TERMINAL_STATUSES = frozenset({"done", "failed", "cancelled"})
-ACTIVE_STATUSES = frozenset({"queued", "preparing"})
+ACTIVE_STATUSES = frozenset({"queued", "waiting_for_resources", "preparing"})
 
 
 # ---------------------------------------------------------------------------

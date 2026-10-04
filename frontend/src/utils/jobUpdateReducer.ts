@@ -31,7 +31,7 @@ export function detectNewerRun(
     updates: Record<string, any>,
     incomingStatus: string | undefined
 ): boolean {
-    const isRollbackStatus = ['queued', 'preparing', 'running'].includes(incomingStatus || '');
+    const isRollbackStatus = ['queued', 'waiting_for_resources', 'preparing', 'running'].includes(incomingStatus || '');
     if (!isRollbackStatus) return false;
 
     const dbUpdatedAt = updates.db_updated_at;
@@ -234,7 +234,7 @@ export function applyJobUpdated(
     if (typeof nextUpdates.progress === 'number') {
         const currentProgress = typeof oldJob.progress === 'number' ? oldJob.progress : 0;
         const effectiveStatus = (nextUpdates.status as string | undefined) ?? currentStatus;
-        if (!isNewerRun && !['queued', 'preparing'].includes(effectiveStatus || '') && nextUpdates.progress < currentProgress) {
+        if (!isNewerRun && !['queued', 'waiting_for_resources', 'preparing'].includes(effectiveStatus || '') && nextUpdates.progress < currentProgress) {
             delete nextUpdates.progress;
         }
     }

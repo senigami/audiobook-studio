@@ -10,7 +10,7 @@ from ...db.state import get_jobs
 from ..ws import broadcast_queue_update
 
 router = APIRouter(prefix="/api", tags=["queue"])
-ACTIVE_JOB_STATUSES = {"queued", "preparing", "running", "finalizing"}
+ACTIVE_JOB_STATUSES = {"queued", "waiting_for_resources", "preparing", "running", "finalizing"}
 TERMINAL_JOB_STATUSES = {"done", "failed", "cancelled"}
 _LIVE_QUEUE_JOB_FIELDS = (
     "progress",
@@ -72,7 +72,7 @@ def api_get_queue():
 
     needs_reconcile = any(
         (
-            item["status"] in ("queued", "preparing", "running", "finalizing")
+            item["status"] in ("queued", "waiting_for_resources", "preparing", "running", "finalizing")
             and (
                 item["id"] not in active_ids
                 or item["id"] in terminal_job_statuses
@@ -127,7 +127,7 @@ def api_mass_delete_queue():
     clear_queue()
     # Clear all non-running jobs from in-memory state too
     jobs = get_jobs()
-    to_del = [jid for jid, j in jobs.items() if j.status in ('queued', 'done', 'failed', 'cancelled')]
+    to_del = [jid for jid, j in jobs.items() if j.status in ('queued', 'waiting_for_resources', 'done', 'failed', 'cancelled')]
     delete_jobs(to_del)
     broadcast_queue_update()
     return JSONResponse({"status": "ok", "message": "processes stopped", "cleared": count})

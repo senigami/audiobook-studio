@@ -352,7 +352,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
   const [openMenuRowId, setOpenMenuRowId] = React.useState<string | null>(null);
 
   const pickActiveJob = React.useCallback((chapterId: string, includeRecentDone = false) => {
-    const liveStatuses = new Set(['running', 'preparing', 'finalizing', 'queued']);
+    const liveStatuses = new Set(['running', 'preparing', 'finalizing', 'queued', 'waiting_for_resources']);
     const now = Date.now() / 1000;
     const relevantJobs = Object.values(jobs).filter(j => j.project_id === projectId && (j.chapter_id === chapterId || (j.chapter_file && j.chapter_file.includes(chapterId))));
     const ranked = relevantJobs

@@ -136,6 +136,22 @@ describe('HydrationCoordinator', () => {
     expect(selectActiveQueueCount(merged)).toBe(0);
   });
 
+  it('counts a waiting_for_resources job as live in the active queue count', () => {
+    const snapshot = coordinator.createSnapshot([
+      {
+        id: 'job-waiting',
+        project_id: 'proj-1',
+        chapter_id: 'chap-1',
+        status: 'waiting_for_resources',
+        progress: 0,
+        classification: 'chapter',
+      } as any,
+    ]);
+
+    const merged = coordinator.mergeQueueWithOverlays(snapshot, { eventsById: {} });
+    expect(selectActiveQueueCount(merged)).toBe(1);
+  });
+
   it('keeps segment-capable chapter jobs visible in the main queue', () => {
     const snapshot = coordinator.createSnapshot([
       {

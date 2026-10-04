@@ -17,6 +17,7 @@ const STATUS_RANK: Record<string, number> = {
   finalizing: 4,
   preparing: 3,
   queued: 2,
+  waiting_for_resources: 2,
   done: 1,
   failed: 0,
   cancelled: 0,
@@ -61,7 +62,7 @@ export function isChapterScopedJob(job: Job): boolean {
 
 export function pickRelevantJob(candidates: Job[], includeDone = false): Job | undefined {
   return [...candidates]
-    .filter(job => includeDone || ['queued', 'preparing', 'running', 'finalizing'].includes(job.status))
+    .filter(job => includeDone || ['queued', 'waiting_for_resources', 'preparing', 'running', 'finalizing'].includes(job.status))
     .sort((a, b) => {
       const aIsTerminal = ['done', 'failed', 'cancelled', 'error'].includes(a.status);
       const bIsTerminal = ['done', 'failed', 'cancelled', 'error'].includes(b.status);

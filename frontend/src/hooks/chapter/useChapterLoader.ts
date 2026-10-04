@@ -44,7 +44,7 @@ export const useChapterLoader = (
   const liveSegmentJobIds = useMemo(() => {
     const ids = new Set<string>();
     for (const chapterJob of chapterJobs) {
-      if (!['queued', 'preparing', 'running', 'finalizing'].includes(chapterJob.status)) continue;
+      if (!['queued', 'waiting_for_resources', 'preparing', 'running', 'finalizing'].includes(chapterJob.status)) continue;
       for (const segmentId of chapterJob.segment_ids || []) {
         ids.add(segmentId);
       }
@@ -246,7 +246,7 @@ export const useChapterLoader = (
     return mainJob?.status === 'done' && !hasRenderedOutput && state.chapter?.audio_status !== 'processing';
   }, [chapterJobs, hasRenderedOutput, state.chapter?.audio_status]);
   
-  const needsCompletionRefresh = jobLooksPendingCompletion || (state.chapter?.audio_status === 'processing' && !chapterJobs.some(j => ['queued', 'preparing', 'running', 'finalizing'].includes(j.status)));
+  const needsCompletionRefresh = jobLooksPendingCompletion || (state.chapter?.audio_status === 'processing' && !chapterJobs.some(j => ['queued', 'waiting_for_resources', 'preparing', 'running', 'finalizing'].includes(j.status)));
 
   useEffect(() => {
     if (completionPollTimerRef.current) {

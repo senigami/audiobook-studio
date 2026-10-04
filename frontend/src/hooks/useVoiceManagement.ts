@@ -58,7 +58,7 @@ export function useVoiceManagement(
                 if (
                     job.engine === 'voice_build' &&
                     job.speaker_profile &&
-                    (job.status === 'queued' || job.status === 'preparing' || job.status === 'running')
+                    (job.status === 'queued' || job.status === 'waiting_for_resources' || job.status === 'preparing' || job.status === 'running')
                 ) {
                     if (updated[job.speaker_profile] !== job.id) {
                         updated[job.speaker_profile] = job.id;

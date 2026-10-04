@@ -32,7 +32,7 @@ def _chapter_has_active_generation(chapter_id: str) -> bool:
             SELECT 1
             FROM processing_queue
             WHERE chapter_id = ?
-              AND status IN ('queued', 'preparing', 'running', 'finalizing')
+              AND status IN ('queued', 'waiting_for_resources', 'preparing', 'running', 'finalizing')
             LIMIT 1
             """,
             (chapter_id,),
@@ -43,7 +43,7 @@ def _chapter_has_active_generation(chapter_id: str) -> bool:
     try:
         from ..db.state import get_jobs
 
-        active_statuses = {"queued", "preparing", "running", "finalizing"}
+        active_statuses = {"queued", "waiting_for_resources", "preparing", "running", "finalizing"}
         for job in get_jobs().values():
             if getattr(job, "status", None) not in active_statuses:
                 continue

@@ -62,7 +62,7 @@ _tts_log_line_sequences: dict[str, int] = {}
 _tts_log_line_sequences_lock = threading.Lock()
 
 _TERMINAL_STATUSES = {"done", "failed", "cancelled"}
-_LATCH_REENTRY_STATUSES = {"queued", "preparing"}
+_LATCH_REENTRY_STATUSES = {"queued", "waiting_for_resources", "preparing"}
 _terminal_latched_jobs: set[str] = set()
 _terminal_latch_lock = threading.RLock()
 
