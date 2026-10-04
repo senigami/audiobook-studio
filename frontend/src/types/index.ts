@@ -65,7 +65,7 @@ export interface TtsEngine {
   built_in?: boolean;
 }
 
-export type Status = 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled' | 'error';
+export type Status = 'queued' | 'waiting_for_resources' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled' | 'error';
 
 // Task 005 (north_star_screen_parity) — partial 3-state workflow status,
 // derived server-side (app/db/projects.py::list_projects) from chapter

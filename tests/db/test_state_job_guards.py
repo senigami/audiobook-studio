@@ -149,3 +149,21 @@ class TestIsTerminalReset:
 
     def test_terminal_to_running_not_reset(self):
         assert is_terminal_reset("done", {"status": "running"}) is False
+
+
+# ---------------------------------------------------------------------------
+# Status contract: every Status member is ranked
+# ---------------------------------------------------------------------------
+
+class TestStatusPriorityCoversStatus:
+    def test_every_status_member_has_a_priority(self):
+        from typing import get_args
+        from app.db.models import Status
+        from app.db.state_job_guards import STATUS_PRIORITY
+
+        missing = [s for s in get_args(Status) if s not in STATUS_PRIORITY]
+        assert missing == []
+
+    def test_waiting_for_resources_moves_between_queued_and_preparing(self):
+        assert apply_status_regression_guard("queued", "waiting_for_resources", False) == (True, None)
+        assert apply_status_regression_guard("waiting_for_resources", "preparing", False) == (True, None)

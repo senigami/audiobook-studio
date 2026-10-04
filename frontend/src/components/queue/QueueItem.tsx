@@ -153,7 +153,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const isSegmentJob = isVoiceBuildJob || isMainQueueSegmentItem(job) || (liveJob ? isMainQueueSegmentItem(liveJob) : false);
     const activeSegmentId = isSegmentJob ? (liveJob?.active_segment_id ?? job.active_segment_id) : undefined;
     const isGroupedJob = (job.render_group_count ?? 0) > 0 || (liveJob?.render_group_count ?? 0) > 0;
-    const isRunningOrProcessing = ['running', 'processing', 'finalizing'].includes(status) || (status === 'preparing' && isGroupedJob);
+    const isRunningOrFinalizing = ['running', 'finalizing'].includes(status) || (status === 'preparing' && isGroupedJob);
     const liveActiveSegmentProgress = typeof liveJob?.active_segment_progress === 'number'
         ? liveJob.active_segment_progress
         : undefined;
@@ -164,10 +164,10 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     const hasMeaningfulActiveSegmentProgress = typeof selectedActiveSegmentProgress === 'number'
         && selectedActiveSegmentProgress > 0
         && selectedActiveSegmentProgress <= 1;
-    const activeSegmentProgress = isSegmentJob && isRunningOrProcessing && (activeSegmentId || hasMeaningfulActiveSegmentProgress)
+    const activeSegmentProgress = isSegmentJob && isRunningOrFinalizing && (activeSegmentId || hasMeaningfulActiveSegmentProgress)
         ? selectedActiveSegmentProgress
         : undefined;
-    const jobProgress = isRunningOrProcessing
+    const jobProgress = isRunningOrFinalizing
         ? Math.max(job.progress ?? 0, liveJob?.progress ?? 0)
         : (job.progress ?? 0);
     const progress = (() => {
@@ -284,7 +284,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     // preparing into running. Keep the queue row in the backend's explicit status so the UI
     // does not start the active animation early just because group bookkeeping showed up.
     const displayStatus = isCloudLike && status === 'finalizing' ? 'finalizing' : (showIndeterminateProgress ? 'preparing' : status);
-    const wasActive = prevStatus && ['running', 'preparing', 'finalizing', 'processing'].includes(prevStatus);
+    const wasActive = prevStatus && ['running', 'preparing', 'finalizing'].includes(prevStatus);
     const justTransitionedToDone = wasActive && status === 'done';
 
     const [stableStarted, setStableStarted] = React.useState<number | null | undefined>(rawStarted);
@@ -295,7 +295,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     React.useEffect(() => {
         if (typeof rawStarted === 'number' && rawStarted > 0) {
             setStableStarted(rawStarted);
-        } else if (!['running', 'processing', 'finalizing'].includes(displayStatus)) {
+        } else if (!['running', 'finalizing'].includes(displayStatus)) {
             if (!isVisuallyPending && !justTransitionedToDone) {
                 setStableStarted(rawStarted);
             }
@@ -332,7 +332,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
             }
         }
 
-        if (!['running', 'processing', 'finalizing'].includes(displayStatus)) {
+        if (!['running', 'finalizing'].includes(displayStatus)) {
             if (!isVisuallyPending && !justTransitionedToDone) {
                 setStableEta(rawEtaSeconds);
                 setStableUpdatedAt(updatedAt);
@@ -346,7 +346,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
     // model: the backend publishes a pre-factored ETA during the cold-load window; the global queue
     // should show the countdown rather than suppressing it with "Preparing…").
     const preparingWithEta = displayStatus === 'preparing' && (rawEtaSeconds ?? 0) > 0;
-    const shouldRetainActiveParams = ['running', 'processing', 'finalizing'].includes(displayStatus) || isVisuallyPending || justTransitionedToDone || preparingWithEta;
+    const shouldRetainActiveParams = ['running', 'finalizing'].includes(displayStatus) || isVisuallyPending || justTransitionedToDone || preparingWithEta;
     const started = shouldRetainActiveParams
         ? (stableStarted ?? rawStarted)
         : undefined;
@@ -386,7 +386,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
         ? (liveJob?.confidence ?? job.confidence ?? 1.0)
         : (job.confidence ?? liveJob?.confidence ?? 1.0);
 
-    const isActive = ['running', 'processing', 'finalizing'].includes(displayStatus);
+    const isActive = ['running', 'finalizing'].includes(displayStatus);
     const liveJobSourceTopic = (liveJob as any)?.source_topic;
     const jobSourceTopic = (job as any)?.source_topic;
     const etaSelectionDebug = React.useMemo(() => ({
@@ -618,7 +618,8 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                     estimatedEndAt={derivedEstimatedEndAt}
                     updatedAt={derivedUpdatedAt}
                     persistenceKey={activeSegmentId ? `${job.id}:${activeSegmentId}` : job.id}
-                    status={displayStatus}
+                    status={displayStatus === 'waiting_for_resources' ? 'queued' : displayStatus}
+                    statusTextOverride={displayStatus === 'waiting_for_resources' ? 'Waiting to start' : undefined}
                     label={
                         // Terminal jobs (done/failed/cancelled) already show their state on
                         // the right side of this row via terminalStatusText ("Complete" /
@@ -626,6 +627,7 @@ export const QueueItem: React.FC<QueueItemProps> = ({
                         // at the same time is a contradictory display (design-review fix).
                         isTerminalStatus(displayStatus)
                             ? ""
+                            : displayStatus === 'waiting_for_resources' ? ""
                             : displayStatus === 'preparing' ? "Preparing..." : (displayStatus === 'finalizing' ? "Finalizing..." : "Processing...")
                     }
                     predictive={true}

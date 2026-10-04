@@ -146,9 +146,9 @@ export function useStudioChapter({
 
   const job = generatingSegmentJob || propJob;
   const isChapterProcessing = useMemo(() => (
-    (!!job && ['queued', 'preparing', 'running', 'finalizing'].includes(job.status))
+    (!!job && ['queued', 'waiting_for_resources', 'preparing', 'running', 'finalizing'].includes(job.status))
     || chapter?.audio_status === 'processing'
-    || chapterJobs.some((chapterJob) => ['queued', 'preparing', 'running', 'finalizing'].includes(chapterJob.status))
+    || chapterJobs.some((chapterJob) => ['queued', 'waiting_for_resources', 'preparing', 'running', 'finalizing'].includes(chapterJob.status))
   ), [job, chapter?.audio_status, chapterJobs]);
 
   // W-PAR 006: chapter-level map of concurrently-active segments (C2 contract,
@@ -364,7 +364,7 @@ export function useStudioChapter({
   }, [isChapterProcessing, pageHandoff.hasPending, generatingSegmentIds, liveSegmentJobIds, chapterRenderActiveSegmentId, chapterRenderActiveBatchSegmentIds, chapterRenderPreparingSegmentIds, chapterRenderActiveSegmentsMap, expandToBatchSpanIds]);
 
   const chapterRenderQueuedSegmentIds = useMemo(() => {
-    if (!job || !['queued', 'preparing', 'running'].includes(job.status)) return new Set<string>();
+    if (!job || !['queued', 'waiting_for_resources', 'preparing', 'running'].includes(job.status)) return new Set<string>();
     const allIds = job.segment_ids || [];
     if (allIds.length > 0) {
       const activeIdx = allIds.indexOf(chapterRenderActiveSegmentId || '');
@@ -420,9 +420,9 @@ export function useStudioChapter({
       }
       return progressById;
     }
-    const activeJob = generatingSegmentJob && ['queued', 'preparing', 'running', 'finalizing'].includes(generatingSegmentJob.status)
+    const activeJob = generatingSegmentJob && ['queued', 'waiting_for_resources', 'preparing', 'running', 'finalizing'].includes(generatingSegmentJob.status)
       ? generatingSegmentJob
-      : (job && ['queued', 'preparing', 'running', 'finalizing'].includes(job.status) ? job : null);
+      : (job && ['queued', 'waiting_for_resources', 'preparing', 'running', 'finalizing'].includes(job.status) ? job : null);
     const activeSpanId = chapterRenderActiveSegmentId;
     if (!activeSpanId || chapterRenderRenderingSegmentIds.size === 0) return progressById;
     const activeBatch = scriptViewData?.render_batches?.find((batch) =>

@@ -104,4 +104,30 @@ describe('QueueStats', () => {
         
         expect(screen.getByText('Finishing...')).toBeDefined();
     });
+
+    it('returns null when a waiting_for_resources job has no eta_seconds, like a queued one', () => {
+        const queue = [
+            { id: '1', status: 'running' } as any,
+            { id: '2', status: 'waiting_for_resources' } as any
+        ];
+        const jobs = {
+            '1': { id: '1', status: 'running', progress: 0.5, eta_seconds: 120 } as any,
+            '2': { id: '2', status: 'waiting_for_resources', progress: 0 } as any
+        };
+        const { container } = render(<QueueStats queue={queue} jobs={jobs} />);
+        expect(container.firstChild).toBeNull();
+    });
+
+    it('adds a waiting_for_resources job with an eta_seconds to the total', () => {
+        const queue = [
+            { id: '1', status: 'running' } as any,
+            { id: '2', status: 'waiting_for_resources' } as any
+        ];
+        const jobs = {
+            '1': { id: '1', status: 'running', progress: 0.5, eta_seconds: 120 } as any, // 60s left
+            '2': { id: '2', status: 'waiting_for_resources', progress: 0, eta_seconds: 60 } as any
+        };
+        render(<QueueStats queue={queue} jobs={jobs} />);
+        expect(screen.getByText('2m remaining')).toBeDefined();
+    });
 });

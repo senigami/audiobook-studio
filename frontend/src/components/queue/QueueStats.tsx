@@ -2,6 +2,7 @@ import React from 'react';
 import { Clock } from 'lucide-react';
 import type { ProcessingQueueItem, Job } from '@/types';
 import { useNow } from '@/hooks/useNow';
+import { HAS_LIVE_ETA_STATUSES, isPendingJobStatus } from '@/utils/jobStatus';
 
 interface QueueStatsProps {
     queue: ProcessingQueueItem[];
@@ -12,7 +13,7 @@ export const QueueStats: React.FC<QueueStatsProps> = React.memo(({ queue, jobs }
     // P6: use shared clock hook so N mounted instances share one interval.
     const now = useNow();
 
-    const activeProcessing = queue.filter(q => ['queued', 'preparing', 'running', 'finalizing'].includes(q.status));
+    const activeProcessing = queue.filter(q => isPendingJobStatus(q.status) || HAS_LIVE_ETA_STATUSES.has(q.status));
     
     if (activeProcessing.length === 0) return null;
 

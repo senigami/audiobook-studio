@@ -49,7 +49,7 @@ function shouldHoldCompletedIndeterminateJob(
   const hasActiveSibling = queue.some(other =>
     other.id !== item.id &&
     other.chapter_id === item.chapter_id &&
-    ['queued', 'preparing', 'running', 'finalizing'].includes(other.status)
+    ['queued', 'waiting_for_resources', 'preparing', 'running', 'finalizing'].includes(other.status)
   );
   return !hasActiveSibling;
 }
@@ -155,6 +155,7 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
       finalizing: 4,
       preparing: 3,
       queued: 2,
+      waiting_for_resources: 2,
       done: 1,
       failed: 0,
       cancelled: 0,
@@ -198,7 +199,7 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
       }
 
       const isSnapshotTerminal = ['done', 'failed', 'cancelled'].includes(item.status);
-      const isOverlayActive = ['queued', 'preparing', 'running', 'finalizing'].includes(delta.status || '');
+      const isOverlayActive = ['queued', 'waiting_for_resources', 'preparing', 'running', 'finalizing'].includes(delta.status || '');
 
       const hasSnapshotTimestamps = typeof item.updated_at === 'number' || typeof item.started_at === 'number' || typeof item.created_at === 'number';
 
@@ -224,7 +225,7 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
           ? (item.progress ?? 0)
           : Math.max(delta.progress ?? 0, item.progress ?? 0);
 
-      if (status === 'queued' || status === 'preparing') {
+      if (status === 'queued' || status === 'waiting_for_resources' || status === 'preparing') {
         progress = 0;
       }
 
@@ -277,6 +278,6 @@ export const createHydrationCoordinator = (): HydrationCoordinator => ({
 
 export const selectActiveQueueCount = (queue: ProcessingQueueItem[]): number => {
   return queue.filter(item => 
-    ['queued', 'preparing', 'running', 'finalizing'].includes(item.status) && !isMainQueueSegmentItem(item)
+    ['queued', 'waiting_for_resources', 'preparing', 'running', 'finalizing'].includes(item.status) && !isMainQueueSegmentItem(item)
   ).length;
 };

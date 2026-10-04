@@ -294,6 +294,37 @@ describe('Scoped aria-live status announcement', () => {
     });
   });
 
+  it('announces a waiting job as queued, never as the raw status string', async () => {
+    const waitingJob = {
+      id: 'job-waiting',
+      project_id: 'book-1',
+      chapter_id: 'ch-unrendered',
+      status: 'waiting_for_resources',
+      progress: 0,
+      created_at: 1000,
+    } as unknown as Job;
+    function Harness() {
+      const [jobs, setJobs] = useState<Record<string, Job>>({});
+      return (
+        <MemoryRouter>
+          <ChapterWorkspaceHeader bookId="book-1" chapters={CHAPTERS_MIXED} activeChapterId="ch-done" jobs={jobs} />
+          <button type="button" onClick={() => setJobs({ [waitingJob.id]: waitingJob })}>
+            simulate job push
+          </button>
+        </MemoryRouter>
+      );
+    }
+
+    render(<Harness />);
+    await openDropdown();
+    fireEvent.click(screen.getByRole('button', { name: 'simulate job push' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent(/Unrendered Chapter status: queued/);
+    });
+    expect(screen.getByRole('status')).not.toHaveTextContent('waiting_for_resources');
+  });
+
   it('does not announce anything if the dropdown is closed when the status changes', async () => {
     function Harness() {
       const [chapters, setChapters] = useState(CHAPTERS_MIXED);

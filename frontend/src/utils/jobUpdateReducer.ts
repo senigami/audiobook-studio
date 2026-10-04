@@ -15,6 +15,7 @@ export const STATUS_PRIORITY: Record<string, number> = {
     running: 3,
     preparing: 2,
     queued: 1,
+    waiting_for_resources: 1,
 };
 
 export interface ApplyJobUpdatedOpts {
@@ -31,7 +32,7 @@ export function detectNewerRun(
     updates: Record<string, any>,
     incomingStatus: string | undefined
 ): boolean {
-    const isRollbackStatus = ['queued', 'preparing', 'running'].includes(incomingStatus || '');
+    const isRollbackStatus = ['queued', 'waiting_for_resources', 'preparing', 'running'].includes(incomingStatus || '');
     if (!isRollbackStatus) return false;
 
     const dbUpdatedAt = updates.db_updated_at;
@@ -234,7 +235,7 @@ export function applyJobUpdated(
     if (typeof nextUpdates.progress === 'number') {
         const currentProgress = typeof oldJob.progress === 'number' ? oldJob.progress : 0;
         const effectiveStatus = (nextUpdates.status as string | undefined) ?? currentStatus;
-        if (!isNewerRun && !['queued', 'preparing'].includes(effectiveStatus || '') && nextUpdates.progress < currentProgress) {
+        if (!isNewerRun && !['queued', 'waiting_for_resources', 'preparing'].includes(effectiveStatus || '') && nextUpdates.progress < currentProgress) {
             delete nextUpdates.progress;
         }
     }
@@ -245,7 +246,7 @@ export function applyJobUpdated(
         !isNewerRun &&
         typeof oldJob.started_at === 'number'
         && typeof nextUpdates.started_at === 'number'
-        && ['running', 'processing', 'finalizing', 'done'].includes(effectiveStatus || '')
+        && ['running', 'finalizing', 'done'].includes(effectiveStatus || '')
         && nextUpdates.started_at !== oldJob.started_at
     ) {
         delete nextUpdates.started_at;
@@ -255,7 +256,7 @@ export function applyJobUpdated(
     if (
         typeof oldJob.eta_seconds === 'number'
         && typeof nextUpdates.eta_seconds === 'number'
-        && ['running', 'processing', 'finalizing'].includes(effectiveStatus || '')
+        && ['running', 'finalizing'].includes(effectiveStatus || '')
     ) {
         if (Math.abs(nextUpdates.eta_seconds - oldJob.eta_seconds) < 1) {
             delete nextUpdates.eta_seconds;

@@ -10,6 +10,7 @@ import { QueueStats } from '@/components/queue/QueueStats';
 import type { Job, ProcessingQueueItem } from '@/types';
 import { formatQueueContext } from '@/utils/queueLabels';
 import { isMainQueueSegmentItem } from '@/utils/jobSelection';
+import { isPendingJobStatus } from '@/utils/jobStatus';
 import './GlobalQueue.css';
 
 type HistoryFilter = 'All' | 'Renders' | 'Samples' | 'API';
@@ -164,7 +165,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
             if (prevJob) {
                 const wasActive = ['running', 'preparing', 'finalizing'].includes(prevJob.status);
                 const isTerminal = ['done', 'failed', 'cancelled'].includes(job.status);
-                const wentActiveAgain = ['done', 'failed', 'cancelled'].includes(prevJob.status) && ['running', 'preparing', 'finalizing', 'queued'].includes(job.status);
+                const wentActiveAgain = ['done', 'failed', 'cancelled'].includes(prevJob.status) && ['running', 'preparing', 'finalizing', 'queued', 'waiting_for_resources'].includes(job.status);
 
                 if (wentActiveAgain) {
                     if (timeoutsRef.current[job.id]) {
@@ -244,7 +245,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
         [activeJobs]
     );
 
-    const pendingJobs = React.useMemo(() => chapterJobs.filter(q => q.status === 'queued'), [chapterJobs]);
+    const pendingJobs = React.useMemo(() => chapterJobs.filter(q => isPendingJobStatus(q.status)), [chapterJobs]);
     const nothingToPause = trulyProcessingCount === 0 && pendingJobs.length === 0;
     const activeIds = React.useMemo(() => new Set(activeJobs.map(j => j.id)), [activeJobs]);
     const pastJobs = React.useMemo(() => chapterJobs.filter(q => (q.status === 'done' || q.status === 'failed' || q.status === 'cancelled') && !activeIds.has(q.id)), [chapterJobs, activeIds]);
@@ -292,7 +293,7 @@ export const GlobalQueue: React.FC<GlobalQueueProps> = ({
                     )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-1)' }}>
                         {!compact && <p style={{ color: 'var(--text-muted)', margin: 0 }}>Manage your batch audio generation tasks</p>}
-                        {chapterJobs.some(q => ['queued', 'preparing', 'running', 'finalizing'].includes(q.status)) && (
+                        {chapterJobs.some(q => ['queued', 'waiting_for_resources', 'preparing', 'running', 'finalizing'].includes(q.status)) && (
                             <QueueStats queue={chapterJobs} jobs={jobs} />
                         )}
                     </div>

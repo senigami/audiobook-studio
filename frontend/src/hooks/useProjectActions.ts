@@ -133,7 +133,7 @@ export function useProjectActions(
   const handleQueueAllUnprocessed = async (chapters: Chapter[], jobs: any, selectedVoice?: string) => {
     const liveQueuedChapterIds = new Set(
         Object.values(jobs)
-            .filter((j: any) => j.engine !== 'audiobook' && (j.status === 'queued' || j.status === 'running'))
+            .filter((j: any) => j.engine !== 'audiobook' && (j.status === 'queued' || j.status === 'waiting_for_resources' || j.status === 'running'))
             .map((j: any) => {
                 const stem = j.chapter_file.replace('.txt', '');
                 const parts = stem.split('_'); 

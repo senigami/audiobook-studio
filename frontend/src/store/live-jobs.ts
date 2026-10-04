@@ -71,6 +71,7 @@ const STATUS_PRIORITY: Record<string, number> = {
   running: 3,
   preparing: 2,
   queued: 1,
+  waiting_for_resources: 1,
 };
 
 export interface LiveJobsStore {

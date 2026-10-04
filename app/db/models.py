@@ -3,7 +3,7 @@ from typing import Optional, Literal, List, Dict, Any
 
 JobEngineId = str
 JobKind = Literal["synthesis", "assembly", "voice_build", "voice_test", "mixed", "generic"]
-Status = Literal["queued", "preparing", "running", "finalizing", "done", "failed", "cancelled"]
+Status = Literal["queued", "waiting_for_resources", "preparing", "running", "finalizing", "done", "failed", "cancelled"]
 
 @dataclass
 class Job:

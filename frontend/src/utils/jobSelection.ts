@@ -1,4 +1,5 @@
 import type { Engine, Job } from '@/types';
+import { isPendingJobStatus } from '@/utils/jobStatus';
 
 type SegmentScopedShape = {
   segment_ids?: string[];
@@ -17,6 +18,7 @@ const STATUS_RANK: Record<string, number> = {
   finalizing: 4,
   preparing: 3,
   queued: 2,
+  waiting_for_resources: 2,
   done: 1,
   failed: 0,
   cancelled: 0,
@@ -61,7 +63,7 @@ export function isChapterScopedJob(job: Job): boolean {
 
 export function pickRelevantJob(candidates: Job[], includeDone = false): Job | undefined {
   return [...candidates]
-    .filter(job => includeDone || ['queued', 'preparing', 'running', 'finalizing'].includes(job.status))
+    .filter(job => includeDone || ['queued', 'waiting_for_resources', 'preparing', 'running', 'finalizing'].includes(job.status))
     .sort((a, b) => {
       const aIsTerminal = ['done', 'failed', 'cancelled', 'error'].includes(a.status);
       const bIsTerminal = ['done', 'failed', 'cancelled', 'error'].includes(b.status);
@@ -78,7 +80,7 @@ export function pickRelevantJob(candidates: Job[], includeDone = false): Job | u
       const bRank = STATUS_RANK[b.status] ?? 0;
       if (aRank !== bRank) return bRank - aRank;
 
-      if (a.status === 'queued' && b.status === 'queued') {
+      if (isPendingJobStatus(a.status) && isPendingJobStatus(b.status)) {
         const aCreated = a.created_at ?? 0;
         const bCreated = b.created_at ?? 0;
         if (aCreated !== bCreated) return aCreated - bCreated;

@@ -53,6 +53,21 @@ def test_recoverable_contexts_found_for_queued_job():
     assert job_id in task_ids, f"Expected {job_id} in recovered contexts, got {task_ids}"
 
 
+def test_recoverable_contexts_found_for_waiting_for_resources_job():
+    """A row parked by a paused orchestrator is recovered exactly like a queued one."""
+    pid = create_project("P-recovery-parked")
+    cid = create_chapter(pid, "C-recovery-parked")
+    job_id = "job-recover-parked-1"
+    upsert_queue_row(job_id, project_id=pid, chapter_id=cid, status="waiting_for_resources")
+
+    contexts = load_recoverable_task_contexts()
+
+    ctx = next((c for c in contexts if c.task_id == job_id), None)
+    assert ctx is not None, f"Expected {job_id} in recovered contexts, got {[c.task_id for c in contexts]}"
+    assert ctx.payload.get("_recovered") is True
+    assert ctx.payload.get("_recovered_from_status") == "waiting_for_resources"
+
+
 def test_recoverable_context_has_recovered_flag():
     """Recovered context payload carries _recovered=True and the original status."""
     pid = create_project("P-recovery-flag")

@@ -18,6 +18,13 @@ function makeJob(overrides: Partial<Job>): Job {
 }
 
 describe('pickRelevantJob', () => {
+  it('selects a waiting_for_resources job as live and ranks it with queued', () => {
+    const waiting = makeJob({ id: 'waiting-job', status: 'waiting_for_resources', created_at: 100 });
+    const done = makeJob({ id: 'done-job', status: 'done', created_at: 300 });
+
+    expect(pickRelevantJob([done, waiting])?.id).toBe('waiting-job');
+  });
+
   it('prefers a running job over a newer queued job for the same chapter', () => {
     const runningJob = makeJob({
       id: 'running-job',

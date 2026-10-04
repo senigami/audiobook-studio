@@ -3,7 +3,7 @@ import type { Job } from '@/types';
 const clamp01 = (value: number) => Math.max(0, Math.min(value, 1));
 
 const isLiveStatus = (status: string | undefined) =>
-  status === 'queued' || status === 'preparing' || status === 'running' || status === 'finalizing';
+  status === 'queued' || status === 'waiting_for_resources' || status === 'preparing' || status === 'running' || status === 'finalizing';
 
 const resolveEndAtMs = (job: Job, nowMs: number) => {
   if (typeof job.estimated_end_at === 'number' && job.estimated_end_at > 0) {
@@ -28,7 +28,7 @@ const resolveEndAtMs = (job: Job, nowMs: number) => {
 
 const predictScalarProgress = (job: Job, progress: number, nowMs: number) => {
   const baseProgress = clamp01(progress);
-  if (!isLiveStatus(job.status) || job.status === 'queued' || job.status === 'preparing') {
+  if (!isLiveStatus(job.status) || job.status === 'queued' || job.status === 'waiting_for_resources' || job.status === 'preparing') {
     return baseProgress;
   }
 

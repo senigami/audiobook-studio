@@ -27,7 +27,7 @@ export const useChapterStatus = (
   );
   const rawQueueStatus = queuePending
     ? 'Queued'
-    : job?.status === 'queued'
+    : (job?.status === 'queued' || job?.status === 'waiting_for_resources')
       ? 'Queued'
       : job?.status === 'preparing'
         ? 'Preparing'

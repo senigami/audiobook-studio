@@ -5,6 +5,7 @@
 /** Statuses that warrant clearing in-progress runtime fields. */
 export const TERMINAL_LIFECYCLE_STATUSES = [
   'queued',
+  'waiting_for_resources',
   'preparing',
   'finalizing',
   'done',

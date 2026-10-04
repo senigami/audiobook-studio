@@ -61,7 +61,7 @@ export const useEtaConfidence = ({
     useEffect(() => {
         const s = stateRef.current;
         const keyChanged = s.lastPersistenceKey !== persistenceKey || s.lastStartedAt !== startedAt;
-        const isTerminal = status === 'done' || status === 'failed' || status === 'cancelled' || status === 'queued';
+        const isTerminal = status === 'done' || status === 'failed' || status === 'cancelled' || status === 'queued' || status === 'waiting_for_resources';
         if (keyChanged || isTerminal) {
             s.samples = [];
             s.ema = null;

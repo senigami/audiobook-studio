@@ -267,6 +267,51 @@ describe('ChapterList', () => {
     expect(screen.getByText('Queued')).toBeInTheDocument();
   });
 
+  it('shows the queued badge for a chapter whose job is waiting for resources', () => {
+    const waitingJob = {
+      id: 'job-waiting',
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      status: 'waiting_for_resources',
+      progress: 0,
+      created_at: Date.now() / 1000,
+    } as any;
+
+    render(<ChapterList {...defaultProps} jobs={{ [waitingJob.id]: waitingJob }} />);
+
+    expect(screen.getByText('Queued')).toBeInTheDocument();
+  });
+
+  it('gives a waiting job the same progress bar label, state and status as a queued job', () => {
+    const makeJob = (status: string) => ({
+      id: `job-${status}`,
+      project_id: 'proj-1',
+      chapter_id: 'chap-123',
+      status,
+      progress: 0,
+      created_at: Date.now() / 1000,
+    } as any);
+
+    const queued = makeJob('queued');
+    const { unmount } = render(<ChapterList {...defaultProps} jobs={{ [queued.id]: queued }} />);
+    const queuedBar = screen.getByTestId('progress-bar');
+    const expected = {
+      label: queuedBar.getAttribute('data-label'),
+      state: queuedBar.getAttribute('data-state'),
+      status: queuedBar.getAttribute('data-status'),
+    };
+    unmount();
+
+    const waiting = makeJob('waiting_for_resources');
+    render(<ChapterList {...defaultProps} jobs={{ [waiting.id]: waiting }} />);
+    const waitingBar = screen.getByTestId('progress-bar');
+
+    expect(waitingBar.getAttribute('data-label')).not.toContain('waiting_for_resources');
+    expect(waitingBar.getAttribute('data-label')).toBe(expected.label);
+    expect(waitingBar.getAttribute('data-state')).toBe(expected.state);
+    expect(waitingBar.getAttribute('data-status')).toBe(expected.status);
+  });
+
   it('shows indeterminate jobs as working instead of predictive percentages while running', () => {
     const liveJob = {
       id: 'job-indeterminate',

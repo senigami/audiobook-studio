@@ -122,6 +122,30 @@ describe('useGlobalQueue', () => {
     expect(onRefresh).toHaveBeenCalled();
   });
 
+  it('keeps a waiting_for_resources job in one place when the queue is reordered', async () => {
+    const onRefresh = vi.fn();
+    const mixedQueue: ProcessingQueueItem[] = [
+      { id: 'run1', status: 'running', chapter_title: 'Running' } as any,
+      { id: 'job1', status: 'queued', chapter_title: 'Chapter 1' } as any,
+      { id: 'wait1', status: 'waiting_for_resources', chapter_title: 'Chapter 2' } as any,
+    ];
+    const { result } = renderHook(() => useGlobalQueue(mixedQueue, false, onRefresh));
+
+    act(() => {
+      result.current.handleDragStart();
+      result.current.handleReorder([mixedQueue[2], mixedQueue[1]]);
+    });
+
+    const ids = result.current.queue.map(q => q.id);
+    expect(ids).toEqual(['run1', 'wait1', 'job1']);
+
+    await act(async () => {
+      await result.current.handleDragEnd();
+    });
+
+    expect(api.reorderProcessingQueue).toHaveBeenCalledWith(['wait1', 'job1']);
+  });
+
   it('handles removal — defers the actual remove behind an undo toast', async () => {
     const onRefresh = vi.fn();
     const toastHandler = vi.fn();

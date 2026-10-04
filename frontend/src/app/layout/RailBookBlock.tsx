@@ -38,7 +38,7 @@ function summarizeChapterProgress(
           (job) =>
             job.project_id === chapter.project_id &&
             (job.chapter_id === chapter.id || job.chapter_file?.includes(chapter.id)) &&
-            (job.status === 'queued' || job.status === 'preparing' || job.status === 'running' || job.status === 'finalizing'),
+            (job.status === 'queued' || job.status === 'waiting_for_resources' || job.status === 'preparing' || job.status === 'running' || job.status === 'finalizing'),
         )
       : false;
     if (hasActiveJob || chapter.audio_status === 'processing') {

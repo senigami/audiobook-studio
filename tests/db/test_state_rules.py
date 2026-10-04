@@ -326,3 +326,17 @@ def test_chapter_queue_updates_do_not_overwrite_active_segment_eta():
 
 
 
+
+
+def test_waiting_for_resources_is_kept_and_can_advance():
+    job = Job(id="test_waiting", engine="xtts", chapter_file="c1.txt", status="queued", progress=0.0, created_at=time.time())
+    put_job(job)
+
+    update_job("test_waiting", status="waiting_for_resources")
+    assert load_state()["jobs"]["test_waiting"]["status"] == "waiting_for_resources"
+
+    update_job("test_waiting", status="preparing")
+    assert load_state()["jobs"]["test_waiting"]["status"] == "preparing"
+
+    update_job("test_waiting", status="running")
+    assert load_state()["jobs"]["test_waiting"]["status"] == "running"

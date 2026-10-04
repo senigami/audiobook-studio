@@ -410,7 +410,7 @@ def startup_event():
     # 1. Clear out any stuck jobs from state.json
     from ..db.state import get_jobs, delete_jobs
     jobs = get_jobs()
-    stuck_jids = [jid for jid, j in jobs.items() if j.status in ("queued", "running", "preparing", "finalizing")]
+    stuck_jids = [jid for jid, j in jobs.items() if j.status in ("queued", "waiting_for_resources", "running", "preparing", "finalizing")]
     if stuck_jids:
         delete_jobs(stuck_jids)
         logger.info(f"Startup: Cleared {len(stuck_jids)} stuck jobs from memory state.")
@@ -422,7 +422,7 @@ def startup_event():
 
         # Fresh job list after deletion
         remaining_jobs = get_jobs()
-        active_statuses = {"queued", "preparing", "running", "finalizing"}
+        active_statuses = {"queued", "waiting_for_resources", "preparing", "running", "finalizing"}
         terminal_statuses = {"done", "failed", "cancelled"}
         active_jobs = {
             jid: job
