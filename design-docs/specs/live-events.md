@@ -1,7 +1,7 @@
 # Live Event Stream Contract
 
 ```
-spec_version: 1.9.9
+spec_version: 1.9.10
 status: active
 updated: 2026-10-04
 sources:
@@ -24,6 +24,7 @@ sources:
 
 | Version | Date       | Change                      |
 |---------|------------|-----------------------------|
+| 1.9.10  | 2026-10-04 | Wording fix (no behavior change): a `done`/`failed` overlay absent from the snapshot is kept for the 30 s window or while the snapshot holds another row for the same chapter, not for the 30 s window alone (#258). |
 | 1.9.9   | 2026-10-04 | **A cancelled job is never followed by `done`/`failed`; a cancelled overlay creates no queue row (#258).** Server: after `cancelled` for a job id, the server never emits `done` or `failed` for that job (`queue-jobs.md` 3.4a); the existing re-entry `queued`/`preparing` rule is unchanged. Client: a `cancelled` overlay for a job absent from the canonical snapshot MUST NOT be synthesized into a queue row (a deliberate cancel or removal leaves no ghost card); `done`/`failed` overlays keep the 30 s history hold. Gateway jobs (`/api/v1/tts`) have no `processing_queue` row, so they are overlay-only: a plain cancel makes their row disappear instead of showing "Cancelled". No envelope change; `version` stays 1. |
 | 1.9.8   | 2026-10-04 | **`QueueItemPayload.status` gains `waiting_for_resources` (#266).** A task submitted while the orchestrator is paused now publishes this status on `queue.items` and is kept by the state guard (`queue-jobs.md` 1.16.0). It ranks with `queued`. The `jobs.lifecycle` and segment-frame unions are unchanged. |
 | 1.9.7   | 2026-07-11 | **Bracketed ETA under parallelism wired onto `chapters.progress` (W-PAR task 013 — closes 1.9.3 Known gaps §7 for the ETA half).** `ProgressService` now maintains a per-job `BracketedEtaTracker`, fed real segment completions at the existing SEGMENT_SAVED transition inside `publish()` (pool key = engine, chars = `active_render_group_weight`, wall-seconds = a per-segment start-time stamp taken at first observation in `enrich()`). `build_chapter_progress_event` gained additive `eta_low_seconds`/`eta_high_seconds`/`eta_display` params, only populated once a job's tracker exists (i.e. after its first real segment completion) — before that, the fields are entirely absent, never `null` placeholders. The no-fabrication guard (`"estimating…"`, both bounds `None`) is preserved end-to-end until >= 3 completions. `engine_id` is now also threaded through `ProgressService.publish`/`orchestrator_publish._publish` (previously never threaded — a pre-existing gap this task closes as a prerequisite) so the tracker's pool key reflects the real active engine rather than always falling back to a single `"default"` pool. The pre-existing single-value `etaSeconds` computation is completely untouched — cap=1 parity confirmed by the pinned `test_eta_bracket_and_engine_cap.py::TestBracketedEtaCap1Parity` tests, still passing. `ChapterSynthesisTask.stalled_segments` (task 005) is unaffected and remains the other, still-open half of the original 1.9.3 gap note. |
@@ -755,7 +756,7 @@ Rules:
     ticks drive the segment bar, not the parent queue row).
   - `broadcast_job_updated` (`app/api/ws.py`, Path B — handler-direct `update_job`
     writes) stays status-transition-only for the queue row.
-- A `queue.items` or overlay frame with status `cancelled` for a job id that is absent from the canonical snapshot MUST NOT create a queue row. Cancelled jobs that are in the snapshot render normally; `done`/`failed` overlays absent from the snapshot are held for the 30 s history window and then dropped.
+- A `queue.items` or overlay frame with status `cancelled` for a job id that is absent from the canonical snapshot MUST NOT create a queue row. Cancelled jobs that are in the snapshot render normally; `done`/`failed` overlays absent from the snapshot are kept for the 30 s history window, or for as long as the snapshot still holds another row for the same chapter, and are dropped otherwise.
 - A terminal `jobs.lifecycle` frame (`done`/`failed`/`cancelled`) additionally
   triggers a client queue REFETCH (`useQueueSync`) — a legal re-read of the
   durable rows, guaranteeing eventual consistency if a queue.items frame drops.
