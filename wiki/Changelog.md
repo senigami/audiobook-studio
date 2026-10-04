@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Fixed] - 2026-10-04
+
+### Cancelling a render no longer leaves a red "Failed" card
+
+- **Before:** cancelling a chapter render, or removing it from the queue, could leave a card reading "Failed" (sometimes titled "Unavailable Synthesis") even though you had stopped it on purpose.
+- **Now:** a chapter render you cancel shows as "Cancelled" while it is still in the queue, and one you remove goes away without a red card.
+
 ## [Changed] - 2026-10-04
 
 ### A paused queue now says "Waiting to start"

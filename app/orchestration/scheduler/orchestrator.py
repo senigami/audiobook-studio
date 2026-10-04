@@ -120,6 +120,7 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             message="Task accepted, reconciling batches.",
             reason_code="submitted",
         )
+        job_seen = self._job_exists(task_id)
 
         # Step 3 — reconcile per batch
         reconcile_result = self._reconcile_task(context)
@@ -162,7 +163,7 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         admitted = False
         try:
             while True:
-                if stop_event.is_set() or self._is_task_cancelled_in_db(task_id):
+                if stop_event.is_set() or self._is_task_cancelled_in_db(task_id, job_was_seen=job_seen):
                     logger.info(
                         "Task %s: cancelled while waiting for resource admission — not dispatching.",
                         task_id,
@@ -234,6 +235,8 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         result = TaskResult(status="failed", message="Unknown error")
 
         while attempt < max_attempts:
+            if not self._owns_active(task_id, task):
+                break
             attempt += 1
             try:
                 result = self._dispatch(task=task, context=context)
@@ -245,6 +248,8 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
                     break
 
                 if attempt < max_attempts:
+                    if not self._owns_active(task_id, task):
+                        break
                     logger.warning(
                         "Task %s: retriable failure (attempt %d/%d): %s. Retrying in 2s...",
                         task_id, attempt, max_attempts, result.message
@@ -263,7 +268,20 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         # Final cleanup - always release resources after all attempts
         release_task_resources(task_id=task_id, resource_claims=claim_dict)
         with self._registry_lock:
-            self._active.pop(task_id, None)
+            owns_terminal = self._active.get(task_id) is task
+            if owns_terminal:
+                del self._active[task_id]
+
+        if not owns_terminal:
+            # cancel() took the task and already published the terminal state.
+            logger.info("Task %s: cancelled while running; cancel() owns the terminal event.", task_id)
+            # A later in-dispatch preparing frame can reactivate the row; put it
+            # back. update_job is a no-op for a deleted row, so no stub returns.
+            if self._job_exists(task_id) and not self._is_task_cancelled_in_db(task_id):
+                from app.db.state import update_job  # noqa: PLC0415
+
+                update_job(task_id, status="cancelled", force_broadcast=True)
+            return task_id
 
         if result.status == "completed":
             self._publish(
@@ -276,6 +294,16 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             )
             self._emit_chapter_peaks_sidecar(context)
             self._emit_chapter_timing_sidecar(context)
+        elif result.status == "cancelled":
+            if not self._job_exists(task_id):
+                return task_id
+            self._publish(
+                context=context,
+                status="cancelled",
+                message=result.message or "Task cancelled.",
+                reason_code="cancelled_ok",
+                force=True,
+            )
         else:
             reason_code = "synthesis_error_retriable" if getattr(result, "retriable", False) else "synthesis_error"
             self._publish(
@@ -757,19 +785,31 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         except Exception:
             logger.exception("Recovery: failed to write terminal job status for task %s.", context.task_id)
 
-    def _is_task_cancelled_in_db(self, task_id: str) -> bool:
-        """Secondary, defense-in-depth check for the admission wait loop.
+    def _owns_active(self, task_id: str, task: StudioTask) -> bool:
+        """True while this exact task is still registered; cancel() takes it out."""
+        with self._registry_lock:
+            return self._active.get(task_id) is task
 
-        A caller that fails to reach ``cancel()`` in time (e.g. a stale race
-        outside this orchestrator) may still write ``status="cancelled"``
-        directly to the job row. Fail-open on any error — this is a belt-
-        and-suspenders check alongside the ``stop_event`` registry, not the
-        primary cancellation signal.
+    def _job_exists(self, task_id: str) -> bool:
+        try:
+            from app.db.state import get_jobs  # noqa: PLC0415
+            return task_id in get_jobs()
+        except Exception:
+            return False
+
+    def _is_task_cancelled_in_db(self, task_id: str, *, job_was_seen: bool = False) -> bool:
+        """Defence-in-depth check for the admission wait loop.
+
+        A job that existed after ``queued`` and is now gone was deleted by the
+        user, so it counts as cancelled. A job that was never seen stays
+        fail-open (a failed ``queued`` publish must not strand real work).
         """
         try:
             from app.db.state import get_jobs  # noqa: PLC0415
             job = get_jobs().get(task_id)
-            return bool(job) and getattr(job, "status", None) == "cancelled"
+            if job is None:
+                return job_was_seen
+            return getattr(job, "status", None) == "cancelled"
         except Exception:
             return False
 
