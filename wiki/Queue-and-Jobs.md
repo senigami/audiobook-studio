@@ -12,7 +12,7 @@ There are two places to watch active and recent work:
 Job types visible in both surfaces:
 
 - **Queued**: Tasks waiting for their turn.
-- **Waiting to start**: Waiting to start: the queue is paused. It shows no time estimate.
+- **Waiting to start**: A task you submitted while the queue is paused. It shows no time estimate and no progress.
 - **Running**: The current task being processed by the AI engine. You will see a predictive progress bar here.
 - **Done/Failed**: History of recent work.
 - **Chunk Labels**: Segment jobs use displayed Performance/Production chunk numbers, so the queue can show titles like `overview: segment #7`.
