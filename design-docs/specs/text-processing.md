@@ -10,7 +10,7 @@
 
 | Version | Date       | Author      | Notes                         |
 |---------|------------|-------------|-------------------------------|
-| 1.1.2   | 2026-10-04 | Studio team | Stage 5: with a caller-owned `conn`, removed-segment audio is no longer deleted inside `sync_chapter_segments`; it returns `pending_cleanup` and the caller deletes after its commit succeeds (#248). `conn=None` path unchanged |
+| 1.1.2   | 2026-10-04 | Studio team | Stage 5: with a caller-owned `conn`, removed-segment audio is no longer deleted inside `sync_chapter_segments`; it returns `pending_cleanup` and the caller deletes after its commit succeeds (#248). `conn=None` path unchanged. I-10 reworded to match |
 | 1.1.1   | 2026-06-13 | Studio team | Staleness fix: refreshed the example "segment" count surface list (analysis strip, cast palette counts, script-view Numbers toggle) — the in-page character sidebar is removed by the site redesign (casting moves to a right-hand Cast palette); binding contract (counts derive from `build_chunk_groups`, not row cardinality) unchanged |
 | 1.1.0   | 2026-06-11 | Studio team | Stage 6 groups exposed read-only at `GET /projects/{pid}/chapters/{cid}/render_groups` (`build_chunk_groups` over ordered segments); UI "segment" counts and the script-view Numbers toggle MUST derive from this canonical computation, not sentence-row counts |
 | 1.0.1   | 2026-06-10 | Studio team | B19: Stage 6 grouping budget now uses `get_text_chunk_limit(engine_id)` (manifest-sourced) — constant-based limit removed from grouper, bake, and standard handler |
@@ -345,7 +345,7 @@ directly to the engine.
 | I-11 | The grouping budget in Stage 6 (`fits_limit` check) MUST be sourced from `get_text_chunk_limit(engine_id)` so that pack limit and group limit are always consistent. |
 | I-8  | `sanitize_text` MUST append `"."` if the output would otherwise lack terminal punctuation. |
 | I-9  | `split_sentences` MUST NOT use regex for its core split logic (it is a character scan); it is linear time. |
-| I-10 | Audio file cleanup MUST be triggered for any segment removed or whose path is invalidated during `sync_chapter_segments`. |
+| I-10 | Audio file cleanup MUST be triggered for any segment removed or whose path is invalidated by `sync_chapter_segments`: inline when sync owns the transaction, after the caller's commit otherwise. |
 
 ---
 

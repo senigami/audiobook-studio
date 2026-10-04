@@ -51,6 +51,7 @@ def create_chapter(project_id: str, title: str, text_content: Optional[str] = No
             """, (chapter_id, project_id, title, text_content, sort_order, predicted_audio_length, char_count, word_count, time.time()))
             if text_content:
                 from .segments import sync_chapter_segments
+                # A new chapter has no prior segments, so the pending_cleanup payload is always empty.
                 sync_chapter_segments(chapter_id, text_content, conn=conn)
 
             conn.commit()

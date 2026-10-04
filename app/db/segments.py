@@ -920,6 +920,10 @@ def sync_chapter_segments(chapter_id: str, text_content: str, conn=None):
 
 
 def run_pending_segment_cleanup(cleanup: dict) -> None:
+    """Delete audio for segments removed by a sync that ran inside the caller's transaction.
+
+    Call only after that transaction commits, so a failed commit never loses audio.
+    """
     try:
         from .chapters import cleanup_chapter_audio_files
         cleanup_chapter_audio_files(

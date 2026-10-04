@@ -5,6 +5,9 @@ import pytest
 
 import app.db.chapters as chapters_mod
 from app.db import update_segment
+from app.db.core import get_connection
+from app.db.migrations.registry import MIGRATIONS
+from app.db.migrations.runner import run_migrations
 from app.db.chapters import create_chapter, update_chapter
 from app.db.projects import create_project
 from app.db.segments import get_chapter_segments, sync_chapter_segments
@@ -30,8 +33,17 @@ class _CommitFailsConnection:
         raise sqlite3.OperationalError("disk I/O error")
 
 
+@pytest.fixture(params=["legacy_schema", "migrated_schema"])
+def schema(request, db_conn):
+    # db_conn builds the schema without the migration registry; re-apply it for the migrated run.
+    if request.param == "migrated_schema":
+        with get_connection() as conn:
+            run_migrations(conn, MIGRATIONS)
+    return request.param
+
+
 @pytest.fixture
-def chapter_with_audio(db_conn, tmp_path):
+def chapter_with_audio(schema, tmp_path):
     pid = create_project("P248", "/tmp")
     cid = create_chapter(pid, "C248", "One. Two.")
     with patch("app.core.config.PROJECTS_DIR", tmp_path):
@@ -70,7 +82,7 @@ def test_update_chapter_deletes_removed_segment_audio_after_commit(chapter_with_
     assert not wavs[segs[1]["id"]].exists()
 
 
-def test_sync_with_caller_conn_defers_cleanup_and_returns_pending(chapter_with_audio, db_conn):
+def test_sync_with_caller_conn_defers_cleanup_and_returns_pending(chapter_with_audio):
     pid, cid, segs, wavs = chapter_with_audio
     with chapters_mod.get_connection() as conn:
         result = sync_chapter_segments(cid, "One.", conn=conn)
