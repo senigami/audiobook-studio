@@ -77,7 +77,7 @@ export interface LiveEventBase<TPayload = unknown> {
 }
 
 export interface QueueItemPayload {
-  status?: 'queued' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled';
+  status?: 'queued' | 'waiting_for_resources' | 'preparing' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled';
   progress?: number;
   etaSeconds?: number | null;
   message?: string | null;

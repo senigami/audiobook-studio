@@ -1,8 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { Job } from '@/types';
 import { createLiveJobsStore } from '@/store/live-jobs';
 import { applyJobUpdated } from '@/utils/jobUpdateReducer';
 import { createHydrationCoordinator } from '@/api/hydration';
+import { publishStudioSocketMessage, subscribeStudioSocketMessages } from '@/store/studioSocketBus';
+import {
+  normalizeStudioSocketEnvelope,
+  type QueueItemLiveEvent,
+  type QueueItemPayload,
+} from '@/api/contracts/liveEvents';
 
 const WAITING = 'waiting_for_resources';
 
@@ -68,5 +74,28 @@ describe('waiting_for_resources ranks with queued in every frontend status-rank 
       expect(winner([status, 'done'])).toBe(status);
       expect(winner([status, 'preparing'])).toBe('preparing');
     });
+  });
+});
+
+describe('queue.items contract carries waiting_for_resources', () => {
+  it('delivers a typed waiting queue.items frame through the socket bus', () => {
+    const payload: QueueItemPayload = { status: WAITING, progress: 0, classification: 'job' };
+    const listener = vi.fn();
+    const unsubscribe = subscribeStudioSocketMessages(listener);
+    publishStudioSocketMessage({
+      type: 'studio_event',
+      version: 1,
+      topic: 'queue.items',
+      eventKind: 'queue_item_status',
+      ids: { jobId: 'j1' },
+      payload,
+    });
+    unsubscribe();
+
+    const [data, , envelope] = listener.mock.calls[0];
+    const event = normalizeStudioSocketEnvelope(envelope) as QueueItemLiveEvent;
+    expect(event.topic).toBe('queue.items');
+    expect(event.payload.status).toBe(WAITING);
+    expect(data.payload.status).toBe(WAITING);
   });
 });
