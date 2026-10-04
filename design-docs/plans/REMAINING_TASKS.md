@@ -11,6 +11,32 @@ section clears, delete it from here and add a line to `COMPLETED_WORK.md`.
 
 ---
 
+## In review (open PRs into studio-2.0, awaiting the owner's merge word)
+
+Nothing here has merged. After each merge: close the issues by hand, delete the branch local and
+remote, move the board items to Done, then move the line to `COMPLETED_WORK.md`.
+
+- **PR #328, #248**: removed-segment audio is deleted only after the chapter commit
+  (`text-processing.md` 1.1.2). CI all green.
+- **PR #331, #266 and #236**: `waiting_for_resources` is a real job status shown as "Waiting to
+  start", and the unused job status `processing` is removed (`queue-jobs.md` 1.16.0, `live-events.md`
+  1.9.8). Blind review approved, hostile review cleared, CI all green.
+
+## Queue-group follow-ups (Backlog or owner decision, found 2026-10-04)
+
+- **#258** (cancel shows a red error card): investigated by execution, needs two fixes: the backend
+  can emit a late `failed` frame after cancel, and the frontend keeps an orphan `cancelled` overlay.
+  Evidence in the ticket comment. Owner to say whether to fix now.
+- **#259** (resume re-renders a done segment): not reproduced as a done-segment re-render. Owner
+  decision pending, see the ticket comment.
+- **#333**: a queued or parked chapter shows two status words, the orb spins while paused, and the Up
+  Next row has no "Waiting to start" label. Needs the owner's wording call.
+- **#327** orphan audio after a failed cleanup (tombstones proposal), **#329** resume does not
+  restart parked tasks, **#330** cancel-chapter route calls `.get()` on `Job`, **#332** recovery of
+  Voxtral and segment-scoped rows needs `output_path`. All Backlog; only the owner promotes to Ready.
+
+---
+
 ## 👁 Visual checks (owner-run, code already shipped)
 
 These are the highest-value remaining items — the code is in and gate-passed, only live
