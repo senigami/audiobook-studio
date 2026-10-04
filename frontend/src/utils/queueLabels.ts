@@ -16,7 +16,7 @@ export function formatQueueContext(job: ProcessingQueueItem, engines: import('@/
       case 'mixed':
         return 'Mixed Engine Synthesis';
       default:
-        return `${formatVoiceEngineLabel(job.engine)} Synthesis`;
+        return job.engine ? `${formatVoiceEngineLabel(job.engine)} Synthesis` : 'Synthesis';
     }
   }
 

@@ -63,4 +63,12 @@ describe('formatQueueContext', () => {
       engine: 'audiobook',
     })).toBe('Audiobook Assembly');
   });
+
+  it('labels an empty-engine row without a project as plain "Synthesis", never "Unavailable"', () => {
+    const base = { id: 'job-6', project_id: '', chapter_id: '', split_part: 0, status: 'failed', created_at: 0, completed_at: null } as any;
+    expect(formatQueueContext({ ...base, engine: '' })).toBe('Synthesis');
+    expect(formatQueueContext({ ...base, engine: undefined })).toBe('Synthesis');
+    expect(formatQueueContext({ ...base, engine: 'voice_test' })).toBe('Voice Preview');
+    expect(formatQueueContext({ ...base, engine: 'xtts' })).toBe('XTTS Synthesis');
+  });
 });
