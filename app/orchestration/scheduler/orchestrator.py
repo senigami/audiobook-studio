@@ -235,7 +235,7 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         result = TaskResult(status="failed", message="Unknown error")
 
         while attempt < max_attempts:
-            if attempt > 0 and not self._owns_active(task_id, task):
+            if not self._owns_active(task_id, task):
                 break
             attempt += 1
             try:
@@ -275,6 +275,12 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
         if not owns_terminal:
             # cancel() took the task and already published the terminal state.
             logger.info("Task %s: cancelled while running; cancel() owns the terminal event.", task_id)
+            # A later in-dispatch preparing frame can reactivate the row; put it
+            # back. update_job is a no-op for a deleted row, so no stub returns.
+            if self._job_exists(task_id) and not self._is_task_cancelled_in_db(task_id):
+                from app.db.state import update_job  # noqa: PLC0415
+
+                update_job(task_id, status="cancelled", force_broadcast=True)
             return task_id
 
         if result.status == "completed":
@@ -289,6 +295,8 @@ class TaskOrchestrator(OrchestratorHelpersMixin):
             self._emit_chapter_peaks_sidecar(context)
             self._emit_chapter_timing_sidecar(context)
         elif result.status == "cancelled":
+            if not self._job_exists(task_id):
+                return task_id
             self._publish(
                 context=context,
                 status="cancelled",

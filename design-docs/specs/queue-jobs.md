@@ -1,7 +1,7 @@
 # SP4 — Queue & Job Lifecycle Spec
 
 ```
-spec_version: 1.17.0
+spec_version: 1.17.1
 status: active
 updated: 2026-10-04
 created: 2026-06-10
@@ -21,11 +21,13 @@ sources: app/db/models.py, app/db/state_jobs.py, app/db/state_job_guards.py, app
          app/orchestration/scheduler/cap_safety.py, app/api/routers/cap_guard.py,
          tests/orchestration/test_cap_safety.py, tests/api/test_api_parallel_cap_safety.py,
          tests/orchestration/test_cancel_terminal_ownership.py, tests/orchestration/test_cancel_before_admission.py,
-         tests/orchestration/test_cancel_no_late_running_frame.py
+         tests/orchestration/test_cancel_no_late_running_frame.py,
+         tests/orchestration/test_cancel_revival_race.py
 ```
 
 ## Changelog
 
+| 1.17.1  | 2026-10-04 | **A cancelled job can no longer be revived and stuck (#258 follow-up).** A forced or re-entry `preparing` frame published by a task after `cancel()` took it (admission-to-first-dispatch window, the retry gap, the chapter fan-out ETA frame) reactivated the cancelled row, and the non-owner tail then published nothing, leaving the job `running`/`preparing` forever. The retry loop now checks ownership before every attempt (the first included), and the non-owner tail re-asserts `cancelled` when the row still exists and is not `cancelled` (never recreating a deleted row). A `cancelled` result for a deleted row no longer recreates a stub. |
 | 1.17.0  | 2026-10-04 | **A cancelled render is no longer re-published as failed (#258).** `submit()`'s tail published `failed` (force) for any non-completed result, even after `cancel()` had already published `cancelled`, and for the real `ChapterSynthesisTask`, which returns `cancelled`. Now exactly one of `cancel()` and the tail owns a task's terminal publish (§3.4a), a `cancelled` result publishes `cancelled`, the retry loop stops when cancel took the task, and a job deleted before admission is not dispatched (so "clear queue" now also stops a task still waiting for admission). Not changed: the stub job and first `queue.items` frame of a task with no pre-created job (gateway) keep `engine` = task type / `null`, because the History "API" filter keys on it. |
 | 1.16.0  | 2026-10-04 | **`waiting_for_resources` is a real job status; `processing` is not a job status (#266, #236).** §3.3 and G3 claimed the orchestrator maps `waiting_for_resources` to a proper `Status` before `update_job`. It never did: a paused submit published the raw string, it was not in `Status` and had no priority, so the regression guard dropped it for a `queued` job while the live frame still carried it. Fixed: `waiting_for_resources` joins `Status` at priority 1 (same rank as `queued`, so `queued` to `waiting_for_resources` to `preparing` all apply), and it joins `ACTIVE_QUEUE_STATUSES` and every active-status SQL list in `app/db/queue.py`, because `update_job` writes the new status verbatim to `processing_queue` through `update_queue_item`. The chapter segment-status normaliser puts it in the `queued` bucket. §3.9 no longer lists `processing` among the job `displayStatus` values (the backend never emitted it; chapter and segment `audio_status` `processing` is a different field and is unchanged). §7.1 and G3 rewritten to the true behaviour. It is deliberately NOT in the terminal-to-active reset sets (`ACTIVE_STATUSES`, `put_job`, the websocket terminal latch, the progress emit gate): a cancel landing during admission, before the paused publish, would otherwise be undone and the row re-rendered on restart. Every other hard-coded "not finished" list treats it like `queued`: the queue router's active set and clear-all, chapter cancel, the startup stuck-job sweep, the chapter active-generation check, and `update_queue_item` (clears `started_at`, `completed_at` and `error` as `queued` does). The frontend status-rank maps (`live-jobs.ts`, `jobUpdateReducer.ts`, `hydration/index.ts`) rank it with `queued`, so the live Queue page shows it. The `jobs.lifecycle` `StudioJobStatus` union and its command map are unchanged, although the backend does emit the status on that topic today. Startup recovery (`recovery.py` `_RECOVERABLE_STATUSES`) also picks up a `waiting_for_resources` row, because a task parked by a paused orchestrator keeps that status in `processing_queue` and must be re-submitted after a restart as a `queued` one is; the recovered context carries it as `_recovered_from_status`, and recovery publishes `preparing`, so the stale status does not persist. Regression tests: `tests/orchestration/test_recovery_db_integration.py::test_recoverable_contexts_found_for_waiting_for_resources_job`, `tests/db/test_state_rules.py::test_waiting_for_resources_is_kept_and_can_advance`, `tests/db/test_state_job_guards.py::TestStatusPriorityCoversStatus`, `tests/db/test_db_queue.py::test_waiting_for_resources_row_counts_as_active`, `tests/orchestration/test_submit.py::TestOrchestratorPausedSubmit`, `tests/api/test_waiting_for_resources_active.py`, `tests/orchestration/test_waiting_for_resources_emit_gate.py`, `tests/orchestration/test_waiting_cancel_race.py`, `frontend/tests/unit/store/waitingStatusRank.test.ts` (R1 revert-checked: red on pre-fix code, green after). |
 | 1.15.0  | 2026-10-03 | **§7.3b/§7.3c/§7.3d: the safe maximum is the guide, a hard limit is the wall (#285).** The estimate from 1.14.0 is now the default and the guide, and a save is refused only above a hard limit: the same formula with the 20 percent reserve at zero on both RAM and VRAM (never below the safe maximum). The refusal keeps the code `parallel_cap_unsafe` and its body now carries `safe_maximum` and `hard_maximum` per violation. `GET /api/engines/concurrency` adds per-engine `hard_max` and top-level `global_hard_max`, `global_cap` and `global_cap_is_auto`. An unset `tts_parallel_cap` is no longer seeded into the settings store; it resolves at read time to `min(2, safe max)` per engine from a result cached per engine for 30 s (`cap_default.resolve_live_effective_cap`, used by admission, the ETA bracket and the GET), with precedence settings, then `TTS_PARALLEL_CAP`, then automatic. A stored whole number of 1 or more is never rewritten; other numbers are coerced to a whole number of at least 1, and an unreadable value is dropped on the next save. Unmeasurable memory resolves to 1. The chapter pool takes `min(2, global safe max)`, and an engine with a footprint of 0 keeps its manifest ceiling. There is no admission clamp to the hard limit and no re-check after save. |
@@ -257,10 +259,10 @@ Other terminal writers exist and are outside this rule: the reuse branch (publis
 `failed`), the recovered-chapter stitch (`done`, from inside `run()`), and the route fallbacks in `chapters.py` / `queue.py`
 that write `cancelled` when `cancel()` returns False.
 
-- If `cancel()` removed it, `submit()` publishes nothing when the task finishes (no terminal frame, no peaks/timing sidecars).
+- If `cancel()` removed it, `submit()` publishes no new terminal event when the task finishes (no peaks/timing sidecars). A task `cancel()` took ends with its row `cancelled` even if a later in-dispatch re-entry frame (`preparing`) reactivated it: the non-owner tail re-asserts `cancelled` when the row still exists and is not `cancelled`, and never recreates a deleted row.
 - If `submit()` removed it and the result is `completed`, it publishes `completed`; `cancelled` publishes `cancelled`
   (reason `cancelled_ok`); any other status publishes `failed`. A `cancelled` result is never mapped to `failed`.
-- The retry loop re-dispatches only while the task is still in `_active`; a cancel during the retry wait stops it.
+- The retry loop checks that the task is still in `_active` before every attempt, the first included; a cancel during the retry wait stops it.
 - Cancel racing completion: whichever wins the lock decides. If `cancel()` wins, the job reads `cancelled` even though a stitched
   WAV may already be on disk. This is deliberate (the user asked to stop) and not reconciled further.
 - After `cancelled` for a job id, the server never emits `done` or `failed` for that job (a late `running`/`completed` progress
@@ -271,6 +273,9 @@ that write `cancelled` when `cancel()` returns False.
   `queued`/`waiting_for_resources` rows without calling `cancel()`) therefore also stops tasks still waiting for admission.
   This relies on user delete, clear-queue and the startup sweep (which runs before recovery) being the only paths that remove a
   non-terminal job row; a future pruning path that drops a live job's row would silently stop that job from being dispatched.
+  "Deleted before admission" means after `submit()` began: a delete in the instant before the background `submit()` starts is
+  recreated by the `queued` publish. Resubmitting the same `task_id` while an earlier `submit()` for it is still alive is unsupported
+  (production ids are unique).
 - `Job.engine` stays an overloaded kind/engine string; the History "API" filter keys on `api_synthesis`. A task with no
   pre-created job keeps `engine` = task type on its stub row and may emit a first `queue.items` frame with `engine: null`
   (the UI labels that "Synthesis").
@@ -1141,7 +1146,7 @@ that these surfaces render are governed by
 - I9. `active_render_batch_progress` MUST be None when `active_render_batch_id` is None.
 - I10. Reconciliation MUST NOT reset a chapter's `audio_status` to `unprocessed` if a `done` row exists for that chapter in `processing_queue` (B3 rule).
 - I11. `update_queue_item` MUST be called by `update_job` for every status or `started_at` change; callers MUST NOT write queue status directly.
-- I19. For a task that reached `_active`, its terminal event MUST be published by the party that removes it from `_active` (§3.4a).
+- I19. For a task that reached `_active`, its terminal event MUST be published by the party that removes it from `_active` (§3.4a). A task `cancel()` took MUST end with its row `cancelled` even if a later in-dispatch re-entry frame reactivated it; the non-owner tail re-asserts it.
 
 **MUST NOT:**
 
@@ -1175,6 +1180,7 @@ Each invariant is verified by at least one existing test.
 | I17 — cancelled render no segment resurrection (path A: orchestrator listener) | `tests/orchestration/test_cancel_no_segment_resurrection.py::test_cancelled_render_does_not_remark_segment_done` |
 | I17 — cancelled render no segment resurrection (path B: xtts handler) | `tts_engines/tts_xtts/tests/test_handler.py::test_cancelled_chapter_render_does_not_remark_segment_done` |
 | I19/I20 — cancel owns its terminal publish; cancelled result not mapped to failed | `tests/orchestration/test_cancel_terminal_ownership.py` |
+| I19 — cancelled row survives a later re-entry `preparing` frame; non-owner tail re-asserts `cancelled`, never recreates a deleted row (§3.4a) | `tests/orchestration/test_cancel_revival_race.py` |
 | I19/I20 — job deleted before admission is not dispatched (§3.4a admission) | `tests/orchestration/test_cancel_before_admission.py` |
 | I20 — late running/completed progress frame cannot revive a cancelled chapter (guard test; no source change) | `tests/orchestration/test_cancel_no_late_running_frame.py` |
 | I13 — progress regression blocked | `tests/db/test_state_rules.py::test_progress_regression_protection` |
