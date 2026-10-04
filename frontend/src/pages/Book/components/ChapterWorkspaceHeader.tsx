@@ -7,6 +7,7 @@ import { setLastChapter } from '@/pages/Book/lib/stages';
 import { StatusOrb } from '@/components/ui/StatusOrb';
 import { BookmarkList } from '@/components/BookmarkList';
 import { pickRelevantJob } from '@/utils/jobSelection';
+import { isPendingJobStatus } from '@/utils/jobStatus';
 import { useBookmarks, addBookmark, removeBookmark } from '@/store/bookmarks';
 
 interface ChapterWorkspaceHeaderProps {
@@ -265,7 +266,7 @@ export function ChapterWorkspaceHeader({
     let changedMessage: string | null = null;
     chapters.forEach((ch) => {
       const activeJob = pickChapterJob(ch, jobs);
-      const status = activeJob?.status ?? ch.audio_status;
+      const status = isPendingJobStatus(activeJob?.status) ? 'queued' : (activeJob?.status ?? ch.audio_status);
       next[ch.id] = status;
       if (prev[ch.id] !== undefined && prev[ch.id] !== status) {
         changedMessage = `${ch.title} status: ${status}`;

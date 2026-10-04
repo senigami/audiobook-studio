@@ -8,6 +8,7 @@ import { StatusOrb } from '@/components/ui/StatusOrb';
 import { PredictiveProgressBar } from '@/components/progress/PredictiveProgressBar/PredictiveProgressBar';
 import type { Chapter, Job, TtsEngine } from '@/types';
 import { isMainQueueSegmentItem, shouldShowIndeterminateProgress } from '@/utils/jobSelection';
+import { isPendingJobStatus } from '@/utils/jobStatus';
 import './ChapterList.css';
 
 const RECENT_COMPLETION_WINDOW_SECONDS = 60;
@@ -82,7 +83,9 @@ const ChapterRow: React.FC<ChapterRowProps> = ({
   const hasChapterAudio = !!(chap.has_wav || chap.has_mp3 || chap.has_m4a);
   const activeJob = pickActiveJob(chap.id, !hasChapterAudio && chap.audio_status !== 'processing');
   const isRecentDone = activeJob?.status === 'done' && !!activeJob?.finished_at && ((Date.now() / 1000) - activeJob.finished_at) <= RECENT_COMPLETION_WINDOW_SECONDS;
-  const displayStatus = isRecentDone && !hasChapterAudio ? 'finalizing' : activeJob?.status;
+  const displayStatus = isRecentDone && !hasChapterAudio
+    ? 'finalizing'
+    : isPendingJobStatus(activeJob?.status) ? 'queued' : activeJob?.status;
   const renderGroupCount = activeJob?.render_group_count ?? 0;
   const completedRenderGroups = activeJob?.completed_render_groups ?? 0;
   const activeRenderGroupIndex = activeJob?.active_render_group_index ?? 0;
@@ -117,7 +120,7 @@ const ChapterRow: React.FC<ChapterRowProps> = ({
       : 'Queue Chapter';
   const isLoadingModel = activeJob?.reason_code === 'LOADING_MODEL' && displayStatus === 'preparing';
   const queueStatus = activeJob
-    ? ((displayStatus === 'queued' || displayStatus === 'waiting_for_resources')
+    ? (displayStatus === 'queued'
       ? 'Queued'
       : isLoadingModel
         ? 'Loading model'
@@ -363,7 +366,7 @@ export const ChapterList: React.FC<ChapterListProps> = ({
         return !isMainQueueSegmentItem(j);
       })
       .sort((a, b) => {
-        const statusRank: Record<string, number> = { running: 5, finalizing: 4, preparing: 3, queued: 2, done: 1 };
+        const statusRank: Record<string, number> = { running: 5, finalizing: 4, preparing: 3, queued: 2, waiting_for_resources: 2, done: 1 };
         const aRank = statusRank[a.status] || 0;
         const bRank = statusRank[b.status] || 0;
         if (aRank !== bRank) return bRank - aRank;

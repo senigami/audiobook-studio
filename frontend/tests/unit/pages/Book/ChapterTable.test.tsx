@@ -27,8 +27,13 @@ vi.mock('@/components/overlays/ConfirmModal', async () => {
 
 // PredictiveProgressBar relies on internal timers — stub it so tests stay fast.
 vi.mock('@/components/progress/PredictiveProgressBar/PredictiveProgressBar', () => ({
-  PredictiveProgressBar: ({ dataTestId }: { dataTestId?: string }) => (
-    <div data-testid={dataTestId ?? 'predictive-progress-bar'} />
+  PredictiveProgressBar: ({ dataTestId, status, state, label }: { dataTestId?: string; status?: string; state?: string; label?: string }) => (
+    <div
+      data-testid={dataTestId ?? 'predictive-progress-bar'}
+      data-status={status ?? ''}
+      data-state={state ?? ''}
+      data-label={label ?? ''}
+    />
   ),
 }));
 
@@ -234,6 +239,47 @@ describe('ChapterTable', () => {
     expect(
       screen.queryByTestId('chapter-list-progress-bar-chapter-a'),
     ).not.toBeInTheDocument();
+  });
+
+  it('gives a waiting job the same progress bar label, state and status as a queued job', () => {
+    const makeJob = (status: string): Job => ({
+      id: `job-${status}`,
+      project_id: 'book-1',
+      chapter_id: 'chapter-b',
+      status,
+      progress: 0,
+      created_at: 1000,
+    } as unknown as Job);
+    const renderWith = (job: Job) => render(
+      <ChapterTable
+        chapters={chapters}
+        jobs={{ [job.id]: job }}
+        selectedChapterId={null}
+        onSelectChapter={vi.fn()}
+        onReorder={vi.fn()}
+        onRenameChapter={vi.fn()}
+        onQueueChapter={vi.fn()}
+        onResetAudio={vi.fn()}
+        onDeleteChapter={vi.fn()}
+        onExportSample={vi.fn()}
+      />,
+    );
+
+    const first = renderWith(makeJob('queued'));
+    const queuedBar = screen.getByTestId('chapter-list-progress-bar-chapter-b');
+    const expected = {
+      label: queuedBar.getAttribute('data-label'),
+      state: queuedBar.getAttribute('data-state'),
+      status: queuedBar.getAttribute('data-status'),
+    };
+    first.unmount();
+
+    renderWith(makeJob('waiting_for_resources'));
+    const waitingBar = screen.getByTestId('chapter-list-progress-bar-chapter-b');
+    expect(waitingBar.getAttribute('data-label')).not.toContain('waiting_for_resources');
+    expect(waitingBar.getAttribute('data-label')).toBe(expected.label);
+    expect(waitingBar.getAttribute('data-state')).toBe(expected.state);
+    expect(waitingBar.getAttribute('data-status')).toBe(expected.status);
   });
 
   // ---------------------------------------------------------------------------

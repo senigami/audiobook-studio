@@ -10,6 +10,7 @@ import { usePlayerBus, loadAndPlay, play, pause } from '@/store/playerBus';
 import { deriveChapterLifecycle } from '@/pages/Book/lib/chapterLifecycle';
 import { buildChapterAudioUrl } from '@/pages/Book/lib/chapterAudioUrl';
 import { pickRelevantJob, isMainQueueSegmentItem } from '@/utils/jobSelection';
+import { isPendingJobStatus } from '@/utils/jobStatus';
 import type { Chapter, Job } from '@/types';
 
 const LARGE_CHAPTER_CHAR_THRESHOLD = 50_000;
@@ -117,7 +118,7 @@ export function ChapterTable({
           const hasChapterAudio = !!(chapter.has_wav || chapter.has_mp3 || chapter.has_m4a);
 
           // RST-1: progress bar state derived from active job (mirrors ChapterList.tsx:108–131).
-          const displayStatus = activeJob?.status;
+          const displayStatus = isPendingJobStatus(activeJob?.status) ? 'queued' : activeJob?.status;
           const liveRenderBlockIsActive = !!activeJob && (
             !!activeJob.active_segment_id ||
             !!activeJob.active_render_batch_id ||
