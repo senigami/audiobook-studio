@@ -1,0 +1,6 @@
+{
+ "title": "Audio Guidance &amp; Formats",
+ "desc": "Supported inputs/outputs and quality guidance.",
+ "lede": "What goes in, what comes out, and how to keep quality high.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Text and audio inputs.</li><li>Internal vs output formats.</li><li>Bitrate, normalization, and length tips.</li></ul></div>\n        <h2>Inputs</h2>\n        <p><strong>Text chapters are plain text; voice samples are common audio formats.</strong> See <a href=\"#reference/file-formats\">File Formats</a>.</p>\n        <h2>Internal vs output formats</h2>\n        <p><strong>Studio renders to WAV internally, then exports MP3 or M4B.</strong> Working in WAV keeps quality high until the final export.</p>\n        <h2>Quality tips</h2>\n        <ul><li>Pick a sensible export bitrate for spoken word.</li><li>Let Studio normalize levels for consistent loudness.</li><li>Keep per-segment text within the engine's chunk limit.</li></ul>"
+}

@@ -1,0 +1,24 @@
+# Backend Rules
+
+Use this file when the task touches backend orchestration, queueing, progress, artifact publication, or filesystem path handling.
+
+For backend folder organization, follow the project structure rules in [`modular_architecture.md`](modular_architecture.md): web entrypoints belong in `app/api`, config/boot in `app/core`, persistence/state in `app/db`, business concepts in `app/domain`, engine contracts in `app/engines`, orchestration/jobs in their named packages, generic helpers in `app/utils`, and tests grouped under `tests/` to mirror the package they exercise.
+
+## Read The Right Subfile
+
+- [`backend-artifacts.md`](backend-artifacts.md) for manifest validation, publish flow, cache immutability, and recovery safety.
+- [`backend-progress.md`](backend-progress.md) for progress math, ETA rules, rounding, and update throttling.
+- [`backend-boundaries.md`](backend-boundaries.md) for route/service/engine boundaries and migration discipline.
+- [`backend-paths.md`](backend-paths.md) for request-derived paths and containment checks.
+
+## Load Order
+
+1. [`backend-progress.md`](backend-progress.md) for ETA, rounding, and progress consistency.
+1. [`backend-artifacts.md`](backend-artifacts.md) for publish/recovery/immutability.
+1. [`backend-paths.md`](backend-paths.md) for any request-derived path handling.
+1. [`backend-boundaries.md`](backend-boundaries.md) for routing, orchestration, queue policy, and migration shape.
+
+## Pair With
+
+- [`modular_architecture.md`](modular_architecture.md) for Studio 2.0 boundary rules.
+- [`verification.md`](verification.md) for the required backend test and lint verification.

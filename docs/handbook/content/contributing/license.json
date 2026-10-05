@@ -1,0 +1,6 @@
+{
+ "title": "License",
+ "desc": "How the project is licensed.",
+ "lede": "Audiobook Studio is open source under a permissive license; engines and models carry their own terms.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>MIT-licensed project code.</li><li>Third-party and engine licenses apply separately.</li></ul></div>\n        <h2>Project license</h2>\n        <p><strong>The project code is MIT-licensed.</strong></p>\n        <h2>Third-party &amp; engines</h2>\n        <p><strong>Engines, models, and voices carry their own licenses.</strong> When you install an engine or import a voice, its license applies — Studio surfaces those terms but doesn't override them.</p>"
+}

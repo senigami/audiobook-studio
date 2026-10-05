@@ -1,0 +1,6 @@
+{
+ "title": "Backups &amp; Recovery",
+ "desc": "Protecting and restoring project data.",
+ "lede": "Two layers protect your work: project backups you take, and automatic reconciliation on startup.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Project backups (optionally with audio).</li><li>Disk-based project recovery.</li><li>Startup reconciliation.</li></ul></div>\n        <h2>Backups</h2>\n        <p><strong>Snapshot a project and restore it later.</strong> See <a href=\"#user-guide/backups-tab\">Backups</a> for the in-app flow.</p>\n        <h2>Recovery &amp; reconciliation</h2>\n        <p><strong>Studio can rebuild project state from disk</strong> and reconciles state on startup so a crash doesn't lose validated work. See <a href=\"#concepts/artifacts-recovery\">Artifacts, Reuse &amp; Recovery</a>.</p>"
+}

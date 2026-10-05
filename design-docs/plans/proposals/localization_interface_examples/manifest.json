@@ -1,0 +1,70 @@
+{
+  "sourceLocale": "en-US",
+  "fallbackLocale": "en-US",
+  "releasePolicy": "Only complete reviewed locales are user-selectable. Incomplete locales are review-only and must not appear in the normal language selector.",
+  "fallbacks": {
+    "en-US": [
+      "en-US"
+    ],
+    "es-ES": [
+      "en-US"
+    ],
+    "fr-FR": [
+      "en-US"
+    ]
+  },
+  "locales": [
+    {
+      "locale": "en-US",
+      "displayName": "English (US)",
+      "nativeName": "English (US)",
+      "direction": "ltr",
+      "fallbacks": [],
+      "status": "source",
+      "completion": 1,
+      "maintainers": ["core-team"]
+    },
+    {
+      "locale": "es-ES",
+      "displayName": "Spanish (Spain)",
+      "nativeName": "Español (España)",
+      "direction": "ltr",
+      "fallbacks": ["en-US"],
+      "status": "review-only",
+      "completion": 0,
+      "userSelectable": false,
+      "maintainers": []
+    },
+    {
+      "locale": "fr-FR",
+      "displayName": "French (France)",
+      "nativeName": "Français (France)",
+      "direction": "ltr",
+      "fallbacks": ["en-US"],
+      "status": "review-only",
+      "completion": 0,
+      "userSelectable": false,
+      "maintainers": []
+    }
+  ],
+  "mode": "inventory",
+  "description": "Example locale catalog snapshot of the current English site text",
+  "namespaces": [
+    "common",
+    "shell",
+    "library",
+    "book.common",
+    "book.manuscript",
+    "book.casting",
+    "book.studio",
+    "book.review",
+    "book.publish",
+    "voices",
+    "activity",
+    "engines",
+    "integrations",
+    "settings",
+    "onboarding",
+    "errors"
+  ]
+}

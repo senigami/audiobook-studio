@@ -1,0 +1,6 @@
+{
+ "title": "Assemblies &amp; Export",
+ "desc": "Combine rendered chapters into finished audiobook files.",
+ "lede": "Assembly is the finish line: turn your rendered chapters into a real audiobook file.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Assemble a project into one file.</li><li>Download M4B and manage outputs.</li><li>Edit descriptions and see stats.</li></ul></div>\n        <h2>Assemble a project</h2>\n        <p><strong>Combine finished chapters in order into a single audiobook.</strong> Chapter order and titles come from your project.</p>\n        <h2>Download &amp; manage outputs</h2>\n        <p><strong>Download the M4B (or MP3) and manage past outputs.</strong> M4B is the standard chaptered audiobook container.</p>\n        <h2>Descriptions &amp; stats</h2>\n        <p><strong>Edit the description and review stats</strong> like total duration before you publish or share.</p>"
+}

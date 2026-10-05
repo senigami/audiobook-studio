@@ -1,0 +1,70 @@
+/* GlobalQueue — file-local classes (ST-3 styling separation).
+   See design-docs/plans/active/simplification/styling_separation_execution/
+   tasks/007-st3-globalqueue.md */
+
+.queue-section-label {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+/* History row's remove button: bump to a HIG-compliant 44x44 touch target
+   on narrow viewports (mobile drawer width) without changing its visual
+   size on desktop, where it sits in a denser, mouse-driven list. */
+@media (max-width: 480px) {
+  .queue-history-remove-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* Keyboard focus must reveal the remove button exactly like hover does —
+   WCAG 2.4.7 focus-visible. Resting opacity is raised in the inline style;
+   this covers the keyboard-only path (no mouse hover event fires). */
+.queue-history-remove-btn:focus-visible {
+  opacity: 1 !important;
+  color: var(--error) !important;
+  outline: 2px solid var(--action-primary);
+  outline-offset: 2px;
+}
+
+/* History row title: on narrow (mobile drawer) widths, allow the chapter
+   title to wrap to two lines instead of single-line ellipsis truncation —
+   a single line of "Chapter 1: The O…" loses too much identity. */
+.queue-history-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .queue-history-title {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+}
+
+/* Full-page header (compact=false, e.g. Activity page): the row layout with
+   a 1.75rem title, subtitle, and action buttons doesn't fit a phone width —
+   the title was wrapping mid-icon ("Global" / icon / "Queue") instead of
+   staying on one line. Stack it and shrink the title so every element stays
+   legible (no silent truncation). Uses !important to win over the inline
+   layout styles applied for the (desktop-only) row variant. */
+@media (max-width: 640px) {
+  .global-queue-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: var(--space-3) !important;
+  }
+
+  .global-queue-header__title h2 {
+    font-size: 1.25rem !important;
+  }
+
+  .global-queue-header__actions {
+    width: 100% !important;
+  }
+}

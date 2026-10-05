@@ -1,0 +1,278 @@
+"""Engine registry/discovery/settings/concurrency routes.
+
+Split out of the former monolithic ``engines.py`` (Task 003 — API router
+split).
+"""
+import logging
+from typing import Any, Optional
+from fastapi import APIRouter, Body
+from fastapi.responses import JSONResponse
+from ...engines.bridge import create_voice_bridge
+from ...orchestration.scheduler.cap_limits import collect_limits
+from .engines_shared import ConcurrencyUpdateRequest, _check_engine_id
+from . import cap_guard
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/engines", tags=["engines"])
+
+
+@router.get("")
+def list_engines():
+    """List all registered TTS engines and their health/manifests."""
+    from ...engines.errors import EngineUnavailableError
+    bridge = create_voice_bridge()
+    try:
+        return bridge.describe_registry()
+    except EngineUnavailableError:
+        logger.warning("TTS Server unavailable while listing engines", exc_info=True)
+        return JSONResponse({"status": "error", "message": "TTS Server is unavailable"}, status_code=503)
+
+
+@router.get("/registry")
+def get_official_registry_list():
+    """Return the official plugin registry."""
+    from ...engines.official_registry import get_official_registry
+    return JSONResponse(get_official_registry())
+
+
+def _resolved_global_cap(global_safe: int, cap_is_auto: bool) -> int:
+    """The global cap in force: the saved one, or the automatic default when unset."""
+    from ...orchestration.scheduler.cap_settings import DEFAULT_GLOBAL_CAP, get_global_parallel_cap  # noqa: PLC0415
+
+    return min(DEFAULT_GLOBAL_CAP, global_safe) if cap_is_auto else get_global_parallel_cap()
+
+
+@router.get("/concurrency")
+def get_engine_concurrency():
+    """Return the global parallel cap and a per-engine concurrency snapshot.
+
+    W-PAR task 014 — the engine-scoped counterpart of the manifest ceiling
+    the caps UI reads. Sources: the manifest ceiling and engine class
+    (``_manifest_resource_claim``, reused not reimplemented), the live
+    effective cap (``resolve_live_effective_cap``, same function
+    ``reserve_task_resources`` resolves fresh on every admission attempt),
+    and each engine's per-engine-id semaphore ``active_count``. All
+    in-process reads (one manifest.json read per known engine), no new
+    I/O against the TTS Server beyond the registry fetch the guard also makes.
+    The engine list is the union of manifests on disk and the registry; the
+    safe and hard maxima use the same functions as the
+    save-time refusal.
+    """
+    from ...orchestration.tasks.synthesis import _manifest_resource_claim  # noqa: PLC0415
+    from ...orchestration.scheduler.cap_default import resolve_live_effective_cap  # noqa: PLC0415
+    from ...orchestration.scheduler.cap_settings import (  # noqa: PLC0415
+        get_engine_caps,
+        is_global_cap_explicit,
+    )
+    from ...orchestration.scheduler.resources import MAX_GLOBAL_CONCURRENT_SYNTHESIS  # noqa: PLC0415
+    from ...orchestration.scheduler.cap_safety import (  # noqa: PLC0415
+        engine_hard_max,
+        engine_safe_max,
+        global_hard_max,
+        global_safe_max,
+        is_memory_measurable,
+    )
+
+    engine_caps = get_engine_caps()
+    cap_is_auto = not is_global_cap_explicit()
+
+    sample = cap_guard.sample_resources()
+    # Same enumeration as the save-time guard (manifests on disk plus the server
+    # registry), so the hint and the refusal cannot disagree.
+    all_limits = collect_limits()
+    global_safe = global_safe_max(all_limits, sample, MAX_GLOBAL_CONCURRENT_SYNTHESIS)
+    global_cap = _resolved_global_cap(global_safe, cap_is_auto)
+    engines = []
+    for limits in all_limits:
+        engine_id = limits.engine_id
+        claim = _manifest_resource_claim(engine_id)
+        active = limits.active_count
+        engines.append(
+            {
+                "engine_id": engine_id,
+                "engine_class": claim.engine_class,
+                "manifest_max": claim.manifest_max,
+                "requested_cap": engine_caps.get(engine_id, global_cap),
+                "effective_cap": resolve_live_effective_cap(engine_id, claim.manifest_max),
+                "active_count": active,
+                "safe_max": engine_safe_max(limits, sample)[0],
+                "hard_max": engine_hard_max(limits, sample)[0],
+            }
+        )
+
+    return JSONResponse(
+        {
+            "global_cap": global_cap,
+            "engines": engines,
+            "global_cap_is_auto": cap_is_auto,
+            "global_safe_max": global_safe,
+            "global_hard_max": global_hard_max(all_limits, sample, MAX_GLOBAL_CONCURRENT_SYNTHESIS),
+            "memory_measurable": is_memory_measurable(sample),
+        }
+    )
+
+
+@router.put("/{engine_id}/concurrency")
+def update_engine_concurrency(engine_id: str, body: ConcurrencyUpdateRequest):
+    """Set (or clear) a per-engine concurrency cap override.
+
+    ``{"cap": <int>}`` sets an override, validated against the manifest
+    ceiling server-side (rejects out-of-range with 422 rather than silently
+    clamping — ``resolve_effective_cap``'s own clamp stays as the backstop
+    for env-var edits or clients that bypass this endpoint).
+    ``{"cap": null}`` clears the override back to the global cap.
+    Out-of-range and unsafe values are rejected with a coded 422 and nothing
+    is saved.
+    """
+    if err := _check_engine_id(engine_id):
+        return err
+
+    from ...orchestration.tasks.synthesis import _manifest_resource_claim  # noqa: PLC0415
+    from ...orchestration.scheduler.cap_settings import (  # noqa: PLC0415
+        get_engine_caps,
+        is_global_cap_explicit,
+    )
+    from ...orchestration.scheduler.cap_default import resolve_live_effective_cap  # noqa: PLC0415
+    from ...orchestration.scheduler.cap_safety import global_safe_max  # noqa: PLC0415
+    from ...orchestration.scheduler.resources import (  # noqa: PLC0415
+        MAX_GLOBAL_CONCURRENT_SYNTHESIS,
+        get_engine_id_semaphore,
+    )
+    from ...db.state import set_engine_cap  # noqa: PLC0415
+
+    claim = _manifest_resource_claim(engine_id)
+    manifest_max = claim.manifest_max
+
+    if body.cap is not None and not (1 <= body.cap <= manifest_max):
+        return JSONResponse(
+            {
+                "detail": {
+                    "code": "cap_out_of_range",
+                    "message": f"cap must be between 1 and {manifest_max}",
+                    "correlation_id": cap_guard.new_correlation_id(),
+                    "manifest_max": manifest_max,
+                }
+            },
+            status_code=422,
+        )
+
+    # Checked before the write: a refusal changes nothing.
+    with cap_guard.cap_write_lock:
+        if refusal := cap_guard.unsafe_engine_cap_response(engine_id, body.cap):
+            return refusal
+
+        set_engine_cap(engine_id, body.cap)
+
+    engine_caps = get_engine_caps()
+    cap_is_auto = not is_global_cap_explicit()
+    global_safe = (
+        global_safe_max(collect_limits(), cap_guard.sample_resources(), MAX_GLOBAL_CONCURRENT_SYNTHESIS)
+        if cap_is_auto
+        else 0
+    )
+    global_cap = _resolved_global_cap(global_safe, cap_is_auto)
+    return JSONResponse(
+        {
+            "engine_id": engine_id,
+            "engine_class": claim.engine_class,
+            "manifest_max": manifest_max,
+            "requested_cap": engine_caps.get(engine_id, global_cap),
+            "effective_cap": resolve_live_effective_cap(engine_id, manifest_max),
+            "active_count": get_engine_id_semaphore(engine_id, manifest_max).active_count,
+        }
+    )
+
+
+@router.put("/{engine_id}/settings")
+def update_engine_settings(engine_id: str, settings: dict[str, Any] = Body(...)):
+    """Update settings for a specific engine."""
+    from ...engines.errors import EngineUnavailableError
+    bridge = create_voice_bridge()
+    try:
+        result = bridge.update_engine_settings(engine_id, settings)
+        return JSONResponse(result)
+    except EngineUnavailableError:
+        logger.warning("TTS Server unavailable while updating settings for %r", engine_id, exc_info=True)
+        return JSONResponse({"status": "error", "message": "TTS Server is unavailable"}, status_code=503)
+    except NotImplementedError:
+        return JSONResponse({"status": "error", "message": "Feature not implemented"}, status_code=501)
+    except Exception:
+        logger.exception("Engine settings update failed for %r", engine_id)
+        return JSONResponse({"status": "error", "message": "Failed to update engine settings"}, status_code=500)
+
+
+@router.delete("/{engine_id}/settings/{setting_key}")
+def clear_engine_setting(engine_id: str, setting_key: str):
+    """Clear a read-only computed setting for an engine."""
+    from ...engines.errors import EngineUnavailableError
+    bridge = create_voice_bridge()
+    try:
+        result = bridge.clear_engine_setting(engine_id, setting_key)
+        return JSONResponse(result)
+    except EngineUnavailableError:
+        logger.warning("TTS Server unavailable while clearing setting for %r", engine_id, exc_info=True)
+        return JSONResponse({"status": "error", "message": "TTS Server is unavailable"}, status_code=503)
+    except Exception:
+        logger.exception("Engine setting reset failed for %r", engine_id)
+        return JSONResponse({"status": "error", "message": "Failed to reset engine setting"}, status_code=500)
+
+
+@router.get("/{engine_id}/requirements")
+def get_engine_requirements(engine_id: str):
+    """Return the requirements.txt lines for an installed engine."""
+    if err := _check_engine_id(engine_id):
+        return err
+
+    from ...engines.errors import EngineUnavailableError
+    from ...engines.tts_client import TtsServerError
+    bridge = create_voice_bridge()
+    try:
+        return bridge.get_engine_requirements(engine_id)
+    except EngineUnavailableError:
+        logger.warning("TTS Server unavailable while fetching requirements for %r", engine_id, exc_info=True)
+        return JSONResponse({"status": "error", "message": "TTS Server is unavailable"}, status_code=503)
+    except TtsServerError:
+        logger.exception("TTS Server error fetching requirements for %r", engine_id)
+        return JSONResponse({"status": "error", "message": "Failed to fetch requirements"}, status_code=500)
+    except Exception:
+        logger.exception("Failed to fetch requirements for %r", engine_id)
+        return JSONResponse({"status": "error", "message": "Failed to fetch requirements"}, status_code=500)
+
+
+@router.delete("/{engine_id}")
+def remove_engine_plugin(engine_id: str):
+    """Remove an engine plugin."""
+    bridge = create_voice_bridge()
+    return bridge.remove_plugin(engine_id)
+
+
+@router.get("/{engine_id}/logs")
+def get_engine_logs(engine_id: str):
+    """Fetch logs for an engine."""
+    from ...engines.errors import EngineUnavailableError
+    bridge = create_voice_bridge()
+    try:
+        return bridge.get_logs(engine_id)
+    except EngineUnavailableError:
+        logger.warning("TTS Server unavailable while fetching logs for %r", engine_id, exc_info=True)
+        return JSONResponse({"status": "error", "message": "TTS Server is unavailable"}, status_code=503)
+
+
+@router.post("/{engine_id}/calibrate/reset")
+def reset_engine_calibration(engine_id: str, model: Optional[str] = None):
+    """Reset calibration data (historical render samples and cached CPS) for an engine and optionally a model."""
+    from app.db.performance import reset_engine_calibration_history
+    from app.db.state_performance import clear_engine_cps_cache
+
+    safe_engine_id = "".join(ch for ch in engine_id if ch.isalnum() or ch in ("-", "_"))
+    if not safe_engine_id or safe_engine_id != engine_id:
+        return JSONResponse({"status": "error", "message": "Invalid engine_id format"}, status_code=400)
+
+    try:
+        reset_engine_calibration_history(engine_id, model)
+        clear_engine_cps_cache(engine_id)
+        return JSONResponse({"status": "ok", "engine_id": engine_id})
+    except Exception:
+        logger.error("Failed to reset engine calibration for %r", engine_id, exc_info=True)
+        return JSONResponse({"status": "error", "message": "Failed to reset calibration"}, status_code=500)

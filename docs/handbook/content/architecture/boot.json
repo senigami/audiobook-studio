@@ -1,0 +1,6 @@
+{
+ "title": "Boot Sequence",
+ "desc": "The one explicit place startup side effects are allowed.",
+ "lede": "Startup is deliberate and idempotent — and it's the only place side effects live.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li><code>boot_studio()</code> and <code>boot_tts_server()</code>.</li><li>Migrations run, then the watchdog starts.</li><li>Idempotent and off the request path.</li></ul></div>\n        <h2>Explicit startup</h2>\n        <p><strong>Boot functions own all startup side effects.</strong> Migrations run first, then the watchdog brings up the TTS Server. Importing modules never triggers this.</p>\n        <h2>Idempotent</h2>\n        <p><strong>Boot can run safely more than once</strong> and never happens as a side effect of handling a request — keeping requests fast and predictable.</p>"
+}

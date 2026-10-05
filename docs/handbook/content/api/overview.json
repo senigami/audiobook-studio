@@ -1,0 +1,6 @@
+{
+ "title": "Gateway Overview &amp; Enabling",
+ "desc": "Use Studio as an external TTS backend over HTTP.",
+ "lede": "The gateway turns Studio into a local text-to-speech backend your own tools can call over HTTP, using the engines you've installed.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>A local HTTP API for synthesis.</li><li>Enable it in Settings.</li><li>OpenAPI docs at <code>/api/v1/tts/docs</code>.</li></ul></div>\n        <h2>What the gateway is</h2>\n        <p><strong>It exposes synthesis over HTTP</strong> so scripts and apps can generate speech through Studio's installed engines — no cloud account needed.</p>\n        <h2>Enabling it</h2>\n        <p><strong>Turn the gateway on in <a href=\"#user-guide/settings\">Settings</a>.</strong> It's off by default. Once enabled, the interactive OpenAPI docs are served at <code>/api/v1/tts/docs</code>.</p>\n        <div class=\"note\"><b>Note —</b> This is for an AI/automation audience — the endpoint pages are precise enough to hand to your own assistant to integrate.</div>"
+}

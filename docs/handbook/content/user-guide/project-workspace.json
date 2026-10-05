@@ -1,0 +1,6 @@
+{
+ "title": "Project Workspace",
+ "desc": "The project view, its header, and sub-navigation tabs.",
+ "lede": "Open a project and you land in its workspace — the header for metadata, and tabs for everything inside.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Edit project metadata and cover.</li><li>Sub-nav: Chapters, Characters, Assemblies, Backups.</li><li>Set project defaults like the narrator and output preset.</li></ul></div>\n        <h2>The header</h2>\n        <p><strong>Edit the project's metadata and cover from the header.</strong> Title, author, series, and cover travel through to the finished audiobook.</p>\n        <h2>Sub-navigation</h2>\n        <ul><li><strong><a href=\"#user-guide/chapters-tab\">Chapters</a></strong> — add and manage chapters.</li><li><strong><a href=\"#user-guide/characters-tab\">Characters</a></strong> — define characters and assign voices.</li><li><strong><a href=\"#user-guide/assemblies-tab\">Assemblies</a></strong> — combine chapters into output.</li><li><strong><a href=\"#user-guide/backups-tab\">Backups</a></strong> — snapshot and restore.</li></ul>\n        <h2>Project defaults</h2>\n        <p><strong>Projects hold defaults</strong> like the default narrator and output preset, which apply unless a chapter or line overrides them.</p>"
+}

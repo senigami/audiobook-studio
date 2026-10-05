@@ -1,0 +1,66 @@
+/* Mobile layout for the library list view.
+   Desktop keeps the table; below 640px (matches ChapterList.css's 560px /
+   GlobalQueue.css's 640px convention) each row collapses to a stacked card:
+   title+status on one line, secondary metadata below, actions as an
+   absolutely-positioned overflow menu — instead of clipping table columns
+   off-screen. */
+@media (max-width: 640px) {
+  .project-list-view table,
+  .project-list-view thead,
+  .project-list-view tbody,
+  .project-list-view tr,
+  .project-list-view td {
+    display: block;
+    width: 100%;
+  }
+
+  .project-list-view thead {
+    display: none;
+  }
+
+  .project-list-view tr {
+    position: relative;
+    padding: 0.85rem 3rem 0.85rem 1rem !important;
+  }
+
+  .project-list-view td {
+    padding: 0 !important;
+  }
+
+  .project-list-view .list-cell-project {
+    padding-right: 0 !important;
+  }
+
+  .project-list-view .list-cell-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .project-list-view .list-cell-status-desktop,
+  .project-list-view .list-cell-series,
+  .project-list-view .list-cell-created {
+    display: none;
+  }
+
+  .project-list-view .list-cell-status-mobile {
+    display: inline-flex !important;
+  }
+
+  .project-list-view .list-cell-meta {
+    margin-top: 0.3rem;
+  }
+
+  .project-list-view .list-cell-actions {
+    position: absolute;
+    top: 0.6rem;
+    right: 0.5rem;
+    padding: 0 !important;
+  }
+}
+
+/* Hidden on desktop; only shown inline with the title on mobile (see above). */
+.project-list-view .list-cell-status-mobile {
+  display: none;
+}

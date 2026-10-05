@@ -1,0 +1,6 @@
+{
+ "title": "Performance &amp; GPU Tuning",
+ "desc": "Getting the most throughput from local synthesis.",
+ "lede": "A few levers make local synthesis faster and steadier.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>GPU/VRAM considerations.</li><li>CPS auto-tuning and ETA.</li><li>Large-book load performance.</li></ul></div>\n        <h2>GPU &amp; VRAM</h2>\n        <p><strong>A CUDA GPU dramatically speeds local synthesis.</strong> More VRAM lets heavier engines and longer chunks run comfortably.</p>\n        <h2>Throughput &amp; scale</h2>\n        <p><strong>Studio auto-tunes characters-per-second estimates for accurate ETAs</strong> and is built to keep large books responsive. Declare honest engine resource profiles so scheduling avoids collisions.</p>"
+}

@@ -1,0 +1,17 @@
+/* Status card row (Studio Version / Engine Plugins / Production Tally).
+   Explicit 3-column grid so the row always divides evenly instead of an
+   auto-fit/auto-fill track count that can leave the last card orphaned at
+   half-width beside empty space on wide viewports. Stacks to 1 column on
+   mobile (matches the ~560-640px breakpoint convention used elsewhere,
+   e.g. frontend/src/pages/ProjectDetail/components/ChapterList.css). */
+.about-status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+@media (max-width: 640px) {
+  .about-status-grid {
+    grid-template-columns: 1fr;
+  }
+}

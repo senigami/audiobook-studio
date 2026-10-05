@@ -1,0 +1,6 @@
+{
+ "title": "Frontend Architecture",
+ "desc": "How the React app is organized.",
+ "lede": "The UI is a React app with a clear split between canonical data and live overlays.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>pages / components / hooks / store / theme.</li><li>Canonical data vs live overlays.</li><li>Tests under frontend/tests.</li></ul></div>\n        <h2>Organization</h2>\n        <p><strong>The app is organized into pages, components, hooks, a store, and theme.</strong> The store holds UI state; it is not a second source of truth for canonical data.</p>\n        <h2>Canonical vs live</h2>\n        <p><strong>Canonical data comes from the backend; live overlays show in-flight progress.</strong> Keeping them distinct avoids the frontend drifting from server truth. Tests live under <code>frontend/tests</code>.</p>"
+}

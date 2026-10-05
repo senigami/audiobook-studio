@@ -1,0 +1,521 @@
+/* ==========================================================================
+   PlayerBar Component
+   ========================================================================== */
+/* Docked layout (not an overlay): PlayerBar is a real flex sibling of the
+   shell's main content row (see AppShell.tsx), so it occupies its own space
+   at the bottom of the viewport and the content area above shrinks to fit —
+   nothing under it is ever covered or made unclickable. It used to be
+   `position: fixed` with the main content area given a hardcoded
+   `padding-bottom` guess at the bar's collapsed height; that guess never
+   accounted for the tape view (which is far taller), so opening the tape
+   covered whatever content was under it. flex-shrink: 0 keeps it at its
+   natural (content) height while the sibling content column (`min-height: 0`
+   + `overflow-y: auto`) absorbs the remaining space and scrolls internally. */
+.player-bar {
+  position: relative;
+  flex-shrink: 0;
+  width: 100%;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  /* Container for the U16 responsive rule: the inline waveform reflows above
+     the controls when the bar itself is too narrow (NOT a viewport query). */
+  container-type: inline-size;
+}
+
+.player-bar-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
+  gap: 1.5rem;
+  padding: 0.5rem 1.5rem;
+  min-height: 56px;
+}
+
+.player-bar-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.player-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* The lucide icons carry width/height as presentation attributes; inside a tiny
+   inline-flex button the flex algorithm collapses their main-axis (width) to 0,
+   leaving blank buttons. Pin them so they always render at their intrinsic size. */
+.player-btn svg {
+  flex-shrink: 0;
+}
+
+.player-btn:hover:not(:disabled) {
+  background: var(--surface-alt);
+  border-color: var(--text-muted);
+}
+
+.player-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.player-btn-primary {
+  background: var(--action-primary);
+  border-color: var(--action-primary);
+  color: var(--text-on-accent);
+}
+
+.player-btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--text-on-accent);
+}
+
+/* Stop button — smaller secondary, visually separated from the VCR 5 */
+.player-btn-stop {
+  width: 26px;
+  height: 26px;
+  margin-left: 0.25rem;
+  color: var(--text-muted);
+  border-color: var(--border-muted);
+}
+
+.player-btn-stop:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+/* Primary play/pause button is slightly larger to anchor the VCR group */
+.player-btn-primary {
+  width: 36px;
+  height: 36px;
+}
+
+/* Thin vertical rule between the controls cluster and the info/seek area */
+.player-bar-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--border);
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.player-bar-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.player-bar-title-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.player-title {
+  font-size: var(--type-callout);
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-subtitle {
+  font-size: var(--type-caption);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Scrub area — holds either the inline waveform (short clip) or the plain
+   seek slider (long clip); representation is duration-driven, not scope-driven
+   (audio-player.md 1.6.0). Fills the available width like a scrub bar. */
+.player-scrub {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1.5 1 180px;
+  min-width: 120px;
+}
+
+/* Inline waveform = the scrub track when the clip fits legibly (fitsLegibly). */
+.player-waveform-inline {
+  width: 100%;
+  height: 32px;
+}
+
+/* U16 responsive exception: when the bar is too narrow to fit transport +
+   inline waveform + trailing controls on one row, the waveform reflows
+   ABOVE the controls (order:-1, full width) at reduced height. The plain-bar
+   representation uses .player-scrub WITHOUT --wave, so its slider never
+   reflows above. */
+@container (max-width: 720px) {
+  .player-scrub--wave {
+    flex-basis: 100%;
+    order: -1;
+  }
+  .player-scrub--wave .player-waveform-inline {
+    height: 24px;
+  }
+}
+
+.player-progress-slider {
+  flex: 1;
+  height: 4px;
+  border-radius: var(--radius-round);
+  background: var(--surface-alt);
+  outline: none;
+  cursor: pointer;
+  accent-color: var(--action-primary);
+  transition: background 0.2s ease;
+}
+
+.player-time-display {
+  font-size: var(--type-caption);
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-family: monospace;
+  white-space: nowrap;
+}
+
+/* Volume control (owner-requested, 2026-07-16): mute toggle + level slider,
+   same treatment as the progress slider but fixed-width (not flex: 1) since
+   it isn't meant to grow with the bar. */
+.player-bar-volume {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.player-volume-slider {
+  width: 72px;
+  height: 4px;
+  border-radius: var(--radius-round);
+  background: var(--surface-alt);
+  outline: none;
+  cursor: pointer;
+  accent-color: var(--action-primary);
+  transition: background 0.2s ease;
+}
+
+/* ---------------------------------------------------------------------------
+ * Player bar — inline waveform (duration-driven scrub track, audio-player.md 1.6.0)
+ * --------------------------------------------------------------------------- */
+
+/* Representation override toggle (far right) — flips waveform ↔ bar. Uses the
+   circular .player-btn base; --on adds the accent tint when the waveform shows. */
+.player-btn-wave {
+  flex-shrink: 0;
+}
+
+.player-btn-wave--on {
+  background: var(--accent-tint-bg);
+  border-color: var(--accent-tint-border);
+  color: var(--action-primary);
+}
+
+.player-btn-wave--on:hover:not(:disabled) {
+  background: var(--accent-tint-bg);
+  border-color: var(--action-primary);
+  color: var(--action-primary);
+}
+
+/* Waveform container — fills its inline slot (.player-waveform-inline). */
+.waveform-strip {
+  width: 100%;
+  height: 100%;
+  background: var(--color-wave-bg, transparent);
+  /* wavesurfer renders a <canvas> inside; let it fill */
+  display: block;
+  box-sizing: border-box;
+}
+
+/* Ensure wavesurfer's internal shadow DOM canvas fills the container */
+.waveform-strip > div,
+.waveform-strip canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * Tape view — expandable zoomed waveform (audio-player.md 1.6.0 §5, task 002)
+ * --------------------------------------------------------------------------- */
+
+/* Grows the player bar upward when the tape is open. Renders above
+   .player-bar-content in source order, so it stacks on top rather than
+   pushing the bar down. */
+.player-tape-region {
+  width: 100%;
+  height: 220px;
+  min-height: 180px;
+  max-height: 260px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  animation: player-tape-open var(--dur-fast) var(--ease-standard);
+}
+
+@keyframes player-tape-open {
+  from {
+    max-height: 0;
+    opacity: 0;
+  }
+  to {
+    max-height: 260px;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-tape-region {
+    animation: none;
+  }
+}
+
+/* Footer row inside the tape — minimap + zoom control + motion toggle. */
+.tape-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.25rem 0.75rem;
+  flex-shrink: 0;
+}
+
+/* Motion toggle reuses the circular .player-btn base; widened to a 44px
+   touch target here (:disabled dimming already inherited from .player-btn). */
+.tape-motion-toggle {
+  min-width: 44px;
+  min-height: 44px;
+  margin-left: 0.5rem;
+}
+
+/* Row inside WaveformTape.tsx holding the zoom control (WaveformTapeZoom)
+   and the paged/moving motion toggle (PlayerBar's zoomRowTrailing) side by
+   side — owner request: keep the motion toggle off its own line. Wraps
+   rather than overflows at narrow player-bar widths (mobile). */
+.tape-zoom-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem 0;
+  flex-shrink: 0;
+}
+
+/* WaveformTape.tsx root */
+.tape {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  outline: none;
+}
+
+.tape:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--action-primary);
+}
+
+.tape-canvas {
+  display: block;
+  width: 100%;
+  flex: 1;
+  min-height: 56px;
+  cursor: pointer;
+  background: var(--surface-alt);
+}
+
+.tape-ruler {
+  position: relative;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.tape-tick {
+  position: absolute;
+  top: 2px;
+  transform: translateX(-50%);
+  font-size: var(--type-caption);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* WaveformTapeMinimap.tsx */
+.nsp-minimap {
+  flex-shrink: 0;
+  outline: none;
+}
+
+.nsp-minimap:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--action-primary);
+}
+
+.tape-minimap-bar {
+  pointer-events: none;
+}
+
+.tape-minimap-window {
+  cursor: grab;
+}
+
+.tape-minimap-playhead {
+  pointer-events: none;
+}
+
+/* --- Cover-size slider (ported from src/demo/stages/siteMockup/mockup.css,
+   reused as-is so WaveformTapeZoom.tsx matches the Library cover-size look) --- */
+.ns-size-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ns-size-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 0;
+  opacity: 0.7;
+  transition: opacity var(--dur-fast) var(--ease-standard);
+}
+
+.ns-size-glyph:hover {
+  opacity: 1;
+}
+
+/* Zoom in/out glyph: lucide-react ZoomOut/ZoomIn icon (WaveformTapeZoom.tsx),
+   themed to match the app's icon coloring and adapt across light/dark theme.
+   Sized independently of `.ns-size-glyph`'s 44px hit-area via the icon's own
+   `size` prop, not CSS width/height. */
+.tape-zoom-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.ns-size-glyph:hover .tape-zoom-icon {
+  color: var(--text-primary);
+}
+
+.ns-size-slider-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 120px;
+  height: 18px;
+}
+
+.ns-size-track {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+  pointer-events: none;
+}
+
+.ns-size-tick {
+  position: absolute;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  opacity: 0.55;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.ns-size-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 18px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ns-size-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.ns-size-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.ns-size-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--action-primary);
+  border: 2px solid var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.ns-size-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--action-primary);
+  border: 2px solid var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Touch-target (44px, HIG) invisible hit-area padding for the zoom control's
+   glyph buttons/slider — per WaveformTapeZoom.tsx's own comment, this is
+   deliberately just the hit box; the ported .ns-size-glyph above has no
+   visible width/height of its own yet (the mock set that per-instance via
+   inline style), so there is no visible chrome to inflate here. */
+.tape-zoom-glyph-hit {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.tape-zoom-slider-hit {
+  min-height: 44px;
+}
+
+.tape-zoom-dot--disabled {
+  opacity: 0.3;
+}
+
+.tape-zoom-dot--active {
+  background: var(--action-primary);
+}
+

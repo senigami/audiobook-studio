@@ -1,0 +1,7 @@
+{
+  "settings.language.title": "Interface language",
+  "settings.language.help": "Changes shell labels, page headings, buttons, helper text, and errors.",
+  "settings.language.supportedLocales": "Supported locales",
+  "settings.language.manageFiles": "Manage translation files",
+  "settings.language.preview": "Preview locale"
+}

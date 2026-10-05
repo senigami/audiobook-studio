@@ -1,0 +1,6 @@
+{
+ "title": "Examples",
+ "desc": "Copy-paste curl and automation snippets.",
+ "lede": "Concrete calls you can copy, paste, and hand to your own AI to wire up an integration.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Discover engines.</li><li>Synthesize inline and queued.</li><li>Poll and download audio.</li></ul></div>\n        <h2>Discover engines</h2>\n        <pre><code>curl -H &quot;Authorization: Bearer $KEY&quot; \\\n     http://127.0.0.1:8123/api/v1/tts/engines</code></pre>\n        <h2>Synthesize</h2>\n        <pre><code>curl -X POST http://127.0.0.1:8123/api/v1/tts/synthesize \\\n  -H &quot;Authorization: Bearer $KEY&quot; -H &quot;Content-Type: application/json&quot; \\\n  -d &#x27;{&quot;text&quot;: &quot;Chapter one.&quot;, &quot;voice&quot;: &quot;gravel-road&quot;}&#x27;</code></pre>\n        <h2>Poll &amp; download (long text)</h2>\n        <pre><code># returns {&quot;job_id&quot;:&quot;abc&quot;,&quot;poll&quot;:&quot;/api/v1/tts/jobs/abc&quot;}\ncurl -H &quot;Authorization: Bearer $KEY&quot; http://127.0.0.1:8123/api/v1/tts/jobs/abc\ncurl -H &quot;Authorization: Bearer $KEY&quot; -o out.wav \\\n     http://127.0.0.1:8123/api/v1/tts/jobs/abc/audio</code></pre>"
+}

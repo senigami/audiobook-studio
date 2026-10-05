@@ -1,0 +1,6 @@
+{
+ "title": "TTS Server &amp; Watchdog",
+ "desc": "The long-lived TTS Server subprocess and its supervisor.",
+ "lede": "Synthesis runs in a separate, supervised process. If it dies, the watchdog brings it back.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>A long-lived subprocess hosts engines.</li><li>A READY signal marks it up.</li><li>A watchdog spawns, health-checks, and restarts it.</li><li>A circuit breaker prevents crash loops.</li></ul></div>\n        <h2>The server process</h2>\n        <p><strong>The TTS Server hosts all engines and manages GPU memory.</strong> It signals readiness once up, and Studio talks to it over HTTP via the bridge.</p>\n        <h2>The watchdog</h2>\n        <p><strong>Studio spawns and supervises the server.</strong> It polls health, restarts on failure, and uses a circuit breaker so a persistently broken engine doesn't spin in a restart loop.</p>"
+}

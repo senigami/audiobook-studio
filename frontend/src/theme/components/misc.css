@@ -1,0 +1,267 @@
+/* ==========================================================================
+   Switch — role="switch" pill toggle (P2)
+   ========================================================================== */
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.switch__track {
+  position: relative;
+  width: 48px;
+  height: 26px;
+  border-radius: 13px;
+  background: rgba(0, 0, 0, .18);
+  transition: background-color var(--dur-fast) var(--ease-standard);
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .switch__track {
+  background: rgba(255, 255, 255, .18);
+}
+
+.switch--on .switch__track {
+  background: var(--action-primary);
+}
+
+.switch__knob {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ffffff;
+  transform: translateX(2px);
+  transition: transform var(--dur-fast) var(--ease-standard);
+  box-shadow: var(--shadow-sm);
+}
+
+.switch--on .switch__knob {
+  transform: translateX(22px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch__knob {
+    transition: none;
+  }
+  .switch__track {
+    transition: none;
+  }
+}
+
+.switch__label {
+  font-size: var(--type-callout);
+  color: var(--text-primary);
+  user-select: none;
+}
+
+.switch:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.switch:focus-visible {
+  outline: 3px solid var(--action-primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, .55);
+}
+
+[data-theme="dark"] .switch:focus-visible {
+  box-shadow: 0 0 0 5px rgba(0, 0, 0, .5);
+}
+
+/* ==========================================================================
+   Form input token class (P2) — extracted from GlassInput inline styles
+   ========================================================================== */
+
+.form-input {
+  padding: 10px 16px;
+  border-radius: var(--radius-button);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: var(--type-body);
+  width: 100%;
+  outline: none;
+  color: var(--text-primary);
+  transition:
+    border-color var(--dur-fast) var(--ease-standard),
+    box-shadow   var(--dur-fast) var(--ease-standard);
+}
+
+.form-input:focus {
+  border-color: var(--action-primary);
+  box-shadow: 0 0 0 3px rgba(30, 79, 216, .12);
+}
+
+[data-theme="dark"] .form-input:focus {
+  box-shadow: 0 0 0 3px rgba(107, 159, 255, .15);
+}
+
+/* Icon padding variant — used by GlassInput when icon prop is provided */
+.form-input--with-icon {
+  padding-left: var(--space-7);
+}
+
+/* ─── Form Primitives (P5) ─── */
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 10px;
+  min-width: 40px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-button);
+}
+
+.color-swatch-picker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.voice-dropzone {
+  border-radius: var(--radius-card);
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* ==========================================================================
+   Control target wrapper — 44px interactive region for checkboxes/radios (P2)
+   ========================================================================== */
+
+.control-target {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--action-primary);
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+/* ==========================================================================
+   SegmentRenderMonitor — BitTorrent-style render monitor (W-PAR Phase 2,
+   design-docs/specs/progress-presentation.md §7A). Reduced-motion (M3) is
+   also gated at the component render level (no animation classes applied);
+   these @media rules are defense-in-depth for the CSS layer.
+   ========================================================================== */
+
+@keyframes segment-render-monitor-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.72; }
+}
+
+.segment-render-monitor__block--active {
+  background: rgba(20, 184, 166, 0.22);
+  animation: segment-render-monitor-pulse 1.6s ease-in-out infinite;
+}
+
+[data-theme='dark'] .segment-render-monitor__block--active {
+  background: rgba(45, 212, 191, 0.26);
+}
+
+@keyframes segment-render-monitor-prep {
+  0%   { background-position: -120% 0; }
+  100% { background-position: 220% 0; }
+}
+
+.segment-render-monitor__block--preparing {
+  background-image: linear-gradient(90deg, transparent 0%, var(--accent-tint-border) 50%, transparent 100%);
+  background-size: 60% 100%;
+  background-repeat: no-repeat;
+  animation: segment-render-monitor-prep 1.1s linear infinite;
+}
+
+/* M2 — failure cue that does not rely on hue alone: a diagonal crosshatch
+   pattern layered on top of the danger-tinted border. */
+.segment-render-monitor__crosshatch {
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--action-danger) 0,
+    var(--action-danger) 1px,
+    transparent 1px,
+    transparent 6px
+  );
+  opacity: 0.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segment-render-monitor__block--active,
+  .segment-render-monitor__block--preparing {
+    animation: none !important;
+  }
+}
+
+/* Task 010 — per-segment detail popover, anchored the same way ScriptView's
+   selection popover is (container-relative absolute position). */
+.segment-render-monitor__popover {
+  background: var(--surface);
+  border: 1px solid var(--action-primary);
+  padding: 8px 10px;
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  min-width: 160px;
+}
+
+/* ---------------------------------------------------------------------------
+   Project status pill (task 005, north_star_screen_parity)
+
+   Reuses the same rounded-pill visual language as ChapterTable's
+   `.chapter-table__pill--*` lifecycle pill (book.css) — same shape, same
+   tint/text-color pairing per state — scoped under its own class names
+   because it labels a *project*-level status, not a chapter's. */
+.project-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.5rem;
+  width: fit-content;
+  padding: 0 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-round);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.project-status-pill--drafting {
+  background: var(--surface-alt);
+  color: var(--text-muted);
+}
+
+.project-status-pill--casting {
+  background: var(--warning-tint-bg);
+  color: var(--warning-text);
+}
+
+.project-status-pill--rendered {
+  background: var(--success-tint-bg);
+  color: var(--success-text);
+}

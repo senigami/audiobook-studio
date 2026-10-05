@@ -1,0 +1,6 @@
+{
+ "title": "Launcher Options",
+ "desc": "Running the app for different scenarios.",
+ "lede": "The launchers cover everyday running and a few special cases via flags.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li><code>run.sh</code> / <code>run.ps1</code> flags.</li><li>A generic plugin setup loop.</li><li>Port and reload control.</li></ul></div>\n        <h2>Flags</h2>\n        <ul><li><code>--setup-only</code> — provision without starting.</li><li><code>--no-reload</code> — disable the dev auto-reload.</li><li><code>--port &lt;n&gt;</code> — change the port (default 8123).</li></ul>\n        <h2>Setup loop</h2>\n        <p><strong>The launcher provisions the app and engine environments and installs plugin dependencies</strong> the first time. See <a href=\"#getting-started/launchers\">Launcher Scripts</a>.</p>"
+}

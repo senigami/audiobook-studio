@@ -1,0 +1,6 @@
+{
+ "title": "Changelog",
+ "desc": "Dated record of shipped behavior changes.",
+ "lede": "A running record of shipped changes. The 2.0 line is summarized here; the full history lives with the project.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>2.0 highlights collected here.</li><li>Patch lines noted as they ship.</li><li>Full history in the repository.</li></ul></div>\n        <h2>2.0 highlights</h2>\n        <ul><li>Managed TTS Server + watchdog.</li><li>Task orchestrator, predictive progress, recovery.</li><li>Plugin SDK, external TTS API, composite synthesis.</li><li>Voice tags &amp; icons; clearer first-run model-download progress.</li></ul>\n        <h2>Recent patch lines</h2>\n        <p>Patch-level changes are recorded as they ship.</p>\n        <div class=\"note\"><b>Note —</b> The authoritative, dated changelog is maintained in the repository and release notes.</div>"
+}

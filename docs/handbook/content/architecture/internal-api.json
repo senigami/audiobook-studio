@@ -1,0 +1,6 @@
+{
+ "title": "Internal HTTP API Reference",
+ "desc": "The internal domain route groups behind the UI.",
+ "lede": "The UI is backed by internal domain routes. These are grouped by area.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>projects / chapters / voices / queue.</li><li>generation / jobs / settings / system.</li><li>analysis / migration / engines.</li></ul></div>\n        <h2>Route groups</h2>\n        <ul><li><strong>Content</strong> — projects, chapters, voices.</li><li><strong>Work</strong> — generation, jobs, queue.</li><li><strong>System</strong> — settings, system, engines, analysis, migration.</li></ul>\n        <div class=\"note\"><b>Note —</b> These are internal routes for the UI. For the external, documented surface see the <a href=\"#api/overview\">TTS Gateway API</a>.</div>"
+}

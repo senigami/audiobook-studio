@@ -1,0 +1,14 @@
+{
+  "book.manuscript.table.chapters": "Chapters",
+  "book.manuscript.table.title": "Title",
+  "book.manuscript.table.words": "Words",
+  "book.manuscript.table.stage": "Stage",
+  "book.manuscript.analysis.label": "Analysis",
+  "book.manuscript.analysis.chars": "Chars",
+  "book.manuscript.analysis.words": "Words",
+  "book.manuscript.analysis.sentences": "Sentences",
+  "book.manuscript.analysis.segments": "Segments",
+  "book.manuscript.analysis.estimatedGeneration": "Est. Gen.",
+  "book.manuscript.import.title": "Import manuscript file",
+  "book.manuscript.import.help": ".txt, .docx, or .epub"
+}

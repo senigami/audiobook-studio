@@ -1,0 +1,223 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { screen, waitFor } from '@testing-library/react';
+import { api } from '@/api';
+import { 
+  renderProjectView, mockProject, mockChapters, stripMotionProps, mockSpeakerProfiles
+} from '@tests/helpers/ProjectViewTestHelpers';
+
+// Mock API
+vi.mock('@/api', () => ({
+  api: {
+    fetchProject: vi.fn(),
+    fetchChapters: vi.fn(),
+    fetchProjectAudiobooks: vi.fn(),
+    fetchCharacters: vi.fn().mockResolvedValue([]),
+    fetchSegments: vi.fn().mockResolvedValue([]),
+    updateChapter: vi.fn(),
+    updateProject: vi.fn(),
+    exportSample: vi.fn(),
+    fetchProjectBackups: vi.fn().mockResolvedValue([]),
+    updateProjectBackupMetadata: vi.fn().mockResolvedValue({ status: 'ok' }),
+    updateAudiobookMetadata: vi.fn().mockResolvedValue({ status: 'ok' }),
+  },
+}));
+
+vi.mock('@/components/CharactersTab', () => ({
+  CharactersTab: () => <div>Characters & Voices</div>,
+}));
+
+// Mock lucide-react
+vi.mock('lucide-react', () => ({
+  Plus: () => <div data-testid="plus-icon" />,
+  Zap: () => <div data-testid="zap-icon" />,
+  ArrowUpDown: () => <div data-testid="arrow-up-down-icon" />,
+  MoreVertical: () => <div data-testid="more-vertical-icon" />,
+  Book: () => <div data-testid="book-icon" />,
+  FileText: () => <div />,
+  GripVertical: () => <div />,
+  CheckSquare: () => <div />,
+  Square: () => <div />,
+  RefreshCw: () => <div />,
+  Edit3: () => <div />,
+  Video: () => <div />,
+  Download: () => <div />,
+  Trash2: () => <div />,
+  Loader2: () => <div />,
+  AlertTriangle: () => <div />,
+  Volume2: () => <div />,
+  Info: () => <div />,
+  ChevronRight: () => <div />,
+  ChevronDown: () => <div />,
+  User: () => <div />,
+  List: () => <div />,
+  Play: () => <div />,
+  Pause: () => <div />,
+  X: () => <div />,
+  Music: () => <div />,
+  Upload: () => <div />,
+  Image: () => <div data-testid="image-icon" />,
+  ArrowLeft: () => <div />,
+  Clock: () => <div />,
+  CheckCircle: () => <div />,
+  Database: () => <div />,
+  Check: () => <div />,
+  Archive: () => <div />,
+}));
+
+// Mock framer-motion
+vi.mock('framer-motion', () => ({
+  motion: {
+    div: ({ children, ...props }: any) => <div {...stripMotionProps(props)}>{children}</div>,
+    button: ({ children, ...props }: any) => <button {...stripMotionProps(props)}>{children}</button>,
+  },
+  AnimatePresence: ({ children }: any) => <>{children}</>,
+  Reorder: {
+      Group: ({ children, ...props }: any) => <div data-testid="reorder-group" {...stripMotionProps(props)}>{children}</div>,
+      Item: ({ children, ...props }: any) => <div data-testid="reorder-item" {...stripMotionProps(props)}>{children}</div>,
+  },
+  useDragControls: () => ({ start: () => {} }),
+}));
+
+describe('ProjectView - Rendering', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (api.fetchProject as any).mockResolvedValue(mockProject);
+    (api.fetchChapters as any).mockResolvedValue(mockChapters);
+    (api.fetchProjectAudiobooks as any).mockResolvedValue([]);
+  });
+
+  it('renders loading state', () => {
+    (api.fetchProject as any).mockReturnValue(new Promise(() => {}));
+    (api.fetchChapters as any).mockReturnValue(new Promise(() => {}));
+    (api.fetchProjectAudiobooks as any).mockReturnValue(new Promise(() => {}));
+
+    renderProjectView();
+    expect(screen.getByText('Loading project...')).toBeInTheDocument();
+  });
+
+  it('loads and renders project and chapters', async () => {
+    renderProjectView();
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+    });
+
+    expect(screen.getAllByText('Test Project')[0]).toBeInTheDocument();
+    expect(screen.getByText('Chapter 1')).toBeInTheDocument();
+    expect(screen.getByText('Chapter 2')).toBeInTheDocument();
+  });
+
+  it('renders breadcrumbs when shellState is provided', async () => {
+    const mockShellState = {
+      navigation: { activeGlobalId: 'project', activeProjectId: 'proj-123', routeKind: 'project-overview' },
+      hydration: { status: 'ready', lastHydratedAt: 1000 },
+      breadcrumbs: [
+        { id: 'library', label: 'Library', href: '/' },
+        { id: 'project', label: 'Test Project' }
+      ],
+      projectSubnav: []
+    };
+
+    renderProjectView({ shellState: mockShellState });
+
+    await screen.findAllByText('Test Project');
+    expect(screen.getByRole('navigation', { name: /breadcrumb/i })).toBeInTheDocument();
+    expect(screen.getByText('Library')).toBeInTheDocument();
+  });
+
+  it('hides or labels predicted runtime as unavailable when calibrated_cps is unavailable', async () => {
+    const mockEngines = [
+      { engine_id: 'xtts', enabled: true, status: 'ready', calibrated_cps: null }
+    ];
+
+    renderProjectView({ engines: mockEngines });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Predicted: Unavailable/i)).toBeInTheDocument();
+  });
+
+  it('displays the correct predicted runtime when calibrated_cps is available', async () => {
+    const mockEngines = [
+      { engine_id: 'xtts', enabled: true, status: 'ready', calibrated_cps: 33.4 }
+    ];
+    const customChapters = [
+      {
+        id: 'chap-1',
+        title: 'Chapter 1',
+        audio_status: 'done',
+        char_count: 100,
+        audio_length_seconds: 60,
+        has_wav: true,
+        predicted_audio_length: 60
+      },
+      {
+        id: 'chap-2',
+        title: 'Chapter 2',
+        audio_status: 'unprocessed',
+        char_count: 334,
+        has_wav: false,
+        predicted_audio_length: 120
+      }
+    ];
+    (api.fetchChapters as any).mockResolvedValue(customChapters);
+
+    const speakerProfilesWithEngine = [
+      {
+        ...mockSpeakerProfiles[0],
+        engine: 'xtts'
+      }
+    ];
+
+    renderProjectView({ engines: mockEngines, speakerProfiles: speakerProfilesWithEngine });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Predicted: 1m 10s/i)).toBeInTheDocument();
+  });
+
+  it('displays predicted runtime based on calibrated_cps only', async () => {
+    const mockEngines = [
+      { engine_id: 'xtts', enabled: true, status: 'ready', calibrated_cps: 10.0 }
+    ];
+    const customChapters = [
+      {
+        id: 'chap-1',
+        title: 'Chapter 1',
+        audio_status: 'done',
+        char_count: 100,
+        audio_length_seconds: 60,
+        has_wav: true,
+        predicted_audio_length: 60
+      },
+      {
+        id: 'chap-2',
+        title: 'Chapter 2',
+        audio_status: 'unprocessed',
+        char_count: 300,
+        has_wav: false,
+        predicted_audio_length: 120
+      }
+    ];
+    (api.fetchChapters as any).mockResolvedValue(customChapters);
+
+    const speakerProfilesWithEngine = [
+      {
+        ...mockSpeakerProfiles[0],
+        engine: 'xtts'
+      }
+    ];
+
+    renderProjectView({ engines: mockEngines, speakerProfiles: speakerProfilesWithEngine });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading project...')).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Predicted: 1m 30s/i)).toBeInTheDocument();
+  });
+});

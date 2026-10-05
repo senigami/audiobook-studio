@@ -1,0 +1,6 @@
+{
+ "title": "Engine Settings &amp; Verification",
+ "desc": "Per-engine configuration and the verification/self-test flow.",
+ "lede": "Each engine carries its own settings and a self-test, so you can configure it and confirm it actually works before relying on it.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Settings are <strong>schema-driven</strong> — the form comes from the engine.</li><li><strong>Verify</strong> runs a real test synthesis.</li><li>Engines report a clear status.</li></ul></div>\n        <h2>Schema-driven engine settings</h2>\n        <p><strong>Each engine declares its own settings.</strong> Studio renders the form from that schema, so an engine's options (models, keys, tuning) appear without hard-coding anything in the UI.</p>\n        <h2>Verification &amp; test runs</h2>\n        <p><strong>Verify runs a quick synthesis to prove the engine is working.</strong> Use it after setup or after changing a setting, and read the diagnostics if it fails.</p>\n        <h2>Enable / disable &amp; status</h2>\n        <p><strong>Engines show a clear status</strong> — ready, needs setup, or unavailable — so you know what will happen before you queue a job. Manage all of this in <a href=\"#user-guide/settings\">Settings</a>.</p>"
+}

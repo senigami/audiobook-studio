@@ -1,0 +1,239 @@
+#!/usr/bin/env bash
+# Pre-push gates. Enable per clone with:  git config core.hooksPath tools/git-hooks
+#
+# Each gate runs as its own command and its exit status is captured separately, so one
+# failing gate never hides the ones after it. Do NOT restructure this into a `&&` chain
+# or re-add `set -e`: a chain stops at the first failure while still printing a status,
+# which makes a gate that never ran look identical to one that passed.
+set -uo pipefail
+
+FAILED=0
+GATES_RAN=0
+run() {
+    local label="$1"; shift
+    GATES_RAN=$((GATES_RAN + 1))
+    echo "── ${label}"
+    if "$@"; then
+        echo "   ok"
+    else
+        echo "   FAILED (exit $?)"
+        FAILED=$((FAILED + 1))
+    fi
+}
+
+# Gate what is actually being PUSHED. Git feeds this hook one line per ref on stdin:
+#   <local ref> <local sha> <remote ref> <remote sha>
+# Reading it matters: diffing the CURRENT BRANCH's upstream instead means
+# `git push origin some-other-branch` finds no local diff, reports "nothing to gate",
+# and every gate is skipped while the push goes through.
+ZERO="0000000000000000000000000000000000000000"
+PUSH_RANGES=()
+SAW_STDIN_REF=0
+while read -r _localref localsha _remoteref remotesha; do
+    [ -z "${localsha:-}" ] && continue
+    SAW_STDIN_REF=1
+    [ "$localsha" = "$ZERO" ] && continue          # branch deletion, nothing to gate
+    if [ "${remotesha:-$ZERO}" = "$ZERO" ]; then
+        # new branch on the remote: compare against this repo's real base, not main
+        if git show-ref --verify --quiet refs/remotes/origin/studio-2.0; then
+            PUSH_RANGES+=("origin/studio-2.0...$localsha")
+        else
+            # No origin/studio-2.0 to compare a new branch against. Gate the tip only, and
+            # SAY so: silently gating one commit of a branch reads identically to gating it all.
+            echo "note: no origin/studio-2.0 found, so only the tip commit of this new branch is gated"
+            PUSH_RANGES+=("$localsha~1...$localsha")
+        fi
+    else
+        PUSH_RANGES+=("$remotesha...$localsha")
+    fi
+done
+
+# Fall back only when invoked by hand with no stdin (testing the hook directly).
+# The real base here is studio-2.0, not main: falling back to origin/main on a first push
+# diffs the whole v1/v2 divergence and the gates then lint thousands of unrelated files
+# (looks hung; cost a real round once).
+UPSTREAM_REF="$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)"
+if [ -z "$UPSTREAM_REF" ]; then
+    CURRENT_BRANCH="$(git branch --show-current)"
+    if git show-ref --verify --quiet "refs/remotes/origin/${CURRENT_BRANCH}"; then
+        UPSTREAM_REF="origin/${CURRENT_BRANCH}"
+    elif git show-ref --verify --quiet "refs/remotes/origin/studio-2.0"; then
+        UPSTREAM_REF="origin/studio-2.0"
+    elif git show-ref --verify --quiet "refs/remotes/origin/main"; then
+        UPSTREAM_REF="origin/main"
+    else
+        UPSTREAM_REF="HEAD~1"
+    fi
+fi
+
+if [ "${#PUSH_RANGES[@]}" -eq 0 ] && [ "$SAW_STDIN_REF" -eq 1 ]; then
+    # git gave us refs and every one was a deletion. Nothing is being added, so there is
+    # nothing to gate. Do NOT fall through to the working-tree diff: that would gate
+    # something other than what is being pushed, and report it as if it were the push.
+    echo "Only branch deletion(s) pushed; nothing to gate."
+    exit 0
+fi
+
+if [ "${#PUSH_RANGES[@]}" -eq 0 ]; then
+    PUSH_RANGES=("${UPSTREAM_REF}...HEAD")
+    SCOPE="working tree vs ${UPSTREAM_REF} (no refs on stdin: invoked by hand, not by git)"
+else
+    SCOPE="${#PUSH_RANGES[@]} pushed ref(s)"
+fi
+
+# Compute the diff BEFORE the read loop, and check each one's exit status. Inside a
+# process substitution the status is swallowed: a `git diff` that dies (a remote sha not
+# in the local object store, which a force-push over a branch another clone advanced will
+# do) prints nothing to stdout, leaves CHANGED_FILES empty, and the hook then reports
+# "nothing to gate" and exits 0 having run no gates. An unknown diff is not an empty diff.
+DIFF_OUT=""
+DIFF_FAILED=0
+for R in "${PUSH_RANGES[@]}"; do
+    # stdout only: merging stderr in would turn a warning on a SUCCESSFUL diff into a filename
+    out="$(git diff --name-only "$R" 2>/dev/null)"
+    if [ $? -ne 0 ]; then
+        echo "── could not compute the diff for ${R}:"
+        git diff --name-only "$R" 2>&1 >/dev/null | sed 's/^/     /'
+        DIFF_FAILED=1
+    else
+        DIFF_OUT="${DIFF_OUT}${out}"$'\n'
+    fi
+done
+
+if [ "$DIFF_FAILED" -eq 1 ]; then
+    echo ""
+    echo "push blocked: could not work out what is being pushed, so NO gate ran."
+    echo "This is not a pass. Try 'git fetch origin' and push again."
+    exit 1
+fi
+
+CHANGED_FILES=()
+while IFS= read -r FILE; do
+    [ -n "$FILE" ] && CHANGED_FILES+=("$FILE")
+done < <(printf '%s' "$DIFF_OUT" | sort -u)
+
+if [ "${#CHANGED_FILES[@]}" -eq 0 ]; then
+    echo "No changed files across ${SCOPE}; nothing to gate."
+    exit 0
+fi
+
+echo "Pre-push gates (${#CHANGED_FILES[@]} changed files, ${SCOPE})"
+
+BACKEND_PY_FILES=()
+BACKEND_TEST_FILES=()
+FRONTEND_FILES=()
+for FILE in "${CHANGED_FILES[@]}"; do
+    [ -e "$FILE" ] || continue
+    if [[ "$FILE" =~ ^app/.*\.py$ || "$FILE" =~ ^tests/.*\.py$ ]]; then BACKEND_PY_FILES+=("$FILE"); fi
+    if [[ "$FILE" =~ ^tests/.*\.py$ ]]; then BACKEND_TEST_FILES+=("$FILE"); fi
+    if [[ "$FILE" =~ ^frontend/ ]]; then FRONTEND_FILES+=("$FILE"); fi
+done
+
+# Gate: no tracked file may link into a path git does not track. The orchestration layer
+# (.claude/, .agent/, CLAUDE.md) is deliberately untracked, so such a link resolves for
+# whoever wrote it and is dead for everyone who clones.
+gate_tracked_links() {
+    # git grep: 0 = matches found, 1 = no matches, >1 = the search itself failed.
+    # Do NOT collapse these with `|| true`. An erroring grep prints nothing, and nothing
+    # is exactly what a clean sweep prints, so the failure would report as a pass.
+    # The pattern is an argument purely so the regression suite can drive this exact
+    # function with a search that cannot compile, and prove it fails rather than passes.
+    # Callers pass nothing.
+    local pattern="${1:-\]\([^)]*\.(claude|agent)/}"
+    local hits rc
+    hits="$(git grep -nE "$pattern" -- '*.md' 2>&1)"
+    rc=$?   # not `status`: that name is read-only in zsh, and this file gets sourced by people
+    if [ "$rc" -gt 1 ]; then
+        echo "$hits"
+        echo "   ^ the search itself failed (exit $rc); this is NOT a clean result"
+        return 1
+    fi
+    if [ "$rc" -eq 0 ]; then
+        echo "$hits"
+        echo "   ^ tracked markdown links into an untracked path"
+        return 1
+    fi
+    return 0
+}
+run "tracked links resolve" gate_tracked_links
+
+if [ "${#BACKEND_PY_FILES[@]}" -gt 0 ]; then
+    run "ruff (changed backend files)" ./venv/bin/python -m ruff check "${BACKEND_PY_FILES[@]}"
+else
+    echo "── ruff: no changed backend Python files, skipped"
+fi
+
+if [ "${#BACKEND_TEST_FILES[@]}" -gt 0 ]; then
+    run "pytest (changed test files)" ./venv/bin/python -m pytest -q "${BACKEND_TEST_FILES[@]}"
+else
+    echo "── pytest: no changed backend test files, skipped"
+fi
+
+# The frontend toolchain resolves its config from the CURRENT DIRECTORY, so these must cd
+# rather than use --prefix/-C. Verified 2026-08-23: `npx --prefix frontend eslint` runs with the
+# repo root as cwd, finds no flat config, and exits 2 on config resolution. That reads as a lint
+# failure and would block every push touching frontend, for entirely the wrong reason. Each
+# helper is a subshell so the cd cannot leak into the rest of the hook.
+fe_eslint()          { ( cd frontend && npx eslint --no-error-on-unmatched-pattern "$@" ); }
+fe_vitest_all()      { ( cd frontend && npm run test -- --run ); }
+fe_vitest()          { ( cd frontend && npm run test -- --run "$@" ); }
+fe_vitest_related()  { ( cd frontend && npx vitest related --run "$@" ); }
+
+if [ "${#FRONTEND_FILES[@]}" -gt 0 ]; then
+    FRONTEND_LINT_FILES=()
+    FRONTEND_TEST_FILES=()
+    FRONTEND_RELATED_FILES=()
+    FRONTEND_BROAD_IMPACT=0
+    for FILE in "${FRONTEND_FILES[@]}"; do
+        REL="${FILE#frontend/}"
+        if [[ "$REL" == "package.json" || "$REL" == "package-lock.json" || "$REL" =~ ^vite\.config || "$REL" =~ ^vitest\.config || "$REL" =~ ^eslint\.config || "$REL" =~ ^tsconfig ]]; then
+            FRONTEND_BROAD_IMPACT=1
+        fi
+        [ -e "$FILE" ] || continue
+        if [[ "$REL" =~ \.(js|jsx|ts|tsx)$ ]]; then FRONTEND_LINT_FILES+=("$REL"); fi
+        if [[ "$REL" =~ \.(test|spec)\.(js|jsx|ts|tsx)$ ]]; then
+            FRONTEND_TEST_FILES+=("$REL")
+        elif [[ "$REL" =~ \.(js|jsx|ts|tsx)$ ]]; then
+            FRONTEND_RELATED_FILES+=("$REL")
+        fi
+    done
+
+    if [ "${#FRONTEND_LINT_FILES[@]}" -gt 0 ]; then
+        run "eslint (changed frontend files)" fe_eslint "${FRONTEND_LINT_FILES[@]}"
+    else
+        echo "── eslint: no changed frontend JS/TS files, skipped"
+    fi
+
+    if [ "$FRONTEND_BROAD_IMPACT" -eq 1 ]; then
+        run "vitest (full suite: broad-impact config change)" fe_vitest_all
+    elif [ "${#FRONTEND_TEST_FILES[@]}" -gt 0 ]; then
+        run "vitest (changed test files)" fe_vitest "${FRONTEND_TEST_FILES[@]}"
+    elif [ "${#FRONTEND_RELATED_FILES[@]}" -gt 0 ]; then
+        run "vitest related (changed sources)" fe_vitest_related "${FRONTEND_RELATED_FILES[@]}"
+    else
+        echo "── vitest: no testable frontend files changed, skipped"
+    fi
+else
+    echo "── frontend: no changed frontend files, skipped"
+fi
+
+if [ "$FAILED" -gt 0 ]; then
+    echo ""
+    echo "push blocked: ${FAILED} gate(s) failed"
+    exit 1
+fi
+
+# The default on "no data" must be FAIL, not pass. Every defect this hook has shipped was
+# some command producing nothing and the nothing being read as clean. The two legitimate
+# ways to reach a pass without gating (deletion-only, no changed files) exit earlier and
+# say why. Reaching here having run zero gates means an edit broke the dispatch, so refuse.
+if [ "$GATES_RAN" -eq 0 ]; then
+    echo ""
+    echo "push blocked: reached the end having run NO gate at all."
+    echo "That is a bug in this hook, not a clean tree. See tools/git-hooks/test-pre-push.sh."
+    exit 1
+fi
+
+echo ""
+echo "all ${GATES_RAN} gate(s) passed"
+exit 0

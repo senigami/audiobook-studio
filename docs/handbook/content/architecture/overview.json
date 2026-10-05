@@ -1,0 +1,6 @@
+{
+ "title": "Architecture Overview",
+ "desc": "The big-picture map of Studio 2.0 subsystems and ownership.",
+ "lede": "A map of the 2.0 subsystems and who owns what, plus how a request flows end to end.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Clear ownership: orchestrator, watchdog, voice bridge.</li><li>A request flows app → bridge → TTS Server → engine.</li><li>No import-time side effects.</li></ul></div>\n        <h2>Ownership split</h2>\n        <ul><li><strong>Orchestrator</strong> — schedules and recovers work.</li><li><strong>Watchdog</strong> — supervises the TTS Server process.</li><li><strong>Voice bridge</strong> — the only route from a request to an engine.</li></ul>\n        <h2>Request flow</h2>\n        <p><strong>A synthesis request travels app → voice bridge → TTS Server → engine, and results come back as normalized artifacts and progress.</strong> See <a href=\"#architecture/voice-bridge\">VoiceBridge</a> and <a href=\"#architecture/tts-server\">TTS Server &amp; Watchdog</a>.</p>\n        <h2>No import-time side effects</h2>\n        <p><strong>Importing a module must not start servers, load models, or touch the filesystem.</strong> Startup happens in one explicit place — see <a href=\"#architecture/boot\">Boot Sequence</a>.</p>"
+}

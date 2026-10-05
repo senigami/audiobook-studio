@@ -1,0 +1,6 @@
+{
+ "title": "Migration Notes",
+ "desc": "What changes for existing 1.x workspaces.",
+ "lede": "Upgrading from 1.x? Here's what carries over and what changes.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Live state moves toward a database.</li><li>Folder layout is tidied.</li><li>Your projects and voices carry over.</li></ul></div>\n        <h2>State: toward SQLite</h2>\n        <p><strong>Durable data lives in SQLite, with live runtime state in state.json.</strong> Existing data is migrated forward. See <a href=\"#architecture/state\">State: state.json + SQLite</a>.</p>\n        <h2>Folders &amp; compatibility</h2>\n        <p><strong>Storage is normalized</strong> into clear per-project folders. Compatibility shims keep older layouts working during the transition.</p>\n        <h2>What carries over</h2>\n        <p><strong>Your projects, chapters, and voices come with you.</strong> The workflow is unchanged; the machinery underneath is what moved.</p>\n        <div class=\"soon-note\"><b>In progress —</b> exact migration steps are finalized as 2.0 lands; this page will get the concrete checklist.</div>"
+}

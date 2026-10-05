@@ -1,0 +1,6 @@
+{
+ "title": "The Production Pipeline",
+ "desc": "The stages a chapter passes through to become audio.",
+ "lede": "Turning a chapter into audio is a pipeline of clear stages. Each one has a job, and progress comes from the stages reporting in.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li><strong>Analysis → Queue → Synthesis → Bake → Assembly.</strong></li><li>Each stage has a defined job.</li><li>Progress is reported centrally, not guessed.</li></ul></div>\n        <h2>The stages</h2>\n        <ol><li><strong>Analysis</strong> — the chapter is split into segments and chunks.</li><li><strong>Queue</strong> — work is scheduled by the orchestrator.</li><li><strong>Synthesis</strong> — the engine generates audio for each chunk.</li><li><strong>Bake</strong> — chunks are validated and combined into segment/chapter audio.</li><li><strong>Assembly</strong> — chapters are combined into the final audiobook.</li></ol>\n        <h2>Where progress comes from</h2>\n        <p><strong>Progress is centralized, not improvised per screen.</strong> Stages report into the progress service, which broadcasts a single, consistent view with an ETA. See <a href=\"#architecture/progress\">Progress Services</a>.</p>"
+}

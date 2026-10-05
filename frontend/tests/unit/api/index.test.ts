@@ -1,0 +1,136 @@
+import { vi, describe, it, expect, beforeEach } from 'vitest'
+import { api } from '@/api/index'
+
+describe('api methods', () => {
+    beforeEach(() => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ success: true })
+            ,
+            blob: () => Promise.resolve(new Blob(['test']))
+        }) as any
+    })
+
+    it('projects', async () => {
+        await api.fetchProjects()
+        expect(global.fetch).toHaveBeenCalledWith('/api/projects')
+
+        await api.fetchProject('1')
+        expect(global.fetch).toHaveBeenCalledWith('/api/projects/1')
+
+        await api.createProject({ name: 'test', series: 'series', author: 'tester' })
+        expect(global.fetch).toHaveBeenCalledWith('/api/projects', expect.anything())
+
+        await api.updateProject('1', { name: 'test2' })
+        expect(global.fetch).toHaveBeenCalledWith('/api/projects/1', expect.anything())
+
+        await api.updateProject('1', { series_position: null })
+        const updateInit = (global.fetch as any).mock.calls.at(-1)[1]
+        const updateFormData = updateInit.body as FormData
+        expect(updateFormData.get('series_position')).toBe('')
+
+        await api.deleteProject('1')
+        expect(global.fetch).toHaveBeenCalledWith('/api/projects/1', { method: 'DELETE' })
+
+        await api.assembleProject('1', ['c1'])
+        expect(global.fetch).toHaveBeenCalledWith('/api/projects/1/assemble', expect.anything())
+    })
+
+    it('chapters', async () => {
+        await api.fetchChapters('1')
+        expect(global.fetch).toHaveBeenCalledWith('/api/projects/1/chapters')
+
+        await api.fetchChapter('c1')
+        expect(global.fetch).toHaveBeenCalledWith('/api/chapters/c1')
+
+        await api.createChapter('1', { title: 'Chapter 1', text_content: 'hello' })
+        expect(global.fetch).toHaveBeenCalledWith('/api/projects/1/chapters', expect.anything())
+
+        await api.updateChapter('c1', { title: 'Chapter 1' })
+        expect(global.fetch).toHaveBeenCalledWith('/api/chapters/c1', expect.anything())
+
+        await api.exportChapterAudio('c1', 'wav')
+        expect(global.fetch).toHaveBeenCalledWith('/api/chapters/c1/export-audio', expect.objectContaining({ 
+            method: 'POST',
+            headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ format: 'wav' })
+        }))
+    })
+
+    it('other', async () => {
+
+
+        await api.deleteAudiobook('ab1')
+        expect(global.fetch).toHaveBeenCalledWith('/api/audiobook/ab1', expect.objectContaining({ method: 'DELETE' }))
+
+        await api.deleteAudiobook('ab1', 'p1')
+        expect(global.fetch).toHaveBeenCalledWith('/api/audiobook/ab1?project_id=p1', expect.objectContaining({ method: 'DELETE' }))
+
+        await api.resetChapter('c1.txt')
+        expect(global.fetch).toHaveBeenCalledWith('/api/chapters/c1.txt/reset', expect.objectContaining({ method: 'POST' }))
+
+        await api.deleteChapter('c1.txt')
+        expect(global.fetch).toHaveBeenCalledWith('/api/chapters/c1.txt', expect.objectContaining({ method: 'DELETE' }))
+
+        await api.reorderChapters('p1', ['c1', 'c2'])
+        expect(global.fetch).toHaveBeenCalledWith('/api/projects/p1/reorder_chapters', expect.objectContaining({ method: 'POST' }))
+
+        await api.exportSample('f1')
+        expect(global.fetch).toHaveBeenCalledWith('/api/chapters/f1/export-sample', expect.objectContaining({ method: 'POST' }))
+
+        await api.getProcessingQueue()
+        expect(global.fetch).toHaveBeenCalledWith('/api/processing_queue')
+
+        await api.addProcessingQueue('p1', 'c1', 0, 'v1')
+        expect(global.fetch).toHaveBeenCalledWith('/api/processing_queue', expect.objectContaining({ method: 'POST' }))
+
+        await api.fetchAudiobooks()
+        expect(global.fetch).toHaveBeenCalledWith('/api/audiobooks')
+
+        await api.reorderProcessingQueue(['q1', 'q2'])
+        expect(global.fetch).toHaveBeenCalledWith('/api/processing_queue/reorder', expect.objectContaining({ method: 'PUT' }))
+
+        await api.removeProcessingQueue('q1')
+        expect(global.fetch).toHaveBeenCalledWith('/api/processing_queue/q1', expect.objectContaining({ method: 'DELETE' }))
+
+        await api.clearProcessingQueue()
+        expect(global.fetch).toHaveBeenCalledWith('/api/processing_queue', expect.objectContaining({ method: 'DELETE' }))
+
+        await api.toggleQueuePause(true)
+        expect(global.fetch).toHaveBeenCalledWith('/api/generation/pause', expect.objectContaining({ method: 'POST' }))
+
+        await api.toggleQueuePause(false)
+        expect(global.fetch).toHaveBeenCalledWith('/api/generation/resume', expect.objectContaining({ method: 'POST' }))
+    })
+
+    it('voice variant version history', async () => {
+        await api.listVoiceVersions('Narrator One')
+        expect(global.fetch).toHaveBeenCalledWith('/api/speaker-profiles/Narrator%20One/versions')
+
+        await api.promoteVoiceVersion('Narrator One', 'v1')
+        expect(global.fetch).toHaveBeenCalledWith(
+            '/api/speaker-profiles/Narrator%20One/versions/v1/promote',
+            expect.objectContaining({ method: 'POST' })
+        )
+
+        await api.runVersionAbTest('Narrator One', 'v1', 'v2', 'Hello world')
+        expect(global.fetch).toHaveBeenCalledWith(
+            '/api/speaker-profiles/Narrator%20One/versions/ab-test',
+            expect.objectContaining({
+                method: 'POST',
+                headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ version_a_id: 'v1', version_b_id: 'v2', test_text: 'Hello world' }),
+            })
+        )
+    })
+
+    it('throws helpful errors for blocked generation requests', async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: false,
+            json: () => Promise.resolve({ status: 'error', message: 'Enable Cloud Engine in Settings and add an API key to use cloud voices.' })
+        }) as any
+
+        await expect(api.generateSegments(['seg-1'], 'Test')).rejects.toThrow(/Enable Cloud Engine/i)
+        await expect(api.addProcessingQueue('p1', 'c1', 0, 'Test')).rejects.toThrow(/Enable Cloud Engine/i)
+    })
+})

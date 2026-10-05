@@ -1,0 +1,6 @@
+{
+ "title": "File Formats",
+ "desc": "Supported input and output formats in one place.",
+ "lede": "A quick reference for the formats Studio reads and writes.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Text in: plain text.</li><li>Audio in: common sample formats.</li><li>Audio out: WAV, MP3, M4B.</li></ul></div>\n        <h2>Text inputs</h2>\n        <p><strong>Chapters accept plain text</strong> — paste it or upload a <code>.txt</code> file.</p>\n        <h2>Audio inputs (samples)</h2>\n        <p><strong>Voice samples use common audio formats.</strong> Clean recordings clone best — see <a href=\"#engines/voice-quality\">Voice Cloning Quality</a>.</p>\n        <h2>Outputs</h2>\n        <p><strong>Studio renders to WAV internally and exports MP3 or M4B.</strong> M4B is the standard audiobook container with chapters. See <a href=\"#user-guide/audio-formats\">Audio Guidance &amp; Formats</a>.</p>"
+}

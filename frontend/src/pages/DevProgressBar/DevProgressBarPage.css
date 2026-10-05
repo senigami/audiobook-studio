@@ -1,0 +1,23 @@
+/* DevProgressBarPage — mobile pass: the launch/preview columns and the
+   segment-debug columns were hardcoded two-column grids with a combined
+   minmax() floor (680px / 580px) that overflowed at phone widths. Collapse
+   to one column below the breakpoint; unchanged above it. */
+
+.dev-progress-bar-page__columns {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(320px, 0.95fr) minmax(360px, 1.05fr);
+}
+
+.dev-progress-bar-page__segment-columns {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(320px, 1.2fr);
+}
+
+@media (max-width: 760px) {
+  .dev-progress-bar-page__columns,
+  .dev-progress-bar-page__segment-columns {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,6 @@
+{
+ "title": "Inline vs Queued + Polling",
+ "desc": "Short text returns inline; long text queues a job you poll.",
+ "lede": "How a request behaves depends on length: short text comes back immediately; long text becomes a job you poll.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Short text → inline audio in the response.</li><li>Long text → a job id + poll URL.</li><li>Poll until complete, then fetch the audio.</li></ul></div>\n        <h2>Inline</h2>\n        <p><strong>Below the inline threshold, synthesis returns audio directly.</strong> One request, one response — simplest for short snippets.</p>\n        <h2>Queued + polling</h2>\n        <p><strong>Above the threshold, you get a job id and a poll URL.</strong> Poll <code>GET /api/v1/tts/jobs/{id}</code> until it's done, then download from <code>/jobs/{id}/audio</code>.</p>\n        <pre><code>POST /api/v1/tts/synthesize  -&gt; { &quot;job_id&quot;: &quot;...&quot;, &quot;poll&quot;: &quot;/api/v1/tts/jobs/...&quot; }\nGET  /api/v1/tts/jobs/{id}    -&gt; { &quot;status&quot;: &quot;running&quot; | &quot;done&quot; | &quot;failed&quot; }\nGET  /api/v1/tts/jobs/{id}/audio -&gt; the audio file</code></pre>"
+}

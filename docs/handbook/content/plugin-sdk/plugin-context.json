@@ -1,0 +1,6 @@
+{
+ "title": "Plugin Context Contract",
+ "desc": "How plugins reach Studio services without importing app persistence.",
+ "lede": "Plugins get what they need through a context object — never by importing Studio's internals.",
+ "body": "<div class=\"soon-note\"><b>In progress —</b> the context contract is being finalized in Phase 12.</div>\n        <div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li><code>plugin/core</code> stays portable (no app imports).</li><li>A context is passed into Studio-facing adapters.</li><li>Persistence stays Studio-owned.</li></ul></div>\n        <h2>Why portability matters</h2>\n        <p><strong>The engine core must run without Studio.</strong> Keeping it free of app imports is what lets engines be extracted and run standalone — see <a href=\"#plugin-sdk/standalone-repos\">Portable Core &amp; Standalone Repos</a>.</p>\n        <h2>The context</h2>\n        <p><strong>Studio passes a context into the plugin's adapter layer</strong> for the services it's allowed to use. Studio still owns persistence and state.</p>"
+}

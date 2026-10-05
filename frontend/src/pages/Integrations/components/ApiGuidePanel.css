@@ -1,0 +1,39 @@
+/* ==========================================================================
+   Integrations domain — Developer Integration Guide (ApiGuidePanel.tsx).
+   Co-located stylesheet: the endpoint-pair grid needs a real media query,
+   which inline styles can't express (see EngineCard.css for the same
+   co-located-stylesheet convention used elsewhere in this repo).
+   ========================================================================== */
+
+/* "1. Engine Discovery" GET/GET endpoint-pair grid. Two columns down to
+   ~480px, then a single column so endpoint descriptions and code chips get
+   full width instead of being squeezed into ~170px per column (WCAG 1.4.10
+   Reflow — the grid must not force the page wider than the viewport). */
+.api-endpoint-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 480px) {
+  .api-endpoint-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Grid/flex children with text content default to a min-width equal to
+   their intrinsic (unbreakable) content width, which silently overrides
+   `1fr` and forces the row wider than its container. min-width: 0 lets
+   them actually shrink to the column width so long tokens wrap/scroll
+   instead of pushing the page wide. */
+.api-endpoint-grid > * {
+  min-width: 0;
+}
+
+/* Endpoint-path chips (e.g. "/api/v1/tts/engines/{engine_id}") contain long
+   unbreakable path tokens; without this they extend past their row's
+   container instead of wrapping. */
+.api-endpoint-chip {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

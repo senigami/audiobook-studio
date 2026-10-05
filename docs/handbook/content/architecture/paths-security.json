@@ -1,0 +1,6 @@
+{
+ "title": "Paths &amp; Security",
+ "desc": "Treating filesystem paths as an untrusted security surface.",
+ "lede": "User-influenced paths are treated as hostile input. Studio contains them with dedicated helpers.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li><code>safe_join</code> / <code>secure_join_flat</code> / <code>find_secure_file</code>.</li><li>A containment pattern for all path building.</li><li>Aligned with static analysis (CodeQL).</li></ul></div>\n        <h2>Containment</h2>\n        <p><strong>Never join user input into a path directly.</strong> The secure-join helpers keep resolved paths inside their intended root, blocking traversal.</p>\n        <h2>Why it matters</h2>\n        <p><strong>Paths are an untrusted surface.</strong> Treating them consistently — and keeping aligned with CodeQL findings — prevents a whole class of vulnerabilities.</p>"
+}

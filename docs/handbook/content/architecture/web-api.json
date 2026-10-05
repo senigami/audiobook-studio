@@ -1,0 +1,6 @@
+{
+ "title": "Web &amp; API Layer",
+ "desc": "The FastAPI app, routers, WebSocket, and the gateway sub-app.",
+ "lede": "The web layer is a FastAPI app: domain routers for the UI, a WebSocket for live updates, and the gateway mounted as a sub-app.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li><code>web.py</code> mounts and lifecycle.</li><li>Domain routers behind the UI.</li><li><code>ws.py</code> broadcasts live updates.</li><li>Jobs moving from REST polling to WebSocket.</li></ul></div>\n        <h2>App &amp; routers</h2>\n        <p><strong>FastAPI hosts domain routers</strong> (projects, chapters, voices, queue, and more) plus the external gateway as a mounted sub-app. See <a href=\"#architecture/internal-api\">Internal HTTP API Reference</a> and <a href=\"#api/overview\">TTS Gateway API</a>.</p>\n        <h2>Live updates</h2>\n        <p><strong>A WebSocket broadcasts progress and state</strong> so the UI updates without polling; queue updates are migrating from REST polling to the WebSocket.</p>"
+}

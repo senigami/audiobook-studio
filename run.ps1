@@ -1,14 +1,18 @@
 param(
     [switch]$SetupOnly,
     [switch]$NoReload,
-    [int]$Port = $(if ($env:AUDIOBOOK_STUDIO_PORT) { [int]$env:AUDIOBOOK_STUDIO_PORT } else { 8123 })
+    [int]$Port = $(if ($env:AUDIOBOOK_STUDIO_PORT) { [int]$env:AUDIOBOOK_STUDIO_PORT } else { 8123 }),
+    # Interface to bind (default: 0.0.0.0 — reachable from other machines on your network
+    # via this PC's LAN IP, while still serving http://127.0.0.1:$Port locally). Windows
+    # Firewall may prompt to allow this. Pass -BindHost 127.0.0.1 to restrict this PC only.
+    [string]$BindHost = $(if ($env:AUDIOBOOK_STUDIO_HOST) { $env:AUDIOBOOK_STUDIO_HOST } else { "0.0.0.0" })
 )
 
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $AppVenv = Join-Path $Root "venv"
-$XttsVenv = if ($env:XTTS_ENV_DIR) { $env:XTTS_ENV_DIR } else { Join-Path $HOME "xtts-env" }
+$TtsEnvDir = if ($env:XTTS_ENV_DIR) { $env:XTTS_ENV_DIR } elseif ($env:TTS_ENV_DIR) { $env:TTS_ENV_DIR } else { Join-Path $HOME "xtts-env" }
 $FrontendDir = Join-Path $Root "frontend"
 $DemoZip = if ($env:AUDIOBOOK_STUDIO_DEMO_ZIP) { $env:AUDIOBOOK_STUDIO_DEMO_ZIP } else { Join-Path $Root "demo/demo.zip" }
 $BootstrapPythonEnv = Join-Path $Root ".pinokio-python311"
@@ -101,7 +105,7 @@ function Test-PythonVersion($Command, [string[]]$Prefix = @()) {
         if (-not [version]::TryParse($versionText, [ref]$parsedVersion)) {
             return $false
         }
-        return $parsedVersion -ge [version]"3.10"
+        return $parsedVersion -ge [version]"3.11"
     } catch {
         return $false
     }
@@ -170,12 +174,10 @@ function Find-Python {
         @{ Command = "py"; Prefix = @("-3.13") },
         @{ Command = "py"; Prefix = @("-3.12") },
         @{ Command = "py"; Prefix = @("-3.11") },
-        @{ Command = "py"; Prefix = @("-3.10") },
         @{ Command = "py"; Prefix = @("-3") },
         @{ Command = "py"; Prefix = @() },
         @{ Command = "python"; Prefix = @() },
         @{ Command = "python3.11"; Prefix = @() },
-        @{ Command = "python3.10"; Prefix = @() },
         @{ Command = "python3"; Prefix = @() }
     )
 
@@ -298,14 +300,18 @@ function Test-VenvPythonHealthy($EnvDir) {
     }
 }
 
-function Sync-PythonRequirements($PythonInfo, $EnvDir, $RequirementsFile, $Label) {
+function Sync-PythonRequirements($PythonInfo, $EnvDir, $RequirementsFile, $Label, [string[]]$ExtraPipArgs = @()) {
     $PythonExe = Join-Path $EnvDir "Scripts/python.exe"
     $PipExe = Join-Path $EnvDir "Scripts/pip.exe"
     $StampFile = Join-Path $EnvDir ".requirements.stamp"
 
-    if ($Label -eq "XTTS" -and (Test-Path $EnvDir) -and -not (Test-VenvPythonHealthy $EnvDir)) {
-        Write-Step "Resetting XTTS environment because its Python launcher is stale"
-        Remove-Item $EnvDir -Recurse -Force
+    $CheckScript = Join-Path (Split-Path $RequirementsFile) "scripts/check_env.py"
+    if ((Test-Path $CheckScript) -and (Test-Path $PythonExe)) {
+        & $PythonExe $CheckScript "conflicts"
+        if ($LASTEXITCODE -eq 0) {
+            Write-Step "Resetting $Label environment due to detected conflicts"
+            Remove-Item $EnvDir -Recurse -Force
+        }
     }
 
     if ((Test-Path $PythonExe) -and -not (Test-Path $PipExe)) {
@@ -317,7 +323,7 @@ function Sync-PythonRequirements($PythonInfo, $EnvDir, $RequirementsFile, $Label
         Write-Step "Creating $Label environment"
         Invoke-Python $PythonInfo @("-m", "venv", $EnvDir)
     }
-    
+
     if (-not (Test-Path $PipExe)) {
         & $PythonExe -m ensurepip --upgrade
     }
@@ -326,11 +332,49 @@ function Sync-PythonRequirements($PythonInfo, $EnvDir, $RequirementsFile, $Label
         Write-Step "Installing $Label dependencies"
         & $PythonExe -m pip install --upgrade pip
         if ($LASTEXITCODE -ne 0) { Fail "Failed to upgrade pip in $Label environment" }
-        & $PythonExe -m pip install -r $RequirementsFile
+        $installArgs = @("-m", "pip", "install") + $ExtraPipArgs + @("-r", $RequirementsFile)
+        & $PythonExe @installArgs
         if ($LASTEXITCODE -ne 0) { Fail "Failed to install $Label dependencies" }
         Copy-Item $RequirementsFile $StampFile -Force
     } else {
         Write-Step "$Label dependencies already up to date"
+    }
+}
+
+# Detect the appropriate torch backend and return extra pip args for the XTTS install.
+# Override: set TORCH_BACKEND env var to cuda, mps, or cpu to skip detection.
+function Select-TorchBackend {
+    $override = $env:TORCH_BACKEND
+    if ($override) {
+        Write-Step "Torch backend override: $override"
+    } elseif (Get-Command "nvidia-smi" -ErrorAction SilentlyContinue) {
+        nvidia-smi *>$null
+        if ($LASTEXITCODE -eq 0) {
+            $override = "cuda"
+        } else {
+            $override = "cpu"
+        }
+    } else {
+        $override = "cpu"
+    }
+
+    switch ($override.ToLower()) {
+        "cuda" {
+            Write-Step "Torch backend: CUDA (nvidia-smi detected) — using https://download.pytorch.org/whl/cu128"
+            return @("--index-url", "https://download.pytorch.org/whl/cu128")
+        }
+        "mps" {
+            Write-Step "Torch backend: MPS — using default PyPI wheels"
+            return @()
+        }
+        "cpu" {
+            Write-Step "Torch backend: CPU-only — using https://download.pytorch.org/whl/cpu"
+            return @("--index-url", "https://download.pytorch.org/whl/cpu")
+        }
+        default {
+            Write-Step "Torch backend: unknown override '$override'; falling back to default PyPI wheels"
+            return @()
+        }
     }
 }
 
@@ -416,7 +460,7 @@ function Maybe-RestoreDemoBundle($PythonInfo) {
 
     Push-Location $Root
     try {
-        & $PythonInfo.Command @($PythonInfo.Prefix + @("-m", "app.demo_bundle", "status", "--base-dir", $Root))
+        & $PythonInfo.Command @($PythonInfo.Prefix + @("-m", "app.domain.demo_bundle", "status", "--base-dir", $Root))
         if ($LASTEXITCODE -ne 0) {
             return
         }
@@ -442,7 +486,7 @@ function Maybe-RestoreDemoBundle($PythonInfo) {
         }
 
         Write-Step "Installing demo library"
-        & $PythonInfo.Command @($PythonInfo.Prefix + @("-m", "app.demo_bundle", "restore", "--base-dir", $Root, "--zip", $DemoZip))
+        & $PythonInfo.Command @($PythonInfo.Prefix + @("-m", "app.domain.demo_bundle", "restore", "--base-dir", $Root, "--zip", $DemoZip))
         if ($LASTEXITCODE -ne 0) {
             Fail "Failed to restore the demo library"
         }
@@ -456,13 +500,14 @@ if (-not $PythonInfo) {
     $PythonInfo = Get-CondaBootstrapPython
 }
 if (-not $PythonInfo) {
-    Fail "Python 3.10+ is required. Please install Python 3.10 or newer, or use Pinokio's AI bundle with conda support."
+    Fail "Python 3.11+ is required. Please install Python 3.11 or newer, or use Pinokio's AI bundle with conda support."
 }
 
 Write-Step "Using Python: $($PythonInfo.Command)"
 Ensure-FfmpegReady
 Sync-PythonRequirements $PythonInfo $AppVenv (Join-Path $Root "requirements.txt") "app"
-Sync-PythonRequirements $PythonInfo $XttsVenv (Join-Path $Root "requirements-xtts.txt") "XTTS"
+$XttsTorchArgs = Select-TorchBackend
+Sync-PythonRequirements $PythonInfo $TtsEnvDir (Join-Path $Root "tts_engines/tts_xtts/requirements.txt") "XTTS" $XttsTorchArgs
 Ensure-FrontendReady
 Maybe-RestoreDemoBundle $PythonInfo
 
@@ -476,13 +521,17 @@ if (-not (Test-Path $UvicornExe)) {
     Fail "uvicorn not found in the app environment: $UvicornExe"
 }
 
-Write-Step "Starting Audiobook Studio on http://127.0.0.1:$Port"
+if ($BindHost -eq "0.0.0.0") {
+    Write-Step "Starting Audiobook Studio on http://127.0.0.1:$Port (also reachable via this machine's LAN IP)"
+} else {
+    Write-Step "Starting Audiobook Studio on http://${BindHost}:$Port"
+}
 Push-Location $Root
 try {
     if ($NoReload) {
-        & $UvicornExe "run:app" "--port" "$Port"
+        & $UvicornExe "run:app" "--host" "$BindHost" "--port" "$Port"
     } else {
-        & $UvicornExe "run:app" "--reload" "--port" "$Port"
+        & $UvicornExe "run:app" "--reload" "--host" "$BindHost" "--port" "$Port"
     }
     exit $LASTEXITCODE
 } finally {

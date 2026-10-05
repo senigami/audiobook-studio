@@ -1,0 +1,6 @@
+{
+ "title": "UI Cheat Sheet",
+ "desc": "Quick reference for navigation and common actions.",
+ "lede": "A fast reference for getting around Studio.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Main navigation map.</li><li>Common actions.</li><li>Where key features live.</li></ul></div>\n        <h2>Navigation map</h2>\n        <ul><li><strong>Library</strong> → your projects.</li><li><strong>Project</strong> → Chapters, Characters, Assemblies, Backups.</li><li><strong>Voice Lab</strong> → build and manage voices.</li><li><strong>Queue</strong> → monitor jobs.</li><li><strong>Settings</strong> → defaults, engines, API.</li></ul>\n        <h2>Common actions</h2>\n        <ul><li>Create a project; add a chapter (paste or upload).</li><li>Build/assign a voice; generate; review and fix lines.</li><li>Assemble to M4B/MP3.</li></ul>\n        <div class=\"note\"><b>Note —</b> Detailed walkthroughs live in the <a href=\"#user-guide/project-workspace\">User Guide</a>.</div>"
+}

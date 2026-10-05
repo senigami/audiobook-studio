@@ -1,0 +1,117 @@
+import { useState, useEffect, useMemo, useRef } from 'react';
+import type { Speaker, SpeakerProfile, VoiceEngine, TtsEngine } from '@/types';
+import { isVoiceProfileSelectable } from '@/utils/voiceProfiles';
+
+
+export function useVoicesTabState({ speakerProfiles, engines }: { speakerProfiles: SpeakerProfile[], engines: TtsEngine[] }) {
+    const [confirmConfig, setConfirmConfig] = useState<{
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        isDestructive?: boolean;
+        isAlert?: boolean;
+    } | null>(null);
+
+    const activeSpeakerProfiles = useMemo(
+        () => speakerProfiles.filter(profile => isVoiceProfileSelectable(profile, engines)),
+        [speakerProfiles, engines]
+    );
+    const disabledSpeakerProfiles = useMemo(
+        () => speakerProfiles.filter(profile => !isVoiceProfileSelectable(profile, engines)),
+        [speakerProfiles, engines]
+    );
+
+    // --- Component Local State ---
+    const firstReadyEngine = useMemo(() => engines.find(e => e.enabled && e.status === 'ready')?.engine_id || engines?.[0]?.engine_id || '', [engines]);
+    const [showGuide, setShowGuide] = useState(false);
+
+    // --- Voice Management Modals State ---
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isAddVariantModalOpen, setIsAddVariantModalOpen] = useState(false);
+    const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+    const [renameSpeakerId, setRenameSpeakerId] = useState<string | null>(null);
+    const [originalSpeakerName, setOriginalSpeakerName] = useState('');
+    const [newSpeakerName, setNewSpeakerName] = useState('');
+    const [newVoiceName, setNewVoiceName] = useState('');
+    const [newVoiceEngine, setNewVoiceEngine] = useState<VoiceEngine>(firstReadyEngine);
+    const [addVariantSpeaker, setAddVariantSpeaker] = useState<{ speaker: Speaker; nextVariantNum: number } | null>(null);
+    const [newVariantNameModal, setNewVariantNameModal] = useState('');
+    const [newVariantEngine, setNewVariantEngine] = useState<VoiceEngine>(firstReadyEngine);
+    const [newVoiceSamples, setNewVoiceSamples] = useState<File[]>([]);
+    const [isCreatingVoice, setIsCreatingVoice] = useState(false);
+    const [isAddingVariantModal, setIsAddingVariantModal] = useState(false);
+    const [isRenamingSpeaker, setIsRenamingSpeaker] = useState(false);
+    const [expandedVoiceId, setExpandedVoiceId] = useState<string | null>(null);
+    const [isMoveVariantModalOpen, setIsMoveVariantModalOpen] = useState(false);
+    const [moveVariantProfile, setMoveVariantProfile] = useState<SpeakerProfile | null>(null);
+    const [selectedMoveSpeakerId, setSelectedMoveSpeakerId] = useState<string>('');
+    const [isMovingVariant, setIsMovingVariant] = useState(false);
+    const [engineFilter, setEngineFilter] = useState<'all' | 'disabled' | VoiceEngine>('all');
+    const [classFilter, setClassFilter] = useState<string[]>([]);
+    const [genderFilter, setGenderFilter] = useState<string[]>([]);
+    const [ageFilter, setAgeFilter] = useState<string[]>([]);
+    // Free-form tag filter (not sourced from the taxonomy) — OR-within, AND-across
+    // like the other three facets; see useVoicesData's matchesTags.
+    const [tagFilter, setTagFilter] = useState<string[]>([]);
+    const [exportVoiceName, setExportVoiceName] = useState<string | null>(null);
+    const [includeSourceWavs, setIncludeSourceWavs] = useState(false);
+    const [isImportingVoice, setIsImportingVoice] = useState(false);
+    const importInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        const isEngineActive = (eid: string) => {
+            const engine = engines.find(e => e.engine_id === eid);
+            return Boolean(engine?.enabled && engine.status === 'ready');
+        };
+
+        if (!isEngineActive(newVoiceEngine)) setNewVoiceEngine(firstReadyEngine);
+        if (!isEngineActive(newVariantEngine)) setNewVariantEngine(firstReadyEngine);
+        if (engineFilter === 'disabled') {
+            if (disabledSpeakerProfiles.length === 0) setEngineFilter('all');
+            return;
+        }
+        if (engineFilter !== 'all' && !isEngineActive(engineFilter)) setEngineFilter('all');
+    }, [engines, newVoiceEngine, newVariantEngine, engineFilter, disabledSpeakerProfiles.length]);
+
+    const handleRequestConfirm = (config: { title: string; message: string; onConfirm: () => void; isDestructive?: boolean; isAlert?: boolean }) => {
+        setConfirmConfig(config);
+    };
+
+    return {
+        confirmConfig, setConfirmConfig,
+        activeSpeakerProfiles, disabledSpeakerProfiles,
+        showGuide, setShowGuide,
+        searchQuery, setSearchQuery,
+        isCreateModalOpen, setIsCreateModalOpen,
+        isAddVariantModalOpen, setIsAddVariantModalOpen,
+        isRenameModalOpen, setIsRenameModalOpen,
+        renameSpeakerId, setRenameSpeakerId,
+        originalSpeakerName, setOriginalSpeakerName,
+        newSpeakerName, setNewSpeakerName,
+        newVoiceName, setNewVoiceName,
+        newVoiceEngine, setNewVoiceEngine,
+        newVoiceSamples, setNewVoiceSamples,
+        addVariantSpeaker, setAddVariantSpeaker,
+        newVariantNameModal, setNewVariantNameModal,
+        newVariantEngine, setNewVariantEngine,
+        isCreatingVoice, setIsCreatingVoice,
+        isAddingVariantModal, setIsAddingVariantModal,
+        isRenamingSpeaker, setIsRenamingSpeaker,
+        expandedVoiceId, setExpandedVoiceId,
+        isMoveVariantModalOpen, setIsMoveVariantModalOpen,
+        moveVariantProfile, setMoveVariantProfile,
+        selectedMoveSpeakerId, setSelectedMoveSpeakerId,
+        isMovingVariant, setIsMovingVariant,
+        engineFilter, setEngineFilter,
+        classFilter, setClassFilter,
+        genderFilter, setGenderFilter,
+        ageFilter, setAgeFilter,
+        tagFilter, setTagFilter,
+        exportVoiceName, setExportVoiceName,
+        includeSourceWavs, setIncludeSourceWavs,
+        isImportingVoice, setIsImportingVoice,
+        importInputRef,
+        handleRequestConfirm
+    };
+}

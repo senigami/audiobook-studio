@@ -1,0 +1,6 @@
+{
+ "title": "Glossary",
+ "desc": "Definitions for the terms used throughout the handbook.",
+ "lede": "Short definitions for the terms you'll see across the handbook.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Content terms: project, chapter, segment, chunk.</li><li>Voice terms: voice, variant, sample, engine.</li><li>Pipeline terms: task, job, artifact.</li></ul></div>\n        <h2>Content</h2>\n        <ul><li><strong>Project</strong> — one book and its settings.</li><li><strong>Chapter</strong> — a unit of text you narrate and assemble.</li><li><strong>Segment / block</strong> — a line or passage assigned to a voice.</li><li><strong>Chunk</strong> — the bounded piece of text actually sent to an engine.</li></ul>\n        <h2>Voices</h2>\n        <ul><li><strong>Voice</strong> — a reusable voice identity.</li><li><strong>Variant</strong> — a tuned build of a voice for an engine.</li><li><strong>Sample</strong> — audio a variant is built from.</li><li><strong>Engine</strong> — the component that turns text into speech.</li></ul>\n        <h2>Pipeline</h2>\n        <ul><li><strong>Task</strong> — a unit of work the orchestrator schedules.</li><li><strong>Job</strong> — a queued instance of a task.</li><li><strong>Artifact</strong> — validated output (with metadata) that defines completion.</li></ul>"
+}

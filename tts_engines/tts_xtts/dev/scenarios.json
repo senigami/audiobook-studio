@@ -1,0 +1,58 @@
+{
+  "scenarios": [
+    {
+      "id": "ready",
+      "label": "Ready",
+      "description": "Standard ready state with verification complete.",
+      "engine_detail": {
+        "status": "ready",
+        "verified": true,
+        "enabled": true,
+        "current_settings": {
+          "enabled": true,
+          "speed": 1.0,
+          "temperature": 0.75,
+          "repetition_penalty": 5.0,
+          "top_k": 50,
+          "top_p": 0.85,
+          "safe_mode": true
+        }
+      }
+    },
+    {
+      "id": "not_ready",
+      "label": "Not Ready",
+      "description": "Missing python dependencies.",
+      "engine_detail": {
+        "status": "needs_setup",
+        "verified": false,
+        "enabled": false,
+        "dependencies_satisfied": false,
+        "missing_dependencies": ["coqui-tts", "torch"],
+        "setup_message": "Run ./run.sh (or ./run.ps1) to provision the XTTS runtime."
+      },
+      "dev_logs": {
+        "install": "Simulated: XTTS manages dependencies in an external environment (~/xtts-env); this engine has no in-app install action. Run ./run.sh (or ./run.ps1) to provision it.",
+        "verify": "Simulated Error: Verification requires dependencies.",
+        "test": "Simulated Error: Engine not ready."
+      }
+    },
+    {
+      "id": "verification_failed",
+      "label": "Verification Failed",
+      "description": "Dependencies OK but synthesis test failed.",
+      "engine_detail": {
+        "status": "unverified",
+        "verified": false,
+        "enabled": false,
+        "dependencies_satisfied": true,
+        "setup_message": "Verification failed: Model file not found.",
+        "enablement_message": "Verification failed: Model file not found."
+      },
+      "dev_logs": {
+        "verify": "Simulated: Running synthesis test...\nError: File 'model.pth' not found in plugin_data/xtts/",
+        "test": "Simulated: Synthesis requested...\nError: Model not loaded."
+      }
+    }
+  ]
+}

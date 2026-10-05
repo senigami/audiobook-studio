@@ -1,0 +1,105 @@
+{
+  "sourceLocale": "en-US",
+  "description": "Machine-readable sample of current interface text inventory. This is not exhaustive runtime data; it demonstrates key ownership, dynamic-value splitting, and namespace placement.",
+  "items": [
+    {
+      "surface": "shell",
+      "namespace": "shell",
+      "key": "shell.nav.library",
+      "source": "Library",
+      "kind": "route-label"
+    },
+    {
+      "surface": "shell",
+      "namespace": "shell",
+      "key": "shell.theme.dark",
+      "source": "Dark mode",
+      "kind": "control-label"
+    },
+    {
+      "surface": "library",
+      "namespace": "library",
+      "key": "library.hero.greeting",
+      "source": "Good evening, {name}",
+      "kind": "message",
+      "parameters": ["name"]
+    },
+    {
+      "surface": "library",
+      "namespace": "common",
+      "key": "common.actions.newBook",
+      "source": "New Book",
+      "kind": "shared-action"
+    },
+    {
+      "surface": "book",
+      "namespace": "book.common",
+      "key": "book.identity.runtime",
+      "source": "Runtime",
+      "kind": "label",
+      "splitFrom": "Runtime 1m 3s"
+    },
+    {
+      "surface": "book",
+      "namespace": "book.common",
+      "key": "book.identity.predictedRuntime",
+      "source": "Predicted",
+      "kind": "label",
+      "splitFrom": "Predicted 3m 33s"
+    },
+    {
+      "surface": "book.manuscript",
+      "namespace": "book.manuscript",
+      "key": "book.manuscript.analysis.estimatedGeneration",
+      "source": "Est. Gen.",
+      "kind": "metric-label"
+    },
+    {
+      "surface": "book.casting",
+      "namespace": "book.casting",
+      "key": "book.casting.narratorDefault",
+      "source": "Narrator (default)",
+      "kind": "field-label"
+    },
+    {
+      "surface": "voices",
+      "namespace": "voices",
+      "key": "voices.filters.disabled",
+      "source": "Disabled",
+      "kind": "filter-label",
+      "dynamicCount": "rendered by component, not stored in catalog"
+    },
+    {
+      "surface": "settings",
+      "namespace": "settings",
+      "key": "settings.language.title",
+      "source": "Interface language",
+      "kind": "settings-label"
+    },
+    {
+      "surface": "onboarding",
+      "namespace": "onboarding",
+      "key": "onboarding.language.title",
+      "source": "Choose your language",
+      "kind": "first-run-title"
+    }
+  ],
+  "nonCatalogValues": [
+    {
+      "example": "Dracula",
+      "reason": "user/project data"
+    },
+    {
+      "example": "Bram Stoker",
+      "reason": "user/project data"
+    },
+    {
+      "example": "1m 3s",
+      "reason": "formatted duration"
+    },
+    {
+      "example": "174",
+      "reason": "formatted count"
+    }
+  ]
+}

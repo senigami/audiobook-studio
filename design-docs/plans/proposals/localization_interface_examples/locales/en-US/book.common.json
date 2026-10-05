@@ -1,0 +1,15 @@
+{
+  "book.identity.runtime": "Runtime",
+  "book.identity.predictedRuntime": "Predicted",
+  "book.stage.manuscript": "Manuscript",
+  "book.stage.casting": "Casting",
+  "book.stage.studio": "Studio",
+  "book.stage.review": "Review",
+  "book.stage.publish": "Publish",
+  "book.actions.focus": "Focus",
+  "book.actions.sortAlpha": "Sort A-Z",
+  "book.chapter.status.rendered": "Rendered",
+  "book.chapter.status.ready": "Ready",
+  "book.chapter.status.cast": "Cast",
+  "book.chapter.status.draft": "Draft"
+}

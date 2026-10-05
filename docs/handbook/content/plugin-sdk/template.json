@@ -1,0 +1,6 @@
+{
+ "title": "Using the Template",
+ "desc": "Start from the bundled engine template.",
+ "lede": "Don't start from scratch — copy the template and fill in the blanks.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Copy the engine bundle template.</li><li>Update the manifest and settings schema.</li><li>Implement the five contract methods.</li></ul></div>\n        <h2>Steps</h2>\n        <ol><li>Copy the engine bundle template into a new <code>tts_&lt;id&gt;</code> repo.</li><li>Edit <code>manifest.json</code> (id, entry class, capabilities, distribution).</li><li>Describe options in <code>settings_schema.json</code> and deps in <code>requirements.txt</code>.</li><li>Implement <code>info / check_env / check_request / synthesize / settings_schema</code>.</li><li>Add the GitHub topic <code>audiobook-studio-tts</code> so Studio's browser finds it.</li></ol>\n        <p>See <a href=\"#plugin-sdk/engine-contract\">Engine Contract &amp; Hooks</a> and <a href=\"#plugin-sdk/testing\">Testing Your Plugin</a>.</p>"
+}

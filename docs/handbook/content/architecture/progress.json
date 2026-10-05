@@ -1,0 +1,6 @@
+{
+ "title": "Progress Services",
+ "desc": "Centralized progress math, ETA, reconciliation, and broadcasting.",
+ "lede": "Progress is computed in one place and broadcast, so every screen shows the same numbers.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>One source for progress math.</li><li>Rounded sensibly; broadcast on meaningful change.</li><li>ETA estimation and reconciliation as truth.</li></ul></div>\n        <h2>Centralized math</h2>\n        <p><strong>Progress is calculated centrally and rounded</strong> (broadcasting only on meaningful change) to avoid noisy, inconsistent updates across screens.</p>\n        <h2>ETA &amp; reconciliation</h2>\n        <p><strong>ETAs come from observed throughput; reconciliation is the source of truth.</strong> What actually exists as validated artifacts wins over optimistic in-memory state.</p>"
+}

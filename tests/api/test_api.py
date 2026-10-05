@@ -1,0 +1,149 @@
+import pytest
+from fastapi.testclient import TestClient
+
+# Import the app from app.api.web
+from app.api.web import app
+
+client = TestClient(app)
+
+@pytest.fixture
+def temp_chapter(tmp_path):
+    # Setup: Create a temporary chapter file
+    test_file = "test_unit_api.txt"
+    test_path = tmp_path / test_file
+    test_path.write_text("Hello world", encoding="utf-8")
+    yield test_file
+
+def test_api_preview_raw():
+    res = client.post("/api/projects", data={"name": "Preview Project"})
+    pid = res.json()["project_id"]
+    res = client.post(f"/api/projects/{pid}/chapters", data={"title": "Preview Chapter", "text_content": "Hello world"})
+    cid = res.json()["chapter"]["id"]
+
+    response = client.get(f"/api/chapters/{cid}/preview")
+    assert response.status_code == 200
+    assert response.json()["text"] == "Hello world"
+
+def test_api_preview_processed():
+    from app.db.state import update_settings
+    update_settings({"default_engine": "xtts"})
+    res = client.post("/api/projects", data={"name": "Preview Project 2"})
+    pid = res.json()["project_id"]
+    res = client.post(f"/api/projects/{pid}/chapters", data={"title": "Preview Chapter 2", "text_content": "Hello world"})
+    cid = res.json()["chapter"]["id"]
+
+    # This should trigger sanitization (adding period)
+    response = client.get(f"/api/chapters/{cid}/preview?processed=true")
+    assert response.status_code == 200
+    # Processed output should have a period and may be padded
+    assert response.json()["text"].strip() == "Hello world."
+
+
+# DELETED: test_api_jobs_list — WRONG-SCENARIO: asserted that /api/jobs returns 404,
+# which is trivially true for any nonexistent route and documents no contractual behavior.
+
+
+
+
+
+
+
+
+def test_queue_uniqueness():
+    """
+    Verifies that a chapter cannot be added to the queue more than once concurrently.
+    """
+    from app.db import create_project, create_chapter, get_queue
+    from app.db.state import clear_all_jobs
+    from unittest.mock import patch
+
+    # 1. Setup clean environment
+    clear_all_jobs()
+    from app.db.state import update_settings
+    update_settings({"default_engine": "xtts"})
+
+    # 2. Create mock project and chapter
+    pid = create_project("Queue Uniqueness Test")
+    cid = create_chapter(project_id=pid, title="Unique Chapter")
+
+    with patch("app.orchestration.scheduler.orchestrator.TaskOrchestrator.submit") as mock_submit, \
+         patch("app.engines.voice_engines.resolve_profile_engine", return_value="xtts"), \
+         patch("app.api.routers.generation_shared.resolve_profile_engine", return_value="xtts"):
+        # 3. Add to queue first time
+        res1 = client.post("/api/processing_queue", data={
+            "project_id": pid,
+            "chapter_id": cid,
+            "split_part": 0,
+            "speaker_profile": "test_profile"
+        })
+        assert res1.status_code == 200
+
+        # 4. Attempt to add to queue second time
+        res2 = client.post("/api/processing_queue", data={
+            "project_id": pid,
+            "chapter_id": cid,
+            "split_part": 0,
+            "speaker_profile": "test_profile"
+        })
+
+        # Should succeed, but return the exact same queue_id instead of a new one
+        assert res2.status_code == 200
+        assert res1.json()["queue_id"] == res2.json()["queue_id"]
+        # It might still submit a BackgroundTask, but we've verified queue row uniqueness
+
+    # 5. Verify the actual queue only has 1 physical row
+    q = get_queue()
+    chapter_entries = [i for i in q if i["chapter_id"] == cid]
+    assert len(chapter_entries) == 1
+
+def test_clear_queue_preserves_running():
+    """
+    Verifies that clearing the queue does not remove jobs with status 'running'.
+    """
+    from app.db import create_project, create_chapter, add_to_queue, update_queue_item, get_queue
+    from app.db.state import clear_all_jobs
+
+    clear_all_jobs()
+    pid = create_project("Clear Queue Test")
+
+    # 1. Add two chapters to queue
+    cid1 = create_chapter(project_id=pid, title="Running Chapter")
+    cid2 = create_chapter(project_id=pid, title="Queued Chapter")
+
+    qid1 = add_to_queue(pid, cid1)
+    qid2 = add_to_queue(pid, cid2)
+
+    # 2. Set one to 'running'
+    update_queue_item(qid1, "running")
+
+    # 3. Clear the queue
+    response = client.delete("/api/processing_queue")
+    assert response.status_code == 200
+    assert response.json()["cleared"] >= 1
+
+    # 4. Verify 'running' job remains, 'queued' job is gone
+    queue = get_queue()
+    remaining_ids = [item['id'] for item in queue]
+
+    assert qid1 in remaining_ids
+    assert qid2 not in remaining_ids
+
+    # 5. Verify chapter status reset
+    from app.db import get_chapter
+    chap1 = get_chapter(cid1)
+    chap2 = get_chapter(cid2)
+    assert chap1['audio_status'] == 'processing' # Still running
+    assert chap2['audio_status'] == 'unprocessed' # Reset from processing
+
+def test_api_preview_processed_fails_when_no_engine():
+    from unittest.mock import patch
+    res = client.post("/api/projects", data={"name": "Preview Project 3"})
+    pid = res.json()["project_id"]
+    res = client.post(f"/api/projects/{pid}/chapters", data={"title": "Preview Chapter 3", "text_content": "Hello world"})
+    cid = res.json()["chapter"]["id"]
+
+    with patch("app.api.routers.chapters_assets.get_settings", return_value={}), \
+         patch("app.engines.voice_engines.get_default_profile_engine", return_value=""):
+        response = client.get(f"/api/chapters/{cid}/preview?processed=true")
+        assert response.status_code == 400
+        assert "No TTS engine" in response.json()["message"]

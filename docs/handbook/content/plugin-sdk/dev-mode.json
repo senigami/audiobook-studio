@@ -1,0 +1,6 @@
+{
+ "title": "Studio Dev Mode Preview",
+ "desc": "The authoritative UI preview path for plugin development.",
+ "lede": "Dev Mode is how you preview a plugin's UI and behavior inside Studio while you build it.",
+ "body": "<div class=\"soon-note\"><b>In progress —</b> Dev Mode is being finalized in Phase 12.</div>\n        <div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Preview the plugin's UI in Studio.</li><li>Drive it with scenario fixtures from the plugin.</li><li>Use it as you build.</li></ul></div>\n        <h2>What it previews</h2>\n        <p><strong>Dev Mode renders your plugin's settings and flows</strong> the way users will see them, so you can iterate without a full release loop.</p>\n        <h2>Scenario fixtures</h2>\n        <p><strong>Plugins ship fixtures that drive the preview</strong>, giving deterministic scenarios to check against while developing.</p>"
+}

@@ -1,0 +1,6 @@
+{
+ "title": "Task Orchestration",
+ "desc": "How background work is scheduled and executed.",
+ "lede": "The orchestrator owns background work: it submits, schedules, cancels, and recovers tasks.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>A <code>StudioTask</code> abstraction with task types.</li><li>Submit / cancel / recover operations.</li><li>Policies, resources, and recovery rules.</li><li>A job-handler registry.</li></ul></div>\n        <h2>Tasks &amp; jobs</h2>\n        <p><strong>Work is modeled as tasks with explicit types.</strong> The orchestrator turns them into queued jobs and runs them under scheduling policies that respect engine resources.</p>\n        <h2>Recovery</h2>\n        <p><strong>Recovery is built in.</strong> After a restart, the orchestrator reconciles what's done against what's expected and resumes. A job-handler registry maps job kinds to their handlers. See <a href=\"#architecture/progress\">Progress Services</a> and <a href=\"#concepts/artifacts-recovery\">Artifacts, Reuse &amp; Recovery</a>.</p>"
+}

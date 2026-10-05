@@ -1,0 +1,1900 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Audiobook Studio | Professional AI Production Pipeline</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* BEGIN GENERATED TOKENS (scripts/sync_showcase_tokens.mjs) */
+:root {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-alt: #f1f5f9;
+  --accent: #2b6eff;
+  --accent-secondary: #ff8a1f;
+  --accent-hover: #1d54da;
+  --accent-active: #1642b5;
+  --accent-glow: rgba(43, 110, 255, 0.1);
+  --success: #10b981;
+  --success-muted: #d1fae5;
+  --success-text: #065f46;
+  --error: #ef4444;
+  --error-text: #991b1b;
+  --warning: #f59e0b;
+  --warning-text: #92400e;
+  --glass-hover: rgba(0, 0, 0, 0.04);
+  --error-glow: rgba(239, 68, 68, 0.1);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --border: #e6eaf2;
+  --glass: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --surface-light: #f8fafc;
+  --background: var(--bg);
+  --text: var(--text-primary);
+  --header-height: 72px;
+
+  /* Unified Design Tokens */
+  --radius-button: 10px;
+  --radius-card: 12px;
+  --radius-panel: 16px;
+  --radius-round: 9999px;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  /* Brand tokens */
+  --as-ink: #0f172a; /* sleek slate-dark */
+  --as-muted: #64748b; /* soft-slate */
+  --as-blue: #2b6eff; /* brand-blue */
+  --as-amber: #f97316; /* brand-orange */
+  --as-info-tint: #f0f7ff; /* very soft blue tint */
+
+  /* Missing tokens — added Step 1 */
+  --accent-tint: rgba(99, 102, 241, 0.12);       /* soft accent background */
+  --success-strong: #059669;                      /* filled success button/badge bg */
+  --success-strong-hover: #047857;               /* hover state for success-strong */
+  --success-text: #15803d;                       /* success status text */
+  --warning-text-strong: #b45309;               /* warning/caution inline text */
+  --text-on-accent: #ffffff;                    /* text on colored accent surfaces */
+  --glass-surface-light: rgba(248, 249, 252, 0.78); /* panel glass in light mode */
+  --glass-subtle: rgba(255, 255, 255, 0.05);    /* very subtle glass tint */
+
+  /* Semantic surface/state tints */
+  --overlay-backdrop: rgba(0, 0, 0, 0.4);         /* modal/drawer scrim */
+  --surface-white: #ffffff;                        /* explicit white surface (btn-glass, select-glass) */
+  --surface-pressed: #e2e8f0;                      /* pressed/active glass btn */
+  --border-muted: #cbd5e1;                         /* muted border (lighter than --border) */
+  --surface-code: #1a1a1a;                         /* code/log panel dark bg */
+  --surface-code-border: #1e293b;                  /* code panel border */
+  --text-code-muted: #d4d4d4;                      /* code panel default text */
+  --text-code-info: #38bdf8;                       /* code panel info/timestamp text */
+  --warning-tint-bg: rgba(245, 158, 11, 0.08);    /* warning surface tint */
+  --warning-tint-border: rgba(245, 158, 11, 0.24); /* warning surface border */
+  --warning-text: #92400e;                         /* warning body text (darker amber) */
+  --error-tint-bg: rgba(239, 68, 68, 0.1);        /* error surface tint */
+  --error-tint-border: rgba(239, 68, 68, 0.2);    /* error surface border */
+  --error-text-strong: #b91c1c;                   /* error body text (darker red) */
+  --accent-tint-bg: rgba(43, 110, 255, 0.12);     /* accent-blue surface tint (brand blue) */
+  --accent-tint-border: rgba(43, 110, 255, 0.2);  /* accent-blue surface border */
+  --surface-tinted-light: rgba(240, 247, 255, 0.9); /* very light blue tinted surface */
+  --surface-glass-white: rgba(255, 255, 255, 0.8); /* glass white (higher opacity) */
+  --surface-glass-half: rgba(255, 255, 255, 0.5); /* 50% glass white */
+  --surface-dim: rgba(0, 0, 0, 0.03);             /* barely-there dark tint */
+  --success-tint-bg: rgba(16, 185, 129, 0.1);     /* success surface tint */
+  --success-color: #10b981;                        /* success status color (= --success alias) */
+  --accent-focus-ring: rgba(43, 110, 255, 0.08);  /* focus ring glow around inputs */
+  --cloud-tint-bg: rgba(14, 165, 233, 0.12);      /* cloud-engine accent tint */
+  --cloud-color: #0ea5e9;                          /* cloud engine icon/text color */
+
+  /* Progress bar visual state tokens */
+  --progress-track: rgba(0, 0, 0, 0.05);           /* progress bar track background */
+  --progress-finalizing-fill: rgba(191, 219, 254, 0.34); /* finalizing state fill color */
+  --progress-finalizing-glow: rgba(59, 130, 246, 0.45);  /* finalizing glow shadow */
+  --progress-preparing-fill: rgba(248, 250, 252, 0.96);  /* preparing indeterminate fill */
+  --progress-preparing-glow: rgba(226, 232, 240, 0.45);  /* preparing glow shadow */
+  --progress-badge-running: rgba(37, 99, 235, 0.10);     /* running/processing badge bg */
+  --progress-badge-preparing: rgba(245, 158, 11, 0.12);  /* preparing badge bg */
+  --progress-badge-finalizing: rgba(59, 130, 246, 0.10); /* finalizing badge bg */
+  --progress-badge-default: rgba(100, 116, 139, 0.10);   /* default/queued badge bg */
+  --progress-badge-border: rgba(0, 0, 0, 0.08);          /* badge border */
+  --progress-done-fill: linear-gradient(90deg, rgba(16, 185, 129, 0.82) 0%, rgba(34, 197, 94, 0.98) 100%);
+  --progress-done-glow: rgba(34, 197, 94, 0.45);
+  --progress-failed-fill: linear-gradient(90deg, rgba(239, 68, 68, 0.82) 0%, rgba(185, 28, 28, 0.98) 100%);
+  --progress-failed-glow: rgba(239, 68, 68, 0.40);
+  --progress-queued-fill: rgba(148, 163, 184, 0.12);
+}
+
+[data-theme="dark"] {
+  /* Surfaces */
+  --bg:                   #0f1117;
+  --background:           #0f1117;
+  --surface:              #1a1d27;
+  --surface-alt:          #22263a;
+  --surface-light:        #1a1d27;
+  --surface-white:        #1a1d27;
+  --surface-pressed:      #2d3148;
+  --surface-tinted-light: rgba(30, 40, 70, 0.9);
+  --surface-glass-white:  rgba(26, 29, 39, 0.85);
+  --surface-glass-half:   rgba(26, 29, 39, 0.5);
+  --surface-dim:          rgba(0, 0, 0, 0.15);
+  --surface-code:         #0d0f14;
+  --surface-code-border:  #2d3148;
+
+  /* Text */
+  --text-primary:         #e8eaf0;
+  --text-secondary:       #9ca3af;
+  --text-muted:           #6b7280;
+  --text:                 var(--text-primary);
+  --text-code-muted:      #b0b8c8;
+  --text-code-info:       #38bdf8;
+
+  /* Brand tokens */
+  --as-ink:               #e8eaf0;
+  --as-muted:             #9ca3af;
+
+  /* Borders */
+  --border:               #2d3148;
+  --border-muted:         #3d4460;
+
+  /* Glass */
+  --glass:                rgba(15, 17, 23, 0.85);
+  --glass-border:         rgba(255, 255, 255, 0.08);
+  --glass-hover:          rgba(255, 255, 255, 0.06);
+  --glass-surface-light:  rgba(15, 17, 23, 0.78);
+  --glass-subtle:         rgba(0, 0, 0, 0.25);
+
+  /* Accent tints */
+  --accent-tint:          rgba(99, 102, 241, 0.18);
+  --accent-tint-bg:       rgba(43, 110, 255, 0.15);
+  --accent-tint-border:   rgba(43, 110, 255, 0.3);
+  --accent-glow:          rgba(43, 110, 255, 0.15);
+  --accent-focus-ring:    rgba(43, 110, 255, 0.15);
+
+  /* Success */
+  --success:              #10b981;
+  --success-muted:        rgba(16, 185, 129, 0.15);
+  --success-strong:       #10b981;
+  --success-strong-hover: #059669;
+  --success-text:         #34d399;
+  --success-color:        #10b981;
+  --success-tint-bg:      rgba(16, 185, 129, 0.12);
+
+  /* Warning */
+  --warning:              #f59e0b;
+  --warning-text:         #fbbf24;
+  --warning-text-strong:  #f59e0b;
+  --warning-tint-bg:      rgba(245, 158, 11, 0.12);
+  --warning-tint-border:  rgba(245, 158, 11, 0.3);
+
+  /* Error */
+  --error:                #f87171;
+  --error-text:           #fca5a5;
+  --error-text-strong:    #f87171;
+  --error-tint-bg:        rgba(239, 68, 68, 0.15);
+  --error-tint-border:    rgba(239, 68, 68, 0.3);
+  --error-glow:           rgba(239, 68, 68, 0.15);
+
+  /* Cloud */
+  --cloud-tint-bg:        rgba(14, 165, 233, 0.15);
+  --cloud-color:          #38bdf8;
+
+  /* Overlay */
+  --overlay-backdrop:     rgba(0, 0, 0, 0.65);
+
+  /* Shadows — deeper on dark */
+  --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md:  0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.25);
+  --shadow-lg:  0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+  --shadow-xl:  0 20px 25px -5px rgba(0, 0, 0, 0.45), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+
+  /* Progress bar visual states */
+  --progress-track:            rgba(255, 255, 255, 0.06);
+  --progress-finalizing-fill:  rgba(96, 165, 250, 0.3);
+  --progress-finalizing-glow:  rgba(59, 130, 246, 0.5);
+  --progress-preparing-fill:   rgba(51, 65, 85, 0.96);
+  --progress-preparing-glow:   rgba(71, 85, 105, 0.45);
+  --progress-badge-running:    rgba(99, 102, 241, 0.18);
+  --progress-badge-preparing:  rgba(245, 158, 11, 0.18);
+  --progress-badge-finalizing: rgba(59, 130, 246, 0.18);
+  --progress-badge-default:    rgba(148, 163, 184, 0.15);
+  --progress-badge-border:     rgba(255, 255, 255, 0.08);
+  --progress-queued-fill:      rgba(148, 163, 184, 0.1);
+}
+
+/* ------------------------------------------------------------------
+   Legacy token aliases — vars used by v1.html that were renamed or
+   removed from tokens.css. Each maps to the closest current value.
+   Do NOT hand-edit — regenerate via: node scripts/sync_showcase_tokens.mjs
+   ------------------------------------------------------------------ */
+:root {
+  /* --info-tint → closest current token */ --legacyinfo-tint: #f0f7ff;
+  --info-tint: var(--legacyinfo-tint);
+}
+/* END GENERATED TOKENS */
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          "Inter",
+          "Outfit",
+          -apple-system,
+          sans-serif;
+        background-color: var(--bg);
+        color: var(--text-primary);
+        line-height: 1.6;
+        overflow-x: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      p {
+        text-wrap: pretty;
+      }
+
+      .container {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 2rem;
+        position: relative;
+      }
+
+      header {
+        text-align: center;
+        margin-top: 5rem;
+        margin-bottom: 6rem;
+      }
+
+      /* Branding */
+      .brand-section {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        margin-bottom: 2rem;
+      }
+
+      .brand-logo {
+        height: 120px;
+        width: auto;
+        object-fit: contain;
+      }
+
+      .brand-wordmark {
+        height: 100px;
+        width: auto;
+        object-fit: contain;
+      }
+
+      .brand-tagline {
+        font-size: 1.15rem;
+        color: var(--text-secondary);
+        font-weight: 400;
+        margin-top: 1.5rem;
+        line-height: 1.75;
+        letter-spacing: -0.01em;
+        text-align: center;
+        max-width: 700px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        background: var(--info-tint);
+        color: var(--accent);
+        border-radius: 99px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      /* Hero Pod */
+      .hero-pod {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 40px;
+        padding: 5rem 4rem 4rem 4rem;
+        box-shadow: var(--shadow-lg);
+        margin-bottom: 6rem;
+        background: linear-gradient(
+          180deg,
+          var(--info-tint) 0%,
+          var(--surface) 100%
+        );
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 5rem;
+        overflow: hidden;
+      }
+
+      .hero-content {
+        max-width: 800px;
+      }
+
+      .hero-h2 {
+        font-size: 3rem;
+        font-weight: 800;
+        margin-bottom: 1.5rem;
+        line-height: 1.1;
+        letter-spacing: -0.02em;
+      }
+
+      .hero-p {
+        font-size: 1.25rem;
+        color: var(--text-secondary);
+        margin-bottom: 3rem;
+        line-height: 1.75;
+        letter-spacing: -0.01em;
+      }
+
+      .audio-demo {
+        background: rgba(255, 255, 255, 0.5);
+        padding: 2rem;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        backdrop-filter: blur(10px);
+      }
+
+      .audio-demo + .audio-demo {
+        margin-top: 1.25rem;
+      }
+
+      .audio-demo-note {
+        margin-top: 0.85rem;
+        font-size: 0.92rem;
+        color: var(--text-secondary);
+        line-height: 1.7;
+      }
+
+      .audio-compare-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+
+      .audio-compare-card {
+        background: rgba(255, 255, 255, 0.78);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 1rem;
+        text-align: left;
+      }
+
+      .audio-compare-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.6rem;
+      }
+
+      .audio-compare-title strong {
+        font-size: 1rem;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+
+      .audio-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.3rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      .audio-pill.local {
+        background: rgba(43, 110, 255, 0.12);
+        color: var(--accent);
+      }
+
+      .audio-pill.cloud {
+        background: rgba(255, 138, 31, 0.14);
+        color: #d66a00;
+      }
+
+      .audio-compare-copy {
+        font-size: 0.92rem;
+        color: var(--text-secondary);
+        line-height: 1.7;
+        margin-bottom: 0.85rem;
+      }
+
+      .audio-label {
+        display: block;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        font-weight: 800;
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+        letter-spacing: 0.1em;
+      }
+
+      audio {
+        width: 100%;
+      }
+
+      /* Feature Cards */
+      .tour-section {
+        margin-top: 8rem;
+      }
+
+      .section-header {
+        text-align: center;
+        margin-bottom: 4rem;
+      }
+
+      .section-header h2 {
+        font-size: 2.25rem;
+        font-weight: 800;
+        margin-bottom: 1rem;
+        line-height: 1.15;
+        letter-spacing: -0.02em;
+      }
+
+      .tour-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 8rem;
+      }
+
+      .compare-section {
+        margin-top: 9rem;
+        margin-bottom: 4rem;
+      }
+
+      .compare-panel,
+      .cost-panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        box-shadow: var(--shadow-lg);
+        padding: 2rem;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .compare-panel h3,
+      .cost-panel h3 {
+        font-size: 1.5rem;
+        font-weight: 800;
+        margin-bottom: 0.75rem;
+      }
+
+      .compare-panel > p,
+      .cost-panel > p {
+        color: var(--text-secondary);
+        margin-bottom: 1.5rem;
+        line-height: 1.75;
+      }
+
+      .compare-table,
+      .cost-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 640px;
+      }
+
+      .compare-table th,
+      .compare-table td,
+      .cost-table th,
+      .cost-table td {
+        text-align: left;
+        padding: 0.85rem 0.9rem;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+
+      .compare-table th,
+      .cost-table th {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+      }
+
+      .compare-table td,
+      .cost-table td {
+        color: var(--text-secondary);
+      }
+
+      .compare-table td:first-child,
+      .cost-table td:first-child {
+        color: var(--text-primary);
+        font-weight: 700;
+      }
+
+      .cost-highlight {
+        background: linear-gradient(
+          135deg,
+          var(--accent) 0%,
+          #3f8cff 100%
+        );
+        color: white;
+        border-radius: 24px;
+        padding: 1.75rem;
+        margin-bottom: 1.5rem;
+        box-shadow: var(--shadow-md);
+      }
+
+      .cost-highlight-label {
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.8;
+        margin-bottom: 0.75rem;
+      }
+
+      .cost-highlight-figure {
+        font-size: 2.5rem;
+        font-weight: 800;
+        line-height: 1;
+        margin-bottom: 0.75rem;
+      }
+
+      .cost-highlight p {
+        color: rgba(255, 255, 255, 0.9);
+        margin: 0;
+      }
+
+      .cost-notes {
+        list-style: none;
+        display: grid;
+        gap: 0.9rem;
+        margin-top: 1.25rem;
+      }
+
+      .cost-notes li {
+        position: relative;
+        padding-left: 1.3rem;
+        color: var(--text-secondary);
+      }
+
+      .cost-notes li::before {
+        content: "•";
+        position: absolute;
+        left: 0;
+        top: 0;
+        color: var(--accent-secondary);
+        font-weight: 800;
+      }
+
+      .source-note {
+        margin-top: 1.25rem;
+        font-size: 0.9rem;
+        color: var(--text-muted);
+      }
+
+      .source-note a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      .source-note a:hover {
+        text-decoration: underline;
+      }
+
+      .compare-panel {
+        margin-bottom: 2rem;
+      }
+
+      .cost-section {
+        margin-top: 2rem;
+      }
+
+      .cost-ladder {
+        display: grid;
+        gap: 0.9rem;
+        margin-top: 1.5rem;
+      }
+
+      .ladder-step {
+        display: grid;
+        grid-template-columns: 1.35fr 0.9fr 0.75fr;
+        gap: 1rem;
+        align-items: center;
+        padding: 1rem 1.1rem;
+        border-radius: 18px;
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+      }
+
+      .ladder-step-name {
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+
+      .ladder-step-note {
+        font-size: 0.92rem;
+        color: var(--text-secondary);
+        line-height: 1.65;
+      }
+
+      .ladder-step-cost {
+        text-align: right;
+        font-weight: 800;
+        color: var(--accent-secondary);
+        font-size: 1.05rem;
+      }
+
+      .ladder-step-free {
+        text-align: right;
+        font-weight: 800;
+        color: var(--accent);
+        font-size: 1.05rem;
+      }
+
+      .breakdown-toggle {
+        margin-top: 1.75rem;
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+        overflow: hidden;
+      }
+
+      .breakdown-toggle summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 1.25rem 1.4rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+
+      .breakdown-toggle summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .breakdown-toggle summary span {
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+
+      .breakdown-toggle summary::after {
+        content: "+";
+        font-size: 1.3rem;
+        line-height: 1;
+        color: var(--accent);
+      }
+
+      .breakdown-toggle[open] summary::after {
+        content: "−";
+      }
+
+      .breakdown-content {
+        padding: 0 1.4rem 1.4rem 1.4rem;
+      }
+
+      .breakdown-copy {
+        color: var(--text-secondary);
+        margin-bottom: 1.25rem;
+        line-height: 1.7;
+      }
+
+      .table-stack {
+        display: grid;
+        gap: 1.25rem;
+      }
+
+      .table-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 1rem;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .table-card h4 {
+        font-size: 1rem;
+        font-weight: 800;
+        margin-bottom: 0.8rem;
+      }
+
+      .compact-summary {
+        min-width: 0 !important;
+        width: 100%;
+        table-layout: fixed;
+      }
+
+      .compact-summary td,
+      .compact-summary th {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: normal;
+      }
+
+      .compact-summary td:first-child,
+      .compact-summary th:first-child {
+        width: 68%;
+      }
+
+      .compact-summary td:nth-child(2),
+      .compact-summary th:nth-child(2) {
+        width: 32%;
+      }
+
+      .tour-item {
+        display: grid;
+        grid-template-columns: 1fr 1.5fr;
+        gap: 6rem;
+        align-items: center;
+      }
+
+      .tour-item:nth-child(even) {
+        direction: rtl;
+      }
+
+      .tour-item:nth-child(even) .tour-text {
+        direction: ltr;
+      }
+
+      .tour-text h3 {
+        font-size: 1.75rem;
+        font-weight: 800;
+        margin-bottom: 1rem;
+        color: var(--accent);
+        line-height: 1.15;
+        letter-spacing: -0.02em;
+      }
+
+      .tour-text p {
+        font-size: 1.1rem;
+        color: var(--text-secondary);
+        margin-bottom: 1.5rem;
+        line-height: 1.75;
+      }
+
+      .tour-list {
+        list-style: none;
+      }
+
+      .tour-list li {
+        position: relative;
+        padding-left: 1.5rem;
+        margin-bottom: 0.75rem;
+        color: var(--text-secondary);
+      }
+
+      .tour-list li::before {
+        content: "→";
+        position: absolute;
+        left: 0;
+        color: var(--accent-secondary);
+        font-weight: 800;
+      }
+
+      /* Screenshot Placeholders */
+      .placeholder {
+        background: #eef2f7;
+        border: 2px dashed #cbd5e1;
+        border-radius: 24px;
+        aspect-ratio: 16/10;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        text-align: center;
+        color: var(--text-muted);
+        transition: all 0.3s ease;
+        box-shadow: var(--shadow-md);
+      }
+
+      .placeholder:hover {
+        border-color: var(--accent);
+        background: var(--info-tint);
+      }
+
+      .placeholder-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.3;
+      }
+
+      .placeholder-label {
+        font-weight: 700;
+        color: var(--text-secondary);
+        margin-bottom: 0.5rem;
+      }
+
+      .placeholder-desc {
+        font-size: 0.9rem;
+      }
+
+      .tour-screenshot {
+        width: 100%;
+        height: auto;
+        padding: 0;
+        background: var(--surface);
+        border-radius: 24px;
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--border);
+        transition: transform 0.3s ease;
+        overflow: hidden;
+      }
+
+      .tour-screenshot.square-crop {
+        width: 100%;
+        max-width: 500px;
+        aspect-ratio: 1 / 1;
+        object-fit: cover;
+        object-position: center center;
+        margin: 0 auto;
+        display: block;
+      }
+
+      .hero-visual {
+        width: 100%;
+        max-width: 1000px;
+      }
+
+      .hero-visual img {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-lg);
+        transition: transform 0.5s ease;
+      }
+
+      .hero-pod:hover .hero-visual img {
+        transform: translateY(-5px);
+      }
+
+      .tour-screenshot:hover {
+        transform: translateY(-5px);
+      }
+
+      /* CTA */
+      .cta-box {
+        text-align: center;
+        margin-top: 10rem;
+        margin-bottom: 10rem;
+        padding: 5rem;
+        background: var(--surface);
+        border-radius: 40px;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-lg);
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        padding: 1rem 2.5rem;
+        background: var(--accent);
+        color: white;
+        text-decoration: none;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 1.1rem;
+        transition: all 0.2s ease;
+      }
+
+      .button:hover {
+        transform: translateY(-2px);
+        background: var(--accent-hover);
+        box-shadow: 0 10px 15px -3px rgba(43, 110, 255, 0.4);
+      }
+
+      footer {
+        text-align: center;
+        padding: 4rem 0;
+        border-top: 1px solid var(--border);
+        color: var(--text-muted);
+        font-size: 0.9rem;
+      }
+
+      @media (max-width: 900px) {
+        .container {
+          padding: 1.25rem;
+        }
+
+        header {
+          margin-top: 2rem;
+          margin-bottom: 3rem;
+        }
+
+        .brand-section {
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+
+        .brand-logo {
+          height: 88px;
+        }
+
+        .brand-wordmark {
+          height: 72px;
+          max-width: min(100%, 320px);
+        }
+
+        .brand-tagline {
+          font-size: 1.02rem;
+          margin-top: 1rem;
+          max-width: 32rem;
+          line-height: 1.8;
+        }
+
+        .badge {
+          font-size: 0.74rem;
+          padding: 0.45rem 0.85rem;
+        }
+
+        .hero-pod {
+          padding: 2rem 1.25rem 1.5rem 1.25rem;
+          border-radius: 28px;
+          gap: 2rem;
+          margin-bottom: 3.5rem;
+        }
+
+        .hero-content,
+        .tour-text,
+        .section-header {
+          text-align: center;
+        }
+
+        .hero-h2 {
+          font-size: clamp(2rem, 8vw, 2.6rem);
+          margin-bottom: 1rem;
+          max-width: 13ch;
+          margin-left: auto;
+          margin-right: auto;
+        }
+
+        .hero-p {
+          font-size: 1.05rem;
+          margin-bottom: 1.5rem;
+          max-width: 34rem;
+          margin-left: auto;
+          margin-right: auto;
+          line-height: 1.8;
+        }
+
+        .audio-demo {
+          padding: 1.2rem;
+          border-radius: 18px;
+        }
+
+        .audio-compare-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .audio-compare-card {
+          padding: 0.95rem;
+        }
+
+        .hero-visual img {
+          border-radius: 16px;
+        }
+
+        .tour-section {
+          margin-top: 4rem;
+        }
+
+        .compare-section {
+          margin-top: 5rem;
+          margin-bottom: 2rem;
+        }
+
+        .section-header {
+          margin-bottom: 2rem;
+        }
+
+        .section-header h2 {
+          font-size: clamp(1.85rem, 6vw, 2.2rem);
+          line-height: 1.15;
+          max-width: 15ch;
+          margin-left: auto;
+          margin-right: auto;
+        }
+
+        .tour-grid {
+          gap: 3.5rem;
+        }
+
+        .tour-item {
+          grid-template-columns: 1fr;
+          gap: 1.5rem;
+          text-align: center;
+        }
+
+        .tour-item:nth-child(even) {
+          direction: ltr;
+        }
+
+        .tour-text h3 {
+          font-size: 1.45rem;
+          margin-bottom: 0.75rem;
+        }
+
+        .tour-text p {
+          font-size: 1rem;
+          margin-bottom: 1rem;
+          line-height: 1.8;
+        }
+
+        .tour-list {
+          display: grid;
+          gap: 0.6rem;
+        }
+
+        .tour-list li {
+          padding-left: 1.25rem;
+          text-align: left;
+        }
+
+        .tour-screenshot {
+          border-radius: 18px;
+        }
+
+        .tour-screenshot.square-crop {
+          max-width: 100%;
+          object-position: center center;
+        }
+
+        .compare-panel,
+        .cost-panel {
+          padding: 1.25rem;
+          border-radius: 22px;
+          box-shadow: var(--shadow-md);
+        }
+
+        .compare-panel h3,
+        .cost-panel h3 {
+          font-size: 1.25rem;
+          line-height: 1.2;
+        }
+
+        .compare-table,
+        .cost-table {
+          min-width: 560px;
+        }
+
+        .compact-summary {
+          min-width: 0;
+        }
+
+        .compare-table th,
+        .compare-table td,
+        .cost-table th,
+        .cost-table td {
+          padding: 0.75rem 0.7rem;
+        }
+
+        .cost-highlight {
+          padding: 1.3rem;
+          border-radius: 18px;
+        }
+
+        .cost-highlight-figure {
+          font-size: 2rem;
+        }
+
+        .cost-highlight p,
+        .source-note,
+        .ladder-step-note,
+        .compare-panel > p,
+        .cost-panel > p,
+        .breakdown-copy {
+          line-height: 1.75;
+        }
+
+        .ladder-step {
+          grid-template-columns: 1fr;
+          text-align: left;
+          padding: 0.95rem 1rem;
+        }
+
+        .ladder-step-cost,
+        .ladder-step-free {
+          text-align: left;
+        }
+
+        .breakdown-toggle summary {
+          align-items: flex-start;
+          flex-direction: column;
+          padding: 1rem 2.75rem 0.95rem 1rem;
+          position: relative;
+        }
+
+        .breakdown-content {
+          padding: 0 1rem 1rem 1rem;
+        }
+
+        .table-card {
+          padding: 0.85rem;
+        }
+
+        .breakdown-toggle summary::after {
+          position: absolute;
+          right: 1rem;
+          top: 1rem;
+        }
+
+        .cta-box {
+          margin-top: 5rem;
+          margin-bottom: 5rem;
+          padding: 2rem 1.25rem;
+          border-radius: 28px;
+        }
+
+        .cta-box div[style*="display: flex"] {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .button {
+          justify-content: center;
+          width: 100%;
+          padding: 0.95rem 1.2rem;
+        }
+
+        footer {
+          padding: 2.5rem 0 1rem 0;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .container {
+          padding: 0.9rem;
+        }
+
+        .brand-logo {
+          height: 74px;
+        }
+
+        .brand-wordmark {
+          height: 58px;
+        }
+
+        .hero-pod {
+          padding: 1.35rem 1rem 1.2rem 1rem;
+          border-radius: 22px;
+        }
+
+        .hero-h2 {
+          font-size: 1.8rem;
+          max-width: 11ch;
+        }
+
+        .hero-p,
+        .tour-text p,
+        .compare-panel > p,
+        .cost-panel > p,
+        .breakdown-copy {
+          font-size: 0.96rem;
+          line-height: 1.78;
+        }
+
+        .section-header h2 {
+          font-size: 1.65rem;
+          max-width: 14ch;
+        }
+
+        .section-header p,
+        .brand-tagline {
+          max-width: 28rem;
+        }
+
+        .compare-table,
+        .cost-table {
+          min-width: 500px;
+        }
+
+        .compact-summary {
+          min-width: 0;
+        }
+
+        .compare-panel,
+        .cost-panel {
+          background: transparent;
+          border: none;
+          box-shadow: none;
+          padding: 0;
+          border-radius: 0;
+        }
+
+        .cost-highlight {
+          box-shadow: var(--shadow-md);
+        }
+
+        .breakdown-toggle {
+          background: transparent;
+          box-shadow: none;
+          border-radius: 18px;
+        }
+
+        .breakdown-toggle summary {
+          padding: 1rem 0;
+          position: relative;
+          padding-right: 2.75rem;
+          padding-left: 0.85rem;
+        }
+
+        .breakdown-content {
+          padding: 0 0.85rem 0.5rem 0.85rem;
+        }
+
+        .table-stack {
+          gap: 1rem;
+        }
+
+        .table-card {
+          background: transparent;
+          border: none;
+          border-top: 1px solid var(--border);
+          border-radius: 0;
+          padding: 0.85rem 0 0 0;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .table-card h4 {
+          margin-bottom: 0.65rem;
+          padding: 0 0.85rem;
+        }
+
+        .breakdown-toggle summary::after {
+          position: absolute;
+          right: 0.85rem;
+          top: 1rem;
+        }
+
+        .tour-screenshot.square-crop {
+          object-position: center center;
+        }
+
+        .cost-highlight-figure {
+          font-size: 1.8rem;
+        }
+
+        .source-note {
+          font-size: 0.82rem;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <header>
+        <div class="brand-section">
+          <img src="assets/logo.png" alt="Logo" class="brand-logo" />
+          <img
+            src="assets/audiobook-studio.png"
+            alt="Audiobook Studio"
+            class="brand-wordmark"
+          />
+        </div>
+        <p class="brand-tagline">
+          Local-first audiobook production with AI voice cloning
+        </p>
+        <span class="badge" style="margin-top: 2rem"
+          >Local-first · optional cloud voices · no subscription</span
+        >
+      </header>
+
+      <section class="hero-pod">
+        <div class="hero-content">
+          <h2 class="hero-h2">Hear the studio explain itself</h2>
+          <p class="hero-p">
+            Every word in the audio below was synthesized by Audiobook Studio.
+            Listen to the narration engine walk through its own workflow, then
+            try the interactive demo to see the real production UI in your browser.
+          </p>
+          <div class="audio-demo">
+            <span class="audio-label"
+              >Studio Walkthrough: "The Craft of Local Narration"</span
+            >
+            <audio controls>
+              <source src="assets/Overview.mp3" type="audio/mpeg" />
+              Your browser does not support the audio element.
+            </audio>
+          </div>
+          <div class="audio-demo">
+            <span class="audio-label"
+              >Studio Voice Comparison: XTTS vs Voxtral</span
+            >
+            <div class="audio-compare-grid">
+              <div class="audio-compare-card">
+                <div class="audio-compare-title">
+                  <strong>Studio Voice on XTTS</strong>
+                  <span class="audio-pill local">Local</span>
+                </div>
+                <p class="audio-compare-copy">
+                  The same script rendered through the private local-default
+                  engine.
+                </p>
+                <audio controls>
+                  <source src="assets/studio-xtts.mp3" type="audio/mpeg" />
+                  Your browser does not support the audio element.
+                </audio>
+              </div>
+              <div class="audio-compare-card">
+                <div class="audio-compare-title">
+                  <strong>Studio Voice on Voxtral</strong>
+                  <span class="audio-pill cloud">Cloud</span>
+                </div>
+                <p class="audio-compare-copy">
+                  The same script rendered through the optional Voxtral engine.
+                </p>
+                <audio controls>
+                  <source src="assets/studio-voxtral.mp3" type="audio/mpeg" />
+                  Your browser does not support the audio element.
+                </audio>
+              </div>
+            </div>
+            <p class="audio-demo-note">
+              Same voice. Same script. Different engine. This makes it easier
+              to hear what changes when a profile stays the same but the
+              synthesis path changes. Audiobook Studio is built around a
+              local-first private workflow: XTTS stays fully local, while
+              Voxtral is the optional cloud path.
+            </p>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <img
+            src="assets/home.png"
+            alt="Audiobook Studio Central Dashboard showing the Hero Section and book mockup"
+          />
+        </div>
+      </section>
+
+      <!-- Interactive Demo CTA -->
+      <section style="margin: 4rem 0; text-align: center;">
+        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 28px; padding: 3rem 2rem; box-shadow: var(--shadow-lg); max-width: 900px; margin: 0 auto;">
+          <span class="badge" style="background: #eef6ff; color: var(--accent); display: inline-block; margin-bottom: 1rem;">Interactive demo</span>
+          <h2 style="font-size: 1.75rem; font-weight: 800; color: var(--text-primary); margin: 0 0 1rem;">
+            ▶ Try the real UI in your browser
+          </h2>
+          <p style="color: var(--text-secondary); max-width: 640px; margin: 0 auto 1.5rem; line-height: 1.7;">
+            The production UI — queue, progress bars, status transitions — running live against a scripted render session. No backend, no install needed.
+          </p>
+          <a href="demo/" class="button" style="margin-bottom: 2rem; display: inline-flex;">
+            Open interactive demo →
+          </a>
+          <div style="margin-top: 2rem; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow-md);">
+            <iframe
+              src="demo/#/stage/live-output?embed=1"
+              width="100%"
+              height="480"
+              loading="lazy"
+              title="Audiobook Studio — Live Output Stage Demo"
+              style="display: block; border: none;"
+            ></iframe>
+          </div>
+        </div>
+      </section>
+
+      <section class="tour-section">
+        <div class="section-header">
+          <span
+            class="badge"
+            style="background: #fff8eb; color: var(--accent-secondary)"
+            >The Studio Tour</span
+          >
+          <h2>Complete control over every word</h2>
+        </div>
+
+        <div class="tour-grid">
+          <!-- Step 1: Library -->
+          <div class="tour-item">
+            <div class="tour-text">
+              <h3>01. Multi-Project Library</h3>
+              <p>
+                Manage multiple audiobook productions from a single unified hub.
+                Track Word counts, processing ETAs, and asset locations for an
+                unlimited number of concurrent projects.
+              </p>
+              <ul class="tour-list">
+                <li>Centralized project management</li>
+                <li>At-a-glance production status</li>
+                <li>Deep metadata tracking</li>
+              </ul>
+            </div>
+            <img
+              src="assets/library.jpg"
+              alt="Project Library showing book cards and production status"
+              class="tour-screenshot"
+            />
+          </div>
+
+          <!-- Step 2: Narrator Studio -->
+          <div class="tour-item">
+            <div class="tour-text">
+              <h3>02. The Narrator Studio</h3>
+              <p>
+                Build a cast of unique narrators with local XTTS profiles by
+                default, or unlock optional Voxtral voices in Settings when you
+                want a hosted cloud path.
+              </p>
+              <ul class="tour-list">
+                <li>XTTS local voice cloning</li>
+                <li>Optional Voxtral cloud voices</li>
+                <li>Managed engine-per-voice profiles</li>
+              </ul>
+            </div>
+            <img
+              src="assets/narrator.jpg"
+              alt="Narrator Studio showing custom voice profiles and cloning interface"
+              class="tour-screenshot"
+            />
+          </div>
+
+          <!-- Step 3: Granular Production -->
+          <div class="tour-item">
+            <div class="tour-text">
+              <h3>03. Granular Production</h3>
+              <p>
+                Go beyond "all-or-nothing" synthesis. Our production workspace
+                allows you to assign different voices to specific characters or
+                paragraphs, and regenerate audio at the segment level.
+              </p>
+              <ul class="tour-list">
+                <li>Multi-voice character scripting</li>
+                <li>Paragraph-level regeneration</li>
+                <li>Text normalization preview</li>
+              </ul>
+            </div>
+            <img
+              src="assets/voices.jpg"
+              alt="Production Workspace showing granular character assignment and segment control"
+              class="tour-screenshot"
+            />
+          </div>
+
+          <!-- Step 4: Auto-Tuning Pipeline -->
+          <div class="tour-item">
+            <div class="tour-text">
+              <h3>04. Auto-Tuning Pipeline</h3>
+              <p>
+                Never guess when your audio will be ready. Our processing engine
+                learns from your hardware's actual performance to provide
+                dead-accurate progress bars and ETAs.
+              </p>
+              <ul class="tour-list">
+                <li>Hardware-aware ETA logic</li>
+                <li>Batch processing with live logs</li>
+                <li>Integrated system console</li>
+              </ul>
+            </div>
+            <img
+              src="assets/queue.jpg"
+              alt="Smart Queue showing processing progress and hardware-aware ETAs"
+              class="tour-screenshot"
+            />
+          </div>
+
+          <!-- Step 5: Privacy & Local-First -->
+          <div class="tour-item">
+            <div class="tour-text">
+              <h3>05. Privacy & Local-First</h3>
+              <p>
+                Stay in control of your intellectual property. XTTS keeps your
+                manuscripts, voice assets, and finished audio on your own
+                hardware by default. Voxtral remains an explicit opt-in cloud
+                option for the voices you choose to route through it.
+              </p>
+              <ul class="tour-list">
+                <li>Local XTTS workflow by default</li>
+                <li>Optional cloud per voice profile</li>
+                <li>Clear privacy tradeoffs in Settings</li>
+              </ul>
+            </div>
+            <img
+              src="assets/narrator_studio_visual.jpg"
+              alt="Professional microphone in a moody studio setting"
+              class="tour-screenshot square-crop"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section class="tour-section" style="margin-top: 6rem; background: var(--surface); border: 1px solid var(--border); padding: 4rem 2rem; border-radius: 40px; box-shadow: var(--shadow-lg);">
+        <div class="section-header">
+          <span class="badge">Optional Demo Content</span>
+          <h2>Explore a finished workflow on day one</h2>
+          <p style="color: var(--text-secondary); max-width: 760px; margin: 0 auto;">
+            When you install via Pinokio, you can opt into our predefined demo library so you can start clicking buttons, queueing audio, and listening to characters without building any assets first.
+          </p>
+        </div>
+
+        <div class="tour-grid" style="gap: 5rem; margin-top: 4rem;">
+          <div class="tour-item">
+            <div class="tour-text">
+              <h3>The Demo Project</h3>
+              <p>Immediately after installation, you will see a pre-built project waiting in your Library to dive into.</p>
+            </div>
+            <img src="assets/demoproject.png" alt="Demo Project Dashboard" class="tour-screenshot" />
+          </div>
+
+          <div class="tour-item" style="direction: ltr;">
+            <img src="assets/demochapters.png" alt="Demo Chapters Interface" class="tour-screenshot" />
+            <div class="tour-text" style="direction: ltr; padding-left: 4rem;">
+              <h3>Pre-Configured Chapters</h3>
+              <p>Open the project to find chapters ready for preview. You can listen, queue generation, or instantly stitch and build the final audiobook M4B right from this view without pasting text.</p>
+            </div>
+          </div>
+
+          <div class="tour-item">
+            <div class="tour-text">
+              <h3>Included Voice Cast</h3>
+              <p>The demo comes fully loaded with pre-configured narrator and character voices. They are ready to be used in the demo, or immediately drafted into any of your own new projects.</p>
+            </div>
+            <img src="assets/demovoices.png" alt="Demo Voices" class="tour-screenshot" />
+          </div>
+        </div>
+      </section>
+
+      <section class="compare-section">
+        <div class="section-header">
+          <span class="badge">Honest Comparison</span>
+          <h2>Why a local audiobook workflow matters</h2>
+          <p
+            style="
+              color: var(--text-secondary);
+              max-width: 760px;
+              margin: 0 auto;
+            "
+          >
+            ElevenLabs is polished and easy to start with. Audiobook Studio is
+            strongest in different places: privacy, ownership, and the freedom to
+            keep fixing a book without watching credits disappear. A 600,000-character
+            book can cost $99–$330+ per production cycle on hosted tools once corrections start.
+            Here, corrections cost nothing extra.
+          </p>
+        </div>
+
+        <div class="compare-panel">
+          <h3>Audiobook Studio vs. ElevenLabs</h3>
+          <p>
+            This is not a "we beat them at everything" comparison. It is a
+            practical look at what matters when you are producing a full
+            audiobook.
+          </p>
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Audiobook Studio</th>
+                <th>ElevenLabs Studio</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Cost over time</td>
+                <td>Free after setup, local hardware cost only</td>
+                <td>Subscription and credit based</td>
+              </tr>
+              <tr>
+                <td>Privacy</td>
+                <td>Local-first, files stay on your machine</td>
+                <td>Cloud workflow</td>
+              </tr>
+              <tr>
+                <td>Ownership</td>
+                <td>Local project files and local voice assets</td>
+                <td>Platform account workflow</td>
+              </tr>
+              <tr>
+                <td>Voice assignment</td>
+                <td>Character and segment based editing inside your project</td>
+                <td>Section, paragraph, and character assignment in Studio</td>
+              </tr>
+              <tr>
+                <td>Repair workflow</td>
+                <td>Local segment repair and partial chapter requeue</td>
+                <td>Paragraph or word regeneration in the cloud</td>
+              </tr>
+              <tr>
+                <td>Setup</td>
+                <td>More involved</td>
+                <td>Easier to start</td>
+              </tr>
+              <tr>
+                <td>Baseline polish</td>
+                <td>Good with careful samples and tuning</td>
+                <td>Usually stronger out of the box</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="cost-panel cost-section">
+          <div class="cost-highlight">
+            <span class="cost-highlight-label">Full-Length Book Example</span>
+            <div class="cost-highlight-figure">$99-$330+</div>
+            <p>
+              A 600,000-character book can push hosted voice generation into
+              Pro or Scale territory once normal revisions begin.
+            </p>
+          </div>
+
+          <h3>What the credits turn into</h3>
+          <p>
+            Using public ElevenLabs pricing as of March 24, 2026, here is what
+            a realistic 600,000-character production cycle can look like.
+          </p>
+          <table class="cost-table compact-summary">
+            <thead>
+              <tr>
+                <th>Scenario</th>
+                <th>Likely spend</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Single voice, clean Flash/Turbo pass</td>
+                <td>$99</td>
+              </tr>
+              <tr>
+                <td>Single voice with moderate corrections</td>
+                <td>$99</td>
+              </tr>
+              <tr>
+                <td>Heavy custom voice iteration</td>
+                <td>$330 or multiple months</td>
+              </tr>
+              <tr>
+                <td>Higher-cost models, clean pass</td>
+                <td>$330 or multiple months</td>
+              </tr>
+              <tr>
+                <td>Higher-cost models with revisions</td>
+                <td>$330+</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <ul class="cost-notes">
+            <li>Every pronunciation fix can consume more credits.</li>
+            <li>Every alternate take makes the final book more expensive.</li>
+            <li>
+              With Audiobook Studio, those corrections stop affecting your bill
+              after setup.
+            </li>
+          </ul>
+
+          <div class="cost-ladder">
+            <div class="ladder-step">
+              <div>
+                <div class="ladder-step-name">Clean first pass</div>
+                <div class="ladder-step-note">
+                  The manuscript generates cleanly with minimal repair work.
+                </div>
+              </div>
+              <div class="ladder-step-cost">$99 hosted</div>
+              <div class="ladder-step-free">Local after setup</div>
+            </div>
+            <div class="ladder-step">
+              <div>
+                <div class="ladder-step-name">Normal revisions</div>
+                <div class="ladder-step-note">
+                  Pronunciations, pacing, and small fixes start to pile up.
+                </div>
+              </div>
+              <div class="ladder-step-cost">$99 hosted</div>
+              <div class="ladder-step-free">Still local</div>
+            </div>
+            <div class="ladder-step">
+              <div>
+                <div class="ladder-step-name">Heavy iteration</div>
+                <div class="ladder-step-note">
+                  Alternate takes and repeated correction passes raise the
+                  hosted cost quickly.
+                </div>
+              </div>
+              <div class="ladder-step-cost">$330+ hosted</div>
+              <div class="ladder-step-free">Still local</div>
+            </div>
+            <div class="ladder-step">
+              <div>
+                <div class="ladder-step-name">Custom voice workflow</div>
+                <div class="ladder-step-note">
+                  Testing cloned voices and retries is where subscription
+                  pressure really starts to show.
+                </div>
+              </div>
+              <div class="ladder-step-cost">$330+ hosted</div>
+              <div class="ladder-step-free">Still local</div>
+            </div>
+          </div>
+
+          <details class="breakdown-toggle">
+            <summary>
+              See the detailed cost breakdown
+              <span>Effective usage rates, credits, and plan tiers</span>
+            </summary>
+            <div class="breakdown-content">
+              <p class="breakdown-copy">
+                These tables use the same 600,000-character example and the
+                current public ElevenLabs pricing assumptions listed below.
+              </p>
+              <div class="table-stack">
+                <div class="table-card">
+                  <h4>Production type and effective cost</h4>
+                  <table class="cost-table">
+                    <thead>
+                      <tr>
+                        <th>Production type</th>
+                        <th>Credit rule</th>
+                        <th>Cost / 1k chars</th>
+                        <th>Clean pass</th>
+                        <th>1.5x revisions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Standard single voice</td>
+                        <td>0.5 credits / char</td>
+                        <td>$0.08</td>
+                        <td>$50</td>
+                        <td>$75</td>
+                      </tr>
+                      <tr>
+                        <td>Custom cloned voice</td>
+                        <td>0.5 credits / char</td>
+                        <td>$0.11</td>
+                        <td>$66</td>
+                        <td>$99</td>
+                      </tr>
+                      <tr>
+                        <td>Higher-cost models</td>
+                        <td>1 credit / char</td>
+                        <td>$0.22</td>
+                        <td>$132</td>
+                        <td>$198</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="table-card">
+                  <h4>Scenario, credits, and plan needed</h4>
+                  <table class="cost-table compact-breakdown">
+                    <thead>
+                      <tr>
+                        <th>Scenario</th>
+                        <th>Credits needed</th>
+                        <th>Likely plan</th>
+                        <th>Monthly spend</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Single voice, clean Flash/Turbo pass</td>
+                        <td>300k</td>
+                        <td>Pro</td>
+                        <td>$99</td>
+                      </tr>
+                      <tr>
+                        <td>Single voice with moderate corrections</td>
+                        <td>450k</td>
+                        <td>Pro</td>
+                        <td>$99</td>
+                      </tr>
+                      <tr>
+                        <td>Heavy custom voice iteration</td>
+                        <td>600k</td>
+                        <td>Scale or multiple months</td>
+                        <td>$330 or multiple months</td>
+                      </tr>
+                      <tr>
+                        <td>Higher-cost models, clean pass</td>
+                        <td>600k</td>
+                        <td>Scale or multiple months</td>
+                        <td>$330 or multiple months</td>
+                      </tr>
+                      <tr>
+                        <td>Higher-cost models with revisions</td>
+                        <td>900k</td>
+                        <td>Scale</td>
+                        <td>$330+</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <p class="source-note">
+            Sources:
+            <a href="https://elevenlabs.io/pricing">ElevenLabs Pricing</a>,
+            <a
+              href="https://help.elevenlabs.io/hc/en-us/articles/27562020846481-What-are-credits"
+              >What are credits?</a
+            >,
+            <a href="https://elevenlabs.io/projects">ElevenLabs Studio</a>
+          </p>
+        </div>
+      </section>
+
+      <section class="cta-box">
+        <h2>Get started with Audiobook Studio</h2>
+        <p
+          style="
+            color: var(--text-secondary);
+            margin-bottom: 2.5rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+          "
+        >
+          Pick the path that fits your comfort level:
+        </p>
+
+        <div style="text-align: left; max-width: 600px; margin: 0 auto; margin-bottom: 2rem;">
+          <h3 style="margin-top: 1rem; color: var(--accent);">Easiest setup</h3>
+          <p style="margin-bottom: 0.5rem; line-height: 1.5;">
+            <strong><a href="https://beta.pinokio.co/apps/github-com-senigami-audiobook-studio-pinokio" style="color: var(--accent); text-decoration: none;">Install with Pinokio</a></strong><br>
+            Best for most people. Pinokio handles the local setup and can optionally install a demo library with sample voices so you can explore the app immediately.
+          </p>
+          <img src="assets/pinokioinstall.png" alt="Pinokio Install Page" style="width: 100%; border-radius: 12px; margin-top: 1rem; margin-bottom: 2rem; box-shadow: var(--shadow-md);">
+
+          <div style="background: var(--info-tint); padding: 1rem; border-radius: 12px; margin-bottom: 2rem; font-size: 0.9em; text-align: center; color: var(--text-secondary);">
+            <strong>Flow:</strong> Listen to demo → Install with Pinokio → Open local app → Try sample library
+          </div>
+
+          <h3 style="margin-top: 1rem; color: var(--accent);">Manual / developer setup</h3>
+          <p style="margin-bottom: 0.5rem; line-height: 1.5;">
+            <strong><a href="https://github.com/senigami/audiobook-studio" style="color: var(--accent); text-decoration: none;">View the GitHub Project</a></strong><br>
+            Best if you want direct control over the project files, scripts, and development workflow.
+          </p>
+
+          <h3 style="margin-top: 1rem; color: var(--accent);">Documentation and help</h3>
+          <p style="margin-bottom: 0.5rem; line-height: 1.5;">
+            <strong><a href="https://github.com/senigami/audiobook-studio/wiki" style="color: var(--accent); text-decoration: none;">Read the Wiki</a></strong><br>
+            Step-by-step setup, feature walkthroughs, and troubleshooting help.
+          </p>
+
+          <h3 style="margin-top: 1rem; color: var(--accent);">Not sure yet?</h3>
+          <p style="margin-bottom: 0.5rem; line-height: 1.5;">
+            You’re already in the right place. Use this demo to hear the voices, review the workflow, and decide which installation path feels right before committing.
+          </p>
+        </div>
+      </section>
+
+      <footer>
+        &copy; 2026 Audiobook Studio. Designed for local-first professional
+        production.
+      </footer>
+    </div>
+  </body>
+</html>

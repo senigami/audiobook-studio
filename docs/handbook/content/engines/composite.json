@@ -1,0 +1,6 @@
+{
+ "title": "Composite Synthesis",
+ "desc": "Combining multiple engines or voices within a single chapter.",
+ "lede": "Composite synthesis lets one chapter use more than one engine or voice, stitched into a single, seamless result.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Mix engines/voices within one chapter.</li><li>Studio stitches the output together.</li><li>Formerly called “mixed” synthesis.</li></ul></div>\n        <h2>When chapters mix engines</h2>\n        <p><strong>Sometimes the best cast spans engines.</strong> A narrator on the local engine and a specific character on another, for instance. Composite synthesis handles that within a single chapter.</p>\n        <h2>How composite rendering stitches output</h2>\n        <p><strong>Each segment is rendered by its assigned engine/voice, then combined in order.</strong> Because completion is tracked per validated artifact, segments from different engines assemble cleanly into one chapter.</p>\n        <div class=\"note\"><b>Note —</b> Composite was previously called “mixed” synthesis; you may still see that term in older material.</div>"
+}

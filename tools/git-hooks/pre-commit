@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# Files staged for this commit, EXCLUDING deletions (--diff-filter=d).
+# Without that filter, step 3 below re-adds anything staged for removal that still exists on
+# disk, which silently undoes a `git rm --cached` on a file you are untracking but keeping.
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=d)
+
+if [ -z "$STAGED_FILES" ]; then
+    exit 0
+fi
+
+echo "Running pre-commit auto-fixes..."
+
+# 1. Backend Fixes (Ruff)
+if command -v ruff &> /dev/null; then
+    echo "Applying Ruff fixes..."
+    ruff check . --fix
+elif [ -f "venv/bin/ruff" ]; then
+    echo "Applying Ruff fixes (via venv)..."
+    source venv/bin/activate && ruff check . --fix
+fi
+
+# 2. Frontend Fixes (ESLint)
+if [ -d "frontend" ]; then
+    echo "Applying ESLint fixes..."
+    cd frontend
+    # Use npx to ensure we use the local version
+    npx eslint . --fix &> /dev/null
+    cd ..
+fi
+
+# 3. Re-stage files that were modified by auto-fixes
+# We only want to add back files that were already staged
+# NUL-delimited: word-splitting on $STAGED_FILES silently skips any path with a space,
+# and this repo has them (docs/demo/textures/"fold arms.kra").
+while IFS= read -r -d "" FILE; do
+    if [ -f "$FILE" ]; then
+        git add -- "$FILE"
+    fi
+done < <(git diff --cached --name-only --diff-filter=d -z)
+
+echo "Auto-fixes applied and staged."

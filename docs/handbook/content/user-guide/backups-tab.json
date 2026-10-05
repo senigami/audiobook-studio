@@ -1,0 +1,6 @@
+{
+ "title": "Backups",
+ "desc": "Snapshot a project (optionally with audio) and restore later.",
+ "lede": "Backups let you snapshot a project and roll back if something goes wrong.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Create a backup with a comment.</li><li>Optionally include audio samples.</li><li>Download, restore, or delete snapshots.</li></ul></div>\n        <h2>Create a backup</h2>\n        <p><strong>Snapshot the project, with an optional comment</strong> to remember why. Toggle whether to include audio samples (bigger, but complete).</p>\n        <h2>Restore &amp; manage</h2>\n        <p><strong>Download, restore, or delete snapshots.</strong> Restoring rolls the project back to that point. See <a href=\"#operations/backups-recovery\">Backups &amp; Recovery</a> for the bigger picture.</p>"
+}

@@ -1,0 +1,8 @@
+{
+  "engines.page.title": "Engines",
+  "engines.status.ready": "Ready",
+  "engines.status.disabled": "Disabled",
+  "engines.actions.installDependencies": "Install dependencies",
+  "engines.actions.verify": "Verify",
+  "engines.actions.openSettings": "Open settings"
+}

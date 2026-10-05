@@ -1,0 +1,6 @@
+{
+ "title": "Voice Icons &amp; Tags",
+ "desc": "Identify and search voices with images and category tags.",
+ "lede": "Icons and tags turn a pile of voices into a real, searchable library.",
+ "body": "<div class=\"soon-note\"><b>In progress —</b> the voice library (icons, tags, search) is part of the Phase 12 / 2.0 rollout.</div>\n        <div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Upload a 1:1 icon per voice.</li><li>Tag voices (gender, age, accent, character, …).</li><li>Search and filter by tag.</li><li>Per-voice plugin settings.</li></ul></div>\n        <h2>Voice icons</h2>\n        <p><strong>Give each voice a square (1:1) icon.</strong> It shows on cards and pickers so voices are easy to recognize.</p>\n        <h2>Tags</h2>\n        <p><strong>Tag voices by their qualities</strong> — class, gender, age, accent, tone, and free-form labels — so you can find the right one fast. The tag set is organized into simple sections.</p>\n        <h2>Searching &amp; filtering</h2>\n        <p><strong>Search and filter the library by tag.</strong> Rich, structured tags also power AI voice casting.</p>\n        <div class=\"future\"><b>Coming with 2.0 —</b> voices published to Hugging Face carry the same icon, sample, and tags, and are discoverable by the <code>audiobook-studio-voice</code> tag.</div>"
+}

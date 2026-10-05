@@ -1,0 +1,248 @@
+import { type TtsEngine } from '@/types';
+import { api } from '@/api';
+
+interface UseVoicesTabActionsProps {
+    state: any; // Result from useVoicesTabState
+    management: any; // Result from useVoiceManagement
+    onRefresh: () => void | Promise<void>;
+    engines: TtsEngine[];
+    allVoices: any[];
+}
+
+export function useVoicesTabActions({
+    state,
+    management,
+    onRefresh,
+    engines,
+    allVoices
+}: UseVoicesTabActionsProps) {
+    const {
+        fetchSpeakers,
+        handleUpdateEngine,
+        formatError
+    } = management;
+
+    const handleCreateVoice = async () => {
+        state.setIsCreatingVoice(true);
+        const nameToUse = state.newVoiceName.trim();
+        try {
+            const resp = await fetch('/api/speakers', {
+                method: 'POST',
+                body: new URLSearchParams({ name: nameToUse })
+            });
+            if (resp.ok) {
+                const firstReadyEngine = engines.find(e => e.enabled && e.status === 'ready')?.engine_id || engines?.[0]?.engine_id || '';
+                if (state.newVoiceEngine !== firstReadyEngine) {
+                    await handleUpdateEngine(nameToUse, state.newVoiceEngine);
+                }
+                const data = await resp.json();
+
+                // Upload any samples provided at creation time.
+                const samplesToUpload: File[] = state.newVoiceSamples ?? [];
+                if (samplesToUpload.length > 0) {
+                    const formData = new FormData();
+                    samplesToUpload.forEach((f: File) => formData.append('files', f));
+                    try {
+                        await fetch(`/api/speaker-profiles/${encodeURIComponent(nameToUse)}/samples/upload`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                    } catch (uploadErr) {
+                        console.error('Failed to upload samples during voice creation', uploadErr);
+                    }
+                }
+
+                state.setIsCreateModalOpen(false);
+                state.setNewVoiceName('');
+                state.setNewVoiceEngine(firstReadyEngine);
+                state.setNewVoiceSamples([]);
+                await fetchSpeakers();
+                if (data.id) state.setExpandedVoiceId(data.id);
+            }
+        } finally {
+            state.setIsCreatingVoice(false);
+        }
+    };
+
+    const handleRenameSpeaker = async () => {
+        if (!state.renameSpeakerId && !state.originalSpeakerName) return;
+        state.setIsRenamingSpeaker(true);
+        try {
+            const formData = new URLSearchParams();
+            formData.append('id', state.renameSpeakerId || '');
+            formData.append('new_name', state.newSpeakerName.trim());
+            const url = state.renameSpeakerId 
+                ? `/api/speakers/${state.renameSpeakerId}` 
+                : `/api/speaker-profiles/${encodeURIComponent(state.originalSpeakerName)}/rename`;
+            
+            const resp = await fetch(url, {
+                method: 'POST',
+                body: formData
+            });
+            if (resp.ok) {
+                const renamedTo = state.newSpeakerName.trim();
+                state.setIsRenameModalOpen(false);
+                if (!state.renameSpeakerId) {
+                    state.setExpandedVoiceId((prev: string | null) => prev === `unassigned-${state.originalSpeakerName}` ? `unassigned-${renamedTo}` : prev);
+                }
+                await Promise.all([Promise.resolve(onRefresh()), fetchSpeakers()]);
+            } else {
+                const err = await resp.json();
+                state.handleRequestConfirm({
+                    title: 'Rename Failed',
+                    message: formatError(err, 'An unknown error occurred while renaming the voice.'),
+                    onConfirm: () => {},
+                    isAlert: true
+                });
+            }
+        } finally {
+            state.setIsRenamingSpeaker(false);
+        }
+    };
+
+    const handleAddVariant = async () => {
+        if (!state.addVariantSpeaker || (!state.addVariantSpeaker.speaker.id && !state.addVariantSpeaker.speaker.name)) return;
+        const vName = state.newVariantNameModal.trim();
+        if (!vName) {
+            state.handleRequestConfirm({
+                title: 'Invalid Name',
+                message: 'Please enter a name for the variant.',
+                onConfirm: () => {},
+                isAlert: true
+            });
+            return;
+        }
+        state.setIsAddingVariantModal(true);
+        try {
+            const formData = new URLSearchParams();
+            const sid = state.addVariantSpeaker.speaker.id || state.addVariantSpeaker.speaker.name;
+            formData.append('speaker_id', sid);
+            formData.append('variant_name', vName);
+            formData.append('engine', state.newVariantEngine);
+            const resp = await fetch('/api/speaker-profiles', {
+                method: 'POST',
+                body: formData
+            });
+            if (resp.ok) {
+                state.setIsAddVariantModalOpen(false);
+                state.setAddVariantSpeaker(null);
+                state.setNewVariantNameModal('');
+                const firstReadyEngine = engines.find(e => e.enabled && e.status === 'ready')?.engine_id || engines?.[0]?.engine_id || '';
+                state.setNewVariantEngine(firstReadyEngine);
+                const expandedId = (sid.includes('-') && sid.length === 36) ? sid : `unassigned-${sid}`;
+                state.setExpandedVoiceId(expandedId);
+                onRefresh();
+            } else {
+                const err = await resp.json();
+                state.handleRequestConfirm({
+                    title: 'Add Variant Failed',
+                    message: formatError(err, 'An unknown error occurred while adding the variant.'),
+                    onConfirm: () => {},
+                    isAlert: true
+                });
+            }
+        } finally {
+            state.setIsAddingVariantModal(false);
+        }
+    };
+
+    const handleMoveVariant = async () => {
+        state.setIsMovingVariant(true);
+        try {
+            let targetSpeakerId = state.selectedMoveSpeakerId;
+            if (state.selectedMoveSpeakerId.startsWith('unassigned-')) {
+                const targetVoiceEntry = allVoices.find(v => v.id === state.selectedMoveSpeakerId);
+                if (targetVoiceEntry) {
+                    const createResp = await fetch('/api/speakers', {
+                        method: 'POST',
+                        body: new URLSearchParams({ name: targetVoiceEntry.name })
+                    });
+                    if (!createResp.ok) throw new Error('Failed to create speaker');
+                    const newSpeaker = await createResp.json();
+                    targetSpeakerId = newSpeaker.id;
+                    const assignForm = new URLSearchParams();
+                    assignForm.append('speaker_id', targetSpeakerId);
+                    assignForm.append('variant_name', 'Default');
+                    await fetch(`/api/speaker-profiles/${encodeURIComponent(targetVoiceEntry.name)}/assign`, {
+                        method: 'POST',
+                        body: assignForm
+                    });
+                }
+            }
+            const formData = new URLSearchParams();
+            formData.append('speaker_id', targetSpeakerId);
+            if (state.moveVariantProfile) formData.append('variant_name', state.moveVariantProfile.variant_name || 'Default');
+            const resp = await fetch(`/api/speaker-profiles/${encodeURIComponent(state.moveVariantProfile?.name || '')}/assign`, {
+                method: 'POST',
+                body: formData
+            });
+            if (resp.ok) {
+                state.setIsMoveVariantModalOpen(false);
+                state.setMoveVariantProfile(null);
+                onRefresh();
+                fetchSpeakers();
+            } else {
+                const err = await resp.json();
+                state.handleRequestConfirm({
+                    title: 'Move Failed',
+                    message: formatError(err, 'An unknown error occurred.'),
+                    onConfirm: () => {},
+                    isAlert: true
+                });
+            }
+        } catch (err: any) {
+            state.handleRequestConfirm({
+                title: 'Move Failed',
+                message: err.message || 'An error occurred.',
+                onConfirm: () => {},
+                isAlert: true
+            });
+        } finally {
+            state.setIsMovingVariant(false);
+        }
+    };
+
+    const handleConfirmExportVoice = () => {
+        if (!state.exportVoiceName) return;
+        const url = api.exportVoiceBundleUrl(state.exportVoiceName, state.includeSourceWavs);
+        window.open(url, '_blank');
+        state.setExportVoiceName(null);
+        state.setIncludeSourceWavs(false);
+    };
+
+    const handleImportVoiceBundle = async (file: File | null) => {
+        if (!file) return;
+        state.setIsImportingVoice(true);
+        try {
+            const result = await api.importVoiceBundle(file);
+            await Promise.all([Promise.resolve(onRefresh()), fetchSpeakers()]);
+            state.handleRequestConfirm({
+                title: 'Voice Imported',
+                message: result.was_renamed
+                    ? `Imported "${result.original_voice_name}" as "${result.voice_name}".`
+                    : `Imported "${result.voice_name}".`,
+                onConfirm: () => {},
+                isAlert: true
+            });
+        } catch (err: any) {
+            state.handleRequestConfirm({
+                title: 'Import Failed',
+                message: err?.message || 'The selected voice bundle could not be imported.',
+                onConfirm: () => {},
+                isAlert: true
+            });
+        } finally {
+            state.setIsImportingVoice(false);
+            if (state.importInputRef.current) state.importInputRef.current.value = '';
+        }
+    };
+
+    return {
+        handleCreateVoice,
+        handleRenameSpeaker,
+        handleAddVariant,
+        handleMoveVariant,
+        handleConfirmExportVoice,
+        handleImportVoiceBundle
+    };
+}

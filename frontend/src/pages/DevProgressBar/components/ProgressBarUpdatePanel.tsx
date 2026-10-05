@@ -1,0 +1,129 @@
+import React from 'react';
+import { RefreshCw } from 'lucide-react';
+import { type ProgressBarTestConfig, type ProgressBarStatus, STATUS_OPTIONS } from '@tests/helpers/ProgressBarTestTypes';
+import { FieldLabel } from '@tests/helpers/ProgressBarTestHelpers';
+
+interface ProgressBarUpdatePanelProps {
+  activeConfig: ProgressBarTestConfig;
+  manualProgressValue: string;
+  setManualProgressValue: (v: string) => void;
+  manualEtaSeconds: string;
+  setManualEtaSeconds: (v: string) => void;
+  manualStatus: ProgressBarStatus;
+  setManualStatus: (s: ProgressBarStatus) => void;
+  nudgeProgress: (delta: number) => void;
+  finishRun: () => void;
+  setActiveAllowBackward: (enabled: boolean) => void;
+  applyManualUpdate: () => void;
+}
+
+export const ProgressBarUpdatePanel: React.FC<ProgressBarUpdatePanelProps> = ({
+  activeConfig,
+  manualProgressValue,
+  setManualProgressValue,
+  manualEtaSeconds,
+  setManualEtaSeconds,
+  manualStatus,
+  setManualStatus,
+  nudgeProgress,
+  finishRun,
+  setActiveAllowBackward,
+  applyManualUpdate
+}) => {
+  return (
+    <>
+      <section style={{
+        marginTop: '1rem',
+        padding: '1rem',
+        borderRadius: '14px',
+        border: '1px solid var(--border)',
+        background: 'linear-gradient(180deg, var(--surface-white), var(--surface))',
+        boxShadow: 'var(--shadow-sm)',
+        borderLeft: '4px solid var(--success)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.15rem' }}>
+              <RefreshCw size={15} color="var(--action-primary)" />
+              <h3 style={{ margin: 0, fontSize: '1rem' }}>Progress Updates</h3>
+            </div>
+            <p style={{ marginTop: '-0.15rem', marginBottom: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+              Apply live-like websocket payload fields after the run has been launched.
+            </p>
+          </div>
+          <span style={{
+            alignSelf: 'start',
+            padding: '0.25rem 0.55rem',
+            borderRadius: '999px',
+            fontSize: '0.72rem',
+            fontWeight: 800,
+            letterSpacing: '0.04em',
+            textTransform: 'uppercase',
+            background: 'var(--success-tint-bg)',
+            color: 'var(--success)',
+          }}>
+            Live mutations
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button className="btn-ghost" onClick={() => nudgeProgress(0.01)}>+1%</button>
+          <button className="btn-ghost" onClick={() => nudgeProgress(0.05)}>+5%</button>
+          <button className="btn-ghost" onClick={() => nudgeProgress(0.1)}>+10%</button>
+          <button className="btn-ghost" style={{ border: '1px solid var(--error)', color: 'var(--error)' }} onClick={() => nudgeProgress(-0.1)}>-10%</button>
+          <button className="btn-ghost" onClick={finishRun}>
+            Finish
+          </button>
+        </div>
+      </section>
+
+      <div style={{ marginTop: '1rem', display: 'grid', gap: '0.75rem' }}>
+        <h3 style={{ margin: 0, fontSize: '1rem' }}>Manual update console</h3>
+        <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+          This console mirrors the real live payload shape: `progress`, `eta_seconds`, and `status`. `started_at` stays in the launch card because the backend treats it as a stable run anchor.
+        </p>
+        <div style={{ display: 'grid', gap: '0.75rem', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+          <label style={{ display: 'grid', gap: '0.35rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+              <FieldLabel label="Manual progress %" help="The authoritative absolute progress value to send in the update payload." />
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>{manualProgressValue || '0'}%</span>
+            </div>
+            <input
+              aria-label="Manual progress %"
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={Number(manualProgressValue || 0)}
+              onChange={e => setManualProgressValue(e.target.value)}
+            />
+          </label>
+          <label style={{ display: 'grid', gap: '0.35rem' }}>
+            <FieldLabel label="Manual ETA seconds" help="The absolute ETA field to send with the update. This mirrors the real runtime payload rather than a debug-only delta." />
+            <input aria-label="Manual ETA seconds" value={manualEtaSeconds} onChange={e => setManualEtaSeconds(e.target.value)} />
+          </label>
+          <label title="Allow the currently mounted preview to move backward when the next manual update reports a lower progress value." style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+            <input
+              aria-label="Manual allow backward"
+              type="checkbox"
+              checked={activeConfig.allowBackwardProgress}
+              onChange={e => setActiveAllowBackward(e.target.checked)}
+            />
+            Manual allow backward
+          </label>
+          <label style={{ display: 'grid', gap: '0.35rem' }}>
+            <FieldLabel label="Update Status" help="Choose the status to send with the manual update payload." />
+            <select value={manualStatus} onChange={e => setManualStatus(e.target.value as ProgressBarStatus)}>
+              {STATUS_OPTIONS.map(status => <option key={status} value={status}>{status}</option>)}
+            </select>
+          </label>
+          <div style={{ display: 'flex', alignItems: 'end' }}>
+            <button className="btn-primary" onClick={applyManualUpdate} style={{ width: '100%' }}>
+              <RefreshCw size={14} style={{ marginRight: '0.4rem' }} />
+              Send Update
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};

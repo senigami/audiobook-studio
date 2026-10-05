@@ -1,0 +1,276 @@
+/* WelcomePage — file-local classes for static/repeated inline styles.
+   See design-docs/plans/active/simplification/styling_separation_execution/
+   tasks/011-st3-welcomepage.md for the conversion this file backs. */
+
+/* ── Status chip ── */
+
+.welcome-status-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--radius-round);
+  font-size: var(--type-micro);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* ── Step card ── */
+
+.welcome-step-card {
+  flex: 1;
+  min-width: 0;
+  padding: 18px 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.welcome-step-card__header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.welcome-step-card__number-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-round);
+  background: var(--accent-tint-bg);
+  border: 1px solid var(--accent-tint-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.welcome-step-card__number-badge-text {
+  font-size: var(--type-micro);
+  font-weight: 800;
+  color: var(--action-primary);
+  line-height: 1;
+  user-select: none;
+}
+
+.welcome-step-card__heading {
+  font-size: var(--type-callout);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.welcome-step-card__body {
+  margin: 0;
+  font-size: var(--type-caption);
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+/* ── Doc card ── */
+
+.welcome-doc-card {
+  flex: 1 1 0;
+  min-width: 120px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+}
+
+.welcome-doc-card__icon {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.welcome-doc-card__label {
+  font-size: var(--type-caption);
+  color: var(--text-secondary);
+  font-weight: 600;
+  overflow-wrap: break-word;
+}
+
+.welcome-doc-card__external-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* ── Section label ── */
+
+.welcome-section-label {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ── Page layout ── */
+
+.welcome-page {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-7) var(--space-5) var(--space-8);
+}
+
+.welcome-page__container {
+  width: 100%;
+  max-width: 840px;
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+.welcome-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-4);
+}
+
+.welcome-hero__logo {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+}
+
+.welcome-hero__intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.welcome-hero__title {
+  margin: 0;
+  font-size: var(--type-title);
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.welcome-hero__subtitle {
+  margin: 0;
+  font-size: var(--type-body);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-width: 480px;
+}
+
+.welcome-hero__chips {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-2);
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.welcome-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.welcome-steps {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-3);
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.welcome-docs {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.welcome-ctas {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.welcome-cta-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 28px;
+  background: var(--action-primary);
+  color: var(--text-on-accent);
+  border: none;
+  border-radius: var(--radius-button);
+  font-size: var(--type-body);
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.welcome-cta-primary__arrow {
+  font-size: var(--type-caption);
+  opacity: 0.8;
+}
+
+.welcome-cta-secondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 20px;
+  background: var(--surface-alt);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  font-size: var(--type-callout);
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+/* ── Mobile layout ──
+   Step cards and doc cards are laid out as a flex row with wrap, which at
+   phone widths (<=520px) produces 2-3 clipped columns each too narrow for
+   their own heading text (HIG: content must not be silently truncated).
+   Stack them into a single column instead. */
+@media (max-width: 520px) {
+  .welcome-steps {
+    flex-direction: column;
+  }
+
+  .welcome-step-card {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .welcome-docs {
+    flex-direction: column;
+  }
+
+  .welcome-doc-card {
+    width: 100%;
+  }
+
+  .welcome-cta-primary,
+  .welcome-cta-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+}

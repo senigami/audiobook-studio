@@ -1,0 +1,1 @@
+"""Voxtral plugin package marker."""

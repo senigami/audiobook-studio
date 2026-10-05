@@ -1,0 +1,10 @@
+{
+  "common.actions.cancel": "Cancel",
+  "common.actions.save": "Save",
+  "common.actions.delete": "Delete",
+  "common.actions.chooseFile": "Choose file",
+  "common.actions.newBook": "New Book",
+  "common.actions.newChapter": "New chapter",
+  "common.actions.editText": "Edit text",
+  "common.actions.viewDocs": "View Docs"
+}

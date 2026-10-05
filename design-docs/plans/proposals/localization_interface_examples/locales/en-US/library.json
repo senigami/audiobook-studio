@@ -1,0 +1,12 @@
+{
+  "library.hero.greeting": "Good evening, Steven",
+  "library.section.continue": "Continue",
+  "library.section.allBooks": "All Books",
+  "library.sort.recent": "Recent",
+  "library.sort.alpha": "A-Z",
+  "library.filter.inProgress": "In Progress",
+  "library.status.studio": "Studio",
+  "library.status.review": "Review",
+  "library.status.drafting": "Drafting",
+  "library.status.published": "Published"
+}

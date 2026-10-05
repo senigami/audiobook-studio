@@ -1,0 +1,6 @@
+{
+ "title": "Voice Cloning Quality",
+ "desc": "Why quality varies and how to get the best clone.",
+ "lede": "Cloning quality comes mostly from your samples. A few habits make a big difference.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li><strong>Sample quality matters most.</strong></li><li>Clean, consistent recordings clone best.</li><li>Use variants to find the best result.</li></ul></div>\n        <h2>Sample selection heuristics</h2>\n        <ul><li>Use clear speech with little background noise.</li><li>Keep tone and pace consistent across samples.</li><li>Prefer a handful of good samples over many noisy ones.</li></ul>\n        <h2>Recording quality factors</h2>\n        <p><strong>Room noise, clipping, and inconsistent levels hurt clones.</strong> A quiet space and a steady level go a long way. See the recording guidance in the <a href=\"#user-guide/voice-lab\">Voice Lab</a>.</p>\n        <h2>Variant strategies</h2>\n        <p><strong>Build variants and compare.</strong> Different sample sets or settings can produce noticeably different results; keep the variant that sounds best for your project.</p>"
+}

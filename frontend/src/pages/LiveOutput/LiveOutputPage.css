@@ -1,0 +1,129 @@
+/* LiveOutputPage — file-local classes extracted from inline styles.
+   See design-docs/plans/active/simplification/styling_separation_execution/
+   tasks/013-st3-liveoutputpage.md. No dedicated theme/components/*.css domain
+   file exists for this page, so these classes are co-located here per the
+   conversion procedure. */
+
+.live-output-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--header-height, 56px) - var(--space-6));
+  gap: var(--space-4);
+  min-height: 0;
+}
+
+.live-output-page__intro {
+  padding: 20px var(--space-5);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--surface-white), var(--surface));
+  box-shadow: var(--shadow-md);
+  flex-shrink: 0;
+}
+
+.live-output-page__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: var(--space-1);
+}
+
+.live-output-page__title {
+  margin: 0;
+  font-size: var(--type-title);
+  font-weight: 800;
+}
+
+.live-output-page__subtitle {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.live-output-page__section {
+  margin-top: 0.9rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.85rem;
+}
+
+.live-output-page__section-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  font-weight: 600;
+  list-style: none;
+}
+
+.live-output-page__event-map {
+  margin-top: 0.85rem;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.live-output-page__event-map-intro {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.live-output-page__consumer-list {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.live-output-page__topic-row {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: var(--space-3);
+  align-items: start;
+  font-size: 0.82rem;
+}
+
+.live-output-page__consumer-btn {
+  justify-self: start;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-weight: 700;
+  font: inherit;
+}
+
+.live-output-page__topic-value {
+  color: var(--text-secondary);
+}
+
+.live-output-page__topic-label {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.live-output-page__trace {
+  margin-top: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.live-output-page__trace-value {
+  color: var(--text-primary);
+}
+
+.live-output-page__trace-pre {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-dim);
+  max-height: 18rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}

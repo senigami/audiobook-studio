@@ -1,0 +1,10 @@
+{
+  "voices.search.placeholder": "Search voices...",
+  "voices.filters.all": "All",
+  "voices.filters.voxtral": "Voxtral (Mistral AI)",
+  "voices.filters.disabled": "Disabled",
+  "voices.actions.export": "Export Voice",
+  "voices.actions.import": "Import Voice",
+  "voices.actions.new": "New Voice",
+  "voices.actions.recordingGuide": "Recording Guide"
+}

@@ -1,0 +1,6 @@
+{
+ "title": "Submission Guidelines",
+ "desc": "What a plugin needs to be accepted.",
+ "lede": "Sharing an engine for others? Here's the bar it should meet.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Passes a security &amp; safety review.</li><li>Is stable and performs reasonably.</li><li>Is self-contained and properly licensed.</li></ul></div>\n        <h2>Security &amp; safety</h2>\n        <p><strong>Engines run code, so safety comes first.</strong> Respect the boundaries (no app imports, only write to allowed paths), and disclose any network use.</p>\n        <h2>Stability &amp; performance</h2>\n        <p><strong>It should work reliably and not hog resources.</strong> Declare an honest resource profile so scheduling can do its job.</p>\n        <h2>Self-contained &amp; licensed</h2>\n        <p><strong>Everything in the repo, with a clear license.</strong> Tests included, weights downloaded on first use, license stated in the manifest.</p>"
+}

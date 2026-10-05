@@ -1,0 +1,221 @@
+import pytest
+from fastapi.testclient import TestClient
+from app.api.web import app, DEMO_DIST
+from app.db.models import Job
+
+client = TestClient(app)
+
+
+def test_demo_bare_path_redirects_to_trailing_slash():
+    # /demo (no trailing slash) must redirect to the mounted demo at /demo/,
+    # not fall through to the SPA catch-all (which serves the main app).
+    res = client.get("/demo", follow_redirects=False)
+    assert res.status_code in (307, 308)
+    assert res.headers["location"] == "/demo/"
+
+
+@pytest.mark.skipif(not DEMO_DIST.exists(), reason="demo bundle (docs/demo) not present")
+def test_demo_trailing_slash_serves_demo_not_spa():
+    # /demo/ serves the demo's own index.html (distinct <title>), not the main SPA.
+    res = client.get("/demo/")
+    assert res.status_code == 200
+    assert "Audiobook Studio Demo" in res.text
+
+def test_crud_projects():
+    # create
+    res = client.post("/api/projects", data={"name": "P1", "series": "S1", "author": "A1"})
+    assert res.status_code == 200
+    pid = res.json()["project_id"]
+
+    # fetch list
+    res = client.get("/api/projects")
+    assert any(p["id"] == pid for p in res.json())
+
+    # get one
+    res = client.get(f"/api/projects/{pid}")
+    assert res.status_code == 200
+    assert res.json()["name"] == "P1"
+
+    # update
+    res = client.put(f"/api/projects/{pid}", data={"name": "P2"})
+    assert res.status_code == 200
+    assert client.get(f"/api/projects/{pid}").json()["name"] == "P2"
+
+    # delete
+    res = client.delete(f"/api/projects/{pid}")
+    assert res.status_code == 200
+    assert client.get(f"/api/projects/{pid}").status_code == 404
+
+def test_chapter_endpoints():
+    from app.db.state import update_settings
+    update_settings({"default_engine": "xtts"})
+    res = client.post("/api/projects", data={"name": "ChapProj"})
+    pid = res.json()["project_id"]
+
+    # create chapter
+    res = client.post(f"/api/projects/{pid}/chapters", data={"title": "C1", "text_content": "hello world", "sort_order": 0})
+    assert res.status_code == 200
+    cid = res.json()["chapter"]["id"]
+
+    # get list
+    res = client.get(f"/api/projects/{pid}/chapters")
+    assert len(res.json()) >= 1
+
+    # updated chapter text
+    res = client.put(f"/api/chapters/{cid}", data={"title": "C1", "text_content": "updated world"})
+    assert res.status_code == 200
+
+    # test analyze
+    res = client.post("/api/analyze_text", json={"text_content": "A" * 500})
+    assert res.status_code == 200
+
+    # Add another chapter for reordering
+    res = client.post(f"/api/projects/{pid}/chapters", data={"title": "C2", "text_content": "second chapter", "sort_order": 1})
+    assert res.status_code == 200
+    cid2 = res.json()["chapter"]["id"]
+
+    # test reorder API
+    ids_list = [cid2, cid] # reverse order
+    import json
+    res = client.post(f"/api/projects/{pid}/reorder_chapters", data={"chapter_ids": json.dumps(ids_list)})
+    assert res.status_code == 200
+
+    # verify order
+    res = client.get(f"/api/projects/{pid}/chapters")
+    chapters = res.json()
+    assert chapters[0]["id"] == cid2
+    assert chapters[1]["id"] == cid
+
+    # reset audio
+    res = client.post(f"/api/chapters/{cid}/reset")
+    assert res.status_code == 200
+
+    res = client.delete(f"/api/chapters/{cid}")
+    assert res.status_code == 200
+    res = client.delete(f"/api/chapters/{cid2}")
+    assert res.status_code == 200
+
+    res = client.delete(f"/api/projects/{pid}")
+    assert res.status_code == 200
+
+def test_missing_entities():
+    # missing project
+    assert client.get("/api/projects/999").status_code == 404
+    assert client.put("/api/projects/999", data={"name": "x"}).status_code == 404
+    assert client.delete("/api/projects/999").status_code == 404
+
+    res = client.get("/api/projects/999/chapters")
+    assert res.status_code == 200 # Returns empty list
+    assert res.json() == []
+
+    # missing chapter
+    pid = client.post("/api/projects", data={"name": "x"}).json()["project_id"]
+    assert client.delete("/api/chapters/999").status_code == 404
+    assert client.delete(f"/api/projects/{pid}").status_code == 200
+
+def test_reports():
+    res = client.get("/report/missing_report.json")
+    assert res.status_code == 404
+
+def test_speaker_endpoints():
+    res = client.get("/api/speaker-profiles")
+    assert res.status_code == 200
+
+    res = client.delete("/api/speaker-profiles/non_existent")
+    assert res.status_code == 404
+
+def test_queue_endpoints():
+    res = client.get("/api/jobs")
+    assert res.status_code == 404
+
+    res = client.get("/api/processing_queue")
+    assert res.status_code == 200
+
+    res = client.post("/api/generation/pause")
+    assert res.status_code == 200
+    assert res.json()["status"] == "ok"
+
+    res = client.post("/api/generation/resume")
+    assert res.status_code == 200
+    assert res.json()["status"] == "ok"
+
+    res = client.post("/api/generation/cancel-all")
+    assert res.status_code == 200
+
+def test_audiobooks_endpoints():
+    res = client.get("/api/audiobooks")
+    assert res.status_code == 200
+    res = client.delete("/api/audiobook/missing")
+    assert res.status_code == 404
+
+
+def test_serves_top_level_frontend_dist_files(monkeypatch, tmp_path):
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    logo_file = dist_dir / "logo.png"
+    logo_file.write_bytes(b"fake-image")
+
+    monkeypatch.setattr("app.api.web.FRONTEND_DIST", dist_dir)
+
+    res = client.get("/logo.png")
+    assert res.status_code == 200
+    assert res.content == b"fake-image"
+
+
+def test_serves_nested_frontend_dist_files_with_containment(monkeypatch, tmp_path):
+    dist_dir = tmp_path / "dist"
+    nested_dir = dist_dir / "images"
+    nested_dir.mkdir(parents=True)
+    nested_file = nested_dir / "hero.png"
+    nested_file.write_bytes(b"hero-image")
+
+    monkeypatch.setattr("app.api.web.FRONTEND_DIST", dist_dir)
+
+    res = client.get("/images/hero.png")
+    assert res.status_code == 200
+    assert res.content == b"hero-image"
+    assert client.get("/images/../secret.txt").status_code == 404
+
+
+def test_serves_spa_shell_with_no_store_headers(monkeypatch, tmp_path):
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    (dist_dir / "index.html").write_text("<html><body>shell</body></html>", encoding="utf-8")
+
+    monkeypatch.setattr("app.api.web.FRONTEND_DIST", dist_dir)
+
+    res = client.get("/settings/engines")
+    assert res.status_code == 200
+    assert "no-store" in res.headers.get("cache-control", "")
+    assert res.headers.get("pragma") == "no-cache"
+    assert res.headers.get("expires") == "0"
+
+    root_res = client.get("/")
+    assert root_res.status_code == 200
+    assert "no-store" in root_res.headers.get("cache-control", "")
+
+
+def test_serves_legacy_output_files_without_precreated_mounts(monkeypatch, tmp_path):
+    cover_dir = tmp_path / "uploads" / "covers"
+    cover_dir.mkdir(parents=True)
+    (cover_dir / "cover.jpg").write_bytes(b"jpg")
+
+    monkeypatch.setattr("app.api.web.COVER_DIR", cover_dir)
+
+    assert client.get("/out/covers/cover.jpg").status_code == 200
+    assert client.get("/out/covers/../secrets.txt").status_code == 404
+
+
+def test_api_discovery_fallback_excludes_retired_jobs_route(monkeypatch, tmp_path):
+    # Ensure FRONTEND_DIST is a non-existent or empty directory
+    dist_dir = tmp_path / "empty_dist"
+    dist_dir.mkdir()
+    monkeypatch.setattr("app.api.web.FRONTEND_DIST", dist_dir)
+
+    # Hit the root which should trigger the fallback discovery JSON
+    res = client.get("/")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["name"] == "Audiobook Studio API"
+    assert "jobs" not in data["endpoints"]
+    assert data["endpoints"]["home"] == "/api/home"

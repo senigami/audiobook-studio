@@ -1,6 +1,6 @@
 import logging
 
-from app.web import app
+from app.api.web import app
 
 
 class SuppressProcessingQueueAccessLog(logging.Filter):

@@ -1,0 +1,186 @@
+.activity-page {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  padding: 1rem 1rem 1.5rem;
+  gap: 1rem;
+  color: var(--text-primary);
+}
+
+.activity-page__columns {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.activity-page__main {
+  flex: 2 1 0;
+  min-width: 0;
+}
+
+.activity-page__stats {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.activity-page__stats-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  /* The stats rail (~330px) is narrow even at 1280px desktop viewport because
+     .activity-page__columns splits into a 2fr/1fr flex layout — so a viewport
+     media query never fires here even though the engine-calibration row
+     overlaps at this container width. Query the container itself instead. */
+  container-type: inline-size;
+  container-name: activity-stats;
+}
+
+.activity-page__stats-title {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* System resource strip */
+.system-resource-strip {
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.system-resource-strip__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.system-resource-strip__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.system-resource-strip__label {
+  width: 34px;
+  flex: 0 0 34px;
+  font-size: var(--type-caption);
+  color: var(--text-secondary);
+}
+
+.system-resource-strip__spark {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  height: 18px;
+  overflow: visible;
+}
+
+.system-resource-strip__value {
+  flex: 0 0 auto;
+  min-width: 68px;
+  text-align: right;
+  white-space: nowrap;
+  font-size: var(--type-callout);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.system-resource-strip__meter-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 2px;
+}
+
+.system-resource-strip__label-spacer {
+  width: 34px;
+  flex: 0 0 34px;
+}
+
+.system-resource-strip__value-spacer {
+  flex: 0 0 auto;
+  min-width: 68px;
+}
+
+.system-resource-strip__meter {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  height: 3px;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--surface-alt);
+  overflow: hidden;
+}
+
+.system-resource-strip__meter-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.6s ease-out, background-color 0.3s ease-out;
+}
+
+/* Engine calibration row: at phone widths the 3-column grid (name / speed /
+   confidence) squeezes the name column until it wraps to two lines, and
+   because the row height grows to fit that wrap while the other two cells
+   stay vertically centered, the speed text lands visually on top of the
+   wrapped name text. Stack name above a speed+confidence line instead.
+   The trigger is the STATS-RAIL container width, not the viewport — the
+   rail is ~330px even at a 1280px desktop viewport (main/stats split the
+   page 2fr/1fr), so a viewport media query never fires there. Use a
+   container query against .activity-page__stats-panel (below) for the
+   real fix; keep the viewport query as a fallback for very narrow windows
+   where no container context applies (e.g. the row rendered standalone). */
+@media (max-width: 480px) {
+  .engine-calibration-row {
+    grid-template-columns: 1fr 1fr !important;
+    row-gap: 0.35rem !important;
+  }
+
+  .engine-calibration-row__name {
+    grid-column: 1 / -1;
+  }
+
+  .engine-calibration-row__speed {
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .engine-calibration-row__confidence {
+    grid-column: 2;
+    justify-self: end;
+  }
+}
+
+@container activity-stats (max-width: 380px) {
+  .engine-calibration-row {
+    grid-template-columns: 1fr 1fr !important;
+    row-gap: 0.35rem !important;
+  }
+
+  .engine-calibration-row__name {
+    grid-column: 1 / -1;
+  }
+
+  .engine-calibration-row__speed {
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .engine-calibration-row__confidence {
+    grid-column: 2;
+    justify-self: end;
+  }
+}
+

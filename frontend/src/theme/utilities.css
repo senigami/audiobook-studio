@@ -1,0 +1,456 @@
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-muted);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Animations */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes progress-stripes {
+  from { background-position: 40px 0; }
+  to { background-position: 0 0; }
+}
+
+@keyframes barber-pole {
+  from { background-position: 0 0; }
+  to { background-position: 36px 0; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes calm-pulse {
+  0%, 100% { opacity: 0.7; }
+  50%       { opacity: 1.0; }
+}
+
+/* Stripe overlay breathe — pulses opacity 1.0→0.75 (maps to stripe rgba 0.44→0.33 / 0.20→0.15).
+   Applied as second animation on .progress-bar-pending::before. */
+@keyframes stripe-breathe {
+  0%   { opacity: 1; }
+  20%  { opacity: 1;    animation-timing-function: ease-in-out; }
+  48%  { opacity: 0.75; }
+  68%  { opacity: 0.75; animation-timing-function: ease-in-out; }
+  100% { opacity: 1; }
+}
+
+/* Fill breathe — 5% opacity swell on active progress fills. Calmer than calm-pulse (30%).
+   Replaces is-running on fills; StatusOrb ring keeps calm-pulse. */
+@keyframes bar-breathe {
+  0%   { opacity: 1; }
+  20%  { opacity: 1;    animation-timing-function: ease-in-out; }
+  48%  { opacity: 0.70; }
+  68%  { opacity: 0.70; animation-timing-function: ease-in-out; }
+  100% { opacity: 1; }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: fadeInDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-spin-slow {
+  animation: spin 3s linear infinite;
+}
+
+/* rgba(255,255,255,0.15) below is an intentional theme-agnostic sheen — do not tokenize */
+.progress-bar-animated {
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.15) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 255, 255, 0.15) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 40px 40px;
+  animation: progress-stripes 1s linear infinite;
+}
+
+.progress-bar-pending {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.progress-bar-pending::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent                          0px,
+    transparent                          7px,
+    var(--progress-stripe-pending-soft)  9px,
+    var(--progress-stripe-pending)       12px,
+    var(--progress-stripe-pending)       17px,
+    var(--progress-stripe-pending-soft)  20px,
+    transparent                          24px
+  );
+  background-size: 36px 36px;
+  animation: barber-pole 0.7s linear infinite, stripe-breathe 3s linear infinite;
+  will-change: background-position;
+  pointer-events: none;
+}
+
+.progress-bar-breathe {
+  animation: bar-breathe 4s linear infinite;
+}
+
+.progress-bar-finalizing {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.progress-bar-finalizing::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--progress-stripe-finalizing) 0px,
+    var(--progress-stripe-finalizing) 7px,
+    var(--progress-stripe-finalizing-soft) 9px,
+    var(--progress-stripe-finalizing-tint) 12px,
+    var(--progress-stripe-finalizing-tint) 17px,
+    var(--progress-stripe-finalizing-tint-soft) 20px,
+    var(--progress-stripe-finalizing) 24px
+  );
+  background-size: 36px 36px;
+  animation: barber-pole 0.7s linear infinite;
+  will-change: background-position;
+  pointer-events: none;
+}
+
+/* Layout & Utils */
+.overlay-blur {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-backdrop);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fade-in 0.2s ease-out;
+}
+
+.contrast-text {
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  border-color: var(--action-primary) !important;
+  background: var(--surface) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+.hover-opacity-100:hover {
+  opacity: 1 !important;
+}
+
+.responsive-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 2rem;
+}
+
+.sample-row:hover {
+  background: var(--surface-alt) !important;
+}
+
+.sample-remove-btn {
+  color: var(--text-muted);
+  opacity: 0.4;
+  transition: all 0.2s ease;
+}
+
+.sample-remove-btn:hover {
+  color: var(--error) !important;
+  opacity: 1 !important;
+  background: var(--error-glow) !important;
+}
+
+.hover-bg-destructive:hover {
+  background: var(--error-glow) !important;
+  color: var(--error) !important;
+}
+
+.hover-bg-subtle:hover {
+  background: var(--surface-alt) !important;
+}
+
+.chapter-row {
+  position: relative;
+}
+
+.chapter-row .drag-handle {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.chapter-row:hover .drag-handle,
+.chapter-row:focus-within .drag-handle,
+.chapter-row.is-menu-open .drag-handle {
+  opacity: 1;
+}
+
+.kebab-trigger:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--action-primary);
+  z-index: 10;
+}
+
+@media (max-width: 1100px) {
+  .library-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .library-sidebar {
+    position: relative !important;
+    height: auto !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border) !important;
+    padding-right: 0 !important;
+    padding-bottom: 2rem !important;
+    top: 0 !important;
+  }
+
+  .responsive-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .nav-label {
+    display: none !important;
+  }
+
+  .btn-responsive {
+    padding: 0 !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    gap: 0 !important;
+    justify-content: center !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-button) !important;
+    background: transparent !important;
+  }
+
+  .btn-responsive:hover {
+    background: var(--accent-glow) !important;
+    border-color: var(--action-primary) !important;
+    color: var(--action-primary) !important;
+  }
+
+  .header-logo-text {
+    display: none !important;
+  }
+
+  .search-responsive {
+    width: 160px !important;
+  }
+
+  .mobile-hide {
+    display: none !important;
+  }
+
+  .mobile-padding {
+    padding: 1rem !important;
+  }
+
+  .sidebar-divider-mobile {
+    border-left: none !important;
+    padding-left: 0 !important;
+  }
+}
+
+/* Burger is hidden by default; the 768px media block shows it */
+.burger {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .burger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-button);
+    color: var(--text-primary);
+  }
+
+  .mobile-nav-backdrop {
+    position: fixed;
+    inset: 0;
+    background: var(--overlay-backdrop);
+    z-index: 399;
+  }
+
+  .live-output-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Layout Utilities (Bridging Refactor) */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-1 { flex: 1 1 0%; }
+.flex-shrink-0 { flex-shrink: 0; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.gap-2 { gap: 0.5rem; }
+.gap-3 { gap: 0.75rem; }
+.gap-4 { gap: 1rem; }
+.gap-6 { gap: 1.5rem; }
+
+.grid { display: grid; }
+.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+
+.h-full { height: 100%; }
+.w-full { width: 100%; }
+.max-w-xl { max-width: 36rem; }
+.max-w-5xl { max-width: 64rem; }
+
+.overflow-hidden { overflow: hidden; }
+.overflow-y-auto { overflow-y: auto; }
+.relative { position: relative; }
+.absolute { position: absolute; }
+.inset-0 { inset: 0; }
+.inset-y-0 { top: 0; bottom: 0; }
+
+.p-8 { padding: 2rem; }
+.pt-6 { padding-top: 1.5rem; }
+.pt-4 { padding-top: 1rem; }
+.pb-8 { padding-bottom: 2rem; }
+.pb-2 { padding-bottom: 0.5rem; }
+.px-8 { padding-left: 2rem; padding-right: 2rem; }
+.px-5 { padding-left: 1.25rem; padding-right: 1.25rem; }
+.pl-12 { padding-left: 3rem; }
+
+.text-2xl { font-size: 1.5rem; line-height: 2rem; }
+.text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+.text-base { font-size: 1rem; line-height: 1.5rem; }
+.text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+.font-bold { font-weight: 700; }
+.mt-1 { margin-top: 0.25rem; }
+.mt-2 { margin-top: 0.5rem; }
+.mt-6 { margin-top: 1.5rem; }
+.mb-4 { margin-bottom: 1rem; }
+
+.bg-bg { background-color: var(--bg); }
+.bg-surface-alt { background-color: var(--surface-alt); }
+
+.rounded-xl { border-radius: 12px; }
+.rounded-2xl { border-radius: 16px; }
+.border { border: 1px solid var(--border); }
+.border-white\/10 { border-color: var(--glass-border); }
+.shadow-lg { box-shadow: var(--shadow-lg); }
+.shadow-accent\/20 { box-shadow: 0 10px 15px -3px var(--accent-tint-bg); }
+
+.pointer-events-none { pointer-events: none; }
+.transition-all { transition: all 0.2s ease; }
+
+.bg-accent { background-color: var(--action-primary); }
+.bg-accent-hover:hover { background-color: var(--accent-hover); }
+.bg-surface-light { background-color: var(--surface-light); }
+.text-accent { color: var(--action-primary); }
+.text-text-muted { color: var(--text-muted); }
+.text-text-primary { color: var(--text-primary); }
+.hover\:bg-accent-hover:hover { background-color: var(--accent-hover); }
+.group-focus-within\:text-accent:focus-within { color: var(--action-primary); }
+.shadow-accent { box-shadow: 0 10px 15px -3px var(--accent-glow); }
+.active\:scale-95:active { transform: scale(0.95); }
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--surface-dim); border-radius: 10px; }
+
+/* Responsive Action Bar */
+@media (max-width: 1250px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+}
+
+.show-on-hover {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.editable-cell:hover .show-on-hover {
+    opacity: 0.6;
+}
+
+/* Project Library List View */
+.list-row-hover:hover {
+    background: var(--surface-alt) !important;
+}
+
+.list-row-hover:hover h3 {
+    color: var(--action-primary) !important;
+}
+
+.project-list-view table th {
+    white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+    .project-list-view table th:nth-child(2),
+    .project-list-view table td:nth-child(2),
+    .project-list-view table th:nth-child(3),
+    .project-list-view table td:nth-child(3) {
+        display: none;
+    }
+}

@@ -1,0 +1,53 @@
+/* Mobile layout for chapter rows.
+   Desktop keeps the single-line flex row; below 560px the row collapses to
+   exactly two lines: line 1 is handle + index/status + title, line 2 is a
+   single compact right-aligned action row (including the overflow kebab —
+   nothing renders as an orphaned third/fourth line). */
+@media (max-width: 560px) {
+  .chapter-row {
+    flex-wrap: wrap;
+    row-gap: 0.35rem;
+    padding-left: 1rem !important;
+  }
+
+  /* Keep drag-reorder available on mobile (touch-drag still works via
+     framer-motion pointer events); just stop it overlapping row content. */
+  .chapter-row .drag-handle {
+    position: static !important;
+    opacity: 0.6 !important;
+    transform: none !important;
+    order: 0;
+  }
+
+  /* Index badge + status orb collapse into one compact unit that shares
+     line 1 with the title instead of taking its own line. */
+  .chapter-row-meta {
+    order: 0;
+    flex-shrink: 0;
+  }
+
+  .chapter-row-title {
+    order: 0;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+
+  .chapter-row-title .inline-edit-value,
+  .chapter-row-title span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Secondary word/char-count meta is non-essential at this width — hide it
+     so the action row (play/queue/edit/kebab) fits on a single line. */
+  .chapter-row-wordcount {
+    display: none;
+  }
+
+  .chapter-row-actions {
+    flex-basis: 100% !important;
+    order: 1;
+    flex-wrap: nowrap !important;
+    justify-content: flex-end !important;
+  }
+}

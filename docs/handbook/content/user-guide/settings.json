@@ -1,0 +1,6 @@
+{
+ "title": "Settings",
+ "desc": "Configure defaults, engines, the external API, and view diagnostics.",
+ "lede": "Settings is where you configure Studio: general defaults, engines, the external API, and diagnostics.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>General: safe mode, default engine/speaker.</li><li>Engines: enable, configure, install/update, delete.</li><li>API panel; About/diagnostics.</li></ul></div>\n        <h2>General</h2>\n        <p><strong>Set project-wide defaults</strong> like safe mode and the default engine/speaker.</p>\n        <h2>Engines</h2>\n        <p><strong>Enable, configure, install, update, and delete engines.</strong> Updates surface here as a notify-only alert with per-engine and Update-all actions. See <a href=\"#engines/engine-settings\">Engine Settings &amp; Verification</a> and <a href=\"#plugin-sdk/install-import\">Installing &amp; Updating Engines</a>.</p>\n        <h2>API panel</h2>\n        <p><strong>Enable and manage the TTS Gateway API.</strong> See <a href=\"#api/overview\">Gateway Overview</a>.</p>\n        <h2>About / diagnostics</h2>\n        <p><strong>Check versions and diagnostics</strong> when you need to confirm what's installed or troubleshoot.</p>"
+}

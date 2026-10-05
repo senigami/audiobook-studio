@@ -1,0 +1,6 @@
+{
+ "title": "Security Policy",
+ "desc": "Supported versions and how to report vulnerabilities.",
+ "lede": "Found a security issue? Report it privately. Here's how, and what to expect.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Supported versions.</li><li>Private reporting.</li><li>Response expectations.</li></ul></div>\n        <h2>Reporting</h2>\n        <p><strong>Report vulnerabilities privately</strong> rather than in public issues, so they can be fixed before disclosure.</p>\n        <h2>Scope &amp; response</h2>\n        <p><strong>Supported versions receive fixes</strong>, and reports get an acknowledgement and a path to resolution. Path handling is treated as a security surface — see <a href=\"#architecture/paths-security\">Paths &amp; Security</a>.</p>"
+}

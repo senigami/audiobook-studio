@@ -1,25 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import type { Character } from '../types';
-import { api } from '../api';
-import { Plus, Trash2, User as UserIcon } from 'lucide-react';
-import { ColorSwatchPicker } from './ColorSwatchPicker';
-import { ConfirmModal } from './ConfirmModal';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import type { Character, Speaker, SpeakerProfile, TtsEngine, VoiceMetadata } from '@/types';
+import { api } from '@/api';
+import { Plus, Trash2, User as UserIcon, Sparkles } from 'lucide-react';
+import { ColorSwatchPicker } from '@/components/forms/ColorSwatchPicker';
+import { ConfirmModal } from '@/components/overlays/ConfirmModal';
+import { CastingSuggestionsModal } from '@/components/CastingSuggestionsModal';
+import { VoiceProfileSelect } from '@/pages/ChapterEditor/components/VoiceProfileSelect';
+import { buildVoiceOptions } from '@/utils/voiceProfiles';
+import { emitToast, TOAST_VISIBLE_MS } from '@/utils/toast';
 
 interface CharactersTabProps {
   projectId: string;
-  speakers: import('../types').Speaker[];
-  speakerProfiles: import('../types').SpeakerProfile[];
+  speakers: Speaker[];
+  speakerProfiles: SpeakerProfile[];
+  engines?: TtsEngine[];
+  /** Optional non-deletable row rendered as the first entry of the list (e.g. the Narrator default). */
+  pinnedRow?: React.ReactNode;
 }
 
-export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speakers, speakerProfiles }) => {
+export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speakers, speakerProfiles, engines = [], pinnedRow }) => {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // New character form
   const [newName, setNewName] = useState('');
   const [newVoice, setNewVoice] = useState('');
   const [newColor, setNewColor] = useState('#8b5cf6');
-  
+
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
     message: string;
@@ -27,6 +34,15 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
     isDestructive?: boolean;
     confirmText?: string;
   } | null>(null);
+
+  // AI casting — "Suggest voices for this character" (POST /api/voices/cast)
+  const [voiceMetadataList, setVoiceMetadataList] = useState<VoiceMetadata[]>([]);
+  const [castingCharacter, setCastingCharacter] = useState<Character | null>(null);
+
+  // Pending, undoable character deletes keyed by character id — the actual
+  // delete request (and its row removal) is deferred until the toast's undo
+  // window elapses.
+  const pendingDeletesRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const loadCharacters = async () => {
     setLoading(true);
@@ -44,19 +60,23 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
     loadCharacters();
   }, [projectId]);
 
+  useEffect(() => {
+    api.listVoicesWithMetadata()
+      .then(list => setVoiceMetadataList(Array.isArray(list) ? list : []))
+      .catch(() => {
+        // Non-fatal: the "Suggest voices" action degrades to an empty catalog message.
+      });
+  }, []);
+
   // Compute merged voices groupings
-  const availableVoices = React.useMemo(() => {
-    const list = (speakers || []).map(s => ({ id: s.id, name: s.name, is_speaker: true }));
-    const orphans = (speakerProfiles || [])
-      .filter(p => !p.speaker_id || !speakers.some(s => s.id === p.speaker_id))
-      .map(p => ({ id: `unassigned-${p.name}`, name: p.name, is_speaker: false }));
-    return [...list, ...orphans];
-  }, [speakers, speakerProfiles]);
+  const availableVoices = useMemo(() => {
+    return buildVoiceOptions(speakerProfiles || [], speakers || [], engines, characters);
+  }, [speakerProfiles, speakers, engines, characters]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
-    
+
     try {
       await api.createCharacter(projectId, newName.trim(), newVoice || undefined, undefined, newColor);
       setNewName('');
@@ -65,6 +85,7 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
       await loadCharacters();
     } catch (e) {
       console.error("Failed to create character", e);
+      emitToast('Failed to create character.');
     }
   };
 
@@ -75,16 +96,28 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
       await api.updateCharacter(id, undefined, newProfile || "");
     } catch (e) {
       console.error("Failed to update character voice", e);
+      emitToast('Failed to update character voice.');
       loadCharacters(); // Revert on failure
     }
   };
-  
+
+  // Confirming an AI casting suggestion goes through the exact same real
+  // assignment mutation as the manual voice dropdown above — it never auto-assigns.
+  const handleAssignSuggestedVoice = useCallback((characterId: string, speakerProfileName: string) => {
+    void handleUpdateVoice(characterId, speakerProfileName);
+  }, []);
+
   const handleUpdateName = async (id: string, newNameStr: string) => {
-      if (!newNameStr.trim()) return;
+      const trimmedName = newNameStr.trim();
+      if (!trimmedName) return;
       try {
-          await api.updateCharacter(id, newNameStr.trim());
+          // Optimistic update
+          setCharacters(prev => prev.map(c => c.id === id ? { ...c, name: trimmedName } : c));
+          await api.updateCharacter(id, trimmedName);
       } catch (e) {
           console.error("Failed to update character name", e);
+          emitToast('Failed to update character name.');
+          loadCharacters(); // Revert on failure
       }
   };
 
@@ -94,7 +127,19 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
       await api.updateCharacter(id, undefined, undefined, undefined, color);
     } catch (e) {
       console.error("Failed to update character color", e);
+      emitToast('Failed to update character color.');
       loadCharacters();
+    }
+  };
+
+  const handlePromote = async (id: string) => {
+    try {
+      setCharacters(prev => prev.map(c => c.id === id ? { ...c, chapter_id: null } : c));
+      await api.promoteCharacter(id);
+    } catch (e) {
+      console.error("Failed to promote character", e);
+      emitToast('Failed to promote character.');
+      loadCharacters(); // Revert on failure
     }
   };
 
@@ -103,13 +148,34 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
       title: 'Delete Character',
       message: `Delete character "${name}"? All assigned sentences will revert to the default speaker.`,
       isDestructive: true,
-      onConfirm: async () => {
-        try {
-          await api.deleteCharacter(id);
-          setCharacters(prev => prev.filter(c => c.id !== id));
-        } catch (e) {
-          console.error("Failed to delete character", e);
-        }
+      onConfirm: () => {
+        // The confirm dialog already gates this, but the delete itself is
+        // still deferred so "Undo" on the toast can cancel it before the
+        // backend delete (and the row removal) ever happens.
+        const existingPending = pendingDeletesRef.current[id];
+        if (existingPending) clearTimeout(existingPending);
+
+        pendingDeletesRef.current[id] = setTimeout(async () => {
+          delete pendingDeletesRef.current[id];
+          try {
+            await api.deleteCharacter(id);
+            setCharacters(prev => prev.filter(c => c.id !== id));
+          } catch (e) {
+            console.error("Failed to delete character", e);
+            emitToast('Failed to delete character.');
+          }
+        }, TOAST_VISIBLE_MS);
+
+        emitToast(`Deleted "${name}".`, {
+          label: 'Undo',
+          onClick: () => {
+            const pending = pendingDeletesRef.current[id];
+            if (pending) {
+              clearTimeout(pending);
+              delete pendingDeletesRef.current[id];
+            }
+          }
+        });
       }
     });
   };
@@ -143,10 +209,10 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
             </label>
             <input
               type="text"
-              className="input-field"
+              className="form-input"
               value={newName}
               onChange={e => setNewName(e.target.value)}
-              placeholder="e.g. Narrator, Wizard..."
+              placeholder="e.g. Wizard, Captain..."
               required
               style={{ width: '100%' }}
             />
@@ -156,17 +222,13 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
               SPEAKER
             </label>
             <div className="select-wrapper">
-              <select
-                className="input-field"
+              <VoiceProfileSelect
                 value={newVoice}
-                onChange={e => setNewVoice(e.target.value)}
+                onChange={setNewVoice}
+                options={availableVoices}
+                defaultLabel="Unassigned (Default Speaker)"
                 style={{ width: '100%' }}
-              >
-                <option value="">Unassigned (Default Speaker)</option>
-                {availableVoices.map(v => (
-                  <option key={v.id} value={v.name}>{v.name}</option>
-                ))}
-              </select>
+              />
             </div>
           </div>
           <button type="submit" className="btn-primary" disabled={!newName.trim()} title="Create Character">
@@ -178,44 +240,87 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
       {/* List */}
       {loading ? (
         <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem' }}>Loading characters...</div>
-      ) : characters.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '3rem', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)', borderStyle: 'dashed' }}>
-          <UserIcon size={32} color="var(--text-muted)" style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
-          <p style={{ color: 'var(--text-muted)' }}>No characters created yet.</p>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', opacity: 0.8, marginTop: '0.5rem' }}>Add characters to quickly assign specific speakers to lines of dialog.</p>
-        </div>
       ) : (
         <div style={{ display: 'grid', gap: '0.8rem' }}>
+          {pinnedRow}
+          {characters.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '2rem', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)', borderStyle: 'dashed' }}>
+              <UserIcon size={28} color="var(--text-muted)" style={{ margin: '0 auto 0.75rem', opacity: 0.5 }} />
+              <p style={{ color: 'var(--text-muted)' }}>No additional characters yet.</p>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', opacity: 0.8, marginTop: '0.5rem' }}>Add characters to assign specific speakers to lines of dialog.</p>
+            </div>
+          )}
           {characters.map(char => (
             <div key={char.id} style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--surface)', padding: '0.8rem 1rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
-              
+
               <ColorSwatchPicker value={char.color || '#8b5cf6'} onChange={(color) => handleUpdateColor(char.id, color)} size="md" />
 
+              {char.chapter_id && (
+                <>
+                  <span title="Chapter-scoped temporary character" style={{
+                    fontSize: '0.65rem',
+                    fontWeight: 600,
+                    padding: '1px 6px',
+                    borderRadius: 999,
+                    background: 'var(--warning-tint-bg)',
+                    border: '1px solid var(--warning-tint-border)',
+                    color: 'var(--warning-text)',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                  }}>
+                    temp
+                  </span>
+                  <button
+                    onClick={() => handlePromote(char.id)}
+                    className="btn-ghost"
+                    style={{ fontSize: '0.7rem', padding: '2px 8px', color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}
+                    title="Promote to a permanent book-level character"
+                  >
+                    Promote
+                  </button>
+                </>
+              )}
+
               <div style={{ flex: 3 }}>
-                  <input 
-                      type="text" 
+                  <input
+                      key={`${char.id}-${char.name}`}
+                      type="text"
                       defaultValue={char.name}
                       onBlur={(e) => { if (e.target.value !== char.name) handleUpdateName(char.id, e.target.value); }}
-                      className="input-field"
+                      className="form-input"
+                      aria-label={`Character name: ${char.name}`}
                       style={{ background: 'transparent', border: 'none', padding: 0, fontWeight: 600, fontSize: '1rem', color: 'var(--text-primary)', boxShadow: 'none', width: '100%' }}
                   />
               </div>
 
               <div style={{ flex: 2 }} className="select-wrapper">
-                <select
-                  className="input-field"
+                <VoiceProfileSelect
                   value={char.speaker_profile_name || ''}
-                  onChange={e => handleUpdateVoice(char.id, e.target.value)}
+                  onChange={val => handleUpdateVoice(char.id, val)}
+                  options={availableVoices}
+                  defaultLabel="Default Speaker"
                   style={{ width: '100%' }}
-                >
-                  <option value="">Default Speaker</option>
-                          {availableVoices.map(v => (
-                            <option key={v.id} value={v.name}>{v.name}</option>
-                          ))}
-                </select>
+                />
               </div>
 
-              <button 
+              <button
+                onClick={() => setCastingCharacter(char)}
+                className="btn-ghost"
+                style={{ padding: '0.4rem', color: 'var(--text-muted)' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'var(--action-primary)';
+                  e.currentTarget.style.background = 'var(--accent-tint-bg)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'var(--text-muted)';
+                  e.currentTarget.style.background = 'transparent';
+                }}
+                title="Suggest voices for this character"
+              >
+                <Sparkles size={16} />
+              </button>
+
+              <button
                 onClick={() => handleDelete(char.id, char.name)}
                 className="btn-ghost"
                 style={{ padding: '0.4rem', color: 'var(--text-muted)' }}
@@ -247,6 +352,17 @@ export const CharactersTab: React.FC<CharactersTabProps> = ({ projectId, speaker
         onCancel={() => setConfirmConfig(null)}
         isDestructive={confirmConfig?.isDestructive}
         confirmText={confirmConfig?.confirmText}
+      />
+
+      <CastingSuggestionsModal
+        isOpen={!!castingCharacter}
+        character={castingCharacter}
+        voiceMetadataList={voiceMetadataList}
+        speakers={speakers}
+        speakerProfiles={speakerProfiles}
+        engines={engines}
+        onClose={() => setCastingCharacter(null)}
+        onAssign={handleAssignSuggestedVoice}
       />
     </div>
   );

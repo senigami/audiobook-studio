@@ -1,0 +1,6 @@
+{
+ "title": "Storage Layout",
+ "desc": "Where Studio keeps projects, voices, uploads, and transient data.",
+ "lede": "Everything Studio writes has a place. Here's the layout.",
+ "body": "<div class=\"at-glance\"><div class=\"at-title\">At a glance</div><ul><li>Per-project folders for audio, text, output, and trash.</li><li>Voices and plugin data have their own roots.</li><li>Transient and trash areas are separate.</li></ul></div>\n        <h2>Per-project</h2>\n        <pre><code>projects/&lt;id&gt;/\n  audio/   text/   m4b/   cover/   trash/</code></pre>\n        <h2>Shared roots</h2>\n        <p><strong>Voices and per-engine plugin data live in their own roots</strong>, with transient and trash areas kept apart from durable content. See <a href=\"#architecture/state\">State: state.json + SQLite</a>.</p>"
+}
