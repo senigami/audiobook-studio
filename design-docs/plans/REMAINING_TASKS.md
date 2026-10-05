@@ -13,20 +13,32 @@ section clears, delete it from here and add a line to `COMPLETED_WORK.md`.
 
 ## In review (open PRs into studio-2.0, awaiting the owner's merge word)
 
-Nothing here has merged. After each merge: close the issues by hand, delete the branch local and
-remote, move the board items to Done, then move the line to `COMPLETED_WORK.md`.
+Nothing is open. The queue group merged on 2026-10-04 (#328, #331, #334, #340) and its issues are
+closed; the narrative is in `COMPLETED_WORK.md`.
 
-- **PR #328, #248**: removed-segment audio is deleted only after the chapter commit
-  (`text-processing.md` 1.1.2). CI all green.
-- **PR #331, #266 and #236**: `waiting_for_resources` is a real job status shown as "Waiting to
-  start", and the unused job status `processing` is removed (`queue-jobs.md` 1.16.0, `live-events.md`
-  1.9.8). Blind review approved, hostile review cleared, CI all green.
+## Release 2.0 licence and credit (#342, Ready)
+
+Apache-2.0 for the 2.0 line only (`main` and 1.x stay CC0), copyright "Steven L. Dunn, Bright Oddity
+Press", a NOTICE credit, a `TRADEMARKS.md`, and a credited Studio Voice Licence (non-commercial with
+required credit; commercial use by written permission). The Studio Voice Licence binds only the NEW
+Studio Narrator voice file: the old sample and latent file are already public under CC0 in the v1.8.5
+release `demo.zip`.
+
+- **Release gate:** no 2.0 release before **#343** (new 2.0 demo bundle and new Studio Narrator voice
+  file) lands, or the voice sentences are removed from the licence and credit text.
+- **#344** (commercial-safe local engine, Qwen3-TTS first): the commercial promise is scoped to app
+  code because the XTTS model is Coqui CPML (non-commercial); the app sets `COQUI_TOS_AGREED=1`
+  silently in the XTTS plugin, which a follow-up ticket from #342 covers.
+- Counsel should glance at the legal files before the release.
 
 ## Queue-group follow-ups (Backlog or owner decision, found 2026-10-04)
 
-- **#258** (cancel shows a red error card): investigated by execution, needs two fixes: the backend
-  can emit a late `failed` frame after cancel, and the frontend keeps an orphan `cancelled` overlay.
-  Evidence in the ticket comment. Owner to say whether to fix now.
+- **#335, #336, #337, #338, #339** (found in the #258 review, all Backlog): cancel during the reconcile
+  window is invisible to `cancel()`; make the first terminal status final in `ProgressService`; split
+  a `kind` field from `engine` on queue rows; stop a cancelled task being revived instead of
+  repairing it afterwards; orchestrator cleanup (release and registry pop not in a `finally`).
+- **#341**: flaky `test_grouped_progress_size_weighted` (thread timing); failed CI once on #340 and
+  passed on rerun of the same commit.
 - **#259** (resume re-renders a done segment): not reproduced as a done-segment re-render. Owner
   decision pending, see the ticket comment.
 - **#333**: a queued or parked chapter shows two status words, the orb spins while paused, and the Up
@@ -48,6 +60,11 @@ observation is missing.
     mid-render clears cleanly; concurrent renders respect fairness/priority mode
   - Site-redesign live-app validation items 1–18 + manually verify fixed-but-pending Phase-11
     behaviors
+- **Cancel without a red card (#258, merged 2026-10-04, PR #340)** - owner verification pending: cancel
+  a render in the app and confirm no red "Unavailable Synthesis" card. Accepted trade-offs: a cancelled
+  gateway job never shows Cancelled; a freshly cancelled chapter can briefly show its previous done
+  row; the empty-engine label "Synthesis" is a placeholder for Dean. The owner's running app still
+  serves the old frontend build until it is rebuilt from `studio-2.0`.
 - **Render-block grain (#232), merged 2026-09-03** — code shipped, owner verification outstanding
   - Full real-TTS render → crash → restart → resume-percentage observation end to end. The owner
     confirmed this manually before merge; it has never been independently reproduced, and the

@@ -97,6 +97,11 @@ post-release is in [FUTURE_WORK.md](FUTURE_WORK.md).
 - **Standalone plugin repos.** Official registry JSON + paste-URL install UI shipped. (Extracting
   XTTS/Voxtral into their own repos and the install-flow E2E test remain — see Remaining Tasks.)
 
+- **Queue group, 2026-10-04.** Removed-segment audio is deleted only after the chapter commit (#248);
+  `waiting_for_resources` is a real job status shown as "Waiting to start" and the unused `processing`
+  status is gone (#266, #236); cancelling a render ends as one clean Cancelled state with no red failure
+  card (#258). Live verification of the cancel fix is still the owner's, see Remaining Tasks.
+
 ## Chapter editor art-program
 
 - **Director's Console** (Cast/Booth/Revise/Write mode switcher) — design decisions resolved
