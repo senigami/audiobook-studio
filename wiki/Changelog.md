@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Changed] - 2026-10-06
+
+### The public demo is now just the app tour
+
+- **Before:** the online demo opened on a menu of five demo screens, and the app tour had a playback bar at the bottom that did nothing useful. Clicking Home in the tour left the open book showing in the left menu.
+- **Now:** the online demo opens straight into the app tour, with no playback bar. Home takes you back to the start with the plain left menu, and Library shows your books again. The demo also loads correctly from any web address, including inside another site's page.
+
 ## [Fixed] - 2026-10-04
 
 ### Cancelling a render no longer leaves a red "Failed" card
