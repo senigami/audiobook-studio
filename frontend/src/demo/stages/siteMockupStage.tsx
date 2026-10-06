@@ -1345,7 +1345,7 @@ const SiteMockup: React.FC = () => {
           inBook={!showSplash && inBook && activeRail === 'Library'}
           activeBookTab={activeBookTab}
           onSwitchToPublish={handleSwitchToPublish}
-          onLogoClick={() => setShowSplash(true)}
+          onLogoClick={() => { setShowSplash(true); setInBook(false); }}
           onExitBook={() => setInBook(false)}
           queueCount={queueCount}
           isMobile={isMobile}

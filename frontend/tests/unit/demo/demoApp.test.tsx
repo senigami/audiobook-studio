@@ -398,6 +398,23 @@ describe('DemoApp routing', () => {
     });
   });
 
+  it('Home closes the open book, and Library then shows the book list again', async () => {
+    window.location.hash = '#/stage/site-mockup';
+    const { container } = render(<DemoApp />);
+    const railStageButtons = () => container.querySelectorAll('.ns-book-rail-stage');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Enter Library' }));
+    fireEvent.click((await screen.findAllByText('The Whispering Vale'))[0]);
+    expect(railStageButtons().length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Home' }));
+    expect(railStageButtons().length).toBe(0);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Enter Library' }));
+    expect(railStageButtons().length).toBe(0);
+    expect((await screen.findAllByText('Echoes of Ember')).length).toBeGreaterThan(0);
+  });
+
   it('the app tour stage has no transport bar', async () => {
     window.location.hash = '#/stage/site-mockup';
     render(<DemoApp />);
