@@ -398,6 +398,29 @@ describe('DemoApp routing', () => {
     });
   });
 
+  it('chapter view: the reading options control is a labelled gear + View button whose popover scrolls', async () => {
+    window.location.hash = '#/stage/site-mockup';
+    const { container } = render(<DemoApp />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Enter Library' }));
+    fireEvent.click((await screen.findAllByText('The Whispering Vale'))[0]);
+    const contentsTab = Array.from(container.querySelectorAll('.ns-book-rail-stage'))
+      .find(b => b.textContent?.includes('Contents')) as HTMLElement;
+    fireEvent.click(contentsTab);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open chapter 3 workspace' }));
+
+    const button = await screen.findByRole('button', { name: /reading view/i });
+    expect(button).toHaveTextContent('View');
+    expect(screen.queryAllByRole('button').filter(b => b.textContent === 'Aa')).toHaveLength(0);
+
+    fireEvent.click(button);
+    const heading = await screen.findByText('Background');
+    const popover = heading.closest('[style*="overflow-y"]') as HTMLElement;
+    expect(popover).not.toBeNull();
+    expect(popover.style.overflowY).toBe('auto');
+    expect(popover.style.maxHeight).not.toBe('');
+  });
+
   it('Home closes the open book, and Library then shows the book list again', async () => {
     window.location.hash = '#/stage/site-mockup';
     const { container } = render(<DemoApp />);
