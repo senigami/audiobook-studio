@@ -15,9 +15,8 @@
 import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import { loadThemePref, saveThemePref } from '@/utils/theme';
 import { DemoStage } from './DemoStage';
-import { demoTimeline } from './scenes';
-import { demoStages } from './demoStages';
-import { StyleguidePage } from './styleguide/StyleguidePage';
+import { demoStages, demoTimeline, StyleguidePage } from '@/demo/demoExtras';
+import { isTourOnly, tourRedirectTarget, TOUR_STAGE_ID } from './tourRoutes';
 
 // ---------------------------------------------------------------------------
 // Hash routing helpers
@@ -57,7 +56,15 @@ const isEmbedMode = () => {
 
 export const DemoApp: React.FC = () => {
   const hash = useHash();
-  const { page, stageId } = parseHash(hash);
+  const tourOnly = isTourOnly();
+  const redirect = tourOnly ? tourRedirectTarget(hash) : null;
+  const { page, stageId } = tourOnly
+    ? { page: 'stage' as const, stageId: TOUR_STAGE_ID }
+    : parseHash(hash);
+
+  useEffect(() => {
+    if (redirect) window.location.replace(redirect);
+  }, [redirect]);
 
   const [toast, setToast] = useState<string | null>(null);
   const embed = isEmbedMode();
@@ -163,13 +170,17 @@ export const DemoApp: React.FC = () => {
             zIndex: 100,
           }}
         >
-          <a
-            href="#/"
-            style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textDecoration: 'none', flexShrink: 0 }}
-          >
-            ← stages
-          </a>
-          <span style={{ fontSize: '0.7rem', color: 'var(--hairline)' }}>|</span>
+          {!tourOnly && (
+            <>
+              <a
+                href="#/"
+                style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textDecoration: 'none', flexShrink: 0 }}
+              >
+                ← stages
+              </a>
+              <span style={{ fontSize: '0.7rem', color: 'var(--hairline)' }}>|</span>
+            </>
+          )}
           <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {activeStage.title}
           </span>
@@ -196,7 +207,7 @@ export const DemoApp: React.FC = () => {
         {page === 'index' && (
           <StageIndex />
         )}
-        {page === 'styleguide' && (
+        {page === 'styleguide' && StyleguidePage && (
           <StyleguidePage />
         )}
         {page === 'stage' && activeStage && (
