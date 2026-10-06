@@ -34,6 +34,7 @@ import {
 import { VoiceProfileEditorPane } from './voiceEditor';
 import { VoicePortrait } from './voicePortrait';
 import { HuggingFaceDiscoverPane, UploadToHfModal } from './huggingFaceDiscover';
+import { demoAsset } from '@/demo/assetUrl';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -88,7 +89,7 @@ const VOICE_CARDS: Voice[] = [
     ],
     cta: 'Edit voice',
     portrait: true,
-    portraitImage: '/demo-voice-raster/warm-narrator.png',
+    portraitImage: demoAsset('demo-voice-raster/warm-narrator.png'),
     primaryRole: 'Dark Fiction Narrator',
     entityType: 'Human',
     languages: ['English'],

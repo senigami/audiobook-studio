@@ -16,6 +16,7 @@ import {
   Play,
   ArrowDown,
 } from 'lucide-react';
+import { demoAsset } from '@/demo/assetUrl';
 
 // ---------------------------------------------------------------------------
 // Layout primitives
@@ -864,21 +865,21 @@ export const BookCover: React.FC<{
 };
 
 const DEMO_BOOK_COVER_SRC: Record<string, string> = {
-  'The Whispering Vale': '/demo-covers/whispering-vale-square.jpg',
-  'Echoes of Ember': '/demo-covers/echoes-of-ember-square.jpg',
-  'Iron Meridian': '/demo-covers/iron-meridian-square.jpg',
-  'The Silver Thread': '/demo-covers/silver-thread-square.jpg',
-  'Starfall Compact': '/demo-covers/starfall-compact-square.jpg',
-  'Hollow Crown': '/demo-covers/hollow-crown-square.jpg',
+  'The Whispering Vale': demoAsset('demo-covers/whispering-vale-square.jpg'),
+  'Echoes of Ember': demoAsset('demo-covers/echoes-of-ember-square.jpg'),
+  'Iron Meridian': demoAsset('demo-covers/iron-meridian-square.jpg'),
+  'The Silver Thread': demoAsset('demo-covers/silver-thread-square.jpg'),
+  'Starfall Compact': demoAsset('demo-covers/starfall-compact-square.jpg'),
+  'Hollow Crown': demoAsset('demo-covers/hollow-crown-square.jpg'),
 };
 
 const DEMO_BOOK_COVER_BOOK_SRC: Record<string, string> = {
-  'The Whispering Vale': '/demo-covers/whispering-vale.jpg',
-  'Echoes of Ember': '/demo-covers/echoes-of-ember.jpg',
-  'Iron Meridian': '/demo-covers/iron-meridian.jpg',
-  'The Silver Thread': '/demo-covers/silver-thread.jpg',
-  'Starfall Compact': '/demo-covers/starfall-compact.jpg',
-  'Hollow Crown': '/demo-covers/hollow-crown.jpg',
+  'The Whispering Vale': demoAsset('demo-covers/whispering-vale.jpg'),
+  'Echoes of Ember': demoAsset('demo-covers/echoes-of-ember.jpg'),
+  'Iron Meridian': demoAsset('demo-covers/iron-meridian.jpg'),
+  'The Silver Thread': demoAsset('demo-covers/silver-thread.jpg'),
+  'Starfall Compact': demoAsset('demo-covers/starfall-compact.jpg'),
+  'Hollow Crown': demoAsset('demo-covers/hollow-crown.jpg'),
 };
 
 // ---------------------------------------------------------------------------
