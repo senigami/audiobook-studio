@@ -7,7 +7,7 @@
  *   Stage Direction (S) and Performance Cue (P) built-ins
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, Headphones, FileText, Pencil, Zap, X, Play, Pause, ChevronDown, ChevronUp, Plus, AlertTriangle, CaseLower, Quote, Pilcrow, MousePointer2, CircleSlash } from 'lucide-react';
+import { Mic, Headphones, FileText, Pencil, Zap, X, Play, Pause, ChevronDown, ChevronUp, Plus, AlertTriangle, CaseLower, Quote, Pilcrow, MousePointer2, CircleSlash, Settings } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -1709,15 +1709,16 @@ export const DirectorsConsolePane: React.FC = () => {
         <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>·</span>
         <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Ch 3 — The Storm</span>
         <div style={{ flex: 1 }} />
-        {/* Aa — reader preferences toggle */}
-        <button onClick={toggleReaderPrefs} title="Reading preferences" style={{
+        {/* Reading view and text options toggle */}
+        <button onClick={toggleReaderPrefs} aria-label="Reading view and text options" title="Reading view and text options" style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5,
           padding: '3px 9px', borderRadius: 6,
           border: readerPrefsOpen ? '1px solid var(--action-primary)' : '1px solid var(--border)',
           background: readerPrefsOpen ? 'var(--accent-tint-bg)' : 'transparent',
           color: readerPrefsOpen ? 'var(--action-primary)' : 'var(--text-muted)',
           fontSize: 12, fontWeight: 600, cursor: 'pointer',
-          fontFamily: 'Georgia, serif', lineHeight: 1, transition: 'all .15s',
-        }}>Aa</button>
+          lineHeight: 1, transition: 'all .15s',
+        }}><Settings size={13} aria-hidden="true" />View</button>
 
         {/* ── Reader preferences popover ── */}
         {readerPrefsOpen && (
@@ -1730,6 +1731,7 @@ export const DirectorsConsolePane: React.FC = () => {
               borderRadius: 14, boxShadow: '0 12px 32px rgba(0,0,0,.14)',
               padding: '18px 18px 16px', display: 'flex', flexDirection: 'column', gap: 18,
               width: 340,
+              maxHeight: 'calc(100vh - 180px)', overflowY: 'auto', overscrollBehavior: 'contain',
             }}>
 
               {/* ── View ── */}

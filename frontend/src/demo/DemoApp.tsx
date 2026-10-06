@@ -15,9 +15,8 @@
 import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import { loadThemePref, saveThemePref } from '@/utils/theme';
 import { DemoStage } from './DemoStage';
-import { demoTimeline } from './scenes';
-import { demoStages } from './demoStages';
-import { StyleguidePage } from './styleguide/StyleguidePage';
+import { demoStages, demoTimeline, StageIndex, StyleguidePage } from '@/demo/demoExtras';
+import { isTourOnly, tourRedirectTarget, TOUR_STAGE_ID } from './tourRoutes';
 
 // ---------------------------------------------------------------------------
 // Hash routing helpers
@@ -57,7 +56,15 @@ const isEmbedMode = () => {
 
 export const DemoApp: React.FC = () => {
   const hash = useHash();
-  const { page, stageId } = parseHash(hash);
+  const tourOnly = isTourOnly();
+  const redirect = tourOnly ? tourRedirectTarget(hash) : null;
+  const { page, stageId } = tourOnly
+    ? { page: 'stage' as const, stageId: TOUR_STAGE_ID }
+    : parseHash(hash);
+
+  useEffect(() => {
+    if (redirect) window.location.replace(redirect);
+  }, [redirect]);
 
   const [toast, setToast] = useState<string | null>(null);
   const embed = isEmbedMode();
@@ -163,13 +170,17 @@ export const DemoApp: React.FC = () => {
             zIndex: 100,
           }}
         >
-          <a
-            href="#/"
-            style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textDecoration: 'none', flexShrink: 0 }}
-          >
-            ← stages
-          </a>
-          <span style={{ fontSize: '0.7rem', color: 'var(--hairline)' }}>|</span>
+          {!tourOnly && (
+            <>
+              <a
+                href="#/"
+                style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textDecoration: 'none', flexShrink: 0 }}
+              >
+                ← stages
+              </a>
+              <span style={{ fontSize: '0.7rem', color: 'var(--hairline)' }}>|</span>
+            </>
+          )}
           <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {activeStage.title}
           </span>
@@ -193,10 +204,10 @@ export const DemoApp: React.FC = () => {
 
       {/* Main content */}
       <main style={{ flex: 1, minHeight: 0, padding: embed || page === 'stage' ? 0 : page === 'styleguide' ? 0 : '1.5rem 24px' }}>
-        {page === 'index' && (
+        {page === 'index' && StageIndex && (
           <StageIndex />
         )}
-        {page === 'styleguide' && (
+        {page === 'styleguide' && StyleguidePage && (
           <StyleguidePage />
         )}
         {page === 'stage' && activeStage && (
@@ -205,6 +216,7 @@ export const DemoApp: React.FC = () => {
               timeline={demoTimeline}
               title={activeStage.title}
               autoPlay
+              showTransport={activeStage.id !== 'site-mockup'}
             >
               {activeStage.element}
             </DemoStage>
@@ -244,83 +256,3 @@ export const DemoApp: React.FC = () => {
     </div>
   );
 };
-
-// ---------------------------------------------------------------------------
-// Stage index grid
-
-const IndexCard: React.FC<{ href: string; title: string; description: string; accent?: boolean }> = ({
-  href, title, description, accent,
-}) => (
-  <a href={href} style={{ textDecoration: 'none' }}>
-    <div
-      style={{
-        background: accent ? 'var(--accent-tint-bg)' : 'var(--surface)',
-        border: `1px solid ${accent ? 'var(--accent-tint-border)' : 'var(--border)'}`,
-        borderRadius: 12,
-        padding: '1.25rem',
-        cursor: 'pointer',
-        transition: 'border-color 0.15s',
-        height: '100%',
-      }}
-      onMouseEnter={e =>
-        ((e.currentTarget as HTMLDivElement).style.borderColor = 'var(--action-primary)')
-      }
-      onMouseLeave={e =>
-        ((e.currentTarget as HTMLDivElement).style.borderColor = accent
-          ? 'var(--accent-tint-border)'
-          : 'var(--border)')
-      }
-    >
-      <div
-        style={{
-          fontWeight: 700,
-          fontSize: '1rem',
-          color: accent ? 'var(--action-primary)' : 'var(--text-primary)',
-          marginBottom: 6,
-        }}
-      >
-        {title}
-      </div>
-      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-        {description}
-      </div>
-    </div>
-  </a>
-);
-
-const StageIndex: React.FC = () => (
-  <div>
-    <h1
-      style={{
-        fontSize: '1.4rem',
-        fontWeight: 700,
-        color: 'var(--text-primary)',
-        marginBottom: '1.25rem',
-      }}
-    >
-      Choose a demo stage
-    </h1>
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-        gap: '1rem',
-      }}
-    >
-      {demoStages.map(stage => (
-        <IndexCard
-          key={stage.id}
-          href={`#/stage/${stage.id}`}
-          title={stage.title}
-          description={stage.description}
-        />
-      ))}
-      <IndexCard
-        href="#/styleguide"
-        title="Design Spec Sheet"
-        description="Tokens, type rules, component states, and proposed redesign directions — a storybook-style reference for evaluating theming and design decisions."
-        accent
-      />
-    </div>
-  </div>
-);

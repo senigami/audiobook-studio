@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Voice, VoicePill } from './voices';
+import { demoAsset } from '@/demo/assetUrl';
 
 const getVoicePill = (voice: Voice, category: VoicePill['category']) =>
   voice.pills.find((pill) => pill.category === category)?.label;
@@ -32,13 +33,13 @@ const getVoicePortraitSrc = (voice: Voice) => {
   const age = getVoiceAge(voice);
   const tone = getVoiceTone(voice);
 
-  if (tone === 'Gruff' && age !== 'Senior') return '/demo-voice-silhouettes/gruff-ogre.svg';
-  if (tone === 'Bright' || tone === 'Light') return '/demo-voice-silhouettes/light-fairy.svg';
-  if (age === 'Child') return '/demo-voice-silhouettes/child.svg';
-  if (age === 'Senior') return '/demo-voice-silhouettes/senior.svg';
-  if (gender === 'Female') return '/demo-voice-silhouettes/female-narrator.svg';
-  if (gender === 'Male') return '/demo-voice-silhouettes/male-narrator.svg';
-  return '/demo-voice-silhouettes/neutral-nb.svg';
+  if (tone === 'Gruff' && age !== 'Senior') return demoAsset('demo-voice-silhouettes/gruff-ogre.svg');
+  if (tone === 'Bright' || tone === 'Light') return demoAsset('demo-voice-silhouettes/light-fairy.svg');
+  if (age === 'Child') return demoAsset('demo-voice-silhouettes/child.svg');
+  if (age === 'Senior') return demoAsset('demo-voice-silhouettes/senior.svg');
+  if (gender === 'Female') return demoAsset('demo-voice-silhouettes/female-narrator.svg');
+  if (gender === 'Male') return demoAsset('demo-voice-silhouettes/male-narrator.svg');
+  return demoAsset('demo-voice-silhouettes/neutral-nb.svg');
 };
 
 const FallbackVoiceAvatar: React.FC<{

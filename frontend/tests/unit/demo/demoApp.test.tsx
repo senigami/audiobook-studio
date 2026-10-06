@@ -164,6 +164,19 @@ describe('DemoStage', () => {
     fireEvent.click(screen.getByRole('button', { name: /pause/i }));
     expect(mockControls.pause).toHaveBeenCalled();
   });
+
+  it('showTransport={false} renders the content and no transport bar', () => {
+    render(
+      <DemoStage timeline={makeTimeline()} title="My Stage" showTransport={false}>
+        <div>content</div>
+      </DemoStage>,
+    );
+    expect(screen.getByText('content')).toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /play|pause|restart/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Jump to scene/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('First scene caption')).not.toBeInTheDocument();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -383,6 +396,77 @@ describe('DemoApp routing', () => {
       justifyContent: 'flex-start',
       textAlign: 'left',
     });
+  });
+
+  it('chapter view: the reading options control is a labelled gear + View button whose popover scrolls', async () => {
+    window.location.hash = '#/stage/site-mockup';
+    const { container } = render(<DemoApp />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Enter Library' }));
+    fireEvent.click((await screen.findAllByText('The Whispering Vale'))[0]);
+    const contentsTab = Array.from(container.querySelectorAll('.ns-book-rail-stage'))
+      .find(b => b.textContent?.includes('Contents')) as HTMLElement;
+    fireEvent.click(contentsTab);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open chapter 3 workspace' }));
+
+    const button = await screen.findByRole('button', { name: /reading view/i });
+    expect(button).toHaveTextContent('View');
+    expect(screen.queryAllByRole('button').filter(b => b.textContent === 'Aa')).toHaveLength(0);
+
+    fireEvent.click(button);
+    const heading = await screen.findByText('Background');
+    const popover = heading.closest('[style*="overflow-y"]') as HTMLElement;
+    expect(popover).not.toBeNull();
+    expect(popover.style.overflowY).toBe('auto');
+    expect(popover.style.maxHeight).not.toBe('');
+  });
+
+  it('Home closes the open book, and Library then shows the book list again', async () => {
+    window.location.hash = '#/stage/site-mockup';
+    const { container } = render(<DemoApp />);
+    const railStageButtons = () => container.querySelectorAll('.ns-book-rail-stage');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Enter Library' }));
+    fireEvent.click((await screen.findAllByText('The Whispering Vale'))[0]);
+    expect(railStageButtons().length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Home' }));
+    expect(railStageButtons().length).toBe(0);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Enter Library' }));
+    expect(railStageButtons().length).toBe(0);
+    expect((await screen.findAllByText('Echoes of Ember')).length).toBeGreaterThan(0);
+  });
+
+  it('Home resets the book tab, so a reopened book starts on its default tab', async () => {
+    window.location.hash = '#/stage/site-mockup';
+    const { container } = render(<DemoApp />);
+    const topbarText = () => container.querySelector('.ns-topbar')?.textContent ?? '';
+    const openBook = async () =>
+      fireEvent.click((await screen.findAllByText('The Whispering Vale'))[0]);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Enter Library' }));
+    await openBook();
+    const contentsTab = Array.from(container.querySelectorAll('.ns-book-rail-stage'))
+      .find(b => b.textContent?.includes('Contents')) as HTMLElement;
+    fireEvent.click(contentsTab);
+    await waitFor(() => expect(topbarText()).toContain('Contents'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Home' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Enter Library' }));
+    await openBook();
+    await waitFor(() => expect(topbarText()).toContain('Book'));
+    expect(topbarText()).not.toContain('Contents');
+  });
+
+  it('the app tour stage has no transport bar', async () => {
+    window.location.hash = '#/stage/site-mockup';
+    render(<DemoApp />);
+
+    await screen.findByRole('button', { name: 'Enter Library' });
+    expect(screen.queryByRole('button', { name: 'Restart' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Jump to scene/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('First scene caption')).not.toBeInTheDocument();
   });
 });
 
