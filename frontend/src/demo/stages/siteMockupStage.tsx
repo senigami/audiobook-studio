@@ -1305,6 +1305,15 @@ const SiteMockup: React.FC = () => {
     }
   };
 
+  const handleHome = () => {
+    setShowSplash(true);
+    setInBook(false);
+    setActiveRail('Library');
+    setActiveBookTab('Book');
+    setActiveChapter(4);
+    setOpenChapter(null);
+  };
+
   const handleRailSelect = (dest: RailDest) => {
     setShowSplash(false);
     setActiveRail(dest);
@@ -1345,7 +1354,7 @@ const SiteMockup: React.FC = () => {
           inBook={!showSplash && inBook && activeRail === 'Library'}
           activeBookTab={activeBookTab}
           onSwitchToPublish={handleSwitchToPublish}
-          onLogoClick={() => { setShowSplash(true); setInBook(false); }}
+          onLogoClick={handleHome}
           onExitBook={() => setInBook(false)}
           queueCount={queueCount}
           isMobile={isMobile}

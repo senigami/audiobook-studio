@@ -415,6 +415,27 @@ describe('DemoApp routing', () => {
     expect((await screen.findAllByText('Echoes of Ember')).length).toBeGreaterThan(0);
   });
 
+  it('Home resets the book tab, so a reopened book starts on its default tab', async () => {
+    window.location.hash = '#/stage/site-mockup';
+    const { container } = render(<DemoApp />);
+    const topbarText = () => container.querySelector('.ns-topbar')?.textContent ?? '';
+    const openBook = async () =>
+      fireEvent.click((await screen.findAllByText('The Whispering Vale'))[0]);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Enter Library' }));
+    await openBook();
+    const contentsTab = Array.from(container.querySelectorAll('.ns-book-rail-stage'))
+      .find(b => b.textContent?.includes('Contents')) as HTMLElement;
+    fireEvent.click(contentsTab);
+    await waitFor(() => expect(topbarText()).toContain('Contents'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Home' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Enter Library' }));
+    await openBook();
+    await waitFor(() => expect(topbarText()).toContain('Book'));
+    expect(topbarText()).not.toContain('Contents');
+  });
+
   it('the app tour stage has no transport bar', async () => {
     window.location.hash = '#/stage/site-mockup';
     render(<DemoApp />);
