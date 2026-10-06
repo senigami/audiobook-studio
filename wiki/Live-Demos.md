@@ -4,8 +4,7 @@ Audiobook Studio ships an interactive demo: a guided tour of the real Studio scr
 
 ## What the tour shows
 
-- Library
-- Book pipeline
+- Library (open a book to see its Book, Contents, Cast, Lexicon, Publish and Backups tabs)
 - Voices
 - Activity
 - Engines
