@@ -44,6 +44,12 @@ def test_other_stage_code_is_flagged(tmp_path):
         assert any(word in p for p in problems), word
 
 
+def test_stage_index_and_styleguide_text_is_flagged(tmp_path):
+    for word in ("Design Spec Sheet", "#/styleguide", "Choose a demo stage"):
+        problems = _load().scan_build(_tree(tmp_path, js=f"x='{word}'"), ALLOW)
+        assert any(word in p for p in problems), word
+
+
 def test_root_absolute_asset_paths_are_flagged(tmp_path):
     for body in ('x="/demo-covers/a.jpg"', 'x="/textures/p.jpg"', 'x="/logo.png"'):
         problems = _load().scan_build(_tree(tmp_path, js=body), ALLOW)

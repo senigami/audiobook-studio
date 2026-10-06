@@ -5,7 +5,9 @@
 import type React from 'react';
 import { demoStages } from './demoStages';
 import { demoTimeline } from './scenes';
+import { StageIndex as FullStageIndex } from './StageIndex';
 import { StyleguidePage as FullStyleguidePage } from './styleguide/StyleguidePage';
 
 export { demoStages, demoTimeline };
 export const StyleguidePage: React.ComponentType | null = FullStyleguidePage;
+export const StageIndex: React.ComponentType | null = FullStageIndex;

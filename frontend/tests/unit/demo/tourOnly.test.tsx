@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { tourRedirectTarget, TOUR_STAGE_ID } from '@/demo/tourRoutes';
-import { demoStages as tourStages, demoTimeline as tourTimeline, StyleguidePage as tourStyleguide } from '@/demo/demoExtras.tour';
+import { demoStages as tourStages, demoTimeline as tourTimeline, StyleguidePage as tourStyleguide, StageIndex as tourIndex } from '@/demo/demoExtras.tour';
 import { DemoApp } from '@/demo/DemoApp';
 
 describe('tourRedirectTarget', () => {
@@ -26,6 +26,7 @@ describe('demoExtras.tour', () => {
     expect(tourStages.map(s => s.id)).toEqual(['site-mockup']);
     expect(tourTimeline.scenes).toEqual([]);
     expect(tourStyleguide).toBeNull();
+    expect(tourIndex).toBeNull();
   });
 });
 

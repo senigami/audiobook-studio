@@ -16,7 +16,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ALLOWLIST_FILE = ROOT / "frontend" / "demo-public-allowlist.json"
 
-OTHER_STAGE_MARKERS = ("live-output", "voice-lab", "Queue fill")
+OTHER_STAGE_MARKERS = (
+    "live-output",
+    "voice-lab",
+    "Queue fill",
+    "Design Spec Sheet",
+    "#/styleguide",
+    "Choose a demo stage",
+)
 ROOT_ABSOLUTE = re.compile(r"""["'`(]/(demo-|textures|logo)""")
 TEXT_SUFFIXES = {".js", ".css", ".html"}
 

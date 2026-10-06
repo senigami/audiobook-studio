@@ -7,3 +7,4 @@ import { siteMockupStage } from './stages/siteMockupStageDescriptor';
 export const demoStages: typeof FullStages = [siteMockupStage];
 export const demoTimeline: DemoTimeline = { scenes: [], totalMs: 0 };
 export const StyleguidePage: React.ComponentType | null = null;
+export const StageIndex: React.ComponentType | null = null;
