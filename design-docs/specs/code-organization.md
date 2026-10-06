@@ -1,7 +1,7 @@
 # SP10 — Code Organization Spec
 
 ```
-spec_version: 1.5.0
+spec_version: 1.5.1
 status: active
 created: 2026-06-10
 updated: 2026-10-06
@@ -20,6 +20,7 @@ sources: app/api/web.py, app/api/tts_api.py, app/api/ws.py,
 
 | Version | Date       | Summary                                                     |
 |---------|------------|-------------------------------------------------------------|
+| 1.5.1   | 2026-10-06 | **§5.1 clarified.** The file allowlist applies to the tour build only; `build:demo:full` still uses all of `frontend/public`. The stage index also sits behind the `demoExtras` seam, so the tour bundle carries no index or styleguide text, and `check_demo_build.py` flags it. |
 | 1.5.0   | 2026-10-06 | **Public demo is the app tour only.** New §5.1: `build:demo` is tour-only by default (other stages, scenes and the styleguide are aliased out via `demoExtras`), `build:demo:full` keeps the internal showcase; demo images resolve through `demoAsset()` (no root-absolute asset paths); the tour build ships only the files in `frontend/demo-public-allowlist.json`; the app tour stage has no transport bar; `scripts/check_demo_build.py` and `scripts/demo_subpath_crawl.mjs` are the checks. |
 | 1.4.0   | 2026-07-16 | **Namespace rename: `plugins/` → `tts_engines/` (PR brief 006).** The engine-plugin directory (§2, §4) is renamed repo-wide: `plugins/tts_xtts`, `plugins/tts_voxtral`, `plugins/tts_mixed` are now `tts_engines/tts_xtts`, `tts_engines/tts_voxtral`, `tts_engines/tts_mixed`. Pure rename — every importer (`app/core/config.py`'s `PLUGINS_DIR` default, `conftest.py`, `pytest.ini` `testpaths`, `plugin_loader.py`/`plugin_manifest.py` discovery-root docstrings) updated in the same change; `plugins/` is reserved going forward for app-behavior (non-engine) extensions per `design-docs/plans/active/master_agnostic_tasks.md`'s namespace-block item. No behavior change; HTTP routes under `/plugins/*` (refresh/import/preview/confirm/staging) are unaffected — those are API paths, not filesystem paths, and keep their existing names. |
 | 1.3.0   | 2026-07-16 | **`app/tts_server/plugin_loader.py` split.** Documented the new `plugin_manifest.py` module (§3.6): manifest load/validate/dependency-check/concurrency-limit surface extracted; `plugin_loader.py` retains plugin instantiation and the registry. |
@@ -258,9 +259,9 @@ Live-event test frames MUST use types from
 ### 5.1 Public demo build
 
 - `frontend/vite.demo.config.ts` builds `frontend/src/demo/` into `docs/demo/` for GitHub Pages. The default mode is tour-only; `--mode full` (`npm run build:demo:full`, also used by `dev:demo`) keeps all five stages and the styleguide for internal use.
-- Tour-only works by aliasing the seam module `@/demo/demoExtras` to `demoExtras.tour.ts`. New code that needs the other stages, the scenes timeline or the styleguide MUST go through `demoExtras.ts`, never a direct static import from `DemoApp.tsx`, or the public bundle grows back.
+- Tour-only works by aliasing the seam module `@/demo/demoExtras` to `demoExtras.tour.ts`. New code that needs the other stages, the scenes timeline, the stage index or the styleguide MUST go through `demoExtras.ts`, never a direct static import from `DemoApp.tsx`, or the public bundle grows back.
 - Every demo asset URL MUST resolve through `demoAsset()` (`frontend/src/demo/assetUrl.ts`) or `import.meta.env.BASE_URL`. A literal root-absolute path (`"/demo-covers/..."`) breaks under a subpath and is rejected by `frontend/tests/unit/demo/demoAssetUrls.test.ts`.
-- The tour-only build copies only the files listed in `frontend/demo-public-allowlist.json` (not all of `frontend/public`). Adding a new image to the tour means adding it to that list; `demoPublicAllowlist.test.ts` fails if the source and the list disagree.
+- The tour-only build copies only the files listed in `frontend/demo-public-allowlist.json` (not all of `frontend/public`); the allowlist applies to the tour build only, and `build:demo:full` uses all of `frontend/public`. Adding a new image to the tour means adding it to that list; `demoPublicAllowlist.test.ts` fails if the source and the list disagree.
 - The tour stage (`site-mockup`) renders without the transport bar; the other stages keep it (`DemoStage` prop `showTransport`).
 - Checks: `python scripts/check_demo_build.py` (builds tour-only to a temp dir, asserts no other-stage code, no root-absolute asset paths, no file outside the allowlist) and `node scripts/demo_subpath_crawl.mjs <dist>` (serves the build from `/x/y/` in Chrome, fails on any response >= 400 or broken image).
 

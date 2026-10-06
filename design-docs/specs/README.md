@@ -32,7 +32,7 @@ Last updated: 2026-08-26
 | [interface-localization.md](interface-localization.md) | Interface localization, locale catalogs, first-run picker, settings selector, locale-aware formatting | 1.0.4 |
 | [voice-tone.md](voice-tone.md) | UI copy conventions: casing (Title Case CTAs / sentence case body), confirm-dialog defaults and verb-first labels, irreversibility messaging, the five UI states, loading/empty/success patterns, form-field label suffixes, ellipsis style, product naming | 1.0.0 |
 | [progress-presentation.md](progress-presentation.md) | `PredictiveProgressBar` contract, ETA trust model, broadcast thresholds, segment ETA decay-handoff (§4A.10), segment block-fill / render-monitor presentation (§7A, batch-granular per M6) | 1.12.0 |
-| [code-organization.md](code-organization.md) | Repo layout, module boundary rules, file-size norms, import constraints | 1.5.0 |
+| [code-organization.md](code-organization.md) | Repo layout, module boundary rules, file-size norms, import constraints | 1.5.1 |
 | [security.md](security.md) | Path containment pattern, API key auth, input validation, CodeQL requirements |1.4.6 |
 | [install-distribution.md](install-distribution.md) | `run.sh` behaviour, env var reference, Pinokio wrapper, first-run defaults, GitHub install/trust flow (URL validation, preview/confirm staging, registry-membership trust model) | 1.3.0 |
 | [glossary.md](glossary.md) | Canonical term definitions — word/sentence/span/paragraph/segment. Owner ruling: "segment" = the render block (current code calls this "render group"/"batch"); "span" = a selection assigned to a speaker (sentence-level today, word-level planned). Rename execution not yet scoped. | 1.1.0 |
