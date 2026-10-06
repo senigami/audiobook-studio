@@ -164,6 +164,19 @@ describe('DemoStage', () => {
     fireEvent.click(screen.getByRole('button', { name: /pause/i }));
     expect(mockControls.pause).toHaveBeenCalled();
   });
+
+  it('showTransport={false} renders the content and no transport bar', () => {
+    render(
+      <DemoStage timeline={makeTimeline()} title="My Stage" showTransport={false}>
+        <div>content</div>
+      </DemoStage>,
+    );
+    expect(screen.getByText('content')).toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /play|pause|restart/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Jump to scene/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('First scene caption')).not.toBeInTheDocument();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -383,6 +396,16 @@ describe('DemoApp routing', () => {
       justifyContent: 'flex-start',
       textAlign: 'left',
     });
+  });
+
+  it('the app tour stage has no transport bar', async () => {
+    window.location.hash = '#/stage/site-mockup';
+    render(<DemoApp />);
+
+    await screen.findByRole('button', { name: 'Enter Library' });
+    expect(screen.queryByRole('button', { name: 'Restart' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Jump to scene/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('First scene caption')).not.toBeInTheDocument();
   });
 });
 

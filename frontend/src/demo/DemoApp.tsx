@@ -205,6 +205,7 @@ export const DemoApp: React.FC = () => {
               timeline={demoTimeline}
               title={activeStage.title}
               autoPlay
+              showTransport={activeStage.id !== 'site-mockup'}
             >
               {activeStage.element}
             </DemoStage>

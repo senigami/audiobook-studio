@@ -15,12 +15,14 @@ export interface DemoStageProps {
   title: string;
   caption?: string;
   autoPlay?: boolean;
+  /** Hide the playback bar and skip the transport hook; the app tour is not timeline-driven. */
+  showTransport?: boolean;
   children: React.ReactNode;
 }
 
 const SPEEDS = [1, 2, 4] as const;
 
-export const DemoStage: React.FC<DemoStageProps> = ({
+const TransportStage: React.FC<DemoStageProps> = ({
   timeline,
   autoPlay = false,
   children,
@@ -213,6 +215,27 @@ export const DemoStage: React.FC<DemoStageProps> = ({
           </div>
         </div>
       </div>
+    </div>
+  );
+};
+
+export const DemoStage: React.FC<DemoStageProps> = ({ showTransport = true, ...props }) => {
+  if (showTransport) return <TransportStage {...props} />;
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        minHeight: 0,
+        background: 'var(--bg)',
+        color: 'var(--text-primary)',
+        borderRadius: 12,
+        overflow: 'hidden',
+        border: '1px solid var(--border)',
+      }}
+    >
+      <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 0 }}>{props.children}</div>
     </div>
   );
 };
