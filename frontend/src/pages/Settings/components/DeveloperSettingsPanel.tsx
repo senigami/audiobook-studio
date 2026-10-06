@@ -76,9 +76,9 @@ export const DeveloperSettingsPanel: React.FC = () => {
       />
       <DevLinkCard
         icon={Palette}
-        title="Design Spec Sheet"
-        description="Component styleguide and visual design specification for the Studio UI."
-        href="https://senigami.github.io/audiobook-studio/demo/#/styleguide"
+        title="Interactive Demo"
+        description="A guided tour of the Studio UI, hosted on GitHub Pages."
+        href="https://senigami.github.io/audiobook-studio/demo/#/stage/site-mockup"
         external
       />
       <DevLinkCard
